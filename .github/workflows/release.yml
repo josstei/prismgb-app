@@ -52,8 +52,9 @@ jobs:
           echo "Commit message: $COMMIT_MSG"
 
           # Check if this is a release commit (from prepare-release workflow)
-          if [[ "$COMMIT_MSG" =~ ^chore\(release\):\ bump\ to\ v([0-9]+\.[0-9]+\.[0-9]+) ]] || \
-             [[ "$COMMIT_MSG" =~ ^chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Match anywhere in message to handle merge commits
+          if [[ "$COMMIT_MSG" =~ chore\(release\):\ bump\ to\ v([0-9]+\.[0-9]+\.[0-9]+) ]] || \
+             [[ "$COMMIT_MSG" =~ chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             VERSION="${BASH_REMATCH[1]}"
             echo "is_release=true" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
