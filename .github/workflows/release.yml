@@ -1,0 +1,303 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      platforms:
+        description: 'Platforms to build'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - macos
+          - windows
+      dry_run:
+        description: 'Dry run (preview changes without releasing)'
+        required: false
+        default: false
+        type: boolean
+
+# Prevent concurrent releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Job 1: Bump version and determine build matrix
+  setup:
+    name: Setup Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Calculate and bump version
+        id: bump
+        run: |
+          current=$(node -p "require('./package.json').version")
+          IFS='.' read -r major minor patch <<< "$current"
+
+          case "${{ inputs.version_type }}" in
+            major) new="$((major + 1)).0.0" ;;
+            minor) new="${major}.$((minor + 1)).0" ;;
+            patch) new="${major}.${minor}.$((patch + 1))" ;;
+          esac
+
+          echo "current=$current" >> $GITHUB_OUTPUT
+          echo "version=$new" >> $GITHUB_OUTPUT
+          echo "tag=v$new" >> $GITHUB_OUTPUT
+          echo "Version: $current → $new"
+
+      - name: Dry run summary
+        if: inputs.dry_run
+        run: |
+          echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version bump | ${{ inputs.version_type }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Current version | ${{ steps.bump.outputs.current }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| New version | ${{ steps.bump.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Platforms | ${{ inputs.platforms }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**No changes made** (dry run mode)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Bump version in package.json
+        if: ${{ !inputs.dry_run }}
+        run: npm version ${{ steps.bump.outputs.version }} --no-git-tag-version
+
+      - name: Commit, tag, and push
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump to v${{ steps.bump.outputs.version }}"
+          git tag -a "v${{ steps.bump.outputs.version }}" -m "Release v${{ steps.bump.outputs.version }}"
+          git push origin main --follow-tags
+
+      - name: Set build matrix
+        id: set-matrix
+        run: |
+          PLATFORMS="${{ inputs.platforms }}"
+
+          if [ "$PLATFORMS" == "all" ]; then
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-latest","build_script":"build:mac"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "linux" ]; then
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "macos" ]; then
+            echo 'matrix=[{"os":"macos-latest","build_script":"build:mac"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "windows" ]; then
+            echo 'matrix=[{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+          fi
+
+  # Job 2: Run tests before building
+  test:
+    name: Test
+    needs: setup
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.tag }}
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+  # Job 3: Build and publish with electron-builder
+  build:
+    name: Build (${{ matrix.os }})
+    needs: [setup, test]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.tag }}
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: 'true'
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-
+
+      # Build and publish with electron-builder (macOS)
+      - name: Build and publish (macOS)
+        if: runner.os == 'macOS'
+        run: npm run ${{ matrix.build_script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Disable code signing auto-discovery if no certificate provided
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+          # macOS code signing (optional - builds will be unsigned if not set)
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # macOS notarization (optional - requires code signing)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # Build and publish with electron-builder (Linux/Windows)
+      - name: Build and publish (Linux/Windows)
+        if: runner.os != 'macOS'
+        run: npm run ${{ matrix.build_script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Smoke test
+      - name: Run smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run test:smoke
+        timeout-minutes: 2
+
+      - name: Run smoke test (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: npm run test:smoke
+        timeout-minutes: 2
+
+      # Generate checksums for verification
+      - name: Generate checksums (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd release
+          for file in *.AppImage *.deb *.tar.gz *.dmg *.zip 2>/dev/null; do
+            [ -f "$file" ] && sha256sum "$file" >> SHA256SUMS.txt
+          done
+          cat SHA256SUMS.txt 2>/dev/null || echo "No artifacts found"
+        shell: bash
+
+      - name: Generate checksums (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd release
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -Append SHA256SUMS.txt -Encoding utf8
+          }
+          Get-Content SHA256SUMS.txt
+        shell: pwsh
+
+      # Upload checksums to the release
+      - name: Upload checksums to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/SHA256SUMS.txt
+          tag_name: ${{ needs.setup.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Also save artifacts to Actions for backup/debugging
+      - name: Upload artifacts to Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.tar.gz
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/latest*.yml
+            release/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build summary
+        run: |
+          echo "## Build Complete (${{ runner.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Artifacts uploaded to GitHub Release (draft)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Files" >> $GITHUB_STEP_SUMMARY
+          ls -la release/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "See release page"
+        shell: bash
+
+  # Job 4: Final summary
+  summary:
+    name: Release Summary
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.dry_run && always() }}
+    steps:
+      - name: Release summary
+        run: |
+          echo "## Release v${{ needs.setup.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "Build jobs completed. Check the [Releases page](https://github.com/${{ github.repository }}/releases) for the draft release." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the draft release on GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "2. Edit release notes if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Click **Publish release** to make it public" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Files |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux | AppImage, DEB, TAR.GZ |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS | DMG, ZIP |" >> $GITHUB_STEP_SUMMARY
+          echo "| Windows | NSIS Installer, Portable |" >> $GITHUB_STEP_SUMMARY

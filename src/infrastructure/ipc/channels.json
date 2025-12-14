@@ -1,0 +1,21 @@
+{
+  "DEVICE": {
+    "GET_STATUS": "device:get-status",
+    "CONNECTED": "device:connected",
+    "DISCONNECTED": "device:disconnected"
+  },
+  "SHELL": {
+    "OPEN_EXTERNAL": "shell:open-external"
+  },
+  "UPDATE": {
+    "CHECK": "update:check",
+    "DOWNLOAD": "update:download",
+    "INSTALL": "update:install",
+    "GET_STATUS": "update:get-status",
+    "AVAILABLE": "update:available",
+    "NOT_AVAILABLE": "update:not-available",
+    "PROGRESS": "update:progress",
+    "DOWNLOADED": "update:downloaded",
+    "ERROR": "update:error"
+  }
+}

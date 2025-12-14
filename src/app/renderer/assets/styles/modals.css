@@ -1,0 +1,341 @@
+/* =====================================================
+   Modals, Dropdowns & Popovers
+   Volume slider, settings menu, tooltips
+   ===================================================== */
+
+/* =====================================================
+   Volume Control
+   ===================================================== */
+.volume-control {
+  position: relative;
+  display: inline-block;
+}
+
+.volume-slider-container {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(var(--blur-standard));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: var(--z-dropdown);
+  min-width: 180px;
+}
+
+/* Override transform for volume slider to combine centering with animation */
+.volume-slider-container.popup-animated {
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.volume-slider-container.popup-animated.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.volume-slider-container::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--color-bg-overlay);
+}
+
+.volume-slider {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  border-radius: 2px;
+  -webkit-appearance: none;
+  margin-bottom: var(--space-sm);
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.volume-slider::-moz-range-thumb:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.volume-percentage {
+  display: block;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+/* =====================================================
+   Shader Selector
+   ===================================================== */
+.shader-control {
+  position: relative;
+  display: inline-block;
+}
+
+.shader-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(var(--blur-standard));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: var(--z-dropdown);
+  min-width: 220px;
+}
+
+/* Override transform for shader dropdown to combine centering with animation */
+.shader-dropdown.popup-animated {
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.shader-dropdown.popup-animated.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.shader-dropdown::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--color-bg-overlay);
+}
+
+
+/* =====================================================
+   Settings Menu
+   ===================================================== */
+.settings-control {
+  position: relative;
+  display: inline-block;
+}
+
+.settings-menu-container {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(var(--blur-standard));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: var(--z-dropdown);
+  min-width: 260px;
+}
+
+.settings-menu-container::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--color-bg-overlay);
+}
+
+.settings-menu {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Main settings area with generous spacing */
+.settings-section.settings-main {
+  padding: 20px var(--space-lg);
+}
+
+.settings-section {
+  padding: var(--space-md) 20px;
+}
+
+.settings-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+/* Toggle switch styling */
+.settings-item.toggle {
+  cursor: pointer;
+}
+
+.settings-item.toggle input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+  margin-left: var(--space-md);
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text-secondary);
+  border-radius: 50%;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.settings-item.toggle input[type="checkbox"]:checked + .toggle-slider {
+  background: var(--color-primary);
+}
+
+.settings-item.toggle input[type="checkbox"]:checked + .toggle-slider::after {
+  transform: translateX(18px);
+  background: white;
+}
+
+/* Settings Footer */
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(var(--color-primary-rgb), 0.15);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  position: relative;
+}
+
+.settings-version {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.settings-footer-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.settings-icon-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.settings-icon-link:hover {
+  color: var(--color-primary-light);
+  background: rgba(var(--color-primary-rgb), 0.15);
+}
+
+.settings-info-btn[aria-expanded="true"] {
+  color: var(--color-primary-light);
+  background: rgba(var(--color-primary-rgb), 0.2);
+}
+
+/* Disclaimer tooltip */
+.disclaimer-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: var(--space-sm);
+  padding: 14px var(--space-md);
+  background: rgba(15, 15, 25, 0.98);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  z-index: var(--z-tooltip);
+}
+
+.disclaimer-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 20px;
+  border: 6px solid transparent;
+  border-bottom-color: rgba(15, 15, 25, 0.98);
+}
+
+.disclaimer-tooltip p {
+  margin: 0 0 10px 0;
+}
+
+.disclaimer-tooltip p:last-child {
+  margin-bottom: 0;
+}
+
+.disclaimer-tooltip strong {
+  color: var(--color-text-primary);
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.disclaimer-link {
+  color: var(--color-primary-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.disclaimer-link:hover {
+  color: var(--color-primary-lighter);
+  text-decoration: underline;
+}

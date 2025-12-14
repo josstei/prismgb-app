@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+yarn.lock
+
+# Build output
+dist/
+release/
+build/
+out/
+*.AppImage
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.zip
+*.tar.gz
+
+# electron-builder
+.cache/
+
+# Electron
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Environment
+.env
+.env.local
+.claude/
+
+# Recordings and screenshots
+recordings/
+screenshots/
+*.mp4
+*.webm
+
+# Test coverage
+tests/coverage/
+.vitest/
+
+# Build logs
+scripts/*.log

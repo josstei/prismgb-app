@@ -1,0 +1,192 @@
+{
+  "name": "prismgb",
+  "version": "1.0.0",
+  "description": "Desktop UI for playing with the Mod Retro Chromatic",
+  "main": "dist/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && electron-builder",
+    "build:vite": "vite build",
+    "build:win": "vite build && electron-builder --win",
+    "build:mac": "vite build && electron-builder --mac",
+    "build:linux": "vite build && electron-builder --linux",
+    "preview": "vite preview",
+    "start": "electron dist/main/index.js",
+    "lint": "eslint \"src/**/*.js\"",
+    "lint:fix": "eslint \"src/**/*.js\" --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:run": "vitest run",
+    "test:integration": "vitest run tests/integration",
+    "test:integration:watch": "vitest tests/integration",
+    "test:unit": "vitest run tests/unit",
+    "test:all": "vitest run",
+    "test:smoke": "node scripts/smoke-test.js",
+    "prepare": "husky",
+    "generate-icons": "node scripts/generate-icons.js"
+  },
+  "keywords": [
+    "electron",
+    "video-streaming",
+    "video-capture",
+    "usb",
+    "mod-retro-chromatic"
+  ],
+  "author": {
+    "name": "josstei",
+    "email": "josstei@users.noreply.github.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "awilix": "^12.0.5",
+    "electron-updater": "^6.3.9",
+    "eventemitter3": "^5.0.1",
+    "joi": "^18.0.2",
+    "usb-detection": "^4.14.2",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@electron/notarize": "^2.5.0",
+    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/ui": "^4.0.14",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9",
+    "electron-vite": "^4.0.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-node": "^11.1.0",
+    "happy-dom": "^20.0.11",
+    "husky": "^9.1.7",
+    "png-to-ico": "^3.0.1",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.34.5",
+    "vite": "^7.2.7",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vite-plugin-static-copy": "^3.1.4",
+    "vitest": "^4.0.14"
+  },
+  "build": {
+    "appId": "com.prismgb",
+    "productName": "PrismGB",
+    "copyright": "Copyright © 2024",
+    "compression": "maximum",
+    "publish": {
+      "provider": "github",
+      "owner": "josstei",
+      "repo": "prismgb-app",
+      "releaseType": "draft"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/*-unpacked/**/*",
+      "!dist/*.AppImage",
+      "!dist/*.deb",
+      "!dist/*.tar.gz",
+      "!dist/*.dmg",
+      "!dist/*.exe",
+      "!dist/*.msi",
+      "!dist/*.pkg",
+      "!dist/*.zip",
+      "!dist/*.snap",
+      "!dist/*.blockmap",
+      "!dist/latest-*.yml",
+      "!dist/builder-debug.yml"
+    ],
+    "afterPack": "./scripts/afterPack.js",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns",
+      "artifactName": "${productName}-${version}-mac.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "notarize": false
+    },
+    "afterSign": "./scripts/notarize.js",
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "title": "${productName} ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Utility",
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Name": "PrismGB",
+          "Comment": "Desktop UI for playing with the Mod Retro Chromatic",
+          "Categories": "Utility;Video;"
+        }
+      }
+    },
+    "deb": {
+      "depends": [
+        "libusb-1.0-0"
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PrismGB",
+      "perMachine": false,
+      "runAfterFinish": true,
+      "license": "LICENSE",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    }
+  }
+}

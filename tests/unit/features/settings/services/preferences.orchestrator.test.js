@@ -1,0 +1,120 @@
+/**
+ * PreferencesOrchestrator Unit Tests
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { PreferencesOrchestrator } from '@features/settings/services/preferences.orchestrator.js';
+import { EventChannels } from '@infrastructure/events/event-channels.js';
+
+describe('PreferencesOrchestrator', () => {
+  let orchestrator;
+  let mockSettingsService;
+  let mockAppState;
+  let mockEventBus;
+  let mockLogger;
+  let mockLoggerFactory;
+
+  beforeEach(() => {
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    };
+
+    mockLoggerFactory = {
+      create: vi.fn(() => mockLogger)
+    };
+
+    mockEventBus = {
+      publish: vi.fn(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn()
+    };
+
+    mockSettingsService = {
+      loadAllPreferences: vi.fn(() => ({
+        volume: 80,
+        statusStripVisible: false
+      }))
+    };
+
+    mockAppState = {};
+
+    orchestrator = new PreferencesOrchestrator({
+      settingsService: mockSettingsService,
+      appState: mockAppState,
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory
+    });
+  });
+
+  describe('constructor', () => {
+    it('should create orchestrator with dependencies', () => {
+      expect(orchestrator.settingsService).toBe(mockSettingsService);
+      expect(orchestrator.appState).toBe(mockAppState);
+      expect(orchestrator.eventBus).toBe(mockEventBus);
+    });
+
+    it('should throw if missing required dependencies', () => {
+      expect(() => new PreferencesOrchestrator({
+        eventBus: mockEventBus,
+        loggerFactory: mockLoggerFactory
+      })).toThrow(/Missing required dependencies/);
+    });
+  });
+
+  describe('onInitialize', () => {
+    it('should call loadPreferences on initialize', async () => {
+      const loadSpy = vi.spyOn(orchestrator, 'loadPreferences');
+
+      await orchestrator.onInitialize();
+
+      expect(loadSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('loadPreferences', () => {
+    it('should load preferences from settings service', async () => {
+      await orchestrator.loadPreferences();
+
+      expect(mockSettingsService.loadAllPreferences).toHaveBeenCalled();
+    });
+
+    it('should publish volume level event', async () => {
+      await orchestrator.loadPreferences();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.VOLUME_LEVEL,
+        { level: 80 }
+      );
+    });
+
+    it('should log success message', async () => {
+      await orchestrator.loadPreferences();
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Preferences loaded');
+    });
+
+    it('should handle errors gracefully', async () => {
+      const error = new Error('Load failed');
+      mockSettingsService.loadAllPreferences.mockImplementation(() => {
+        throw error;
+      });
+
+      await orchestrator.loadPreferences();
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Error loading preferences:', error);
+    });
+
+    it('should not publish events when error occurs', async () => {
+      mockSettingsService.loadAllPreferences.mockImplementation(() => {
+        throw new Error('Load failed');
+      });
+
+      await orchestrator.loadPreferences();
+
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
+  });
+});

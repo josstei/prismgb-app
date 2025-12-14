@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - beta
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Run lint and tests with coverage enforcement on all platforms
+  validate:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run linter
+        run: npm run lint
+
+      # Run full test suite with coverage on Linux only (primary)
+      - name: Run tests with coverage (Linux)
+        if: runner.os == 'Linux'
+        run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
+
+      # Run tests without coverage on other platforms (validation only)
+      - name: Run tests (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: npm run test:run
+
+      # Run integration tests on all platforms
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Security audit (production deps only)
+        if: runner.os == 'Linux'
+        run: npm audit --omit=dev --audit-level=high
+
+  # Validate commit messages follow conventional commits
+  # Optimized: no native deps needed for commitlint
+  commitlint:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Validate commit messages
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # Build smoke test on ALL PRs to catch packaging regressions early
+  build-smoke:
+    name: Build Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Build Vite bundle
+        run: npm run build:vite
+
+  # Summary job for branch protection
+  ci-complete:
+    name: CI Complete
+    needs: [validate, commitlint, build-smoke]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.validate.result }}" != "success" ] || \
+             [ "${{ needs.commitlint.result }}" != "success" ] || \
+             [ "${{ needs.build-smoke.result }}" != "success" ]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed!"

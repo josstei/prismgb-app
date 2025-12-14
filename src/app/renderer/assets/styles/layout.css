@@ -1,0 +1,161 @@
+/* =====================================================
+   Layout
+   App container, header, main content, footer structure
+   ===================================================== */
+
+/* App Container */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* Fullscreen: Hide header and scale canvas to fill screen */
+html:fullscreen .header,
+html:-webkit-full-screen .header,
+html:-moz-full-screen .header {
+  display: none;
+}
+
+html:fullscreen .stream-section,
+html:-webkit-full-screen .stream-section,
+html:-moz-full-screen .stream-section {
+  padding: 0;
+  gap: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+html:fullscreen .stream-container,
+html:-webkit-full-screen .stream-container,
+html:-moz-full-screen .stream-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  border: none;
+  box-shadow: none;
+  background: #000;
+}
+
+html:fullscreen #streamCanvas,
+html:-webkit-full-screen #streamCanvas,
+html:-moz-full-screen #streamCanvas {
+  /* JS sets dimensions based on viewport size via ResizeObserver */
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 32px;
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.8) 0%, rgba(15, 15, 30, 0.7) 100%);
+  border-bottom: 1px solid rgba(var(--color-primary-rgb), 0.15);
+  backdrop-filter: blur(var(--blur-intense));
+  z-index: var(--z-overlay);
+  box-shadow: none;
+  transition: opacity var(--transition-standard), filter var(--transition-standard);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header h1 {
+  font-size: 36px;
+  font-weight: 300;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Main Content */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Stream Section */
+.stream-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  gap: 24px;
+  overflow: auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.stream-container {
+  position: relative;
+  /* Container shrinks to fit canvas - JS calculates canvas size dynamically */
+  background: #000;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow:
+    0 0 0 3px rgba(var(--color-primary-rgb), 0.2),
+    0 0 40px rgba(var(--color-primary-rgb), 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(var(--color-primary-rgb), 0.3);
+  /* Center canvas within container */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow var(--transition-standard), border-color var(--transition-standard);
+}
+
+#streamVideo {
+  display: none; /* Hidden - using canvas instead */
+}
+
+#streamCanvas {
+  /* Initial size prevents flash; JS overrides with exact calculated values */
+  width: 640px;
+  height: 576px;
+  aspect-ratio: 160 / 144;
+  background: #000;
+  cursor: pointer;
+  backface-visibility: hidden;
+  /* Boost brightness and contrast to match Chromatic display */
+  filter: brightness(1.1) contrast(1.05);
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: transparent;
+  border-top: 1px solid rgba(var(--color-primary-rgb), 0.1);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  backdrop-filter: none;
+  box-shadow: none;
+  position: relative;
+  transition: opacity var(--transition-standard), filter var(--transition-standard);
+}
+
+.footer-right {
+  margin-left: auto;
+}

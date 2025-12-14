@@ -1,0 +1,302 @@
+/* =====================================================
+   Overlays
+   Stream overlay, particles, icon, ready states
+   ===================================================== */
+
+/* =====================================================
+   Stream Overlay
+   ===================================================== */
+.stream-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-overlay-light);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease;
+  cursor: pointer;
+  overflow: hidden;
+  animation: screen-flicker var(--animation-flicker) ease-in-out infinite;
+  /* Performance: isolate repaints to this container */
+  contain: layout style paint;
+}
+
+/* Vignette Effect */
+.stream-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.stream-overlay.hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+  animation: none !important;
+}
+
+/* Stop all child animations when overlay is hidden (conserve resources) */
+.stream-overlay.hidden .overlay-particles,
+.stream-overlay.hidden .particle,
+.stream-overlay.hidden .overlay-icon,
+.stream-overlay.hidden .overlay-content,
+.stream-overlay.hidden .ready-ring,
+.stream-overlay.hidden .gem-glow,
+.stream-overlay.hidden .ready-flash,
+.stream-overlay.hidden .scanlines {
+  animation: none !important;
+  display: none !important;
+}
+
+/* Stop pseudo-element animations */
+.stream-overlay.hidden::before,
+.stream-overlay.hidden::after {
+  animation: none !important;
+  display: none;
+}
+
+/* =====================================================
+   Floating Particles
+   ===================================================== */
+.overlay-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.particle {
+  position: absolute;
+  bottom: 20px;
+  width: 4px;
+  height: 4px;
+  background: rgba(var(--color-primary-rgb), 0.8);
+  border-radius: 50%;
+  animation: particle-float linear infinite;
+  opacity: 0;
+  /* GPU acceleration hints */
+  will-change: transform, opacity;
+  /* Use filter for glow instead of box-shadow (GPU accelerated) */
+  filter: drop-shadow(0 0 4px rgba(var(--color-primary-rgb), 0.6));
+}
+
+/* Particle positioning and timing variations */
+.particle-1 {
+  left: 15%;
+  animation-duration: 8s;
+  animation-delay: 0s;
+}
+
+.particle-2 {
+  left: 30%;
+  animation-duration: 10s;
+  animation-delay: 2s;
+  width: 3px;
+  height: 3px;
+}
+
+.particle-3 {
+  left: 50%;
+  animation-duration: 7s;
+  animation-delay: 1s;
+}
+
+.particle-4 {
+  left: 65%;
+  animation-duration: 9s;
+  animation-delay: 3s;
+  width: 5px;
+  height: 5px;
+}
+
+.particle-5 {
+  left: 80%;
+  animation-duration: 11s;
+  animation-delay: 0.5s;
+  width: 3px;
+  height: 3px;
+}
+
+.particle-6 {
+  left: 45%;
+  animation-duration: 12s;
+  animation-delay: 4s;
+}
+
+/* =====================================================
+   Overlay Content & Cartridge
+   ===================================================== */
+.overlay-content {
+  text-align: center;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+/* Icon Wrapper - Contains glow effects and ready rings */
+.icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Match gem dimensions for proper centering of effects */
+  width: 150px;
+  height: 150px;
+  /* Allow click indicator to extend below */
+  overflow: visible;
+  /* Float animation on wrapper so rings move with gem */
+  animation: icon-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.overlay-icon {
+  /* Default: waiting state - filter animation only (float is on wrapper) */
+  animation: retro-glow-purple 4s ease-in-out infinite;
+  will-change: filter;
+  /* Block display prevents baseline alignment issues */
+  display: block;
+  /* Centered via flexbox parent, but needs z-index above glow */
+  z-index: 2;
+  /* Base opacity for waiting state */
+  opacity: 0.85;
+}
+
+/* =====================================================
+   Ready State Rings
+   ===================================================== */
+.ready-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 3px solid rgba(var(--color-success-rgb), 0.6);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: var(--z-base);
+  transform: translate(-50%, -50%);
+}
+
+.ready-ring-inner {
+  animation: ready-ring-pulse 2s ease-in-out infinite;
+  animation-play-state: paused;
+  will-change: transform, opacity;
+}
+
+.ready-ring-outer {
+  width: 180px;
+  height: 180px;
+  border: 2px solid rgba(var(--color-success-rgb), 0.4);
+  animation: ready-ring-expand 2s ease-out infinite;
+  animation-play-state: paused;
+  will-change: transform, opacity;
+}
+
+/* Third ripple ring - continuous outward expansion */
+.ready-ring-ripple {
+  width: 180px;
+  height: 180px;
+  border: 2px solid rgba(var(--color-success-rgb), 0.5);
+  animation: ready-ring-ripple 2.5s ease-out infinite;
+  animation-play-state: paused;
+  will-change: transform, opacity;
+}
+
+/* =====================================================
+   Gem Glow Effect
+   ===================================================== */
+.gem-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(var(--color-success-rgb), 0.4) 0%,
+    rgba(var(--color-success-rgb), 0.2) 40%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, opacity;
+}
+
+/* =====================================================
+   Ready Flash Overlay
+   ===================================================== */
+.ready-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(var(--color-success-rgb), 0.8) 0%,
+    rgba(var(--color-success-rgb), 0.4) 30%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  will-change: transform, opacity;
+}
+
+/* =====================================================
+   Scanline Shimmer Effect
+   ===================================================== */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 3;
+  /* Performance optimizations */
+  will-change: opacity;
+  contain: strict;
+  /* Scanline pattern - repeating horizontal lines (more visible) */
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(255, 255, 255, 0.08) 2px,
+    rgba(255, 255, 255, 0.08) 4px
+  );
+}
+

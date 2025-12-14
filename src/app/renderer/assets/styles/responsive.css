@@ -1,0 +1,52 @@
+/* =====================================================
+   Responsive Styles
+   Media queries and accessibility preferences
+   ===================================================== */
+
+/* Mobile Layout */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+}
+
+/* =====================================================
+   Reduced Motion Support
+   Respects user's OS-level reduced motion preference
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable all infinite animations */
+  .app-icon,
+  .status-indicator,
+  .stream-overlay,
+  .overlay-icon,
+  .particle,
+  .ready-ring {
+    animation: none !important;
+  }
+
+  /* Hide decorative animated elements */
+  .overlay-particles,
+  .ready-ring {
+    display: none !important;
+  }
+
+  /* Keep icon visible but static with subtle glow */
+  .overlay-icon {
+    filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6)) !important;
+  }
+
+  /* Remove pseudo-element animations */
+  .stream-overlay::before,
+  .stream-overlay::after {
+    animation: none !important;
+  }
+
+  /* Remove backdrop blur effects for better performance */
+  .header,
+  .stream-overlay,
+  .volume-slider-container {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

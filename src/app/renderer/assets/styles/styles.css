@@ -1,0 +1,15 @@
+/* =====================================================
+   PrismGB Styles
+   Main CSS entry point - Vite inlines these during build
+   ===================================================== */
+
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './toolbar.css';
+@import './modals.css';
+@import './overlays.css';
+@import './states.css';
+@import './animations.css';
+@import './responsive.css';

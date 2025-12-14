@@ -1,0 +1,606 @@
+/* =====================================================
+   Animations
+   Keyframe definitions for UI animations
+   ===================================================== */
+
+/* Icon glow animation for app icon */
+@keyframes icon-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(var(--color-primary-rgb), 0.7));
+  }
+}
+
+/* Simple pulse animation for status indicators */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Button reveal - pop in from nothing */
+@keyframes button-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Button hide - shrink out */
+@keyframes button-hide {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* =====================================================
+   Retro Standby Screen Animations
+   ===================================================== */
+
+/* Icon floating wobble motion */
+@keyframes icon-wobble {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-4px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-4px) rotate(1.5deg);
+  }
+}
+
+/* Slower icon float for waiting state */
+@keyframes icon-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Ready state pulse - heartbeat-like expansion */
+@keyframes ready-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.12);
+  }
+  30% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+
+/* Purple retro glow pulse (waiting state) - includes dimming effects */
+@keyframes retro-glow-purple {
+  0%, 100% {
+    filter: grayscale(0.7) brightness(0.5);
+  }
+  50% {
+    filter: grayscale(0.7) brightness(0.55);
+  }
+}
+
+/* Green retro glow pulse (ready state) - includes brightness/saturate */
+@keyframes retro-glow-green {
+  0%, 100% {
+    filter: brightness(1.1) saturate(1.1);
+  }
+  50% {
+    filter: brightness(1.15) saturate(1.15);
+  }
+}
+
+/* Subtle screen flicker */
+@keyframes screen-flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.97;
+  }
+  94% {
+    opacity: 1;
+  }
+}
+
+/* Floating pixel particles rising up */
+@keyframes particle-float {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(5px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(-10px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(5px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+/* =====================================================
+   Capture Feedback Animations
+   ===================================================== */
+
+/* Screenshot shutter flash overlay */
+@keyframes shutter-flash {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Screenshot button capture effect */
+@keyframes capture-click {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Spinning animation for record button */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =====================================================
+   Enhanced Overlay Animations
+   ===================================================== */
+
+/* Gem "pop" effect when transitioning to ready (spring scale) */
+@keyframes gem-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Screen flash/pulse for ready transition */
+@keyframes ready-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  20% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
+}
+
+/* Particle burst explosion outward */
+@keyframes particle-burst {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--burst-y, -100px)) translateX(var(--burst-x, 50px)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Radial glow pulse behind gem */
+@keyframes gem-glow-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 0.9;
+  }
+}
+
+/* Enhanced waiting state breathing - slower, dimmer */
+@keyframes waiting-sleep-breathe {
+  0%, 100% {
+    filter: grayscale(0.8) brightness(0.4);
+    opacity: 0.6;
+  }
+  50% {
+    filter: grayscale(0.75) brightness(0.45);
+    opacity: 0.7;
+  }
+}
+
+/* Slower particle drift for waiting state */
+@keyframes particle-drift {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.4;
+    transform: translateY(-30px) translateX(3px) scale(0.8);
+  }
+  85% {
+    opacity: 0.3;
+    transform: translateY(-200px) translateX(-5px) scale(0.6);
+  }
+  100% {
+    transform: translateY(-250px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+/* =====================================================
+   Prismatic Rainbow Effects
+   GPU-ACCELERATED: Only uses transform, opacity, filter
+   ===================================================== */
+
+/* Prismatic ring pulse - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  /* First pulse - ring expands outward */
+  10% {
+    transform: translate(-50%, -50%) scale(1.25);
+    opacity: 0.7;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  /* Second pulse - smaller expansion */
+  40% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.3;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+}
+
+/* Prismatic expanding ring - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-expand {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0.3;
+  }
+  75% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Prismatic ripple ring - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  33% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.5;
+  }
+  66% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Prismatic glow pulse - GPU accelerated: transform, opacity only */
+@keyframes prismatic-glow-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.25);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+  45% {
+    transform: translate(-50%, -50%) scale(1.18);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+}
+
+/* =====================================================
+   Rainbow Particle Animations
+   GPU-ACCELERATED: Uses transform, opacity, filter only
+   Static backgrounds set in CSS, animation only moves/fades
+   ===================================================== */
+
+/* Shared particle float animation - GPU accelerated */
+@keyframes particle-float-rainbow {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(5px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(-10px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(5px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Individual particle animations with staggered timing via animation-delay */
+/* All use the same keyframes, colors are static in CSS */
+@keyframes particle-float-rainbow-1 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(5px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(-10px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(5px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-rainbow-2 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(-5px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(10px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(-5px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-rainbow-3 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(8px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(-15px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(8px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-rainbow-4 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(-8px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(12px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(-8px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-rainbow-5 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(3px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(-8px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(3px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-float-rainbow-6 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(-3px) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(8px) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(-3px) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+/* =====================================================
+   Scanline Shimmer Animation
+   GPU-ACCELERATED: Only uses opacity (no background-position)
+   ===================================================== */
+@keyframes scanline-shimmer {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  /* First pulse at 15% - shimmer brightens */
+  12% {
+    opacity: 0.5;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  20% {
+    opacity: 0.5;
+  }
+  30% {
+    opacity: 0.3;
+  }
+  /* Second pulse at 45% - shimmer brightens again */
+  42% {
+    opacity: 0.5;
+  }
+  45% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  60% {
+    opacity: 0.3;
+  }
+}
+
