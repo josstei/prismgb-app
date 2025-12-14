@@ -251,7 +251,7 @@ jobs:
 
       # Also save artifacts to Actions for backup/debugging
       - name: Upload artifacts to Actions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-${{ runner.os }}
           path: |
