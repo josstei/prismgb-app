@@ -1,0 +1,64 @@
+# Repository labels - synced via .github/workflows/labels-sync.yml
+# Colors are hex without the # prefix
+
+# Dependency management
+- name: dependencies
+  description: Pull requests that update a dependency file
+  color: "0366d6"
+
+# Review workflow
+- name: needs-review
+  description: Requires manual review
+  color: "d93f0b"
+
+- name: major-update
+  description: Major version update with potential breaking changes
+  color: "fbca04"
+
+# Issue types
+- name: bug
+  description: Something isn't working
+  color: "d73a4a"
+
+- name: security
+  description: Security vulnerability or security-related issue
+  color: "d73a4a"
+
+- name: enhancement
+  description: New feature or request
+  color: "a2eeef"
+
+- name: documentation
+  description: Improvements or additions to documentation
+  color: "0075ca"
+
+# Priority
+- name: priority:high
+  description: High priority issue
+  color: "b60205"
+
+- name: priority:low
+  description: Low priority issue
+  color: "c5def5"
+
+# Status
+- name: wontfix
+  description: This will not be worked on
+  color: "ffffff"
+
+- name: duplicate
+  description: This issue or pull request already exists
+  color: "cfd3d7"
+
+- name: good first issue
+  description: Good for newcomers
+  color: "7057ff"
+
+# CI controls
+- name: full-ci
+  description: Run full macOS/Windows matrix in CI
+  color: "5319e7"
+
+- name: no-cache
+  description: Force fresh npm install, skip node_modules cache
+  color: "e99695"

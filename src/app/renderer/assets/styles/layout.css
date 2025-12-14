@@ -1,0 +1,293 @@
+/* =====================================================
+   Layout
+   App container, header, main content, footer structure
+   ===================================================== */
+
+/* App Container */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  contain: layout style;
+}
+
+/* Fullscreen: Hide header and footer */
+body.fullscreen-active .header,
+body.fullscreen-active .footer {
+  display: none;
+}
+
+/* =====================================================
+   Floating Fullscreen Controls
+   Minimal pill-shaped control bar for fullscreen mode
+   ===================================================== */
+
+/* Hidden by default, only visible in fullscreen */
+.fullscreen-controls {
+  display: none;
+}
+
+/* Show floating controls in fullscreen mode */
+body.fullscreen-active .fullscreen-controls {
+  display: flex;
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: var(--z-overlay);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 24px;
+  background: rgba(15, 15, 30, 0.85);
+  backdrop-filter: blur(var(--blur-intense));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(var(--color-primary-rgb), 0.1);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  contain: layout style;
+}
+
+/* Hidden state for auto-hide */
+body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+/* Control item wrapper (for volume with popup) */
+.fs-control-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Individual control buttons */
+.fs-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  contain: layout style;
+}
+
+.fs-control-btn:hover {
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary-light);
+}
+
+.fs-control-btn:active {
+  transform: scale(0.95);
+}
+
+.fs-control-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Fullscreen: Remove padding/gap so viewport manager has full space */
+body.fullscreen-active .stream-section {
+  padding: 0;
+  gap: 0;
+}
+
+/* Fullscreen: Minimal border, remove outer glow/shadow */
+body.fullscreen-active .stream-container {
+  border: none;
+  box-shadow: none;
+  background: #000;
+}
+
+/* Hide rainbow border in fullscreen for cleaner look */
+body.fullscreen-active .stream-container::before {
+  display: none;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 32px;
+  max-height: 80px;
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.85) 0%, rgba(15, 15, 30, 0.8) 100%);
+  border-bottom: 1px solid transparent;
+  backdrop-filter: blur(var(--blur-intense));
+  z-index: var(--z-overlay);
+  box-shadow: none;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+  position: relative;
+  contain: layout style;
+}
+
+/* Rainbow gradient border at bottom */
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 0, 128, 0.5) 15%,
+    rgba(255, 150, 0, 0.4) 30%,
+    rgba(0, 255, 100, 0.4) 50%,
+    rgba(0, 180, 255, 0.5) 70%,
+    rgba(130, 0, 255, 0.4) 85%,
+    transparent 100%
+  );
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header h1 {
+  font-size: 36px;
+  font-weight: 300;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Main Content */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Stream Section */
+.stream-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  gap: 24px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+}
+
+.stream-container {
+  position: relative;
+  background: #000;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow:
+    0 0 40px rgba(255, 0, 128, 0.15),
+    0 0 60px rgba(0, 200, 255, 0.1),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+  contain: layout style;
+}
+
+/* Rainbow gradient border using pseudo-element with mask */
+.stream-container::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 0, 128, 0.6) 0%,
+    rgba(255, 150, 0, 0.5) 25%,
+    rgba(0, 255, 100, 0.5) 50%,
+    rgba(0, 180, 255, 0.6) 75%,
+    rgba(130, 0, 255, 0.5) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 2px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+#streamVideo {
+  display: none; /* Hidden - using canvas instead */
+}
+
+#streamCanvas {
+  /* Initial size prevents flash; JS overrides with exact calculated values */
+  width: 640px;
+  height: 576px;
+  aspect-ratio: 160 / 144;
+  background: #000;
+  cursor: pointer;
+  backface-visibility: hidden;
+  /* Boost brightness and contrast to match Chromatic display */
+  filter: brightness(1.1) contrast(1.05);
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  max-height: 50px;
+  background: transparent;
+  border-top: 1px solid transparent;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  backdrop-filter: none;
+  box-shadow: none;
+  position: relative;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+  contain: layout style;
+}
+
+/* Rainbow gradient border at top */
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 0, 128, 0.4) 20%,
+    rgba(0, 200, 255, 0.4) 50%,
+    rgba(130, 0, 255, 0.4) 80%,
+    transparent 100%
+  );
+}
+
+.footer-right {
+  margin-left: auto;
+}
+

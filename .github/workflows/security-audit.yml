@@ -1,0 +1,114 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Run every Monday at 9am UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Run security audit
+        id: audit
+        run: |
+          npm audit --json > audit-report.json 2>&1 || true
+
+          # Count vulnerabilities by severity
+          critical=$(jq '.metadata.vulnerabilities.critical // 0' audit-report.json)
+          high=$(jq '.metadata.vulnerabilities.high // 0' audit-report.json)
+          moderate=$(jq '.metadata.vulnerabilities.moderate // 0' audit-report.json)
+          low=$(jq '.metadata.vulnerabilities.low // 0' audit-report.json)
+
+          echo "critical=$critical" >> $GITHUB_OUTPUT
+          echo "high=$high" >> $GITHUB_OUTPUT
+          echo "moderate=$moderate" >> $GITHUB_OUTPUT
+          echo "low=$low" >> $GITHUB_OUTPUT
+
+          # Fail if critical or high vulnerabilities found
+          if [ "$critical" -gt 0 ] || [ "$high" -gt 0 ]; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Create issue for vulnerabilities
+        if: failure() && steps.audit.outputs.has_issues == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const critical = ${{ steps.audit.outputs.critical }};
+            const high = ${{ steps.audit.outputs.high }};
+            const moderate = ${{ steps.audit.outputs.moderate }};
+            const low = ${{ steps.audit.outputs.low }};
+
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security',
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(i =>
+              i.title.includes('Security vulnerabilities detected')
+            );
+
+            const body = `## Security Audit Report
+
+            The weekly security audit found vulnerabilities:
+
+            | Severity | Count |
+            |----------|-------|
+            | Critical | ${critical} |
+            | High | ${high} |
+            | Moderate | ${moderate} |
+            | Low | ${low} |
+
+            ### Next Steps
+            1. Run \`npm audit\` locally to see details
+            2. Update affected packages or add to allowlist if false positive
+            3. Close this issue once resolved
+
+            [View workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `### Updated Audit Results\n\n${body}`
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Security vulnerabilities detected in dependencies',
+                body: body,
+                labels: ['security', 'dependencies']
+              });
+            }
+
+      - name: Audit summary
+        if: always()
+        run: |
+          echo "## Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | ${{ steps.audit.outputs.critical }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | ${{ steps.audit.outputs.high }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Moderate | ${{ steps.audit.outputs.moderate }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low | ${{ steps.audit.outputs.low }} |" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,64 @@
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+
+    # Ignore major updates for build-critical packages
+    # These require manual review due to potential breaking changes
+    ignore:
+      - dependency-name: "electron-builder"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "electron"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "electron-vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+
+    groups:
+      # Electron ecosystem - keep together for coordinated updates
+      electron-ecosystem:
+        patterns:
+          - "electron*"
+          - "vite-plugin-electron*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Dev dependencies (excluding electron-related)
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "electron*"
+          - "vite-plugin-electron*"
+
+      # Production dependencies
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"

@@ -1,0 +1,344 @@
+/* =====================================================
+   Application States
+   Cinematic mode, streaming mode, and state-driven styles
+   ===================================================== */
+
+/* =====================================================
+   Cinematic Mode
+   Dims UI and darkens background for immersive viewing
+   ===================================================== */
+
+/* Darken body background when cinematic mode is enabled */
+body.cinematic-active {
+  background: linear-gradient(135deg, #030305 0%, #050508 50%, #060810 100%);
+}
+
+/* Enhance prismatic sheen in cinematic mode - brighter rainbow on darker bg */
+body.cinematic-active::after {
+  opacity: 0.8;
+  filter: blur(60px);
+  background: conic-gradient(
+    from 120deg,
+    rgba(255, 0, 128, 0.12),
+    rgba(255, 100, 0, 0.10),
+    rgba(255, 200, 0, 0.08),
+    rgba(0, 255, 100, 0.08),
+    rgba(0, 200, 255, 0.10),
+    rgba(130, 0, 255, 0.12),
+    rgba(255, 0, 128, 0.12)
+  );
+}
+
+/* Hide grain texture in cinematic mode for cleaner look */
+body.cinematic-active::before {
+  opacity: 0;
+}
+
+/* Enhance atmospheric orbs in cinematic mode */
+body.cinematic-active .prismatic-orbs::before {
+  opacity: 0.5;
+  background: radial-gradient(circle, rgba(255, 0, 128, 0.5) 0%, transparent 70%);
+}
+
+body.cinematic-active .prismatic-orbs::after {
+  opacity: 0.45;
+  background: radial-gradient(circle, rgba(0, 200, 255, 0.45) 0%, transparent 70%);
+}
+
+/* Darken UI when cinematic mode is active */
+body.cinematic-active .header {
+  opacity: 0.6;
+  filter: brightness(0.7);
+}
+
+body.cinematic-active .header:hover {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* Dim footer when cinematic mode is active */
+body.cinematic-active .footer {
+  opacity: 0.4;
+  filter: brightness(0.6);
+}
+
+body.cinematic-active .footer:hover {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* Enhance stream container rainbow glow in cinematic mode */
+body.cinematic-active .stream-container {
+  box-shadow:
+    0 0 50px rgba(255, 0, 128, 0.25),
+    0 0 80px rgba(0, 200, 255, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+/* Brighter rainbow border in cinematic mode */
+body.cinematic-active .stream-container::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 0, 128, 0.8) 0%,
+    rgba(255, 150, 0, 0.7) 25%,
+    rgba(0, 255, 100, 0.7) 50%,
+    rgba(0, 180, 255, 0.8) 75%,
+    rgba(130, 0, 255, 0.7) 100%
+  );
+}
+
+/* =====================================================
+   Cursor Auto-Hide
+   Hide cursor after inactivity during streaming
+   ===================================================== */
+
+body.cursor-hidden,
+body.cursor-hidden * {
+  cursor: none !important;
+}
+
+/* =====================================================
+   Streaming Mode
+   Applied during active video streaming
+   ===================================================== */
+
+/* Hide capture buttons when not streaming */
+#screenshotBtn,
+#recordBtn {
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+}
+
+/* Show buttons when streaming - pop in */
+body.streaming-mode #screenshotBtn,
+body.streaming-mode #recordBtn {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  animation: button-reveal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Pop out animation when hiding */
+#screenshotBtn.hiding,
+#recordBtn.hiding {
+  animation: button-hide 0.15s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
+}
+
+/* Hide video/canvas when not streaming to prevent stale frames showing through overlay */
+#streamVideo,
+#streamCanvas {
+  opacity: 0;
+  visibility: hidden;
+}
+
+body.streaming-mode #streamVideo,
+body.streaming-mode #streamCanvas {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* =====================================================
+   Combined States
+   Streaming + Cinematic mode optimizations
+   ===================================================== */
+body.streaming-mode.cinematic-active .app-icon,
+body.streaming-mode.cinematic-active .app-logo {
+  /* Pause decorative header animations during streaming */
+  animation-play-state: paused;
+}
+
+/* =====================================================
+   Status Strip Toggle
+   Show/hide the footer status strip
+   ===================================================== */
+.footer.status-hidden .status-strip {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+/* =====================================================
+   Overlay State Animations
+   Visual-only states (no text) for waiting vs ready
+   Default CSS is "waiting" appearance - ready state overrides
+   ===================================================== */
+
+/* --- WAITING STATE (Default - Device Disconnected) --- */
+/* Dimmed, sleeping, clearly inactive appearance */
+
+.stream-overlay {
+  cursor: default;
+}
+
+/* Enhanced waiting state - slower float on wrapper, dimmer breathing on icon */
+.stream-overlay:has(#overlayMessage.waiting) .icon-wrapper {
+  animation: icon-float 8s ease-in-out infinite;
+}
+
+.stream-overlay:has(#overlayMessage.waiting) .overlay-icon {
+  animation: waiting-sleep-breathe 5s ease-in-out infinite;
+  opacity: 0.6;
+}
+
+/* Dimmer particles for waiting state - use filter for GPU-accelerated glow */
+.stream-overlay:has(#overlayMessage.waiting) .particle {
+  background: rgba(var(--color-primary-rgb), 0.4);
+  filter: drop-shadow(0 0 3px rgba(var(--color-primary-rgb), 0.3));
+  animation-name: particle-drift;
+}
+
+/* --- READY STATE TRANSITION --- */
+/* Dramatic one-shot animations when transitioning to ready */
+
+/* Flash effect on ready transition */
+.stream-overlay:has(#overlayMessage.ready) .ready-flash {
+  animation: ready-flash 0.6s ease-out forwards;
+}
+
+/* --- READY STATE (Device Connected) --- */
+/* Bright, inviting, clearly clickable - overrides default dimmed look */
+
+.stream-overlay:has(#overlayMessage.ready) {
+  animation: screen-flicker 4s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* Ready state - pulse animation on wrapper (heartbeat-like) */
+.stream-overlay:has(#overlayMessage.ready) .icon-wrapper {
+  animation: ready-pulse 1.4s ease-in-out infinite;
+}
+
+/* Gem pop transition + glow */
+.stream-overlay:has(#overlayMessage.ready) .overlay-icon {
+  animation:
+    gem-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    retro-glow-green 1.4s ease-in-out infinite 0.4s;
+  opacity: 1;
+}
+
+/* Show and animate rings in ready state */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring {
+  visibility: visible;
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* Prismatic inner ring - synced with 1.4s heartbeat pulse */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-inner {
+  opacity: 1;
+  border-width: 4px;
+  animation: prismatic-ring-pulse 1.4s ease-in-out infinite;
+}
+
+/* Prismatic outer ring - expands on each pulse beat */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-outer {
+  opacity: 1;
+  animation: prismatic-ring-expand 1.4s ease-out infinite;
+}
+
+/* Prismatic ripple ring - slightly offset for layered effect */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-ripple {
+  opacity: 1;
+  animation: prismatic-ring-ripple 1.4s ease-out infinite;
+  animation-delay: 0.1s;
+}
+
+/* Prismatic radial glow behind gem - synced with heartbeat */
+.stream-overlay:has(#overlayMessage.ready) .gem-glow {
+  opacity: 1;
+  animation: prismatic-glow-pulse 1.4s ease-in-out infinite;
+}
+
+/* Rainbow particles - static colors with GPU-accelerated consolidated animation */
+.stream-overlay:has(#overlayMessage.ready) .particle-1 {
+  background: rgba(255, 80, 80, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 80, 80, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-2 {
+  background: rgba(255, 200, 80, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 200, 80, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-3 {
+  background: rgba(80, 255, 150, 0.9);
+  filter: drop-shadow(0 0 6px rgba(80, 255, 150, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-4 {
+  background: rgba(80, 200, 255, 0.9);
+  filter: drop-shadow(0 0 6px rgba(80, 200, 255, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-5 {
+  background: rgba(180, 80, 255, 0.9);
+  filter: drop-shadow(0 0 6px rgba(180, 80, 255, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-6 {
+  background: rgba(255, 80, 180, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 80, 180, 0.7));
+}
+
+/* Scanline shimmer - subtle CRT effect synced with heartbeat */
+.stream-overlay:has(#overlayMessage.ready) .scanlines {
+  visibility: visible;
+  opacity: 1;
+  animation: scanline-shimmer 1.4s ease-in-out infinite;
+}
+
+/* =====================================================
+   Status Message Colors
+   Data attribute driven status message colors
+   ===================================================== */
+.status-message[data-type="info"] {
+  color: var(--color-info);
+}
+
+.status-message[data-type="success"] {
+  color: var(--color-success);
+}
+
+.status-message[data-type="warning"] {
+  color: var(--color-warning);
+}
+
+.status-message[data-type="error"] {
+  color: var(--color-danger);
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   Disable non-essential animations for users who prefer reduced motion
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .stream-overlay,
+  .stream-overlay .overlay-icon,
+  .stream-overlay .particle,
+  .stream-overlay .ready-ring,
+  .stream-overlay .gem-glow,
+  .stream-overlay .ready-flash,
+  .stream-overlay .scanlines {
+    animation: none !important;
+    transition: opacity 0.3s ease !important;
+  }
+
+  /* Keep essential state visibility changes */
+  .stream-overlay:has(#overlayMessage.ready) .overlay-icon {
+    opacity: 1;
+    filter: brightness(1.1) saturate(1.1);
+  }
+
+  .stream-overlay:has(#overlayMessage.ready) .ready-ring {
+    visibility: visible;
+    opacity: 0.8;
+  }
+
+  .stream-overlay:has(#overlayMessage.ready) .gem-glow {
+    opacity: 0.6;
+  }
+
+  /* Static scanline visibility for reduced motion */
+  .stream-overlay:has(#overlayMessage.ready) .scanlines {
+    visibility: visible;
+    opacity: 0.1;
+  }
+}
+

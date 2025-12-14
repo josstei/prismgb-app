@@ -1,0 +1,335 @@
+name: Release
+
+on:
+  # Trigger when release PR is merged
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+  # Allow manual trigger for specific platforms or re-runs
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux
+          - macos
+          - windows
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Check if this is a release commit and create tag
+  check-release:
+    name: Check Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if release commit
+        id: check
+        run: |
+          # Get the commit message
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Check if this is a release commit (from prepare-release workflow)
+          if [[ "$COMMIT_MSG" =~ ^chore\(release\):\ bump\ to\ v([0-9]+\.[0-9]+\.[0-9]+) ]] || \
+             [[ "$COMMIT_MSG" =~ ^chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+            echo "Detected release version: $VERSION"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # For manual triggers, check package.json version and existing tag
+            VERSION=$(node -p "require('./package.json').version")
+            TAG="v$VERSION"
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "Manual trigger: found existing tag $TAG"
+              echo "is_release=true" >> $GITHUB_OUTPUT
+              echo "version=$VERSION" >> $GITHUB_OUTPUT
+              echo "tag=$TAG" >> $GITHUB_OUTPUT
+            else
+              echo "Manual trigger: no tag found for v$VERSION"
+              echo "is_release=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "Not a release commit, skipping"
+          fi
+
+      - name: Configure git
+        if: steps.check.outputs.is_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if tag exists
+        if: steps.check.outputs.is_release == 'true'
+        id: tag-check
+        run: |
+          if git rev-parse "${{ steps.check.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.check.outputs.tag }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check.outputs.is_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: |
+          git tag -a "${{ steps.check.outputs.tag }}" -m "Release ${{ steps.check.outputs.tag }}"
+          git push origin "${{ steps.check.outputs.tag }}"
+          echo "Created tag: ${{ steps.check.outputs.tag }}"
+
+      - name: Security audit
+        if: steps.check.outputs.is_release == 'true'
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Set build matrix
+        id: matrix
+        if: steps.check.outputs.is_release == 'true'
+        run: |
+          PLATFORMS="${{ inputs.platforms || 'all' }}"
+
+          if [ "$PLATFORMS" == "all" ]; then
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-latest","build_script":"build:mac"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "linux" ]; then
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "macos" ]; then
+            echo 'matrix=[{"os":"macos-latest","build_script":"build:mac"}]' >> $GITHUB_OUTPUT
+          elif [ "$PLATFORMS" == "windows" ]; then
+            echo 'matrix=[{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+          fi
+
+  # Build and publish
+  build:
+    name: Build (${{ matrix.os }})
+    needs: [check-release]
+    if: needs.check-release.outputs.is_release == 'true'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.check-release.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-release.outputs.tag }}
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: 'true'
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-
+
+      - name: Import code signing certificate (macOS)
+        if: runner.os == 'macOS' && env.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Decode the certificate
+          echo "$CSC_LINK" | base64 --decode > $RUNNER_TEMP/certificate.p12
+
+          # Create and configure keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          security import $RUNNER_TEMP/certificate.p12 -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH login.keychain-db
+
+          # Verify the certificate was imported
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+          # Clean up the .p12 file
+          rm -f $RUNNER_TEMP/certificate.p12
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            npm run ${{ matrix.build_script }} -- --publish never
+          else
+            npm run ${{ matrix.build_script }} -- --config.mac.identity=null --publish never
+          fi
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build (Linux/Windows)
+        if: runner.os != 'macOS'
+        run: npm run ${{ matrix.build_script }} -- --publish never
+
+      - name: Install FUSE for AppImage (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - name: Run smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run test:smoke
+        timeout-minutes: 2
+
+      - name: Run smoke test (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: npm run test:smoke
+        timeout-minutes: 2
+
+      - name: Generate checksums (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd release
+          shopt -s nullglob
+          files=(*.AppImage *.deb *.tar.gz *.dmg *.zip)
+          if [ ${#files[@]} -gt 0 ]; then
+            for file in "${files[@]}"; do
+              sha256sum "$file" >> SHA256SUMS.txt
+            done
+            cat SHA256SUMS.txt
+          else
+            echo "No artifacts found"
+          fi
+        shell: bash
+
+      - name: Generate checksums (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd release
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -Append SHA256SUMS.txt -Encoding utf8
+          }
+          Get-Content SHA256SUMS.txt
+        shell: pwsh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.tar.gz
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/latest*.yml
+            release/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Publish release only after ALL builds succeed
+  publish:
+    name: Publish Release
+    needs: [check-release, build]
+    runs-on: ubuntu-latest
+    if: needs.check-release.outputs.is_release == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: release-*
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          # Flatten all platform artifacts into one directory
+          find artifacts -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" \
+            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "latest*.yml" \) \
+            -exec cp {} release-files/ \;
+          ls -la release-files/
+
+      - name: Generate combined checksums
+        run: |
+          cd release-files
+          shopt -s nullglob
+          files=(*.AppImage *.deb *.tar.gz *.dmg *.zip *.exe)
+          if [ ${#files[@]} -gt 0 ]; then
+            for file in "${files[@]}"; do
+              sha256sum "$file" >> SHA256SUMS.txt
+            done
+            echo "=== SHA256SUMS.txt ==="
+            cat SHA256SUMS.txt
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-release.outputs.tag }}
+          name: v${{ needs.check-release.outputs.version }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            release-files/*.AppImage
+            release-files/*.deb
+            release-files/*.tar.gz
+            release-files/*.dmg
+            release-files/*.zip
+            release-files/*.exe
+            release-files/latest*.yml
+            release-files/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "## Release v${{ needs.check-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Published" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -la release-files/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the [draft release](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Edit release notes if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Click **Publish release** to make it public" >> $GITHUB_STEP_SUMMARY

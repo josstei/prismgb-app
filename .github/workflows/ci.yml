@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - beta
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/labels.yml'
+  workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: Run full OS matrix (macOS + Windows)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Primary Linux validation with coverage and integrations
+  validate-linux:
+    name: Test (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests with coverage
+        run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  # Optional macOS/Windows validation when explicitly requested
+  validate-matrix:
+    name: Test (${{ matrix.os }})
+    needs: validate-linux
+    runs-on: ${{ matrix.os }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run tests (no coverage)
+        run: npm run test:run
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  # Validate commit messages follow conventional commits
+  # Optimized: no native deps needed for commitlint
+  # Skip for workflow_dispatch (manual triggers) - PR context required
+  commitlint:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Validate commit messages
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # Build smoke test on ALL PRs to catch packaging regressions early
+  build-smoke:
+    name: Build Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Build Vite bundle
+        run: npm run build:vite
+
+  # Summary job for branch protection
+  ci-complete:
+    name: CI Complete
+    needs: [validate-linux, validate-matrix, commitlint, build-smoke]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          # commitlint is skipped for workflow_dispatch (no PR context)
+          commitlint_ok="${{ needs.commitlint.result == 'success' || needs.commitlint.result == 'skipped' }}"
+          validate_matrix_ok="${{ needs.validate-matrix.result == 'success' || needs.validate-matrix.result == 'skipped' }}"
+          if [ "${{ needs.validate-linux.result }}" != "success" ] || \
+             [ "$validate_matrix_ok" != "true" ] || \
+             [ "$commitlint_ok" != "true" ] || \
+             [ "${{ needs.build-smoke.result }}" != "success" ]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed!"

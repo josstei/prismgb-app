@@ -1,0 +1,22 @@
+# CODEOWNERS - Define code ownership for review requirements
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @josstei
+
+# CI/CD and GitHub configuration requires careful review
+.github/ @josstei
+.releaserc.json @josstei
+
+# Main process code (security-sensitive)
+src/app/main/ @josstei
+
+# Infrastructure (affects entire app)
+src/infrastructure/ @josstei
+
+# Build and release scripts
+scripts/ @josstei
+
+# Package configuration
+package.json @josstei
+package-lock.json @josstei
