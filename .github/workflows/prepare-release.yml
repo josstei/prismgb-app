@@ -1,0 +1,116 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  prepare:
+    name: Create Release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Calculate new version
+        id: version
+        run: |
+          current=$(node -p "require('./package.json').version")
+          IFS='.' read -r major minor patch <<< "$current"
+
+          case "${{ inputs.version_type }}" in
+            major) new="$((major + 1)).0.0" ;;
+            minor) new="${major}.$((minor + 1)).0" ;;
+            patch) new="${major}.${minor}.$((patch + 1))" ;;
+          esac
+
+          echo "current=$current" >> $GITHUB_OUTPUT
+          echo "new=$new" >> $GITHUB_OUTPUT
+          echo "Version: $current → $new"
+
+      - name: Clean up existing release branch
+        run: |
+          git push origin --delete release/v${{ steps.version.outputs.new }} 2>/dev/null || true
+
+      - name: Create release branch
+        run: |
+          git checkout -b release/v${{ steps.version.outputs.new }}
+
+      - name: Bump version
+        run: npm version ${{ steps.version.outputs.new }} --no-git-tag-version
+
+      - name: Commit changes
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump to v${{ steps.version.outputs.new }}"
+
+      - name: Push branch
+        run: git push -u origin release/v${{ steps.version.outputs.new }}
+
+      - name: Create Pull Request
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'chore(release): v${{ steps.version.outputs.new }}',
+              head: 'release/v${{ steps.version.outputs.new }}',
+              base: 'main',
+              body: `## Release v${{ steps.version.outputs.new }}
+
+            This PR bumps the version from \`${{ steps.version.outputs.current }}\` to \`${{ steps.version.outputs.new }}\`.
+
+            ### After merging
+
+            The release will be created automatically when this PR is merged.
+
+            ---
+            *Created by the [Prepare Release](../actions/workflows/prepare-release.yml) workflow.*`
+            });
+
+            console.log(`Created PR #${pr.number}: ${pr.html_url}`);
+            return pr.number;
+
+      - name: Add full-ci label to release PR
+        if: steps.pr.outputs.result != ''
+        run: gh pr edit ${{ steps.pr.outputs.result }} --add-label "full-ci"
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Release PR Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.current }} → ${{ steps.version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review and merge the PR" >> $GITHUB_STEP_SUMMARY
+          echo "2. The release will be built automatically after merge" >> $GITHUB_STEP_SUMMARY
