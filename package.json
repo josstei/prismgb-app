@@ -1,6 +1,6 @@
 {
   "name": "prismgb",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
