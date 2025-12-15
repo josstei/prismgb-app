@@ -39,6 +39,7 @@ Thumbs.db
 .env
 .env.local
 .claude/
+CLAUDE.md
 
 # Recordings and screenshots
 recordings/
