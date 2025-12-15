@@ -20,17 +20,81 @@ concurrency:
   group: ci-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  pull-requests: read
+
 jobs:
+  # ============================================
+  # Stage 1: Fast lint checks (run first)
+  # ============================================
+
+  # Validate PR title follows conventional commits
+  pr-title:
+    name: PR Title
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^.+$
+          subjectPatternError: |
+            The subject "{subject}" doesn't match the required pattern.
+
+            Examples of valid PR titles:
+            - feat: add user authentication
+            - fix(ui): resolve button alignment issue
+            - docs: update README installation steps
+
+  # Validate commit messages follow conventional commits
+  commitlint:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Validate commit messages
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # ============================================
+  # Stage 2: Build and test (after lint checks)
+  # ============================================
+
   # Primary Linux validation with coverage and integrations
   validate-linux:
     name: Test (ubuntu-latest)
+    needs: [pr-title, commitlint]
+    if: ${{ always() && (needs.pr-title.result == 'success' || needs.pr-title.result == 'skipped') && (needs.commitlint.result == 'success' || needs.commitlint.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Configure git line endings
         run: git config --global core.autocrlf false
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
@@ -60,7 +124,7 @@ jobs:
         run: git config --global core.autocrlf false
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
@@ -71,58 +135,20 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
-  # Validate commit messages follow conventional commits
-  # Optimized: no native deps needed for commitlint
-  # Skip for workflow_dispatch (manual triggers) - PR context required
-  commitlint:
-    name: Commit Messages
+  # Build smoke test on ALL PRs to catch packaging regressions early
+  build-smoke:
+    name: Build Smoke Test
+    needs: [pr-title, commitlint]
+    if: ${{ always() && (needs.pr-title.result == 'success' || needs.pr-title.result == 'skipped') && (needs.commitlint.result == 'success' || needs.commitlint.result == 'skipped') }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v6
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
         with:
           skip-native-deps: 'true'
 
-      - name: Validate commit messages
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
-
-  # Build smoke test on ALL PRs to catch packaging regressions early
-  build-smoke:
-    name: Build Smoke Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-deps
-
       - name: Build Vite bundle
         run: npm run build:vite
-
-  # Summary job for branch protection
-  ci-complete:
-    name: CI Complete
-    needs: [validate-linux, validate-matrix, commitlint, build-smoke]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check all jobs passed
-        run: |
-          # commitlint is skipped for workflow_dispatch (no PR context)
-          commitlint_ok="${{ needs.commitlint.result == 'success' || needs.commitlint.result == 'skipped' }}"
-          validate_matrix_ok="${{ needs.validate-matrix.result == 'success' || needs.validate-matrix.result == 'skipped' }}"
-          if [ "${{ needs.validate-linux.result }}" != "success" ] || \
-             [ "$validate_matrix_ok" != "true" ] || \
-             [ "$commitlint_ok" != "true" ] || \
-             [ "${{ needs.build-smoke.result }}" != "success" ]; then
-            echo "One or more required jobs failed"
-            exit 1
-          fi
-          echo "All CI checks passed!"
