@@ -104,17 +104,6 @@ body.fullscreen-active .stream-section {
   gap: 0;
 }
 
-/* Fullscreen: Minimal border, remove outer glow/shadow */
-body.fullscreen-active .stream-container {
-  border: none;
-  box-shadow: none;
-  background: #000;
-}
-
-/* Hide rainbow border in fullscreen for cleaner look */
-body.fullscreen-active .stream-container::before {
-  display: none;
-}
 
 /* Header */
 .header {
