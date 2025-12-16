@@ -160,6 +160,8 @@ class UpdateManager extends EventEmitter {
     // Skip in development mode
     if (this.config?.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
+      this._setState(UpdateState.NOT_AVAILABLE);
+      this._notifyRenderer('update:not-available', { version: this.config?.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
 

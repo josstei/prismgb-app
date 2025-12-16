@@ -20,6 +20,7 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
    * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
    * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
+   * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
    * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
@@ -33,6 +34,7 @@ export class AppOrchestrator extends BaseOrchestrator {
         'captureOrchestrator',
         'preferencesOrchestrator',
         'displayModeOrchestrator',
+        'updateOrchestrator',
         'uiSetupOrchestrator',
         'eventBus',
         'loggerFactory'
@@ -58,6 +60,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Initialize application orchestrators
     await this.preferencesOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
+    await this.updateOrchestrator.initialize();
     await this.uiSetupOrchestrator.initialize();
   }
 
@@ -131,6 +134,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Cleanup all sub-orchestrators (continue even if one fails)
     const orchestrators = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
+      ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
       ['preferencesOrchestrator', this.preferencesOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
