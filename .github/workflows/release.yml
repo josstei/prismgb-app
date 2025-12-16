@@ -230,7 +230,11 @@ jobs:
           files=(*.AppImage *.deb *.tar.gz *.dmg *.zip)
           if [ ${#files[@]} -gt 0 ]; then
             for file in "${files[@]}"; do
-              sha256sum "$file" >> SHA256SUMS.txt
+              if command -v sha256sum &> /dev/null; then
+                sha256sum "$file" >> SHA256SUMS.txt
+              else
+                shasum -a 256 "$file" >> SHA256SUMS.txt
+              fi
             done
             cat SHA256SUMS.txt
           else
