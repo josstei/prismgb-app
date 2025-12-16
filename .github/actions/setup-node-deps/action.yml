@@ -45,7 +45,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: node_modules
-        key: node-modules-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux' && inputs.skip-native-deps != 'true'
