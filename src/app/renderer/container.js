@@ -42,6 +42,10 @@ import { SettingsService } from '@features/settings/services/settings.service.js
 import { PreferencesOrchestrator } from '@features/settings/services/preferences.orchestrator.js';
 import { DisplayModeOrchestrator } from '@features/settings/services/display-mode.orchestrator.js';
 
+// Features: Updates
+import { UpdateService } from '@features/updates/services/update.service.js';
+import { UpdateOrchestrator } from '@features/updates/orchestrators/update.orchestrator.js';
+
 // Infrastructure
 import EventBus from '@infrastructure/events/event-bus.js';
 import { BrowserLogger } from '@infrastructure/logging/logger.js';
@@ -204,6 +208,15 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory', 'storageService']
   );
 
+  // Update Service (auto-updates)
+  container.registerSingleton(
+    'updateService',
+    function (eventBus, loggerFactory) {
+      return new UpdateService({ eventBus, loggerFactory });
+    },
+    ['eventBus', 'loggerFactory']
+  );
+
   // State Management - derives state from services (registered after services)
   // EventBus enables state caching via events for decoupled access
   container.registerSingleton('appState', function(streamingService, deviceService, eventBus) {
@@ -344,6 +357,19 @@ function createRendererContainer() {
     ['appState', 'settingsService', 'uiController', 'eventBus', 'loggerFactory']
   );
 
+  // Update Orchestrator - Coordinates auto-updates
+  container.registerSingleton(
+    'updateOrchestrator',
+    function (updateService, eventBus, loggerFactory) {
+      return new UpdateOrchestrator({
+        updateService,
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['updateService', 'eventBus', 'loggerFactory']
+  );
+
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
   container.registerSingleton(
     'uiSetupOrchestrator',
@@ -352,6 +378,7 @@ function createRendererContainer() {
       streamingOrchestrator,
       captureOrchestrator,
       displayModeOrchestrator,
+      updateOrchestrator,
       settingsService,
       uiController,
       eventBus,
@@ -362,6 +389,7 @@ function createRendererContainer() {
         streamingOrchestrator,
         captureOrchestrator,
         displayModeOrchestrator,
+        updateOrchestrator,
         settingsService,
         uiController,
         eventBus,
@@ -373,6 +401,7 @@ function createRendererContainer() {
       'streamingOrchestrator',
       'captureOrchestrator',
       'displayModeOrchestrator',
+      'updateOrchestrator',
       'settingsService',
       'uiController',
       'eventBus',
@@ -389,6 +418,7 @@ function createRendererContainer() {
       captureOrchestrator,
       preferencesOrchestrator,
       displayModeOrchestrator,
+      updateOrchestrator,
       uiSetupOrchestrator,
       eventBus,
       loggerFactory
@@ -399,6 +429,7 @@ function createRendererContainer() {
         captureOrchestrator,
         preferencesOrchestrator,
         displayModeOrchestrator,
+        updateOrchestrator,
         uiSetupOrchestrator,
         eventBus,
         loggerFactory
@@ -410,6 +441,7 @@ function createRendererContainer() {
       'captureOrchestrator',
       'preferencesOrchestrator',
       'displayModeOrchestrator',
+      'updateOrchestrator',
       'uiSetupOrchestrator',
       'eventBus',
       'loggerFactory'

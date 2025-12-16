@@ -24,7 +24,12 @@ const listenerRegistry = {
   connected: new Set(),
   disconnected: new Set(),
   enterFullscreen: new Set(),
-  leaveFullscreen: new Set()
+  leaveFullscreen: new Set(),
+  updateAvailable: new Set(),
+  updateNotAvailable: new Set(),
+  updateProgress: new Set(),
+  updateDownloaded: new Set(),
+  updateError: new Set()
 };
 
 /**
@@ -51,6 +56,23 @@ function isValidExternalUrl(url) {
   } catch {
     return false;
   }
+}
+
+function isValidUpdateInfo(info) {
+  if (!info || typeof info !== 'object') return false;
+  if (info.version !== undefined && typeof info.version !== 'string') return false;
+  return true;
+}
+
+function isValidProgress(progress) {
+  if (!progress || typeof progress !== 'object') return false;
+  if (progress.percent !== undefined && typeof progress.percent !== 'number') return false;
+  return true;
+}
+
+function isValidError(error) {
+  if (!error || typeof error !== 'object') return false;
+  return true;
 }
 
 /**
@@ -184,6 +206,165 @@ const windowAPI = {
 };
 
 /**
+ * Update API
+ * Handles auto-update functionality
+ */
+const updateAPI = {
+  getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE.GET_STATUS),
+  checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE.CHECK),
+  downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE.DOWNLOAD),
+  installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE.INSTALL),
+
+  onAvailable: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('updateAPI.onAvailable: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.updateAvailable.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('updateAPI.onAvailable: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onAvailable: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
+    listenerRegistry.updateAvailable.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.UPDATE.AVAILABLE, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.UPDATE.AVAILABLE, listener);
+      listenerRegistry.updateAvailable.delete(listener);
+    };
+  },
+
+  onNotAvailable: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('updateAPI.onNotAvailable: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.updateNotAvailable.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('updateAPI.onNotAvailable: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onNotAvailable: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
+    listenerRegistry.updateNotAvailable.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, listener);
+      listenerRegistry.updateNotAvailable.delete(listener);
+    };
+  },
+
+  onProgress: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('updateAPI.onProgress: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.updateProgress.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('updateAPI.onProgress: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, progress) => {
+      if (!isValidProgress(progress)) {
+        console.warn('updateAPI.onProgress: Invalid progress received');
+        return;
+      }
+      callback(progress);
+    };
+    listenerRegistry.updateProgress.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.UPDATE.PROGRESS, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.UPDATE.PROGRESS, listener);
+      listenerRegistry.updateProgress.delete(listener);
+    };
+  },
+
+  onDownloaded: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('updateAPI.onDownloaded: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.updateDownloaded.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('updateAPI.onDownloaded: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onDownloaded: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
+    listenerRegistry.updateDownloaded.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.UPDATE.DOWNLOADED, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.UPDATE.DOWNLOADED, listener);
+      listenerRegistry.updateDownloaded.delete(listener);
+    };
+  },
+
+  onError: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('updateAPI.onError: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.updateError.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('updateAPI.onError: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, error) => {
+      if (!isValidError(error)) {
+        console.warn('updateAPI.onError: Invalid error received');
+        return;
+      }
+      callback(error);
+    };
+    listenerRegistry.updateError.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.UPDATE.ERROR, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.UPDATE.ERROR, listener);
+      listenerRegistry.updateError.delete(listener);
+    };
+  },
+
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE.AVAILABLE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE.NOT_AVAILABLE);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE.PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE.DOWNLOADED);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE.ERROR);
+    listenerRegistry.updateAvailable.clear();
+    listenerRegistry.updateNotAvailable.clear();
+    listenerRegistry.updateProgress.clear();
+    listenerRegistry.updateDownloaded.clear();
+    listenerRegistry.updateError.clear();
+  }
+};
+
+/**
  * Expose APIs to renderer process
  */
 contextBridge.exposeInMainWorld('deviceAPI', {
@@ -198,5 +379,18 @@ contextBridge.exposeInMainWorld('windowAPI', {
   onEnterFullscreen: windowAPI.onEnterFullscreen,
   onLeaveFullscreen: windowAPI.onLeaveFullscreen,
   removeListeners: windowAPI.removeListeners
+});
+
+contextBridge.exposeInMainWorld('updateAPI', {
+  getStatus: updateAPI.getStatus,
+  checkForUpdates: updateAPI.checkForUpdates,
+  downloadUpdate: updateAPI.downloadUpdate,
+  installUpdate: updateAPI.installUpdate,
+  onAvailable: updateAPI.onAvailable,
+  onNotAvailable: updateAPI.onNotAvailable,
+  onProgress: updateAPI.onProgress,
+  onDownloaded: updateAPI.onDownloaded,
+  onError: updateAPI.onError,
+  removeListeners: updateAPI.removeListeners
 });
 

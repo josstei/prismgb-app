@@ -12,6 +12,7 @@ describe('UISetupOrchestrator', () => {
   let mockStreamingOrchestrator;
   let mockCaptureOrchestrator;
   let mockDisplayModeOrchestrator;
+  let mockUpdateOrchestrator;
   let mockSettingsService;
   let mockUiController;
   let mockEventBus;
@@ -57,6 +58,8 @@ describe('UISetupOrchestrator', () => {
       toggleFullscreen: vi.fn(),
       toggleCinematicMode: vi.fn()
     };
+
+    mockUpdateOrchestrator = {};
 
     mockSettingsService = {};
 
@@ -104,6 +107,7 @@ describe('UISetupOrchestrator', () => {
       streamingOrchestrator: mockStreamingOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
       displayModeOrchestrator: mockDisplayModeOrchestrator,
+      updateOrchestrator: mockUpdateOrchestrator,
       settingsService: mockSettingsService,
       uiController: mockUiController,
       eventBus: mockEventBus,
@@ -132,7 +136,9 @@ describe('UISetupOrchestrator', () => {
 
       expect(mockUiController.initSettingsMenu).toHaveBeenCalledWith({
         settingsService: mockSettingsService,
+        updateOrchestrator: mockUpdateOrchestrator,
         eventBus: mockEventBus,
+        loggerFactory: mockLoggerFactory,
         logger: mockLogger
       });
     });
