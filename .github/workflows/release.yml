@@ -113,11 +113,11 @@ jobs:
           PLATFORMS="${{ inputs.platforms || 'all' }}"
 
           if [ "$PLATFORMS" == "all" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-latest","build_script":"build:mac"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-13","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "linux" ]; then
             echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "macos" ]; then
-            echo 'matrix=[{"os":"macos-latest","build_script":"build:mac"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"macos-13","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "windows" ]; then
             echo 'matrix=[{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           fi
@@ -193,9 +193,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           if [ -n "$CSC_LINK" ]; then
-            npm run ${{ matrix.build_script }} -- --publish never
+            npm run ${{ matrix.build_script }} -- --arch=${{ matrix.arch }} --publish never
           else
-            npm run ${{ matrix.build_script }} -- --config.mac.identity=null --publish never
+            npm run ${{ matrix.build_script }} -- --arch=${{ matrix.arch }} --config.mac.identity=null --publish never
           fi
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -275,7 +275,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
           pattern: release-*
