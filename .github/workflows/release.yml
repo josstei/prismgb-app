@@ -156,9 +156,9 @@ jobs:
             ~/Library/Caches/electron-builder
             ~/AppData/Local/electron/Cache
             ~/AppData/Local/electron-builder/Cache
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-electron-builder-
+            ${{ runner.os }}-${{ runner.arch }}-electron-builder-
 
       - name: Import code signing certificate (macOS)
         if: runner.os == 'macOS' && env.CSC_LINK != ''
