@@ -10,10 +10,8 @@
 
 <p align="center">
   <a href="https://github.com/josstei/prismgb-app/releases/latest"><img src="https://img.shields.io/github/v/release/josstei/prismgb-app?label=version" alt="Latest Release"></a>
-  <a href="https://github.com/josstei/prismgb-app/releases"><img src="https://img.shields.io/github/downloads/josstei/prismgb-app/total" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
-  <a href="https://ko-fi.com/josstei"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -221,3 +219,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - [Mod Retro](https://modretro.com) for creating the Chromatic handheld
+
+## Support
+
+If you find PrismGB useful, consider supporting its development:
+
+<a href="https://ko-fi.com/josstei"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
