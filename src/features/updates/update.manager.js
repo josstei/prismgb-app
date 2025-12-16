@@ -5,7 +5,9 @@
  */
 
 import EventEmitter from 'events';
+import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 
 /**
  * Update states
@@ -88,14 +90,14 @@ class UpdateManager extends EventEmitter {
       this.logger.info('Update available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.AVAILABLE);
-      this._notifyRenderer('update:available', info);
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.AVAILABLE, info);
     });
 
     autoUpdater.on('update-not-available', (info) => {
       this.logger.info('No updates available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.NOT_AVAILABLE);
-      this._notifyRenderer('update:not-available', info);
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
     });
 
     autoUpdater.on('download-progress', (progress) => {
@@ -105,21 +107,21 @@ class UpdateManager extends EventEmitter {
         total: progress.total
       });
       this.downloadProgress = progress;
-      this._notifyRenderer('update:progress', progress);
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.PROGRESS, progress);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
       this.logger.info('Update downloaded', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.DOWNLOADED);
-      this._notifyRenderer('update:downloaded', info);
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
     });
 
     autoUpdater.on('error', (error) => {
       this.logger.error('Update error', error);
       this.error = error;
       this._setState(UpdateState.ERROR);
-      this._notifyRenderer('update:error', { message: error.message });
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
     });
   }
 
@@ -150,18 +152,26 @@ class UpdateManager extends EventEmitter {
 
   /**
    * Check for updates
+   * @param {Object} options - Check options
+   * @param {boolean} options.force - Force check even if already downloaded/downloading
    * @returns {Promise<Object>} Update check result
    */
-  async checkForUpdates() {
+  async checkForUpdates({ force = false } = {}) {
     if (!this._initialized) {
       throw new Error('UpdateManager not initialized');
+    }
+
+    // Skip if already downloaded or downloading (unless forced by user)
+    if (!force && (this.state === UpdateState.DOWNLOADED || this.state === UpdateState.DOWNLOADING)) {
+      this.logger.info('Skipping update check - update already in progress or downloaded');
+      return { updateAvailable: true, updateInfo: this.updateInfo, skipped: true };
     }
 
     // Skip in development mode
     if (this.config?.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
       this._setState(UpdateState.NOT_AVAILABLE);
-      this._notifyRenderer('update:not-available', { version: this.config?.version, reason: 'development' });
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config?.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
 
@@ -185,6 +195,12 @@ class UpdateManager extends EventEmitter {
   async downloadUpdate() {
     if (!this._initialized) {
       throw new Error('UpdateManager not initialized');
+    }
+
+    if (this.state === UpdateState.DOWNLOADED) {
+      this.logger.info('Update already downloaded');
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
+      return;
     }
 
     if (this.state !== UpdateState.AVAILABLE) {
@@ -216,6 +232,7 @@ class UpdateManager extends EventEmitter {
     }
 
     this.logger.info('Installing update and restarting...');
+    app.isQuitting = true;
     autoUpdater.quitAndInstall(false, true);
   }
 

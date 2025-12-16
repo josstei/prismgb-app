@@ -11,6 +11,7 @@ class IpcHandlers {
     this.logger = loggerFactory.create('IpcHandlers');
     this.deviceManager = deviceManager;
     this.updateManager = updateManager;
+    this._registeredChannels = [];
   }
 
   /**
@@ -25,11 +26,26 @@ class IpcHandlers {
   }
 
   /**
+   * Remove all registered IPC handlers
+   */
+  dispose() {
+    this.logger.info('Removing IPC handlers');
+    this._registeredChannels.forEach(channel => {
+      ipcMain.removeHandler(channel);
+    });
+    this._registeredChannels = [];
+  }
+
+  _registerHandler(channel, handler) {
+    ipcMain.handle(channel, handler);
+    this._registeredChannels.push(channel);
+  }
+
+  /**
    * Register device-related IPC handlers
    */
   _registerDeviceHandlers() {
-    // Get device status
-    ipcMain.handle(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
+    this._registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
       try {
         const status = this.deviceManager.getStatus();
         return status;
@@ -44,8 +60,7 @@ class IpcHandlers {
    * Register shell-related IPC handlers
    */
   _registerShellHandlers() {
-    // Open external URL in default browser
-    ipcMain.handle(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, async (event, url) => {
+    this._registerHandler(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, async (event, url) => {
       try {
         // Validate URL before opening
         const parsedUrl = new URL(url);
@@ -65,8 +80,7 @@ class IpcHandlers {
    * Register update-related IPC handlers
    */
   _registerUpdateHandlers() {
-    // Check for updates
-    ipcMain.handle(IPC_CHANNELS.UPDATE.CHECK, async () => {
+    this._registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
       try {
         const result = await this.updateManager.checkForUpdates();
         return { success: true, ...result };
@@ -76,8 +90,7 @@ class IpcHandlers {
       }
     });
 
-    // Download update
-    ipcMain.handle(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
+    this._registerHandler(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
       try {
         await this.updateManager.downloadUpdate();
         return { success: true };
@@ -87,10 +100,8 @@ class IpcHandlers {
       }
     });
 
-    // Install update (quit and install)
-    ipcMain.handle(IPC_CHANNELS.UPDATE.INSTALL, async () => {
+    this._registerHandler(IPC_CHANNELS.UPDATE.INSTALL, async () => {
       try {
-        // This will quit the app and install the update
         this.updateManager.installUpdate();
         return { success: true };
       } catch (error) {
@@ -99,8 +110,7 @@ class IpcHandlers {
       }
     });
 
-    // Get update status
-    ipcMain.handle(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
+    this._registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
       try {
         const status = this.updateManager.getStatus();
         return { success: true, ...status };

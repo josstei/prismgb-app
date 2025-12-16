@@ -95,9 +95,14 @@ class Application {
   }
 
   /**
-   * Cleanup on app quit
+   * Cleanup on app quit (idempotent - safe to call multiple times)
    */
   cleanup() {
+    if (this._cleanedUp) {
+      return;
+    }
+    this._cleanedUp = true;
+
     this.logger.info('Shutting down PrismGB...');
 
     if (!this.container) {
@@ -106,22 +111,31 @@ class Application {
     }
 
     try {
-      // Close DevTools and destroy main window to prevent zombie processes
       if (this._windowManager?.mainWindow) {
         const win = this._windowManager.mainWindow;
-        if (win.webContents?.isDevToolsOpened()) {
-          win.webContents.closeDevTools();
-          this.logger.debug('Closed DevTools');
+        if (!win.isDestroyed()) {
+          if (win.webContents?.isDevToolsOpened()) {
+            win.webContents.closeDevTools();
+            this.logger.debug('Closed DevTools');
+          }
+          win.destroy();
+          this.logger.debug('Destroyed main window');
         }
-        win.destroy();
-        this.logger.debug('Destroyed main window');
       }
     } catch (error) {
       this.logger.error('Error destroying window:', error);
     }
 
     try {
-      // Remove device manager event listener to prevent memory leaks
+      if (this._ipcHandlers) {
+        this._ipcHandlers.dispose();
+        this.logger.debug('Disposed IPC handlers');
+      }
+    } catch (error) {
+      this.logger.error('Error disposing IPC handlers:', error);
+    }
+
+    try {
       if (this._connectionChangedHandler && this._deviceManager) {
         this._deviceManager.off('connection-changed', this._connectionChangedHandler);
         this._connectionChangedHandler = null;

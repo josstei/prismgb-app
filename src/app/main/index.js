@@ -157,16 +157,14 @@ if (process.argv.includes('--smoke-test')) {
       // Intentionally empty - app stays running in tray
     });
 
-    // Before quit cleanup
     app.on('before-quit', (event) => {
-      if (!app.isQuitting) {
+      const wasAlreadyQuitting = app.isQuitting;
+      app.isQuitting = true;
+
+      application.cleanup();
+
+      if (!wasAlreadyQuitting) {
         event.preventDefault();
-        app.isQuitting = true;
-
-        // Cleanup and give native USB threads time to terminate
-        application.cleanup();
-
-        // Small delay to allow usb-detection native threads to clean up
         setTimeout(() => {
           app.quit();
         }, 100);

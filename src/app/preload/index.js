@@ -58,6 +58,23 @@ function isValidExternalUrl(url) {
   }
 }
 
+function isValidUpdateInfo(info) {
+  if (!info || typeof info !== 'object') return false;
+  if (info.version !== undefined && typeof info.version !== 'string') return false;
+  return true;
+}
+
+function isValidProgress(progress) {
+  if (!progress || typeof progress !== 'object') return false;
+  if (progress.percent !== undefined && typeof progress.percent !== 'number') return false;
+  return true;
+}
+
+function isValidError(error) {
+  if (!error || typeof error !== 'object') return false;
+  return true;
+}
+
 /**
  * Device API
  * Handles communication with connected device
@@ -209,7 +226,13 @@ const updateAPI = {
       return () => {};
     }
 
-    const listener = (event, info) => callback(info);
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onAvailable: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
     listenerRegistry.updateAvailable.add(listener);
     ipcRenderer.on(IPC_CHANNELS.UPDATE.AVAILABLE, listener);
 
@@ -230,7 +253,13 @@ const updateAPI = {
       return () => {};
     }
 
-    const listener = (event, info) => callback(info);
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onNotAvailable: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
     listenerRegistry.updateNotAvailable.add(listener);
     ipcRenderer.on(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, listener);
 
@@ -251,7 +280,13 @@ const updateAPI = {
       return () => {};
     }
 
-    const listener = (event, progress) => callback(progress);
+    const listener = (event, progress) => {
+      if (!isValidProgress(progress)) {
+        console.warn('updateAPI.onProgress: Invalid progress received');
+        return;
+      }
+      callback(progress);
+    };
     listenerRegistry.updateProgress.add(listener);
     ipcRenderer.on(IPC_CHANNELS.UPDATE.PROGRESS, listener);
 
@@ -272,7 +307,13 @@ const updateAPI = {
       return () => {};
     }
 
-    const listener = (event, info) => callback(info);
+    const listener = (event, info) => {
+      if (!isValidUpdateInfo(info)) {
+        console.warn('updateAPI.onDownloaded: Invalid update info received');
+        return;
+      }
+      callback(info);
+    };
     listenerRegistry.updateDownloaded.add(listener);
     ipcRenderer.on(IPC_CHANNELS.UPDATE.DOWNLOADED, listener);
 
@@ -293,7 +334,13 @@ const updateAPI = {
       return () => {};
     }
 
-    const listener = (event, error) => callback(error);
+    const listener = (event, error) => {
+      if (!isValidError(error)) {
+        console.warn('updateAPI.onError: Invalid error received');
+        return;
+      }
+      callback(error);
+    };
     listenerRegistry.updateError.add(listener);
     ipcRenderer.on(IPC_CHANNELS.UPDATE.ERROR, listener);
 

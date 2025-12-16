@@ -33,7 +33,7 @@ class UpdateOrchestrator extends BaseOrchestrator {
       [EventChannels.UPDATE.ERROR]: (error) => this._handleError(error)
     });
 
-    this.updateService.initialize();
+    await this.updateService.initialize();
   }
 
   _handleUpdateAvailable(info) {

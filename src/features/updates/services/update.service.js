@@ -38,7 +38,7 @@ class UpdateService extends BaseService {
     this._initialized = false;
   }
 
-  initialize() {
+  async initialize() {
     if (this._initialized) {
       this.logger.warn('UpdateService already initialized');
       return;
@@ -51,6 +51,8 @@ class UpdateService extends BaseService {
 
     this.logger.info('Initializing UpdateService');
 
+    await this._loadInitialStatus();
+
     this._cleanupFns.push(
       window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
       window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
@@ -61,8 +63,6 @@ class UpdateService extends BaseService {
 
     this._initialized = true;
     this.logger.info('UpdateService initialized');
-
-    this._loadInitialStatus();
   }
 
   async _loadInitialStatus() {
@@ -73,7 +73,6 @@ class UpdateService extends BaseService {
         this._updateInfo = result.updateInfo;
         this._downloadProgress = result.downloadProgress;
         this._error = result.error;
-        this._emitStateChanged();
       }
     } catch (error) {
       this.logger.warn('Failed to load initial update status', error.message);
@@ -219,6 +218,10 @@ class UpdateService extends BaseService {
 
     window.updateAPI?.removeListeners();
 
+    this._state = UpdateState.IDLE;
+    this._updateInfo = null;
+    this._downloadProgress = null;
+    this._error = null;
     this._initialized = false;
     this.logger.info('UpdateService disposed');
   }

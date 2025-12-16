@@ -18,6 +18,7 @@ class UpdateSectionComponent {
     this.logger = loggerFactory?.create('UpdateSectionComponent') || console;
 
     this._subscriptions = [];
+    this._activeTimeouts = [];
     this._initialized = false;
 
     this.elements = {
@@ -155,7 +156,7 @@ class UpdateSectionComponent {
       case UpdateState.NOT_AVAILABLE:
         textEl.textContent = 'Up to date';
         textEl.classList.add('flash-success');
-        setTimeout(() => textEl.classList.remove('flash-success'), 1500);
+        this._scheduleTimeout(() => textEl.classList.remove('flash-success'), 1500);
         break;
       case UpdateState.CHECKING:
         textEl.textContent = 'Checking for updates...';
@@ -177,6 +178,14 @@ class UpdateSectionComponent {
       default:
         textEl.textContent = 'Up to date';
     }
+  }
+
+  _scheduleTimeout(callback, delay) {
+    const timeoutId = setTimeout(() => {
+      this._activeTimeouts = this._activeTimeouts.filter(id => id !== timeoutId);
+      callback();
+    }, delay);
+    this._activeTimeouts.push(timeoutId);
   }
 
   _updateActionButton(state) {
@@ -259,20 +268,29 @@ class UpdateSectionComponent {
   }
 
   async _handleActionClick() {
-    const status = this.updateOrchestrator.getStatus();
+    const btn = this.elements.actionBtn;
+    if (!btn || btn.disabled) return;
 
-    switch (status.state) {
-      case UpdateState.IDLE:
-      case UpdateState.NOT_AVAILABLE:
-      case UpdateState.ERROR:
-        await this.updateOrchestrator.checkForUpdates();
-        break;
-      case UpdateState.AVAILABLE:
-        await this.updateOrchestrator.downloadUpdate();
-        break;
-      case UpdateState.DOWNLOADED:
-        await this.updateOrchestrator.installUpdate();
-        break;
+    btn.disabled = true;
+
+    try {
+      const status = this.updateOrchestrator.getStatus();
+
+      switch (status.state) {
+        case UpdateState.IDLE:
+        case UpdateState.NOT_AVAILABLE:
+        case UpdateState.ERROR:
+          await this.updateOrchestrator.checkForUpdates();
+          break;
+        case UpdateState.AVAILABLE:
+          await this.updateOrchestrator.downloadUpdate();
+          break;
+        case UpdateState.DOWNLOADED:
+          await this.updateOrchestrator.installUpdate();
+          break;
+      }
+    } finally {
+      this._updateActionButton(this.updateOrchestrator.getStatus().state);
     }
   }
 
@@ -289,6 +307,9 @@ class UpdateSectionComponent {
       }
     });
     this._subscriptions = [];
+
+    this._activeTimeouts.forEach(clearTimeout);
+    this._activeTimeouts = [];
 
     if (this.elements.actionBtn) {
       this.elements.actionBtn.replaceWith(this.elements.actionBtn.cloneNode(true));
