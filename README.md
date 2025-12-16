@@ -68,10 +68,10 @@ Download the latest release for your operating system from the [Releases](https:
 |----------|----------|-------------|
 | Windows  | `PrismGB-Setup-x.x.x.exe` | Installer with Start Menu shortcuts |
 | Windows  | `PrismGB-x.x.x-portable.exe` | Portable version, no install needed |
-| macOS    | `PrismGB-x.x.x-mac.dmg` | Disk image installer |
-| macOS    | `PrismGB-x.x.x-mac.zip` | Compressed app bundle |
-| Linux    | `PrismGB-x.x.x-x64.AppImage` | Universal Linux package |
-| Linux    | `PrismGB-x.x.x-x64.deb` | For Debian/Ubuntu systems |
+| macOS (Apple Silicon) | `PrismGB-x.x.x-mac-arm64.dmg` | For M1/M2/M3/M4 Macs |
+| macOS (Intel) | `PrismGB-x.x.x-mac-x64.dmg` | For Intel-based Macs |
+| Linux    | `PrismGB-x.x.x-x86_64.AppImage` | Universal Linux package |
+| Linux    | `PrismGB-x.x.x-amd64.deb` | For Debian/Ubuntu systems |
 | Linux    | `PrismGB-x.x.x-x64.tar.gz` | Compressed archive |
 
 > **Note:** Replace `x.x.x` with the actual version number (e.g., `1.1.1`).
@@ -90,27 +90,31 @@ Download the latest release for your operating system from the [Releases](https:
 
 ### macOS Installation
 
-1. Download `PrismGB-x.x.x-mac.dmg`
+1. Download the appropriate DMG for your Mac:
+   - **Apple Silicon (M1/M2/M3/M4):** `PrismGB-x.x.x-mac-arm64.dmg`
+   - **Intel:** `PrismGB-x.x.x-mac-x64.dmg`
 2. Open the DMG file
 3. Drag PrismGB to your Applications folder
 4. Launch PrismGB from your Applications folder or Spotlight
+
+> **Tip:** Not sure which Mac you have? Click the Apple menu → "About This Mac". If it says "Apple M1/M2/M3/M4", use the ARM64 version. If it says "Intel", use the x64 version.
 
 ### Linux Installation
 
 **Option 1: AppImage (recommended for most users)**
 ```bash
 # Make the AppImage executable
-chmod +x PrismGB-x.x.x-x64.AppImage
+chmod +x PrismGB-x.x.x-x86_64.AppImage
 
 # Run the application
-./PrismGB-x.x.x-x64.AppImage
+./PrismGB-x.x.x-x86_64.AppImage
 ```
 > AppImages are self-contained and work on most Linux distributions without installation.
 
 **Option 2: Debian/Ubuntu (.deb)**
 ```bash
 # Install the package (automatically installs libusb dependency)
-sudo dpkg -i PrismGB-x.x.x-x64.deb
+sudo dpkg -i PrismGB-x.x.x-amd64.deb
 
 # If there are dependency errors, run:
 sudo apt-get install -f
