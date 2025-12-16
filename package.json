@@ -1,6 +1,6 @@
 {
   "name": "prismgb",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
@@ -103,11 +103,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.icns",
