@@ -40,6 +40,7 @@
         </button>
         <div class="settings-control">
           <button class="btn btn-primary" id="settingsBtn" aria-label="Open Settings" aria-expanded="false">
+            <span class="update-badge hidden" id="updateBadge"></span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -55,6 +56,30 @@
                   <input type="checkbox" id="settingStatusStrip">
                   <span class="toggle-slider"></span>
                 </label>
+              </section>
+
+              <!-- Updates Section -->
+              <section class="settings-section settings-updates" id="updateSection">
+                <h3 class="settings-section-title">Updates</h3>
+                <div class="update-content">
+                  <div class="update-version-row">
+                    <span class="update-label">Current Version</span>
+                    <span class="update-current-version" id="updateCurrentVersion">v1.0.0</span>
+                  </div>
+                  <div class="update-status-row">
+                    <span class="update-status-indicator" id="updateStatusIndicator"></span>
+                    <span class="update-status-text" id="updateStatusText">Up to date</span>
+                  </div>
+                  <div class="update-progress-container hidden" id="updateProgressContainer">
+                    <div class="update-progress-bar">
+                      <div class="update-progress-fill" id="updateProgressFill"></div>
+                    </div>
+                    <span class="update-progress-text" id="updateProgressText">0%</span>
+                  </div>
+                  <button class="btn btn-sm btn-primary update-action-btn" id="updateActionBtn">
+                    Check for Updates
+                  </button>
+                </div>
               </section>
 
               <!-- Compact Footer -->

@@ -12,6 +12,7 @@ describe('AppOrchestrator', () => {
   let mockCaptureOrchestrator;
   let mockPreferencesOrchestrator;
   let mockDisplayModeOrchestrator;
+  let mockUpdateOrchestrator;
   let mockUISetupOrchestrator;
   let mockEventBus;
   let mockLogger;
@@ -49,6 +50,11 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
+    mockUpdateOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
     mockUISetupOrchestrator = {
       initialize: vi.fn().mockResolvedValue(),
       initializeSettingsMenu: vi.fn(),
@@ -76,6 +82,7 @@ describe('AppOrchestrator', () => {
       captureOrchestrator: mockCaptureOrchestrator,
       preferencesOrchestrator: mockPreferencesOrchestrator,
       displayModeOrchestrator: mockDisplayModeOrchestrator,
+      updateOrchestrator: mockUpdateOrchestrator,
       uiSetupOrchestrator: mockUISetupOrchestrator,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
@@ -118,6 +125,7 @@ describe('AppOrchestrator', () => {
 
       expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
   });
@@ -194,6 +202,7 @@ describe('AppOrchestrator', () => {
 
       // Verify all orchestrators are cleaned up
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPreferencesOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();

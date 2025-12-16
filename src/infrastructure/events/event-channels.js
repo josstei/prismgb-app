@@ -70,5 +70,17 @@ export const EventChannels = {
     RECORDING_STATE: 'ui:recording-state',
     CINEMATIC_MODE: 'ui:cinematic-mode',
     FULLSCREEN_STATE: 'ui:fullscreen-state'
+  },
+
+  // Update events
+  UPDATE: {
+    AVAILABLE: 'update:available',
+    NOT_AVAILABLE: 'update:not-available',
+    PROGRESS: 'update:progress',
+    DOWNLOADED: 'update:downloaded',
+    ERROR: 'update:error',
+    STATE_CHANGED: 'update:state-changed',
+    BADGE_SHOW: 'update:badge-show',
+    BADGE_HIDE: 'update:badge-hide'
   }
 };

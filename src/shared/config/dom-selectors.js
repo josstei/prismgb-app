@@ -60,5 +60,16 @@ export const DOMSelectors = {
   FS_EXIT_BTN: 'fsExitBtn',
 
   // Stream container (for animation class)
-  STREAM_CONTAINER: 'streamContainer'
+  STREAM_CONTAINER: 'streamContainer',
+
+  // Update section
+  UPDATE_SECTION: 'updateSection',
+  UPDATE_CURRENT_VERSION: 'updateCurrentVersion',
+  UPDATE_STATUS_INDICATOR: 'updateStatusIndicator',
+  UPDATE_STATUS_TEXT: 'updateStatusText',
+  UPDATE_PROGRESS_CONTAINER: 'updateProgressContainer',
+  UPDATE_PROGRESS_FILL: 'updateProgressFill',
+  UPDATE_PROGRESS_TEXT: 'updateProgressText',
+  UPDATE_ACTION_BTN: 'updateActionBtn',
+  UPDATE_BADGE: 'updateBadge'
 };

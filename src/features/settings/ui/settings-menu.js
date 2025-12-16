@@ -8,17 +8,23 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
+import { UpdateSectionComponent } from '@features/updates/ui/update-section.component.js';
 
 class SettingsMenuComponent {
-  constructor({ settingsService, eventBus, logger }) {
+  constructor({ settingsService, updateOrchestrator, eventBus, loggerFactory, logger }) {
     this.settingsService = settingsService;
+    this.updateOrchestrator = updateOrchestrator;
     this.eventBus = eventBus;
+    this.loggerFactory = loggerFactory;
     this.logger = logger;
     this.isVisible = false;
     this.disclaimerExpanded = false;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
+
+    // Update section component
+    this._updateSection = null;
   }
 
   /**
@@ -43,8 +49,29 @@ class SettingsMenuComponent {
     this._setupClickOutside();
     this._setupEscapeKey();
     this._setAppVersion();
+    this._initializeUpdateSection();
 
     this.logger?.debug('SettingsMenuComponent initialized');
+  }
+
+  _initializeUpdateSection() {
+    if (!this.updateOrchestrator) {
+      this.logger?.warn('UpdateOrchestrator not available - update section disabled');
+      return;
+    }
+
+    this._updateSection = new UpdateSectionComponent({
+      updateOrchestrator: this.updateOrchestrator,
+      eventBus: this.eventBus,
+      loggerFactory: this.loggerFactory
+    });
+
+    this._updateSection.initialize();
+
+    // Set current version
+    if (typeof __APP_VERSION__ !== 'undefined') {
+      this._updateSection.setCurrentVersion(__APP_VERSION__);
+    }
   }
 
   _setAppVersion() {
@@ -258,6 +285,8 @@ class SettingsMenuComponent {
    */
   dispose() {
     this._domListeners.removeAll();
+    this._updateSection?.dispose();
+    this._updateSection = null;
   }
 }
 

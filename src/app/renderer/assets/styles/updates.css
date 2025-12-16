@@ -1,0 +1,276 @@
+/* =====================================================
+   Update Section Styles
+   Eye-catching prismatic theme for auto-updates
+   ===================================================== */
+
+/* Flash animation for status text feedback */
+.flash-success {
+  animation: flash-green 1.5s ease-out;
+}
+
+@keyframes flash-green {
+  0% {
+    color: var(--color-success);
+    text-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.8);
+  }
+  100% {
+    color: var(--color-text-muted);
+    text-shadow: none;
+  }
+}
+
+/* Settings button update badge */
+#settingsBtn {
+  position: relative;
+}
+
+.update-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.8),
+              0 0 16px rgba(var(--color-primary-rgb), 0.4);
+  animation: update-badge-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.update-badge.hidden {
+  display: none;
+}
+
+@keyframes update-badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.7;
+  }
+}
+
+/* Updates section base */
+.settings-section.settings-updates {
+  position: relative;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+/* Rainbow border when update available */
+.settings-section.settings-updates.update-available {
+  background: var(--glass-bg);
+  margin: -1px;
+  padding: calc(var(--space-md) + 1px) calc(20px + 1px);
+}
+
+.settings-section.settings-updates.update-available::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  padding: 2px;
+  background: var(--rainbow-gradient);
+  background-size: 300% 300%;
+  animation: rainbow-border-shift 3s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes rainbow-border-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Update content layout */
+.update-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.update-version-row,
+.update-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.update-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.update-current-version {
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Status row */
+.update-status-row {
+  justify-content: flex-start;
+  gap: var(--space-sm);
+}
+
+/* Status indicator dot */
+.update-status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.update-status-indicator.checking {
+  background: var(--color-info);
+  animation: status-pulse 1s ease-in-out infinite;
+}
+
+.update-status-indicator.available {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.6);
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+.update-status-indicator.downloading {
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+  animation: status-pulse 0.8s ease-in-out infinite;
+}
+
+.update-status-indicator.downloaded {
+  background: var(--color-success);
+  box-shadow: 0 0 12px rgba(var(--color-success-rgb), 0.8);
+  animation: status-glow 2s ease-in-out infinite;
+}
+
+.update-status-indicator.error {
+  background: var(--color-danger);
+  box-shadow: 0 0 8px rgba(var(--color-danger-rgb), 0.6);
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+@keyframes status-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(var(--color-success-rgb), 0.9),
+                0 0 24px rgba(var(--color-success-rgb), 0.4);
+  }
+}
+
+.update-status-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.update-status-text.highlight {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Progress bar */
+.update-progress-container {
+  margin: var(--space-xs) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.update-progress-container.hidden {
+  display: none;
+}
+
+.update-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.5);
+}
+
+.update-progress-text {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-display);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Action button */
+.update-action-btn {
+  margin-top: var(--space-sm);
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.update-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Rainbow button for install action */
+.update-action-btn.btn-install {
+  background: var(--rainbow-gradient);
+  background-size: 200% 200%;
+  animation: rainbow-btn-shift 4s ease infinite;
+  border: none;
+  color: white;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.update-action-btn.btn-install:hover {
+  animation-duration: 2s;
+  box-shadow: var(--shadow-glow-prismatic);
+  transform: translateY(-1px);
+}
+
+@keyframes rainbow-btn-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* New version highlight */
+.update-new-version {
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-success);
+  text-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.5);
+}

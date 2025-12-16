@@ -44,5 +44,12 @@ export const CSSClasses = {
   FULLSCREEN_ANIMATING: 'fullscreen-animating',
 
   // Fullscreen mode active (body class for reliable CSS targeting in Electron)
-  FULLSCREEN_ACTIVE: 'fullscreen-active'
+  FULLSCREEN_ACTIVE: 'fullscreen-active',
+
+  // Update states
+  UPDATE_AVAILABLE: 'update-available',
+  UPDATE_CHECKING: 'checking',
+  UPDATE_DOWNLOADING: 'downloading',
+  UPDATE_DOWNLOADED: 'downloaded',
+  UPDATE_ERROR: 'error'
 };
