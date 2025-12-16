@@ -193,9 +193,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           if [ -n "$CSC_LINK" ]; then
-            npm run ${{ matrix.build_script }} -- --arch=${{ matrix.arch }} --publish never
+            npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
           else
-            npm run ${{ matrix.build_script }} -- --arch=${{ matrix.arch }} --config.mac.identity=null --publish never
+            npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --config.mac.identity=null --publish never
           fi
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
