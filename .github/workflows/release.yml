@@ -113,11 +113,11 @@ jobs:
           PLATFORMS="${{ inputs.platforms || 'all' }}"
 
           if [ "$PLATFORMS" == "all" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-13","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "linux" ]; then
             echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "macos" ]; then
-            echo 'matrix=[{"os":"macos-13","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "windows" ]; then
             echo 'matrix=[{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           fi
