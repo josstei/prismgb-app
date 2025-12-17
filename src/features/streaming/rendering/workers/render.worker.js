@@ -932,6 +932,10 @@ self.onmessage = async (event) => {
       handleSetPreset(payload);
       break;
 
+    case WorkerMessageType.REQUEST_CAPTURE:
+      handleRequestCapture();
+      break;
+
     case WorkerMessageType.CAPTURE:
       handleCapture();
       break;
@@ -1073,6 +1077,23 @@ function handleResize(payload) {
 function handleSetPreset(_payload) {
   // Preset changes are handled via uniforms in handleFrame
   // This handler is for future preset-specific GPU resource changes
+}
+
+/**
+ * Handle request to capture the next rendered frame
+ * Arms the lazy capture buffer so the next frame will be saved
+ */
+function handleRequestCapture() {
+  if (!captureManager) {
+    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+      message: 'Capture manager not initialized',
+      code: 'NO_CAPTURE_MANAGER'
+    }));
+    return;
+  }
+
+  captureManager.requestCapture();
+  self.postMessage(createWorkerResponse(WorkerResponseType.CAPTURE_REQUESTED, {}));
 }
 
 /**

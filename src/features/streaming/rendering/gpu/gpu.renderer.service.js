@@ -86,6 +86,7 @@ export class GPURendererService extends BaseService {
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
     this._captureTimeoutId = null;
+    this._waitingForCapturedFrame = false;
 
     // Brightness event subscription (for cleanup)
     this._brightnessUnsubscribe = null;
@@ -330,6 +331,12 @@ export class GPURendererService extends BaseService {
 
       case WorkerResponseType.FRAME_RENDERED:
         this._pendingFrames = Math.max(0, this._pendingFrames - 1);
+        // If we're waiting for a frame to be captured, send CAPTURE now
+        if (this._waitingForCapturedFrame) {
+          this._waitingForCapturedFrame = false;
+          const captureMessage = createWorkerMessage(WorkerMessageType.CAPTURE);
+          this._worker.postMessage(captureMessage);
+        }
         break;
 
       case WorkerResponseType.STATS:
@@ -352,6 +359,11 @@ export class GPURendererService extends BaseService {
           this._captureTimeoutId = null;
         }
         this._resolvePendingCapture(null, new Error(payload.message));
+        break;
+
+      case WorkerResponseType.CAPTURE_REQUESTED:
+        // Capture request acknowledged - frame will be captured on next render
+        this.logger.debug('Capture request acknowledged by worker');
         break;
 
       case WorkerResponseType.CAPTURE_READY:
@@ -579,7 +591,8 @@ export class GPURendererService extends BaseService {
 
   /**
    * Capture the current rendered frame with shader effects applied
-   * Uses the double-buffer in the worker for instant response.
+   * Uses request-before-capture pattern: arms lazy capture, waits for next frame,
+   * then retrieves the captured frame with all shader effects at upscaled resolution.
    * @returns {Promise<ImageBitmap>} The captured frame as ImageBitmap
    * @throws {Error} If renderer not ready or capture already in progress
    */
@@ -597,12 +610,17 @@ export class GPURendererService extends BaseService {
       this._pendingCaptureResolve = resolve;
       this._pendingCaptureReject = reject;
 
-      // Request capture from worker
-      const message = createWorkerMessage(WorkerMessageType.CAPTURE);
-      this._worker.postMessage(message);
+      // Step 1: Send REQUEST_CAPTURE to arm the lazy capture buffer
+      const requestMessage = createWorkerMessage(WorkerMessageType.REQUEST_CAPTURE);
+      this._worker.postMessage(requestMessage);
 
-      // Timeout after 1 second (should be instant, but safety net)
+      // Step 2: Set flag to send CAPTURE when next FRAME_RENDERED arrives
+      // This ensures we capture a fully rendered frame with all shader effects
+      this._waitingForCapturedFrame = true;
+
+      // Timeout after 1 second (should complete within 1-2 frames at 60fps)
       this._captureTimeoutId = setTimeout(() => {
+        this._waitingForCapturedFrame = false;
         this._resolvePendingCapture(null, new Error('Capture request timed out'));
       }, 1000);
     });

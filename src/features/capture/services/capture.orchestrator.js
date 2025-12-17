@@ -26,6 +26,13 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     this.gpuRendererService = dependencies.gpuRendererService;
     this.canvasRenderer = dependencies.canvasRenderer;
+
+    this._recordingCanvas = null;
+    this._recordingCtx = null;
+    this._recordingStream = null;
+    this._recordingFrameId = null;
+    this._isGpuRecording = false;
+    this._capturePending = false;
   }
 
   /**
@@ -85,26 +92,119 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
   /**
    * Toggle recording (start/stop)
-   * Uses AppState.currentStream instead of direct orchestrator call (decoupled)
+   * When GPU renderer active, captures rendered frames with shader effects.
+   * Otherwise falls back to raw device stream.
    */
   async toggleRecording() {
-    // When stopping, stream is not needed (captureService handles this internally)
-    // When starting, validate stream exists to prevent cryptic errors downstream
     const isCurrentlyRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
-    const stream = this.appState.currentStream;
 
-    if (!isCurrentlyRecording && !stream) {
+    if (isCurrentlyRecording) {
+      await this._stopRecording();
+      return;
+    }
+
+    const stream = this.appState.currentStream;
+    if (!stream) {
       this.logger.warn('Cannot start recording - no active stream');
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Cannot record - not streaming', type: 'error' });
       return;
     }
 
     try {
-      await this.captureService.toggleRecording(stream);
+      if (this.gpuRendererService.isActive()) {
+        await this._startGpuRecording();
+      } else {
+        await this.captureService.startRecording(stream);
+      }
     } catch (error) {
-      this.logger.error('Failed to toggle recording:', error);
+      this.logger.error('Failed to start recording:', error);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Error with recording', type: 'error' });
     }
+  }
+
+  /**
+   * Start recording from GPU-rendered canvas with shader effects
+   * @private
+   */
+  async _startGpuRecording() {
+    const targetWidth = this.gpuRendererService._targetWidth || 640;
+    const targetHeight = this.gpuRendererService._targetHeight || 576;
+
+    this._recordingCanvas = document.createElement('canvas');
+    this._recordingCanvas.width = targetWidth;
+    this._recordingCanvas.height = targetHeight;
+    this._recordingCtx = this._recordingCanvas.getContext('2d');
+
+    this._recordingStream = this._recordingCanvas.captureStream();
+    this._isGpuRecording = true;
+
+    this.logger.info(`Starting GPU recording at ${targetWidth}x${targetHeight}`);
+
+    await this.captureService.startRecording(this._recordingStream);
+    this._startRecordingFrameLoop();
+  }
+
+  /**
+   * Frame loop that captures GPU frames and draws to recording canvas
+   * @private
+   */
+  _startRecordingFrameLoop() {
+    const captureAndDraw = async () => {
+      if (!this._isGpuRecording) return;
+
+      if (!this._capturePending) {
+        this._capturePending = true;
+        let frame = null;
+        try {
+          frame = await this.gpuRendererService.captureFrame();
+          this._recordingCtx.drawImage(frame, 0, 0);
+        } catch (e) {
+          this.logger.debug('Frame capture skipped:', e.message);
+        } finally {
+          frame?.close();
+          this._capturePending = false;
+        }
+      }
+
+      this._recordingFrameId = requestAnimationFrame(captureAndDraw);
+    };
+
+    this._recordingFrameId = requestAnimationFrame(captureAndDraw);
+  }
+
+  /**
+   * Stop recording and clean up GPU recording resources
+   * @private
+   */
+  async _stopRecording() {
+    this._cleanupGpuRecording();
+
+    try {
+      await this.captureService.stopRecording();
+    } catch (error) {
+      this.logger.error('Failed to stop recording:', error);
+    }
+  }
+
+  /**
+   * Clean up GPU recording resources
+   * @private
+   */
+  _cleanupGpuRecording() {
+    if (this._recordingFrameId) {
+      cancelAnimationFrame(this._recordingFrameId);
+      this._recordingFrameId = null;
+    }
+
+    if (this._recordingStream) {
+      this._recordingStream.getTracks().forEach(track => track.stop());
+      this._recordingStream = null;
+    }
+
+    this._recordingCanvas = null;
+    this._recordingCtx = null;
+    this._isGpuRecording = false;
+    this._capturePending = false;
   }
 
   /**
@@ -178,7 +278,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     const { error } = data;
     this.logger.error('Recording error:', error);
 
-    // Reset UI to non-recording state
+    this._cleanupGpuRecording();
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: `Recording failed: ${error}`,
@@ -188,10 +288,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
   /**
    * Cleanup resources
-   * Note: EventBus subscriptions are automatically cleaned up by BaseOrchestrator
    */
   async onCleanup() {
-    // Stop recording if active
     if (this.captureService.getRecordingState()) {
       try {
         await this.captureService.stopRecording();
@@ -199,5 +297,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         this.logger.error('Error stopping recording during cleanup:', error);
       }
     }
+    this._cleanupGpuRecording();
   }
 }

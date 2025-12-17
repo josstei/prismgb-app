@@ -23,7 +23,10 @@ export const WorkerMessageType = Object.freeze({
   /** Change the active render preset */
   SET_PRESET: 'setPreset',
 
-  /** Request capture of the last rendered frame */
+  /** Request capture of the next rendered frame (arms lazy capture) */
+  REQUEST_CAPTURE: 'requestCapture',
+
+  /** Retrieve the captured frame from lazy capture buffer */
   CAPTURE: 'capture',
 
   /** Release GPU resources while keeping worker alive (for idle memory savings) */
@@ -50,6 +53,9 @@ export const WorkerResponseType = Object.freeze({
 
   /** Performance statistics update */
   STATS: 'stats',
+
+  /** Capture request acknowledged (lazy capture armed) */
+  CAPTURE_REQUESTED: 'captureRequested',
 
   /** Captured frame ready (contains ImageBitmap) */
   CAPTURE_READY: 'captureReady',

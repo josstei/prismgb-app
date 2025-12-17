@@ -19,8 +19,10 @@ describe('CaptureOrchestrator', () => {
     mockCaptureService = {
       takeScreenshot: vi.fn(),
       toggleRecording: vi.fn(),
+      startRecording: vi.fn(),
       getRecordingState: vi.fn(),
-      stopRecording: vi.fn()
+      stopRecording: vi.fn(),
+      isRecording: false
     };
 
     mockAppState = {
@@ -187,18 +189,18 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('toggleRecording', () => {
-    it('should get stream and call toggleRecording', async () => {
+    it('should start recording with raw stream when GPU renderer inactive', async () => {
       const mockStream = { id: 'stream-1' };
       mockAppState.currentStream = mockStream;
 
       await orchestrator.toggleRecording();
 
-      expect(mockCaptureService.toggleRecording).toHaveBeenCalledWith(mockStream);
+      expect(mockCaptureService.startRecording).toHaveBeenCalledWith(mockStream);
     });
 
     it('should show error on failure', async () => {
       mockAppState.currentStream = { id: 'stream-1' };
-      mockCaptureService.toggleRecording.mockRejectedValue(new Error('Recording failed'));
+      mockCaptureService.startRecording.mockRejectedValue(new Error('Recording failed'));
 
       await orchestrator.toggleRecording();
 
