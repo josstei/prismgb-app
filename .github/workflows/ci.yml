@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: amannn/action-semantic-pull-request@v6
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -67,7 +67,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
 
@@ -94,7 +94,7 @@ jobs:
         run: git config --global core.autocrlf false
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
@@ -124,7 +124,7 @@ jobs:
         run: git config --global core.autocrlf false
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
@@ -143,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps

@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b # v2.4.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
@@ -28,9 +28,19 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Auto-merge minor updates
+      - name: Label minor updates for review
         if: steps.metadata.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          gh pr edit "$PR_URL" --add-label "needs-review"
+          gh pr comment "$PR_URL" --body "ℹ️ **Minor version update detected**
+
+          This PR contains a minor version bump. Please review before merging.
+
+          **Quick checks:**
+          - [ ] Changelog reviewed for new features
+          - [ ] CI passes on all platforms
+
+          Auto-merge is disabled for minor updates."
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
