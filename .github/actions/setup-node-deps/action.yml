@@ -19,7 +19,7 @@ runs:
   using: composite
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
       with:
         node-version: ${{ inputs.node-version }}
 
@@ -27,22 +27,15 @@ runs:
       id: check-label
       shell: bash
       run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          labels='${{ toJson(github.event.pull_request.labels.*.name) }}'
-          if echo "$labels" | grep -q "no-cache"; then
-            echo "skip_cache=true" >> $GITHUB_OUTPUT
-            echo "::notice::Skipping cache due to 'no-cache' label"
-          else
-            echo "skip_cache=false" >> $GITHUB_OUTPUT
-          fi
-        else
-          echo "skip_cache=false" >> $GITHUB_OUTPUT
+        echo "skip_cache=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'no-cache') }}" >> $GITHUB_OUTPUT
+        if [ "${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'no-cache') }}" = "true" ]; then
+          echo "::notice::Skipping cache due to 'no-cache' label"
         fi
 
     - name: Restore node_modules cache
       id: cache-node-modules
       if: steps.check-label.outputs.skip_cache != 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: node_modules
         key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
