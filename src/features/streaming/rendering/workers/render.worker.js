@@ -974,6 +974,14 @@ async function handleInit(payload) {
       canvas = offscreenCanvas;
     }
 
+    // Set canvas dimensions to match target resolution BEFORE renderer init.
+    // The canvas may have been DPR-scaled in the main thread before transfer
+    // (e.g., 640×576 CSS → 1280×1152 backing store on 2x Retina). We need to
+    // set it to targetWidth×targetHeight so captured frames match the recording
+    // canvas dimensions, preventing the "top corner only" recording bug.
+    canvasToUse.width = config.targetWidth;
+    canvasToUse.height = config.targetHeight;
+
     // Create appropriate renderer based on API preference
     if (config.api === 'webgpu') {
       renderer = new WebGPURenderer();

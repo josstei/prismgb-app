@@ -135,7 +135,15 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingCanvas.height = targetHeight;
     this._recordingCtx = this._recordingCanvas.getContext('2d');
 
-    this._recordingStream = this._recordingCanvas.captureStream();
+    this._recordingStream = this._recordingCanvas.captureStream(60);
+
+    const originalStream = this.appState.currentStream;
+    if (originalStream) {
+      originalStream.getAudioTracks().forEach(track => {
+        this._recordingStream.addTrack(track.clone());
+      });
+    }
+
     this._isGpuRecording = true;
 
     this.logger.info(`Starting GPU recording at ${targetWidth}x${targetHeight}`);
