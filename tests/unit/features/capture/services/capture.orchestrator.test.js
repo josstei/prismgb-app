@@ -104,7 +104,6 @@ describe('CaptureOrchestrator', () => {
     it('should wire capture events', async () => {
       await orchestrator.onInitialize();
 
-      // Should subscribe to 5 events
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:screenshot-ready', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-started', expect.any(Function));

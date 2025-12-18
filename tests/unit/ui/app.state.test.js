@@ -143,13 +143,28 @@ describe('AppState', () => {
       expect(state.currentStream).toBe(mockStream);
     });
 
+    it('should cache capabilities on stream:started', () => {
+      const mockCapabilities = { frameRate: 60, nativeResolution: { width: 160, height: 144 } };
+      subscribedHandlers['stream:started']({ stream: {}, capabilities: mockCapabilities });
+
+      expect(state.currentCapabilities).toBe(mockCapabilities);
+    });
+
     it('should clear stream cache on stream:stopped', () => {
-      // First set a stream
       state._streamCache = { id: 'test-stream' };
 
       subscribedHandlers['stream:stopped']();
 
       expect(state._streamCache).toBeNull();
+    });
+
+    it('should clear capabilities cache on stream:stopped', () => {
+      state._capabilitiesCache = { frameRate: 60 };
+
+      subscribedHandlers['stream:stopped']();
+
+      expect(state._capabilitiesCache).toBeNull();
+      expect(state.currentCapabilities).toBeNull();
     });
 
     it('should not setup subscriptions without eventBus', () => {

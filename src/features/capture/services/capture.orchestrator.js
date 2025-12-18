@@ -39,7 +39,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Initialize capture orchestrator
    */
   async onInitialize() {
-    // Wire capture events
     this._wireCaptureEvents();
   }
 
@@ -135,7 +134,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingCanvas.height = targetHeight;
     this._recordingCtx = this._recordingCanvas.getContext('2d');
 
-    this._recordingStream = this._recordingCanvas.captureStream(60);
+    const frameRate = this.appState.currentCapabilities?.frameRate || 60;
+    this._recordingStream = this._recordingCanvas.captureStream(frameRate);
 
     const originalStream = this.appState.currentStream;
     if (originalStream) {
