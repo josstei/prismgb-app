@@ -28,12 +28,12 @@ class SettingsService extends BaseService {
       globalBrightness: 1.0
     };
 
-    // Setting keys
+    // Setting keys (prefixed with _critical_ to protect from storage cleanup)
     this.keys = {
-      VOLUME: 'gameVolume',
-      STATUS_STRIP: 'statusStripVisible',
-      RENDER_PRESET: 'renderPreset',
-      GLOBAL_BRIGHTNESS: 'globalBrightness'
+      VOLUME: '_critical_gameVolume',
+      STATUS_STRIP: '_critical_statusStripVisible',
+      RENDER_PRESET: '_critical_renderPreset',
+      GLOBAL_BRIGHTNESS: '_critical_globalBrightness'
     };
   }
 

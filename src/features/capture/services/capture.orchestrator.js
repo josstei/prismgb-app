@@ -33,6 +33,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingFrameId = null;
     this._isGpuRecording = false;
     this._capturePending = false;
+    this._recordingDroppedFrames = 0;
   }
 
   /**
@@ -126,6 +127,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _startGpuRecording() {
+    this._recordingDroppedFrames = 0;
+
     const targetWidth = this.gpuRendererService._targetWidth || 640;
     const targetHeight = this.gpuRendererService._targetHeight || 576;
 
@@ -168,6 +171,14 @@ export class CaptureOrchestrator extends BaseOrchestrator {
           this._recordingCtx.drawImage(frame, 0, 0);
         } catch (e) {
           this.logger.debug('Frame capture skipped:', e.message);
+          this._recordingDroppedFrames++;
+          if (this._recordingDroppedFrames >= 30) {
+            this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+              message: 'Recording quality may be degraded - frames being dropped',
+              type: 'warning'
+            });
+            this._recordingDroppedFrames = 0;
+          }
         } finally {
           frame?.close();
           this._capturePending = false;
@@ -213,6 +224,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingCtx = null;
     this._isGpuRecording = false;
     this._capturePending = false;
+    this._recordingDroppedFrames = 0;
   }
 
   /**
