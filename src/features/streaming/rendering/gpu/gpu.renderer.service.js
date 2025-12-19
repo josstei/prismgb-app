@@ -589,6 +589,17 @@ export class GPURendererService extends BaseService {
   }
 
   /**
+   * Get current target rendering dimensions
+   * @returns {{width: number, height: number}} Target dimensions for rendered output
+   */
+  getTargetDimensions() {
+    return {
+      width: this._targetWidth,
+      height: this._targetHeight
+    };
+  }
+
+  /**
    * Capture the current rendered frame with shader effects applied
    * Uses request-before-capture pattern: arms lazy capture, waits for next frame,
    * then retrieves the captured frame with all shader effects at upscaled resolution.
