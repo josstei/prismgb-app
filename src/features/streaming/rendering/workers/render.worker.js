@@ -932,6 +932,10 @@ self.onmessage = async (event) => {
       handleSetPreset(payload);
       break;
 
+    case WorkerMessageType.REQUEST_CAPTURE:
+      handleRequestCapture();
+      break;
+
     case WorkerMessageType.CAPTURE:
       handleCapture();
       break;
@@ -969,6 +973,14 @@ async function handleInit(payload) {
     if (offscreenCanvas) {
       canvas = offscreenCanvas;
     }
+
+    // Set canvas dimensions to match target resolution BEFORE renderer init.
+    // The canvas may have been DPR-scaled in the main thread before transfer
+    // (e.g., 640×576 CSS → 1280×1152 backing store on 2x Retina). We need to
+    // set it to targetWidth×targetHeight so captured frames match the recording
+    // canvas dimensions, preventing the "top corner only" recording bug.
+    canvasToUse.width = config.targetWidth;
+    canvasToUse.height = config.targetHeight;
 
     // Create appropriate renderer based on API preference
     if (config.api === 'webgpu') {
@@ -1073,6 +1085,23 @@ function handleResize(payload) {
 function handleSetPreset(_payload) {
   // Preset changes are handled via uniforms in handleFrame
   // This handler is for future preset-specific GPU resource changes
+}
+
+/**
+ * Handle request to capture the next rendered frame
+ * Arms the lazy capture buffer so the next frame will be saved
+ */
+function handleRequestCapture() {
+  if (!captureManager) {
+    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+      message: 'Capture manager not initialized',
+      code: 'NO_CAPTURE_MANAGER'
+    }));
+    return;
+  }
+
+  captureManager.requestCapture();
+  self.postMessage(createWorkerResponse(WorkerResponseType.CAPTURE_REQUESTED, {}));
 }
 
 /**

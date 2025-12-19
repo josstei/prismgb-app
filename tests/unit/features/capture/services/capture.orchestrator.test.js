@@ -19,8 +19,10 @@ describe('CaptureOrchestrator', () => {
     mockCaptureService = {
       takeScreenshot: vi.fn(),
       toggleRecording: vi.fn(),
+      startRecording: vi.fn(),
       getRecordingState: vi.fn(),
-      stopRecording: vi.fn()
+      stopRecording: vi.fn(),
+      isRecording: false
     };
 
     mockAppState = {
@@ -102,7 +104,6 @@ describe('CaptureOrchestrator', () => {
     it('should wire capture events', async () => {
       await orchestrator.onInitialize();
 
-      // Should subscribe to 5 events
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:screenshot-ready', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-started', expect.any(Function));
@@ -187,23 +188,72 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('toggleRecording', () => {
-    it('should get stream and call toggleRecording', async () => {
+    it('should start recording with raw stream when GPU renderer inactive', async () => {
       const mockStream = { id: 'stream-1' };
       mockAppState.currentStream = mockStream;
 
       await orchestrator.toggleRecording();
 
-      expect(mockCaptureService.toggleRecording).toHaveBeenCalledWith(mockStream);
+      expect(mockCaptureService.startRecording).toHaveBeenCalledWith(mockStream);
+    });
+
+    it('should start GPU recording when GPU renderer is active', async () => {
+      const mockAudioTrack = { clone: vi.fn(() => ({ id: 'cloned-audio' })) };
+      const mockStream = {
+        id: 'stream-1',
+        getAudioTracks: vi.fn(() => [mockAudioTrack])
+      };
+      mockAppState.currentStream = mockStream;
+      mockAppState.currentCapabilities = { frameRate: 60 };
+      mockGpuRendererService.isActive.mockReturnValue(true);
+      mockGpuRendererService._targetWidth = 640;
+      mockGpuRendererService._targetHeight = 576;
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => ({ drawImage: vi.fn() })),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+      global.document.createElement = vi.fn(() => mockCanvas);
+      global.requestAnimationFrame = vi.fn();
+
+      await orchestrator.toggleRecording();
+
+      expect(mockCanvas.width).toBe(640);
+      expect(mockCanvas.height).toBe(576);
+      expect(mockCanvas.captureStream).toHaveBeenCalledWith(60);
+      expect(mockCaptureService.startRecording).toHaveBeenCalled();
+    });
+
+    it('should stop recording when already recording', async () => {
+      mockCaptureService.isRecording = true;
+
+      await orchestrator.toggleRecording();
+
+      expect(mockCaptureService.stopRecording).toHaveBeenCalled();
+      expect(mockCaptureService.startRecording).not.toHaveBeenCalled();
+    });
+
+    it('should stop recording when getRecordingState returns true', async () => {
+      mockCaptureService.isRecording = false;
+      mockCaptureService.getRecordingState.mockReturnValue(true);
+
+      await orchestrator.toggleRecording();
+
+      expect(mockCaptureService.stopRecording).toHaveBeenCalled();
     });
 
     it('should show error on failure', async () => {
       mockAppState.currentStream = { id: 'stream-1' };
-      mockCaptureService.toggleRecording.mockRejectedValue(new Error('Recording failed'));
+      mockCaptureService.startRecording.mockRejectedValue(new Error('Recording failed'));
 
       await orchestrator.toggleRecording();
 
       expect(mockLogger.error).toHaveBeenCalled();
-      // Error status is now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error with recording', type: 'error' });
     });
 
@@ -215,6 +265,271 @@ describe('CaptureOrchestrator', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith('Cannot start recording - no active stream');
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Cannot record - not streaming', type: 'error' });
       expect(mockCaptureService.toggleRecording).not.toHaveBeenCalled();
+    });
+
+    it('should handle stop recording error gracefully', async () => {
+      mockCaptureService.isRecording = true;
+      mockCaptureService.stopRecording.mockRejectedValue(new Error('Stop failed'));
+
+      await orchestrator.toggleRecording();
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to stop recording:', expect.any(Error));
+    });
+
+    it('should use default frame rate when capabilities not available', async () => {
+      const mockStream = {
+        id: 'stream-1',
+        getAudioTracks: vi.fn(() => [])
+      };
+      mockAppState.currentStream = mockStream;
+      mockAppState.currentCapabilities = null;
+      mockGpuRendererService.isActive.mockReturnValue(true);
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => ({ drawImage: vi.fn() })),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+      global.document.createElement = vi.fn(() => mockCanvas);
+      global.requestAnimationFrame = vi.fn();
+
+      await orchestrator.toggleRecording();
+
+      expect(mockCanvas.captureStream).toHaveBeenCalledWith(60);
+    });
+
+    it('should use default dimensions when GPU renderer dimensions not set', async () => {
+      const mockStream = {
+        id: 'stream-1',
+        getAudioTracks: vi.fn(() => [])
+      };
+      mockAppState.currentStream = mockStream;
+      mockGpuRendererService.isActive.mockReturnValue(true);
+      mockGpuRendererService._targetWidth = undefined;
+      mockGpuRendererService._targetHeight = undefined;
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => ({ drawImage: vi.fn() })),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+      global.document.createElement = vi.fn(() => mockCanvas);
+      global.requestAnimationFrame = vi.fn();
+
+      await orchestrator.toggleRecording();
+
+      expect(mockCanvas.width).toBe(640);
+      expect(mockCanvas.height).toBe(576);
+    });
+  });
+
+  describe('GPU Recording Frame Loop', () => {
+    it('should capture and draw frames during GPU recording', async () => {
+      const mockFrame = { close: vi.fn() };
+      mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
+
+      const mockDrawImage = vi.fn();
+      const mockCtx = { drawImage: mockDrawImage };
+      const mockRecordingStream = {
+        addTrack: vi.fn(),
+        getTracks: vi.fn(() => [])
+      };
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockCtx),
+        captureStream: vi.fn(() => mockRecordingStream)
+      };
+
+      global.document.createElement = vi.fn(() => mockCanvas);
+
+      let rafCallback;
+      global.requestAnimationFrame = vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      });
+
+      mockAppState.currentStream = { id: 'stream-1', getAudioTracks: () => [] };
+      mockGpuRendererService.isActive.mockReturnValue(true);
+
+      await orchestrator.toggleRecording();
+
+      expect(rafCallback).toBeDefined();
+
+      await rafCallback();
+
+      expect(mockGpuRendererService.captureFrame).toHaveBeenCalled();
+      expect(mockDrawImage).toHaveBeenCalledWith(mockFrame, 0, 0);
+      expect(mockFrame.close).toHaveBeenCalled();
+    });
+
+    it('should skip frame capture when already pending', async () => {
+      const mockCtx = { drawImage: vi.fn() };
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockCtx),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+
+      global.document.createElement = vi.fn(() => mockCanvas);
+
+      let rafCallback;
+      global.requestAnimationFrame = vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      });
+
+      mockAppState.currentStream = { id: 'stream-1', getAudioTracks: () => [] };
+      mockGpuRendererService.isActive.mockReturnValue(true);
+
+      await orchestrator.toggleRecording();
+
+      orchestrator._capturePending = true;
+      mockGpuRendererService.captureFrame.mockClear();
+
+      rafCallback();
+
+      expect(mockGpuRendererService.captureFrame).not.toHaveBeenCalled();
+    });
+
+    it('should handle frame capture errors gracefully', async () => {
+      mockGpuRendererService.captureFrame.mockRejectedValue(new Error('Capture failed'));
+
+      const mockCtx = { drawImage: vi.fn() };
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockCtx),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+
+      global.document.createElement = vi.fn(() => mockCanvas);
+
+      let rafCallback;
+      global.requestAnimationFrame = vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      });
+
+      mockAppState.currentStream = { id: 'stream-1', getAudioTracks: () => [] };
+      mockGpuRendererService.isActive.mockReturnValue(true);
+
+      await orchestrator.toggleRecording();
+
+      await rafCallback();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Frame capture skipped:', 'Capture failed');
+      expect(mockCtx.drawImage).not.toHaveBeenCalled();
+    });
+
+    it('should stop frame loop when not GPU recording', async () => {
+      const mockCtx = { drawImage: vi.fn() };
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockCtx),
+        captureStream: vi.fn(() => ({
+          addTrack: vi.fn(),
+          getTracks: vi.fn(() => [])
+        }))
+      };
+
+      global.document.createElement = vi.fn(() => mockCanvas);
+
+      let rafCallback;
+      global.requestAnimationFrame = vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      });
+
+      mockAppState.currentStream = { id: 'stream-1', getAudioTracks: () => [] };
+      mockGpuRendererService.isActive.mockReturnValue(true);
+
+      await orchestrator.toggleRecording();
+
+      orchestrator._isGpuRecording = false;
+
+      await rafCallback();
+
+      expect(mockGpuRendererService.captureFrame).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GPU Recording Cleanup', () => {
+    it('should cancel animation frame on cleanup', () => {
+      global.cancelAnimationFrame = vi.fn();
+      orchestrator._recordingFrameId = 123;
+
+      orchestrator._cleanupGpuRecording();
+
+      expect(global.cancelAnimationFrame).toHaveBeenCalledWith(123);
+      expect(orchestrator._recordingFrameId).toBeNull();
+    });
+
+    it('should stop all tracks on recording stream', () => {
+      const mockTrack1 = { stop: vi.fn() };
+      const mockTrack2 = { stop: vi.fn() };
+      orchestrator._recordingStream = {
+        getTracks: () => [mockTrack1, mockTrack2]
+      };
+
+      orchestrator._cleanupGpuRecording();
+
+      expect(mockTrack1.stop).toHaveBeenCalled();
+      expect(mockTrack2.stop).toHaveBeenCalled();
+      expect(orchestrator._recordingStream).toBeNull();
+    });
+
+    it('should reset all GPU recording state', () => {
+      orchestrator._recordingCanvas = {};
+      orchestrator._recordingCtx = {};
+      orchestrator._isGpuRecording = true;
+      orchestrator._capturePending = true;
+
+      orchestrator._cleanupGpuRecording();
+
+      expect(orchestrator._recordingCanvas).toBeNull();
+      expect(orchestrator._recordingCtx).toBeNull();
+      expect(orchestrator._isGpuRecording).toBe(false);
+      expect(orchestrator._capturePending).toBe(false);
+    });
+
+    it('should handle cleanup when no resources exist', () => {
+      orchestrator._recordingFrameId = null;
+      orchestrator._recordingStream = null;
+
+      expect(() => orchestrator._cleanupGpuRecording()).not.toThrow();
+    });
+
+    it('should cleanup GPU recording on recording error', async () => {
+      await orchestrator.onInitialize();
+
+      orchestrator._isGpuRecording = true;
+      orchestrator._recordingCanvas = {};
+
+      const errorHandler = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === 'capture:recording-error'
+      )[1];
+
+      errorHandler({ error: 'Test error' });
+
+      expect(orchestrator._isGpuRecording).toBe(false);
+      expect(orchestrator._recordingCanvas).toBeNull();
     });
   });
 
