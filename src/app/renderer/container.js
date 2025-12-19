@@ -44,7 +44,7 @@ import { DisplayModeOrchestrator } from '@features/settings/services/display-mod
 
 // Features: Updates
 import { UpdateService } from '@features/updates/services/update.service.js';
-import { UpdateOrchestrator } from '@features/updates/orchestrators/update.orchestrator.js';
+import { UpdateOrchestrator } from '@features/updates/services/update.orchestrator.js';
 
 // Infrastructure
 import EventBus from '@infrastructure/events/event-bus.js';

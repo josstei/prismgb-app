@@ -13,7 +13,7 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
-import { UpdateState } from '../services/update.service.js';
+import { UpdateState } from './update.service.js';
 
 class UpdateOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
