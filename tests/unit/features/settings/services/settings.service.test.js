@@ -60,6 +60,8 @@ describe('SettingsService', () => {
     it('should have correct setting keys', () => {
       expect(service.keys.VOLUME).toBe('gameVolume');
       expect(service.keys.STATUS_STRIP).toBe('statusStripVisible');
+      expect(service.keys.RENDER_PRESET).toBe('renderPreset');
+      expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
     });
   });
 

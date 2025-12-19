@@ -28,7 +28,6 @@ class SettingsService extends BaseService {
       globalBrightness: 1.0
     };
 
-    // Setting keys
     this.keys = {
       VOLUME: 'gameVolume',
       STATUS_STRIP: 'statusStripVisible',
