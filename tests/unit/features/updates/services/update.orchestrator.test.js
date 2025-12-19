@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateOrchestrator, UpdateState } from '@features/updates/orchestrators/update.orchestrator.js';
+import { UpdateOrchestrator } from '@features/updates/services/update.orchestrator.js';
+import { UpdateState } from '@features/updates/services/update.service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('UpdateOrchestrator', () => {
