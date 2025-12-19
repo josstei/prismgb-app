@@ -57,11 +57,11 @@ describe('SettingsService', () => {
       expect(service.defaults.statusStripVisible).toBe(false);
     });
 
-    it('should have correct setting keys with critical prefix', () => {
-      expect(service.keys.VOLUME).toBe('_critical_gameVolume');
-      expect(service.keys.STATUS_STRIP).toBe('_critical_statusStripVisible');
-      expect(service.keys.RENDER_PRESET).toBe('_critical_renderPreset');
-      expect(service.keys.GLOBAL_BRIGHTNESS).toBe('_critical_globalBrightness');
+    it('should have correct setting keys', () => {
+      expect(service.keys.VOLUME).toBe('gameVolume');
+      expect(service.keys.STATUS_STRIP).toBe('statusStripVisible');
+      expect(service.keys.RENDER_PRESET).toBe('renderPreset');
+      expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
     });
   });
 
@@ -71,12 +71,12 @@ describe('SettingsService', () => {
     });
 
     it('should return saved volume', () => {
-      localStorageMock.store['_critical_gameVolume'] = '50';
+      localStorageMock.store['gameVolume'] = '50';
       expect(service.getVolume()).toBe(50);
     });
 
     it('should parse stored value as integer', () => {
-      localStorageMock.store['_critical_gameVolume'] = '85';
+      localStorageMock.store['gameVolume'] = '85';
       expect(service.getVolume()).toBe(85);
     });
   });
@@ -84,17 +84,17 @@ describe('SettingsService', () => {
   describe('setVolume', () => {
     it('should save volume to localStorage', () => {
       service.setVolume(80);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_gameVolume', '80');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '80');
     });
 
     it('should clamp volume to 0-100 range (high)', () => {
       service.setVolume(150);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_gameVolume', '100');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '100');
     });
 
     it('should clamp volume to 0-100 range (low)', () => {
       service.setVolume(-20);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_gameVolume', '0');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '0');
     });
 
     it('should emit volume-changed event', () => {
@@ -109,12 +109,12 @@ describe('SettingsService', () => {
     });
 
     it('should return true when stored as "true"', () => {
-      localStorageMock.store['_critical_statusStripVisible'] = 'true';
+      localStorageMock.store['statusStripVisible'] = 'true';
       expect(service.getStatusStripVisible()).toBe(true);
     });
 
     it('should return false when stored as "false"', () => {
-      localStorageMock.store['_critical_statusStripVisible'] = 'false';
+      localStorageMock.store['statusStripVisible'] = 'false';
       expect(service.getStatusStripVisible()).toBe(false);
     });
   });
@@ -122,7 +122,7 @@ describe('SettingsService', () => {
   describe('setStatusStripVisible', () => {
     it('should save status strip visibility to localStorage', () => {
       service.setStatusStripVisible(false);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_statusStripVisible', 'false');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('statusStripVisible', 'false');
     });
 
     it('should emit status-strip-changed event', () => {
@@ -151,8 +151,8 @@ describe('SettingsService', () => {
     });
 
     it('should load saved preferences', () => {
-      localStorageMock.store['_critical_gameVolume'] = '30';
-      localStorageMock.store['_critical_statusStripVisible'] = 'false';
+      localStorageMock.store['gameVolume'] = '30';
+      localStorageMock.store['statusStripVisible'] = 'false';
 
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
@@ -173,12 +173,12 @@ describe('SettingsService', () => {
     });
 
     it('should return saved brightness', () => {
-      localStorageMock.store['_critical_globalBrightness'] = '0.8';
+      localStorageMock.store['globalBrightness'] = '0.8';
       expect(service.getGlobalBrightness()).toBe(0.8);
     });
 
     it('should parse stored value as float', () => {
-      localStorageMock.store['_critical_globalBrightness'] = '1.25';
+      localStorageMock.store['globalBrightness'] = '1.25';
       expect(service.getGlobalBrightness()).toBe(1.25);
     });
   });
@@ -186,17 +186,17 @@ describe('SettingsService', () => {
   describe('setGlobalBrightness', () => {
     it('should save brightness to localStorage', () => {
       service.setGlobalBrightness(1.2);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_globalBrightness', '1.2');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '1.2');
     });
 
     it('should clamp brightness to 0.5-1.5 range (high)', () => {
       service.setGlobalBrightness(2.0);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_globalBrightness', '1.5');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '1.5');
     });
 
     it('should clamp brightness to 0.5-1.5 range (low)', () => {
       service.setGlobalBrightness(0.2);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('_critical_globalBrightness', '0.5');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '0.5');
     });
 
     it('should emit brightness-changed event', () => {

@@ -5,6 +5,13 @@
  * Handles quota exceeded errors gracefully.
  */
 export class StorageService {
+  static PROTECTED_KEYS = [
+    'gameVolume',
+    'statusStripVisible',
+    'renderPreset',
+    'globalBrightness'
+  ];
+
   /**
    * @param {Object} [options] - Optional configuration
    * @param {Object} [options.logger] - Optional logger instance
@@ -76,8 +83,7 @@ export class StorageService {
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      // Skip critical keys (add patterns as needed)
-      if (key && !key.startsWith('_critical_')) {
+      if (key && !StorageService.PROTECTED_KEYS.includes(key)) {
         keysToRemove.push(key);
       }
     }
