@@ -55,6 +55,7 @@ describe('SettingsService', () => {
     it('should create service with default settings', () => {
       expect(service.defaults.gameVolume).toBe(70);
       expect(service.defaults.statusStripVisible).toBe(false);
+      expect(service.defaults.animationPowerSaver).toBe(false);
     });
 
     it('should have correct setting keys', () => {
@@ -62,6 +63,7 @@ describe('SettingsService', () => {
       expect(service.keys.STATUS_STRIP).toBe('statusStripVisible');
       expect(service.keys.RENDER_PRESET).toBe('renderPreset');
       expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
+      expect(service.keys.ANIMATION_POWER_SAVER).toBe('animationPowerSaver');
     });
   });
 
@@ -146,24 +148,27 @@ describe('SettingsService', () => {
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
         volume: 70,
-        statusStripVisible: false
+        statusStripVisible: false,
+        animationPowerSaver: false
       });
     });
 
     it('should load saved preferences', () => {
       localStorageMock.store['gameVolume'] = '30';
       localStorageMock.store['statusStripVisible'] = 'false';
+      localStorageMock.store['animationPowerSaver'] = 'false';
 
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
         volume: 30,
-        statusStripVisible: false
+        statusStripVisible: false,
+        animationPowerSaver: false
       });
     });
 
     it('should log loaded preferences', () => {
       service.loadAllPreferences();
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false, AnimationPowerSaver: false');
     });
   });
 
@@ -212,6 +217,39 @@ describe('SettingsService', () => {
     it('should log brightness change', () => {
       service.setGlobalBrightness(0.75);
       expect(mockLogger.debug).toHaveBeenCalledWith('Global brightness set to 0.75');
+    });
+  });
+
+  describe('getAnimationPowerSaver', () => {
+    it('should return default when not set', () => {
+      expect(service.getAnimationPowerSaver()).toBe(false);
+    });
+
+    it('should return saved preference (true)', () => {
+      localStorageMock.store['animationPowerSaver'] = 'true';
+      expect(service.getAnimationPowerSaver()).toBe(true);
+    });
+
+    it('should return saved preference (false)', () => {
+      localStorageMock.store['animationPowerSaver'] = 'false';
+      expect(service.getAnimationPowerSaver()).toBe(false);
+    });
+  });
+
+  describe('setAnimationPowerSaver', () => {
+    it('should save preference to localStorage', () => {
+      service.setAnimationPowerSaver(false);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('animationPowerSaver', 'false');
+    });
+
+    it('should emit animation power saver changed event', () => {
+      service.setAnimationPowerSaver(true);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:animation-power-saver-changed', true);
+    });
+
+    it('should log preference change', () => {
+      service.setAnimationPowerSaver(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Animation power saver disabled');
     });
   });
 

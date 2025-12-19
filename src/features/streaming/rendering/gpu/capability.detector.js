@@ -51,6 +51,8 @@ async function detectCapabilities() {
   try {
     if (navigator.gpu) {
       const adapter = await navigator.gpu.requestAdapter({
+        powerPreference: 'low-power'
+      }) || await navigator.gpu.requestAdapter({
         powerPreference: 'high-performance'
       });
 
@@ -79,14 +81,17 @@ async function detectCapabilities() {
   // Check WebGL2 support
   try {
     const testCanvas = document.createElement('canvas');
-    const gl = testCanvas.getContext('webgl2', {
+    const baseAttributes = {
       alpha: false,
       antialias: false,
       depth: false,
       stencil: false,
       preserveDrawingBuffer: false,
-      powerPreference: 'high-performance'
-    });
+      powerPreference: 'low-power'
+    };
+
+    const gl = testCanvas.getContext('webgl2', baseAttributes) ||
+      testCanvas.getContext('webgl2', { ...baseAttributes, powerPreference: 'high-performance' });
 
     if (gl) {
       capabilities.webgl2 = true;

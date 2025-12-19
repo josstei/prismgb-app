@@ -89,6 +89,28 @@
   color: var(--color-text-primary);
 }
 
+.settings-item-with-hint .settings-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-item-title {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.settings-item-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: normal;
+  max-width: 18rem;
+}
+
 /* Toggle switch styling */
 .settings-item.toggle {
   cursor: pointer;

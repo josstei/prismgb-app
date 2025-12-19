@@ -16,7 +16,9 @@ describe('SettingsMenuComponent', () => {
     // Mock settings service
     mockSettingsService = {
       getStatusStripVisible: vi.fn(() => true),
-      setStatusStripVisible: vi.fn()
+      setStatusStripVisible: vi.fn(),
+      getAnimationPowerSaver: vi.fn(() => true),
+      setAnimationPowerSaver: vi.fn()
     };
 
     // Mock event bus
@@ -38,6 +40,7 @@ describe('SettingsMenuComponent', () => {
       settingsMenuContainer: document.createElement('div'),
       settingsBtn: document.createElement('button'),
       settingStatusStrip: document.createElement('input'),
+      settingAnimationSaver: document.createElement('input'),
       disclaimerBtn: document.createElement('button'),
       disclaimerContent: document.createElement('div'),
       footer: document.createElement('footer')
@@ -46,6 +49,8 @@ describe('SettingsMenuComponent', () => {
     // Set up checkbox inputs
     mockElements.settingStatusStrip.type = 'checkbox';
     mockElements.settingStatusStrip.checked = true;
+    mockElements.settingAnimationSaver.type = 'checkbox';
+    mockElements.settingAnimationSaver.checked = true;
 
     // Set up footer
     mockElements.footer.classList.add('footer');
@@ -76,6 +81,7 @@ describe('SettingsMenuComponent', () => {
       expect(component.container).toBe(mockElements.settingsMenuContainer);
       expect(component.toggleButton).toBe(mockElements.settingsBtn);
       expect(component.statusStripCheckbox).toBe(mockElements.settingStatusStrip);
+      expect(component.animationSaverCheckbox).toBe(mockElements.settingAnimationSaver);
     });
 
     it('should warn if required elements are missing', () => {
@@ -88,7 +94,9 @@ describe('SettingsMenuComponent', () => {
       component.initialize(mockElements);
 
       expect(mockSettingsService.getStatusStripVisible).toHaveBeenCalled();
+      expect(mockSettingsService.getAnimationPowerSaver).toHaveBeenCalled();
       expect(mockElements.settingStatusStrip.checked).toBe(true);
+      expect(mockElements.settingAnimationSaver.checked).toBe(true);
     });
 
     it('should apply status strip visibility on initialize', () => {
@@ -213,6 +221,48 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingStatusStrip.dispatchEvent(new Event('change'));
 
       expect(mockElements.footer.classList.contains('status-hidden')).toBe(false);
+    });
+  });
+
+  describe('Animation power saver toggle', () => {
+    beforeEach(() => {
+      component.initialize(mockElements);
+    });
+
+    it('should update settings when checkbox changes', () => {
+      mockElements.settingAnimationSaver.checked = false;
+      mockElements.settingAnimationSaver.dispatchEvent(new Event('change'));
+
+      expect(mockSettingsService.setAnimationPowerSaver).toHaveBeenCalledWith(false);
+    });
+
+    it('should reflect stored preference on initialize', () => {
+      mockSettingsService.getAnimationPowerSaver.mockReturnValue(false);
+
+      component.initialize(mockElements);
+
+      expect(mockElements.settingAnimationSaver.checked).toBe(false);
+    });
+
+    it('should default to false when getAnimationPowerSaver method is missing', () => {
+      const serviceWithoutMethod = {
+        getStatusStripVisible: vi.fn(() => false),
+        setStatusStripVisible: vi.fn(),
+        setAnimationPowerSaver: vi.fn()
+      };
+
+      const componentWithLimitedService = new SettingsMenuComponent({
+        settingsService: serviceWithoutMethod,
+        eventBus: mockEventBus,
+        logger: mockLogger
+      });
+
+      mockElements.settingAnimationSaver.checked = true;
+      componentWithLimitedService.initialize(mockElements);
+
+      expect(mockElements.settingAnimationSaver.checked).toBe(false);
+
+      componentWithLimitedService.dispose();
     });
   });
 

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
+import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -91,6 +92,7 @@ describe('AppOrchestrator', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    document.body.className = '';
   });
 
   describe('Constructor', () => {
@@ -107,9 +109,13 @@ describe('AppOrchestrator', () => {
     it('should wire high-level events', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:status-changed', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:enumeration-failed', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(2);
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.ENUMERATION_FAILED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.STREAM.STARTED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.STREAM.STOPPED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.RENDER.CAPABILITY_DETECTED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
     });
 
     it('should initialize all domain orchestrators', async () => {
@@ -221,6 +227,61 @@ describe('AppOrchestrator', () => {
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith('Error cleaning up streamingOrchestrator:', error);
+    });
+  });
+
+  describe('_handleCapabilityDetected', () => {
+    it('should disable decorative animations on weak GPU when power saver is enabled', () => {
+      orchestrator._handleAnimationPowerSaverChanged(true);
+
+      orchestrator._handleCapabilityDetected({
+        webgpu: false,
+        webgl2: false,
+        maxTextureSize: 1024,
+        preferredAPI: 'canvas2d'
+      });
+
+      expect(document.body.classList.contains('app-animations-off')).toBe(true);
+    });
+
+    it('should allow decorative animations when GPU is capable', () => {
+      orchestrator._animationSuppression.weakGPU = true;
+      document.body.classList.add('app-animations-off');
+
+      orchestrator._handleCapabilityDetected({
+        webgpu: true,
+        webgl2: true,
+        maxTextureSize: 4096,
+        preferredAPI: 'webgl2'
+      });
+
+      expect(document.body.classList.contains('app-animations-off')).toBe(false);
+    });
+
+    it('should respect user preference to keep animations on even if GPU is weak', () => {
+      orchestrator._handleAnimationPowerSaverChanged(false);
+
+      orchestrator._handleCapabilityDetected({
+        webgpu: false,
+        webgl2: false,
+        maxTextureSize: 512,
+        preferredAPI: 'canvas2d'
+      });
+
+      expect(document.body.classList.contains('app-animations-off')).toBe(false);
+    });
+
+    it('should pause animations when performance mode is enabled even on strong GPU', () => {
+      orchestrator._handleAnimationPowerSaverChanged(true);
+
+      orchestrator._handleCapabilityDetected({
+        webgpu: true,
+        webgl2: true,
+        maxTextureSize: 4096,
+        preferredAPI: 'webgl2'
+      });
+
+      expect(document.body.classList.contains('app-animations-off')).toBe(true);
     });
   });
 });

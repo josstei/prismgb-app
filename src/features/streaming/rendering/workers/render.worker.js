@@ -101,6 +101,8 @@ class WebGPURenderer {
 
     // Request GPU adapter
     const adapter = await navigator.gpu.requestAdapter({
+      powerPreference: 'low-power'
+    }) || await navigator.gpu.requestAdapter({
       powerPreference: 'high-performance'
     });
 
@@ -676,14 +678,17 @@ class WebGL2Renderer {
     canvas = offscreenCanvas;
 
     // Get WebGL2 context
-    this.gl = offscreenCanvas.getContext('webgl2', {
+    const baseAttributes = {
       alpha: false,
       antialias: false,
       depth: false,
       stencil: false,
       preserveDrawingBuffer: false,
-      powerPreference: 'high-performance'
-    });
+      powerPreference: 'low-power'
+    };
+
+    this.gl = offscreenCanvas.getContext('webgl2', baseAttributes) ||
+      offscreenCanvas.getContext('webgl2', { ...baseAttributes, powerPreference: 'high-performance' });
 
     if (!this.gl) {
       throw new Error('WebGL2 context not available');

@@ -12,6 +12,13 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
+const APP_CSS_CLASSES = Object.freeze({
+  STREAMING: 'app-streaming',
+  IDLE: 'app-idle',
+  HIDDEN: 'app-hidden',
+  ANIMATIONS_OFF: 'app-animations-off'
+});
+
 export class AppOrchestrator extends BaseOrchestrator {
   /**
    * @param {Object} dependencies - Injected dependencies
@@ -41,6 +48,21 @@ export class AppOrchestrator extends BaseOrchestrator {
       ],
       'AppOrchestrator'
     );
+
+    this._idleTimeoutId = null;
+    this._idleDelayMs = 30000;
+    this._isStreaming = false;
+    this._idleActivityEvents = ['pointermove', 'keydown', 'wheel', 'touchstart'];
+    this._lastIdleReset = 0;
+    this._animationSuppression = {
+      reducedMotion: false,
+      weakGPU: false,
+      performanceMode: false
+    };
+    this._weakGpuSuppressionEnabled = false;
+    this._weakGpuDetected = false;
+    this._performanceModeEnabled = false;
+    this._motionPreferenceCleanup = null;
   }
 
   /**
@@ -94,8 +116,169 @@ export class AppOrchestrator extends BaseOrchestrator {
           ? 'Camera access denied. Please allow camera permissions.'
           : `Device error: ${data.error}`;
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
-      }
+      },
+      [EventChannels.STREAM.STARTED]: () => this._handleStreamingStateChanged(true),
+      [EventChannels.STREAM.STOPPED]: () => this._handleStreamingStateChanged(false),
+      [EventChannels.RENDER.CAPABILITY_DETECTED]: (capabilities) => this._handleCapabilityDetected(capabilities),
+      [EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED]: (enabled) => this._handleAnimationPowerSaverChanged(enabled)
     });
+
+    this._setupVisibilityHandling();
+    this._setupReducedMotionHandling();
+    this._setupIdleHandling();
+    this._startIdleTimer();
+  }
+
+  _setupVisibilityHandling() {
+    this._handleVisibilityChange = () => {
+      if (document.hidden) {
+        document.body.classList.add(APP_CSS_CLASSES.HIDDEN);
+        this._clearIdleTimer();
+        this.logger.debug('App hidden - pausing decorative animations');
+      } else {
+        document.body.classList.remove(APP_CSS_CLASSES.HIDDEN);
+        this.logger.debug('App visible - resuming decorative animations');
+        this._resetIdleTimer();
+      }
+    };
+    document.addEventListener('visibilitychange', this._handleVisibilityChange);
+    this._handleVisibilityChange();
+  }
+
+  _setupReducedMotionHandling() {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleChange = (event) => {
+      this._setAnimationsSuppressed('reducedMotion', event.matches);
+      if (event.matches) {
+        this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
+      }
+    };
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      this._motionPreferenceCleanup = () => mediaQuery.removeEventListener('change', handleChange);
+    } else if (typeof mediaQuery.addListener === 'function') {
+      // Safari fallback
+      mediaQuery.addListener(handleChange);
+      this._motionPreferenceCleanup = () => mediaQuery.removeListener(handleChange);
+    }
+
+    // Apply initial state
+    this._setAnimationsSuppressed('reducedMotion', mediaQuery.matches);
+  }
+
+  _setupIdleHandling() {
+    this._handleUserActivity = () => {
+      if (this._isStreaming || document.hidden) {
+        return;
+      }
+
+      const now = performance.now();
+      if (now - this._lastIdleReset < 1000) {
+        return;
+      }
+
+      this._resetIdleTimer();
+    };
+
+    this._idleActivityEvents.forEach((event) => {
+      document.addEventListener(event, this._handleUserActivity, { passive: true });
+    });
+  }
+
+  _handleStreamingStateChanged(isStreaming) {
+    this._isStreaming = isStreaming;
+
+    if (isStreaming) {
+      document.body.classList.add(APP_CSS_CLASSES.STREAMING);
+      document.body.classList.remove(APP_CSS_CLASSES.IDLE);
+      this._clearIdleTimer();
+      this.logger.debug('Streaming started - pausing decorative animations');
+    } else {
+      document.body.classList.remove(APP_CSS_CLASSES.STREAMING);
+      this._startIdleTimer();
+      this.logger.debug('Streaming stopped - starting idle timer');
+    }
+  }
+
+  _startIdleTimer() {
+    if (this._isStreaming || document.hidden) {
+      return;
+    }
+
+    this._clearIdleTimer();
+    this._lastIdleReset = performance.now();
+    this._idleTimeoutId = setTimeout(() => {
+      document.body.classList.add(APP_CSS_CLASSES.IDLE);
+      this.logger.debug('App idle - pausing decorative animations');
+    }, this._idleDelayMs);
+  }
+
+  _resetIdleTimer() {
+    this._lastIdleReset = performance.now();
+    document.body.classList.remove(APP_CSS_CLASSES.IDLE);
+    this._startIdleTimer();
+  }
+
+  _clearIdleTimer() {
+    if (this._idleTimeoutId) {
+      clearTimeout(this._idleTimeoutId);
+      this._idleTimeoutId = null;
+    }
+  }
+
+  _handleCapabilityDetected(capabilities) {
+    this._weakGpuDetected = this._detectWeakGPU(capabilities);
+    this._applyWeakGpuSuppression();
+  }
+
+  _detectWeakGPU(capabilities) {
+    if (!capabilities) {
+      return false;
+    }
+
+    const noAcceleratedPath = !capabilities.webgpu && !capabilities.webgl2;
+    const usingCanvasFallback = capabilities.preferredAPI === 'canvas2d';
+    const lowTextureBudget = capabilities.maxTextureSize > 0 && capabilities.maxTextureSize < 2048;
+
+    return noAcceleratedPath || usingCanvasFallback || lowTextureBudget;
+  }
+
+  _applyWeakGpuSuppression() {
+    const shouldSuppress = this._weakGpuSuppressionEnabled && this._weakGpuDetected;
+    this._setAnimationsSuppressed('weakGPU', shouldSuppress);
+
+    if (shouldSuppress) {
+      this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
+    } else if (this._weakGpuDetected && !this._weakGpuSuppressionEnabled) {
+      this.logger.info('Weak GPU detected but performance mode is off; keeping decorative animations');
+    } else {
+      this.logger.debug('GPU capabilities sufficient - decorative animations allowed');
+    }
+  }
+
+  _handleAnimationPowerSaverChanged(enabled) {
+    this._weakGpuSuppressionEnabled = enabled;
+    this._performanceModeEnabled = enabled;
+    this._setAnimationsSuppressed('performanceMode', enabled);
+
+    if (enabled) {
+      this.logger.info('Performance mode enabled - pausing decorative animations');
+    } else {
+      this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
+    }
+
+    this._applyWeakGpuSuppression();
+  }
+
+  _setAnimationsSuppressed(reason, suppressed) {
+    this._animationSuppression[reason] = suppressed;
+    const shouldSuppress = Object.values(this._animationSuppression).some(Boolean);
+    document.body.classList.toggle(APP_CSS_CLASSES.ANIMATIONS_OFF, shouldSuppress);
   }
 
   /**
@@ -130,6 +313,20 @@ export class AppOrchestrator extends BaseOrchestrator {
    */
   async onCleanup() {
     this.logger.info('Cleaning up AppOrchestrator...');
+
+    this._clearIdleTimer();
+    if (this._handleVisibilityChange) {
+      document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+    }
+    if (this._handleUserActivity) {
+      this._idleActivityEvents.forEach((event) => {
+        document.removeEventListener(event, this._handleUserActivity, { passive: true });
+      });
+    }
+    if (this._motionPreferenceCleanup) {
+      this._motionPreferenceCleanup();
+      this._motionPreferenceCleanup = null;
+    }
 
     // Cleanup all sub-orchestrators (continue even if one fails)
     const orchestrators = [

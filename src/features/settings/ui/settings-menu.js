@@ -35,6 +35,7 @@ class SettingsMenuComponent {
     this.container = elements.settingsMenuContainer;
     this.toggleButton = elements.settingsBtn;
     this.statusStripCheckbox = elements.settingStatusStrip;
+    this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
     this.footer = elements.footer;
@@ -95,6 +96,14 @@ class SettingsMenuComponent {
       });
     }
 
+    // Animation power saver toggle
+    if (this.animationSaverCheckbox) {
+      this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
+        const enabled = this.animationSaverCheckbox.checked;
+        this.settingsService.setAnimationPowerSaver(enabled);
+      });
+    }
+
     // Disclaimer expand/collapse
     if (this.disclaimerBtn && this.disclaimerContent) {
       this._domListeners.add(this.disclaimerBtn, 'click', () => {
@@ -112,9 +121,14 @@ class SettingsMenuComponent {
    */
   _loadCurrentSettings() {
     const statusStripVisible = this.settingsService.getStatusStripVisible();
+    const animationSaverEnabled = this.settingsService.getAnimationPowerSaver?.() ?? false;
 
     if (this.statusStripCheckbox) {
       this.statusStripCheckbox.checked = statusStripVisible;
+    }
+
+    if (this.animationSaverCheckbox) {
+      this.animationSaverCheckbox.checked = animationSaverEnabled;
     }
 
     this._applyStatusStripVisibility(statusStripVisible);

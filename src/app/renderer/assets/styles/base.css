@@ -60,13 +60,14 @@ body::after {
     rgba(255, 0, 128, 0.08)
   );
   mix-blend-mode: screen;
-  filter: blur(60px);
+  filter: blur(20px);
   opacity: 0.5;
   pointer-events: none;
   z-index: 0;
   animation: prismatic-sheen 25s linear infinite;
   will-change: transform;
   contain: strict;
+  animation-play-state: running;
 }
 
 @keyframes prismatic-sheen {
@@ -91,11 +92,12 @@ body::after {
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
+  filter: blur(30px);
   opacity: 0.35;
   animation: orb-drift 20s ease-in-out infinite;
   will-change: transform;
   contain: layout style;
+  animation-play-state: running;
 }
 
 .prismatic-orbs::before {
@@ -131,6 +133,43 @@ body::after {
   .prismatic-orbs::after {
     animation: none;
   }
+}
+
+/* Pause decorative animations when streaming or idle to save GPU cycles */
+body.app-streaming::after,
+body.app-idle::after {
+  animation-play-state: paused;
+}
+
+body.app-streaming .prismatic-orbs::before,
+body.app-streaming .prismatic-orbs::after,
+body.app-idle .prismatic-orbs::before,
+body.app-idle .prismatic-orbs::after {
+  animation-play-state: paused;
+}
+
+/* When page is hidden (backgrounded), pause all decorative animations */
+body.app-hidden::after {
+  animation-play-state: paused;
+}
+
+body.app-hidden .prismatic-orbs::before,
+body.app-hidden .prismatic-orbs::after {
+  animation-play-state: paused;
+}
+
+/* Disable decorative animations entirely when user/device cannot spare cycles */
+body.app-animations-off::after {
+  animation: none;
+  opacity: 0.35;
+  will-change: auto;
+}
+
+body.app-animations-off .prismatic-orbs::before,
+body.app-animations-off .prismatic-orbs::after {
+  animation: none;
+  opacity: 0.25;
+  will-change: auto;
 }
 
 /* Typography - Display Font for Headings */

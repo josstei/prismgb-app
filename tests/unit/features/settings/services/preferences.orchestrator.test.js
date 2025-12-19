@@ -35,7 +35,8 @@ describe('PreferencesOrchestrator', () => {
     mockSettingsService = {
       loadAllPreferences: vi.fn(() => ({
         volume: 80,
-        statusStripVisible: false
+        statusStripVisible: false,
+        animationPowerSaver: true
       }))
     };
 
@@ -87,6 +88,15 @@ describe('PreferencesOrchestrator', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.SETTINGS.VOLUME_CHANGED,
         80
+      );
+    });
+
+    it('should publish animation power saver event', async () => {
+      await orchestrator.loadPreferences();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED,
+        true
       );
     });
 

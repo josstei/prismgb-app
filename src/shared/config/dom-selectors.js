@@ -45,6 +45,7 @@ export const DOMSelectors = {
   // Settings menu
   SETTINGS_MENU_CONTAINER: 'settingsMenuContainer',
   SETTING_STATUS_STRIP: 'settingStatusStrip',
+  SETTING_ANIMATION_SAVER: 'settingAnimationSaver',
   SETTING_RENDER_PRESET: 'settingRenderPreset',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',

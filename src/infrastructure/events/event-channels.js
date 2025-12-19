@@ -41,7 +41,8 @@ export const EventChannels = {
     VOLUME_CHANGED: 'settings:volume-changed',
     STATUS_STRIP_CHANGED: 'settings:status-strip-changed',
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
-    BRIGHTNESS_CHANGED: 'settings:brightness-changed'
+    BRIGHTNESS_CHANGED: 'settings:brightness-changed',
+    ANIMATION_POWER_SAVER_CHANGED: 'settings:animation-power-saver-changed'
   },
 
   // Render events (GPU rendering pipeline)

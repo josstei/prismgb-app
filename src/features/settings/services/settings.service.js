@@ -25,14 +25,16 @@ class SettingsService extends BaseService {
       gameVolume: 70,
       statusStripVisible: false,
       renderPreset: 'vibrant',
-      globalBrightness: 1.0
+      globalBrightness: 1.0,
+      animationPowerSaver: false
     };
 
     this.keys = {
       VOLUME: 'gameVolume',
       STATUS_STRIP: 'statusStripVisible',
       RENDER_PRESET: 'renderPreset',
-      GLOBAL_BRIGHTNESS: 'globalBrightness'
+      GLOBAL_BRIGHTNESS: 'globalBrightness',
+      ANIMATION_POWER_SAVER: 'animationPowerSaver'
     };
   }
 
@@ -43,12 +45,14 @@ class SettingsService extends BaseService {
   loadAllPreferences() {
     const volume = this.getVolume();
     const statusStripVisible = this.getStatusStripVisible();
+    const animationPowerSaver = this.getAnimationPowerSaver();
 
-    this.logger.info(`Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}`);
+    this.logger.info(`Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, AnimationPowerSaver: ${animationPowerSaver}`);
 
     return {
       volume,
-      statusStripVisible
+      statusStripVisible,
+      animationPowerSaver
     };
   }
 
@@ -138,6 +142,28 @@ class SettingsService extends BaseService {
 
     // Emit event
     this.eventBus.publish(EventChannels.SETTINGS.BRIGHTNESS_CHANGED, clampedBrightness);
+  }
+
+  /**
+   * Get saved animation power saver preference
+   * @returns {boolean} True if decorative animations should be paused on weak hardware
+   */
+  getAnimationPowerSaver() {
+    const saved = this.storageService?.getItem(this.keys.ANIMATION_POWER_SAVER);
+    return saved !== null ? saved === 'true' : this.defaults.animationPowerSaver;
+  }
+
+  /**
+   * Save animation power saver preference
+   * @param {boolean} enabled - Enable GPU-friendly animation suppression
+   */
+  setAnimationPowerSaver(enabled) {
+    this.storageService?.setItem(this.keys.ANIMATION_POWER_SAVER, enabled.toString());
+
+    this.logger.debug(`Animation power saver ${enabled ? 'enabled' : 'disabled'}`);
+
+    // Emit event
+    this.eventBus.publish(EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED, enabled);
   }
 }
 

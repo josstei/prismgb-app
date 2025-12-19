@@ -37,6 +37,7 @@ export class PreferencesOrchestrator extends BaseOrchestrator {
 
       // Apply volume via event (ShaderSelector listens for this)
       this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, preferences.volume);
+      this.eventBus.publish(EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED, preferences.animationPowerSaver);
 
       // Status strip visibility is applied by SettingsMenuComponent on initialize
 
