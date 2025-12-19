@@ -3,4 +3,4 @@
  * Auto-update functionality using electron-updater
  */
 
-export { default as UpdateManager } from './update.manager.js';
+export { default as UpdateManager } from './main/update.manager.js';

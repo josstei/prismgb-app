@@ -57,7 +57,7 @@ async function createAppContainer(loggerFactory) {
   });
 
   // Update components
-  const { default: UpdateManager } = await import('@features/updates/update.manager.js');
+  const { default: UpdateManager } = await import('@features/updates/main/update.manager.js');
 
   container.register({
     updateManager: asClass(UpdateManager).singleton()
