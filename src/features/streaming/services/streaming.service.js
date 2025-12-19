@@ -49,6 +49,7 @@ export class StreamingService extends BaseService {
     this.currentStream = null;
     this.currentAdapter = null;
     this.currentDevice = null;
+    this.currentCapabilities = null;
 
     // Track event handlers for cleanup
     this._trackEndedHandler = null;
@@ -142,8 +143,9 @@ export class StreamingService extends BaseService {
       // Get stream settings
       const settings = this._getStreamSettings();
 
-      // Get capabilities
+      // Get and store capabilities
       const capabilities = await this.currentAdapter.getCapabilities(device);
+      this.currentCapabilities = capabilities;
 
       // Monitor video track for device disconnection/power-off
       this._setupTrackMonitoring();
@@ -238,6 +240,7 @@ export class StreamingService extends BaseService {
     this.currentStream = null;
     this.currentAdapter = null;
     this.currentDevice = null;
+    this.currentCapabilities = null;
 
     // Emit event
     this.eventBus.publish(EventChannels.STREAM.STOPPED);
@@ -315,6 +318,7 @@ export class StreamingService extends BaseService {
     this.currentStream = null;
     this.currentAdapter = null;
     this.currentDevice = null;
+    this.currentCapabilities = null;
   }
 
   /**

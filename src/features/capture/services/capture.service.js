@@ -167,8 +167,7 @@ class CaptureService extends BaseService {
         this._handleRecordingError(event);
       };
 
-      // Start recording
-      this.mediaRecorder.start();
+      this.mediaRecorder.start(1000);
       this.isRecording = true;
 
       this.logger.info('Recording started');

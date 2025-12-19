@@ -118,6 +118,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
         height: nativeHeight
       },
       canvasResolution: this.helpers.getResolutionByScale(this.canvasScale),
+      frameRate: this.mediaConfig?.video?.frameRate?.ideal || 60,
       audioSupport: true,
       fallbackStrategy: this.deviceProfile?.media?.fallbackStrategy || 'audio-simple',
       pixelPerfect: this.config.display.pixelPerfect,

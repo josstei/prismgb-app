@@ -29,6 +29,7 @@ class AppState {
 
     // Internal state cache (updated via events)
     this._streamCache = null;
+    this._capabilitiesCache = null;
 
     // EventBus subscription tracking for cleanup
     this._subscriptions = [];
@@ -44,14 +45,15 @@ class AppState {
    * @private
    */
   _setupEventSubscriptions() {
-    // Track stream state via events
     const streamStartedUnsub = this.eventBus.subscribe(EventChannels.STREAM.STARTED, (data) => {
       this._streamCache = data.stream;
+      this._capabilitiesCache = data.capabilities;
     });
     this._subscriptions.push(streamStartedUnsub);
 
     const streamStoppedUnsub = this.eventBus.subscribe(EventChannels.STREAM.STOPPED, () => {
       this._streamCache = null;
+      this._capabilitiesCache = null;
     });
     this._subscriptions.push(streamStoppedUnsub);
   }
@@ -77,12 +79,21 @@ class AppState {
    * @returns {MediaStream|null} Current stream or null
    */
   get currentStream() {
-    // First try cached stream from events
     if (this._streamCache) {
       return this._streamCache;
     }
-    // Fallback to service if available
     return this.streamingService?.getStream?.() ?? null;
+  }
+
+  /**
+   * Get current device capabilities
+   * @returns {Object|null} Capabilities object or null
+   */
+  get currentCapabilities() {
+    if (this._capabilitiesCache) {
+      return this._capabilitiesCache;
+    }
+    return this.streamingService?.currentCapabilities ?? null;
   }
 
   /**
@@ -109,6 +120,7 @@ class AppState {
 
     // Clear cached state
     this._streamCache = null;
+    this._capabilitiesCache = null;
   }
 }
 
