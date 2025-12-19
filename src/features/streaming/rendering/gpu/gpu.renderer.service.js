@@ -362,8 +362,7 @@ export class GPURendererService extends BaseService {
         break;
 
       case WorkerResponseType.CAPTURE_REQUESTED:
-        // Capture request acknowledged - frame will be captured on next render
-        this.logger.debug('Capture request acknowledged by worker');
+        // Capture request acknowledged - no logging needed (floods console during recording)
         break;
 
       case WorkerResponseType.CAPTURE_READY:
