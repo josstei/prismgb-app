@@ -27,6 +27,14 @@ vi.mock('@app/renderer/application/app.orchestrator.js', () => ({
   AppOrchestrator: vi.fn()
 }));
 
+vi.mock('@app/renderer/application/performance/animation-performance.orchestrator.js', () => ({
+  AnimationPerformanceOrchestrator: vi.fn()
+}));
+
+vi.mock('@app/renderer/application/performance/performance-mode.coordinator.js', () => ({
+  PerformanceModeCoordinator: vi.fn()
+}));
+
 // UI layer mocks
 vi.mock('@ui/orchestration/ui-setup.orchestrator.js', () => ({
   UISetupOrchestrator: vi.fn()

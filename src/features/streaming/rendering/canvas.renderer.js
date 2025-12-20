@@ -248,6 +248,18 @@ export class CanvasRenderer {
   }
 
   /**
+   * Reset cached canvas state after canvas replacement
+   */
+  resetCanvasState() {
+    this._cachedContext = null;
+    this._cachedCanvas = null;
+    this._displayWidth = 0;
+    this._displayHeight = 0;
+    this._devicePixelRatio = 1;
+    this._lastFrameTime = -1;
+  }
+
+  /**
    * Cleanup all resources and stop rendering
    * Cancels animations, clears cached context, and removes event listeners.
    */

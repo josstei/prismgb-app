@@ -10,6 +10,8 @@ import { ServiceContainer, asValue } from '@infrastructure/di/service-container.
 // Application layer
 import { AppState } from '@app/renderer/application/app.state.js';
 import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
+import { AnimationPerformanceOrchestrator } from '@app/renderer/application/performance/animation-performance.orchestrator.js';
+import { PerformanceModeCoordinator } from '@app/renderer/application/performance/performance-mode.coordinator.js';
 
 // UI layer
 import { UISetupOrchestrator } from '@ui/orchestration/ui-setup.orchestrator.js';
@@ -370,6 +372,30 @@ function createRendererContainer() {
     ['updateService', 'eventBus', 'loggerFactory']
   );
 
+  // Performance Mode Coordinator - fan-out settings to UI/render signals
+  container.registerSingleton(
+    'performanceModeCoordinator',
+    function (eventBus, loggerFactory) {
+      return new PerformanceModeCoordinator({
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['eventBus', 'loggerFactory']
+  );
+
+  // Animation Performance Orchestrator - CSS/idle/visibility controls
+  container.registerSingleton(
+    'animationPerformanceOrchestrator',
+    function (eventBus, loggerFactory) {
+      return new AnimationPerformanceOrchestrator({
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['eventBus', 'loggerFactory']
+  );
+
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
   container.registerSingleton(
     'uiSetupOrchestrator',
@@ -420,6 +446,8 @@ function createRendererContainer() {
       displayModeOrchestrator,
       updateOrchestrator,
       uiSetupOrchestrator,
+      animationPerformanceOrchestrator,
+      performanceModeCoordinator,
       eventBus,
       loggerFactory
     ) {
@@ -431,6 +459,8 @@ function createRendererContainer() {
         displayModeOrchestrator,
         updateOrchestrator,
         uiSetupOrchestrator,
+        animationPerformanceOrchestrator,
+        performanceModeCoordinator,
         eventBus,
         loggerFactory
       });
@@ -443,6 +473,8 @@ function createRendererContainer() {
       'displayModeOrchestrator',
       'updateOrchestrator',
       'uiSetupOrchestrator',
+      'animationPerformanceOrchestrator',
+      'performanceModeCoordinator',
       'eventBus',
       'loggerFactory'
     ]

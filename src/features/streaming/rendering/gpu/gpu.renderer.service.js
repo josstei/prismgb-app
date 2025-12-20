@@ -666,7 +666,7 @@ export class GPURendererService extends BaseService {
    * Forces Chromium GPU process to release cached resources.
    * Emits CANVAS_EXPIRED event so UI can provide fresh canvas on next init.
    */
-  terminateAndReset() {
+  terminateAndReset(emitCanvasExpired = true) {
     if (!this._worker && !this._canvasTransferred) {
       this.logger.debug('terminateAndReset: Nothing to terminate');
       return;
@@ -676,8 +676,12 @@ export class GPURendererService extends BaseService {
     this._cleanup(false);
     this._canvasTransferred = false;
 
-    this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
-    this.logger.info('GPU renderer terminated - canvas expired, will need fresh canvas');
+    if (emitCanvasExpired) {
+      this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
+      this.logger.info('GPU renderer terminated - canvas expired, will need fresh canvas');
+    } else {
+      this.logger.info('GPU renderer terminated - caller will handle canvas refresh');
+    }
   }
 
   /**

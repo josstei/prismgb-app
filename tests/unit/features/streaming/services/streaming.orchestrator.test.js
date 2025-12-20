@@ -82,12 +82,14 @@ describe('StreamingOrchestrator', () => {
       stopRendering: vi.fn(),
       clearCanvas: vi.fn(),
       resize: vi.fn(),
+      resetCanvasState: vi.fn(),
       cleanup: vi.fn()
     };
 
     mockViewportManager = {
       initialize: vi.fn(),
       calculateDimensions: vi.fn(() => ({ width: 160, height: 144, scale: 1 })),
+      resetDimensions: vi.fn(),
       cleanup: vi.fn(),
       _resizeObserver: null
     };
@@ -112,6 +114,7 @@ describe('StreamingOrchestrator', () => {
       initialize: vi.fn().mockResolvedValue(false),
       renderFrame: vi.fn().mockResolvedValue(undefined),
       setPreset: vi.fn(),
+      getPresetId: vi.fn(() => 'vibrant'),
       isActive: vi.fn().mockReturnValue(false),
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       terminateAndReset: vi.fn(),
@@ -187,6 +190,7 @@ describe('StreamingOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:error', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:render-mode-changed', expect.any(Function));
     });
 
     it('should wire device events', async () => {
@@ -517,6 +521,34 @@ describe('StreamingOrchestrator', () => {
         'render:canvas-recreated',
         { oldCanvas, newCanvas }
       );
+    });
+  });
+
+  describe('Performance Mode Transitions', () => {
+    it('should switch from GPU to Canvas2D mid-stream when enabled', () => {
+      orchestrator._useGPURenderer = true;
+      mockAppState.isStreaming = true;
+      mockGPURendererService.isActive.mockReturnValue(true);
+      mockGPURendererService.getPresetId = vi.fn(() => 'vibrant');
+      orchestrator._recreateCanvas = vi.fn();
+      orchestrator._setupCanvasSize = vi.fn();
+
+      orchestrator._handlePerformanceModeChanged(true);
+
+      expect(mockGPURendererService.terminateAndReset).toHaveBeenCalledWith(false);
+      expect(orchestrator._recreateCanvas).toHaveBeenCalled();
+      expect(mockCanvasRenderer.startRendering).toHaveBeenCalled();
+    });
+
+    it('should attempt GPU switch when disabling during Canvas2D stream', () => {
+      orchestrator._useGPURenderer = false;
+      orchestrator._canvas2dContextCreated = true;
+      mockAppState.isStreaming = true;
+      orchestrator._switchToGPUMidStream = vi.fn();
+
+      orchestrator._handlePerformanceModeChanged(false);
+
+      expect(orchestrator._switchToGPUMidStream).toHaveBeenCalled();
     });
   });
 

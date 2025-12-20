@@ -123,6 +123,13 @@ export class ViewportManager {
   }
 
   /**
+   * Reset cached dimension tracking without tearing down observers
+   */
+  resetDimensions() {
+    this._lastDimensions = null;
+  }
+
+  /**
    * Cleanup resources
    */
   cleanup() {

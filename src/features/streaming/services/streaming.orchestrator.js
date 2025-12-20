@@ -187,15 +187,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this.uiController.elements.streamCanvas = newCanvas;
 
     // Reset canvas renderer's cached state so it properly initializes the new canvas
-    this._canvasRenderer._cachedCanvas = null;
-    this._canvasRenderer._cachedContext = null;
-    this._canvasRenderer._displayWidth = 0;
-    this._canvasRenderer._displayHeight = 0;
+    this._canvasRenderer.resetCanvasState();
 
     // Reset ViewportManager's cached dimensions to force recalculation on next resize
     // Without this, calculateDimensions() returns null (thinks dimensions unchanged)
     // and the new canvas never gets sized
-    this._viewportManager._lastDimensions = null;
+    this._viewportManager.resetDimensions();
 
     // Notify listeners to rebind event handlers (fixes memory leak from orphaned listeners)
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
@@ -256,7 +253,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       [EventChannels.STREAM.ERROR]: (error) => this._handleStreamError(error),
       [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId),
-      [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled)
+      [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled)
     });
   }
 
@@ -301,7 +298,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
         this._stopGPURenderLoop(video);
 
         // Terminate GPU worker and recreate canvas
-        this._gpuRendererService.terminateAndReset();
+        this._gpuRendererService.terminateAndReset(false);
         this._useGPURenderer = false;
         this._recreateCanvas();
 

@@ -45,6 +45,11 @@ export const EventChannels = {
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed'
   },
 
+  PERFORMANCE: {
+    UI_MODE_CHANGED: 'performance:ui-mode-changed',
+    RENDER_MODE_CHANGED: 'performance:render-mode-changed'
+  },
+
   // Render events (GPU rendering pipeline)
   RENDER: {
     CAPABILITY_DETECTED: 'render:capability-detected',

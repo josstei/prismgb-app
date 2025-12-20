@@ -243,7 +243,7 @@ class ShaderSelectorComponent {
 
     // Listen for performance mode changes
     const unsubscribePerf = this.eventBus.subscribe(
-      EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
+      EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
       (enabled) => {
         this._performanceModeEnabled = enabled;
         this._renderPresetList();
