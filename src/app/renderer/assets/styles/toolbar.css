@@ -379,6 +379,10 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
   min-width: 48px;
 }
 
+.brightness-control.hidden {
+  display: none;
+}
+
 .brightness-icon {
   display: flex;
   align-items: center;

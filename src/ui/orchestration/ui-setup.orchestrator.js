@@ -79,6 +79,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       {
         settingsService: this.settingsService,
         appState: this.appState,
+        eventBus: this.eventBus,
         logger: this.logger
       },
       {

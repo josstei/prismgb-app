@@ -152,6 +152,7 @@ describe('UISetupOrchestrator', () => {
         {
           settingsService: mockSettingsService,
           appState: mockAppState,
+          eventBus: mockEventBus,
           logger: mockLogger
         },
         expect.objectContaining({

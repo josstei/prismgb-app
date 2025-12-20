@@ -29,6 +29,7 @@ class ShaderSelectorComponent {
     this.toolbar = null;
     this.brightnessSlider = null;
     this.brightnessPercentage = null;
+    this.brightnessControl = null;
     this.volumeSlider = null;
     this.volumePercentage = null;
     this.streamVideo = null;
@@ -50,6 +51,7 @@ class ShaderSelectorComponent {
     this.toolbar = elements.streamToolbar;
     this.brightnessSlider = elements.brightnessSlider;
     this.brightnessPercentage = elements.brightnessPercentage;
+    this.brightnessControl = this.brightnessSlider?.closest('.brightness-control');
     this.volumeSlider = elements.volumeSlider;
     this.volumePercentage = elements.volumePercentage;
     this.streamVideo = elements.streamVideo;
@@ -81,6 +83,21 @@ class ShaderSelectorComponent {
    */
   _loadPerformanceModeState() {
     this._performanceModeEnabled = this.settingsService.getPerformanceMode();
+    this._updateBrightnessControlVisibility();
+  }
+
+  /**
+   * Update brightness control visibility based on performance mode
+   * @private
+   */
+  _updateBrightnessControlVisibility() {
+    if (!this.brightnessControl) return;
+
+    if (this._performanceModeEnabled) {
+      this.brightnessControl.classList.add('hidden');
+    } else {
+      this.brightnessControl.classList.remove('hidden');
+    }
   }
 
   /**
@@ -136,13 +153,13 @@ class ShaderSelectorComponent {
       option.className = 'shader-option';
       option.dataset.presetId = preset.id;
 
-      // When performance mode is enabled, only Performance preset is active and selectable
+      // When performance mode is enabled, only Performance preset is visible
       if (this._performanceModeEnabled) {
         if (preset.id === 'performance') {
           option.classList.add(CSSClasses.ACTIVE);
         } else {
-          option.classList.add('disabled');
-          option.disabled = true;
+          option.classList.add('hidden');
+          return;
         }
       } else {
         // Normal mode - hide Performance preset, show user's selection
@@ -230,6 +247,7 @@ class ShaderSelectorComponent {
       (enabled) => {
         this._performanceModeEnabled = enabled;
         this._renderPresetList();
+        this._updateBrightnessControlVisibility();
         this.logger?.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'} - shader options updated`);
       }
     );

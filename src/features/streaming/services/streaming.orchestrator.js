@@ -62,7 +62,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Subscribe to canvas expiration (GPU worker terminated)
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_EXPIRED]: () => this._recreateCanvas()
+      [EventChannels.RENDER.CANVAS_EXPIRED]: () => {
+        this._recreateCanvas();
+        this._setupCanvasSize();
+      }
     });
 
     // Initialize visibility handler
@@ -344,6 +347,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       if (this._canvas2dContextCreated && !this.appState.isStreaming) {
         this.logger.info('Performance mode disabled - recreating canvas for GPU (Canvas2D context was active)');
         this._recreateCanvas();
+        this._setupCanvasSize();
         this._canvas2dContextCreated = false;
       }
     }
