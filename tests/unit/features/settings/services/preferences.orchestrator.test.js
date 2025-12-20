@@ -36,7 +36,7 @@ describe('PreferencesOrchestrator', () => {
       loadAllPreferences: vi.fn(() => ({
         volume: 80,
         statusStripVisible: false,
-        animationPowerSaver: true
+        performanceMode: true
       }))
     };
 
@@ -91,11 +91,11 @@ describe('PreferencesOrchestrator', () => {
       );
     });
 
-    it('should publish animation power saver event', async () => {
+    it('should publish performance mode event', async () => {
       await orchestrator.loadPreferences();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED,
+        EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
         true
       );
     });

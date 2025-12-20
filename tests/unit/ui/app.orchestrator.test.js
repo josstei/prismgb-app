@@ -114,7 +114,7 @@ describe('AppOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.STREAM.STARTED, expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.STREAM.STOPPED, expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.RENDER.CAPABILITY_DETECTED, expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
     });
 
@@ -232,7 +232,7 @@ describe('AppOrchestrator', () => {
 
   describe('_handleCapabilityDetected', () => {
     it('should disable decorative animations on weak GPU when power saver is enabled', () => {
-      orchestrator._handleAnimationPowerSaverChanged(true);
+      orchestrator._handlePerformanceModeChanged(true);
 
       orchestrator._handleCapabilityDetected({
         webgpu: false,
@@ -259,7 +259,7 @@ describe('AppOrchestrator', () => {
     });
 
     it('should respect user preference to keep animations on even if GPU is weak', () => {
-      orchestrator._handleAnimationPowerSaverChanged(false);
+      orchestrator._handlePerformanceModeChanged(false);
 
       orchestrator._handleCapabilityDetected({
         webgpu: false,
@@ -272,7 +272,7 @@ describe('AppOrchestrator', () => {
     });
 
     it('should pause animations when performance mode is enabled even on strong GPU', () => {
-      orchestrator._handleAnimationPowerSaverChanged(true);
+      orchestrator._handlePerformanceModeChanged(true);
 
       orchestrator._handleCapabilityDetected({
         webgpu: true,

@@ -100,7 +100,7 @@ class SettingsMenuComponent {
     if (this.animationSaverCheckbox) {
       this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
         const enabled = this.animationSaverCheckbox.checked;
-        this.settingsService.setAnimationPowerSaver(enabled);
+        this.settingsService.setPerformanceMode(enabled);
       });
     }
 
@@ -121,14 +121,14 @@ class SettingsMenuComponent {
    */
   _loadCurrentSettings() {
     const statusStripVisible = this.settingsService.getStatusStripVisible();
-    const animationSaverEnabled = this.settingsService.getAnimationPowerSaver?.() ?? false;
+    const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
 
     if (this.statusStripCheckbox) {
       this.statusStripCheckbox.checked = statusStripVisible;
     }
 
     if (this.animationSaverCheckbox) {
-      this.animationSaverCheckbox.checked = animationSaverEnabled;
+      this.animationSaverCheckbox.checked = performanceModeEnabled;
     }
 
     this._applyStatusStripVisibility(statusStripVisible);

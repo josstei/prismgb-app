@@ -26,7 +26,7 @@ class SettingsService extends BaseService {
       statusStripVisible: false,
       renderPreset: 'vibrant',
       globalBrightness: 1.0,
-      animationPowerSaver: false
+      performanceMode: false
     };
 
     this.keys = {
@@ -34,7 +34,7 @@ class SettingsService extends BaseService {
       STATUS_STRIP: 'statusStripVisible',
       RENDER_PRESET: 'renderPreset',
       GLOBAL_BRIGHTNESS: 'globalBrightness',
-      ANIMATION_POWER_SAVER: 'animationPowerSaver'
+      PERFORMANCE_MODE: 'performanceMode'
     };
   }
 
@@ -45,14 +45,14 @@ class SettingsService extends BaseService {
   loadAllPreferences() {
     const volume = this.getVolume();
     const statusStripVisible = this.getStatusStripVisible();
-    const animationPowerSaver = this.getAnimationPowerSaver();
+    const performanceMode = this.getPerformanceMode();
 
-    this.logger.info(`Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, AnimationPowerSaver: ${animationPowerSaver}`);
+    this.logger.info(`Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, PerformanceMode: ${performanceMode}`);
 
     return {
       volume,
       statusStripVisible,
-      animationPowerSaver
+      performanceMode
     };
   }
 
@@ -145,25 +145,25 @@ class SettingsService extends BaseService {
   }
 
   /**
-   * Get saved animation power saver preference
-   * @returns {boolean} True if decorative animations should be paused on weak hardware
+   * Get performance mode preference
+   * @returns {boolean} True if performance mode is enabled (Canvas2D, minimal shaders, no CSS animations)
    */
-  getAnimationPowerSaver() {
-    const saved = this.storageService?.getItem(this.keys.ANIMATION_POWER_SAVER);
-    return saved !== null ? saved === 'true' : this.defaults.animationPowerSaver;
+  getPerformanceMode() {
+    const saved = this.storageService?.getItem(this.keys.PERFORMANCE_MODE);
+    return saved !== null ? saved === 'true' : this.defaults.performanceMode;
   }
 
   /**
-   * Save animation power saver preference
-   * @param {boolean} enabled - Enable GPU-friendly animation suppression
+   * Set performance mode preference
+   * @param {boolean} enabled - Enable performance mode (Canvas2D, minimal shaders, no CSS animations)
    */
-  setAnimationPowerSaver(enabled) {
-    this.storageService?.setItem(this.keys.ANIMATION_POWER_SAVER, enabled.toString());
+  setPerformanceMode(enabled) {
+    this.storageService?.setItem(this.keys.PERFORMANCE_MODE, enabled.toString());
 
-    this.logger.debug(`Animation power saver ${enabled ? 'enabled' : 'disabled'}`);
+    this.logger.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'}`);
 
     // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED, enabled);
+    this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, enabled);
   }
 }
 

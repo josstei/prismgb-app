@@ -17,8 +17,8 @@ describe('SettingsMenuComponent', () => {
     mockSettingsService = {
       getStatusStripVisible: vi.fn(() => true),
       setStatusStripVisible: vi.fn(),
-      getAnimationPowerSaver: vi.fn(() => true),
-      setAnimationPowerSaver: vi.fn()
+      getPerformanceMode: vi.fn(() => true),
+      setPerformanceMode: vi.fn()
     };
 
     // Mock event bus
@@ -94,7 +94,7 @@ describe('SettingsMenuComponent', () => {
       component.initialize(mockElements);
 
       expect(mockSettingsService.getStatusStripVisible).toHaveBeenCalled();
-      expect(mockSettingsService.getAnimationPowerSaver).toHaveBeenCalled();
+      expect(mockSettingsService.getPerformanceMode).toHaveBeenCalled();
       expect(mockElements.settingStatusStrip.checked).toBe(true);
       expect(mockElements.settingAnimationSaver.checked).toBe(true);
     });
@@ -233,22 +233,22 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingAnimationSaver.checked = false;
       mockElements.settingAnimationSaver.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setAnimationPowerSaver).toHaveBeenCalledWith(false);
+      expect(mockSettingsService.setPerformanceMode).toHaveBeenCalledWith(false);
     });
 
     it('should reflect stored preference on initialize', () => {
-      mockSettingsService.getAnimationPowerSaver.mockReturnValue(false);
+      mockSettingsService.getPerformanceMode.mockReturnValue(false);
 
       component.initialize(mockElements);
 
       expect(mockElements.settingAnimationSaver.checked).toBe(false);
     });
 
-    it('should default to false when getAnimationPowerSaver method is missing', () => {
+    it('should default to false when getPerformanceMode method is missing', () => {
       const serviceWithoutMethod = {
         getStatusStripVisible: vi.fn(() => false),
         setStatusStripVisible: vi.fn(),
-        setAnimationPowerSaver: vi.fn()
+        setPerformanceMode: vi.fn()
       };
 
       const componentWithLimitedService = new SettingsMenuComponent({

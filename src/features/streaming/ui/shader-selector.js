@@ -21,6 +21,9 @@ class ShaderSelectorComponent {
     this.currentBrightness = 1.0;
     this.currentVolume = 70;
 
+    // Performance mode state
+    this._performanceModeEnabled = false;
+
     // Toolbar elements
     this.cinematicToggle = null;
     this.toolbar = null;
@@ -59,6 +62,7 @@ class ShaderSelectorComponent {
     this._loadCurrentPreset();
     this._loadCurrentBrightness();
     this._loadCurrentVolume();
+    this._loadPerformanceModeState();
     this._renderPresetList();
     this._setupClickOutside();
     this._setupEscapeKey();
@@ -69,6 +73,14 @@ class ShaderSelectorComponent {
     this._subscribeToEvents();
 
     this.logger?.debug('ShaderSelectorComponent initialized');
+  }
+
+  /**
+   * Load current performance mode state from settings
+   * @private
+   */
+  _loadPerformanceModeState() {
+    this._performanceModeEnabled = this.settingsService.getPerformanceMode();
   }
 
   /**
@@ -124,14 +136,31 @@ class ShaderSelectorComponent {
       option.className = 'shader-option';
       option.dataset.presetId = preset.id;
 
-      if (preset.id === this.currentPresetId) {
-        option.classList.add(CSSClasses.ACTIVE);
+      // When performance mode is enabled, only Performance preset is active and selectable
+      if (this._performanceModeEnabled) {
+        if (preset.id === 'performance') {
+          option.classList.add(CSSClasses.ACTIVE);
+        } else {
+          option.classList.add('disabled');
+          option.disabled = true;
+        }
+      } else {
+        // Normal mode - hide Performance preset, show user's selection
+        if (preset.id === 'performance') {
+          option.classList.add('hidden');
+          return;
+        }
+        if (preset.id === this.currentPresetId) {
+          option.classList.add(CSSClasses.ACTIVE);
+        }
       }
 
       option.innerHTML = `<span class="shader-option-name">${preset.name}</span>`;
 
       this._domListeners.add(option, 'click', () => {
-        this._selectPreset(preset.id);
+        if (!this._performanceModeEnabled) {
+          this._selectPreset(preset.id);
+        }
       });
 
       optionsContainer.appendChild(option);
@@ -184,7 +213,7 @@ class ShaderSelectorComponent {
    */
   _subscribeToEvents() {
     // Listen for preset changes from other sources
-    const unsubscribe = this.eventBus.subscribe(
+    const unsubscribePreset = this.eventBus.subscribe(
       EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
       (presetId) => {
         if (presetId !== this.currentPresetId) {
@@ -193,7 +222,18 @@ class ShaderSelectorComponent {
         }
       }
     );
-    this._eventSubscriptions.push(unsubscribe);
+    this._eventSubscriptions.push(unsubscribePreset);
+
+    // Listen for performance mode changes
+    const unsubscribePerf = this.eventBus.subscribe(
+      EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
+      (enabled) => {
+        this._performanceModeEnabled = enabled;
+        this._renderPresetList();
+        this.logger?.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'} - shader options updated`);
+      }
+    );
+    this._eventSubscriptions.push(unsubscribePerf);
   }
 
   /**

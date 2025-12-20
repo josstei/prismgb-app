@@ -120,7 +120,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       [EventChannels.STREAM.STARTED]: () => this._handleStreamingStateChanged(true),
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamingStateChanged(false),
       [EventChannels.RENDER.CAPABILITY_DETECTED]: (capabilities) => this._handleCapabilityDetected(capabilities),
-      [EventChannels.SETTINGS.ANIMATION_POWER_SAVER_CHANGED]: (enabled) => this._handleAnimationPowerSaverChanged(enabled)
+      [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled)
     });
 
     this._setupVisibilityHandling();
@@ -210,12 +210,21 @@ export class AppOrchestrator extends BaseOrchestrator {
       return;
     }
 
+    // Skip idle timer if animations are already suppressed (performance mode, weak GPU, etc.)
+    if (this._isAnimationsSuppressed()) {
+      return;
+    }
+
     this._clearIdleTimer();
     this._lastIdleReset = performance.now();
     this._idleTimeoutId = setTimeout(() => {
       document.body.classList.add(APP_CSS_CLASSES.IDLE);
       this.logger.debug('App idle - pausing decorative animations');
     }, this._idleDelayMs);
+  }
+
+  _isAnimationsSuppressed() {
+    return Object.values(this._animationSuppression).some(Boolean);
   }
 
   _resetIdleTimer() {
@@ -261,15 +270,22 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
   }
 
-  _handleAnimationPowerSaverChanged(enabled) {
+  _handlePerformanceModeChanged(enabled) {
     this._weakGpuSuppressionEnabled = enabled;
     this._performanceModeEnabled = enabled;
     this._setAnimationsSuppressed('performanceMode', enabled);
 
     if (enabled) {
+      // Clear idle timer and class since animations are now suppressed by performance mode
+      this._clearIdleTimer();
+      document.body.classList.remove(APP_CSS_CLASSES.IDLE);
       this.logger.info('Performance mode enabled - pausing decorative animations');
     } else {
       this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
+      // Restart idle timer if no other suppressions active
+      if (!this._isAnimationsSuppressed()) {
+        this._startIdleTimer();
+      }
     }
 
     this._applyWeakGpuSuppression();

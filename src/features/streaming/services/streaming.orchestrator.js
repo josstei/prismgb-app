@@ -45,6 +45,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // GPU idle termination timer (forces GPU cache flush when not streaming)
     this._idleReleaseTimeout = null;
     this._idleReleaseDelay = 30000; // 30 seconds
+
+    // Performance mode state
+    this._performanceModeEnabled = false;
+    this._userPresetId = null;
+    this._canvas2dContextCreated = false;
   }
 
   /**
@@ -158,19 +163,36 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     const parent = oldCanvas.parentElement;
     if (!parent) return;
 
-    // Create new canvas with same attributes and styles
+    // Create new canvas with same id and class, but fresh dimensions
+    // Don't copy width/height - let _setupCanvasSize() set them properly
     const newCanvas = document.createElement('canvas');
     newCanvas.id = oldCanvas.id;
     newCanvas.className = oldCanvas.className;
-    newCanvas.style.cssText = oldCanvas.style.cssText;
-    newCanvas.width = oldCanvas.width;
-    newCanvas.height = oldCanvas.height;
+
+    // Copy only CSS positioning styles, not dimensions
+    // This preserves position:absolute etc but lets resize set width/height
+    const computedStyle = window.getComputedStyle(oldCanvas);
+    newCanvas.style.position = computedStyle.position;
+    newCanvas.style.top = computedStyle.top;
+    newCanvas.style.left = computedStyle.left;
+    newCanvas.style.transform = computedStyle.transform;
 
     // Replace in DOM
     parent.replaceChild(newCanvas, oldCanvas);
 
     // Update reference in uiController
     this.uiController.elements.streamCanvas = newCanvas;
+
+    // Reset canvas renderer's cached state so it properly initializes the new canvas
+    this._canvasRenderer._cachedCanvas = null;
+    this._canvasRenderer._cachedContext = null;
+    this._canvasRenderer._displayWidth = 0;
+    this._canvasRenderer._displayHeight = 0;
+
+    // Reset ViewportManager's cached dimensions to force recalculation on next resize
+    // Without this, calculateDimensions() returns null (thinks dimensions unchanged)
+    // and the new canvas never gets sized
+    this._viewportManager._lastDimensions = null;
 
     // Notify listeners to rebind event handlers (fixes memory leak from orphaned listeners)
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
@@ -230,7 +252,8 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       [EventChannels.STREAM.STARTED]: (data) => this._handleStreamStarted(data),
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       [EventChannels.STREAM.ERROR]: (error) => this._handleStreamError(error),
-      [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId)
+      [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId),
+      [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled)
     });
   }
 
@@ -240,9 +263,143 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @private
    */
   _handleRenderPresetChanged(presetId) {
+    if (this._performanceModeEnabled) {
+      this._userPresetId = presetId;
+      this.logger.debug(`User selected ${presetId} preset - cached (performance mode active)`);
+      return;
+    }
+
     if (this._useGPURenderer && this._gpuRendererService.isActive()) {
       this._gpuRendererService.setPreset(presetId);
     }
+  }
+
+  /**
+   * Handle performance mode toggle
+   * When enabled: terminates GPU worker and uses Canvas2D for minimal resource usage
+   * When disabled: allows GPU rendering on next stream start
+   * @param {boolean} enabled - Whether performance mode is enabled
+   * @private
+   */
+  _handlePerformanceModeChanged(enabled) {
+    this._performanceModeEnabled = enabled;
+
+    if (enabled) {
+      // If currently streaming with GPU, switch to Canvas2D mid-stream
+      if (this.appState.isStreaming && this._useGPURenderer && this._gpuRendererService.isActive()) {
+        // Cache user's preset for restoration later
+        const currentPresetId = this._gpuRendererService.getPresetId();
+        if (currentPresetId !== 'performance') {
+          this._userPresetId = currentPresetId;
+        }
+
+        // Stop GPU rendering
+        const video = this.uiController.elements.streamVideo;
+        this._stopGPURenderLoop(video);
+
+        // Terminate GPU worker and recreate canvas
+        this._gpuRendererService.terminateAndReset();
+        this._useGPURenderer = false;
+        this._recreateCanvas();
+
+        // Setup canvas size for Canvas2D (maintains aspect ratio)
+        const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+        this._setupCanvasSize(nativeRes);
+
+        // Start Canvas2D on the new canvas
+        const canvas = this.uiController.elements.streamCanvas;
+        this._canvas2dContextCreated = true;
+        this._canvasRenderer.startRendering(
+          video,
+          canvas,
+          () => this.appState.isStreaming,
+          () => this._visibilityHandler.isHidden()
+        );
+
+        this.logger.info('Performance mode enabled mid-stream - switched to Canvas2D renderer');
+        return;
+      }
+
+      // If not streaming, terminate GPU worker so next stream uses Canvas2D
+      if (this._useGPURenderer) {
+        this.logger.info('Performance mode enabled - terminating GPU worker for Canvas2D on next stream');
+        this._gpuRendererService.terminateAndReset();
+        this._useGPURenderer = false;
+      }
+    } else {
+      // Performance mode disabled - restore user preset if GPU is active
+      if (this._useGPURenderer && this._gpuRendererService.isActive() && this._userPresetId) {
+        this._gpuRendererService.setPreset(this._userPresetId);
+        this.logger.info(`Performance mode disabled - restored ${this._userPresetId} preset`);
+        this._userPresetId = null;
+      }
+
+      // If streaming with Canvas2D, switch to GPU mid-stream
+      if (this.appState.isStreaming && this._canvas2dContextCreated && !this._useGPURenderer) {
+        this._switchToGPUMidStream();
+        return;
+      }
+
+      // If Canvas2D was used (not streaming), recreate canvas so GPU can use transferControlToOffscreen
+      if (this._canvas2dContextCreated && !this.appState.isStreaming) {
+        this.logger.info('Performance mode disabled - recreating canvas for GPU (Canvas2D context was active)');
+        this._recreateCanvas();
+        this._canvas2dContextCreated = false;
+      }
+    }
+  }
+
+  /**
+   * Switch from Canvas2D to GPU renderer mid-stream
+   * @private
+   */
+  async _switchToGPUMidStream() {
+    const video = this.uiController.elements.streamVideo;
+
+    // Stop Canvas2D rendering
+    this._canvasRenderer.stopRendering(video);
+
+    // Recreate canvas to clear the 2D context
+    this._recreateCanvas();
+    this._canvas2dContextCreated = false;
+
+    const canvas = this.uiController.elements.streamCanvas;
+    const nativeRes = { width: 160, height: 144 };
+
+    // Setup canvas size
+    this._setupCanvasSize(nativeRes);
+
+    // Try to initialize GPU
+    try {
+      const gpuAvailable = await this._gpuRendererService.initialize(canvas, nativeRes);
+
+      if (gpuAvailable) {
+        this._useGPURenderer = true;
+        this._startGPURenderLoop(video);
+
+        // Restore user's preset if cached
+        if (this._userPresetId) {
+          this._gpuRendererService.setPreset(this._userPresetId);
+          this.logger.info(`Performance mode disabled mid-stream - switched to GPU with ${this._userPresetId} preset`);
+          this._userPresetId = null;
+        } else {
+          this.logger.info('Performance mode disabled mid-stream - switched to GPU renderer');
+        }
+        return;
+      }
+    } catch (error) {
+      this.logger.warn('GPU initialization failed mid-stream, staying on Canvas2D:', error.message);
+    }
+
+    // GPU failed, restart Canvas2D
+    this._canvas2dContextCreated = true;
+    this._canvasRenderer.startRendering(
+      video,
+      canvas,
+      () => this.appState.isStreaming,
+      () => this._visibilityHandler.isHidden()
+    );
+    this.logger.warn('Could not switch to GPU mid-stream, continuing with Canvas2D');
   }
 
   /**
@@ -427,10 +584,34 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Use unified canvas sizing method
     this._setupCanvasSize(nativeRes);
 
+    // Performance mode: skip GPU entirely, use Canvas2D for minimal resource usage
+    if (this._performanceModeEnabled && !this._gpuRendererService.isCanvasTransferred()) {
+      this.logger.info('Performance mode active - using Canvas2D renderer');
+      this._useGPURenderer = false;
+      this._canvas2dContextCreated = true;
+      this._canvasRenderer.startRendering(
+        video,
+        canvas,
+        () => this.appState.isStreaming,
+        () => this._visibilityHandler.isHidden()
+      );
+      return;
+    }
+
     // If GPU renderer is already set up (from previous stream), just start the render loop
     if (this._useGPURenderer && this._gpuRendererService.isActive()) {
       this.logger.info('Resuming GPU renderer (already initialized)');
       this._startGPURenderLoop(video);
+
+      if (this._performanceModeEnabled) {
+        if (!this._userPresetId) {
+          const currentPresetId = this._gpuRendererService.getPresetId();
+          if (currentPresetId && currentPresetId !== 'performance') {
+            this._userPresetId = currentPresetId;
+          }
+        }
+        this._gpuRendererService.setPreset('performance');
+      }
       return;
     }
 
@@ -442,6 +623,16 @@ export class StreamingOrchestrator extends BaseOrchestrator {
         this._useGPURenderer = true;
         this.logger.info('Using GPU renderer for HD rendering');
         this._startGPURenderLoop(video);
+
+        if (this._performanceModeEnabled) {
+          if (!this._userPresetId) {
+            const currentPresetId = this._gpuRendererService.getPresetId();
+            if (currentPresetId && currentPresetId !== 'performance') {
+              this._userPresetId = currentPresetId;
+            }
+          }
+          this._gpuRendererService.setPreset('performance');
+        }
         return;
       } else {
         // GPU init returned false (e.g., re-init timeout) - reset flag for fallback
@@ -464,6 +655,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       }
 
       this.logger.info('Using Canvas2D renderer');
+      this._canvas2dContextCreated = true;
       this._canvasRenderer.startRendering(
         video,
         canvas,
@@ -552,6 +744,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   async onCleanup() {
     // Clear idle release timer
     this._clearIdleReleaseTimer();
+
+    // Reset performance mode state
+    this._performanceModeEnabled = false;
+    this._userPresetId = null;
+    this._canvas2dContextCreated = false;
 
     // Cleanup GPU renderer if active
     if (this._useGPURenderer) {

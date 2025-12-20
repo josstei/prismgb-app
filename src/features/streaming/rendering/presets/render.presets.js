@@ -10,6 +10,7 @@
  * - HI_DEF: Maximum clarity with edge enhancement
  * - VINTAGE: Classic CRT monitor simulation
  * - PIXEL: Visible LCD pixel structure
+ * - PERFORMANCE: Minimal processing for weak GPUs
  */
 
 /**
@@ -219,6 +220,39 @@ export const RenderPresets = Object.freeze({
       scanlineStrength: 0.08,
       pixelMaskStrength: 0.2,
       bloomStrength: 0.04,
+      curvature: 0.0,
+      vignetteStrength: 0.0
+    }
+  }),
+
+  /**
+   * Performance - Minimal processing for weak GPUs
+   * Only upscaling, all shader effects disabled for maximum GPU savings
+   */
+  PERFORMANCE: Object.freeze({
+    id: 'performance',
+    name: 'Performance',
+    description: 'Minimal processing for weak GPUs',
+    upscale: {
+      enabled: true
+    },
+    unsharp: {
+      enabled: false,
+      strength: 0.0
+    },
+    color: {
+      enabled: false,
+      gamma: 1.0,
+      saturation: 1.0,
+      greenBias: 0.0,
+      brightness: 1.0,
+      contrast: 1.0
+    },
+    crt: {
+      enabled: false,
+      scanlineStrength: 0.0,
+      pixelMaskStrength: 0.0,
+      bloomStrength: 0.0,
       curvature: 0.0,
       vignetteStrength: 0.0
     }

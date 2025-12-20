@@ -172,6 +172,45 @@ body.app-animations-off .prismatic-orbs::after {
   will-change: auto;
 }
 
+/* Extended animation suppression for performance mode */
+body.app-animations-off .app-icon,
+body.app-animations-off .icon-wrapper,
+body.app-animations-off .overlay-icon {
+  animation: none !important;
+  will-change: auto;
+}
+
+body.app-animations-off .particle {
+  animation: none !important;
+  opacity: 0;
+}
+
+body.app-animations-off .ready-ring,
+body.app-animations-off .ready-ring-inner,
+body.app-animations-off .ready-ring-outer,
+body.app-animations-off .ready-ring-ripple,
+body.app-animations-off .gem-glow {
+  animation: none !important;
+  will-change: auto;
+}
+
+body.app-animations-off .scanlines {
+  animation: none !important;
+}
+
+body.app-animations-off .btn::before {
+  display: none;
+}
+
+body.app-animations-off .btn-rainbow {
+  animation: none;
+  background-size: 100% 100%;
+}
+
+body.app-animations-off .status-indicator {
+  animation: none;
+}
+
 /* Typography - Display Font for Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
