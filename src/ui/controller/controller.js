@@ -268,22 +268,6 @@ class UIController {
   }
 
   /**
-   * Enable header auto-hide (legacy method for backwards compatibility)
-   * @deprecated Use enableControlsAutoHide instead
-   */
-  enableHeaderAutoHide() {
-    this.enableControlsAutoHide();
-  }
-
-  /**
-   * Disable header auto-hide (legacy method for backwards compatibility)
-   * @deprecated Use disableControlsAutoHide instead
-   */
-  disableHeaderAutoHide() {
-    this.disableControlsAutoHide();
-  }
-
-  /**
    * Add event listener helper
    * @param {string} elementKey - Element key from elements map
    * @param {string} event - Event name

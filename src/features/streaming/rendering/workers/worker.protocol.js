@@ -68,18 +68,6 @@ export const WorkerResponseType = Object.freeze({
 });
 
 /**
- * Shader pass identifiers
- * @readonly
- * @enum {string}
- */
-export const ShaderPass = Object.freeze({
-  PIXEL_UPSCALE: 'pixelUpscale',
-  UNSHARP_MASK: 'unsharpMask',
-  COLOR_ELEVATION: 'colorElevation',
-  CRT_LCD: 'crtLcd'
-});
-
-/**
  * Create a message to send to the worker
  * @param {WorkerMessageType} type - Message type
  * @param {Object} payload - Message payload

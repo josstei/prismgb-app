@@ -403,26 +403,6 @@ describe('UIEffects', () => {
     });
   });
 
-  describe('Legacy Header Auto-Hide Methods', () => {
-    it('enableHeaderAutoHide should be a no-op', () => {
-      const addEventSpy = vi.spyOn(document, 'addEventListener');
-
-      effects.enableHeaderAutoHide();
-
-      // Should not add any listeners since it's a no-op
-      expect(addEventSpy).not.toHaveBeenCalled();
-    });
-
-    it('disableHeaderAutoHide should be a no-op', () => {
-      const removeEventSpy = vi.spyOn(document, 'removeEventListener');
-
-      effects.disableHeaderAutoHide();
-
-      // Should not remove any listeners since it's a no-op
-      expect(removeEventSpy).not.toHaveBeenCalled();
-    });
-  });
-
   describe('dispose', () => {
     it('should disable cursor auto-hide on dispose', () => {
       vi.useFakeTimers();

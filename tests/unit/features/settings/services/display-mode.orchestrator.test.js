@@ -41,8 +41,6 @@ describe('DisplayModeOrchestrator', () => {
     mockSettingsService = {};
 
     mockUiController = {
-      enableHeaderAutoHide: vi.fn(),
-      disableHeaderAutoHide: vi.fn(),
       enableControlsAutoHide: vi.fn(),
       disableControlsAutoHide: vi.fn(),
       elements: {}
@@ -257,6 +255,125 @@ describe('DisplayModeOrchestrator', () => {
         EventChannels.UI.STATUS_MESSAGE,
         { message: 'Cinematic mode disabled' }
       );
+    });
+  });
+
+  describe('native window fullscreen (Electron)', () => {
+    let mockWindowAPI;
+    let enterFullscreenCallback;
+    let leaveFullscreenCallback;
+
+    beforeEach(() => {
+      enterFullscreenCallback = null;
+      leaveFullscreenCallback = null;
+
+      mockWindowAPI = {
+        onEnterFullscreen: vi.fn((callback) => {
+          enterFullscreenCallback = callback;
+          return vi.fn();
+        }),
+        onLeaveFullscreen: vi.fn((callback) => {
+          leaveFullscreenCallback = callback;
+          return vi.fn();
+        })
+      };
+
+      global.window = { windowAPI: mockWindowAPI };
+      document.addEventListener = vi.fn();
+      document.removeEventListener = vi.fn();
+    });
+
+    afterEach(() => {
+      delete global.window.windowAPI;
+    });
+
+    it('should register native fullscreen listeners when windowAPI is available', async () => {
+      await orchestrator.onInitialize();
+
+      expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
+      expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
+    });
+
+    it('should enable controls auto-hide when native fullscreen entered', async () => {
+      await orchestrator.onInitialize();
+
+      enterFullscreenCallback();
+
+      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.FULLSCREEN_STATE,
+        { active: true }
+      );
+    });
+
+    it('should disable controls auto-hide when native fullscreen exited', async () => {
+      await orchestrator.onInitialize();
+
+      enterFullscreenCallback();
+      mockUiController.disableControlsAutoHide.mockClear();
+      mockEventBus.publish.mockClear();
+
+      leaveFullscreenCallback();
+
+      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.FULLSCREEN_STATE,
+        { active: false }
+      );
+    });
+
+    it('should unsubscribe native listeners on cleanup', async () => {
+      const unsubEnter = vi.fn();
+      const unsubLeave = vi.fn();
+      mockWindowAPI.onEnterFullscreen.mockReturnValue(unsubEnter);
+      mockWindowAPI.onLeaveFullscreen.mockReturnValue(unsubLeave);
+
+      await orchestrator.onInitialize();
+      await orchestrator.onCleanup();
+
+      expect(unsubEnter).toHaveBeenCalled();
+      expect(unsubLeave).toHaveBeenCalled();
+    });
+
+    it('should handle cleanup when no native listeners were registered', async () => {
+      delete global.window.windowAPI;
+      await orchestrator.onInitialize();
+
+      await expect(orchestrator.onCleanup()).resolves.not.toThrow();
+    });
+  });
+
+  describe('body classList', () => {
+    let fullscreenChangeHandler;
+
+    beforeEach(() => {
+      document.addEventListener = vi.fn((event, handler) => {
+        if (event === 'fullscreenchange') {
+          fullscreenChangeHandler = handler;
+        }
+      });
+      document.removeEventListener = vi.fn();
+    });
+
+    it('should add fullscreen-active class when entering fullscreen', async () => {
+      await orchestrator.onInitialize();
+
+      document.fullscreenElement = document.documentElement;
+      fullscreenChangeHandler();
+
+      expect(document.body.classList.add).toHaveBeenCalled();
+    });
+
+    it('should remove fullscreen-active class when exiting fullscreen', async () => {
+      await orchestrator.onInitialize();
+
+      document.fullscreenElement = document.documentElement;
+      fullscreenChangeHandler();
+
+      document.fullscreenElement = null;
+      fullscreenChangeHandler();
+
+      expect(document.body.classList.remove).toHaveBeenCalled();
     });
   });
 });

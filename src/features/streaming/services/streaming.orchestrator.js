@@ -508,8 +508,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // alive to reuse on the next stream start.
     if (this._useGPURenderer) {
       this._stopGPURenderLoop(video);
+      // Release GPU resources immediately to drop memory while keeping worker alive
+      this._gpuRendererService.releaseResources();
       // Keep _useGPURenderer = true so we reuse GPU renderer on next stream start
-      // Start idle timer to release GPU resources after timeout (saves ~95MB)
+      // Start idle timer to fully terminate worker after timeout (flushes GPU caches)
       this._startIdleReleaseTimer();
     } else {
       this._canvasRenderer.stopRendering(video);

@@ -56,10 +56,10 @@
  */
 
 /**
- * Render presets configuration
+ * Render presets configuration (internal)
  * @type {Object.<string, RenderPreset>}
  */
-export const RenderPresets = Object.freeze({
+const RenderPresets = Object.freeze({
   /**
    * True Color - Accurate Game Boy Color reproduction
    * No artificial enhancements, just accurate color reproduction

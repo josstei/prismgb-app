@@ -339,18 +339,6 @@ export class UIEffects {
   }
 
   /**
-   * @deprecated Use enableControlsAutoHide instead
-   */
-  enableHeaderAutoHide() {
-  }
-
-  /**
-   * @deprecated Use disableControlsAutoHide instead
-   */
-  disableHeaderAutoHide() {
-  }
-
-  /**
    * Dispose of UIEffects and cleanup resources
    */
   dispose() {
