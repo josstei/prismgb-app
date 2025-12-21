@@ -5,7 +5,6 @@
 
 import { app, BrowserWindow, Menu } from 'electron';
 import Application from './Application.js';
-import { ProcessMemoryMonitor } from '../../infrastructure/logging/process-memory-monitor.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -133,11 +132,6 @@ if (process.argv.includes('--smoke-test')) {
       }
 
       await application.initialize();
-
-      // Dev mode: Auto-start process memory monitoring
-      if (!app.isPackaged) {
-        new ProcessMemoryMonitor().start();
-      }
 
       // macOS: recreate window when dock icon clicked
       app.on('activate', () => {

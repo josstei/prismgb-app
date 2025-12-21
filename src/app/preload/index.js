@@ -365,6 +365,14 @@ const updateAPI = {
 };
 
 /**
+ * Metrics API
+ * Handles process metrics snapshots from main process
+ */
+const metricsAPI = {
+  getProcessMetrics: () => ipcRenderer.invoke(IPC_CHANNELS.PERFORMANCE.GET_METRICS)
+};
+
+/**
  * Expose APIs to renderer process
  */
 contextBridge.exposeInMainWorld('deviceAPI', {
@@ -394,3 +402,6 @@ contextBridge.exposeInMainWorld('updateAPI', {
   removeListeners: updateAPI.removeListeners
 });
 
+contextBridge.exposeInMainWorld('metricsAPI', {
+  getProcessMetrics: metricsAPI.getProcessMetrics
+});

@@ -16,6 +16,7 @@ describe('AppOrchestrator', () => {
   let mockUpdateOrchestrator;
   let mockUISetupOrchestrator;
   let mockAnimationPerformanceOrchestrator;
+  let mockPerformanceMetricsOrchestrator;
   let mockPerformanceModeCoordinator;
   let mockEventBus;
   let mockLogger;
@@ -72,6 +73,11 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
+    mockPerformanceMetricsOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
     mockPerformanceModeCoordinator = {
       initialize: vi.fn().mockResolvedValue(),
       cleanup: vi.fn().mockResolvedValue()
@@ -98,6 +104,7 @@ describe('AppOrchestrator', () => {
       updateOrchestrator: mockUpdateOrchestrator,
       uiSetupOrchestrator: mockUISetupOrchestrator,
       animationPerformanceOrchestrator: mockAnimationPerformanceOrchestrator,
+      performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
       performanceModeCoordinator: mockPerformanceModeCoordinator,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
@@ -144,6 +151,7 @@ describe('AppOrchestrator', () => {
       expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceModeCoordinator.initialize).toHaveBeenCalled();
       expect(mockAnimationPerformanceOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
   });
@@ -221,6 +229,7 @@ describe('AppOrchestrator', () => {
       // Verify all orchestrators are cleaned up
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockAnimationPerformanceOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceModeCoordinator.cleanup).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.cleanup).toHaveBeenCalled();

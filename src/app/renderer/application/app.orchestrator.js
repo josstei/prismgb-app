@@ -23,6 +23,7 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
    * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
    * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
+   * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
    * @param {PerformanceModeCoordinator} dependencies.performanceModeCoordinator - Performance fan-out
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
@@ -39,6 +40,7 @@ export class AppOrchestrator extends BaseOrchestrator {
         'updateOrchestrator',
         'uiSetupOrchestrator',
         'animationPerformanceOrchestrator',
+        'performanceMetricsOrchestrator',
         'performanceModeCoordinator',
         'eventBus',
         'loggerFactory'
@@ -64,6 +66,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Initialize application orchestrators
     await this.performanceModeCoordinator.initialize();
     await this.animationPerformanceOrchestrator.initialize();
+    await this.performanceMetricsOrchestrator.initialize();
     await this.preferencesOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
     await this.updateOrchestrator.initialize();
@@ -141,6 +144,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     const orchestrators = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
       ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
+      ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
       ['performanceModeCoordinator', this.performanceModeCoordinator],
       ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],

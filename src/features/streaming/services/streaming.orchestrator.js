@@ -44,7 +44,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // GPU idle termination timer (forces GPU cache flush when not streaming)
     this._idleReleaseTimeout = null;
-    this._idleReleaseDelay = 30000; // 30 seconds
+    this._idleReleaseDelay = 15000; // 15 seconds
 
     // Performance mode state
     this._performanceModeEnabled = false;
@@ -509,7 +509,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     if (this._useGPURenderer) {
       this._stopGPURenderLoop(video);
       // Release GPU resources immediately to drop memory while keeping worker alive
+      this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
+        label: 'before gpu release'
+      });
       this._gpuRendererService.releaseResources();
+      this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
+        label: 'after gpu release',
+        delayMs: 1000
+      });
       // Keep _useGPURenderer = true so we reuse GPU renderer on next stream start
       // Start idle timer to fully terminate worker after timeout (flushes GPU caches)
       this._startIdleReleaseTimer();

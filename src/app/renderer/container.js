@@ -11,6 +11,8 @@ import { ServiceContainer, asValue } from '@infrastructure/di/service-container.
 import { AppState } from '@app/renderer/application/app.state.js';
 import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
 import { AnimationPerformanceOrchestrator } from '@app/renderer/application/performance/animation-performance.orchestrator.js';
+import { PerformanceMetricsOrchestrator } from '@app/renderer/application/performance/performance-metrics.orchestrator.js';
+import { PerformanceMetricsService } from '@app/renderer/application/performance/performance-metrics.service.js';
 import { PerformanceModeCoordinator } from '@app/renderer/application/performance/performance-mode.coordinator.js';
 
 // UI layer
@@ -396,6 +398,28 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory']
   );
 
+  // Performance Metrics Service - process metrics snapshots
+  container.registerSingleton(
+    'performanceMetricsService',
+    function (loggerFactory) {
+      return new PerformanceMetricsService({ loggerFactory });
+    },
+    ['loggerFactory']
+  );
+
+  // Performance Metrics Orchestrator - process metrics snapshots
+  container.registerSingleton(
+    'performanceMetricsOrchestrator',
+    function (eventBus, loggerFactory, performanceMetricsService) {
+      return new PerformanceMetricsOrchestrator({
+        eventBus,
+        loggerFactory,
+        performanceMetricsService
+      });
+    },
+    ['eventBus', 'loggerFactory', 'performanceMetricsService']
+  );
+
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
   container.registerSingleton(
     'uiSetupOrchestrator',
@@ -447,6 +471,7 @@ function createRendererContainer() {
       updateOrchestrator,
       uiSetupOrchestrator,
       animationPerformanceOrchestrator,
+      performanceMetricsOrchestrator,
       performanceModeCoordinator,
       eventBus,
       loggerFactory
@@ -460,6 +485,7 @@ function createRendererContainer() {
         updateOrchestrator,
         uiSetupOrchestrator,
         animationPerformanceOrchestrator,
+        performanceMetricsOrchestrator,
         performanceModeCoordinator,
         eventBus,
         loggerFactory
@@ -474,6 +500,7 @@ function createRendererContainer() {
       'updateOrchestrator',
       'uiSetupOrchestrator',
       'animationPerformanceOrchestrator',
+      'performanceMetricsOrchestrator',
       'performanceModeCoordinator',
       'eventBus',
       'loggerFactory'

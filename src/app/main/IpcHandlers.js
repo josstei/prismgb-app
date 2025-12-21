@@ -3,7 +3,7 @@
  * Centralized registration of all IPC handlers
  */
 
-import { ipcMain, shell } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 
 class IpcHandlers {
@@ -23,6 +23,7 @@ class IpcHandlers {
     this._registerDeviceHandlers();
     this._registerShellHandlers();
     this._registerUpdateHandlers();
+    this._registerPerformanceHandlers();
   }
 
   /**
@@ -116,6 +117,35 @@ class IpcHandlers {
         return { success: true, ...status };
       } catch (error) {
         this.logger.error('Failed to get update status:', error);
+        return { success: false, error: error.message };
+      }
+    });
+  }
+
+  _registerPerformanceHandlers() {
+    this._registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {
+      try {
+        const metrics = app.getAppMetrics();
+        const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
+
+        return {
+          success: true,
+          timestamp: Date.now(),
+          totalKB,
+          totalMB: (totalKB / 1024).toFixed(1),
+          processCount: metrics.length,
+          processes: metrics.map(proc => ({
+            type: proc.type,
+            pid: proc.pid,
+            memoryKB: proc.memory.workingSetSize,
+            memoryMB: (proc.memory.workingSetSize / 1024).toFixed(1),
+            peakMemoryKB: proc.memory.peakWorkingSetSize,
+            peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
+            cpuPercent: proc.cpu.percentCPUUsage
+          }))
+        };
+      } catch (error) {
+        this.logger.error('Failed to get process metrics:', error);
         return { success: false, error: error.message };
       }
     });

@@ -21,5 +21,8 @@
     "PROGRESS": "update:progress",
     "DOWNLOADED": "update:downloaded",
     "ERROR": "update:error"
+  },
+  "PERFORMANCE": {
+    "GET_METRICS": "performance:get-metrics"
   }
 }
