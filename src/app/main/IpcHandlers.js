@@ -7,10 +7,10 @@ import { app, ipcMain, shell } from 'electron';
 import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 
 class IpcHandlers {
-  constructor({ deviceManager, updateManager, loggerFactory }) {
+  constructor({ deviceServiceMain, updateServiceMain, loggerFactory }) {
     this.logger = loggerFactory.create('IpcHandlers');
-    this.deviceManager = deviceManager;
-    this.updateManager = updateManager;
+    this.deviceServiceMain = deviceServiceMain;
+    this.updateServiceMain = updateServiceMain;
     this._registeredChannels = [];
   }
 
@@ -48,7 +48,7 @@ class IpcHandlers {
   _registerDeviceHandlers() {
     this._registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
       try {
-        const status = this.deviceManager.getStatus();
+        const status = this.deviceServiceMain.getStatus();
         return status;
       } catch (error) {
         this.logger.error('Failed to get device status:', error);
@@ -83,7 +83,7 @@ class IpcHandlers {
   _registerUpdateHandlers() {
     this._registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
       try {
-        const result = await this.updateManager.checkForUpdates();
+        const result = await this.updateServiceMain.checkForUpdates();
         return { success: true, ...result };
       } catch (error) {
         this.logger.error('Failed to check for updates:', error);
@@ -93,7 +93,7 @@ class IpcHandlers {
 
     this._registerHandler(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
       try {
-        await this.updateManager.downloadUpdate();
+        await this.updateServiceMain.downloadUpdate();
         return { success: true };
       } catch (error) {
         this.logger.error('Failed to download update:', error);
@@ -103,7 +103,7 @@ class IpcHandlers {
 
     this._registerHandler(IPC_CHANNELS.UPDATE.INSTALL, async () => {
       try {
-        this.updateManager.installUpdate();
+        this.updateServiceMain.installUpdate();
         return { success: true };
       } catch (error) {
         this.logger.error('Failed to install update:', error);
@@ -113,7 +113,7 @@ class IpcHandlers {
 
     this._registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
       try {
-        const status = this.updateManager.getStatus();
+        const status = this.updateServiceMain.getStatus();
         return { success: true, ...status };
       } catch (error) {
         this.logger.error('Failed to get update status:', error);

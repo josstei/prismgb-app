@@ -9,7 +9,7 @@ import pkg from '../../../package.json' assert { type: 'json' };
 
 /**
  * Create and configure the DI container
- * @param {Object} loggerFactory - Pre-configured MainLogger instance from Application
+ * @param {Object} loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
  * @returns {Promise<AwilixContainer>} Configured container
  */
 async function createAppContainer(loggerFactory) {
@@ -17,7 +17,7 @@ async function createAppContainer(loggerFactory) {
     injectionMode: InjectionMode.PROXY
   });
 
-  // Use provided logger factory (shared with Application)
+  // Use provided logger factory (shared with MainAppOrchestrator)
   const containerLogger = loggerFactory.create('Container');
   containerLogger.info('Initializing dependency injection container');
 
@@ -48,19 +48,24 @@ async function createAppContainer(loggerFactory) {
   });
 
   // Device components
-  const { default: DeviceManager } = await import('@features/devices/main/device.manager.js');
+  const { default: DeviceServiceMain } = await import('@features/devices/main/device.service.main.js');
   const { default: ProfileRegistry } = await import('@features/devices/main/profile.registry.js');
 
   container.register({
-    deviceManager: asClass(DeviceManager).singleton(),
+    deviceServiceMain: asClass(DeviceServiceMain).singleton(),
     profileRegistry: asClass(ProfileRegistry).singleton()
   });
 
   // Update components
-  const { default: UpdateManager } = await import('@features/updates/main/update.manager.js');
+  const { default: UpdateServiceMain } = await import('@features/updates/main/update.service.main.js');
+
+  const { DeviceBridgeService } = await import('./services/device-bridge.service.js');
+  const { UpdateBridgeService } = await import('./services/update-bridge.service.js');
 
   container.register({
-    updateManager: asClass(UpdateManager).singleton()
+    updateServiceMain: asClass(UpdateServiceMain).singleton(),
+    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
+    updateBridgeService: asClass(UpdateBridgeService).singleton()
   });
 
   // Log registration count

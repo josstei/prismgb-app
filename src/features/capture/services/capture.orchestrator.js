@@ -20,22 +20,22 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['captureService', 'appState', 'uiController', 'gpuRendererService', 'canvasRenderer', 'eventBus', 'loggerFactory'],
+      [
+        'captureService',
+        'appState',
+        'uiController',
+        'gpuRendererService',
+        'gpuRecordingService',
+        'canvasRenderer',
+        'eventBus',
+        'loggerFactory'
+      ],
       'CaptureOrchestrator'
     );
 
     this.gpuRendererService = dependencies.gpuRendererService;
+    this.gpuRecordingService = dependencies.gpuRecordingService;
     this.canvasRenderer = dependencies.canvasRenderer;
-
-    this._recordingCanvas = null;
-    this._recordingCtx = null;
-    this._recordingStream = null;
-    this._recordingFrameId = null;
-    this._isGpuRecording = false;
-    this._capturePending = false;
-    this._recordingDroppedFrames = 0;
-    this._recordingWidth = 0;
-    this._recordingHeight = 0;
   }
 
   /**
@@ -129,139 +129,13 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _startGpuRecording() {
-    this._recordingDroppedFrames = 0;
-
-    const { width: targetWidth, height: targetHeight } = this.gpuRendererService.getTargetDimensions();
-
-    this._recordingCanvas = document.createElement('canvas');
-    this._recordingCanvas.width = targetWidth;
-    this._recordingCanvas.height = targetHeight;
-    this._recordingWidth = targetWidth;
-    this._recordingHeight = targetHeight;
-    this._recordingCtx = this._recordingCanvas.getContext('2d', { alpha: false });
-    this._recordingCtx.imageSmoothingEnabled = false;
-
     const frameRate = this.appState.currentCapabilities?.frameRate || 60;
-    this._recordingStream = this._recordingCanvas.captureStream(frameRate);
+    const recordingStream = await this.gpuRecordingService.start({
+      stream: this.appState.currentStream,
+      frameRate
+    });
 
-    const originalStream = this.appState.currentStream;
-    if (originalStream) {
-      originalStream.getAudioTracks().forEach(track => {
-        this._recordingStream.addTrack(track.clone());
-      });
-    }
-
-    this._isGpuRecording = true;
-
-    this.logger.info(`Starting GPU recording at ${targetWidth}x${targetHeight}`);
-
-    await this.captureService.startRecording(this._recordingStream);
-    this._startRecordingFrameLoop();
-  }
-
-  /**
-   * Calculate scaling parameters to fit a captured frame into the recording canvas.
-   * Uses integer scaling for upscaling (pixel-perfect) and fractional for downscaling.
-   *
-   * @param {number} frameWidth - Width of captured frame (must be > 0)
-   * @param {number} frameHeight - Height of captured frame (must be > 0)
-   * @returns {Object|null} Scaling parameters, or null if any dimension is <= 0
-   * @returns {number} return.scale - Scale factor applied (integer for upscale, fractional for downscale)
-   * @returns {number} return.drawWidth - Width to draw the frame at
-   * @returns {number} return.drawHeight - Height to draw the frame at
-   * @returns {number} return.offsetX - X offset for centering (letterbox)
-   * @returns {number} return.offsetY - Y offset for centering (pillarbox)
-   * @returns {boolean} return.needsClearing - Whether canvas needs black fill before drawing
-   * @private
-   */
-  _calculateRecordingScale(frameWidth, frameHeight) {
-    const canvasWidth = this._recordingWidth;
-    const canvasHeight = this._recordingHeight;
-
-    if (frameWidth <= 0 || frameHeight <= 0 || canvasWidth <= 0 || canvasHeight <= 0) {
-      this.logger.warn('Invalid dimensions for recording scale calculation');
-      return null;
-    }
-
-    if (frameWidth === canvasWidth && frameHeight === canvasHeight) {
-      return {
-        scale: 1,
-        drawWidth: canvasWidth,
-        drawHeight: canvasHeight,
-        offsetX: 0,
-        offsetY: 0,
-        needsClearing: false
-      };
-    }
-
-    const scaleX = canvasWidth / frameWidth;
-    const scaleY = canvasHeight / frameHeight;
-    const minScale = Math.min(scaleX, scaleY);
-
-    const scale = minScale >= 1
-      ? Math.floor(minScale)
-      : minScale;
-
-    const drawWidth = Math.round(frameWidth * scale);
-    const drawHeight = Math.round(frameHeight * scale);
-    const offsetX = Math.round((canvasWidth - drawWidth) / 2);
-    const offsetY = Math.round((canvasHeight - drawHeight) / 2);
-    const needsClearing = offsetX > 0 || offsetY > 0;
-
-    return { scale, drawWidth, drawHeight, offsetX, offsetY, needsClearing };
-  }
-
-  /**
-   * Frame loop that captures GPU frames and draws to recording canvas
-   * @private
-   */
-  _startRecordingFrameLoop() {
-    const captureAndDraw = async () => {
-      if (!this._isGpuRecording) return;
-
-      if (!this._capturePending) {
-        this._capturePending = true;
-        let frame = null;
-        try {
-          frame = await this.gpuRendererService.captureFrame();
-
-          const scaleParams = this._calculateRecordingScale(frame.width, frame.height);
-          if (!scaleParams) {
-            throw new Error('Invalid frame dimensions');
-          }
-
-          const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
-
-          if (needsClearing) {
-            this._recordingCtx.fillStyle = '#000000';
-            this._recordingCtx.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
-          }
-
-          this._recordingCtx.drawImage(
-            frame,
-            0, 0, frame.width, frame.height,
-            offsetX, offsetY, drawWidth, drawHeight
-          );
-        } catch (e) {
-          this.logger.debug('Frame capture skipped:', e.message);
-          this._recordingDroppedFrames++;
-          if (this._recordingDroppedFrames >= 30) {
-            this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-              message: 'Recording quality may be degraded - frames being dropped',
-              type: 'warning'
-            });
-            this._recordingDroppedFrames = 0;
-          }
-        } finally {
-          frame?.close();
-          this._capturePending = false;
-        }
-      }
-
-      this._recordingFrameId = requestAnimationFrame(captureAndDraw);
-    };
-
-    this._recordingFrameId = requestAnimationFrame(captureAndDraw);
+    await this.captureService.startRecording(recordingStream);
   }
 
   /**
@@ -269,7 +143,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _stopRecording() {
-    this._cleanupGpuRecording();
+    this.gpuRecordingService.stop();
 
     try {
       await this.captureService.stopRecording();
@@ -282,25 +156,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Clean up GPU recording resources
    * @private
    */
-  _cleanupGpuRecording() {
-    if (this._recordingFrameId) {
-      cancelAnimationFrame(this._recordingFrameId);
-      this._recordingFrameId = null;
-    }
-
-    if (this._recordingStream) {
-      this._recordingStream.getTracks().forEach(track => track.stop());
-      this._recordingStream = null;
-    }
-
-    this._recordingCanvas = null;
-    this._recordingCtx = null;
-    this._isGpuRecording = false;
-    this._capturePending = false;
-    this._recordingDroppedFrames = 0;
-    this._recordingWidth = 0;
-    this._recordingHeight = 0;
-  }
 
   /**
    * Wire capture events from CaptureService
@@ -373,7 +228,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     const { error } = data;
     this.logger.error('Recording error:', error);
 
-    this._cleanupGpuRecording();
+    this.gpuRecordingService.stop();
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: `Recording failed: ${error}`,
@@ -392,6 +247,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         this.logger.error('Error stopping recording during cleanup:', error);
       }
     }
-    this._cleanupGpuRecording();
+    this.gpuRecordingService.stop();
   }
 }

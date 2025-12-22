@@ -1,27 +1,28 @@
 /**
- * Application Bootstrap
- * Main application class that creates the DI container and initializes services
+ * Main Application Orchestrator
+ * Coordinates main process services and application lifecycle
  */
 
 import { app } from 'electron';
 import path from 'path';
 import { createAppContainer } from './container.js';
-import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 import { MainLogger } from '@infrastructure/logging/main-logger.js';
 
-class Application {
+class MainAppOrchestrator {
   constructor() {
     this.container = null;
     this.initialized = false;
     this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('Application');
+    this.logger = this.loggerFactory.create('MainAppOrchestrator');
 
     // Service references - populated during initialize()
     this._windowManager = null;
-    this._deviceManager = null;
+    this._deviceServiceMain = null;
     this._trayManager = null;
     this._ipcHandlers = null;
-    this._updateManager = null;
+    this._updateServiceMain = null;
+    this._deviceBridgeService = null;
+    this._updateBridgeService = null;
   }
 
   /**
@@ -35,33 +36,24 @@ class Application {
 
     // Resolve and cache core services
     this._windowManager = this.container.resolve('windowManager');
-    this._deviceManager = this.container.resolve('deviceManager');
+    this._deviceServiceMain = this.container.resolve('deviceServiceMain');
     this._trayManager = this.container.resolve('trayManager');
     this._ipcHandlers = this.container.resolve('ipcHandlers');
-    this._updateManager = this.container.resolve('updateManager');
+    this._updateServiceMain = this.container.resolve('updateServiceMain');
+    this._deviceBridgeService = this.container.resolve('deviceBridgeService');
+    this._updateBridgeService = this.container.resolve('updateBridgeService');
 
-    // Initialize device manager (loads device profiles)
-    await this._deviceManager.initialize();
+    // Initialize device service (loads device profiles)
+    await this._deviceServiceMain.initialize();
 
-    // Initialize update manager and start auto-check (1 hour interval)
-    this._updateManager.initialize();
-    this._updateManager.startAutoCheck(60 * 60 * 1000);
-
-    // Subscribe to device manager events - store reference for cleanup
-    this._connectionChangedHandler = () => {
-      this._trayManager.updateTrayMenu();
-
-      // Notify renderer of device connection status change
-      if (this._deviceManager.isConnected()) {
-        this._windowManager.send(IPC_CHANNELS.DEVICE.CONNECTED, this._deviceManager.connectedDeviceInfo);
-      } else {
-        this._windowManager.send(IPC_CHANNELS.DEVICE.DISCONNECTED);
-      }
-    };
-    this._deviceManager.on('connection-changed', this._connectionChangedHandler);
+    // Initialize update bridge and start auto-check (1 hour interval)
+    this._updateBridgeService.initialize();
 
     // Start USB monitoring for hot-plug detection
-    this._deviceManager.startUSBMonitoring();
+    this._deviceServiceMain.startUSBMonitoring();
+
+    // Subscribe to device events via bridge
+    this._deviceBridgeService.initialize();
 
     // Create system tray
     this._trayManager.createTray();
@@ -85,7 +77,7 @@ class Application {
     this._windowManager.createWindow();
 
     // Check for already connected devices
-    const deviceFound = await this._deviceManager.checkForDevice();
+    const deviceFound = await this._deviceServiceMain.checkForDevice();
     if (deviceFound) {
       this.logger.info('Device already connected');
     }
@@ -136,19 +128,18 @@ class Application {
     }
 
     try {
-      if (this._connectionChangedHandler && this._deviceManager) {
-        this._deviceManager.off('connection-changed', this._connectionChangedHandler);
-        this._connectionChangedHandler = null;
-        this.logger.debug('Removed device manager listener');
+      if (this._deviceBridgeService) {
+        this._deviceBridgeService.dispose();
+        this.logger.debug('Disposed device bridge service');
       }
     } catch (error) {
-      this.logger.error('Error removing device manager listener:', error);
+      this.logger.error('Error disposing device bridge service:', error);
     }
 
     try {
       // Stop USB monitoring
-      if (this._deviceManager) {
-        this._deviceManager.stopUSBMonitoring();
+      if (this._deviceServiceMain) {
+        this._deviceServiceMain.stopUSBMonitoring();
         this.logger.debug('Stopped USB monitoring');
       }
     } catch (error) {
@@ -166,13 +157,13 @@ class Application {
     }
 
     try {
-      // Dispose update manager
-      if (this._updateManager) {
-        this._updateManager.dispose();
-        this.logger.debug('Disposed update manager');
+      // Dispose update bridge
+      if (this._updateBridgeService) {
+        this._updateBridgeService.dispose();
+        this.logger.debug('Disposed update bridge service');
       }
     } catch (error) {
-      this.logger.error('Error disposing update manager:', error);
+      this.logger.error('Error disposing update bridge service:', error);
     }
 
     try {
@@ -186,10 +177,12 @@ class Application {
 
     // Clear service references
     this._windowManager = null;
-    this._deviceManager = null;
+    this._deviceServiceMain = null;
     this._trayManager = null;
     this._ipcHandlers = null;
-    this._updateManager = null;
+    this._updateServiceMain = null;
+    this._deviceBridgeService = null;
+    this._updateBridgeService = null;
 
     this.logger.info('PrismGB shutdown complete');
   }
@@ -203,4 +196,4 @@ class Application {
   }
 }
 
-export default Application;
+export default MainAppOrchestrator;

@@ -1,7 +1,7 @@
 /**
- * Renderer Application Bootstrap
+ * Renderer Application Orchestrator
  *
- * Main application class that:
+ * Coordinates renderer bootstrap and orchestrator lifecycle:
  * - Creates and configures the DI container
  * - Initializes UI components
  * - Resolves and starts the orchestrator
@@ -11,7 +11,7 @@
 import { BrowserLogger } from '@infrastructure/logging/logger.js';
 import { UIController } from '@ui/controller/controller.js';
 
-class Application {
+class RendererAppOrchestrator {
   constructor() {
     this.container = null;
     this.orchestrator = null;
@@ -19,20 +19,20 @@ class Application {
 
     // Create logger for bootstrap logging
     const loggerFactory = new BrowserLogger();
-    this.logger = loggerFactory.create('Application');
+    this.logger = loggerFactory.create('RendererAppOrchestrator');
   }
 
   /**
-   * Initialize the application
+   * Initialize the renderer application
    * @returns {Promise<void>}
    */
   async initialize() {
     if (this.isInitialized) {
-      this.logger.warn('Application already initialized');
+      this.logger.warn('Renderer application already initialized');
       return;
     }
 
-    this.logger.info('Initializing PrismGB application...');
+    this.logger.info('Initializing renderer application...');
 
     try {
       // 1. Create DI container (NEW ARCHITECTURE)
@@ -48,8 +48,8 @@ class Application {
       // 4. Initialize adapter factory (async initialization)
       await this._initializeAdapterFactory();
 
-      // 5. Initialize UI event handler (bridges events to UIController)
-      await this._initializeUIEventHandler();
+      // 5. Initialize UI event bridge (bridges events to UIController)
+      await this._initializeUIEventBridge();
 
       // 6. Resolve orchestrator (this will wire everything up)
       this.orchestrator = this.container.resolve('appOrchestrator');
@@ -58,31 +58,31 @@ class Application {
       await this.orchestrator.initialize();
 
       this.isInitialized = true;
-      this.logger.info('Application initialized successfully');
+      this.logger.info('Renderer application initialized successfully');
 
     } catch (error) {
-      this.logger.error('Failed to initialize application:', error);
+      this.logger.error('Failed to initialize renderer application:', error);
       throw error;
     }
   }
 
   /**
-   * Start the application
+   * Start the renderer application
    * @returns {Promise<void>}
    */
   async start() {
     if (!this.isInitialized) {
-      throw new Error('Application not initialized. Call initialize() first.');
+      throw new Error('Renderer application not initialized. Call initialize() first.');
     }
 
     try {
       // Start the orchestrator
       await this.orchestrator.start();
 
-      this.logger.info('Application started successfully');
+      this.logger.info('Renderer application started successfully');
 
     } catch (error) {
-      this.logger.error('Failed to start application:', error);
+      this.logger.error('Failed to start renderer application:', error);
       throw error;
     }
   }
@@ -177,16 +177,16 @@ class Application {
   }
 
   /**
-   * Initialize UI event handler
+   * Initialize UI event bridge
    * @private
    */
-  async _initializeUIEventHandler() {
+  async _initializeUIEventBridge() {
     try {
-      const uiEventHandler = this.container.resolve('uiEventHandler');
-      uiEventHandler.initialize();
-      this._uiEventHandler = uiEventHandler;
+      const uiEventBridge = this.container.resolve('uiEventBridge');
+      uiEventBridge.initialize();
+      this._uiEventBridge = uiEventBridge;
     } catch (error) {
-      this.logger.error('Failed to initialize UI event handler:', error);
+      this.logger.error('Failed to initialize UI event bridge:', error);
       throw error;
     }
   }
@@ -194,16 +194,16 @@ class Application {
 
 /**
  * Create and initialize application
- * @returns {Promise<Application>}
+ * @returns {Promise<RendererAppOrchestrator>}
  */
 async function createApplication() {
-  const app = new Application();
+  const app = new RendererAppOrchestrator();
   await app.initialize();
   await app.start();
   return app;
 }
 
 export {
-  Application,
+  RendererAppOrchestrator,
   createApplication
 };

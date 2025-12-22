@@ -31,8 +31,16 @@ vi.mock('@app/renderer/application/performance/animation-performance.orchestrato
   AnimationPerformanceOrchestrator: vi.fn()
 }));
 
+vi.mock('@app/renderer/application/performance/animation-performance.service.js', () => ({
+  AnimationPerformanceService: vi.fn()
+}));
+
 vi.mock('@app/renderer/application/performance/performance-state.coordinator.js', () => ({
   PerformanceStateCoordinator: vi.fn()
+}));
+
+vi.mock('@app/renderer/application/performance/performance-state.service.js', () => ({
+  PerformanceStateService: vi.fn()
 }));
 
 // UI layer mocks
@@ -52,8 +60,8 @@ vi.mock('@ui/effects/ui-effects.js', () => ({
   UIEffects: vi.fn()
 }));
 
-vi.mock('@ui/orchestration/event-handler.js', () => ({
-  UIEventHandler: vi.fn()
+vi.mock('@ui/orchestration/ui-event-bridge.js', () => ({
+  UIEventBridge: vi.fn()
 }));
 
 // Features: Devices mocks
@@ -101,6 +109,10 @@ vi.mock('@features/capture/services/capture.service.js', () => ({
 
 vi.mock('@features/capture/services/capture.orchestrator.js', () => ({
   CaptureOrchestrator: vi.fn()
+}));
+
+vi.mock('@features/capture/services/gpu-recording.service.js', () => ({
+  GpuRecordingService: vi.fn()
 }));
 
 // Features: Settings mocks
@@ -324,7 +336,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'captureOrchestrator',
         expect.any(Function),
-        ['captureService', 'appState', 'uiController', 'gpuRendererService', 'canvasRenderer', 'eventBus', 'loggerFactory']
+        ['captureService', 'appState', 'uiController', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
       );
     });
 

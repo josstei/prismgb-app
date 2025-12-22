@@ -1,5 +1,5 @@
 /**
- * UI Event Handler
+ * UI Event Bridge
  *
  * Bridges between EventBus events and UIController
  * Decouples orchestrators from direct UI manipulation
@@ -12,10 +12,10 @@
 import { BaseService } from '@shared/base/service.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
 
-export class UIEventHandler extends BaseService {
+export class UIEventBridge extends BaseService {
   constructor(dependencies) {
     // loggerFactory is not required - will use BaseService's optional logger creation
-    super(dependencies, ['eventBus', 'uiController', 'appState'], 'UIEventHandler');
+    super(dependencies, ['eventBus', 'uiController', 'appState'], 'UIEventBridge');
 
     // Fallback to console if no logger was created
     if (!this.logger) {
@@ -35,7 +35,7 @@ export class UIEventHandler extends BaseService {
    */
   initialize() {
     this._subscribeToEvents();
-    this.logger.info('UIEventHandler initialized');
+    this.logger.info('UIEventBridge initialized');
   }
 
   /**
@@ -179,6 +179,6 @@ export class UIEventHandler extends BaseService {
       }
     }
     this._subscriptions = [];
-    this.logger.info('UIEventHandler disposed');
+    this.logger.info('UIEventBridge disposed');
   }
 }

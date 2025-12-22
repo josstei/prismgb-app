@@ -1,5 +1,5 @@
 /**
- * Update Manager
+ * Update Service (Main)
  * Handles automatic updates using electron-updater
  * Manages update checking, downloading, and installation
  */
@@ -22,10 +22,10 @@ export const UpdateState = {
   ERROR: 'error'
 };
 
-class UpdateManager extends EventEmitter {
+class UpdateServiceMain extends EventEmitter {
   constructor({ windowManager, loggerFactory, config }) {
     super();
-    this.logger = loggerFactory.create('UpdateManager');
+    this.logger = loggerFactory.create('UpdateServiceMain');
     this.windowManager = windowManager;
     this.config = config;
 
@@ -39,16 +39,16 @@ class UpdateManager extends EventEmitter {
   }
 
   /**
-   * Initialize the update manager
+   * Initialize the update service
    * Sets up autoUpdater configuration and event listeners
    */
   initialize() {
     if (this._initialized) {
-      this.logger.warn('UpdateManager already initialized');
+      this.logger.warn('UpdateServiceMain already initialized');
       return;
     }
 
-    this.logger.info('Initializing update manager');
+    this.logger.info('Initializing update service');
 
     // Configure autoUpdater
     autoUpdater.logger = {
@@ -70,7 +70,7 @@ class UpdateManager extends EventEmitter {
     this._setupEventListeners();
 
     this._initialized = true;
-    this.logger.info('Update manager initialized', {
+    this.logger.info('Update service initialized', {
       allowPrerelease: autoUpdater.allowPrerelease,
       version
     });
@@ -158,7 +158,7 @@ class UpdateManager extends EventEmitter {
    */
   async checkForUpdates({ force = false } = {}) {
     if (!this._initialized) {
-      throw new Error('UpdateManager not initialized');
+      throw new Error('UpdateServiceMain not initialized');
     }
 
     // Skip if already downloaded or downloading (unless forced by user)
@@ -194,7 +194,7 @@ class UpdateManager extends EventEmitter {
    */
   async downloadUpdate() {
     if (!this._initialized) {
-      throw new Error('UpdateManager not initialized');
+      throw new Error('UpdateServiceMain not initialized');
     }
 
     if (this.state === UpdateState.DOWNLOADED) {
@@ -224,7 +224,7 @@ class UpdateManager extends EventEmitter {
    */
   installUpdate() {
     if (!this._initialized) {
-      throw new Error('UpdateManager not initialized');
+      throw new Error('UpdateServiceMain not initialized');
     }
 
     if (this.state !== UpdateState.DOWNLOADED) {
@@ -295,8 +295,8 @@ class UpdateManager extends EventEmitter {
     autoUpdater.removeAllListeners();
     this.removeAllListeners();
     this._initialized = false;
-    this.logger.info('UpdateManager disposed');
+    this.logger.info('UpdateServiceMain disposed');
   }
 }
 
-export default UpdateManager;
+export default UpdateServiceMain;

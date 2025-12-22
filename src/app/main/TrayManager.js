@@ -15,17 +15,17 @@ const MENU_CONFIG = [
   },
   {
     label: 'Refresh Devices',
-    service: 'deviceManager',
+    service: 'deviceServiceMain',
     method: 'checkForDevice'
   }
 ];
 
 class TrayManager {
-  constructor({ windowManager, deviceManager, loggerFactory }) {
+  constructor({ windowManager, deviceServiceMain, loggerFactory }) {
     this.logger = loggerFactory.create('TrayManager');
     this.tray = null;
     this.windowManager = windowManager;
-    this.deviceManager = deviceManager;
+    this.deviceServiceMain = deviceServiceMain;
   }
 
   /**
@@ -59,7 +59,7 @@ class TrayManager {
   updateTrayMenu() {
     if (!this.tray) return;
 
-    const isDeviceConnected = this.deviceManager ? this.deviceManager.isConnected() : false;
+    const isDeviceConnected = this.deviceServiceMain ? this.deviceServiceMain.isConnected() : false;
 
     // Build dynamic menu items from config
     const menuItems = MENU_CONFIG.map(({ label, service, method }) => ({

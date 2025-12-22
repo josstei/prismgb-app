@@ -1,9 +1,9 @@
 /**
  * Renderer Entry Point
  *
- * Simplified entry point using Application bootstrap
+ * Simplified entry point using RendererAppOrchestrator bootstrap
  * All DI configuration, service instantiation, and event wiring
- * is handled by the Application class
+ * is handled by RendererAppOrchestrator
  */
 
 import './assets/styles/styles.css';
@@ -13,7 +13,7 @@ import { CSSClasses } from '@shared/config/css-classes.js';
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
-import { createApplication } from './Application.js';
+import { createApplication } from './RendererAppOrchestrator.js';
 
 // Global application instance
 let app = null;

@@ -1,12 +1,12 @@
 /**
- * UIEventHandler Unit Tests
+ * UIEventBridge Unit Tests
  * Tests the event bridge between EventBus and UIController
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { UIEventHandler } from '@ui/orchestration/event-handler.js';
+import { UIEventBridge } from '@ui/orchestration/ui-event-bridge.js';
 
-describe('UIEventHandler', () => {
+describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
   let mockUiController;
@@ -73,7 +73,7 @@ describe('UIEventHandler', () => {
       isStreaming: false
     };
 
-    handler = new UIEventHandler({
+    handler = new UIEventBridge({
       eventBus: mockEventBus,
       uiController: mockUiController,
       appState: mockAppState,
@@ -99,7 +99,7 @@ describe('UIEventHandler', () => {
     });
 
     it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UIEventHandler');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UIEventBridge');
       expect(handler.logger).toBe(mockLogger);
     });
 
@@ -142,7 +142,7 @@ describe('UIEventHandler', () => {
     it('should log initialization', () => {
       handler.initialize();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('UIEventHandler initialized');
+      expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge initialized');
     });
 
     it('should store unsubscribe functions', () => {
@@ -388,13 +388,13 @@ describe('UIEventHandler', () => {
       handler.initialize();
       handler.dispose();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('UIEventHandler disposed');
+      expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge disposed');
     });
   });
 
   describe('Edge Cases', () => {
     it('should handle missing deviceStatus gracefully', () => {
-      const handlerWithoutDeviceStatus = new UIEventHandler({
+      const handlerWithoutDeviceStatus = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: { ...mockUiController, deviceStatus: null },
         appState: mockAppState,
@@ -409,7 +409,7 @@ describe('UIEventHandler', () => {
     });
 
     it('should handle missing recordBtn gracefully', () => {
-      const handlerWithoutRecordBtn = new UIEventHandler({
+      const handlerWithoutRecordBtn = new UIEventBridge({
         eventBus: mockEventBus,
         appState: mockAppState,
         uiController: { ...mockUiController, elements: {} },
@@ -424,7 +424,7 @@ describe('UIEventHandler', () => {
     });
 
     it('should use console as fallback logger', () => {
-      const handlerWithoutLogger = new UIEventHandler({
+      const handlerWithoutLogger = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
         appState: mockAppState,
@@ -435,7 +435,7 @@ describe('UIEventHandler', () => {
     });
 
     it('should handle missing appState gracefully', () => {
-      const handlerWithoutAppState = new UIEventHandler({
+      const handlerWithoutAppState = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
         appState: null,

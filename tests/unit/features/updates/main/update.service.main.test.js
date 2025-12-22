@@ -1,9 +1,9 @@
 /**
- * UpdateManager Unit Tests
+ * UpdateServiceMain Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import UpdateManager, { UpdateState } from '@features/updates/main/update.manager.js';
+import UpdateServiceMain, { UpdateState } from '@features/updates/main/update.service.main.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -39,7 +39,7 @@ vi.mock('@infrastructure/ipc/channels.js', () => ({
 
 import { autoUpdater } from 'electron-updater';
 
-describe('UpdateManager', () => {
+describe('UpdateServiceMain', () => {
   let manager;
   let mockWindowManager;
   let mockLogger;
@@ -69,7 +69,7 @@ describe('UpdateManager', () => {
       version: '1.0.0'
     };
 
-    manager = new UpdateManager({
+    manager = new UpdateServiceMain({
       windowManager: mockWindowManager,
       loggerFactory: mockLoggerFactory,
       config: mockConfig
@@ -92,7 +92,7 @@ describe('UpdateManager', () => {
     });
 
     it('should create logger with correct name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UpdateManager');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UpdateServiceMain');
     });
   });
 
@@ -134,7 +134,7 @@ describe('UpdateManager', () => {
       manager.initialize();
       manager.initialize();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateManager already initialized');
+      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateServiceMain already initialized');
     });
   });
 
@@ -208,7 +208,7 @@ describe('UpdateManager', () => {
     it('should throw if not initialized', async () => {
       manager._initialized = false;
 
-      await expect(manager.checkForUpdates()).rejects.toThrow('UpdateManager not initialized');
+      await expect(manager.checkForUpdates()).rejects.toThrow('UpdateServiceMain not initialized');
     });
 
     it('should skip check in development mode', async () => {
@@ -284,7 +284,7 @@ describe('UpdateManager', () => {
     it('should throw if not initialized', async () => {
       manager._initialized = false;
 
-      await expect(manager.downloadUpdate()).rejects.toThrow('UpdateManager not initialized');
+      await expect(manager.downloadUpdate()).rejects.toThrow('UpdateServiceMain not initialized');
     });
 
     it('should throw if no update available', async () => {
@@ -332,7 +332,7 @@ describe('UpdateManager', () => {
     it('should throw if not initialized', () => {
       manager._initialized = false;
 
-      expect(() => manager.installUpdate()).toThrow('UpdateManager not initialized');
+      expect(() => manager.installUpdate()).toThrow('UpdateServiceMain not initialized');
     });
 
     it('should throw if no update downloaded', () => {

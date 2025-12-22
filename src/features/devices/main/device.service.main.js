@@ -1,5 +1,5 @@
 /**
- * Device Manager
+ * Device Service (Main)
  * Handles device detection, connection, and disconnection
  * Integrates with ProfileRegistry for profile-based device matching
  */
@@ -13,10 +13,10 @@ import { DeviceRegistry } from '../shared/device-registry.js';
 
 const { DEVICE_LAUNCH_DELAY, USB_SCAN_DELAY } = appConfig;
 
-class DeviceManager extends EventEmitter {
+class DeviceServiceMain extends EventEmitter {
   constructor({ windowManager, profileRegistry, loggerFactory }) {
     super();
-    this.logger = loggerFactory.create('DeviceManager');
+    this.logger = loggerFactory.create('DeviceServiceMain');
     this.windowManager = windowManager;
     this.profileRegistry = profileRegistry;
     this.isDeviceConnected = false;
@@ -29,7 +29,7 @@ class DeviceManager extends EventEmitter {
   }
 
   /**
-   * Initialize the device manager (must be called after construction)
+   * Initialize the device service (must be called after construction)
    * Loads device profiles from the registry
    * Uses mutex to prevent concurrent initialization
    * @returns {Promise<void>}
@@ -41,7 +41,7 @@ class DeviceManager extends EventEmitter {
     }
 
     if (this._profilesInitialized) {
-      this.logger.warn('DeviceManager already initialized');
+      this.logger.warn('DeviceServiceMain already initialized');
       return;
     }
 
@@ -385,14 +385,14 @@ class DeviceManager extends EventEmitter {
       this.isDeviceConnected = false;
       this.connectedDeviceInfo = null;
 
-      // Emit connection changed event (Application.js handles IPC)
+      // Emit connection changed event (MainAppOrchestrator handles IPC)
       this.emit('connection-changed');
     }
   }
 
   /**
    * Auto-launch window after device connection
-   * Note: IPC notification is handled by Application.js via 'connection-changed' event
+   * Note: IPC notification is handled by MainAppOrchestrator via 'connection-changed' event
    */
   _launchWindow() {
     setTimeout(() => {
@@ -427,4 +427,4 @@ class DeviceManager extends EventEmitter {
   }
 }
 
-export default DeviceManager;
+export default DeviceServiceMain;

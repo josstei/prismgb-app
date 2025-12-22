@@ -4,7 +4,7 @@
  */
 
 import { app, BrowserWindow, Menu } from 'electron';
-import Application from './Application.js';
+import MainAppOrchestrator from './MainAppOrchestrator.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -107,7 +107,7 @@ if (process.argv.includes('--smoke-test')) {
     app.quit();
   } else {
     // Create application instance
-    const application = new Application();
+    const application = new MainAppOrchestrator();
 
     // Handle second instance launch - focus existing window
     app.on('second-instance', () => {

@@ -11,16 +11,18 @@ import { ServiceContainer, asValue } from '@infrastructure/di/service-container.
 import { AppState } from '@app/renderer/application/app.state.js';
 import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
 import { AnimationPerformanceOrchestrator } from '@app/renderer/application/performance/animation-performance.orchestrator.js';
+import { AnimationPerformanceService } from '@app/renderer/application/performance/animation-performance.service.js';
 import { PerformanceMetricsOrchestrator } from '@app/renderer/application/performance/performance-metrics.orchestrator.js';
 import { PerformanceMetricsService } from '@app/renderer/application/performance/performance-metrics.service.js';
 import { PerformanceStateCoordinator } from '@app/renderer/application/performance/performance-state.coordinator.js';
+import { PerformanceStateService } from '@app/renderer/application/performance/performance-state.service.js';
 
 // UI layer
 import { UISetupOrchestrator } from '@ui/orchestration/ui-setup.orchestrator.js';
 import { UIComponentFactory } from '@ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@ui/controller/component.registry.js';
 import { UIEffects } from '@ui/effects/ui-effects.js';
-import { UIEventHandler } from '@ui/orchestration/event-handler.js';
+import { UIEventBridge } from '@ui/orchestration/ui-event-bridge.js';
 
 // Features: Devices
 import { DeviceService } from '@features/devices/services/device.service.js';
@@ -40,6 +42,7 @@ import { GPURendererService } from '@features/streaming/rendering/gpu/gpu.render
 // Features: Capture
 import { CaptureService } from '@features/capture/services/capture.service.js';
 import { CaptureOrchestrator } from '@features/capture/services/capture.orchestrator.js';
+import { GpuRecordingService } from '@features/capture/services/gpu-recording.service.js';
 
 // Features: Settings
 import { SettingsService } from '@features/settings/services/settings.service.js';
@@ -173,7 +176,7 @@ function createRendererContainer() {
   // ============================================
 
   // Adapter Factory - Creates device adapters based on device type
-  // Note: Will be initialized asynchronously in Application.js
+  // Note: Will be initialized asynchronously in RendererAppOrchestrator
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory) {
@@ -213,6 +216,14 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory']
   );
 
+  container.registerSingleton(
+    'gpuRecordingService',
+    function (gpuRendererService, eventBus, loggerFactory) {
+      return new GpuRecordingService({ gpuRendererService, eventBus, loggerFactory });
+    },
+    ['gpuRendererService', 'eventBus', 'loggerFactory']
+  );
+
   // Settings Service (user preferences)
   container.registerSingleton(
     'settingsService',
@@ -238,7 +249,7 @@ function createRendererContainer() {
   }, ['streamingService', 'deviceService', 'eventBus']);
 
   // ============================================
-  // UI Layer (registered by Application.js after DOM ready)
+  // UI Layer (registered by RendererAppOrchestrator after DOM ready)
   // ============================================
   // These will be registered later:
   // - uiController
@@ -271,12 +282,12 @@ function createRendererContainer() {
     []
   );
 
-  // UI Event Handler - bridges events to UIController
+  // UI Event Bridge - bridges events to UIController
   // Initialized after uiController is registered
   container.registerSingleton(
-    'uiEventHandler',
+    'uiEventBridge',
     function (eventBus, uiController, appState, loggerFactory) {
-      return new UIEventHandler({ eventBus, uiController, appState, loggerFactory });
+      return new UIEventBridge({ eventBus, uiController, appState, loggerFactory });
     },
     ['eventBus', 'uiController', 'appState', 'loggerFactory']
   );
@@ -320,18 +331,19 @@ function createRendererContainer() {
   // Requires gpuRendererService and canvasRenderer for screenshot source selection
   container.registerSingleton(
     'captureOrchestrator',
-    function (captureService, appState, uiController, gpuRendererService, canvasRenderer, eventBus, loggerFactory) {
+    function (captureService, appState, uiController, gpuRendererService, gpuRecordingService, canvasRenderer, eventBus, loggerFactory) {
       return new CaptureOrchestrator({
         captureService,
         appState,
         uiController,
         gpuRendererService,
+        gpuRecordingService,
         canvasRenderer,
         eventBus,
         loggerFactory
       });
     },
-    ['captureService', 'appState', 'uiController', 'gpuRendererService', 'canvasRenderer', 'eventBus', 'loggerFactory']
+    ['captureService', 'appState', 'uiController', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
   );
 
   // ============================================
@@ -383,25 +395,27 @@ function createRendererContainer() {
   // Performance State Coordinator - fan-out settings/visibility/idle state
   container.registerSingleton(
     'performanceStateCoordinator',
-    function (eventBus, loggerFactory) {
+    function (eventBus, loggerFactory, performanceStateService) {
       return new PerformanceStateCoordinator({
         eventBus,
+        performanceStateService,
         loggerFactory
       });
     },
-    ['eventBus', 'loggerFactory']
+    ['eventBus', 'loggerFactory', 'performanceStateService']
   );
 
   // Animation Performance Orchestrator - CSS/idle/visibility controls
   container.registerSingleton(
     'animationPerformanceOrchestrator',
-    function (eventBus, loggerFactory) {
+    function (eventBus, loggerFactory, animationPerformanceService) {
       return new AnimationPerformanceOrchestrator({
         eventBus,
+        animationPerformanceService,
         loggerFactory
       });
     },
-    ['eventBus', 'loggerFactory']
+    ['eventBus', 'loggerFactory', 'animationPerformanceService']
   );
 
   // Performance Metrics Service - process metrics snapshots
@@ -409,6 +423,22 @@ function createRendererContainer() {
     'performanceMetricsService',
     function (loggerFactory) {
       return new PerformanceMetricsService({ loggerFactory });
+    },
+    ['loggerFactory']
+  );
+
+  container.registerSingleton(
+    'performanceStateService',
+    function (loggerFactory) {
+      return new PerformanceStateService({ loggerFactory });
+    },
+    ['loggerFactory']
+  );
+
+  container.registerSingleton(
+    'animationPerformanceService',
+    function (loggerFactory) {
+      return new AnimationPerformanceService({ loggerFactory });
     },
     ['loggerFactory']
   );
@@ -517,7 +547,7 @@ function createRendererContainer() {
 }
 
 /**
- * Global container instance (created by Application.js)
+ * Global container instance (created by RendererAppOrchestrator)
  */
 let container = null;
 

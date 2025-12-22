@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-// Mock electron before importing
 vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn()
@@ -16,7 +15,8 @@ import { ipcMain } from 'electron';
 
 describe('IpcHandlers', () => {
   let ipcHandlers;
-  let mockDeviceManager;
+  let mockDeviceServiceMain;
+  let mockUpdateServiceMain;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -34,12 +34,20 @@ describe('IpcHandlers', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    mockDeviceManager = {
+    mockDeviceServiceMain = {
+      getStatus: vi.fn()
+    };
+
+    mockUpdateServiceMain = {
+      checkForUpdates: vi.fn(),
+      downloadUpdate: vi.fn(),
+      installUpdate: vi.fn(),
       getStatus: vi.fn()
     };
 
     ipcHandlers = new IpcHandlers({
-      deviceManager: mockDeviceManager,
+      deviceServiceMain: mockDeviceServiceMain,
+      updateServiceMain: mockUpdateServiceMain,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -53,8 +61,8 @@ describe('IpcHandlers', () => {
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('IpcHandlers');
     });
 
-    it('should store device manager', () => {
-      expect(ipcHandlers.deviceManager).toBe(mockDeviceManager);
+    it('should store device service', () => {
+      expect(ipcHandlers.deviceServiceMain).toBe(mockDeviceServiceMain);
     });
   });
 
@@ -74,14 +82,13 @@ describe('IpcHandlers', () => {
 
   describe('Device Handler: GET_STATUS', () => {
     it('should return device status on success', async () => {
-      mockDeviceManager.getStatus.mockReturnValue({
+      mockDeviceServiceMain.getStatus.mockReturnValue({
         connected: true,
         device: { deviceName: 'Chromatic' }
       });
 
       ipcHandlers.registerHandlers();
 
-      // Get the handler function
       const statusHandler = ipcMain.handle.mock.calls.find(
         call => call[0] === 'device:get-status'
       )[1];
@@ -93,7 +100,7 @@ describe('IpcHandlers', () => {
     });
 
     it('should handle error getting status', async () => {
-      mockDeviceManager.getStatus.mockImplementation(() => {
+      mockDeviceServiceMain.getStatus.mockImplementation(() => {
         throw new Error('Device error');
       });
 

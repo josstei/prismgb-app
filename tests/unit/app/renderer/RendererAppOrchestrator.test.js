@@ -1,10 +1,9 @@
 /**
- * Renderer Application Unit Tests
+ * Renderer App Orchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-// Use vi.hoisted to define mock before hoisted vi.mock call
 const { MockUIController } = vi.hoisted(() => ({
   MockUIController: vi.fn(function() {
     this.elements = {};
@@ -13,12 +12,10 @@ const { MockUIController } = vi.hoisted(() => ({
   })
 }));
 
-// Mock UIController module before importing Application
 vi.mock('@ui/controller/controller.js', () => ({
   UIController: MockUIController
 }));
 
-// Mock the container module
 vi.mock('@app/renderer/container.js', () => ({
   initializeContainer: vi.fn(() => ({
     resolve: vi.fn((name) => {
@@ -49,7 +46,7 @@ vi.mock('@app/renderer/container.js', () => ({
           triggerButtonFeedback: vi.fn()
         };
       }
-      if (name === 'uiEventHandler') {
+      if (name === 'uiEventBridge') {
         return {
           initialize: vi.fn(),
           dispose: vi.fn()
@@ -73,22 +70,19 @@ vi.mock('@app/renderer/container.js', () => ({
   asValue: vi.fn((val) => ({ __asValue: true, value: val }))
 }));
 
-// Import Application after mocks are set up
-const { Application } = await import('@app/renderer/Application.js');
+const { RendererAppOrchestrator } = await import('@app/renderer/RendererAppOrchestrator.js');
 
-describe('Application', () => {
+describe('RendererAppOrchestrator', () => {
   let app;
 
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks();
 
-    // Mock console
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    app = new Application();
+    app = new RendererAppOrchestrator();
   });
 
   afterEach(() => {
@@ -139,13 +133,13 @@ describe('Application', () => {
       await app.initialize();
       await app.initialize();
 
-      expect(console.warn).toHaveBeenCalledWith('[Application]', 'Application already initialized');
+      expect(console.warn).toHaveBeenCalledWith('[RendererAppOrchestrator]', 'Renderer application already initialized');
     });
   });
 
   describe('start', () => {
     it('should throw if not initialized', async () => {
-      await expect(app.start()).rejects.toThrow('Application not initialized');
+      await expect(app.start()).rejects.toThrow('Renderer application not initialized');
     });
 
     it('should start orchestrator', async () => {
