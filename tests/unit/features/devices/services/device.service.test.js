@@ -322,7 +322,6 @@ describe('DeviceService', () => {
         { deviceId: 'dev-1', kind: 'videoinput', label: '' },
         { deviceId: 'dev-2', kind: 'videoinput', label: '' }
       ]);
-      mockMediaDevicesService.getUserMedia.mockResolvedValue(mockStream);
 
       const result = await service.discoverSupportedDevice();
 
@@ -354,6 +353,35 @@ describe('DeviceService', () => {
       });
       expect(stop).toHaveBeenCalled();
       expect(result?.deviceId).toBe('stored-dev');
+    });
+
+    it('should stop after stored ID probe fails without probing others', async () => {
+      mockStorageService.setItem('chromatic-mod-retro_id', 'old-stale-id');
+
+      mockMediaDevicesService.enumerateDevices.mockResolvedValue([
+        { deviceId: 'new-dev-1', kind: 'videoinput', label: '' }
+      ]);
+
+      mockMediaDevicesService.getUserMedia.mockRejectedValueOnce(new Error('Device not found'));
+
+      const result = await service.discoverSupportedDevice();
+
+      expect(mockMediaDevicesService.getUserMedia).toHaveBeenCalledTimes(1);
+      expect(mockMediaDevicesService.getUserMedia).toHaveBeenCalledWith({
+        video: { deviceId: { exact: 'old-stale-id' } }
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should cache supported device after successful start', () => {
+      const device = { deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' };
+
+      const result = service.cacheSupportedDevice(device);
+
+      expect(result).toBe(true);
+      expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
+      expect(service.hasMediaPermission).toBe(true);
+      expect(service.videoDevices).toEqual([device]);
     });
   });
 

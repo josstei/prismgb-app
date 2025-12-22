@@ -4,7 +4,7 @@
  * Verifies actual video frame delivery using requestVideoFrameCallback.
  * Detects "stream acquired but no frames arriving" when device is powered off.
  *
- * Follows VisibilityHandler pattern: lightweight, focused, callback-based.
+ * Follows the same lightweight, focused, callback-based pattern as other render helpers.
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
 export class StreamHealthMonitor {

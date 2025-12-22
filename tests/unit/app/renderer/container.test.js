@@ -31,8 +31,8 @@ vi.mock('@app/renderer/application/performance/animation-performance.orchestrato
   AnimationPerformanceOrchestrator: vi.fn()
 }));
 
-vi.mock('@app/renderer/application/performance/performance-mode.coordinator.js', () => ({
-  PerformanceModeCoordinator: vi.fn()
+vi.mock('@app/renderer/application/performance/performance-state.coordinator.js', () => ({
+  PerformanceStateCoordinator: vi.fn()
 }));
 
 // UI layer mocks
@@ -88,10 +88,6 @@ vi.mock('@features/streaming/rendering/canvas.renderer.js', () => ({
 
 vi.mock('@features/streaming/rendering/viewport.manager.js', () => ({
   ViewportManager: vi.fn()
-}));
-
-vi.mock('@features/streaming/rendering/visibility.handler.js', () => ({
-  VisibilityHandler: vi.fn()
 }));
 
 vi.mock('@features/streaming/rendering/gpu/gpu.renderer.service.js', () => ({
@@ -272,6 +268,16 @@ describe('Renderer Container', () => {
       );
     });
 
+    it('should register renderPipelineService singleton', () => {
+      const container = containerModule.createRendererContainer();
+
+      expect(container.registerSingleton).toHaveBeenCalledWith(
+        'renderPipelineService',
+        expect.any(Function),
+        ['appState', 'uiController', 'canvasRenderer', 'viewportManager', 'streamHealthMonitor', 'gpuRendererService', 'eventBus', 'loggerFactory']
+      );
+    });
+
     it('should register captureService singleton', () => {
       const container = containerModule.createRendererContainer();
 
@@ -308,7 +314,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingOrchestrator',
         expect.any(Function),
-        ['streamingService', 'appState', 'uiController', 'eventBus', 'loggerFactory', 'canvasRenderer', 'viewportManager', 'visibilityHandler', 'streamHealthMonitor', 'gpuRendererService']
+        ['streamingService', 'appState', 'uiController', 'renderPipelineService', 'eventBus', 'loggerFactory']
       );
     });
 

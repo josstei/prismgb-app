@@ -6,14 +6,13 @@
  *
  * Responsibilities:
  * - Coordinate stream start/stop
- * - Delegate to specialized managers (CanvasRenderer, ViewportManager, VisibilityHandler)
+ * - Delegate render pipeline work (GPU/Canvas2D switching, health checks)
  * - Handle stream events
  * - Coordinate device selection changes
  *
  * Performance optimizations:
- * - Delegated to CanvasRenderer: RAF/RVFC management, frame skipping, context caching
- * - Delegated to ViewportManager: Cached resolution calculations, debounced resize
- * - Delegated to VisibilityHandler: Visibility-based rendering pause/resume
+ * - Delegated to RenderPipelineService: RAF/RVFC, canvas sizing, renderer switching
+ * - Visibility pause/resume driven by performance state signals
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
@@ -23,33 +22,9 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'uiController', 'canvasRenderer', 'viewportManager', 'visibilityHandler', 'streamHealthMonitor', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'uiController', 'renderPipelineService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
-
-    // Store current capabilities for visibility resume
-    this._currentCapabilities = null;
-
-    // Use injected specialized managers
-    this._canvasRenderer = dependencies.canvasRenderer;
-    this._viewportManager = dependencies.viewportManager;
-    this._visibilityHandler = dependencies.visibilityHandler;
-    this._streamHealthMonitor = dependencies.streamHealthMonitor;
-    this._gpuRendererService = dependencies.gpuRendererService;
-
-    // Track if GPU rendering is active
-    this._useGPURenderer = false;
-    this._gpuRenderLoopActive = false;
-    this._rvfcHandle = null;
-
-    // GPU idle termination timer (forces GPU cache flush when not streaming)
-    this._idleReleaseTimeout = null;
-    this._idleReleaseDelay = 15000; // 15 seconds
-
-    // Performance mode state
-    this._performanceModeEnabled = false;
-    this._userPresetId = null;
-    this._canvas2dContextCreated = false;
   }
 
   /**
@@ -63,141 +38,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Subscribe to canvas expiration (GPU worker terminated)
     this.subscribeWithCleanup({
       [EventChannels.RENDER.CANVAS_EXPIRED]: () => {
-        this._recreateCanvas();
-        this._setupCanvasSize();
+        this.renderPipelineService.handleCanvasExpired();
       }
     });
 
-    // Initialize visibility handler
-    this._visibilityHandler.initialize(
-      () => this._handleVisible(),
-      () => this._handleHidden()
-    );
-
     // Initialize canvas size with default resolution
-    this._setupCanvasSize();
-  }
-
-  /**
-   * Handle page becoming visible
-   * @private
-   */
-  _handleVisible() {
-    if (this.appState.isStreaming) {
-      // Resume rendering when visible
-      if (this._useGPURenderer) {
-        const video = this.uiController.elements.streamVideo;
-        this._startGPURenderLoop(video);
-        this.logger.debug('GPU rendering resumed (window visible)');
-      } else {
-        this._startCanvasRendering(this._currentCapabilities);
-        this.logger.debug('Canvas rendering resumed (window visible)');
-      }
-    }
-  }
-
-  /**
-   * Handle page becoming hidden
-   * @private
-   */
-  _handleHidden() {
-    if (this.appState.isStreaming) {
-      // Pause rendering when hidden
-      const video = this.uiController.elements.streamVideo;
-
-      if (this._useGPURenderer) {
-        this._stopGPURenderLoop(video);
-        this.logger.debug('GPU rendering paused (window hidden)');
-      } else {
-        this._canvasRenderer.stopRendering(video);
-        this.logger.debug('Canvas rendering paused (window hidden)');
-      }
-    }
-  }
-
-  /**
-   * Calculate and set canvas dimensions based on available space
-   * Single source of truth for canvas sizing - used by init, resize, and streaming
-   * @param {Object} [nativeRes] - Native resolution override, defaults to stored or device default
-   * @private
-   */
-  _setupCanvasSize(nativeRes = null) {
-    const canvas = this.uiController.elements.streamCanvas;
-    const container = canvas?.parentElement;
-    const section = container?.parentElement;
-    if (!canvas || !container || !section) return;
-
-    // Use provided resolution, stored capabilities, or device default
-    const resolution = nativeRes ||
-      this._currentCapabilities?.nativeResolution ||
-      { width: 160, height: 144 };
-
-    // Calculate dimensions using ViewportManager
-    const dimensions = this._viewportManager.calculateDimensions(canvas, resolution);
-    if (!dimensions) return;
-
-    // Apply dimensions - use GPU renderer if canvas was transferred, otherwise use canvas renderer
-    if (this._gpuRendererService.isCanvasTransferred()) {
-      // Canvas was transferred to GPU worker - resize through GPU renderer
-      this._gpuRendererService.resize(dimensions.width, dimensions.height);
-      // Update CSS size only (canvas backing store is managed by worker)
-      canvas.style.width = dimensions.width + 'px';
-      canvas.style.height = dimensions.height + 'px';
-    } else {
-      // Canvas still available - use canvas renderer for resize
-      this._canvasRenderer.resize(canvas, dimensions.width, dimensions.height);
-    }
-
-    // Initialize viewport manager on first call
-    if (!this._viewportManager._resizeObserver) {
-      this._viewportManager.initialize(section, () => this._setupCanvasSize());
-    }
-  }
-
-  /**
-   * Recreate canvas element after GPU worker termination
-   * Called when CANVAS_EXPIRED event fires (canvas was transferred and is now unusable)
-   * @private
-   */
-  _recreateCanvas() {
-    const oldCanvas = this.uiController.elements.streamCanvas;
-    if (!oldCanvas) return;
-
-    const parent = oldCanvas.parentElement;
-    if (!parent) return;
-
-    // Create new canvas with same id and class, but fresh dimensions
-    // Don't copy width/height - let _setupCanvasSize() set them properly
-    const newCanvas = document.createElement('canvas');
-    newCanvas.id = oldCanvas.id;
-    newCanvas.className = oldCanvas.className;
-
-    // Copy only CSS positioning styles, not dimensions
-    // This preserves position:absolute etc but lets resize set width/height
-    const computedStyle = window.getComputedStyle(oldCanvas);
-    newCanvas.style.position = computedStyle.position;
-    newCanvas.style.top = computedStyle.top;
-    newCanvas.style.left = computedStyle.left;
-    newCanvas.style.transform = computedStyle.transform;
-
-    // Replace in DOM
-    parent.replaceChild(newCanvas, oldCanvas);
-
-    // Update reference in uiController
-    this.uiController.elements.streamCanvas = newCanvas;
-
-    // Reset canvas renderer's cached state so it properly initializes the new canvas
-    this._canvasRenderer.resetCanvasState();
-
-    // Reset ViewportManager's cached dimensions to force recalculation on next resize
-    // Without this, calculateDimensions() returns null (thinks dimensions unchanged)
-    // and the new canvas never gets sized
-    this._viewportManager.resetDimensions();
-
-    // Notify listeners to rebind event handlers (fixes memory leak from orphaned listeners)
-    this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
-
-    this.logger.info('Canvas element recreated for next GPU session');
+    this.renderPipelineService.initialize();
   }
 
   /**
@@ -253,8 +99,13 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       [EventChannels.STREAM.ERROR]: (error) => this._handleStreamError(error),
       [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId),
-      [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled)
+      [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled),
+      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state)
     });
+  }
+
+  _handlePerformanceStateChanged(state) {
+    this.renderPipelineService.handlePerformanceStateChanged(state);
   }
 
   /**
@@ -263,15 +114,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @private
    */
   _handleRenderPresetChanged(presetId) {
-    if (this._performanceModeEnabled) {
-      this._userPresetId = presetId;
-      this.logger.debug(`User selected ${presetId} preset - cached (performance mode active)`);
-      return;
-    }
-
-    if (this._useGPURenderer && this._gpuRendererService.isActive()) {
-      this._gpuRendererService.setPreset(presetId);
-    }
+    this.renderPipelineService.handleRenderPresetChanged(presetId);
   }
 
   /**
@@ -282,125 +125,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @private
    */
   _handlePerformanceModeChanged(enabled) {
-    this._performanceModeEnabled = enabled;
-
-    if (enabled) {
-      // If currently streaming with GPU, switch to Canvas2D mid-stream
-      if (this.appState.isStreaming && this._useGPURenderer && this._gpuRendererService.isActive()) {
-        // Cache user's preset for restoration later
-        const currentPresetId = this._gpuRendererService.getPresetId();
-        if (currentPresetId !== 'performance') {
-          this._userPresetId = currentPresetId;
-        }
-
-        // Stop GPU rendering
-        const video = this.uiController.elements.streamVideo;
-        this._stopGPURenderLoop(video);
-
-        // Terminate GPU worker and recreate canvas
-        this._gpuRendererService.terminateAndReset(false);
-        this._useGPURenderer = false;
-        this._recreateCanvas();
-
-        // Setup canvas size for Canvas2D (maintains aspect ratio)
-        const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
-        this._setupCanvasSize(nativeRes);
-
-        // Start Canvas2D on the new canvas
-        const canvas = this.uiController.elements.streamCanvas;
-        this._canvas2dContextCreated = true;
-        this._canvasRenderer.startRendering(
-          video,
-          canvas,
-          () => this.appState.isStreaming,
-          () => this._visibilityHandler.isHidden()
-        );
-
-        this.logger.info('Performance mode enabled mid-stream - switched to Canvas2D renderer');
-        return;
-      }
-
-      // If not streaming, terminate GPU worker so next stream uses Canvas2D
-      if (this._useGPURenderer) {
-        this.logger.info('Performance mode enabled - terminating GPU worker for Canvas2D on next stream');
-        this._gpuRendererService.terminateAndReset();
-        this._useGPURenderer = false;
-      }
-    } else {
-      // Performance mode disabled - restore user preset if GPU is active
-      if (this._useGPURenderer && this._gpuRendererService.isActive() && this._userPresetId) {
-        this._gpuRendererService.setPreset(this._userPresetId);
-        this.logger.info(`Performance mode disabled - restored ${this._userPresetId} preset`);
-        this._userPresetId = null;
-      }
-
-      // If streaming with Canvas2D, switch to GPU mid-stream
-      if (this.appState.isStreaming && this._canvas2dContextCreated && !this._useGPURenderer) {
-        this._switchToGPUMidStream();
-        return;
-      }
-
-      // If Canvas2D was used (not streaming), recreate canvas so GPU can use transferControlToOffscreen
-      if (this._canvas2dContextCreated && !this.appState.isStreaming) {
-        this.logger.info('Performance mode disabled - recreating canvas for GPU (Canvas2D context was active)');
-        this._recreateCanvas();
-        this._setupCanvasSize();
-        this._canvas2dContextCreated = false;
-      }
-    }
-  }
-
-  /**
-   * Switch from Canvas2D to GPU renderer mid-stream
-   * @private
-   */
-  async _switchToGPUMidStream() {
-    const video = this.uiController.elements.streamVideo;
-
-    // Stop Canvas2D rendering
-    this._canvasRenderer.stopRendering(video);
-
-    // Recreate canvas to clear the 2D context
-    this._recreateCanvas();
-    this._canvas2dContextCreated = false;
-
-    const canvas = this.uiController.elements.streamCanvas;
-    const nativeRes = { width: 160, height: 144 };
-
-    // Setup canvas size
-    this._setupCanvasSize(nativeRes);
-
-    // Try to initialize GPU
-    try {
-      const gpuAvailable = await this._gpuRendererService.initialize(canvas, nativeRes);
-
-      if (gpuAvailable) {
-        this._useGPURenderer = true;
-        this._startGPURenderLoop(video);
-
-        // Restore user's preset if cached
-        if (this._userPresetId) {
-          this._gpuRendererService.setPreset(this._userPresetId);
-          this.logger.info(`Performance mode disabled mid-stream - switched to GPU with ${this._userPresetId} preset`);
-          this._userPresetId = null;
-        } else {
-          this.logger.info('Performance mode disabled mid-stream - switched to GPU renderer');
-        }
-        return;
-      }
-    } catch (error) {
-      this.logger.warn('GPU initialization failed mid-stream, staying on Canvas2D:', error.message);
-    }
-
-    // GPU failed, restart Canvas2D
-    this._canvas2dContextCreated = true;
-    this._canvasRenderer.startRendering(
-      video,
-      canvas,
-      () => this.appState.isStreaming,
-      () => this._visibilityHandler.isHidden()
-    );
-    this.logger.warn('Could not switch to GPU mid-stream, continuing with Canvas2D');
+    this.renderPipelineService.handlePerformanceModeChanged(enabled);
   }
 
   /**
@@ -440,10 +165,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Verify actual frame delivery (detects powered-off devices)
     try {
-      await this._waitForHealthyStream(video);
-
-      // Start canvas rendering with upscaling
-      this._startCanvasRendering(capabilities);
+      await this.renderPipelineService.startPipeline(capabilities);
 
       // Update status via event
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Streaming from camera' });
@@ -465,34 +187,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Wait for healthy stream (actual frames arriving)
-   * Uses StreamHealthMonitor to verify frame delivery via RVFC
-   * @param {HTMLVideoElement} videoElement
-   * @returns {Promise<void>}
-   * @private
-   */
-  _waitForHealthyStream(videoElement) {
-    return new Promise((resolve, reject) => {
-      this._streamHealthMonitor.startMonitoring(
-        videoElement,
-        (frameData) => {
-          this.logger.info('Stream verified healthy - first frame received');
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_OK, frameData);
-          resolve();
-        },
-        (errorData) => {
-          this.logger.warn(`Stream unhealthy: ${errorData.reason}`);
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_TIMEOUT, errorData);
-          const error = new Error(`No frames received: ${errorData.reason}`);
-          error.reason = errorData.reason;
-          reject(error);
-        },
-        4000 // 4 second timeout for device initialization
-      );
-    });
-  }
-
-  /**
    * Handle stream stopped event
    * @private
    */
@@ -503,26 +197,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     const video = this.uiController.elements.streamVideo;
 
     // Stop rendering (GPU or Canvas2D)
-    // Note: We intentionally do NOT cleanup or reset _useGPURenderer here.
-    // The canvas control transfer is irreversible, so we keep the GPU pipeline
-    // alive to reuse on the next stream start.
-    if (this._useGPURenderer) {
-      this._stopGPURenderLoop(video);
-      // Release GPU resources immediately to drop memory while keeping worker alive
-      this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
-        label: 'before gpu release'
-      });
-      this._gpuRendererService.releaseResources();
-      this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
-        label: 'after gpu release',
-        delayMs: 1000
-      });
-      // Keep _useGPURenderer = true so we reuse GPU renderer on next stream start
-      // Start idle timer to fully terminate worker after timeout (flushes GPU caches)
-      this._startIdleReleaseTimer();
-    } else {
-      this._canvasRenderer.stopRendering(video);
-    }
+    this.renderPipelineService.stopPipeline();
 
     // Clear video element srcObject
     if (video.srcObject) {
@@ -532,13 +207,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       // Reset video element state
       video.load();
       this.logger.info('Video element srcObject cleared and reset');
-    }
-
-    // Clear canvas to prevent stale frames (requires direct element access)
-    // Skip if canvas was transferred to GPU renderer (cannot use 2D context)
-    if (!this._gpuRendererService.isCanvasTransferred()) {
-      const canvas = this.uiController.elements.streamCanvas;
-      this._canvasRenderer.clearCanvas(canvas);
     }
 
     // Note: App state automatically derives isStreaming from StreamingService
@@ -574,209 +242,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Start rendering with pixel-perfect quality
-   * Attempts GPU rendering first, falls back to Canvas2D
-   * @private
-   */
-  async _startCanvasRendering(capabilities) {
-    // Clear idle release timer when starting stream
-    this._clearIdleReleaseTimer();
-
-    // Store capabilities for visibility resume
-    this._currentCapabilities = capabilities;
-
-    const canvas = this.uiController.elements.streamCanvas;
-    const video = this.uiController.elements.streamVideo;
-
-    // Get native resolution from capabilities
-    const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
-
-    // Use unified canvas sizing method
-    this._setupCanvasSize(nativeRes);
-
-    // Performance mode: skip GPU entirely, use Canvas2D for minimal resource usage
-    if (this._performanceModeEnabled && !this._gpuRendererService.isCanvasTransferred()) {
-      this.logger.info('Performance mode active - using Canvas2D renderer');
-      this._useGPURenderer = false;
-      this._canvas2dContextCreated = true;
-      this._canvasRenderer.startRendering(
-        video,
-        canvas,
-        () => this.appState.isStreaming,
-        () => this._visibilityHandler.isHidden()
-      );
-      return;
-    }
-
-    // If GPU renderer is already set up (from previous stream), just start the render loop
-    if (this._useGPURenderer && this._gpuRendererService.isActive()) {
-      this.logger.info('Resuming GPU renderer (already initialized)');
-      this._startGPURenderLoop(video);
-
-      if (this._performanceModeEnabled) {
-        if (!this._userPresetId) {
-          const currentPresetId = this._gpuRendererService.getPresetId();
-          if (currentPresetId && currentPresetId !== 'performance') {
-            this._userPresetId = currentPresetId;
-          }
-        }
-        this._gpuRendererService.setPreset('performance');
-      }
-      return;
-    }
-
-    // Try GPU rendering first (or reinitialize if needed)
-    try {
-      const gpuAvailable = await this._gpuRendererService.initialize(canvas, nativeRes);
-
-      if (gpuAvailable) {
-        this._useGPURenderer = true;
-        this.logger.info('Using GPU renderer for HD rendering');
-        this._startGPURenderLoop(video);
-
-        if (this._performanceModeEnabled) {
-          if (!this._userPresetId) {
-            const currentPresetId = this._gpuRendererService.getPresetId();
-            if (currentPresetId && currentPresetId !== 'performance') {
-              this._userPresetId = currentPresetId;
-            }
-          }
-          this._gpuRendererService.setPreset('performance');
-        }
-        return;
-      } else {
-        // GPU init returned false (e.g., re-init timeout) - reset flag for fallback
-        this.logger.warn('GPU renderer not available, attempting Canvas2D fallback');
-        this._useGPURenderer = false;
-      }
-    } catch (error) {
-      this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', error.message);
-      this._useGPURenderer = false;
-    }
-
-    // Fall back to Canvas2D rendering
-    // Only set _useGPURenderer = false if we weren't already using it
-    if (!this._useGPURenderer) {
-      // Check if canvas control was transferred - if so, we cannot use Canvas2D fallback
-      if (this._gpuRendererService.isCanvasTransferred()) {
-        this.logger.error('Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.');
-        // The video element will still display the stream directly without canvas processing
-        return;
-      }
-
-      this.logger.info('Using Canvas2D renderer');
-      this._canvas2dContextCreated = true;
-      this._canvasRenderer.startRendering(
-        video,
-        canvas,
-        () => this.appState.isStreaming,
-        () => this._visibilityHandler.isHidden()
-      );
-    }
-  }
-
-  /**
-   * Start the GPU render loop using requestVideoFrameCallback
-   * Video is guaranteed to be ready (HAVE_CURRENT_DATA) before this is called
-   * @param {HTMLVideoElement} videoElement
-   * @private
-   */
-  _startGPURenderLoop(videoElement) {
-    this._gpuRenderLoopActive = true;
-    let lastFrameTime = -1;
-
-    const renderFrame = async (now, metadata) => {
-      if (!this._gpuRenderLoopActive) return;
-
-      // Skip identical frames using video frame metadata
-      const frameTime = metadata?.mediaTime ?? now;
-      if (frameTime !== lastFrameTime && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) {
-        await this._gpuRendererService.renderFrame(videoElement);
-        lastFrameTime = frameTime;
-      }
-
-      // Continue loop if streaming and visible
-      if (this.appState.isStreaming && !this._visibilityHandler.isHidden()) {
-        this._rvfcHandle = videoElement.requestVideoFrameCallback(renderFrame);
-      }
-    };
-
-    // Start immediately - video is guaranteed ready by _waitForHealthyStream
-    this._rvfcHandle = videoElement.requestVideoFrameCallback(renderFrame);
-  }
-
-  /**
-   * Stop the GPU render loop
-   * @param {HTMLVideoElement} videoElement
-   * @private
-   */
-  _stopGPURenderLoop(videoElement) {
-    this._gpuRenderLoopActive = false;
-
-    if (this._rvfcHandle !== null && videoElement?.cancelVideoFrameCallback) {
-      videoElement.cancelVideoFrameCallback(this._rvfcHandle);
-      this._rvfcHandle = null;
-    }
-  }
-
-  /**
-   * Start idle release timer
-   * After idle timeout, fully terminates GPU worker to flush Chromium GPU caches
-   * @private
-   */
-  _startIdleReleaseTimer() {
-    this._clearIdleReleaseTimer();
-
-    this._idleReleaseTimeout = setTimeout(() => {
-      if (this._useGPURenderer && !this.appState.isStreaming) {
-        this.logger.info('GPU idle timeout - terminating worker to flush GPU caches');
-        this._gpuRendererService.terminateAndReset();
-        this._useGPURenderer = false;
-      }
-    }, this._idleReleaseDelay);
-  }
-
-  /**
-   * Clear idle release timer
-   * @private
-   */
-  _clearIdleReleaseTimer() {
-    if (this._idleReleaseTimeout) {
-      clearTimeout(this._idleReleaseTimeout);
-      this._idleReleaseTimeout = null;
-    }
-  }
-
-  /**
    * Cleanup resources
    * Note: EventBus subscriptions are automatically cleaned up by BaseOrchestrator
    */
   async onCleanup() {
-    // Clear idle release timer
-    this._clearIdleReleaseTimer();
+    this.renderPipelineService.cleanup();
 
-    // Reset performance mode state
-    this._performanceModeEnabled = false;
-    this._userPresetId = null;
-    this._canvas2dContextCreated = false;
-
-    // Cleanup GPU renderer if active
-    if (this._useGPURenderer) {
-      const video = this.uiController.elements.streamVideo;
-      this._stopGPURenderLoop(video);
-      this._gpuRendererService.cleanup();
-      this._useGPURenderer = false;
-    }
-
-    // Cleanup canvas renderer
-    this._canvasRenderer.cleanup();
-
-    // Cleanup other managers
-    this._viewportManager.cleanup();
-    this._visibilityHandler.cleanup();
-    this._streamHealthMonitor.cleanup();
-
-    // Stop streaming
     if (this.streamingService.isActive()) {
       this.streamingService.stop();
     }

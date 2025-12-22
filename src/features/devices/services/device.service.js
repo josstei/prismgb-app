@@ -80,6 +80,7 @@ class DeviceService extends BaseService {
     }
   }
 
+
   /**
    * Get stored device IDs for all registered devices
    * @private
@@ -91,6 +92,14 @@ class DeviceService extends BaseService {
       .map(id => this._getStoredDeviceId(id))
       .filter(Boolean);
     return Array.from(new Set(storedIds));
+  }
+
+  /**
+   * Get stored device IDs for registered devices
+   * @returns {string[]} Stored device IDs (unique)
+   */
+  getRegisteredStoredDeviceIds() {
+    return this._getRegisteredStoredDeviceIds();
   }
 
   /**
@@ -275,15 +284,8 @@ class DeviceService extends BaseService {
       }
     }
 
-    // Need permission to get labels - only try a stored ID to avoid poking random cameras
-    const deviceIdsToTry = storedIds;
-
-    if (deviceIdsToTry.length === 0) {
-      this.logger.warn('Cannot request permission: no stored device ID and device labels unavailable');
-      return null;
-    }
-
-    for (const deviceId of deviceIdsToTry) {
+    // Try stored IDs first (preferred - avoids poking unknown cameras)
+    for (const deviceId of storedIds) {
       const matchedDevice = await this._tryGetPermissionForDevice(deviceId);
       if (matchedDevice) return matchedDevice;
     }
@@ -326,11 +328,28 @@ class DeviceService extends BaseService {
    * @private
    */
   _cacheAndReturnDevice(device) {
+    if (!this.cacheSupportedDevice(device)) {
+      return null;
+    }
+    return device;
+  }
+
+  /**
+   * Cache a supported device after successful stream start
+   * @param {MediaDeviceInfo} device
+   * @returns {boolean} True if cached
+   */
+  cacheSupportedDevice(device) {
     const deviceType = DeviceDetectionHelper.detectDeviceType(device);
+    if (!deviceType || !device?.deviceId) {
+      this.logger.warn('Could not cache device - unsupported or missing deviceId');
+      return false;
+    }
+
     this._storeDeviceId(device.deviceId, deviceType);
     this.hasMediaPermission = true;
     this.videoDevices = [device];
-    return device;
+    return true;
   }
 
   /**

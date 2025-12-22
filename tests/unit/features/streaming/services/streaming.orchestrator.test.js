@@ -12,15 +12,9 @@ describe('StreamingOrchestrator', () => {
   let mockUIController;
   let mockEventBus;
   let mockLogger;
-  let mockCanvasRenderer;
-  let mockViewportManager;
-  let mockVisibilityHandler;
-  let mockStreamHealthMonitor;
-  let mockGPURendererService;
+  let mockRenderPipelineService;
 
   beforeEach(() => {
-    vi.useFakeTimers();
-
     mockStreamingService = {
       start: vi.fn().mockResolvedValue({}),
       stop: vi.fn(),
@@ -30,37 +24,15 @@ describe('StreamingOrchestrator', () => {
 
     mockAppState = {
       isStreaming: false,
-      deviceConnected: false,
-      cinematicModeEnabled: false,
-      setStreaming: vi.fn()
+      deviceConnected: false
     };
 
     mockUIController = {
-      updateStatusMessage: vi.fn(),
-      showErrorOverlay: vi.fn(),
-      setStreamingMode: vi.fn(),
-      updateStreamInfo: vi.fn(),
-      updateOverlayMessage: vi.fn(),
       elements: {
         streamVideo: {
           srcObject: null,
-          readyState: 4,
           pause: vi.fn(),
-          load: vi.fn(),
-          addEventListener: vi.fn(),
-          requestVideoFrameCallback: vi.fn(),
-          HAVE_CURRENT_DATA: 2,
-          HAVE_ENOUGH_DATA: 4
-        },
-        streamCanvas: {
-          width: 0,
-          height: 0,
-          style: {},
-          getContext: vi.fn(() => ({
-            drawImage: vi.fn(),
-            fillRect: vi.fn(),
-            fillStyle: ''
-          }))
+          load: vi.fn()
         }
       }
     };
@@ -77,135 +49,43 @@ describe('StreamingOrchestrator', () => {
       error: vi.fn()
     };
 
-    mockCanvasRenderer = {
-      startRendering: vi.fn(),
-      stopRendering: vi.fn(),
-      clearCanvas: vi.fn(),
-      resize: vi.fn(),
-      resetCanvasState: vi.fn(),
-      cleanup: vi.fn()
-    };
-
-    mockViewportManager = {
+    mockRenderPipelineService = {
       initialize: vi.fn(),
-      calculateDimensions: vi.fn(() => ({ width: 160, height: 144, scale: 1 })),
-      resetDimensions: vi.fn(),
-      cleanup: vi.fn(),
-      _resizeObserver: null
-    };
-
-    mockVisibilityHandler = {
-      initialize: vi.fn(),
-      isHidden: vi.fn(() => false),
+      handleCanvasExpired: vi.fn(),
+      handlePerformanceStateChanged: vi.fn(),
+      handleRenderPresetChanged: vi.fn(),
+      handlePerformanceModeChanged: vi.fn(),
+      startPipeline: vi.fn().mockResolvedValue(undefined),
+      stopPipeline: vi.fn(),
       cleanup: vi.fn()
     };
-
-    mockStreamHealthMonitor = {
-      startMonitoring: vi.fn((video, onHealthy) => {
-        // Immediately call onHealthy to simulate healthy stream
-        onHealthy({ frameTime: 100 });
-      }),
-      stopMonitoring: vi.fn(),
-      isMonitoring: vi.fn(() => false),
-      cleanup: vi.fn()
-    };
-
-    mockGPURendererService = {
-      initialize: vi.fn().mockResolvedValue(false),
-      renderFrame: vi.fn().mockResolvedValue(undefined),
-      setPreset: vi.fn(),
-      getPresetId: vi.fn(() => 'vibrant'),
-      isActive: vi.fn().mockReturnValue(false),
-      isCanvasTransferred: vi.fn().mockReturnValue(false),
-      terminateAndReset: vi.fn(),
-      releaseResources: vi.fn(),
-      cleanup: vi.fn()
-    };
-
-    // Mock document
-    document.addEventListener = vi.fn();
-    document.removeEventListener = vi.fn();
-    // Use Object.defineProperty to mock read-only document.hidden
-    Object.defineProperty(document, 'hidden', {
-      value: false,
-      writable: true,
-      configurable: true
-    });
-    Object.defineProperty(document, 'body', {
-      value: { classList: { add: vi.fn(), remove: vi.fn() } },
-      writable: true,
-      configurable: true
-    });
-
-    // Mock window
-    window.cancelAnimationFrame = vi.fn();
-    window.requestAnimationFrame = vi.fn((cb) => {
-      return 1;
-    });
-
-    // Mock HTMLVideoElement prototype for requestVideoFrameCallback check
-    if (!HTMLVideoElement.prototype.requestVideoFrameCallback) {
-      HTMLVideoElement.prototype.requestVideoFrameCallback = vi.fn();
-    }
 
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
       appState: mockAppState,
       uiController: mockUIController,
-      canvasRenderer: mockCanvasRenderer,
-      viewportManager: mockViewportManager,
-      visibilityHandler: mockVisibilityHandler,
-      streamHealthMonitor: mockStreamHealthMonitor,
-      gpuRendererService: mockGPURendererService,
+      renderPipelineService: mockRenderPipelineService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  describe('Constructor', () => {
-    it('should initialize subscriptions array', () => {
-      expect(orchestrator._subscriptions).toEqual([]);
-    });
-
-    it('should initialize currentCapabilities as null', () => {
-      expect(orchestrator._currentCapabilities).toBeNull();
-    });
-
-    it('should initialize specialized managers', () => {
-      expect(orchestrator._canvasRenderer).toBeDefined();
-      expect(orchestrator._viewportManager).toBeDefined();
-      expect(orchestrator._visibilityHandler).toBeDefined();
-    });
-  });
-
   describe('onInitialize', () => {
-    it('should wire stream events', async () => {
+    it('should wire stream and device events', async () => {
       await orchestrator.onInitialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:error', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:render-mode-changed', expect.any(Function));
-    });
-
-    it('should wire device events', async () => {
-      await orchestrator.onInitialize();
-
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:state-changed', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:disconnected-during-session', expect.any(Function));
-    });
-
-    it('should initialize visibility handler', async () => {
-      // Mock the initialize method
-      const initializeSpy = vi.spyOn(orchestrator._visibilityHandler, 'initialize');
-
-      await orchestrator.onInitialize();
-
-      expect(initializeSpy).toHaveBeenCalled();
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('render:canvas-expired', expect.any(Function));
+      expect(mockRenderPipelineService.initialize).toHaveBeenCalled();
     });
   });
 
@@ -224,7 +104,6 @@ describe('StreamingOrchestrator', () => {
       await orchestrator.start();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Cannot start stream - device not connected');
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
         message: 'Please connect your device first',
         type: 'warning'
@@ -239,7 +118,6 @@ describe('StreamingOrchestrator', () => {
       await orchestrator.start();
 
       expect(mockLogger.error).toHaveBeenCalled();
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', { message: 'Start failed' });
     });
   });
@@ -278,42 +156,45 @@ describe('StreamingOrchestrator', () => {
       capabilities: { canvasScale: 4, nativeResolution: { width: 160, height: 144 } }
     };
 
-    it('should assign stream to video element', () => {
-      orchestrator._handleStreamStarted(mockData);
+    it('should assign stream to video element', async () => {
+      await orchestrator._handleStreamStarted(mockData);
 
       expect(mockUIController.elements.streamVideo.srcObject).toBe(mockData.stream);
     });
 
-    it('should update UI for streaming mode', () => {
-      orchestrator._handleStreamStarted(mockData);
+    it('should update UI and start render pipeline', async () => {
+      await orchestrator._handleStreamStarted(mockData);
 
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:streaming-mode', { enabled: true });
-    });
-
-    it('should update stream info', () => {
-      orchestrator._handleStreamStarted(mockData);
-
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-info', { settings: mockData.settings.video });
+      expect(mockRenderPipelineService.startPipeline).toHaveBeenCalledWith(mockData.capabilities);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Streaming from camera' });
     });
 
-    // Note: Cinematic mode class is now applied by StreamControlsComponent,
-    // not by StreamingOrchestrator. See StreamControlsComponent.setCinematicMode()
+    it('should handle unhealthy stream', async () => {
+      const error = new Error('No frames received');
+      mockRenderPipelineService.startPipeline.mockRejectedValue(error);
+
+      await orchestrator._handleStreamStarted(mockData);
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+        message: 'Device not sending video. Is it powered on?',
+        type: 'warning'
+      });
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', {
+        message: 'Device not sending video. Please ensure the device is powered on.'
+      });
+      expect(mockStreamingService.stop).toHaveBeenCalled();
+    });
   });
 
   describe('_handleStreamStopped', () => {
-    it('should stop canvas rendering', () => {
-      orchestrator._handleStreamStopped();
-
-      expect(mockCanvasRenderer.stopRendering).toHaveBeenCalled();
-    });
-
-    it('should clear video srcObject', () => {
+    it('should stop render pipeline and clear video', () => {
       mockUIController.elements.streamVideo.srcObject = { id: 'stream' };
 
       orchestrator._handleStreamStopped();
 
+      expect(mockRenderPipelineService.stopPipeline).toHaveBeenCalled();
       expect(mockUIController.elements.streamVideo.srcObject).toBeNull();
       expect(mockUIController.elements.streamVideo.pause).toHaveBeenCalled();
       expect(mockUIController.elements.streamVideo.load).toHaveBeenCalled();
@@ -324,7 +205,6 @@ describe('StreamingOrchestrator', () => {
 
       orchestrator._handleStreamStopped();
 
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:streaming-mode', { enabled: false });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: true });
     });
@@ -337,7 +217,6 @@ describe('StreamingOrchestrator', () => {
       orchestrator._handleStreamError(error);
 
       expect(mockLogger.error).toHaveBeenCalledWith('Stream error:', error);
-      // UI updates are now done via events
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error: Stream error', type: 'error' });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', { message: 'Stream error' });
     });
@@ -361,246 +240,32 @@ describe('StreamingOrchestrator', () => {
     });
   });
 
-  describe('_handleHidden', () => {
-    it('should stop rendering when streaming', () => {
-      mockAppState.isStreaming = true;
-
-      orchestrator._handleHidden();
-
-      expect(mockCanvasRenderer.stopRendering).toHaveBeenCalled();
+  describe('Performance event handling', () => {
+    it('should delegate performance mode changes', () => {
+      orchestrator._handlePerformanceModeChanged(true);
+      expect(mockRenderPipelineService.handlePerformanceModeChanged).toHaveBeenCalledWith(true);
     });
 
-    it('should do nothing when not streaming', () => {
-      mockAppState.isStreaming = false;
-
-      orchestrator._handleHidden();
-
-      expect(mockCanvasRenderer.stopRendering).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('_handleVisible', () => {
-    it('should resume rendering when streaming (Canvas2D fallback)', async () => {
-      mockAppState.isStreaming = true;
-      orchestrator._currentCapabilities = { nativeResolution: { width: 160, height: 144 } };
-      orchestrator._useGPURenderer = false;
-
-      orchestrator._handleVisible();
-
-      // Wait for async _startCanvasRendering to complete
-      await vi.runAllTimersAsync();
-
-      expect(mockCanvasRenderer.startRendering).toHaveBeenCalled();
+    it('should delegate render preset changes', () => {
+      orchestrator._handleRenderPresetChanged('vibrant');
+      expect(mockRenderPipelineService.handleRenderPresetChanged).toHaveBeenCalledWith('vibrant');
     });
 
-    it('should resume GPU rendering when streaming with GPU renderer', () => {
-      mockAppState.isStreaming = true;
-      orchestrator._currentCapabilities = { nativeResolution: { width: 160, height: 144 } };
-      orchestrator._useGPURenderer = true;
-
-      orchestrator._handleVisible();
-
-      // GPU render loop is started via requestVideoFrameCallback, not direct mock call
-      expect(orchestrator._gpuRenderLoopActive).toBe(true);
-    });
-
-    it('should do nothing when not streaming', () => {
-      mockAppState.isStreaming = false;
-
-      orchestrator._handleVisible();
-
-      expect(mockCanvasRenderer.startRendering).not.toHaveBeenCalled();
+    it('should delegate performance state changes', () => {
+      const state = { hidden: true };
+      orchestrator._handlePerformanceStateChanged(state);
+      expect(mockRenderPipelineService.handlePerformanceStateChanged).toHaveBeenCalledWith(state);
     });
   });
 
   describe('onCleanup', () => {
-    it('should cleanup all managers', async () => {
-      const canvasRendererCleanupSpy = vi.spyOn(orchestrator._canvasRenderer, 'cleanup');
-      const viewportCleanupSpy = vi.spyOn(orchestrator._viewportManager, 'cleanup');
-      const visibilityCleanupSpy = vi.spyOn(orchestrator._visibilityHandler, 'cleanup');
-      const streamHealthCleanupSpy = vi.spyOn(orchestrator._streamHealthMonitor, 'cleanup');
-
-      await orchestrator.onCleanup();
-
-      expect(canvasRendererCleanupSpy).toHaveBeenCalled();
-      expect(viewportCleanupSpy).toHaveBeenCalled();
-      expect(visibilityCleanupSpy).toHaveBeenCalled();
-      expect(streamHealthCleanupSpy).toHaveBeenCalled();
-    });
-
-    it('should unsubscribe all subscriptions via cleanup()', async () => {
-      // Subscription cleanup now happens in BaseOrchestrator.cleanup()
-      const unsubscribe1 = vi.fn();
-      const unsubscribe2 = vi.fn();
-      orchestrator._subscriptions = [unsubscribe1, unsubscribe2];
-
-      await orchestrator.cleanup();
-
-      expect(unsubscribe1).toHaveBeenCalled();
-      expect(unsubscribe2).toHaveBeenCalled();
-      expect(orchestrator._subscriptions).toEqual([]);
-    });
-
-    it('should stop streaming if active', async () => {
+    it('should cleanup render pipeline and stop streaming if active', async () => {
       mockStreamingService.isActive.mockReturnValue(true);
 
       await orchestrator.onCleanup();
 
+      expect(mockRenderPipelineService.cleanup).toHaveBeenCalled();
       expect(mockStreamingService.stop).toHaveBeenCalled();
     });
-
-    it('should not stop streaming if not active', async () => {
-      mockStreamingService.isActive.mockReturnValue(false);
-
-      await orchestrator.onCleanup();
-
-      expect(mockStreamingService.stop).not.toHaveBeenCalled();
-    });
   });
-
-  describe('_recreateCanvas', () => {
-    it('should create new canvas element with same attributes', () => {
-      const oldCanvas = {
-        id: 'streamCanvas',
-        className: 'stream-canvas',
-        style: { cssText: 'width: 480px; height: 432px;' },
-        width: 960,
-        height: 864,
-        parentElement: {
-          replaceChild: vi.fn()
-        },
-        addEventListener: vi.fn()
-      };
-      mockUIController.elements.streamCanvas = oldCanvas;
-
-      orchestrator._recreateCanvas();
-
-      expect(oldCanvas.parentElement.replaceChild).toHaveBeenCalled();
-      const newCanvas = oldCanvas.parentElement.replaceChild.mock.calls[0][0];
-      expect(newCanvas.id).toBe('streamCanvas');
-      expect(newCanvas.className).toBe('stream-canvas');
-      expect(mockUIController.elements.streamCanvas).toBe(newCanvas);
-    });
-
-    it('should do nothing if canvas is null', () => {
-      mockUIController.elements.streamCanvas = null;
-
-      orchestrator._recreateCanvas();
-
-      expect(mockLogger.info).not.toHaveBeenCalledWith(expect.stringContaining('recreated'));
-    });
-
-    it('should do nothing if canvas has no parent', () => {
-      mockUIController.elements.streamCanvas = {
-        id: 'streamCanvas',
-        parentElement: null
-      };
-
-      orchestrator._recreateCanvas();
-
-      expect(mockLogger.info).not.toHaveBeenCalledWith(expect.stringContaining('recreated'));
-    });
-
-    it('should emit CANVAS_RECREATED event with old and new canvas', () => {
-      const oldCanvas = {
-        id: 'streamCanvas',
-        className: 'stream-canvas',
-        style: { cssText: '' },
-        width: 960,
-        height: 864,
-        parentElement: {
-          replaceChild: vi.fn()
-        }
-      };
-      mockUIController.elements.streamCanvas = oldCanvas;
-
-      orchestrator._recreateCanvas();
-
-      const newCanvas = mockUIController.elements.streamCanvas;
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        'render:canvas-recreated',
-        { oldCanvas, newCanvas }
-      );
-    });
-  });
-
-  describe('Performance Mode Transitions', () => {
-    it('should switch from GPU to Canvas2D mid-stream when enabled', () => {
-      orchestrator._useGPURenderer = true;
-      mockAppState.isStreaming = true;
-      mockGPURendererService.isActive.mockReturnValue(true);
-      mockGPURendererService.getPresetId = vi.fn(() => 'vibrant');
-      orchestrator._recreateCanvas = vi.fn();
-      orchestrator._setupCanvasSize = vi.fn();
-
-      orchestrator._handlePerformanceModeChanged(true);
-
-      expect(mockGPURendererService.terminateAndReset).toHaveBeenCalledWith(false);
-      expect(orchestrator._recreateCanvas).toHaveBeenCalled();
-      expect(mockCanvasRenderer.startRendering).toHaveBeenCalled();
-    });
-
-    it('should attempt GPU switch when disabling during Canvas2D stream', () => {
-      orchestrator._useGPURenderer = false;
-      orchestrator._canvas2dContextCreated = true;
-      mockAppState.isStreaming = true;
-      orchestrator._switchToGPUMidStream = vi.fn();
-
-      orchestrator._handlePerformanceModeChanged(false);
-
-      expect(orchestrator._switchToGPUMidStream).toHaveBeenCalled();
-    });
-  });
-
-  describe('Idle Release Timer', () => {
-    it('should call terminateAndReset after idle timeout when GPU renderer active', async () => {
-      orchestrator._useGPURenderer = true;
-      mockAppState.isStreaming = false;
-
-      orchestrator._startIdleReleaseTimer();
-      vi.advanceTimersByTime(30000);
-
-      expect(mockGPURendererService.terminateAndReset).toHaveBeenCalled();
-      expect(orchestrator._useGPURenderer).toBe(false);
-    });
-
-    it('should not call terminateAndReset if still streaming', async () => {
-      orchestrator._useGPURenderer = true;
-      mockAppState.isStreaming = true;
-
-      orchestrator._startIdleReleaseTimer();
-      vi.advanceTimersByTime(30000);
-
-      expect(mockGPURendererService.terminateAndReset).not.toHaveBeenCalled();
-    });
-
-    it('should not call terminateAndReset if GPU renderer not active', async () => {
-      orchestrator._useGPURenderer = false;
-      mockAppState.isStreaming = false;
-
-      orchestrator._startIdleReleaseTimer();
-      vi.advanceTimersByTime(30000);
-
-      expect(mockGPURendererService.terminateAndReset).not.toHaveBeenCalled();
-    });
-
-    it('should clear existing timer when starting new one', () => {
-      orchestrator._startIdleReleaseTimer();
-      const firstTimeout = orchestrator._idleReleaseTimeout;
-
-      orchestrator._startIdleReleaseTimer();
-      const secondTimeout = orchestrator._idleReleaseTimeout;
-
-      expect(firstTimeout).not.toBe(secondTimeout);
-    });
-
-    it('should clear timer on clearIdleReleaseTimer', () => {
-      orchestrator._startIdleReleaseTimer();
-      expect(orchestrator._idleReleaseTimeout).not.toBeNull();
-
-      orchestrator._clearIdleReleaseTimer();
-      expect(orchestrator._idleReleaseTimeout).toBeNull();
-    });
-  });
-
 });

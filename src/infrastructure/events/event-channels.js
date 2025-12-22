@@ -46,6 +46,7 @@ export const EventChannels = {
   },
 
   PERFORMANCE: {
+    STATE_CHANGED: 'performance:state-changed',
     UI_MODE_CHANGED: 'performance:ui-mode-changed',
     RENDER_MODE_CHANGED: 'performance:render-mode-changed',
     MEMORY_SNAPSHOT_REQUESTED: 'performance:memory-snapshot-requested'

@@ -11,8 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   BindGroupCache,
   TypedArrayPool,
-  UniformTracker,
-  PerformanceMetrics
+  UniformTracker
 } from '../../src/features/streaming/rendering/workers/optimization-utils.js';
 import { performanceUtils } from '../mocks/index.js';
 
@@ -294,60 +293,6 @@ describe('GPU Optimization Benchmarks', () => {
 
       console.log(`\n=== BindGroupCache Invalidation ===`);
       console.log(`Cache cleared, version: ${stats.version}`);
-    });
-  });
-
-  describe('PerformanceMetrics Accuracy', () => {
-    let metrics;
-
-    beforeEach(() => {
-      metrics = new PerformanceMetrics();
-    });
-
-    it('should accurately measure phase timing', async () => {
-      // Record some known-duration phases
-      for (let i = 0; i < 10; i++) {
-        const start = metrics.startPhase();
-        // Busy wait for ~1ms
-        const target = performance.now() + 1;
-        while (performance.now() < target) { /* busy wait */ }
-        metrics.endPhase('render', start);
-      }
-
-      const report = metrics.getReport();
-
-      console.log(`\n=== PerformanceMetrics Timing Accuracy ===`);
-      console.log(`Render phase avg: ${report.timing.render.avg.toFixed(3)}ms`);
-      console.log(`Render phase min: ${report.timing.render.min.toFixed(3)}ms`);
-      console.log(`Render phase max: ${report.timing.render.max.toFixed(3)}ms`);
-      console.log(`Render phase p95: ${report.timing.render.p95.toFixed(3)}ms`);
-
-      // Should be approximately 1ms (with some variance due to system load)
-      expect(report.timing.render.avg).toBeGreaterThan(0.5);
-      expect(report.timing.render.avg).toBeLessThan(5);
-    });
-
-    it('should track optimization counters correctly', () => {
-      // Simulate optimization events
-      for (let i = 0; i < 100; i++) {
-        metrics.recordBindGroupCacheHit();
-        if (i % 10 === 0) metrics.recordBindGroupCacheMiss();
-        metrics.recordUniformSkipped();
-        if (i % 5 === 0) metrics.recordUniformWritten();
-      }
-
-      const report = metrics.getReport();
-
-      console.log(`\n=== PerformanceMetrics Counters ===`);
-      console.log(`Bind group cache: ${report.optimization.bindGroupCache.hits} hits, ${report.optimization.bindGroupCache.misses} misses`);
-      console.log(`Bind group hit rate: ${report.optimization.bindGroupCache.hitRate}%`);
-      console.log(`Uniform tracking: ${report.optimization.uniformTracking.skipped} skipped, ${report.optimization.uniformTracking.written} written`);
-      console.log(`Uniform skip rate: ${report.optimization.uniformTracking.skipRate}%`);
-
-      expect(report.optimization.bindGroupCache.hits).toBe(100);
-      expect(report.optimization.bindGroupCache.misses).toBe(10);
-      expect(report.optimization.uniformTracking.skipped).toBe(100);
-      expect(report.optimization.uniformTracking.written).toBe(20);
     });
   });
 

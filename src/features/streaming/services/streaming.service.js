@@ -139,6 +139,7 @@ export class StreamingService extends BaseService {
       // Get stream from adapter
       this.currentStream = await this.currentAdapter.getStream(device);
       this.currentDevice = device;
+      this.deviceService.cacheSupportedDevice(device);
 
       // Get stream settings
       const settings = this._getStreamSettings();
@@ -364,43 +365,34 @@ export class StreamingService extends BaseService {
   async _autoSelectDevice() {
     this.logger.info('Auto-selecting device');
 
-    // Try to get device from deviceService first
-    const selectedDeviceId = this.deviceService.getSelectedDeviceId();
-    if (selectedDeviceId) {
+    const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
+    for (const deviceId of storedIds) {
       try {
-        const device = await this._getDeviceById(selectedDeviceId);
-        this.logger.info('Using device from DeviceService:', device.label);
+        const device = await this._getDeviceById(deviceId);
+        this.logger.info('Using stored device ID:', device.label);
         return device;
       } catch {
-        this.logger.warn('Failed to get device from DeviceService, trying enumeration');
+        this.logger.warn('Stored device ID not found in enumeration');
       }
     }
 
-    // Try standard enumeration (works if permission already granted)
     const { devices } = await this.deviceService.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-    // Find supported device using centralized detection
     const matchedDevice = videoDevices.find(device =>
       DeviceDetectionHelper.matchesByLabel(device.label) !== null
     );
 
     if (matchedDevice) {
-      this.logger.info('Auto-selected device:', matchedDevice.label);
+      this.logger.info('Auto-selected device by label:', matchedDevice.label);
       return matchedDevice;
     }
 
-    // If no device found (likely first launch without permission),
-    // use discovery method that carefully checks each device
-    this.logger.info('No device found in enumeration, starting device discovery');
-    const discoveredDevice = await this.deviceService.discoverSupportedDevice();
-
-    if (!discoveredDevice) {
-      throw new Error('No supported device found');
+    const labelsHidden = videoDevices.length > 0 && videoDevices.every(device => !device.label);
+    if (labelsHidden) {
+      throw new Error('Chromatic camera not authorized. Please grant permission and retry.');
     }
 
-    this.logger.info('Discovered device:', discoveredDevice.label);
-    return discoveredDevice;
+    throw new Error('No supported device found');
   }
 
   /**

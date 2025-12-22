@@ -24,7 +24,7 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
    * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
    * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
-   * @param {PerformanceModeCoordinator} dependencies.performanceModeCoordinator - Performance fan-out
+   * @param {PerformanceStateCoordinator} dependencies.performanceStateCoordinator - Performance state fan-out
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
@@ -41,7 +41,7 @@ export class AppOrchestrator extends BaseOrchestrator {
         'uiSetupOrchestrator',
         'animationPerformanceOrchestrator',
         'performanceMetricsOrchestrator',
-        'performanceModeCoordinator',
+        'performanceStateCoordinator',
         'eventBus',
         'loggerFactory'
       ],
@@ -64,7 +64,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     await this.captureOrchestrator.initialize();
 
     // Initialize application orchestrators
-    await this.performanceModeCoordinator.initialize();
+    await this.performanceStateCoordinator.initialize();
     await this.animationPerformanceOrchestrator.initialize();
     await this.performanceMetricsOrchestrator.initialize();
     await this.preferencesOrchestrator.initialize();
@@ -145,7 +145,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
       ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
       ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
-      ['performanceModeCoordinator', this.performanceModeCoordinator],
+      ['performanceStateCoordinator', this.performanceStateCoordinator],
       ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
       ['preferencesOrchestrator', this.preferencesOrchestrator],

@@ -13,7 +13,7 @@ import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
 import { AnimationPerformanceOrchestrator } from '@app/renderer/application/performance/animation-performance.orchestrator.js';
 import { PerformanceMetricsOrchestrator } from '@app/renderer/application/performance/performance-metrics.orchestrator.js';
 import { PerformanceMetricsService } from '@app/renderer/application/performance/performance-metrics.service.js';
-import { PerformanceModeCoordinator } from '@app/renderer/application/performance/performance-mode.coordinator.js';
+import { PerformanceStateCoordinator } from '@app/renderer/application/performance/performance-state.coordinator.js';
 
 // UI layer
 import { UISetupOrchestrator } from '@ui/orchestration/ui-setup.orchestrator.js';
@@ -32,8 +32,8 @@ import { StreamingService } from '@features/streaming/services/streaming.service
 import { StreamingOrchestrator } from '@features/streaming/services/streaming.orchestrator.js';
 import { AdapterFactory } from '@features/streaming/factories/adapter.factory.js';
 import { CanvasRenderer } from '@features/streaming/rendering/canvas.renderer.js';
+import { RenderPipelineService } from '@features/streaming/rendering/render-pipeline.service.js';
 import { ViewportManager } from '@features/streaming/rendering/viewport.manager.js';
-import { VisibilityHandler } from '@features/streaming/rendering/visibility.handler.js';
 import { StreamHealthMonitor } from '@features/streaming/rendering/stream-health.monitor.js';
 import { GPURendererService } from '@features/streaming/rendering/gpu/gpu.renderer.service.js';
 
@@ -117,14 +117,6 @@ function createRendererContainer() {
   );
 
   container.registerSingleton(
-    'visibilityHandler',
-    function(loggerFactory) {
-      return new VisibilityHandler(loggerFactory.create('VisibilityHandler'));
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton(
     'streamHealthMonitor',
     function(loggerFactory) {
       return new StreamHealthMonitor(loggerFactory.create('StreamHealthMonitor'));
@@ -139,6 +131,24 @@ function createRendererContainer() {
       return new GPURendererService({ eventBus, loggerFactory, settingsService });
     },
     ['eventBus', 'loggerFactory', 'settingsService']
+  );
+
+  // Render Pipeline Service - GPU/Canvas2D switching and health checks
+  container.registerSingleton(
+    'renderPipelineService',
+    function(appState, uiController, canvasRenderer, viewportManager, streamHealthMonitor, gpuRendererService, eventBus, loggerFactory) {
+      return new RenderPipelineService({
+        appState,
+        uiController,
+        canvasRenderer,
+        viewportManager,
+        streamHealthMonitor,
+        gpuRendererService,
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['appState', 'uiController', 'canvasRenderer', 'viewportManager', 'streamHealthMonitor', 'gpuRendererService', 'eventBus', 'loggerFactory']
   );
 
   // IPC client (window.deviceAPI exposed from preload)
@@ -292,21 +302,17 @@ function createRendererContainer() {
   // Uses appState instead of deviceOrchestrator for decoupling
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, uiController, eventBus, loggerFactory, canvasRenderer, viewportManager, visibilityHandler, streamHealthMonitor, gpuRendererService) {
+    function (streamingService, appState, uiController, renderPipelineService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
         uiController,
+        renderPipelineService,
         eventBus,
-        loggerFactory,
-        canvasRenderer,
-        viewportManager,
-        visibilityHandler,
-        streamHealthMonitor,
-        gpuRendererService
+        loggerFactory
       });
     },
-    ['streamingService', 'appState', 'uiController', 'eventBus', 'loggerFactory', 'canvasRenderer', 'viewportManager', 'visibilityHandler', 'streamHealthMonitor', 'gpuRendererService']
+    ['streamingService', 'appState', 'uiController', 'renderPipelineService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording
@@ -374,11 +380,11 @@ function createRendererContainer() {
     ['updateService', 'eventBus', 'loggerFactory']
   );
 
-  // Performance Mode Coordinator - fan-out settings to UI/render signals
+  // Performance State Coordinator - fan-out settings/visibility/idle state
   container.registerSingleton(
-    'performanceModeCoordinator',
+    'performanceStateCoordinator',
     function (eventBus, loggerFactory) {
-      return new PerformanceModeCoordinator({
+      return new PerformanceStateCoordinator({
         eventBus,
         loggerFactory
       });
@@ -472,7 +478,7 @@ function createRendererContainer() {
       uiSetupOrchestrator,
       animationPerformanceOrchestrator,
       performanceMetricsOrchestrator,
-      performanceModeCoordinator,
+      performanceStateCoordinator,
       eventBus,
       loggerFactory
     ) {
@@ -486,7 +492,7 @@ function createRendererContainer() {
         uiSetupOrchestrator,
         animationPerformanceOrchestrator,
         performanceMetricsOrchestrator,
-        performanceModeCoordinator,
+        performanceStateCoordinator,
         eventBus,
         loggerFactory
       });
@@ -501,7 +507,7 @@ function createRendererContainer() {
       'uiSetupOrchestrator',
       'animationPerformanceOrchestrator',
       'performanceMetricsOrchestrator',
-      'performanceModeCoordinator',
+      'performanceStateCoordinator',
       'eventBus',
       'loggerFactory'
     ]

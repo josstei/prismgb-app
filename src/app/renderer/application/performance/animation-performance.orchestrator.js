@@ -2,7 +2,7 @@
  * Animation Performance Orchestrator
  *
  * Owns decorative animation suppression based on user preferences,
- * system settings, and idle/visibility state.
+ * system settings, and performance state signals.
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
@@ -28,113 +28,51 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
       'AnimationPerformanceOrchestrator'
     );
 
-    this._idleTimeoutId = null;
-    this._idleDelayMs = 30000;
     this._isStreaming = false;
-    this._idleActivityEvents = ['pointermove', 'keydown', 'wheel', 'touchstart'];
-    this._lastIdleReset = 0;
     this._animationSuppression = {
       reducedMotion: false,
       weakGPU: false,
       performanceMode: false
     };
-    this._motionPreferenceCleanup = null;
   }
 
   async onInitialize() {
     this.subscribeWithCleanup({
       [EventChannels.STREAM.STARTED]: () => this._handleStreamingStateChanged(true),
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamingStateChanged(false),
-      [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: (state) => this._handleUiPerformanceChanged(state)
+      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state)
     });
-
-    this._setupVisibilityHandling();
-    this._setupReducedMotionHandling();
-    this._setupIdleHandling();
-    this._startIdleTimer();
   }
 
-  _handleUiPerformanceChanged(state) {
-    const enabled = typeof state === 'boolean' ? state : Boolean(state?.enabled);
-    const weakGpuDetected = Boolean(state?.weakGpuDetected);
-
-    this._setAnimationsSuppressed('performanceMode', enabled);
-    this._setAnimationsSuppressed('weakGPU', enabled && weakGpuDetected);
-
-    if (enabled) {
-      this._clearIdleTimer();
-      document.body.classList.remove(APP_CSS_CLASSES.IDLE);
-      this.logger.info('Performance mode enabled - pausing decorative animations');
-    } else {
-      this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
-      if (!this._isAnimationsSuppressed()) {
-        this._startIdleTimer();
-      }
-    }
-
-    if (enabled && weakGpuDetected) {
-      this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
-    }
-  }
-
-  _setupVisibilityHandling() {
-    this._handleVisibilityChange = () => {
-      if (document.hidden) {
-        document.body.classList.add(APP_CSS_CLASSES.HIDDEN);
-        this._clearIdleTimer();
-        this.logger.debug('App hidden - pausing decorative animations');
-      } else {
-        document.body.classList.remove(APP_CSS_CLASSES.HIDDEN);
-        this.logger.debug('App visible - resuming decorative animations');
-        this._resetIdleTimer();
-      }
-    };
-    document.addEventListener('visibilitychange', this._handleVisibilityChange);
-    this._handleVisibilityChange();
-  }
-
-  _setupReducedMotionHandling() {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+  _handlePerformanceStateChanged(state) {
+    if (!state) {
       return;
     }
 
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const handleChange = (event) => {
-      this._setAnimationsSuppressed('reducedMotion', event.matches);
-      if (event.matches) {
-        this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
-      }
-    };
+    const performanceEnabled = Boolean(state.performanceModeEnabled);
+    const weakGpuDetected = Boolean(state.weakGpuDetected);
+    const reducedMotion = Boolean(state.reducedMotion);
 
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', handleChange);
-      this._motionPreferenceCleanup = () => mediaQuery.removeEventListener('change', handleChange);
-    } else if (typeof mediaQuery.addListener === 'function') {
-      // Safari fallback
-      mediaQuery.addListener(handleChange);
-      this._motionPreferenceCleanup = () => mediaQuery.removeListener(handleChange);
+    this._setAnimationsSuppressed('performanceMode', performanceEnabled);
+    this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
+    this._setAnimationsSuppressed('reducedMotion', reducedMotion);
+
+    document.body.classList.toggle(APP_CSS_CLASSES.HIDDEN, Boolean(state.hidden));
+    document.body.classList.toggle(APP_CSS_CLASSES.IDLE, Boolean(state.idle));
+
+    if (performanceEnabled) {
+      this.logger.info('Performance mode enabled - pausing decorative animations');
+    } else {
+      this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
     }
 
-    this._setAnimationsSuppressed('reducedMotion', mediaQuery.matches);
-  }
+    if (performanceEnabled && weakGpuDetected) {
+      this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
+    }
 
-  _setupIdleHandling() {
-    this._handleUserActivity = () => {
-      if (this._isStreaming || document.hidden) {
-        return;
-      }
-
-      const now = performance.now();
-      if (now - this._lastIdleReset < 1000) {
-        return;
-      }
-
-      this._resetIdleTimer();
-    };
-
-    this._idleActivityEvents.forEach((event) => {
-      document.addEventListener(event, this._handleUserActivity, { passive: true });
-    });
+    if (reducedMotion) {
+      this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
+    }
   }
 
   _handleStreamingStateChanged(isStreaming) {
@@ -143,47 +81,15 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
     if (isStreaming) {
       document.body.classList.add(APP_CSS_CLASSES.STREAMING);
       document.body.classList.remove(APP_CSS_CLASSES.IDLE);
-      this._clearIdleTimer();
       this.logger.debug('Streaming started - pausing decorative animations');
     } else {
       document.body.classList.remove(APP_CSS_CLASSES.STREAMING);
-      this._startIdleTimer();
       this.logger.debug('Streaming stopped - starting idle timer');
     }
   }
 
-  _startIdleTimer() {
-    if (this._isStreaming || document.hidden) {
-      return;
-    }
-
-    if (this._isAnimationsSuppressed()) {
-      return;
-    }
-
-    this._clearIdleTimer();
-    this._lastIdleReset = performance.now();
-    this._idleTimeoutId = setTimeout(() => {
-      document.body.classList.add(APP_CSS_CLASSES.IDLE);
-      this.logger.debug('App idle - pausing decorative animations');
-    }, this._idleDelayMs);
-  }
-
   _isAnimationsSuppressed() {
     return Object.values(this._animationSuppression).some(Boolean);
-  }
-
-  _resetIdleTimer() {
-    this._lastIdleReset = performance.now();
-    document.body.classList.remove(APP_CSS_CLASSES.IDLE);
-    this._startIdleTimer();
-  }
-
-  _clearIdleTimer() {
-    if (this._idleTimeoutId) {
-      clearTimeout(this._idleTimeoutId);
-      this._idleTimeoutId = null;
-    }
   }
 
   _setAnimationsSuppressed(reason, suppressed) {
@@ -193,18 +99,6 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
   }
 
   async onCleanup() {
-    this._clearIdleTimer();
-    if (this._handleVisibilityChange) {
-      document.removeEventListener('visibilitychange', this._handleVisibilityChange);
-    }
-    if (this._handleUserActivity) {
-      this._idleActivityEvents.forEach((event) => {
-        document.removeEventListener(event, this._handleUserActivity, { passive: true });
-      });
-    }
-    if (this._motionPreferenceCleanup) {
-      this._motionPreferenceCleanup();
-      this._motionPreferenceCleanup = null;
-    }
+    // Performance state coordinator owns DOM listeners now.
   }
 }
