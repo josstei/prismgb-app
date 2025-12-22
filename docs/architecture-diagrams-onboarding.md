@@ -27,13 +27,18 @@ flowchart LR
   UISetupOrchestrator[UISetupOrchestrator]
   StreamingOrchestrator[StreamingOrchestrator]
   StreamingService[StreamingService]
-  DeviceServiceRenderer[DeviceService (Renderer)]
+  DeviceOrchestrator[DeviceOrchestrator]
+  DeviceService[DeviceService]
+  MediaDeviceService[MediaDeviceService]
 
   UIEventBridge --> UISetupOrchestrator
   UIEventBridge --> StreamingOrchestrator
   UISetupOrchestrator --> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
-  StreamingService --> DeviceServiceRenderer
+  StreamingOrchestrator --> DeviceOrchestrator
+  DeviceOrchestrator --> DeviceService
+  StreamingService --> DeviceService
+  DeviceService --> MediaDeviceService
   StreamingService -. cleanup/retry .-> StreamingOrchestrator
 ```
 
@@ -59,13 +64,16 @@ flowchart LR
   AppOrchestrator[AppOrchestrator]
   AnimationPerformanceOrchestrator[AnimationPerformanceOrchestrator]
   PerformanceStateOrchestrator[PerformanceStateOrchestrator]
+  PerformanceMetricsOrchestrator[PerformanceMetricsOrchestrator]
   AnimationPerformanceService[AnimationPerformanceService]
   PerformanceMetricsService[PerformanceMetricsService]
 
   AppOrchestrator --> AnimationPerformanceOrchestrator
   AppOrchestrator --> PerformanceStateOrchestrator
+  AppOrchestrator --> PerformanceMetricsOrchestrator
   AnimationPerformanceOrchestrator --> AnimationPerformanceService
   AnimationPerformanceService --> PerformanceMetricsService
+  PerformanceMetricsOrchestrator --> PerformanceMetricsService
 ```
 
 ## 5) Main Process IPC and Services
@@ -113,3 +121,4 @@ flowchart LR
 - Services should be single-responsibility and own the actual work.
 - Managers/handlers are main-process only and interface with OS or device APIs.
 - Bridges are main-process IPC entry points to the renderer.
+- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.

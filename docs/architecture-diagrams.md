@@ -17,18 +17,23 @@ flowchart LR
     UISetupOrchestrator[UISetupOrchestrator]
     StreamingOrchestrator[StreamingOrchestrator]
     StreamingService[StreamingService]
-    DeviceServiceRenderer[DeviceService (Renderer)]
+    DeviceOrchestrator[DeviceOrchestrator]
+    DeviceService[DeviceService]
+    MediaDeviceService[MediaDeviceService]
+    DeviceConnectionService[DeviceConnectionService]
     StreamingState[StreamingState]
-    DeviceSelection[Device Selection]
   end
 
   UIEventBridge --> UISetupOrchestrator
   UIEventBridge --> StreamingOrchestrator
   UISetupOrchestrator --> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
+  StreamingOrchestrator --> DeviceOrchestrator
+  DeviceOrchestrator --> DeviceService
   StreamingOrchestrator --> StreamingState
-  StreamingService --> DeviceSelection
-  DeviceSelection --> DeviceServiceRenderer
+  StreamingService --> DeviceService
+  DeviceService --> MediaDeviceService
+  DeviceService --> DeviceConnectionService
 
   StreamingService -. cleanup/retry .-> StreamingState
 ```
@@ -61,6 +66,7 @@ flowchart LR
     AppOrchestrator[AppOrchestrator]
     AnimationPerformanceOrchestrator[AnimationPerformanceOrchestrator]
     PerformanceStateOrchestrator[PerformanceStateOrchestrator]
+    PerformanceMetricsOrchestrator[PerformanceMetricsOrchestrator]
     AnimationPerformanceService[AnimationPerformanceService]
     PerformanceStateService[PerformanceStateService]
     PerformanceMetricsService[PerformanceMetricsService]
@@ -69,10 +75,12 @@ flowchart LR
 
   AppOrchestrator --> AnimationPerformanceOrchestrator
   AppOrchestrator --> PerformanceStateOrchestrator
+  AppOrchestrator --> PerformanceMetricsOrchestrator
   AnimationPerformanceOrchestrator --> AnimationPerformanceService
   AnimationPerformanceService --> PerformanceMetricsService
   PerformanceStateOrchestrator --> PerformanceStateService
   PerformanceStateService --> PerformanceState
+  PerformanceMetricsOrchestrator --> PerformanceMetricsService
 
   AnimationPerformanceService -. cleanup .-> PerformanceState
 ```
@@ -149,3 +157,4 @@ flowchart LR
 - Device selection is explicitly shown as a sub-step in `StreamingService` to make filtering and ordering visible during reviews.
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
+- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
