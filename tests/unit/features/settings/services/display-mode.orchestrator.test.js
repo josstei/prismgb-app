@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DisplayModeOrchestrator } from '@features/settings/services/display-mode.orchestrator.js';
+import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
 
 describe('DisplayModeOrchestrator', () => {
   let orchestrator;

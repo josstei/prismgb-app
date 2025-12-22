@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CaptureOrchestrator } from '@features/capture/services/capture.orchestrator.js';
+import { CaptureOrchestrator } from '@renderer/features/capture/services/capture.orchestrator.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PerformanceMetricsService } from '@app/renderer/application/performance/performance-metrics.service.js';
+import { PerformanceMetricsService } from '@renderer/application/performance/performance-metrics.service.js';
 
 describe('PerformanceMetricsService', () => {
   let service;

@@ -1,0 +1,78 @@
+/**
+ * Dependency Injection Container
+ * Central container for all main process dependencies using Awilix
+ */
+
+import * as awilix from 'awilix';
+const { createContainer, asClass, asValue, InjectionMode } = awilix;
+import pkg from '../../package.json' assert { type: 'json' };
+
+/**
+ * Create and configure the DI container
+ * @param {Object} loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
+ * @returns {Promise<AwilixContainer>} Configured container
+ */
+async function createAppContainer(loggerFactory) {
+  const container = createContainer({
+    injectionMode: InjectionMode.PROXY
+  });
+
+  // Use provided logger factory (shared with MainAppOrchestrator)
+  const containerLogger = loggerFactory.create('Container');
+  containerLogger.info('Initializing dependency injection container');
+
+  // Register configuration and utilities
+  container.register({
+    // Config - simple value
+    config: asValue({
+      isDevelopment: process.env.NODE_ENV === 'development',
+      appName: 'PrismGB',
+      version: pkg.version
+    }),
+
+    // Logger factory - singleton instance
+    loggerFactory: asValue(loggerFactory)
+  });
+
+  // Manual registration for ESM compatibility (Awilix loadModules uses require)
+
+  // Services
+  const { default: WindowManager } = await import('./WindowManager.js');
+  const { default: TrayManager } = await import('./TrayManager.js');
+  const { default: IpcHandlers } = await import('./IpcHandlers.js');
+
+  container.register({
+    windowManager: asClass(WindowManager).singleton(),
+    trayManager: asClass(TrayManager).singleton(),
+    ipcHandlers: asClass(IpcHandlers).singleton()
+  });
+
+  // Device components
+  const { default: DeviceServiceMain } = await import('@main/features/devices/device.service.main.js');
+  const { default: ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
+
+  container.register({
+    deviceServiceMain: asClass(DeviceServiceMain).singleton(),
+    profileRegistry: asClass(ProfileRegistry).singleton()
+  });
+
+  // Update components
+  const { default: UpdateServiceMain } = await import('@main/features/updates/update.service.main.js');
+
+  const { DeviceBridgeService } = await import('./services/device-bridge.service.js');
+  const { UpdateBridgeService } = await import('./services/update-bridge.service.js');
+
+  container.register({
+    updateServiceMain: asClass(UpdateServiceMain).singleton(),
+    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
+    updateBridgeService: asClass(UpdateBridgeService).singleton()
+  });
+
+  // Log registration count
+  const count = Object.keys(container.registrations).length;
+  containerLogger.info(`Registered ${count} dependencies`);
+
+  return container;
+}
+
+export { createAppContainer };

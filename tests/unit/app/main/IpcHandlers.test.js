@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import IpcHandlers from '@app/main/IpcHandlers.js';
+import IpcHandlers from '@main/IpcHandlers.js';
 import { ipcMain } from 'electron';
 
 describe('IpcHandlers', () => {

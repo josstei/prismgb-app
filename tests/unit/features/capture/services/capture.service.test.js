@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureService } from '@features/capture/services/capture.service.js';
+import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
 
 // Mock FilenameGenerator
 vi.mock('../../../../../src/shared/utils/filename-generator.js', () => ({

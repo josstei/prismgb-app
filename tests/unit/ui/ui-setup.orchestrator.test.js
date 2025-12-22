@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UISetupOrchestrator } from '@ui/orchestration/ui-setup.orchestrator.js';
+import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
 
 describe('UISetupOrchestrator', () => {

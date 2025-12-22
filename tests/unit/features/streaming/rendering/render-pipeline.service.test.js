@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RenderPipelineService } from '@features/streaming/rendering/render-pipeline.service.js';
+import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 
 describe('RenderPipelineService', () => {
   let service;

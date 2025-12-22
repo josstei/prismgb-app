@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ShaderSelectorComponent } from '@features/streaming/ui/shader-selector.js';
+import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.js';
 
 // Mock the render presets module
-vi.mock('@/features/streaming/rendering/presets/render.presets.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/presets/render.presets.js', () => ({
   getPresetsForUI: vi.fn(() => [
     { id: 'true-color', name: 'True Color', description: 'Accurate GBC colors' },
     { id: 'vibrant', name: 'Vibrant', description: 'Boosted colors for modern displays' },

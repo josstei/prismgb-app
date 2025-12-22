@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StatusNotificationComponent } from '@ui/components/status-notification.js';
+import { StatusNotificationComponent } from '@renderer/ui/components/status-notification.js';
 
 describe('StatusNotificationComponent', () => {
   let component;

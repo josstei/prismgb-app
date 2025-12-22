@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceService } from '@features/devices/services/device.service.js';
+import { DeviceService } from '@renderer/features/devices/services/device.service.js';
 
 describe('DeviceService', () => {
   let service;

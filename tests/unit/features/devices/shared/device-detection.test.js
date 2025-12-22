@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceDetectionHelper } from '@features/devices/shared/device-detection.js';
+import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 
 describe('DeviceDetectionHelper', () => {
   describe('matchesByLabel', () => {

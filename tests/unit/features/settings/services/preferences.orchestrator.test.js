@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PreferencesOrchestrator } from '@features/settings/services/preferences.orchestrator.js';
+import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('PreferencesOrchestrator', () => {

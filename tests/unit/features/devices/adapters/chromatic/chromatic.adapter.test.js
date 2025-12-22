@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ChromaticAdapter } from '@features/devices/adapters/chromatic/chromatic.adapter.js';
+import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 describe('ChromaticAdapter', () => {
   let adapter;

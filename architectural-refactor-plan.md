@@ -18,16 +18,16 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 - Out: feature changes beyond architectural re-layout.
 
 ## Files and entry points
-- src/features/capture/services/capture.orchestrator.js
-- src/app/renderer/application/performance/performance-state.orchestrator.js
-- src/app/renderer/application/performance/animation-performance.orchestrator.js
-- src/ui/orchestration/event-handler.js
-- src/app/renderer/Application.js
-- src/app/main/Application.js
-- src/features/devices/main/device.manager.js
-- src/features/updates/main/update.manager.js
-- src/app/renderer/container.js
-- src/app/main/container.js
+- src/renderer/features/capture/services/capture.orchestrator.js
+- src/renderer/application/performance/performance-state.orchestrator.js
+- src/renderer/application/performance/animation-performance.orchestrator.js
+- src/renderer/ui/orchestration/event-handler.js
+- src/renderer/RendererAppOrchestrator.js
+- src/main/MainAppOrchestrator.js
+- src/main/features/devices/device.service.main.js
+- src/main/features/updates/update.service.main.js
+- src/renderer/container.js
+- src/main/container.js
 
 ## Data model / API changes
 - New services:
@@ -49,8 +49,8 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 [ ] Extract GPU recording pipeline from CaptureOrchestrator into GpuRecordingService with API: start(stream, capabilities), stop(), isActive(), captureFrame(). Orchestrator delegates capture/record lifecycle only.
 [ ] Extract idle/visibility/motion/weak-GPU logic from PerformanceStateOrchestrator into PerformanceStateService with API: initialize(), dispose(), getState(). Coordinator only publishes state events.
 [ ] Extract animation suppression and DOM class toggling from AnimationPerformanceOrchestrator into AnimationPerformanceService with API: setState({ streaming, performanceState }). Orchestrator only passes inputs.
-[ ] Rename src/ui/orchestration/event-handler.js to UIEventBridge and keep logic limited to UI translation; optional CinematicModeService if gating grows.
-[ ] Main process: split src/app/main/Application.js into MainAppOrchestrator + services (WindowService, TrayService, DeviceBridgeService, UpdateBridgeService), keeping OS API wrappers in services.
+[ ] Rename src/renderer/ui/orchestration/event-handler.js to UIEventBridge and keep logic limited to UI translation; optional CinematicModeService if gating grows.
+[ ] Main process: split src/main/MainAppOrchestrator.js into MainAppOrchestrator + services (WindowService, TrayService, DeviceBridgeService, UpdateBridgeService), keeping OS API wrappers in services.
 [ ] Main process: reclassify device.manager.js/update.manager.js as DeviceServiceMain/UpdateServiceMain (or retain names and remove orchestration side effects).
 [ ] Update DI wiring in renderer and main containers to register new services and bridges.
 [ ] Update tests: new service unit tests; orchestrator tests reduced to wiring/sequence checks.
@@ -73,6 +73,6 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 - CaptureOrchestrator is monolithic: owns GPU recording pipeline, scaling math, RAF loop, dropped-frame policy -> should move to a service. (Valid)
 - PerformanceStateOrchestrator is logic-heavy: visibility, idle timers, reduced-motion tracking, weak-GPU detection -> should move to a service. (Valid)
 - AnimationPerformanceOrchestrator mixes policy + DOM side effects -> can be split into a service, though optional. (Valid, optional)
-- src/app/main/Application.js and src/app/renderer/Application.js function as orchestrators/bootstraps and renaming is a clarity improvement, not required. (Valid, optional)
-- device.manager.js and update.manager.js function as service-level orchestration and could be renamed or split; change is optional but clarifies roles. (Valid, optional)
+- src/main/MainAppOrchestrator.js and src/renderer/RendererAppOrchestrator.js function as orchestrators/bootstraps and renaming is a clarity improvement, not required. (Valid, optional)
+- src/main/features/devices/device.service.main.js and src/main/features/updates/update.service.main.js function as service-level orchestration and could be renamed or split; change is optional but clarifies roles. (Valid, optional)
 - UIEventHandler is effectively a bridge/orchestrator and renaming improves clarity. (Valid, optional)

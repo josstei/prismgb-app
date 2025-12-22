@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UIEffects } from '@ui/effects/ui-effects.js';
+import { UIEffects } from '@renderer/ui/effects/ui-effects.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
 import { TIMING } from '@shared/config/constants.js';
 

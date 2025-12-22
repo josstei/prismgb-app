@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { UIEventBridge } from '@ui/orchestration/ui-event-bridge.js';
+import { UIEventBridge } from '@renderer/ui/orchestration/ui-event-bridge.js';
 
 describe('UIEventBridge', () => {
   let handler;

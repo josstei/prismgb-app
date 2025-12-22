@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService, UpdateState } from '@features/updates/services/update.service.js';
+import { UpdateService, UpdateState } from '@renderer/features/updates/services/update.service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('UpdateService', () => {

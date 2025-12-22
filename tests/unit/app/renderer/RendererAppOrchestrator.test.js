@@ -12,11 +12,11 @@ const { MockUIController } = vi.hoisted(() => ({
   })
 }));
 
-vi.mock('@ui/controller/controller.js', () => ({
+vi.mock('@renderer/ui/controller/controller.js', () => ({
   UIController: MockUIController
 }));
 
-vi.mock('@app/renderer/container.js', () => ({
+vi.mock('@renderer/container.js', () => ({
   initializeContainer: vi.fn(() => ({
     resolve: vi.fn((name) => {
       if (name === 'appOrchestrator') {
@@ -76,7 +76,7 @@ vi.mock('@app/renderer/container.js', () => ({
   asValue: vi.fn((val) => ({ __asValue: true, value: val }))
 }));
 
-const { RendererAppOrchestrator } = await import('@app/renderer/RendererAppOrchestrator.js');
+const { RendererAppOrchestrator } = await import('@renderer/RendererAppOrchestrator.js');
 
 describe('RendererAppOrchestrator', () => {
   let app;

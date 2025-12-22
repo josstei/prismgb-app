@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceOrchestrator } from '@features/devices/services/device.orchestrator.js';
+import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;

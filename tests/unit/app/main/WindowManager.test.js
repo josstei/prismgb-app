@@ -60,9 +60,9 @@ vi.mock('../../../src/shared/config/config-loader.js', () => ({
 // Mock url - need default export
 vi.mock('url', () => ({
   default: {
-    fileURLToPath: vi.fn(() => '/app/src/main/services/WindowManager.js')
+    fileURLToPath: vi.fn(() => '/app/src/main/WindowManager.js')
   },
-  fileURLToPath: vi.fn(() => '/app/src/main/services/WindowManager.js')
+  fileURLToPath: vi.fn(() => '/app/src/main/WindowManager.js')
 }));
 
 vi.mock('path', () => ({
@@ -74,7 +74,7 @@ vi.mock('path', () => ({
   dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
 }));
 
-import WindowManager from '@app/main/WindowManager.js';
+import WindowManager from '@main/WindowManager.js';
 import { BrowserWindow, app } from 'electron';
 
 describe('WindowManager', () => {
@@ -132,7 +132,7 @@ describe('WindowManager', () => {
       windowManager.createWindow();
 
       expect(windowManager.mainWindow.loadURL).toHaveBeenCalledWith(
-        'http://localhost:3000/src/app/renderer/index.html'
+        'http://localhost:3000/src/renderer/index.html'
       );
     });
 

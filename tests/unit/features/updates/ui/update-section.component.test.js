@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateSectionComponent } from '@features/updates/ui/update-section.component.js';
-import { UpdateState } from '@features/updates/services/update.service.js';
+import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
+import { UpdateState } from '@renderer/features/updates/services/update.service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.js';
 import { CSSClasses } from '@shared/config/css-classes.js';

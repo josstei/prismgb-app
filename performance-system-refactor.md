@@ -18,16 +18,16 @@ Unify performance state, telemetry, and render‑pipeline control under a single
 - Out: UI/UX changes, new telemetry backend, device adapter changes.
 
 ## Files and entry points
-- src/app/renderer/application/performance/performance-state.orchestrator.js
-- src/app/renderer/application/performance/animation-performance.orchestrator.js
-- src/app/renderer/application/performance/performance-metrics.orchestrator.js
-- src/app/renderer/application/performance/performance-metrics.service.js
-- src/app/main/IpcHandlers.js
-- src/app/preload/index.js
-- src/features/streaming/services/streaming.orchestrator.js
-- src/features/streaming/rendering/render-pipeline.service.js
-- src/features/streaming/rendering/stream-health.monitor.js
-- src/features/streaming/rendering/workers/optimization-utils.js
+- src/renderer/application/performance/performance-state.orchestrator.js
+- src/renderer/application/performance/animation-performance.orchestrator.js
+- src/renderer/application/performance/performance-metrics.orchestrator.js
+- src/renderer/application/performance/performance-metrics.service.js
+- src/main/IpcHandlers.js
+- src/preload/index.js
+- src/renderer/features/streaming/services/streaming.orchestrator.js
+- src/renderer/features/streaming/rendering/render-pipeline.service.js
+- src/renderer/features/streaming/rendering/stream-health.monitor.js
+- src/renderer/features/streaming/rendering/workers/optimization-utils.js
 - src/infrastructure/events/event-channels.js
 - src/infrastructure/ipc/channels.json
 
