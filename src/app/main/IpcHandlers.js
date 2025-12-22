@@ -1,10 +1,13 @@
 /**
  * IPC Handlers
- * Centralized registration of all IPC handlers
+ * Centralized registration of all IPC handler modules.
  */
 
 import { app, ipcMain, shell } from 'electron';
-import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
+import { registerDeviceHandlers } from './ipc/device-ipc.handlers.js';
+import { registerUpdateHandlers } from './ipc/update-ipc.handlers.js';
+import { registerShellHandlers } from './ipc/shell-ipc.handlers.js';
+import { registerPerformanceHandlers } from './ipc/performance-ipc.handlers.js';
 
 class IpcHandlers {
   constructor({ deviceServiceMain, updateServiceMain, loggerFactory }) {
@@ -20,10 +23,29 @@ class IpcHandlers {
   registerHandlers() {
     this.logger.info('Registering IPC handlers');
 
-    this._registerDeviceHandlers();
-    this._registerShellHandlers();
-    this._registerUpdateHandlers();
-    this._registerPerformanceHandlers();
+    registerDeviceHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      deviceServiceMain: this.deviceServiceMain,
+      logger: this.logger
+    });
+
+    registerShellHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      shell,
+      logger: this.logger
+    });
+
+    registerUpdateHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      updateServiceMain: this.updateServiceMain,
+      logger: this.logger
+    });
+
+    registerPerformanceHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      app,
+      logger: this.logger
+    });
   }
 
   /**
@@ -40,115 +62,6 @@ class IpcHandlers {
   _registerHandler(channel, handler) {
     ipcMain.handle(channel, handler);
     this._registeredChannels.push(channel);
-  }
-
-  /**
-   * Register device-related IPC handlers
-   */
-  _registerDeviceHandlers() {
-    this._registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
-      try {
-        const status = this.deviceServiceMain.getStatus();
-        return status;
-      } catch (error) {
-        this.logger.error('Failed to get device status:', error);
-        return { connected: false, error: error.message };
-      }
-    });
-  }
-
-  /**
-   * Register shell-related IPC handlers
-   */
-  _registerShellHandlers() {
-    this._registerHandler(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, async (event, url) => {
-      try {
-        // Validate URL before opening
-        const parsedUrl = new URL(url);
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-          throw new Error('Only http and https URLs are allowed');
-        }
-        await shell.openExternal(url);
-        return { success: true };
-      } catch (error) {
-        this.logger.error('Failed to open external URL:', error);
-        return { success: false, error: error.message };
-      }
-    });
-  }
-
-  /**
-   * Register update-related IPC handlers
-   */
-  _registerUpdateHandlers() {
-    this._registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
-      try {
-        const result = await this.updateServiceMain.checkForUpdates();
-        return { success: true, ...result };
-      } catch (error) {
-        this.logger.error('Failed to check for updates:', error);
-        return { success: false, error: error.message };
-      }
-    });
-
-    this._registerHandler(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
-      try {
-        await this.updateServiceMain.downloadUpdate();
-        return { success: true };
-      } catch (error) {
-        this.logger.error('Failed to download update:', error);
-        return { success: false, error: error.message };
-      }
-    });
-
-    this._registerHandler(IPC_CHANNELS.UPDATE.INSTALL, async () => {
-      try {
-        this.updateServiceMain.installUpdate();
-        return { success: true };
-      } catch (error) {
-        this.logger.error('Failed to install update:', error);
-        return { success: false, error: error.message };
-      }
-    });
-
-    this._registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
-      try {
-        const status = this.updateServiceMain.getStatus();
-        return { success: true, ...status };
-      } catch (error) {
-        this.logger.error('Failed to get update status:', error);
-        return { success: false, error: error.message };
-      }
-    });
-  }
-
-  _registerPerformanceHandlers() {
-    this._registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {
-      try {
-        const metrics = app.getAppMetrics();
-        const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
-
-        return {
-          success: true,
-          timestamp: Date.now(),
-          totalKB,
-          totalMB: (totalKB / 1024).toFixed(1),
-          processCount: metrics.length,
-          processes: metrics.map(proc => ({
-            type: proc.type,
-            pid: proc.pid,
-            memoryKB: proc.memory.workingSetSize,
-            memoryMB: (proc.memory.workingSetSize / 1024).toFixed(1),
-            peakMemoryKB: proc.memory.peakWorkingSetSize,
-            peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
-            cpuPercent: proc.cpu.percentCPUUsage
-          }))
-        };
-      } catch (error) {
-        this.logger.error('Failed to get process metrics:', error);
-        return { success: false, error: error.message };
-      }
-    });
   }
 }
 

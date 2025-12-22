@@ -19,7 +19,7 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 
 ## Files and entry points
 - src/features/capture/services/capture.orchestrator.js
-- src/app/renderer/application/performance/performance-state.coordinator.js
+- src/app/renderer/application/performance/performance-state.orchestrator.js
 - src/app/renderer/application/performance/animation-performance.orchestrator.js
 - src/ui/orchestration/event-handler.js
 - src/app/renderer/Application.js
@@ -47,7 +47,7 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 
 ## Action items
 [ ] Extract GPU recording pipeline from CaptureOrchestrator into GpuRecordingService with API: start(stream, capabilities), stop(), isActive(), captureFrame(). Orchestrator delegates capture/record lifecycle only.
-[ ] Extract idle/visibility/motion/weak-GPU logic from PerformanceStateCoordinator into PerformanceStateService with API: initialize(), dispose(), getState(). Coordinator only publishes state events.
+[ ] Extract idle/visibility/motion/weak-GPU logic from PerformanceStateOrchestrator into PerformanceStateService with API: initialize(), dispose(), getState(). Coordinator only publishes state events.
 [ ] Extract animation suppression and DOM class toggling from AnimationPerformanceOrchestrator into AnimationPerformanceService with API: setState({ streaming, performanceState }). Orchestrator only passes inputs.
 [ ] Rename src/ui/orchestration/event-handler.js to UIEventBridge and keep logic limited to UI translation; optional CinematicModeService if gating grows.
 [ ] Main process: split src/app/main/Application.js into MainAppOrchestrator + services (WindowService, TrayService, DeviceBridgeService, UpdateBridgeService), keeping OS API wrappers in services.
@@ -71,7 +71,7 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 
 ## Valid assertions (including optional)
 - CaptureOrchestrator is monolithic: owns GPU recording pipeline, scaling math, RAF loop, dropped-frame policy -> should move to a service. (Valid)
-- PerformanceStateCoordinator is logic-heavy: visibility, idle timers, reduced-motion tracking, weak-GPU detection -> should move to a service. (Valid)
+- PerformanceStateOrchestrator is logic-heavy: visibility, idle timers, reduced-motion tracking, weak-GPU detection -> should move to a service. (Valid)
 - AnimationPerformanceOrchestrator mixes policy + DOM side effects -> can be split into a service, though optional. (Valid, optional)
 - src/app/main/Application.js and src/app/renderer/Application.js function as orchestrators/bootstraps and renaming is a clarity improvement, not required. (Valid, optional)
 - device.manager.js and update.manager.js function as service-level orchestration and could be renamed or split; change is optional but clarifies roles. (Valid, optional)

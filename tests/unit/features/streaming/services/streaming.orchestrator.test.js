@@ -9,7 +9,7 @@ describe('StreamingOrchestrator', () => {
   let orchestrator;
   let mockStreamingService;
   let mockAppState;
-  let mockUIController;
+  let mockStreamViewService;
   let mockEventBus;
   let mockLogger;
   let mockRenderPipelineService;
@@ -27,14 +27,9 @@ describe('StreamingOrchestrator', () => {
       deviceConnected: false
     };
 
-    mockUIController = {
-      elements: {
-        streamVideo: {
-          srcObject: null,
-          pause: vi.fn(),
-          load: vi.fn()
-        }
-      }
+    mockStreamViewService = {
+      attachStream: vi.fn(),
+      clearStream: vi.fn()
     };
 
     mockEventBus = {
@@ -63,7 +58,7 @@ describe('StreamingOrchestrator', () => {
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
       appState: mockAppState,
-      uiController: mockUIController,
+      streamViewService: mockStreamViewService,
       renderPipelineService: mockRenderPipelineService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
@@ -159,7 +154,7 @@ describe('StreamingOrchestrator', () => {
     it('should assign stream to video element', async () => {
       await orchestrator._handleStreamStarted(mockData);
 
-      expect(mockUIController.elements.streamVideo.srcObject).toBe(mockData.stream);
+      expect(mockStreamViewService.attachStream).toHaveBeenCalledWith(mockData.stream);
     });
 
     it('should update UI and start render pipeline', async () => {
@@ -190,14 +185,10 @@ describe('StreamingOrchestrator', () => {
 
   describe('_handleStreamStopped', () => {
     it('should stop render pipeline and clear video', () => {
-      mockUIController.elements.streamVideo.srcObject = { id: 'stream' };
-
       orchestrator._handleStreamStopped();
 
       expect(mockRenderPipelineService.stopPipeline).toHaveBeenCalled();
-      expect(mockUIController.elements.streamVideo.srcObject).toBeNull();
-      expect(mockUIController.elements.streamVideo.pause).toHaveBeenCalled();
-      expect(mockUIController.elements.streamVideo.load).toHaveBeenCalled();
+      expect(mockStreamViewService.clearStream).toHaveBeenCalled();
     });
 
     it('should update UI', () => {

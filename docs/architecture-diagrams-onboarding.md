@@ -58,12 +58,12 @@ flowchart LR
 flowchart LR
   AppOrchestrator[AppOrchestrator]
   AnimationPerformanceOrchestrator[AnimationPerformanceOrchestrator]
-  PerformanceStateCoordinator[PerformanceStateCoordinator]
+  PerformanceStateOrchestrator[PerformanceStateOrchestrator]
   AnimationPerformanceService[AnimationPerformanceService]
   PerformanceMetricsService[PerformanceMetricsService]
 
   AppOrchestrator --> AnimationPerformanceOrchestrator
-  AppOrchestrator --> PerformanceStateCoordinator
+  AppOrchestrator --> PerformanceStateOrchestrator
   AnimationPerformanceOrchestrator --> AnimationPerformanceService
   AnimationPerformanceService --> PerformanceMetricsService
 ```

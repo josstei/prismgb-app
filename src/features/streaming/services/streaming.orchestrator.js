@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'uiController', 'renderPipelineService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -150,10 +150,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Note: App state automatically derives isStreaming from StreamingService
     // No need to manually update appState.setStreaming() anymore
 
-    // Assign stream to video element (requires direct element access)
-    const video = this.uiController.elements.streamVideo;
-    video.srcObject = stream;
-    this.logger.info('Stream assigned to video element');
+    this.streamViewService.attachStream(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -194,20 +191,9 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this.logger.info('Stream stopped event received');
 
     // Get video element reference (requires direct element access)
-    const video = this.uiController.elements.streamVideo;
-
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
-
-    // Clear video element srcObject
-    if (video.srcObject) {
-      // Pause video before clearing srcObject
-      video.pause();
-      video.srcObject = null;
-      // Reset video element state
-      video.load();
-      this.logger.info('Video element srcObject cleared and reset');
-    }
+    this.streamViewService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
     // No need to manually update appState.setStreaming() anymore

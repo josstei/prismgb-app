@@ -13,7 +13,6 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
 import { TIMING } from '@shared/config/constants.js';
-import { downloadFile } from '@shared/lib/file-download.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 export class CaptureOrchestrator extends BaseOrchestrator {
@@ -42,7 +41,9 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Initialize capture orchestrator
    */
   async onInitialize() {
-    this._wireCaptureEvents();
+    this.subscribeWithCleanup({
+      [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data)
+    });
   }
 
   /**
@@ -158,69 +159,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    */
 
   /**
-   * Wire capture events from CaptureService
-   * @private
-   */
-  _wireCaptureEvents() {
-    this.subscribeWithCleanup({
-      [EventChannels.CAPTURE.SCREENSHOT_READY]: (data) => this._handleScreenshotReady(data),
-      [EventChannels.CAPTURE.RECORDING_STARTED]: () => this._handleRecordingStarted(),
-      [EventChannels.CAPTURE.RECORDING_STOPPED]: () => this._handleRecordingStopped(),
-      [EventChannels.CAPTURE.RECORDING_READY]: (data) => this._handleRecordingReady(data),
-      [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data)
-    });
-  }
-
-  /**
-   * Handle screenshot ready event
-   * @private
-   */
-  _handleScreenshotReady(data) {
-    const { blob, filename } = data;
-
-    // Auto-save screenshot
-    downloadFile(blob, filename);
-
-    // Update UI via event
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
-  }
-
-  /**
-   * Handle recording started event
-   * @private
-   */
-  _handleRecordingStarted() {
-    // Trigger immediate visual feedback for recording start via events
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_POP);
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording started' });
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: true });
-  }
-
-  /**
-   * Handle recording stopped event
-   * @private
-   */
-  _handleRecordingStopped() {
-    // Trigger immediate visual feedback for recording stop via events
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_PRESS);
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
-  }
-
-  /**
-   * Handle recording ready event
-   * @private
-   */
-  _handleRecordingReady(data) {
-    const { blob, filename } = data;
-
-    // Auto-save recording
-    downloadFile(blob, filename);
-
-    // Update UI via event
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
-  }
-
-  /**
    * Handle recording error event
    * @private
    */
@@ -229,11 +167,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this.logger.error('Recording error:', error);
 
     this.gpuRecordingService.stop();
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-      message: `Recording failed: ${error}`,
-      type: 'error'
-    });
   }
 
   /**

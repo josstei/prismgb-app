@@ -1,12 +1,12 @@
 /**
- * PerformanceStateCoordinator Unit Tests
+ * PerformanceStateOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceStateCoordinator } from '@app/renderer/application/performance/performance-state.coordinator.js';
+import { PerformanceStateOrchestrator } from '@app/renderer/application/performance/performance-state.orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
-describe('PerformanceStateCoordinator', () => {
+describe('PerformanceStateOrchestrator', () => {
   let coordinator;
   let mockEventBus;
   let mockLogger;
@@ -40,7 +40,7 @@ describe('PerformanceStateCoordinator', () => {
       dispose: vi.fn()
     };
 
-    coordinator = new PerformanceStateCoordinator({
+    coordinator = new PerformanceStateOrchestrator({
       eventBus: mockEventBus,
       performanceStateService: mockPerformanceStateService,
       loggerFactory: { create: () => mockLogger }

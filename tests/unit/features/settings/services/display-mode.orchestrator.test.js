@@ -4,14 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DisplayModeOrchestrator } from '@features/settings/services/display-mode.orchestrator.js';
-import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('DisplayModeOrchestrator', () => {
   let orchestrator;
-  let mockAppState;
-  let mockSettingsService;
-  let mockUiController;
-  let mockEventBus;
+  let mockFullscreenService;
+  let mockCinematicModeService;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -27,60 +24,19 @@ describe('DisplayModeOrchestrator', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
+    mockFullscreenService = {
+      initialize: vi.fn(),
+      dispose: vi.fn(),
+      toggleFullscreen: vi.fn()
     };
 
-    mockAppState = {
-      cinematicModeEnabled: false,
-      setCinematicMode: vi.fn()
-    };
-
-    mockSettingsService = {};
-
-    mockUiController = {
-      enableControlsAutoHide: vi.fn(),
-      disableControlsAutoHide: vi.fn(),
-      elements: {}
-    };
-
-    // Mock stream container element for animation class
-    const mockStreamContainer = {
-      classList: {
-        add: vi.fn(),
-        remove: vi.fn()
-      }
-    };
-
-    // Mock body classList
-    const mockBodyClassList = {
-      add: vi.fn(),
-      remove: vi.fn()
-    };
-
-    // Mock document fullscreen API
-    global.document = {
-      fullscreenElement: null,
-      documentElement: {
-        requestFullscreen: vi.fn(() => Promise.resolve())
-      },
-      exitFullscreen: vi.fn(() => Promise.resolve()),
-      getElementById: vi.fn((id) => {
-        if (id === 'streamContainer') return mockStreamContainer;
-        return null;
-      }),
-      body: {
-        classList: mockBodyClassList
-      }
+    mockCinematicModeService = {
+      toggleCinematicMode: vi.fn()
     };
 
     orchestrator = new DisplayModeOrchestrator({
-      appState: mockAppState,
-      settingsService: mockSettingsService,
-      uiController: mockUiController,
-      eventBus: mockEventBus,
+      fullscreenService: mockFullscreenService,
+      cinematicModeService: mockCinematicModeService,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -91,289 +47,47 @@ describe('DisplayModeOrchestrator', () => {
 
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
-      expect(orchestrator.appState).toBe(mockAppState);
-      expect(orchestrator.settingsService).toBe(mockSettingsService);
-      expect(orchestrator.uiController).toBe(mockUiController);
+      expect(orchestrator.fullscreenService).toBe(mockFullscreenService);
+      expect(orchestrator.cinematicModeService).toBe(mockCinematicModeService);
     });
 
     it('should throw if missing required dependencies', () => {
       expect(() => new DisplayModeOrchestrator({
-        eventBus: mockEventBus,
+        fullscreenService: mockFullscreenService,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
   });
 
-  describe('toggleFullscreen', () => {
-    it('should request fullscreen when not in fullscreen', async () => {
-      document.fullscreenElement = null;
+  describe('onInitialize', () => {
+    it('should initialize fullscreen service', async () => {
+      await orchestrator.onInitialize();
 
-      orchestrator.toggleFullscreen();
-
-      // toggleFullscreen only triggers the request - state management is in _handleFullscreenChange
-      expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
-    });
-
-    it('should exit fullscreen when in fullscreen', () => {
-      document.fullscreenElement = document.documentElement;
-
-      orchestrator.toggleFullscreen();
-
-      // toggleFullscreen only triggers the exit - state management is in _handleFullscreenChange
-      expect(document.exitFullscreen).toHaveBeenCalled();
-    });
-
-    it('should handle fullscreen error and re-sync state', async () => {
-      document.fullscreenElement = null;
-      const error = new Error('Fullscreen denied');
-      document.documentElement.requestFullscreen.mockRejectedValue(error);
-
-      orchestrator.toggleFullscreen();
-
-      // Wait for the promise rejection to be handled
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      expect(mockLogger.error).toHaveBeenCalledWith('Error entering fullscreen:', error);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.STATUS_MESSAGE,
-        { message: 'Could not enter fullscreen', type: 'error' }
-      );
-      // Should re-sync state on failure
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: false }
-      );
+      expect(mockFullscreenService.initialize).toHaveBeenCalled();
     });
   });
 
-  describe('fullscreenchange event handling', () => {
-    let fullscreenChangeHandler;
-
-    beforeEach(() => {
-      // Capture the fullscreenchange handler
-      document.addEventListener = vi.fn((event, handler) => {
-        if (event === 'fullscreenchange') {
-          fullscreenChangeHandler = handler;
-        }
-      });
-      document.removeEventListener = vi.fn();
-    });
-
-    it('should register fullscreenchange listener on initialize', async () => {
-      await orchestrator.onInitialize();
-
-      expect(document.addEventListener).toHaveBeenCalledWith('fullscreenchange', expect.any(Function));
-    });
-
-    it('should remove fullscreenchange listener on cleanup', async () => {
-      await orchestrator.onInitialize();
+  describe('onCleanup', () => {
+    it('should dispose fullscreen service', async () => {
       await orchestrator.onCleanup();
 
-      expect(document.removeEventListener).toHaveBeenCalledWith('fullscreenchange', expect.any(Function));
+      expect(mockFullscreenService.dispose).toHaveBeenCalled();
     });
+  });
 
-    it('should enable controls auto-hide when entering fullscreen via system controls', async () => {
-      await orchestrator.onInitialize();
+  describe('toggleFullscreen', () => {
+    it('should delegate to fullscreen service', () => {
+      orchestrator.toggleFullscreen();
 
-      // Simulate entering fullscreen (fullscreenElement is set)
-      document.fullscreenElement = document.documentElement;
-      fullscreenChangeHandler();
-
-      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: true }
-      );
-    });
-
-    it('should disable controls auto-hide when exiting fullscreen via ESC key', async () => {
-      await orchestrator.onInitialize();
-
-      // First enter fullscreen to set state
-      document.fullscreenElement = document.documentElement;
-      fullscreenChangeHandler();
-      mockUiController.disableControlsAutoHide.mockClear();
-      mockEventBus.publish.mockClear();
-
-      // Simulate exiting fullscreen (no fullscreenElement)
-      document.fullscreenElement = null;
-      fullscreenChangeHandler();
-
-      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: false }
-      );
-    });
-
-    it('should not duplicate work when state has not changed', async () => {
-      await orchestrator.onInitialize();
-
-      // Enter fullscreen
-      document.fullscreenElement = document.documentElement;
-      fullscreenChangeHandler();
-      mockUiController.enableControlsAutoHide.mockClear();
-      mockEventBus.publish.mockClear();
-
-      // Call handler again with same state
-      fullscreenChangeHandler();
-
-      // Should not call again since state hasn't changed
-      expect(mockUiController.enableControlsAutoHide).not.toHaveBeenCalled();
-      expect(mockEventBus.publish).not.toHaveBeenCalled();
+      expect(mockFullscreenService.toggleFullscreen).toHaveBeenCalled();
     });
   });
 
   describe('toggleCinematicMode', () => {
-    it('should enable cinematic mode when currently disabled', () => {
-      mockAppState.cinematicModeEnabled = false;
-
+    it('should delegate to cinematic mode service', () => {
       orchestrator.toggleCinematicMode();
 
-      expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(true);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.CINEMATIC_MODE,
-        { enabled: true }
-      );
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.STATUS_MESSAGE,
-        { message: 'Cinematic mode enabled' }
-      );
-    });
-
-    it('should disable cinematic mode when currently enabled', () => {
-      mockAppState.cinematicModeEnabled = true;
-
-      orchestrator.toggleCinematicMode();
-
-      expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(false);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.CINEMATIC_MODE,
-        { enabled: false }
-      );
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.STATUS_MESSAGE,
-        { message: 'Cinematic mode disabled' }
-      );
-    });
-  });
-
-  describe('native window fullscreen (Electron)', () => {
-    let mockWindowAPI;
-    let enterFullscreenCallback;
-    let leaveFullscreenCallback;
-
-    beforeEach(() => {
-      enterFullscreenCallback = null;
-      leaveFullscreenCallback = null;
-
-      mockWindowAPI = {
-        onEnterFullscreen: vi.fn((callback) => {
-          enterFullscreenCallback = callback;
-          return vi.fn();
-        }),
-        onLeaveFullscreen: vi.fn((callback) => {
-          leaveFullscreenCallback = callback;
-          return vi.fn();
-        })
-      };
-
-      global.window = { windowAPI: mockWindowAPI };
-      document.addEventListener = vi.fn();
-      document.removeEventListener = vi.fn();
-    });
-
-    afterEach(() => {
-      delete global.window.windowAPI;
-    });
-
-    it('should register native fullscreen listeners when windowAPI is available', async () => {
-      await orchestrator.onInitialize();
-
-      expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
-      expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
-    });
-
-    it('should enable controls auto-hide when native fullscreen entered', async () => {
-      await orchestrator.onInitialize();
-
-      enterFullscreenCallback();
-
-      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: true }
-      );
-    });
-
-    it('should disable controls auto-hide when native fullscreen exited', async () => {
-      await orchestrator.onInitialize();
-
-      enterFullscreenCallback();
-      mockUiController.disableControlsAutoHide.mockClear();
-      mockEventBus.publish.mockClear();
-
-      leaveFullscreenCallback();
-
-      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: false }
-      );
-    });
-
-    it('should unsubscribe native listeners on cleanup', async () => {
-      const unsubEnter = vi.fn();
-      const unsubLeave = vi.fn();
-      mockWindowAPI.onEnterFullscreen.mockReturnValue(unsubEnter);
-      mockWindowAPI.onLeaveFullscreen.mockReturnValue(unsubLeave);
-
-      await orchestrator.onInitialize();
-      await orchestrator.onCleanup();
-
-      expect(unsubEnter).toHaveBeenCalled();
-      expect(unsubLeave).toHaveBeenCalled();
-    });
-
-    it('should handle cleanup when no native listeners were registered', async () => {
-      delete global.window.windowAPI;
-      await orchestrator.onInitialize();
-
-      await expect(orchestrator.onCleanup()).resolves.not.toThrow();
-    });
-  });
-
-  describe('body classList', () => {
-    let fullscreenChangeHandler;
-
-    beforeEach(() => {
-      document.addEventListener = vi.fn((event, handler) => {
-        if (event === 'fullscreenchange') {
-          fullscreenChangeHandler = handler;
-        }
-      });
-      document.removeEventListener = vi.fn();
-    });
-
-    it('should add fullscreen-active class when entering fullscreen', async () => {
-      await orchestrator.onInitialize();
-
-      document.fullscreenElement = document.documentElement;
-      fullscreenChangeHandler();
-
-      expect(document.body.classList.add).toHaveBeenCalled();
-    });
-
-    it('should remove fullscreen-active class when exiting fullscreen', async () => {
-      await orchestrator.onInitialize();
-
-      document.fullscreenElement = document.documentElement;
-      fullscreenChangeHandler();
-
-      document.fullscreenElement = null;
-      fullscreenChangeHandler();
-
-      expect(document.body.classList.remove).toHaveBeenCalled();
+      expect(mockCinematicModeService.toggleCinematicMode).toHaveBeenCalled();
     });
   });
 });

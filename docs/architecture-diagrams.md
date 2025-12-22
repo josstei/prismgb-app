@@ -60,7 +60,7 @@ flowchart LR
   subgraph RENDERER[Renderer]
     AppOrchestrator[AppOrchestrator]
     AnimationPerformanceOrchestrator[AnimationPerformanceOrchestrator]
-    PerformanceStateCoordinator[PerformanceStateCoordinator]
+    PerformanceStateOrchestrator[PerformanceStateOrchestrator]
     AnimationPerformanceService[AnimationPerformanceService]
     PerformanceStateService[PerformanceStateService]
     PerformanceMetricsService[PerformanceMetricsService]
@@ -68,10 +68,10 @@ flowchart LR
   end
 
   AppOrchestrator --> AnimationPerformanceOrchestrator
-  AppOrchestrator --> PerformanceStateCoordinator
+  AppOrchestrator --> PerformanceStateOrchestrator
   AnimationPerformanceOrchestrator --> AnimationPerformanceService
   AnimationPerformanceService --> PerformanceMetricsService
-  PerformanceStateCoordinator --> PerformanceStateService
+  PerformanceStateOrchestrator --> PerformanceStateService
   PerformanceStateService --> PerformanceState
 
   AnimationPerformanceService -. cleanup .-> PerformanceState

@@ -52,6 +52,12 @@ vi.mock('@app/renderer/container.js', () => ({
           dispose: vi.fn()
         };
       }
+      if (name === 'captureUiBridge') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
       if (name === 'loggerFactory') {
         return {
           create: vi.fn(() => ({

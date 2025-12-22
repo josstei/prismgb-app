@@ -102,6 +102,14 @@ class RendererAppOrchestrator {
     }
 
     try {
+      if (this._captureUiBridge) {
+        this._captureUiBridge.dispose();
+      }
+    } catch (error) {
+      this.logger.error('Error disposing CaptureUiBridge:', error);
+    }
+
+    try {
       // Clean up UIController (event listeners)
       if (this._uiController && typeof this._uiController.dispose === 'function') {
         this._uiController.dispose();
@@ -185,6 +193,10 @@ class RendererAppOrchestrator {
       const uiEventBridge = this.container.resolve('uiEventBridge');
       uiEventBridge.initialize();
       this._uiEventBridge = uiEventBridge;
+
+      const captureUiBridge = this.container.resolve('captureUiBridge');
+      captureUiBridge.initialize();
+      this._captureUiBridge = captureUiBridge;
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);
       throw error;

@@ -10,9 +10,10 @@ describe('RenderPipelineService', () => {
   let mockAppState;
   let mockUIController;
   let mockCanvasRenderer;
-  let mockViewportManager;
+  let mockCanvasLifecycleService;
   let mockStreamHealthMonitor;
   let mockGPURendererService;
+  let mockGpuRenderLoopService;
   let mockEventBus;
   let mockLogger;
 
@@ -48,12 +49,12 @@ describe('RenderPipelineService', () => {
       cleanup: vi.fn()
     };
 
-    mockViewportManager = {
+    mockCanvasLifecycleService = {
       initialize: vi.fn(),
-      calculateDimensions: vi.fn(() => ({ width: 160, height: 144, scale: 1 })),
-      resetDimensions: vi.fn(),
-      cleanup: vi.fn(),
-      _resizeObserver: null
+      handleCanvasExpired: vi.fn(),
+      setupCanvasSize: vi.fn(),
+      recreateCanvas: vi.fn(),
+      cleanup: vi.fn()
     };
 
     mockStreamHealthMonitor = {
@@ -76,6 +77,11 @@ describe('RenderPipelineService', () => {
       cleanup: vi.fn()
     };
 
+    mockGpuRenderLoopService = {
+      start: vi.fn(),
+      stop: vi.fn()
+    };
+
     mockEventBus = {
       publish: vi.fn()
     };
@@ -91,9 +97,10 @@ describe('RenderPipelineService', () => {
       appState: mockAppState,
       uiController: mockUIController,
       canvasRenderer: mockCanvasRenderer,
-      viewportManager: mockViewportManager,
+      canvasLifecycleService: mockCanvasLifecycleService,
       streamHealthMonitor: mockStreamHealthMonitor,
       gpuRendererService: mockGPURendererService,
+      gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });

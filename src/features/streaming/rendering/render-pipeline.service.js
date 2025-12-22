@@ -16,9 +16,10 @@ export class RenderPipelineService extends BaseService {
         'appState',
         'uiController',
         'canvasRenderer',
-        'viewportManager',
+        'canvasLifecycleService',
         'streamHealthMonitor',
         'gpuRendererService',
+        'gpuRenderLoopService',
         'eventBus',
         'loggerFactory'
       ],
@@ -28,7 +29,6 @@ export class RenderPipelineService extends BaseService {
     this._currentCapabilities = null;
     this._useGPURenderer = false;
     this._gpuRenderLoopActive = false;
-    this._rvfcHandle = null;
     this._isHidden = false;
 
     this._idleReleaseTimeout = null;
@@ -40,12 +40,11 @@ export class RenderPipelineService extends BaseService {
   }
 
   initialize() {
-    this._setupCanvasSize();
+    this.canvasLifecycleService.initialize();
   }
 
   handleCanvasExpired() {
-    this._recreateCanvas();
-    this._setupCanvasSize();
+    this.canvasLifecycleService.handleCanvasExpired();
   }
 
   handlePerformanceStateChanged(state) {
@@ -92,10 +91,10 @@ export class RenderPipelineService extends BaseService {
 
         this.gpuRendererService.terminateAndReset(false);
         this._useGPURenderer = false;
-        this._recreateCanvas();
+        this.canvasLifecycleService.recreateCanvas();
 
         const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
-        this._setupCanvasSize(nativeRes);
+        this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
 
         const canvas = this.uiController.elements.streamCanvas;
         this._canvas2dContextCreated = true;
@@ -129,8 +128,8 @@ export class RenderPipelineService extends BaseService {
 
       if (this._canvas2dContextCreated && !this.appState.isStreaming) {
         this.logger.info('Performance mode disabled - recreating canvas for GPU (Canvas2D context was active)');
-        this._recreateCanvas();
-        this._setupCanvasSize();
+        this.canvasLifecycleService.recreateCanvas();
+        this.canvasLifecycleService.setupCanvasSize();
         this._canvas2dContextCreated = false;
       }
     }
@@ -181,7 +180,7 @@ export class RenderPipelineService extends BaseService {
     }
 
     this.canvasRenderer.cleanup();
-    this.viewportManager.cleanup();
+    this.canvasLifecycleService.cleanup();
     this.streamHealthMonitor.cleanup();
   }
 
@@ -210,61 +209,6 @@ export class RenderPipelineService extends BaseService {
         this.logger.debug('Canvas rendering paused (window hidden)');
       }
     }
-  }
-
-  _setupCanvasSize(nativeRes = null) {
-    const canvas = this.uiController.elements.streamCanvas;
-    const container = canvas?.parentElement;
-    const section = container?.parentElement;
-    if (!canvas || !container || !section) return;
-
-    const resolution = nativeRes ||
-      this._currentCapabilities?.nativeResolution ||
-      { width: 160, height: 144 };
-
-    const dimensions = this.viewportManager.calculateDimensions(canvas, resolution);
-    if (!dimensions) return;
-
-    if (this.gpuRendererService.isCanvasTransferred()) {
-      this.gpuRendererService.resize(dimensions.width, dimensions.height);
-      canvas.style.width = dimensions.width + 'px';
-      canvas.style.height = dimensions.height + 'px';
-    } else {
-      this.canvasRenderer.resize(canvas, dimensions.width, dimensions.height);
-    }
-
-    if (!this.viewportManager._resizeObserver) {
-      this.viewportManager.initialize(section, () => this._setupCanvasSize());
-    }
-  }
-
-  _recreateCanvas() {
-    const oldCanvas = this.uiController.elements.streamCanvas;
-    if (!oldCanvas) return;
-
-    const parent = oldCanvas.parentElement;
-    if (!parent) return;
-
-    const newCanvas = document.createElement('canvas');
-    newCanvas.id = oldCanvas.id;
-    newCanvas.className = oldCanvas.className;
-
-    const computedStyle = window.getComputedStyle(oldCanvas);
-    newCanvas.style.position = computedStyle.position;
-    newCanvas.style.top = computedStyle.top;
-    newCanvas.style.left = computedStyle.left;
-    newCanvas.style.transform = computedStyle.transform;
-
-    parent.replaceChild(newCanvas, oldCanvas);
-
-    this.uiController.elements.streamCanvas = newCanvas;
-
-    this.canvasRenderer.resetCanvasState();
-    this.viewportManager.resetDimensions();
-
-    this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
-
-    this.logger.info('Canvas element recreated for next GPU session');
   }
 
   _waitForHealthyStream(videoElement) {
@@ -298,7 +242,7 @@ export class RenderPipelineService extends BaseService {
 
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
 
-    this._setupCanvasSize(nativeRes);
+    this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
 
     if (this._performanceModeEnabled && !this.gpuRendererService.isCanvasTransferred()) {
       this.logger.info('Performance mode active - using Canvas2D renderer');
@@ -375,32 +319,16 @@ export class RenderPipelineService extends BaseService {
 
   _startGPURenderLoop(videoElement) {
     this._gpuRenderLoopActive = true;
-    let lastFrameTime = -1;
-
-    const renderFrame = async (now, metadata) => {
-      if (!this._gpuRenderLoopActive) return;
-
-      const frameTime = metadata?.mediaTime ?? now;
-      if (frameTime !== lastFrameTime && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) {
-        await this.gpuRendererService.renderFrame(videoElement);
-        lastFrameTime = frameTime;
-      }
-
-      if (this.appState.isStreaming && !this._isHidden) {
-        this._rvfcHandle = videoElement.requestVideoFrameCallback(renderFrame);
-      }
-    };
-
-    this._rvfcHandle = videoElement.requestVideoFrameCallback(renderFrame);
+    this.gpuRenderLoopService.start({
+      videoElement,
+      renderFrame: async () => this.gpuRendererService.renderFrame(videoElement),
+      shouldContinue: () => this.appState.isStreaming && !this._isHidden
+    });
   }
 
   _stopGPURenderLoop(videoElement) {
     this._gpuRenderLoopActive = false;
-
-    if (this._rvfcHandle !== null && videoElement?.cancelVideoFrameCallback) {
-      videoElement.cancelVideoFrameCallback(this._rvfcHandle);
-      this._rvfcHandle = null;
-    }
+    this.gpuRenderLoopService.stop(videoElement);
   }
 
   _startIdleReleaseTimer() {
@@ -427,13 +355,13 @@ export class RenderPipelineService extends BaseService {
 
     this.canvasRenderer.stopRendering(video);
 
-    this._recreateCanvas();
+    this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
     const canvas = this.uiController.elements.streamCanvas;
     const nativeRes = { width: 160, height: 144 };
 
-    this._setupCanvasSize(nativeRes);
+    this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
 
     try {
       const gpuAvailable = await this.gpuRendererService.initialize(canvas, nativeRes);

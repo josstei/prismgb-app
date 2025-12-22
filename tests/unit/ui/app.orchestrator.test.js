@@ -17,7 +17,7 @@ describe('AppOrchestrator', () => {
   let mockUISetupOrchestrator;
   let mockAnimationPerformanceOrchestrator;
   let mockPerformanceMetricsOrchestrator;
-  let mockPerformanceStateCoordinator;
+  let mockPerformanceStateOrchestrator;
   let mockEventBus;
   let mockLogger;
 
@@ -78,7 +78,7 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
-    mockPerformanceStateCoordinator = {
+    mockPerformanceStateOrchestrator = {
       initialize: vi.fn().mockResolvedValue(),
       cleanup: vi.fn().mockResolvedValue()
     };
@@ -105,7 +105,7 @@ describe('AppOrchestrator', () => {
       uiSetupOrchestrator: mockUISetupOrchestrator,
       animationPerformanceOrchestrator: mockAnimationPerformanceOrchestrator,
       performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
-      performanceStateCoordinator: mockPerformanceStateCoordinator,
+      performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -149,7 +149,7 @@ describe('AppOrchestrator', () => {
       expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceStateCoordinator.initialize).toHaveBeenCalled();
+      expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
       expect(mockAnimationPerformanceOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe('AppOrchestrator', () => {
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockAnimationPerformanceOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceStateCoordinator.cleanup).toHaveBeenCalled();
+      expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPreferencesOrchestrator.cleanup).toHaveBeenCalled();

@@ -18,7 +18,7 @@ Unify performance state, telemetry, and render‑pipeline control under a single
 - Out: UI/UX changes, new telemetry backend, device adapter changes.
 
 ## Files and entry points
-- src/app/renderer/application/performance/performance-state.coordinator.js
+- src/app/renderer/application/performance/performance-state.orchestrator.js
 - src/app/renderer/application/performance/animation-performance.orchestrator.js
 - src/app/renderer/application/performance/performance-metrics.orchestrator.js
 - src/app/renderer/application/performance/performance-metrics.service.js
@@ -37,7 +37,7 @@ Unify performance state, telemetry, and render‑pipeline control under a single
 - Metrics IPC stays snapshot‑based; dev‑only periodic scheduling in renderer.
 
 ## Action items
-[x] Create a PerformanceStateCoordinator that owns visibility/idle/reduced‑motion listeners and emits a single state event.
+[x] Create a PerformanceStateOrchestrator that owns visibility/idle/reduced‑motion listeners and emits a single state event.
 [x] Refactor animation-performance.orchestrator to consume the unified state instead of direct listeners.
 [x] Replace visibility.handler usage with the unified state (or have it publish the state and deprecate direct use).
 [x] Consolidate metrics: remove ProcessMemoryMonitor so PerformanceMetricsService is the single implementation, dev‑only periodic snapshots.

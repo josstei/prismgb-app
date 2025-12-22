@@ -65,7 +65,7 @@ describe('DeviceService', () => {
 
   describe('Constructor', () => {
     it('should initialize with empty videoDevices', () => {
-      expect(service.videoDevices).toEqual([]);
+      expect(service.mediaDeviceService.videoDevices).toEqual([]);
     });
 
     it('should initialize with isConnected false', () => {
@@ -73,32 +73,32 @@ describe('DeviceService', () => {
     });
 
     it('should initialize with hasMediaPermission false', () => {
-      expect(service.hasMediaPermission).toBe(false);
+      expect(service.mediaDeviceService.hasMediaPermission).toBe(false);
     });
   });
 
   describe('_isMatchingDevice', () => {
     it('should return device ID for labels with Chromatic VID:PID', () => {
       // Linux-style labels with VID:PID
-      expect(service._isMatchingDevice('Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
-      expect(service._isMatchingDevice('ModRetro Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
+      expect(service.mediaDeviceService._isMatchingDevice('Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
+      expect(service.mediaDeviceService._isMatchingDevice('ModRetro Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
     });
 
     it('should return device ID for labels with Chromatic name patterns', () => {
       // Windows/Mac-style labels without VID:PID
-      expect(service._isMatchingDevice('ModRetro Chromatic')).toBe('chromatic-mod-retro');
-      expect(service._isMatchingDevice('chromatic')).toBe('chromatic-mod-retro');
+      expect(service.mediaDeviceService._isMatchingDevice('ModRetro Chromatic')).toBe('chromatic-mod-retro');
+      expect(service.mediaDeviceService._isMatchingDevice('chromatic')).toBe('chromatic-mod-retro');
     });
 
     it('should return null for non-Chromatic labels', () => {
-      expect(service._isMatchingDevice('Random Webcam')).toBeNull();
-      expect(service._isMatchingDevice('Integrated Camera (04f2:b7e0)')).toBeNull();
+      expect(service.mediaDeviceService._isMatchingDevice('Random Webcam')).toBeNull();
+      expect(service.mediaDeviceService._isMatchingDevice('Integrated Camera (04f2:b7e0)')).toBeNull();
     });
   });
 
   describe('getSelectedDeviceId', () => {
     it('should auto-select Chromatic when no device selected', () => {
-      service.videoDevices = [
+      service.mediaDeviceService.videoDevices = [
         { deviceId: 'webcam-1', label: 'Integrated Camera (04f2:b7e0)' },
         { deviceId: 'chromatic-1', label: 'Chromatic (374e:0101)' }
       ];
@@ -109,7 +109,7 @@ describe('DeviceService', () => {
     });
 
     it('should return null when no Chromatic found', () => {
-      service.videoDevices = [
+      service.mediaDeviceService.videoDevices = [
         { deviceId: 'webcam-1', label: 'Regular Webcam' }
       ];
 
@@ -119,7 +119,7 @@ describe('DeviceService', () => {
     });
 
     it('should return null when no devices', () => {
-      service.videoDevices = [];
+      service.mediaDeviceService.videoDevices = [];
       expect(service.getSelectedDeviceId()).toBeNull();
     });
   });
@@ -154,10 +154,10 @@ describe('DeviceService', () => {
 
   describe('isDeviceConnected', () => {
     it('should return current connection state', () => {
-      service.isConnected = true;
+      service.deviceConnectionService.isConnected = true;
       expect(service.isDeviceConnected()).toBe(true);
 
-      service.isConnected = false;
+      service.deviceConnectionService.isConnected = false;
       expect(service.isDeviceConnected()).toBe(false);
     });
   });
@@ -196,7 +196,7 @@ describe('DeviceService', () => {
     it('should never request getUserMedia during enumeration', async () => {
       // Even with a stored device ID, enumeration should not request permission
       // This prevents the Mac's built-in webcam from flickering
-      localStorage.setItem('chromatic-mod-retro_id', 'chromatic-1');
+      mockStorageService.setItem('chromatic-mod-retro_id', 'chromatic-1');
 
       await service.enumerateDevices();
 
@@ -207,7 +207,7 @@ describe('DeviceService', () => {
       // If we can see device labels, permission was already granted elsewhere
       await service.enumerateDevices();
 
-      expect(service.hasMediaPermission).toBe(true);
+      expect(service.mediaDeviceService.hasMediaPermission).toBe(true);
     });
 
     it('should not set hasMediaPermission when devices have no labels', async () => {
@@ -219,13 +219,13 @@ describe('DeviceService', () => {
 
       await service.enumerateDevices();
 
-      expect(service.hasMediaPermission).toBe(false);
+      expect(service.mediaDeviceService.hasMediaPermission).toBe(false);
     });
 
     it('should store device ID when supported device found with label', async () => {
       await service.enumerateDevices();
 
-      expect(localStorage.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
+      expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
     });
 
     it('should return connected status from provider', async () => {
@@ -258,7 +258,7 @@ describe('DeviceService', () => {
       const result = await service.enumerateDevices();
 
       expect(mockDeviceStatusProvider.getDeviceStatus).toHaveBeenCalledTimes(1);
-      expect(result).toBe(service._lastEnumerateResult);
+      expect(result).toBe(service.mediaDeviceService._lastEnumerateResult);
     });
 
     it('should handle enumerateDevices failure gracefully', async () => {
@@ -289,7 +289,7 @@ describe('DeviceService', () => {
     it('should store handler reference for cleanup', () => {
       service.setupDeviceChangeListener();
 
-      expect(service._deviceChangeHandler).toBeInstanceOf(Function);
+      expect(service.mediaDeviceService._deviceChangeHandler).toBeInstanceOf(Function);
     });
 
     it('should update status but NOT enumerate devices on devicechange', async () => {
@@ -299,7 +299,7 @@ describe('DeviceService', () => {
       service.setupDeviceChangeListener();
 
       // Trigger the handler
-      await service._deviceChangeHandler();
+      await service.mediaDeviceService._deviceChangeHandler();
 
       // Should update status from provider
       expect(mockDeviceStatusProvider.getDeviceStatus).toHaveBeenCalled();
@@ -380,15 +380,15 @@ describe('DeviceService', () => {
 
       expect(result).toBe(true);
       expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
-      expect(service.hasMediaPermission).toBe(true);
-      expect(service.videoDevices).toEqual([device]);
+      expect(service.mediaDeviceService.hasMediaPermission).toBe(true);
+      expect(service.mediaDeviceService.videoDevices).toEqual([device]);
     });
   });
 
   describe('dispose', () => {
     it('should remove devicechange listener', () => {
       const handler = vi.fn();
-      service._deviceChangeHandler = handler;
+      service.mediaDeviceService._deviceChangeHandler = handler;
 
       service.dispose();
 
@@ -399,15 +399,15 @@ describe('DeviceService', () => {
     });
 
     it('should clear handler reference', () => {
-      service._deviceChangeHandler = vi.fn();
+      service.mediaDeviceService._deviceChangeHandler = vi.fn();
 
       service.dispose();
 
-      expect(service._deviceChangeHandler).toBeNull();
+      expect(service.mediaDeviceService._deviceChangeHandler).toBeNull();
     });
 
     it('should handle no handler set', () => {
-      service._deviceChangeHandler = null;
+      service.mediaDeviceService._deviceChangeHandler = null;
 
       expect(() => service.dispose()).not.toThrow();
     });

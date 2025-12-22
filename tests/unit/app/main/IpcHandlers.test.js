@@ -7,6 +7,12 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn()
+  },
+  app: {
+    getAppMetrics: vi.fn(() => [])
+  },
+  shell: {
+    openExternal: vi.fn()
   }
 }));
 

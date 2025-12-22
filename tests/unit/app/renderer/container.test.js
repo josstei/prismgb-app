@@ -35,8 +35,8 @@ vi.mock('@app/renderer/application/performance/animation-performance.service.js'
   AnimationPerformanceService: vi.fn()
 }));
 
-vi.mock('@app/renderer/application/performance/performance-state.coordinator.js', () => ({
-  PerformanceStateCoordinator: vi.fn()
+vi.mock('@app/renderer/application/performance/performance-state.orchestrator.js', () => ({
+  PerformanceStateOrchestrator: vi.fn()
 }));
 
 vi.mock('@app/renderer/application/performance/performance-state.service.js', () => ({
@@ -62,6 +62,10 @@ vi.mock('@ui/effects/ui-effects.js', () => ({
 
 vi.mock('@ui/orchestration/ui-event-bridge.js', () => ({
   UIEventBridge: vi.fn()
+}));
+
+vi.mock('@ui/orchestration/capture-ui.bridge.js', () => ({
+  CaptureUiBridge: vi.fn()
 }));
 
 // Features: Devices mocks
@@ -94,12 +98,24 @@ vi.mock('@features/streaming/rendering/canvas.renderer.js', () => ({
   CanvasRenderer: vi.fn()
 }));
 
+vi.mock('@features/streaming/rendering/canvas-lifecycle.service.js', () => ({
+  CanvasLifecycleService: vi.fn()
+}));
+
+vi.mock('@features/streaming/rendering/gpu-render-loop.service.js', () => ({
+  GpuRenderLoopService: vi.fn()
+}));
+
 vi.mock('@features/streaming/rendering/viewport.manager.js', () => ({
   ViewportManager: vi.fn()
 }));
 
 vi.mock('@features/streaming/rendering/gpu/gpu.renderer.service.js', () => ({
   GPURendererService: vi.fn()
+}));
+
+vi.mock('@features/streaming/ui/stream-view.service.js', () => ({
+  StreamViewService: vi.fn()
 }));
 
 // Features: Capture mocks
@@ -126,6 +142,27 @@ vi.mock('@features/settings/services/preferences.orchestrator.js', () => ({
 
 vi.mock('@features/settings/services/display-mode.orchestrator.js', () => ({
   DisplayModeOrchestrator: vi.fn()
+}));
+
+vi.mock('@features/settings/services/fullscreen.service.js', () => ({
+  FullscreenService: vi.fn()
+}));
+
+vi.mock('@features/settings/services/cinematic-mode.service.js', () => ({
+  CinematicModeService: vi.fn()
+}));
+
+// Features: Updates mocks
+vi.mock('@features/updates/services/update.service.js', () => ({
+  UpdateService: vi.fn()
+}));
+
+vi.mock('@features/updates/services/update.orchestrator.js', () => ({
+  UpdateOrchestrator: vi.fn()
+}));
+
+vi.mock('@features/updates/ui/update-ui.service.js', () => ({
+  UpdateUiService: vi.fn()
 }));
 
 // Infrastructure mocks
@@ -286,7 +323,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'renderPipelineService',
         expect.any(Function),
-        ['appState', 'uiController', 'canvasRenderer', 'viewportManager', 'streamHealthMonitor', 'gpuRendererService', 'eventBus', 'loggerFactory']
+        ['appState', 'uiController', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -326,7 +363,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingOrchestrator',
         expect.any(Function),
-        ['streamingService', 'appState', 'uiController', 'renderPipelineService', 'eventBus', 'loggerFactory']
+        ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'eventBus', 'loggerFactory']
       );
     });
 

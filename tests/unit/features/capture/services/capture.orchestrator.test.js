@@ -109,21 +109,17 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('onInitialize', () => {
-    it('should wire capture events', async () => {
+    it('should wire capture error events', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:screenshot-ready', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-started', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-stopped', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-ready', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(1);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-error', expect.any(Function));
     });
 
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.onInitialize();
 
-      expect(orchestrator._subscriptions).toHaveLength(5);
+      expect(orchestrator._subscriptions).toHaveLength(1);
     });
   });
 

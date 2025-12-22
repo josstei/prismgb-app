@@ -1,5 +1,5 @@
 /**
- * Performance State Coordinator
+ * Performance State Orchestrator
  *
  * Thin coordinator that delegates state tracking to PerformanceStateService
  * and publishes performance state events.
@@ -8,7 +8,7 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
-export class PerformanceStateCoordinator extends BaseOrchestrator {
+export class PerformanceStateOrchestrator extends BaseOrchestrator {
   /**
    * @param {Object} dependencies
    * @param {EventBus} dependencies.eventBus
@@ -18,7 +18,7 @@ export class PerformanceStateCoordinator extends BaseOrchestrator {
     super(
       dependencies,
       ['eventBus', 'performanceStateService', 'loggerFactory'],
-      'PerformanceStateCoordinator'
+      'PerformanceStateOrchestrator'
     );
     this._lastUiMode = null;
   }
