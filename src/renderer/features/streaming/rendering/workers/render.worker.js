@@ -339,8 +339,9 @@ class WebGPURenderer {
 
   uploadFrame(imageBitmap) {
     // Copy ImageBitmap to source texture
+    // flipY: true ensures consistent orientation across WebGL2/WebGPU coordinate systems
     this.device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
+      { source: imageBitmap, flipY: true },
       { texture: this.sourceTexture },
       [imageBitmap.width, imageBitmap.height]
     );

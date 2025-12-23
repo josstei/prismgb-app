@@ -12,6 +12,7 @@ import { BaseStreamLifecycle } from '../acquisition/stream.lifecycle.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
+import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 export class AdapterFactory {
   constructor(eventBus, loggerFactory, mediaDevicesService = null) {
@@ -46,6 +47,9 @@ export class AdapterFactory {
     }
 
     try {
+      // Register AdapterClasses with DeviceRegistry (renderer process responsibility)
+      DeviceRegistry.registerAdapterClass('chromatic-mod-retro', ChromaticAdapter);
+
       const loadedCount = await this._registerBuiltInAdapters();
       this.initialized = true;
 

@@ -1,15 +1,12 @@
 /**
- * Device Registry - Browser-safe export
+ * Device Registry - Process-agnostic device metadata
  *
- * This file contains only the device registry without any Node.js dependencies
- * Safe to import from both main and renderer processes
+ * Contains only device detection metadata (USB IDs, label patterns).
+ * ProfileClass and AdapterClass are registered at runtime by each process.
  *
- * Each device entry contains all the detection patterns needed to identify
- * the device without importing device-specific config files.
+ * Main process registers: ProfileClass (via device.service.main.js)
+ * Renderer registers: AdapterClass (via adapter.factory.js)
  */
-
-import { ChromaticProfile } from '@renderer/features/devices/adapters/chromatic/chromatic.profile.js';
-import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 /**
  * Device Registry - Central registry for all supported devices
@@ -21,7 +18,8 @@ import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/
  * - enabled: Whether the device is enabled
  * - usb: USB vendor/product IDs for detection
  * - labelPatterns: Patterns to match in device labels
- * - profileModule/adapterModule: Module paths for lazy loading
+ *
+ * ProfileClass/AdapterClass are registered at runtime by each process.
  */
 
 // Built-in devices that ship with PrismGB
@@ -41,10 +39,8 @@ const BUILT_IN_DEVICES = [
       'mod retro',
       '374e:0101'
     ],
-    profileModule: '@renderer/features/devices/adapters/chromatic/chromatic.profile.js',
-    adapterModule: '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js',
-    ProfileClass: ChromaticProfile,
-    AdapterClass: ChromaticAdapter
+    profileModule: 'chromatic.profile',
+    adapterModule: 'chromatic.adapter'
   }
 ];
 
@@ -102,6 +98,32 @@ export const DeviceRegistry = {
       return true;
     }
     return false;
+  },
+
+  /**
+   * Register ProfileClass for a device (called by main process)
+   * @param {string} deviceId - Device ID
+   * @param {Function} ProfileClass - Profile class constructor
+   */
+  registerProfileClass(deviceId, ProfileClass) {
+    const device = this.get(deviceId);
+    if (!device) {
+      throw new Error(`Device ${deviceId} not found in registry`);
+    }
+    device.ProfileClass = ProfileClass;
+  },
+
+  /**
+   * Register AdapterClass for a device (called by renderer process)
+   * @param {string} deviceId - Device ID
+   * @param {Function} AdapterClass - Adapter class constructor
+   */
+  registerAdapterClass(deviceId, AdapterClass) {
+    const device = this.get(deviceId);
+    if (!device) {
+      throw new Error(`Device ${deviceId} not found in registry`);
+    }
+    device.AdapterClass = AdapterClass;
   },
 
   /**

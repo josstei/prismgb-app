@@ -10,6 +10,7 @@ import { appConfig } from '@shared/config/config-loader.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
+import { ChromaticProfile } from '@renderer/features/devices/adapters/chromatic/chromatic.profile.js';
 
 const { DEVICE_LAUNCH_DELAY, USB_SCAN_DELAY } = appConfig;
 
@@ -73,6 +74,9 @@ class DeviceServiceMain extends EventEmitter {
     try {
       let registeredCount = 0;
       let firstProfileId = null;
+
+      // Register ProfileClasses with DeviceRegistry (main process responsibility)
+      DeviceRegistry.registerProfileClass('chromatic-mod-retro', ChromaticProfile);
 
       // Load profiles from registry using shared iterator
       const devices = [];
