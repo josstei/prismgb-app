@@ -4,16 +4,16 @@
  * Manages persisted device IDs per device type.
  */
 
+import { BaseService } from '@shared/base/service.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 
 function getDeviceStorageKey(deviceType) {
   return `${deviceType || 'device'}_id`;
 }
 
-class DeviceStorageService {
-  constructor({ storageService, loggerFactory }) {
-    this.storageService = storageService;
-    this.logger = loggerFactory?.create('DeviceStorageService') || console;
+class DeviceStorageService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['storageService', 'loggerFactory'], 'DeviceStorageService');
   }
 
   getStoredDeviceId(deviceType) {

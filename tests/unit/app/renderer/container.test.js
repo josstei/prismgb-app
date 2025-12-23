@@ -263,7 +263,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'adapterFactory',
         expect.any(Function),
-        ['eventBus', 'loggerFactory']
+        ['eventBus', 'loggerFactory', 'browserMediaService']
       );
     });
 
@@ -303,7 +303,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'deviceService',
         expect.any(Function),
-        ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'storageService', 'mediaDevicesService']
+        ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'deviceConnectionService', 'deviceStorageService', 'deviceMediaService']
       );
     });
 
@@ -363,7 +363,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingOrchestrator',
         expect.any(Function),
-        ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'eventBus', 'loggerFactory']
+        ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory']
       );
     });
 

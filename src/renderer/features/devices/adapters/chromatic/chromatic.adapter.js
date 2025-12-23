@@ -4,10 +4,10 @@
  */
 
 import { BaseDeviceAdapter } from '../base.adapter.js';
-import { StreamAcquisitionCoordinator } from '../../../streaming/acquisition/acquisition.coordinator.js';
-import { DeviceAwareFallbackStrategy } from '../../../streaming/acquisition/fallback.strategy.js';
-import { AcquisitionContext } from '../../../streaming/acquisition/acquisition.context.js';
-import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from './chromatic.config.js';
+import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition.coordinator.js';
+import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback.strategy.js';
+import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition.context.js';
+import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/chromatic.config.js';
 
 export class ChromaticAdapter extends BaseDeviceAdapter {
   /**
@@ -28,6 +28,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
     this.config = dependencies.config || defaultConfig;
     this.mediaConfig = dependencies.mediaConfig || defaultMediaConfig;
     this.helpers = dependencies.helpers || defaultHelpers;
+    this.browserMediaService = dependencies.browserMediaService || null;
 
     this.canvasScale = this.config.rendering.canvasScale;
 
@@ -90,8 +91,17 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
       profile: this.profile
     });
 
+    const audioDeviceId = await this._resolveAudioDeviceId();
+    const acquisitionOptions = audioDeviceId
+      ? { audioDeviceId }
+      : { audio: false };
+
+    if (!audioDeviceId) {
+      this._log('warn', 'No matching audio input found - disabling audio to avoid mic capture');
+    }
+
     // Acquire stream with device-aware fallback
-    const { stream, strategy } = await this.acquisitionCoordinator.acquire(context);
+    const { stream, strategy } = await this.acquisitionCoordinator.acquire(context, acquisitionOptions);
 
     this.currentStream = stream;
     this._log('info', `Stream acquired using strategy: ${strategy}`);
@@ -168,5 +178,37 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
    */
   getConfig() {
     return this.config;
+  }
+
+  async _resolveAudioDeviceId() {
+    const groupId = this.deviceInfo?.groupId;
+    if (!groupId) {
+      this._log('debug', 'No groupId for device - cannot resolve audio input');
+      return null;
+    }
+
+    const enumerate = this.browserMediaService?.enumerateDevices
+      ? this.browserMediaService.enumerateDevices.bind(this.browserMediaService)
+      : navigator.mediaDevices?.enumerateDevices?.bind(navigator.mediaDevices);
+
+    if (!enumerate) {
+      this._log('warn', 'MediaDevices API unavailable - cannot resolve audio input');
+      return null;
+    }
+
+    try {
+      const devices = await enumerate();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      const match = audioInputs.find(device => device.groupId === groupId);
+
+      if (match?.deviceId) {
+        this._log('info', 'Matched audio input for device groupId:', match.label || match.deviceId);
+        return match.deviceId;
+      }
+    } catch (error) {
+      this._log('warn', 'Failed to enumerate audio devices:', error);
+    }
+
+    return null;
   }
 }

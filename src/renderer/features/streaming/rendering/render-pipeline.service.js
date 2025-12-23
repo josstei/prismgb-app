@@ -31,9 +31,6 @@ export class RenderPipelineService extends BaseService {
     this._gpuRenderLoopActive = false;
     this._isHidden = false;
 
-    this._idleReleaseTimeout = null;
-    this._idleReleaseDelay = 15000;
-
     this._performanceModeEnabled = false;
     this._userPresetId = null;
     this._canvas2dContextCreated = false;
@@ -149,12 +146,12 @@ export class RenderPipelineService extends BaseService {
       this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
         label: 'before gpu release'
       });
-      this.gpuRendererService.releaseResources();
+      this.gpuRendererService.terminateAndReset();
       this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
         label: 'after gpu release',
         delayMs: 1000
       });
-      this._startIdleReleaseTimer();
+      this._useGPURenderer = false;
     } else {
       this.canvasRenderer.stopRendering(video);
     }
@@ -162,12 +159,11 @@ export class RenderPipelineService extends BaseService {
     if (!this.gpuRendererService.isCanvasTransferred()) {
       const canvas = this.uiController.elements.streamCanvas;
       this.canvasRenderer.clearCanvas(canvas);
+      this._canvas2dContextCreated = true;
     }
   }
 
   cleanup() {
-    this._clearIdleReleaseTimer();
-
     this._performanceModeEnabled = false;
     this._userPresetId = null;
     this._canvas2dContextCreated = false;
@@ -233,11 +229,9 @@ export class RenderPipelineService extends BaseService {
   }
 
   async _startCanvasRendering(capabilities) {
-    this._clearIdleReleaseTimer();
-
     this._currentCapabilities = capabilities;
 
-    const canvas = this.uiController.elements.streamCanvas;
+    let canvas = this.uiController.elements.streamCanvas;
     const video = this.uiController.elements.streamVideo;
 
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
@@ -255,6 +249,14 @@ export class RenderPipelineService extends BaseService {
         () => this._isHidden
       );
       return;
+    }
+
+    if (!this._performanceModeEnabled && this._canvas2dContextCreated && !this.gpuRendererService.isCanvasTransferred()) {
+      this.logger.info('Recreating canvas before GPU init (Canvas2D context was active)');
+      this.canvasLifecycleService.recreateCanvas();
+      this._canvas2dContextCreated = false;
+      this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
+      canvas = this.uiController.elements.streamCanvas;
     }
 
     if (this._useGPURenderer && this.gpuRendererService.isActive()) {
@@ -301,6 +303,8 @@ export class RenderPipelineService extends BaseService {
     }
 
     if (!this._useGPURenderer) {
+      canvas = this.uiController.elements.streamCanvas;
+
       if (this.gpuRendererService.isCanvasTransferred()) {
         this.logger.error('Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.');
         return;
@@ -329,25 +333,6 @@ export class RenderPipelineService extends BaseService {
   _stopGPURenderLoop(videoElement) {
     this._gpuRenderLoopActive = false;
     this.gpuRenderLoopService.stop(videoElement);
-  }
-
-  _startIdleReleaseTimer() {
-    this._clearIdleReleaseTimer();
-
-    this._idleReleaseTimeout = setTimeout(() => {
-      if (this._useGPURenderer && !this.appState.isStreaming) {
-        this.logger.info('GPU idle timeout - terminating worker to flush GPU caches');
-        this.gpuRendererService.terminateAndReset();
-        this._useGPURenderer = false;
-      }
-    }, this._idleReleaseDelay);
-  }
-
-  _clearIdleReleaseTimer() {
-    if (this._idleReleaseTimeout) {
-      clearTimeout(this._idleReleaseTimeout);
-      this._idleReleaseTimeout = null;
-    }
   }
 
   async _switchToGPUMidStream() {

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseDeviceAdapter } from '@renderer/features/devices/adapters/base.adapter.js';
-import { AcquisitionContext } from '@renderer/features/streaming/acquisition/acquisition.context.js';
+import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition.context.js';
 
 describe('BaseDeviceAdapter', () => {
   let adapter;

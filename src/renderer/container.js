@@ -27,6 +27,9 @@ import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js
 
 // Features: Devices
 import { DeviceService } from '@renderer/features/devices/services/device.service.js';
+import { DeviceConnectionService } from '@renderer/features/devices/services/device-connection.service.js';
+import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
+import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 import { IpcDeviceStatusAdapter } from '@renderer/features/devices/services/device-status.adapter.js';
 
@@ -42,6 +45,7 @@ import { ViewportManager } from '@renderer/features/streaming/rendering/viewport
 import { StreamHealthMonitor } from '@renderer/features/streaming/rendering/stream-health.monitor.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/ui/stream-view.service.js';
+import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
@@ -64,7 +68,7 @@ import { UpdateUiService } from '@renderer/features/updates/ui/update-ui.service
 import EventBus from '@infrastructure/events/event-bus.js';
 import { BrowserLogger } from '@infrastructure/logging/logger.js';
 import { StorageService } from '@infrastructure/browser/storage.service.js';
-import { MediaDevicesService } from '@infrastructure/browser/media-devices.service.js';
+import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';
 // Shared
 import { AnimationCache } from '@shared/utils/performance-cache.js';
 
@@ -98,8 +102,8 @@ function createRendererContainer() {
     return new StorageService();
   }, []);
 
-  container.registerSingleton('mediaDevicesService', function() {
-    return new MediaDevicesService();
+  container.registerSingleton('browserMediaService', function() {
+    return new BrowserMediaService();
   }, []);
 
   // Streaming infrastructure
@@ -210,23 +214,48 @@ function createRendererContainer() {
   // Note: Will be initialized asynchronously in RendererAppOrchestrator
   container.registerSingleton(
     'adapterFactory',
-    function (eventBus, loggerFactory) {
-      return new AdapterFactory(eventBus, loggerFactory);
+    function (eventBus, loggerFactory, browserMediaService) {
+      return new AdapterFactory(eventBus, loggerFactory, browserMediaService);
     },
-    ['eventBus', 'loggerFactory']
+    ['eventBus', 'loggerFactory', 'browserMediaService']
   );
 
   // ============================================
   // Application Services (Existing Architecture)
   // ============================================
 
-  // Device Service (coordinates device detection)
+  // Device Sub-Services (registered for DI, used by DeviceService)
+  container.registerSingleton(
+    'deviceStorageService',
+    function (storageService, loggerFactory) {
+      return new DeviceStorageService({ storageService, loggerFactory });
+    },
+    ['storageService', 'loggerFactory']
+  );
+
+  container.registerSingleton(
+    'deviceConnectionService',
+    function (eventBus, loggerFactory, deviceStatusProvider) {
+      return new DeviceConnectionService({ eventBus, loggerFactory, deviceStatusProvider });
+    },
+    ['eventBus', 'loggerFactory', 'deviceStatusProvider']
+  );
+
+  container.registerSingleton(
+    'deviceMediaService',
+    function (eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService) {
+      return new DeviceMediaService({ eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService });
+    },
+    ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceConnectionService', 'deviceStorageService']
+  );
+
+  // Device Service (facade coordinating device sub-services)
   container.registerSingleton(
     'deviceService',
-    function (eventBus, loggerFactory, deviceStatusProvider, storageService, mediaDevicesService) {
-      return new DeviceService({ eventBus, loggerFactory, deviceStatusProvider, storageService, mediaDevicesService });
+    function (eventBus, loggerFactory, deviceStatusProvider, deviceConnectionService, deviceStorageService, deviceMediaService) {
+      return new DeviceService({ eventBus, loggerFactory, deviceStatusProvider, deviceConnectionService, deviceStorageService, deviceMediaService });
     },
-    ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'storageService', 'mediaDevicesService']
+    ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'deviceConnectionService', 'deviceStorageService', 'deviceMediaService']
   );
 
   // Streaming Service (coordinates stream acquisition)
@@ -287,6 +316,14 @@ function createRendererContainer() {
       return new StreamViewService({ uiController, loggerFactory });
     },
     ['uiController', 'loggerFactory']
+  );
+
+  container.registerSingleton(
+    'audioWarmupService',
+    function (eventBus, loggerFactory, settingsService) {
+      return new AudioWarmupService({ eventBus, loggerFactory, settingsService });
+    },
+    ['eventBus', 'loggerFactory', 'settingsService']
   );
 
   // State Management - derives state from services (registered after services)
@@ -368,17 +405,18 @@ function createRendererContainer() {
   // Uses appState instead of deviceOrchestrator for decoupling
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, streamViewService, renderPipelineService, eventBus, loggerFactory) {
+    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
         streamViewService,
+        audioWarmupService,
         renderPipelineService,
         eventBus,
         loggerFactory
       });
     },
-    ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'eventBus', 'loggerFactory']
+    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording

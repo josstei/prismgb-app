@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConstraintBuilder } from '@renderer/features/streaming/acquisition/constraint.builder.js';
+import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint.builder.js';
 
 describe('ConstraintBuilder', () => {
   let builder;

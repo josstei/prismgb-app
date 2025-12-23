@@ -4,13 +4,12 @@
  * Owns main-process USB connection status and status events.
  */
 
+import { BaseService } from '@shared/base/service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
-class DeviceConnectionService {
-  constructor({ eventBus, loggerFactory, deviceStatusProvider }) {
-    this.eventBus = eventBus;
-    this.deviceStatusProvider = deviceStatusProvider;
-    this.logger = loggerFactory?.create('DeviceConnectionService') || console;
+class DeviceConnectionService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['eventBus', 'loggerFactory', 'deviceStatusProvider'], 'DeviceConnectionService');
     this.isConnected = false;
   }
 

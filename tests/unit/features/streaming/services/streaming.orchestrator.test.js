@@ -10,6 +10,7 @@ describe('StreamingOrchestrator', () => {
   let mockStreamingService;
   let mockAppState;
   let mockStreamViewService;
+  let mockAudioWarmupService;
   let mockEventBus;
   let mockLogger;
   let mockRenderPipelineService;
@@ -29,7 +30,14 @@ describe('StreamingOrchestrator', () => {
 
     mockStreamViewService = {
       attachStream: vi.fn(),
-      clearStream: vi.fn()
+      clearStream: vi.fn(),
+      setMuted: vi.fn()
+    };
+
+    mockAudioWarmupService = {
+      start: vi.fn().mockResolvedValue(true),
+      stop: vi.fn(),
+      cleanup: vi.fn()
     };
 
     mockEventBus = {
@@ -59,6 +67,7 @@ describe('StreamingOrchestrator', () => {
       streamingService: mockStreamingService,
       appState: mockAppState,
       streamViewService: mockStreamViewService,
+      audioWarmupService: mockAudioWarmupService,
       renderPipelineService: mockRenderPipelineService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
@@ -188,6 +197,7 @@ describe('StreamingOrchestrator', () => {
       orchestrator._handleStreamStopped();
 
       expect(mockRenderPipelineService.stopPipeline).toHaveBeenCalled();
+      expect(mockAudioWarmupService.stop).toHaveBeenCalled();
       expect(mockStreamViewService.clearStream).toHaveBeenCalled();
     });
 
@@ -208,6 +218,7 @@ describe('StreamingOrchestrator', () => {
       orchestrator._handleStreamError(error);
 
       expect(mockLogger.error).toHaveBeenCalledWith('Stream error:', error);
+      expect(mockAudioWarmupService.stop).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error: Stream error', type: 'error' });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', { message: 'Stream error' });
     });
@@ -256,6 +267,7 @@ describe('StreamingOrchestrator', () => {
       await orchestrator.onCleanup();
 
       expect(mockRenderPipelineService.cleanup).toHaveBeenCalled();
+      expect(mockAudioWarmupService.cleanup).toHaveBeenCalled();
       expect(mockStreamingService.stop).toHaveBeenCalled();
     });
   });

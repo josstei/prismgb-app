@@ -145,7 +145,7 @@ describe('RenderPipelineService', () => {
     expect(mockCanvasRenderer.startRendering).toHaveBeenCalled();
   });
 
-  it('releases GPU resources on stop when GPU renderer active', () => {
+  it('terminates GPU and clears canvas on stop when GPU renderer active', () => {
     mockAppState.isStreaming = false;
     service._useGPURenderer = true;
 
@@ -154,17 +154,15 @@ describe('RenderPipelineService', () => {
     expect(mockEventBus.publish).toHaveBeenCalledWith('performance:memory-snapshot-requested', {
       label: 'before gpu release'
     });
-    expect(mockGPURendererService.releaseResources).toHaveBeenCalled();
+    expect(mockGPURendererService.terminateAndReset).toHaveBeenCalled();
     expect(mockCanvasRenderer.clearCanvas).toHaveBeenCalled();
   });
 
-  it('terminates GPU worker after idle timeout', () => {
-    vi.useFakeTimers();
+  it('terminates GPU immediately on stop (no idle delay)', () => {
     mockAppState.isStreaming = false;
     service._useGPURenderer = true;
 
     service.stopPipeline();
-    vi.advanceTimersByTime(16000);
 
     expect(mockGPURendererService.terminateAndReset).toHaveBeenCalled();
     expect(service._useGPURenderer).toBe(false);
@@ -290,13 +288,11 @@ describe('RenderPipelineService', () => {
   });
 
   describe('cleanup', () => {
-    it('clears timer, resets state, and calls all cleanup methods', () => {
-      vi.useFakeTimers();
+    it('resets state and calls all cleanup methods', () => {
       service._performanceModeEnabled = true;
       service._userPresetId = 'vibrant';
       service._canvas2dContextCreated = true;
       service._useGPURenderer = true;
-      service._idleReleaseTimeout = setTimeout(() => {}, 1000);
 
       service.cleanup();
 
@@ -304,7 +300,6 @@ describe('RenderPipelineService', () => {
       expect(service._userPresetId).toBe(null);
       expect(service._canvas2dContextCreated).toBe(false);
       expect(service._useGPURenderer).toBe(false);
-      expect(service._idleReleaseTimeout).toBe(null);
 
       expect(mockGpuRenderLoopService.stop).toHaveBeenCalled();
       expect(mockGPURendererService.cleanup).toHaveBeenCalled();
@@ -376,39 +371,6 @@ describe('RenderPipelineService', () => {
     });
   });
 
-  describe('_startIdleReleaseTimer and _clearIdleReleaseTimer', () => {
-    it('_startIdleReleaseTimer - sets timeout and terminates GPU on idle', () => {
-      vi.useFakeTimers();
-      service._useGPURenderer = true;
-      mockAppState.isStreaming = false;
-
-      service._startIdleReleaseTimer();
-
-      expect(service._idleReleaseTimeout).not.toBe(null);
-
-      vi.advanceTimersByTime(15000);
-
-      expect(mockLogger.info).toHaveBeenCalledWith('GPU idle timeout - terminating worker to flush GPU caches');
-      expect(mockGPURendererService.terminateAndReset).toHaveBeenCalled();
-      expect(service._useGPURenderer).toBe(false);
-    });
-
-    it('_clearIdleReleaseTimer - clears existing timeout', () => {
-      vi.useFakeTimers();
-      service._idleReleaseTimeout = setTimeout(() => {}, 5000);
-
-      service._clearIdleReleaseTimer();
-
-      expect(service._idleReleaseTimeout).toBe(null);
-    });
-
-    it('_clearIdleReleaseTimer - does nothing if no timeout exists', () => {
-      service._idleReleaseTimeout = null;
-
-      expect(() => service._clearIdleReleaseTimer()).not.toThrow();
-      expect(service._idleReleaseTimeout).toBe(null);
-    });
-  });
 
   describe('_switchToGPUMidStream', () => {
     it('success path - switches to GPU renderer mid-stream', async () => {
@@ -610,35 +572,6 @@ describe('RenderPipelineService', () => {
       service._handleHidden();
 
       expect(mockGpuRenderLoopService.stop).not.toHaveBeenCalled();
-    });
-
-    it('_startIdleReleaseTimer - does not terminate if streaming', () => {
-      vi.useFakeTimers();
-      service._useGPURenderer = true;
-      mockAppState.isStreaming = true;
-
-      service._startIdleReleaseTimer();
-      vi.advanceTimersByTime(15000);
-
-      expect(mockGPURendererService.terminateAndReset).not.toHaveBeenCalled();
-    });
-
-    it('_startIdleReleaseTimer - clears existing timer before creating new one', () => {
-      vi.useFakeTimers();
-      const clearSpy = vi.spyOn(service, '_clearIdleReleaseTimer');
-
-      service._startIdleReleaseTimer();
-
-      expect(clearSpy).toHaveBeenCalled();
-    });
-
-    it('_startCanvasRendering - clears idle release timer', async () => {
-      vi.useFakeTimers();
-      service._idleReleaseTimeout = setTimeout(() => {}, 5000);
-
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
-
-      expect(service._idleReleaseTimeout).toBe(null);
     });
 
     it('cleanup - does not fail when GPU not active', () => {

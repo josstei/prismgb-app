@@ -6,9 +6,6 @@
  */
 
 import { BaseService } from '@shared/base/service.js';
-import { DeviceConnectionService } from './device-connection.service.js';
-import { DeviceStorageService } from './device-storage.service.js';
-import { MediaDeviceService } from './media-device.service.js';
 
 class DeviceService extends BaseService {
   /**
@@ -16,33 +13,19 @@ class DeviceService extends BaseService {
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    * @param {IDeviceStatusProvider} dependencies.deviceStatusProvider - USB device status provider
-   * @param {StorageService} [dependencies.storageService] - Browser storage abstraction
-   * @param {MediaDevicesService} [dependencies.mediaDevicesService] - Media devices abstraction
+   * @param {DeviceConnectionService} dependencies.deviceConnectionService - Connection status service
+   * @param {DeviceStorageService} dependencies.deviceStorageService - Device ID storage service
+   * @param {DeviceMediaService} dependencies.deviceMediaService - Media device enumeration service
    */
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'deviceStatusProvider'], 'DeviceService');
-
-    this.storageService = dependencies.storageService;
-    this.mediaDevicesService = dependencies.mediaDevicesService;
-
-    this.deviceStorageService = new DeviceStorageService({
-      storageService: this.storageService,
-      loggerFactory: dependencies.loggerFactory
-    });
-
-    this.deviceConnectionService = new DeviceConnectionService({
-      eventBus: this.eventBus,
-      loggerFactory: dependencies.loggerFactory,
-      deviceStatusProvider: dependencies.deviceStatusProvider
-    });
-
-    this.mediaDeviceService = new MediaDeviceService({
-      eventBus: this.eventBus,
-      loggerFactory: dependencies.loggerFactory,
-      mediaDevicesService: this.mediaDevicesService,
-      deviceConnectionService: this.deviceConnectionService,
-      deviceStorageService: this.deviceStorageService
-    });
+    super(dependencies, [
+      'eventBus',
+      'loggerFactory',
+      'deviceStatusProvider',
+      'deviceConnectionService',
+      'deviceStorageService',
+      'deviceMediaService'
+    ], 'DeviceService');
   }
 
   get isConnected() {
@@ -52,7 +35,7 @@ class DeviceService extends BaseService {
   async updateDeviceStatus() {
     const { status, changed } = await this.deviceConnectionService.refreshStatus();
     if (changed) {
-      this.mediaDeviceService.invalidateEnumerationCache();
+      this.deviceMediaService.invalidateEnumerationCache();
     }
     return status;
   }
@@ -62,7 +45,7 @@ class DeviceService extends BaseService {
   }
 
   async enumerateDevices() {
-    return this.mediaDeviceService.enumerateDevices();
+    return this.deviceMediaService.enumerateDevices();
   }
 
   getRegisteredStoredDeviceIds() {
@@ -70,23 +53,23 @@ class DeviceService extends BaseService {
   }
 
   getSelectedDeviceId() {
-    return this.mediaDeviceService.getSelectedDeviceId();
+    return this.deviceMediaService.getSelectedDeviceId();
   }
 
   async discoverSupportedDevice() {
-    return this.mediaDeviceService.discoverSupportedDevice();
+    return this.deviceMediaService.discoverSupportedDevice();
   }
 
   cacheSupportedDevice(device) {
-    return this.mediaDeviceService.cacheSupportedDevice(device);
+    return this.deviceMediaService.cacheSupportedDevice(device);
   }
 
   setupDeviceChangeListener() {
-    this.mediaDeviceService.setupDeviceChangeListener(() => this.updateDeviceStatus());
+    this.deviceMediaService.setupDeviceChangeListener(() => this.updateDeviceStatus());
   }
 
   dispose() {
-    this.mediaDeviceService.dispose();
+    this.deviceMediaService.dispose();
   }
 }
 

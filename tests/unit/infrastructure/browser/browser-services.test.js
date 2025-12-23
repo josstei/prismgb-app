@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { MediaDevicesService } from '@infrastructure/browser/media-devices.service.js';
+import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';
 import { StorageService } from '@infrastructure/browser/storage.service.js';
 
-describe('MediaDevicesService', () => {
+describe('BrowserMediaService', () => {
   let service;
   let originalNavigator;
 
@@ -23,7 +23,7 @@ describe('MediaDevicesService', () => {
         removeEventListener: vi.fn()
       }
     };
-    service = new MediaDevicesService();
+    service = new BrowserMediaService();
   });
 
   afterEach(() => {

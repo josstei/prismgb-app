@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -151,6 +151,20 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // No need to manually update appState.setStreaming() anymore
 
     this.streamViewService.attachStream(stream);
+    const hasAudio = stream?.getAudioTracks?.().length > 0;
+    this.audioWarmupService.start(stream)
+      .then((ready) => {
+        if (!ready && hasAudio && this.appState.isStreaming) {
+          this.logger.warn('Audio warm-up failed - falling back to video element audio');
+          this.streamViewService.setMuted(false);
+        }
+      })
+      .catch((error) => {
+        if (hasAudio && this.appState.isStreaming) {
+          this.logger.warn('Audio warm-up error - falling back to video element audio', error);
+          this.streamViewService.setMuted(false);
+        }
+      });
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -193,6 +207,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Get video element reference (requires direct element access)
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
+    this.audioWarmupService.stop();
     this.streamViewService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
@@ -212,6 +227,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   _handleStreamError(error) {
     this.logger.error('Stream error:', error);
+    this.audioWarmupService.stop();
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
     this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
   }
@@ -233,6 +249,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   async onCleanup() {
     this.renderPipelineService.cleanup();
+    this.audioWarmupService.cleanup();
 
     if (this.streamingService.isActive()) {
       this.streamingService.stop();

@@ -353,6 +353,16 @@ export class GPURendererService extends BaseService {
         this.logger.error('Render worker error:', payload.message);
         this._isReady = false;
         this._pendingFrames = 0;
+        if (this._readyReject) {
+          const readyReject = this._readyReject;
+          this._readyResolve = null;
+          this._readyReject = null;
+          if (this._readyTimeoutId !== null) {
+            clearTimeout(this._readyTimeoutId);
+            this._readyTimeoutId = null;
+          }
+          readyReject(new Error(payload.message));
+        }
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
         if (this._captureTimeoutId) {
           clearTimeout(this._captureTimeoutId);

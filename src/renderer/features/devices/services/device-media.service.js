@@ -1,26 +1,23 @@
 /**
- * Media Device Service
+ * Device Media Service
  *
  * Owns media device enumeration, caching, and permission probing.
  */
 
+import { BaseService } from '@shared/base/service.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 import { TIMING } from '@shared/config/constants.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
-class MediaDeviceService {
-  constructor({
-    eventBus,
-    loggerFactory,
-    mediaDevicesService,
-    deviceConnectionService,
-    deviceStorageService
-  }) {
-    this.eventBus = eventBus;
-    this.mediaDevicesService = mediaDevicesService;
-    this.deviceConnectionService = deviceConnectionService;
-    this.deviceStorageService = deviceStorageService;
-    this.logger = loggerFactory?.create('MediaDeviceService') || console;
+class DeviceMediaService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, [
+      'eventBus',
+      'loggerFactory',
+      'browserMediaService',
+      'deviceConnectionService',
+      'deviceStorageService'
+    ], 'DeviceMediaService');
 
     this.videoDevices = [];
     this.hasMediaPermission = false;
@@ -58,7 +55,7 @@ class MediaDeviceService {
 
         let videoDevices = [];
         try {
-          const devices = await this.mediaDevicesService.enumerateDevices();
+          const devices = await this.browserMediaService.enumerateDevices();
           const allVideos = devices.filter(device => device.kind === 'videoinput');
 
           this.logger.info(`Found ${allVideos.length} total webcam(s)`);
@@ -123,7 +120,7 @@ class MediaDeviceService {
       if (device) return device;
     }
 
-    const allDevices = await this.mediaDevicesService.enumerateDevices();
+    const allDevices = await this.browserMediaService.enumerateDevices();
     const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
 
     for (const device of videoDevices) {
@@ -144,13 +141,13 @@ class MediaDeviceService {
   async _tryGetPermissionForDevice(deviceId) {
     let tempStream = null;
     try {
-      tempStream = await this.mediaDevicesService.getUserMedia({
+      tempStream = await this.browserMediaService.getUserMedia({
         video: { deviceId: { exact: deviceId } }
       });
       tempStream.getTracks().forEach(track => track.stop());
       tempStream = null;
 
-      const devicesWithLabels = await this.mediaDevicesService.enumerateDevices();
+      const devicesWithLabels = await this.browserMediaService.enumerateDevices();
       const matchedDevice = devicesWithLabels
         .filter(d => d.kind === 'videoinput')
         .find(d => this._isMatchingDevice(d.label));
@@ -195,13 +192,13 @@ class MediaDeviceService {
       this.logger.info('Device change detected');
       await onChange();
     };
-    this.mediaDevicesService.addEventListener('devicechange', this._deviceChangeHandler);
+    this.browserMediaService.addEventListener('devicechange', this._deviceChangeHandler);
     this.logger.info('Device change listener set up');
   }
 
   dispose() {
     if (this._deviceChangeHandler) {
-      this.mediaDevicesService.removeEventListener('devicechange', this._deviceChangeHandler);
+      this.browserMediaService.removeEventListener('devicechange', this._deviceChangeHandler);
       this._deviceChangeHandler = null;
     }
   }
@@ -211,4 +208,4 @@ class MediaDeviceService {
   }
 }
 
-export { MediaDeviceService };
+export { DeviceMediaService };

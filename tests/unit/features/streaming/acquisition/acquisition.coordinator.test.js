@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamAcquisitionCoordinator } from '@renderer/features/streaming/acquisition/acquisition.coordinator.js';
-import { AcquisitionContext } from '@renderer/features/streaming/acquisition/acquisition.context.js';
+import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition.coordinator.js';
+import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition.context.js';
 
 describe('StreamAcquisitionCoordinator', () => {
   let coordinator;

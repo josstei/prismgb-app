@@ -7,25 +7,26 @@
  * Located in streaming domain as it is the primary consumer of adapters.
  */
 
-import { ConstraintBuilder } from '../acquisition/constraint.builder.js';
-import { BaseStreamLifecycle } from '../acquisition/stream.lifecycle.js';
+import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint.builder.js';
+import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream.lifecycle.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 export class AdapterFactory {
-  constructor(eventBus, loggerFactory, mediaDevicesService = null) {
+  constructor(eventBus, loggerFactory, browserMediaService = null) {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
-    this.mediaDevicesService = mediaDevicesService;
+    this.browserMediaService = browserMediaService;
     this.logger = loggerFactory.create('AdapterFactory');
 
     // Common dependencies for all adapters
     this.commonDependencies = {
       eventBus: this.eventBus,
       constraintBuilder: new ConstraintBuilder(this.logger),
-      streamLifecycle: new BaseStreamLifecycle(this.logger, this.mediaDevicesService)
+      streamLifecycle: new BaseStreamLifecycle(this.logger, this.browserMediaService),
+      browserMediaService: this.browserMediaService
     };
 
     // Adapter and metadata registries (previously in AdapterFactory)

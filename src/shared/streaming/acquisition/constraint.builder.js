@@ -29,7 +29,9 @@ export class ConstraintBuilder extends IConstraintBuilder {
    */
   build(context, detailLevel = 'full', options = {}) {
     const videoDeviceConstraint = context.getDeviceConstraint();
-    const audioDeviceConstraint = context.getAudioDeviceConstraint();
+    const audioDeviceConstraint = options.audioDeviceId
+      ? { exact: options.audioDeviceId }
+      : context.getAudioDeviceConstraint();
     const profile = context.profile;
 
     const constraints = {
@@ -60,7 +62,12 @@ export class ConstraintBuilder extends IConstraintBuilder {
    */
   _buildAudio(audioConfig, deviceConstraint, detailLevel) {
     // Device targeting is ALWAYS included
-    const base = { deviceId: deviceConstraint };
+    // Handle groupId separately - it should be at top level, not nested under deviceId
+    // { deviceId: { groupId: xxx } } is INVALID per MediaTrackConstraints spec
+    // { groupId: xxx } or { groupId: { exact: xxx } } is the valid format
+    const base = deviceConstraint.groupId
+      ? { groupId: deviceConstraint.groupId }
+      : { deviceId: deviceConstraint };
 
     switch (detailLevel) {
       case 'minimal':

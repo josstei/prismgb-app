@@ -19,6 +19,8 @@ class StreamViewService extends BaseService {
       return;
     }
 
+    // Keep video element muted; audio is handled by Web Audio pipeline.
+    video.muted = true;
     video.srcObject = stream;
     this.logger.info('Stream assigned to video element');
   }
@@ -36,6 +38,16 @@ class StreamViewService extends BaseService {
       video.load();
       this.logger.info('Video element srcObject cleared and reset');
     }
+  }
+
+  setMuted(muted) {
+    const video = this.uiController.elements.streamVideo;
+    if (!video) {
+      this.logger.warn('Stream video element not found');
+      return;
+    }
+
+    video.muted = Boolean(muted);
   }
 }
 

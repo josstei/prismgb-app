@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseStreamLifecycle } from '@renderer/features/streaming/acquisition/stream.lifecycle.js';
+import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream.lifecycle.js';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;
