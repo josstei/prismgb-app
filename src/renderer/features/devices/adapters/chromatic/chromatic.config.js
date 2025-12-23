@@ -48,7 +48,8 @@ const AUDIO_FULL = Object.freeze({
   noiseSuppression: { exact: false },
   autoGainControl: { exact: false },
   channelCount: { ideal: 2 },
-  sampleRate: { ideal: 48000 },
+  // Note: sampleRate omitted to let browser auto-detect device's native rate
+  // Specifying a rate can cause pitch/speed issues if device outputs differently
   sampleSize: { ideal: 16 }
 });
 

@@ -1,10 +1,10 @@
+#version 300 es
 /**
  * Pass 2: Unsharp Mask Fragment Shader (WebGL2 - GLSL ES 3.0)
  *
  * Edge-aware sharpening that respects pixel boundaries.
  */
 
-#version 300 es
 precision highp float;
 
 // Uniforms

@@ -1,10 +1,10 @@
+#version 300 es
 /**
  * Pass 3: Color Elevation Fragment Shader (WebGL2 - GLSL ES 3.0)
  *
  * Enhances colors for modern HD displays while maintaining GBC authenticity.
  */
 
-#version 300 es
 precision highp float;
 
 // Uniforms

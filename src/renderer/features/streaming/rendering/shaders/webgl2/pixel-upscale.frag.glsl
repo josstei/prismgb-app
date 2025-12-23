@@ -1,10 +1,10 @@
+#version 300 es
 /**
  * Pass 1: Pixel-Exact Upscale Fragment Shader (WebGL2 - GLSL ES 3.0)
  *
  * Performs integer scaling with texel-center locking for pixel-perfect rendering.
  */
 
-#version 300 es
 precision highp float;
 
 // Uniforms
@@ -31,6 +31,9 @@ void main() {
 
   // Convert to normalized UV coordinates
   vec2 uv = texelCenter / uSourceSize;
+
+  // Flip Y: video frames have Y=0 at top, but gl_FragCoord.y=0 at bottom
+  uv.y = 1.0 - uv.y;
 
   // Sample with nearest-neighbor (texture should be configured with GL_NEAREST)
   fragColor = texture(uSourceTex, uv);

@@ -1,3 +1,4 @@
+#version 300 es
 /**
  * Common Vertex Shader (WebGL2 - GLSL ES 3.0)
  *
@@ -5,7 +6,6 @@
  * Renders a full-screen triangle (more efficient than quad).
  */
 
-#version 300 es
 precision highp float;
 
 // Output to fragment shader

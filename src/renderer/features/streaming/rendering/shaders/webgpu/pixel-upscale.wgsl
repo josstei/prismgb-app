@@ -81,7 +81,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4<f32> {
   let texelCenter = sourceTexel + vec2<f32>(0.5, 0.5);
 
   // Convert to normalized UV coordinates
-  let uv = texelCenter / uniforms.sourceSize;
+  var uv = texelCenter / uniforms.sourceSize;
+
+  // Flip Y: video frames have Y=0 at top, but position.y=0 at bottom
+  uv.y = 1.0 - uv.y;
 
   // Sample with nearest-neighbor (sampler configured with nearest filtering)
   return textureSample(sourceTex, nearestSampler, uv);

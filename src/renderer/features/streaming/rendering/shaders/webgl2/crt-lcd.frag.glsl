@@ -1,10 +1,10 @@
+#version 300 es
 /**
  * Pass 4: CRT/LCD Simulation Fragment Shader (WebGL2 - GLSL ES 3.0)
  *
  * Optional retro display effects: scanlines, pixel mask, bloom, curvature, vignette.
  */
 
-#version 300 es
 precision highp float;
 
 // Mathematical constant
