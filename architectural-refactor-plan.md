@@ -54,13 +54,24 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 - src/main/container.js
 
 ## Data model / API changes
-- New shared modules:
-  - @shared/features/devices/profiles/chromatic.profile.js (move from renderer)
-  - @shared/streaming/acquisition/* (move from renderer to break device/streaming cycle)
-- New services:
-  - GpuRecordingService (or RecordingPipelineService)
-  - PerformanceStateService
-  - AnimationPerformanceService
+- New shared modules (Phase 1 - ✅ COMPLETED):
+  - @shared/features/devices/profiles/chromatic/chromatic.profile.js (moved from renderer)
+  - @shared/features/devices/profiles/chromatic/chromatic.config.js (moved from renderer)
+  - @shared/streaming/acquisition/* (moved from renderer to break device/streaming cycle):
+    - constraint.builder.js, acquisition.context.js, acquisition.coordinator.js
+    - fallback.strategy.js, stream.lifecycle.js, interfaces.js
+- New infrastructure adapters (Phase 2 - ✅ COMPLETED):
+  - src/renderer/infrastructure/adapters/visibility.adapter.js - wraps Page Visibility API
+  - src/renderer/infrastructure/adapters/user-activity.adapter.js - wraps user activity events
+  - src/renderer/infrastructure/adapters/reduced-motion.adapter.js - wraps prefers-reduced-motion
+  - src/renderer/application/adapters/metrics.adapter.js - wraps preload metricsAPI
+- New UI managers (Phase 2 - ✅ COMPLETED):
+  - src/renderer/ui/effects/body-class.manager.js - owns body CSS class mutations
+- New services (Phase 2 - ✅ COMPLETED):
+  - GpuRecordingService - owns GPU recording pipeline, scaling, RAF loop, dropped-frame policy
+  - PerformanceStateService - owns idle/visibility/motion/weak-GPU state logic
+  - AnimationPerformanceService - computes animation suppression state (stateless, pure computation)
+- Pending services:
   - Optional: CinematicModeService (if gating grows)
 - New main-process bridges:
   - DeviceBridgeService
@@ -97,17 +108,43 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
     - Updated all references: container.js, adapter.factory.js, device-media.service.js, chromatic.adapter.js
     - Clear distinction from `DeviceMediaService` (feature) vs `BrowserMediaService` (infrastructure)
 
-### Phase 2 (High priority architecture boundaries)
-[ ] Extract GPU recording pipeline from `CaptureOrchestrator` into `GpuRecordingService` with API: `start(stream, capabilities)`, `stop()`, `isActive()`, `captureFrame()`.
-[ ] Extract idle/visibility/motion/weak-GPU logic from `PerformanceStateOrchestrator` into `PerformanceStateService` with API: `initialize()`, `dispose()`, `getState()`.
-[ ] Extract animation suppression and DOM class toggling from `AnimationPerformanceOrchestrator` into `AnimationPerformanceService` with API: `setState({ streaming, performanceState })`.
+### Phase 2 (High priority architecture boundaries) ✅ COMPLETED
+[x] Extract GPU recording pipeline from `CaptureOrchestrator` into `GpuRecordingService` with API: `start(stream, capabilities)`, `stop()`, `isActive()`, `captureFrame()`.
+    - GpuRecordingService owns GPU recording pipeline, scaling math, RAF loop, dropped-frame policy
+    - Added public `captureFrame()` method that delegates to gpuRendererService
+    - CaptureOrchestrator is now thin coordinator that delegates all GPU recording to service
+[x] Extract idle/visibility/motion/weak-GPU logic from `PerformanceStateOrchestrator` into `PerformanceStateService` with API: `initialize()`, `dispose()`, `getState()`.
+    - Service owns all state tracking logic (visibility, idle timers, reduced motion, weak GPU detection)
+    - PerformanceStateOrchestrator now only coordinates events and delegates to service
+[x] Extract animation suppression and DOM class toggling from `AnimationPerformanceOrchestrator` into `AnimationPerformanceService` with API: `setState({ streaming, performanceState })`.
+    - Unified API to single `setState()` method (combined from two separate methods)
+    - Service computes animation suppression state (3 reasons: reducedMotion, weakGPU, performanceMode)
+    - AnimationPerformanceOrchestrator coordinates service + BodyClassManager
+[x] Move DOM/visibility listeners out of `PerformanceStateService` into a UI/infrastructure adapter so the performance service stays state-only and testable.
+    - Created `VisibilityAdapter` - wraps Page Visibility API (document.hidden, visibilitychange)
+    - Created `UserActivityAdapter` - wraps user activity events (pointermove, keydown, wheel, touchstart)
+    - Created `ReducedMotionAdapter` - wraps prefers-reduced-motion media query
+    - PerformanceStateService now uses injected adapters, zero direct DOM access
+[x] Move body class toggling out of `AnimationPerformanceService` into UI effects/controller (or a `BodyClassManager`) to avoid DOM mutation in application services.
+    - Created `BodyClassManager` at `src/renderer/ui/effects/body-class.manager.js`
+    - Manager owns CSS class constants and all document.body.classList mutations
+    - AnimationPerformanceService is now pure computation (no DOM access)
+[x] Replace direct `globalThis.metricsAPI` usage in `PerformanceMetricsService` with an injected metrics client (preload adapter) for clean boundaries.
+    - Created `MetricsAdapter` at `src/renderer/application/adapters/metrics.adapter.js`
+    - Wraps preload-exposed metricsAPI with isAvailable() and getProcessMetrics() methods
+    - PerformanceMetricsService now uses injected adapter
+[x] Remove UI status messaging from `GpuRecordingService`; emit a capture-level warning event that UI translates into status text.
+    - Added `CAPTURE.RECORDING_DEGRADED` event channel
+    - GpuRecordingService emits domain event instead of UI.STATUS_MESSAGE
+    - Proper separation: service emits capture-level events, UI layer handles display
+
+### Phase 2 - Remaining Items (deferred to Phase 3+)
 [ ] Split `RenderPipelineService` into an orchestrator + focused services and decouple it from `uiController` via a view adapter (`StreamViewService`/`StreamElementsProvider`).
 [ ] Main process: split `src/main/MainAppOrchestrator.js` into orchestrator + services (Window, Tray, DeviceBridge, UpdateBridge), keeping OS API wrappers in services.
 [ ] Main process: move device auto-launch (window show) out of `DeviceServiceMain` into `DeviceLifecycleCoordinator`.
 [ ] Split shell/external link handling into a dedicated preload API (avoid bundling `openExternal` under `deviceAPI`) and route UI through that API/service.
 [ ] Make UI bridges pure translators: remove DOM/class toggling or file downloads from UI bridges and move to UIController/UIEffects or dedicated UI services.
 [ ] Replace hard-coded UI event names with `EventChannels` constants for all UI bridges.
-[ ] Remove UI status messaging from `GpuRecordingService`; emit a capture-level warning event that UI translates into status text.
 [ ] Remove UI-specific button feedback payloads (element keys/CSS class names) from `CaptureOrchestrator`; let UI effects/bridges own the visuals.
 [ ] Move IPC listener wiring out of `DeviceOrchestrator` into a device IPC service/adapter so orchestration stays thin.
 [ ] Relocate renderer-only shared modules out of `src/shared` (DOM selectors, CSS class constants, UI timing constants, file download helper, DOM listener manager) into renderer UI/infrastructure.
@@ -115,9 +152,6 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 [ ] Align media device abstraction usage: `BaseStreamLifecycle` should use injected `BrowserMediaService` instead of `navigator.mediaDevices` directly (or stop injecting unused dependencies).
 [ ] Fix cinematic mode flow: UI components should call `DisplayModeOrchestrator`/`CinematicModeService` or publish a settings-level event; avoid UI-level events as the source of truth so AppState stays correct.
 [ ] Remove UI-pacing logic from `UpdateService` (rAF/setTimeout) and relocate to UI layer (UpdateSection or Update UI service).
-[ ] Move DOM/visibility listeners out of `PerformanceStateService` into a UI/infrastructure adapter so the performance service stays state-only and testable.
-[ ] Move body class toggling out of `AnimationPerformanceService` into UI effects/controller (or a `BodyClassManager`) to avoid DOM mutation in application services.
-[ ] Replace direct `globalThis.metricsAPI` usage in `PerformanceMetricsService` with an injected metrics client (preload adapter) for clean boundaries.
 [ ] Implement `UIComponentRegistry` at composition root: feature modules register their UI components by key during bootstrap; `UIComponentFactory` resolves by key instead of direct imports.
 
 ### Phase 3 (Medium priority consistency and error handling)
@@ -169,9 +203,9 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 - ~~Circular dependency exists between devices and streaming (`chromatic.adapter.js` <-> `adapter.factory.js`).~~ ✅ RESOLVED: Moved acquisition primitives to `@shared/streaming/acquisition/`
 - ~~`DeviceConnectionService`, `DeviceStorageService`, and `MediaDeviceService` do not extend `BaseService`.~~ ✅ RESOLVED: All now extend BaseService; MediaDeviceService renamed to DeviceMediaService
 - ~~`DeviceService` uses optional deps (`storageService`, `mediaDevicesService`) without DI declaration and manually instantiates sub-services.~~ ✅ RESOLVED: Sub-services registered in container.js and injected via DI
-- CaptureOrchestrator is monolithic: owns GPU recording pipeline, scaling math, RAF loop, dropped-frame policy -> should move to a service. (Valid)
-- PerformanceStateOrchestrator is logic-heavy: visibility, idle timers, reduced-motion tracking, weak-GPU detection -> should move to a service. (Valid)
-- AnimationPerformanceOrchestrator mixes policy + DOM side effects -> split into a service. (Valid, included)
+- ~~CaptureOrchestrator is monolithic: owns GPU recording pipeline, scaling math, RAF loop, dropped-frame policy -> should move to a service.~~ ✅ RESOLVED: GpuRecordingService now owns all GPU recording logic
+- ~~PerformanceStateOrchestrator is logic-heavy: visibility, idle timers, reduced-motion tracking, weak-GPU detection -> should move to a service.~~ ✅ RESOLVED: PerformanceStateService owns state logic; adapters handle DOM
+- ~~AnimationPerformanceOrchestrator mixes policy + DOM side effects -> split into a service.~~ ✅ RESOLVED: AnimationPerformanceService computes state; BodyClassManager handles DOM
 - src/main/MainAppOrchestrator.js and src/renderer/RendererAppOrchestrator.js function as orchestrators/bootstraps -> rename for clarity. (Valid, included)
 - src/main/features/devices/device.service.main.js and src/main/features/updates/update.service.main.js function as service-level orchestration -> split or clarify roles. (Valid, included)
 - UI event bridge is effectively a UI translation layer -> ensure narrow responsibilities and bridge naming. (Valid, included)
@@ -188,10 +222,10 @@ Implement the refactor to enforce thin orchestrators, scoped services, and expli
 - `UpdateService` contains UI rendering delays; UI pacing should live in UI layer, not the update service (Valid).
 - `RenderPipelineService` and `CanvasLifecycleService` depend on `uiController` and touch DOM elements; they should consume a view adapter and avoid mutating UI controller internals (Valid).
 - `CanvasLifecycleService` writes to `uiController.elements.streamCanvas`, which crosses layer boundaries and bypasses the UI facade (Valid).
-- `GpuRecordingService` emits `EventChannels.UI.STATUS_MESSAGE`, mixing capture pipeline concerns with UI messaging (Valid).
+- ~~`GpuRecordingService` emits `EventChannels.UI.STATUS_MESSAGE`, mixing capture pipeline concerns with UI messaging.~~ ✅ RESOLVED: Now emits `CAPTURE.RECORDING_DEGRADED` domain event
 - `CaptureOrchestrator` publishes UI-specific feedback payloads (element keys, CSS classes), coupling orchestration to UI details (Valid).
-- `PerformanceMetricsService` reads `globalThis.metricsAPI` directly instead of using an injected metrics client, which hides dependencies and reduces testability (Valid).
-- `PerformanceStateService` and `AnimationPerformanceService` attach DOM listeners or toggle body classes directly -> move to UI/infrastructure adapters. (Valid, included)
+- ~~`PerformanceMetricsService` reads `globalThis.metricsAPI` directly instead of using an injected metrics client, which hides dependencies and reduces testability.~~ ✅ RESOLVED: Now uses injected MetricsAdapter
+- ~~`PerformanceStateService` and `AnimationPerformanceService` attach DOM listeners or toggle body classes directly -> move to UI/infrastructure adapters.~~ ✅ RESOLVED: PerformanceStateService uses adapters; AnimationPerformanceService is pure computation; BodyClassManager handles DOM
 - `RenderPipelineService` is 380 lines and mixes orchestration with rendering decisions; split into a coordinator + service(s). (Valid)
 - `UIComponentFactory` imports feature UI components directly -> implement registry pattern. (Valid, included)
 - `AudioWarmupService` swallows `AudioContext.close()` errors without logging. (Valid)
