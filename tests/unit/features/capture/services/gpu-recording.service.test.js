@@ -155,10 +155,19 @@ describe('GpuRecordingService', () => {
       await rafCallback();
     }
 
-    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
-      message: 'Recording quality may be degraded - frames being dropped',
-      type: 'warning'
+    expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-degraded', {
+      droppedFrames: 30
     });
+  });
+
+  it('should expose captureFrame method that delegates to gpuRendererService', async () => {
+    const mockFrame = { width: 640, height: 576, close: vi.fn() };
+    mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
+
+    const result = await service.captureFrame();
+
+    expect(mockGpuRendererService.captureFrame).toHaveBeenCalled();
+    expect(result).toBe(mockFrame);
   });
 
   it('should stop recording and clean up resources', async () => {

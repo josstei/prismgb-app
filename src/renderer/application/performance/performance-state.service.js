@@ -17,19 +17,22 @@ const DEFAULT_STATE = Object.freeze({
 
 class PerformanceStateService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'PerformanceStateService');
+    super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
+
+    this._visibilityAdapter = dependencies.visibilityAdapter;
+    this._userActivityAdapter = dependencies.userActivityAdapter;
+    this._reducedMotionAdapter = dependencies.reducedMotionAdapter;
 
     this._state = { ...DEFAULT_STATE };
     this._isStreaming = false;
 
     this._idleTimeoutId = null;
     this._idleDelayMs = 30000;
-    this._idleActivityEvents = ['pointermove', 'keydown', 'wheel', 'touchstart'];
     this._lastIdleReset = 0;
-    this._motionPreferenceCleanup = null;
     this._onStateChange = null;
-    this._handleVisibilityChange = null;
-    this._handleUserActivity = null;
+    this._visibilityCleanup = null;
+    this._activityCleanup = null;
+    this._motionCleanup = null;
   }
 
   initialize({ onStateChange } = {}) {
@@ -43,19 +46,17 @@ class PerformanceStateService extends BaseService {
 
   dispose() {
     this._clearIdleTimer();
-    if (this._handleVisibilityChange) {
-      document.removeEventListener('visibilitychange', this._handleVisibilityChange);
-      this._handleVisibilityChange = null;
+    if (this._visibilityCleanup) {
+      this._visibilityCleanup();
+      this._visibilityCleanup = null;
     }
-    if (this._handleUserActivity) {
-      this._idleActivityEvents.forEach((event) => {
-        document.removeEventListener(event, this._handleUserActivity, { passive: true });
-      });
-      this._handleUserActivity = null;
+    if (this._activityCleanup) {
+      this._activityCleanup();
+      this._activityCleanup = null;
     }
-    if (this._motionPreferenceCleanup) {
-      this._motionPreferenceCleanup();
-      this._motionPreferenceCleanup = null;
+    if (this._motionCleanup) {
+      this._motionCleanup();
+      this._motionCleanup = null;
     }
   }
 
@@ -85,8 +86,8 @@ class PerformanceStateService extends BaseService {
   }
 
   _setupVisibilityHandling() {
-    this._handleVisibilityChange = () => {
-      const hidden = Boolean(document.hidden);
+    // Subscribe to visibility changes
+    this._visibilityCleanup = this._visibilityAdapter.onVisibilityChange((hidden) => {
       const changed = this._updateState({ hidden });
       if (hidden) {
         this._updateState({ idle: false });
@@ -94,35 +95,27 @@ class PerformanceStateService extends BaseService {
       if (changed) {
         this._syncIdleTimer();
       }
-    };
+    });
 
-    document.addEventListener('visibilitychange', this._handleVisibilityChange);
-    this._handleVisibilityChange();
+    // Initialize with current visibility state
+    const currentlyHidden = this._visibilityAdapter.isHidden();
+    this._updateState({ hidden: currentlyHidden });
   }
 
   _setupReducedMotionHandling() {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
+    // Subscribe to reduced motion preference changes
+    this._motionCleanup = this._reducedMotionAdapter.onChange((reducedMotion) => {
+      this._updateState({ reducedMotion });
+    });
 
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const handleChange = (event) => {
-      this._updateState({ reducedMotion: Boolean(event.matches) });
-    };
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', handleChange);
-      this._motionPreferenceCleanup = () => mediaQuery.removeEventListener('change', handleChange);
-    } else if (typeof mediaQuery.addListener === 'function') {
-      mediaQuery.addListener(handleChange);
-      this._motionPreferenceCleanup = () => mediaQuery.removeListener(handleChange);
-    }
-
-    this._updateState({ reducedMotion: Boolean(mediaQuery.matches) });
+    // Initialize with current preference
+    const currentlyReducedMotion = this._reducedMotionAdapter.prefersReducedMotion();
+    this._updateState({ reducedMotion: currentlyReducedMotion });
   }
 
   _setupIdleHandling() {
-    this._handleUserActivity = () => {
+    // Subscribe to user activity events
+    this._activityCleanup = this._userActivityAdapter.onActivity(() => {
       if (!this._shouldTrackIdle()) {
         return;
       }
@@ -133,10 +126,6 @@ class PerformanceStateService extends BaseService {
       }
 
       this._resetIdleTimer();
-    };
-
-    this._idleActivityEvents.forEach((event) => {
-      document.addEventListener(event, this._handleUserActivity, { passive: true });
     });
   }
 

@@ -1,23 +1,16 @@
 /**
  * Animation Performance Service
  *
- * Owns decorative animation suppression and DOM class updates.
+ * Computes animation suppression and application state.
+ * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
 import { BaseService } from '@shared/base/service.js';
-
-const APP_CSS_CLASSES = Object.freeze({
-  STREAMING: 'app-streaming',
-  IDLE: 'app-idle',
-  HIDDEN: 'app-hidden',
-  ANIMATIONS_OFF: 'app-animations-off'
-});
 
 class AnimationPerformanceService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['loggerFactory'], 'AnimationPerformanceService');
 
-    this._isStreaming = false;
     this._animationSuppression = {
       reducedMotion: false,
       weakGPU: false,
@@ -25,54 +18,69 @@ class AnimationPerformanceService extends BaseService {
     };
   }
 
-  updatePerformanceState(state) {
-    if (!state) {
-      return;
+  /**
+   * Update state based on streaming and performance state
+   * @param {Object} params
+   * @param {boolean} [params.streaming] - Whether streaming is active
+   * @param {Object} [params.performanceState] - Performance state object
+   * @returns {Object} State to apply to body classes: { streaming, idle, hidden, animationsOff }
+   */
+  setState({ streaming, performanceState }) {
+    const result = {
+      streaming: false,
+      idle: false,
+      hidden: false,
+      animationsOff: false
+    };
+
+    // Handle streaming state
+    if (streaming !== undefined) {
+      result.streaming = Boolean(streaming);
+      if (result.streaming) {
+        this.logger.debug('Streaming started - pausing decorative animations');
+      } else {
+        this.logger.debug('Streaming stopped - starting idle timer');
+      }
     }
 
-    const performanceEnabled = Boolean(state.performanceModeEnabled);
-    const weakGpuDetected = Boolean(state.weakGpuDetected);
-    const reducedMotion = Boolean(state.reducedMotion);
+    // Handle performance state
+    if (performanceState) {
+      const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
+      const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
+      const reducedMotion = Boolean(performanceState.reducedMotion);
 
-    this._setAnimationsSuppressed('performanceMode', performanceEnabled);
-    this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
-    this._setAnimationsSuppressed('reducedMotion', reducedMotion);
+      this._setAnimationsSuppressed('performanceMode', performanceEnabled);
+      this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
+      this._setAnimationsSuppressed('reducedMotion', reducedMotion);
 
-    document.body.classList.toggle(APP_CSS_CLASSES.HIDDEN, Boolean(state.hidden));
-    document.body.classList.toggle(APP_CSS_CLASSES.IDLE, Boolean(state.idle));
+      result.hidden = Boolean(performanceState.hidden);
+      result.idle = Boolean(performanceState.idle);
+      result.animationsOff = Object.values(this._animationSuppression).some(Boolean);
 
-    if (performanceEnabled) {
-      this.logger.info('Performance mode enabled - pausing decorative animations');
-    } else {
-      this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
+      if (performanceEnabled) {
+        this.logger.info('Performance mode enabled - pausing decorative animations');
+      } else {
+        this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
+      }
+
+      if (performanceEnabled && weakGpuDetected) {
+        this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
+      }
+
+      if (reducedMotion) {
+        this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
+      }
     }
 
-    if (performanceEnabled && weakGpuDetected) {
-      this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
-    }
-
-    if (reducedMotion) {
-      this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
-    }
+    return result;
   }
 
-  updateStreamingState(isStreaming) {
-    this._isStreaming = isStreaming;
-
-    if (isStreaming) {
-      document.body.classList.add(APP_CSS_CLASSES.STREAMING);
-      document.body.classList.remove(APP_CSS_CLASSES.IDLE);
-      this.logger.debug('Streaming started - pausing decorative animations');
-    } else {
-      document.body.classList.remove(APP_CSS_CLASSES.STREAMING);
-      this.logger.debug('Streaming stopped - starting idle timer');
-    }
-  }
-
+  /**
+   * Internal method to track animation suppression reasons
+   * @private
+   */
   _setAnimationsSuppressed(reason, suppressed) {
     this._animationSuppression[reason] = suppressed;
-    const shouldSuppress = Object.values(this._animationSuppression).some(Boolean);
-    document.body.classList.toggle(APP_CSS_CLASSES.ANIMATIONS_OFF, shouldSuppress);
   }
 }
 

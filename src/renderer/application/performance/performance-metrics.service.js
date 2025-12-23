@@ -8,8 +8,9 @@ import { BaseService } from '@shared/base/service.js';
 
 export class PerformanceMetricsService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'PerformanceMetricsService');
+    super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 
+    this.metricsAdapter = dependencies.metricsAdapter;
     this._pendingTimeouts = new Set();
     this._intervalId = null;
     this._timeoutId = null;
@@ -63,13 +64,12 @@ export class PerformanceMetricsService extends BaseService {
   }
 
   _logSnapshot(label) {
-    const metricsAPI = globalThis.metricsAPI;
-    if (!metricsAPI?.getProcessMetrics) {
+    if (!this.metricsAdapter.isAvailable()) {
       this.logger.debug(`[Perf] ${label} - process metrics unavailable`);
       return;
     }
 
-    metricsAPI.getProcessMetrics()
+    this.metricsAdapter.getProcessMetrics()
       .then((snapshot) => {
         if (!snapshot?.success) {
           this.logger.debug(`[Perf] ${label} - process metrics error`);

@@ -22,6 +22,7 @@ import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchest
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 import { UIEffects } from '@renderer/ui/effects/ui-effects.js';
+import { BodyClassManager } from '@renderer/ui/effects/body-class.manager.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event-bridge.js';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
@@ -69,6 +70,10 @@ import EventBus from '@infrastructure/events/event-bus.js';
 import { BrowserLogger } from '@infrastructure/logging/logger.js';
 import { StorageService } from '@infrastructure/browser/storage.service.js';
 import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';
+import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
+import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
+import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
+import { MetricsAdapter } from '@renderer/application/adapters/metrics.adapter.js';
 // Shared
 import { AnimationCache } from '@shared/utils/performance-cache.js';
 
@@ -104,6 +109,23 @@ function createRendererContainer() {
 
   container.registerSingleton('browserMediaService', function() {
     return new BrowserMediaService();
+  }, []);
+
+  // DOM Adapters - wrap browser APIs for testability
+  container.registerSingleton('visibilityAdapter', function() {
+    return new VisibilityAdapter();
+  }, []);
+
+  container.registerSingleton('userActivityAdapter', function() {
+    return new UserActivityAdapter();
+  }, []);
+
+  container.registerSingleton('reducedMotionAdapter', function() {
+    return new ReducedMotionAdapter();
+  }, []);
+
+  container.registerSingleton('metricsAdapter', function() {
+    return new MetricsAdapter();
   }, []);
 
   // Streaming infrastructure
@@ -366,6 +388,15 @@ function createRendererContainer() {
     []
   );
 
+  // Body Class Manager - manages body CSS classes for app state
+  container.registerSingleton(
+    'bodyClassManager',
+    function () {
+      return new BodyClassManager();
+    },
+    []
+  );
+
   // UI Event Bridge - bridges events to UIController
   // Initialized after uiController is registered
   container.registerSingleton(
@@ -515,31 +546,37 @@ function createRendererContainer() {
   // Animation Performance Orchestrator - CSS/idle/visibility controls
   container.registerSingleton(
     'animationPerformanceOrchestrator',
-    function (eventBus, loggerFactory, animationPerformanceService) {
+    function (eventBus, loggerFactory, animationPerformanceService, bodyClassManager) {
       return new AnimationPerformanceOrchestrator({
         eventBus,
         animationPerformanceService,
+        bodyClassManager,
         loggerFactory
       });
     },
-    ['eventBus', 'loggerFactory', 'animationPerformanceService']
+    ['eventBus', 'loggerFactory', 'animationPerformanceService', 'bodyClassManager']
   );
 
   // Performance Metrics Service - process metrics snapshots
   container.registerSingleton(
     'performanceMetricsService',
-    function (loggerFactory) {
-      return new PerformanceMetricsService({ loggerFactory });
+    function (loggerFactory, metricsAdapter) {
+      return new PerformanceMetricsService({ loggerFactory, metricsAdapter });
     },
-    ['loggerFactory']
+    ['loggerFactory', 'metricsAdapter']
   );
 
   container.registerSingleton(
     'performanceStateService',
-    function (loggerFactory) {
-      return new PerformanceStateService({ loggerFactory });
+    function (loggerFactory, visibilityAdapter, userActivityAdapter, reducedMotionAdapter) {
+      return new PerformanceStateService({
+        loggerFactory,
+        visibilityAdapter,
+        userActivityAdapter,
+        reducedMotionAdapter
+      });
     },
-    ['loggerFactory']
+    ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter']
   );
 
   container.registerSingleton(

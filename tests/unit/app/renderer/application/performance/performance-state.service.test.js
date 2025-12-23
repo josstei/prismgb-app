@@ -8,7 +8,13 @@ import { PerformanceStateService } from '@renderer/application/performance/perfo
 describe('PerformanceStateService', () => {
   let service;
   let mockLogger;
+  let mockVisibilityAdapter;
+  let mockUserActivityAdapter;
+  let mockReducedMotionAdapter;
   let states;
+  let visibilityCallback;
+  let activityCallback;
+  let motionCallback;
 
   beforeEach(() => {
     states = [];
@@ -19,20 +25,43 @@ describe('PerformanceStateService', () => {
       debug: vi.fn()
     };
 
-    global.window.matchMedia = vi.fn(() => ({
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
-    }));
+    // Mock VisibilityAdapter
+    visibilityCallback = null;
+    mockVisibilityAdapter = {
+      isHidden: vi.fn(() => false),
+      onVisibilityChange: vi.fn((callback) => {
+        visibilityCallback = callback;
+        return vi.fn();
+      }),
+      dispose: vi.fn()
+    };
 
-    Object.defineProperty(document, 'hidden', {
-      value: false,
-      writable: true,
-      configurable: true
-    });
+    // Mock UserActivityAdapter
+    activityCallback = null;
+    mockUserActivityAdapter = {
+      onActivity: vi.fn((callback) => {
+        activityCallback = callback;
+        return vi.fn();
+      }),
+      dispose: vi.fn()
+    };
+
+    // Mock ReducedMotionAdapter
+    motionCallback = null;
+    mockReducedMotionAdapter = {
+      prefersReducedMotion: vi.fn(() => false),
+      onChange: vi.fn((callback) => {
+        motionCallback = callback;
+        return vi.fn();
+      }),
+      dispose: vi.fn()
+    };
 
     service = new PerformanceStateService({
-      loggerFactory: { create: () => mockLogger }
+      loggerFactory: { create: () => mockLogger },
+      visibilityAdapter: mockVisibilityAdapter,
+      userActivityAdapter: mockUserActivityAdapter,
+      reducedMotionAdapter: mockReducedMotionAdapter
     });
   });
 
@@ -56,6 +85,44 @@ describe('PerformanceStateService', () => {
         reducedMotion: false
       })
     );
+  });
+
+  it('should initialize with current visibility state', () => {
+    mockVisibilityAdapter.isHidden.mockReturnValue(true);
+
+    service.initialize({
+      onStateChange: (state) => states.push(state)
+    });
+
+    expect(states[0].hidden).toBe(true);
+  });
+
+  it('should initialize with current reduced motion preference', () => {
+    mockReducedMotionAdapter.prefersReducedMotion.mockReturnValue(true);
+
+    service.initialize({
+      onStateChange: (state) => states.push(state)
+    });
+
+    expect(states[0].reducedMotion).toBe(true);
+  });
+
+  it('should subscribe to visibility changes on initialize', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    expect(mockVisibilityAdapter.onVisibilityChange).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('should subscribe to user activity on initialize', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    expect(mockUserActivityAdapter.onActivity).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('should subscribe to reduced motion changes on initialize', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    expect(mockReducedMotionAdapter.onChange).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it('should update performance mode state', () => {
@@ -87,9 +154,116 @@ describe('PerformanceStateService', () => {
   it('should update hidden state on visibility change', () => {
     service.initialize({ onStateChange: (state) => states.push(state) });
 
-    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
-    service._handleVisibilityChange();
+    // Simulate visibility change
+    visibilityCallback(true);
 
     expect(states[states.length - 1].hidden).toBe(true);
+  });
+
+  it('should clear idle state when document becomes hidden', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    service._updateState({ idle: true });
+    visibilityCallback(true);
+
+    expect(states[states.length - 1].idle).toBe(false);
+  });
+
+  it('should update reduced motion state when preference changes', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    // Simulate reduced motion preference change
+    motionCallback(true);
+
+    expect(states[states.length - 1].reducedMotion).toBe(true);
+  });
+
+  it('should reset idle timer on user activity', () => {
+    vi.useFakeTimers();
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    // Trigger idle timeout
+    vi.advanceTimersByTime(30000);
+    expect(states[states.length - 1].idle).toBe(true);
+
+    // Simulate user activity
+    activityCallback();
+
+    expect(states[states.length - 1].idle).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('should not track idle when streaming', () => {
+    vi.useFakeTimers();
+    service.initialize({ onStateChange: (state) => states.push(state) });
+    service.setStreaming(true);
+
+    // Try to trigger user activity
+    activityCallback();
+
+    // Fast-forward time
+    vi.advanceTimersByTime(30000);
+
+    // Should not become idle because streaming is active
+    expect(states[states.length - 1].idle).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('should not track idle when document is hidden', () => {
+    vi.useFakeTimers();
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    // Hide document
+    visibilityCallback(true);
+
+    // Try to trigger user activity
+    activityCallback();
+
+    // Fast-forward time
+    vi.advanceTimersByTime(30000);
+
+    // Should not become idle because document is hidden
+    expect(states[states.length - 1].idle).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('should call cleanup functions on dispose', () => {
+    const visibilityCleanup = vi.fn();
+    const activityCleanup = vi.fn();
+    const motionCleanup = vi.fn();
+
+    mockVisibilityAdapter.onVisibilityChange.mockReturnValue(visibilityCleanup);
+    mockUserActivityAdapter.onActivity.mockReturnValue(activityCleanup);
+    mockReducedMotionAdapter.onChange.mockReturnValue(motionCleanup);
+
+    service.initialize({ onStateChange: (state) => states.push(state) });
+    service.dispose();
+
+    expect(visibilityCleanup).toHaveBeenCalled();
+    expect(activityCleanup).toHaveBeenCalled();
+    expect(motionCleanup).toHaveBeenCalled();
+  });
+
+  it('should handle dispose without initialization', () => {
+    expect(() => service.dispose()).not.toThrow();
+  });
+
+  it('should return current state via getState', () => {
+    service.initialize({ onStateChange: (state) => states.push(state) });
+
+    const state = service.getState();
+
+    expect(state).toEqual(
+      expect.objectContaining({
+        performanceModeEnabled: false,
+        weakGpuDetected: false,
+        hidden: false,
+        idle: false,
+        reducedMotion: false
+      })
+    );
   });
 });

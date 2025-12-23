@@ -31,6 +31,10 @@ class GpuRecordingService extends BaseService {
     return this._recordingStream;
   }
 
+  captureFrame() {
+    return this.gpuRendererService.captureFrame();
+  }
+
   async start({ stream, frameRate }) {
     if (!stream) {
       this.logger.warn('Cannot start GPU recording - no stream provided');
@@ -141,9 +145,8 @@ class GpuRecordingService extends BaseService {
           this.logger.debug('Frame capture skipped:', e.message);
           this._recordingDroppedFrames++;
           if (this._recordingDroppedFrames >= 30) {
-            this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-              message: 'Recording quality may be degraded - frames being dropped',
-              type: 'warning'
+            this.eventBus.publish(EventChannels.CAPTURE.RECORDING_DEGRADED, {
+              droppedFrames: this._recordingDroppedFrames
             });
             this._recordingDroppedFrames = 0;
           }

@@ -1,7 +1,8 @@
 /**
  * Animation Performance Orchestrator
  *
- * Thin coordinator for animation suppression based on performance state.
+ * Coordinates animation suppression based on performance state.
+ * Routes computed state from service to BodyClassManager for DOM updates.
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
@@ -11,12 +12,14 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
   /**
    * @param {Object} dependencies
    * @param {EventBus} dependencies.eventBus
+   * @param {AnimationPerformanceService} dependencies.animationPerformanceService
+   * @param {BodyClassManager} dependencies.bodyClassManager
    * @param {Function} dependencies.loggerFactory
    */
   constructor(dependencies) {
     super(
       dependencies,
-      ['eventBus', 'animationPerformanceService', 'loggerFactory'],
+      ['eventBus', 'animationPerformanceService', 'bodyClassManager', 'loggerFactory'],
       'AnimationPerformanceOrchestrator'
     );
   }
@@ -29,15 +32,24 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
     });
   }
 
-  _handlePerformanceStateChanged(state) {
-    this.animationPerformanceService.updatePerformanceState(state);
+  _handlePerformanceStateChanged(performanceState) {
+    const state = this.animationPerformanceService.setState({ performanceState });
+    this._applyBodyClasses(state);
   }
 
   _handleStreamingStateChanged(isStreaming) {
-    this.animationPerformanceService.updateStreamingState(isStreaming);
+    const state = this.animationPerformanceService.setState({ streaming: isStreaming });
+    this._applyBodyClasses(state);
+  }
+
+  _applyBodyClasses(state) {
+    this.bodyClassManager.setStreaming(state.streaming);
+    this.bodyClassManager.setIdle(state.idle);
+    this.bodyClassManager.setHidden(state.hidden);
+    this.bodyClassManager.setAnimationsOff(state.animationsOff);
   }
 
   async onCleanup() {
-    // AnimationPerformanceService owns DOM mutations; nothing to cleanup here.
+    // BodyClassManager owns DOM mutations; nothing to cleanup here.
   }
 }

@@ -8,6 +8,7 @@ import { PerformanceMetricsService } from '@renderer/application/performance/per
 describe('PerformanceMetricsService', () => {
   let service;
   let mockLogger;
+  let mockMetricsAdapter;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -19,8 +20,14 @@ describe('PerformanceMetricsService', () => {
       error: vi.fn()
     };
 
+    mockMetricsAdapter = {
+      isAvailable: vi.fn(() => false),
+      getProcessMetrics: vi.fn()
+    };
+
     service = new PerformanceMetricsService({
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: { create: vi.fn(() => mockLogger) },
+      metricsAdapter: mockMetricsAdapter
     });
   });
 
@@ -28,7 +35,6 @@ describe('PerformanceMetricsService', () => {
     service.stopPeriodicSnapshots();
     service.clearPendingRequests();
     vi.useRealTimers();
-    delete globalThis.metricsAPI;
   });
 
   describe('constructor', () => {
@@ -202,41 +208,34 @@ describe('PerformanceMetricsService', () => {
     });
   });
 
-  describe('_logSnapshot with metricsAPI', () => {
-    it('should log unavailable when metricsAPI is missing', () => {
+  describe('_logSnapshot with metricsAdapter', () => {
+    it('should log unavailable when metricsAdapter is not available', () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(false);
+
       service._logSnapshot('test');
 
+      expect(mockMetricsAdapter.isAvailable).toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('unavailable')
       );
     });
 
-    it('should log unavailable when getProcessMetrics is missing', () => {
-      globalThis.metricsAPI = {};
-
-      service._logSnapshot('test');
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('unavailable')
-      );
-    });
-
-    it('should log metrics when API returns success', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockResolvedValue({
-          success: true,
-          totalMB: '150.5',
-          processes: [
-            { type: 'Renderer', memoryMB: '80.0' },
-            { type: 'GPU', memoryMB: '50.0' }
-          ]
-        })
-      };
+    it('should log metrics when adapter returns success', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        success: true,
+        totalMB: '150.5',
+        processes: [
+          { type: 'Renderer', memoryMB: '80.0' },
+          { type: 'GPU', memoryMB: '50.0' }
+        ]
+      });
 
       service._logSnapshot('test-label');
 
       await vi.runAllTimersAsync();
 
+      expect(mockMetricsAdapter.getProcessMetrics).toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('test-label')
       );
@@ -246,13 +245,12 @@ describe('PerformanceMetricsService', () => {
     });
 
     it('should handle missing renderer process', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockResolvedValue({
-          success: true,
-          totalMB: '50.0',
-          processes: [{ type: 'GPU', memoryMB: '50.0' }]
-        })
-      };
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        success: true,
+        totalMB: '50.0',
+        processes: [{ type: 'GPU', memoryMB: '50.0' }]
+      });
 
       service._logSnapshot('test');
 
@@ -264,13 +262,12 @@ describe('PerformanceMetricsService', () => {
     });
 
     it('should handle missing GPU process', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockResolvedValue({
-          success: true,
-          totalMB: '80.0',
-          processes: [{ type: 'Renderer', memoryMB: '80.0' }]
-        })
-      };
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        success: true,
+        totalMB: '80.0',
+        processes: [{ type: 'Renderer', memoryMB: '80.0' }]
+      });
 
       service._logSnapshot('test');
 
@@ -281,13 +278,12 @@ describe('PerformanceMetricsService', () => {
       );
     });
 
-    it('should log error when API returns failure', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockResolvedValue({
-          success: false,
-          error: 'Failed'
-        })
-      };
+    it('should log error when adapter returns failure', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        success: false,
+        error: 'Failed'
+      });
 
       service._logSnapshot('test');
 
@@ -298,10 +294,9 @@ describe('PerformanceMetricsService', () => {
       );
     });
 
-    it('should handle API promise rejection', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockRejectedValue(new Error('IPC error'))
-      };
+    it('should handle adapter promise rejection', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockRejectedValue(new Error('IPC error'));
 
       service._logSnapshot('test');
 
@@ -313,9 +308,8 @@ describe('PerformanceMetricsService', () => {
     });
 
     it('should handle null snapshot response', async () => {
-      globalThis.metricsAPI = {
-        getProcessMetrics: vi.fn().mockResolvedValue(null)
-      };
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue(null);
 
       service._logSnapshot('test');
 

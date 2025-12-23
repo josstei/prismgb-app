@@ -33,7 +33,8 @@ export const EventChannels = {
     RECORDING_STARTED: 'capture:recording-started',
     RECORDING_STOPPED: 'capture:recording-stopped',
     RECORDING_READY: 'capture:recording-ready',
-    RECORDING_ERROR: 'capture:recording-error'
+    RECORDING_ERROR: 'capture:recording-error',
+    RECORDING_DEGRADED: 'capture:recording-degraded'
   },
 
   // Settings events
