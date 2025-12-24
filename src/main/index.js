@@ -4,7 +4,7 @@
  */
 
 import { app, BrowserWindow, Menu } from 'electron';
-import MainAppOrchestrator from './MainAppOrchestrator.js';
+import MainAppOrchestrator from './main-app.orchestrator.js';
 
 const APP_NAME = 'PrismGB';
 

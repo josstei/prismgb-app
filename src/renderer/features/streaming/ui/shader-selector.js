@@ -95,9 +95,9 @@ class ShaderSelectorComponent {
     if (!this.brightnessControl) return;
 
     if (this._performanceModeEnabled) {
-      this.brightnessControl.classList.add('hidden');
+      this.brightnessControl.classList.add(CSSClasses.HIDDEN);
     } else {
-      this.brightnessControl.classList.remove('hidden');
+      this.brightnessControl.classList.remove(CSSClasses.HIDDEN);
     }
   }
 
@@ -159,13 +159,13 @@ class ShaderSelectorComponent {
         if (preset.id === 'performance') {
           option.classList.add(CSSClasses.ACTIVE);
         } else {
-          option.classList.add('hidden');
+          option.classList.add(CSSClasses.HIDDEN);
           return;
         }
       } else {
         // Normal mode - hide Performance preset, show user's selection
         if (preset.id === 'performance') {
-          option.classList.add('hidden');
+          option.classList.add(CSSClasses.HIDDEN);
           return;
         }
         if (preset.id === this.currentPresetId) {
@@ -212,12 +212,12 @@ class ShaderSelectorComponent {
 
     const options = this.dropdown.querySelectorAll('.shader-option');
     options.forEach(option => {
-      option.classList.remove('just-selected');
+      option.classList.remove(CSSClasses.JUST_SELECTED);
 
       if (option.dataset.presetId === this.currentPresetId) {
         option.classList.add(CSSClasses.ACTIVE);
         if (animate) {
-          option.classList.add('just-selected');
+          option.classList.add(CSSClasses.JUST_SELECTED);
         }
       } else {
         option.classList.remove(CSSClasses.ACTIVE);
@@ -273,7 +273,7 @@ class ShaderSelectorComponent {
     if (!this.dropdown) return;
 
     this.dropdown.classList.add(CSSClasses.VISIBLE);
-    this.button?.classList.add('panel-open');
+    this.button?.classList.add(CSSClasses.PANEL_OPEN);
     this.button?.setAttribute('aria-expanded', 'true');
     this.isVisible = true;
 
@@ -287,7 +287,7 @@ class ShaderSelectorComponent {
     if (!this.dropdown) return;
 
     this.dropdown.classList.remove(CSSClasses.VISIBLE);
-    this.button?.classList.remove('panel-open');
+    this.button?.classList.remove(CSSClasses.PANEL_OPEN);
     this.button?.setAttribute('aria-expanded', 'false');
     this.isVisible = false;
 
@@ -345,7 +345,7 @@ class ShaderSelectorComponent {
     const unsubscribe = this.eventBus.subscribe(
       EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
       ({ enabled }) => {
-        const isActive = this.cinematicToggle.classList.contains('active');
+        const isActive = this.cinematicToggle.classList.contains(CSSClasses.ACTIVE);
         if (isActive !== enabled) {
           this._updateCinematicPill(enabled);
         }
@@ -366,11 +366,11 @@ class ShaderSelectorComponent {
 
     const textElement = this.cinematicToggle.querySelector('.cinematic-pill-text');
     if (enabled) {
-      this.cinematicToggle.classList.add('active');
+      this.cinematicToggle.classList.add(CSSClasses.ACTIVE);
       this.cinematicToggle.setAttribute('aria-pressed', 'true');
       if (textElement) textElement.textContent = 'Cinematic On';
     } else {
-      this.cinematicToggle.classList.remove('active');
+      this.cinematicToggle.classList.remove(CSSClasses.ACTIVE);
       this.cinematicToggle.setAttribute('aria-pressed', 'false');
       if (textElement) textElement.textContent = 'Cinematic Off';
     }
@@ -579,7 +579,7 @@ class ShaderSelectorComponent {
    * @private
    */
   _showToolbar() {
-    this.toolbar?.classList.remove('faded');
+    this.toolbar?.classList.remove(CSSClasses.FADED);
   }
 
   /**
@@ -594,7 +594,7 @@ class ShaderSelectorComponent {
     this._mouseActivityTimeout = setTimeout(() => {
       // Don't fade if panel is open
       if (!this.isVisible) {
-        this.toolbar?.classList.add('faded');
+        this.toolbar?.classList.add(CSSClasses.FADED);
       }
     }, 10000); // 10 seconds
   }

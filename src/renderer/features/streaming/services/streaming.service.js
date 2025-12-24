@@ -191,8 +191,8 @@ export class StreamingService extends BaseService {
       this.logger.debug('Waiting for start to complete before stopping');
       try {
         await this._operationPromise;
-      } catch {
-        // Ignore start errors, we're stopping anyway
+      } catch (error) {
+        this.logger.warn('Start operation failed during stop, continuing with cleanup:', error.message);
       }
     }
 

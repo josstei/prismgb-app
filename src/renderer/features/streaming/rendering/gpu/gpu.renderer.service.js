@@ -731,6 +731,16 @@ export class GPURendererService extends BaseService {
       this._brightnessUnsubscribe = null;
     }
 
+    // Clear ready timeout if pending
+    if (this._readyTimeoutId !== null) {
+      clearTimeout(this._readyTimeoutId);
+      this._readyTimeoutId = null;
+    }
+
+    // Clear ready promise resolvers
+    this._readyResolve = null;
+    this._readyReject = null;
+
     // Reject any pending capture request before destroying worker
     this._resolvePendingCapture(null, new Error('GPU renderer cleanup'));
 

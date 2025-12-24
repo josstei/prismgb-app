@@ -145,7 +145,9 @@ export class AudioWarmupService extends BaseService {
     }
 
     if (this._audioContext) {
-      this._audioContext.close().catch(() => {});
+      this._audioContext.close().catch((error) => {
+        this.logger.warn('AudioContext close failed:', error.message);
+      });
       this._audioContext = null;
     }
 

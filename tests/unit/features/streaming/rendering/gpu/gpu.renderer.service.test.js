@@ -223,6 +223,27 @@ describe('GPURendererService', () => {
       expect(unsubscribeFn).toHaveBeenCalled();
       expect(service._brightnessUnsubscribe).toBeNull();
     });
+
+    it('should clear ready timeout if pending', () => {
+      vi.useFakeTimers();
+      service._readyTimeoutId = setTimeout(() => {}, 5000);
+      const timeoutId = service._readyTimeoutId;
+
+      service.cleanup();
+
+      expect(service._readyTimeoutId).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it('should clear ready promise resolvers', () => {
+      service._readyResolve = vi.fn();
+      service._readyReject = vi.fn();
+
+      service.cleanup();
+
+      expect(service._readyResolve).toBeNull();
+      expect(service._readyReject).toBeNull();
+    });
   });
 
   describe('isCanvasTransferred', () => {

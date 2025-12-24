@@ -74,7 +74,7 @@ vi.mock('path', () => ({
   dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
 }));
 
-import WindowManager from '@main/WindowManager.js';
+import WindowManager from '@main/window-manager.js';
 import { BrowserWindow, app } from 'electron';
 
 describe('WindowManager', () => {

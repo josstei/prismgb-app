@@ -13,7 +13,7 @@ import { CSSClasses } from '@shared/config/css-classes.js';
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
-import { createApplication } from './RendererAppOrchestrator.js';
+import { createApplication } from './renderer-app.orchestrator.js';
 
 // Global application instance
 let app = null;

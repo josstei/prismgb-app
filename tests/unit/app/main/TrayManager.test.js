@@ -31,7 +31,7 @@ vi.mock('path', () => ({
   }
 }));
 
-import TrayManager from '@main/TrayManager.js';
+import TrayManager from '@main/tray-manager.js';
 import { Tray, Menu, app } from 'electron';
 
 describe('TrayManager', () => {

@@ -428,6 +428,49 @@ describe('GpuRenderLoopService', () => {
     });
   });
 
+  describe('cleanup', () => {
+    it('should set active flag to false', () => {
+      service._active = true;
+
+      service.cleanup();
+
+      expect(service._active).toBe(false);
+    });
+
+    it('should clear RVFC handle', () => {
+      service._rvfcHandle = 42;
+
+      service.cleanup();
+
+      expect(service._rvfcHandle).toBeNull();
+    });
+
+    it('should reset all state', () => {
+      service._active = true;
+      service._rvfcHandle = 42;
+
+      service.cleanup();
+
+      expect(service._active).toBe(false);
+      expect(service._rvfcHandle).toBeNull();
+    });
+
+    it('should be safe to call multiple times', () => {
+      service._active = true;
+      service._rvfcHandle = 42;
+
+      service.cleanup();
+      service.cleanup();
+
+      expect(service._active).toBe(false);
+      expect(service._rvfcHandle).toBeNull();
+    });
+
+    it('should not throw when called with no active state', () => {
+      expect(() => service.cleanup()).not.toThrow();
+    });
+  });
+
   describe('integration scenarios', () => {
     it('should handle complete start-render-stop lifecycle', async () => {
       let capturedRenderLoop;

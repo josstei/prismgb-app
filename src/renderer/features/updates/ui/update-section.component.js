@@ -123,7 +123,7 @@ class UpdateSectionComponent {
       CSSClasses.UPDATE_DOWNLOADING,
       CSSClasses.UPDATE_DOWNLOADED,
       CSSClasses.UPDATE_ERROR,
-      'available'
+      CSSClasses.AVAILABLE
     );
 
     switch (state) {
@@ -131,7 +131,7 @@ class UpdateSectionComponent {
         indicator.classList.add(CSSClasses.UPDATE_CHECKING);
         break;
       case UpdateState.AVAILABLE:
-        indicator.classList.add('available');
+        indicator.classList.add(CSSClasses.AVAILABLE);
         break;
       case UpdateState.DOWNLOADING:
         indicator.classList.add(CSSClasses.UPDATE_DOWNLOADING);
@@ -149,28 +149,28 @@ class UpdateSectionComponent {
     const textEl = this.elements.statusText;
     if (!textEl) return;
 
-    textEl.classList.remove('highlight');
+    textEl.classList.remove(CSSClasses.HIGHLIGHT);
 
     switch (state) {
       case UpdateState.IDLE:
       case UpdateState.NOT_AVAILABLE:
         textEl.textContent = 'Up to date';
-        textEl.classList.add('flash-success');
-        this._scheduleTimeout(() => textEl.classList.remove('flash-success'), 1500);
+        textEl.classList.add(CSSClasses.FLASH_SUCCESS);
+        this._scheduleTimeout(() => textEl.classList.remove(CSSClasses.FLASH_SUCCESS), 1500);
         break;
       case UpdateState.CHECKING:
         textEl.textContent = 'Checking for updates...';
         break;
       case UpdateState.AVAILABLE:
         textEl.textContent = `v${updateInfo?.version} available`;
-        textEl.classList.add('highlight');
+        textEl.classList.add(CSSClasses.HIGHLIGHT);
         break;
       case UpdateState.DOWNLOADING:
         textEl.textContent = 'Downloading...';
         break;
       case UpdateState.DOWNLOADED:
         textEl.textContent = `v${updateInfo?.version} ready to install`;
-        textEl.classList.add('highlight');
+        textEl.classList.add(CSSClasses.HIGHLIGHT);
         break;
       case UpdateState.ERROR:
         textEl.textContent = 'Update failed';
@@ -193,7 +193,7 @@ class UpdateSectionComponent {
     if (!btn) return;
 
     btn.disabled = false;
-    btn.classList.remove('btn-install');
+    btn.classList.remove(CSSClasses.BTN_INSTALL);
 
     switch (state) {
       case UpdateState.IDLE:
@@ -214,7 +214,7 @@ class UpdateSectionComponent {
         break;
       case UpdateState.DOWNLOADED:
         btn.textContent = 'Install & Restart';
-        btn.classList.add('btn-install');
+        btn.classList.add(CSSClasses.BTN_INSTALL);
         break;
     }
   }

@@ -76,7 +76,7 @@ vi.mock('@renderer/container.js', () => ({
   asValue: vi.fn((val) => ({ __asValue: true, value: val }))
 }));
 
-const { RendererAppOrchestrator } = await import('@renderer/RendererAppOrchestrator.js');
+const { RendererAppOrchestrator } = await import('@renderer/renderer-app.orchestrator.js');
 
 describe('RendererAppOrchestrator', () => {
   let app;

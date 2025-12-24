@@ -175,7 +175,8 @@ class DeviceServiceMain extends EventEmitter {
               resolve(devices || []);
             }
           });
-        } catch {
+        } catch (error) {
+          this.logger.warn('find() async attempt failed, trying synchronous version:', error.message);
           // Synchronous version
           try {
             const result = usbDetection.find();

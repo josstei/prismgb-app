@@ -37,9 +37,9 @@ async function createAppContainer(loggerFactory) {
   // Manual registration for ESM compatibility (Awilix loadModules uses require)
 
   // Services
-  const { default: WindowManager } = await import('./WindowManager.js');
-  const { default: TrayManager } = await import('./TrayManager.js');
-  const { default: IpcHandlers } = await import('./IpcHandlers.js');
+  const { default: WindowManager } = await import('./window-manager.js');
+  const { default: TrayManager } = await import('./tray-manager.js');
+  const { default: IpcHandlers } = await import('./ipc-handlers.js');
 
   container.register({
     windowManager: asClass(WindowManager).singleton(),

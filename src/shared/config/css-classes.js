@@ -48,5 +48,14 @@ export const CSSClasses = {
   UPDATE_CHECKING: 'checking',
   UPDATE_DOWNLOADING: 'downloading',
   UPDATE_DOWNLOADED: 'downloaded',
-  UPDATE_ERROR: 'error'
+  UPDATE_ERROR: 'error',
+  AVAILABLE: 'available',
+  HIGHLIGHT: 'highlight',
+  FLASH_SUCCESS: 'flash-success',
+  BTN_INSTALL: 'btn-install',
+
+  // Shader selector states
+  PANEL_OPEN: 'panel-open',
+  JUST_SELECTED: 'just-selected',
+  FADED: 'faded'
 };

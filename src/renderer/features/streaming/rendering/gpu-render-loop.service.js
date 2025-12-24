@@ -47,6 +47,11 @@ class GpuRenderLoopService extends BaseService {
       this._rvfcHandle = null;
     }
   }
+
+  cleanup() {
+    this._active = false;
+    this._rvfcHandle = null;
+  }
 }
 
 export { GpuRenderLoopService };
