@@ -16,63 +16,73 @@ class AnimationPerformanceService extends BaseService {
       weakGPU: false,
       performanceMode: false
     };
+
+    this._isStreaming = false;
+    this._hidden = false;
+    this._idle = false;
   }
 
   /**
-   * Update state based on streaming and performance state
-   * @param {Object} params
-   * @param {boolean} [params.streaming] - Whether streaming is active
-   * @param {Object} [params.performanceState] - Performance state object
-   * @returns {Object} State to apply to body classes: { streaming, idle, hidden, animationsOff }
+   * Update streaming state
+   * @param {boolean} isStreaming - Whether streaming is active
+   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
    */
-  setState({ streaming, performanceState }) {
-    const result = {
-      streaming: false,
-      idle: false,
-      hidden: false,
-      animationsOff: false
+  setStreaming(isStreaming) {
+    this._isStreaming = Boolean(isStreaming);
+    if (this._isStreaming) {
+      this.logger.debug('Streaming started - pausing decorative animations');
+    } else {
+      this.logger.debug('Streaming stopped - starting idle timer');
+    }
+    return this._getState();
+  }
+
+  /**
+   * Update performance state
+   * @param {Object} performanceState - Performance state object
+   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
+   */
+  setPerformanceState(performanceState) {
+    const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
+    const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
+    const reducedMotion = Boolean(performanceState.reducedMotion);
+
+    this._setAnimationsSuppressed('performanceMode', performanceEnabled);
+    this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
+    this._setAnimationsSuppressed('reducedMotion', reducedMotion);
+
+    this._hidden = Boolean(performanceState.hidden);
+    this._idle = Boolean(performanceState.idle);
+
+    if (performanceEnabled) {
+      this.logger.info('Performance mode enabled - pausing decorative animations');
+    } else {
+      this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
+    }
+
+    if (performanceEnabled && weakGpuDetected) {
+      this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
+    }
+
+    if (reducedMotion) {
+      this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
+    }
+
+    return this._getState();
+  }
+
+  /**
+   * Get current computed state
+   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
+   * @private
+   */
+  _getState() {
+    return {
+      streaming: this._isStreaming,
+      idle: this._idle,
+      hidden: this._hidden,
+      animationsOff: Object.values(this._animationSuppression).some(Boolean)
     };
-
-    // Handle streaming state
-    if (streaming !== undefined) {
-      result.streaming = Boolean(streaming);
-      if (result.streaming) {
-        this.logger.debug('Streaming started - pausing decorative animations');
-      } else {
-        this.logger.debug('Streaming stopped - starting idle timer');
-      }
-    }
-
-    // Handle performance state
-    if (performanceState) {
-      const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
-      const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
-      const reducedMotion = Boolean(performanceState.reducedMotion);
-
-      this._setAnimationsSuppressed('performanceMode', performanceEnabled);
-      this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
-      this._setAnimationsSuppressed('reducedMotion', reducedMotion);
-
-      result.hidden = Boolean(performanceState.hidden);
-      result.idle = Boolean(performanceState.idle);
-      result.animationsOff = Object.values(this._animationSuppression).some(Boolean);
-
-      if (performanceEnabled) {
-        this.logger.info('Performance mode enabled - pausing decorative animations');
-      } else {
-        this.logger.info('Performance mode disabled - decorative animations allowed unless other suppressions active');
-      }
-
-      if (performanceEnabled && weakGpuDetected) {
-        this.logger.info('Weak GPU detected - pausing decorative animations to reduce load (performance mode enabled)');
-      }
-
-      if (reducedMotion) {
-        this.logger.debug('Prefers-reduced-motion detected - pausing decorative animations');
-      }
-    }
-
-    return result;
   }
 
   /**

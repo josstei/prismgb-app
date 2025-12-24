@@ -33,12 +33,12 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
   }
 
   _handlePerformanceStateChanged(performanceState) {
-    const state = this.animationPerformanceService.setState({ performanceState });
+    const state = this.animationPerformanceService.setPerformanceState(performanceState);
     this._applyBodyClasses(state);
   }
 
   _handleStreamingStateChanged(isStreaming) {
-    const state = this.animationPerformanceService.setState({ streaming: isStreaming });
+    const state = this.animationPerformanceService.setStreaming(isStreaming);
     this._applyBodyClasses(state);
   }
 

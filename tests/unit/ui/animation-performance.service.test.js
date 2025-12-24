@@ -22,32 +22,47 @@ describe('AnimationPerformanceService', () => {
     });
   });
 
-  describe('setState with streaming parameter', () => {
+  describe('setStreaming', () => {
     it('should return streaming=true when streaming is active', () => {
-      const result = service.setState({ streaming: true });
+      const result = service.setStreaming(true);
 
       expect(result.streaming).toBe(true);
       expect(mockLogger.debug).toHaveBeenCalledWith('Streaming started - pausing decorative animations');
     });
 
     it('should return streaming=false when streaming is inactive', () => {
-      const result = service.setState({ streaming: false });
+      const result = service.setStreaming(false);
 
       expect(result.streaming).toBe(false);
       expect(mockLogger.debug).toHaveBeenCalledWith('Streaming stopped - starting idle timer');
     });
+
+    it('should preserve animationsOff state from performance mode', () => {
+      // First enable performance mode
+      service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
+      });
+
+      // Then change streaming - animationsOff should still be true
+      const result = service.setStreaming(false);
+
+      expect(result.streaming).toBe(false);
+      expect(result.animationsOff).toBe(true);
+    });
   });
 
-  describe('setState with performanceState parameter', () => {
+  describe('setPerformanceState', () => {
     it('should return animationsOff=true when performance mode enabled', () => {
-      const result = service.setState({
-        performanceState: {
-          performanceModeEnabled: true,
-          weakGpuDetected: false,
-          reducedMotion: false,
-          hidden: false,
-          idle: false
-        }
+      const result = service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
       });
 
       expect(result.animationsOff).toBe(true);
@@ -57,14 +72,12 @@ describe('AnimationPerformanceService', () => {
     });
 
     it('should return hidden and idle states from performanceState', () => {
-      const result = service.setState({
-        performanceState: {
-          performanceModeEnabled: false,
-          weakGpuDetected: false,
-          reducedMotion: false,
-          hidden: true,
-          idle: true
-        }
+      const result = service.setPerformanceState({
+        performanceModeEnabled: false,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: true,
+        idle: true
       });
 
       expect(result.hidden).toBe(true);
@@ -73,14 +86,12 @@ describe('AnimationPerformanceService', () => {
     });
 
     it('should suppress animations when reducedMotion is true', () => {
-      const result = service.setState({
-        performanceState: {
-          performanceModeEnabled: false,
-          weakGpuDetected: false,
-          reducedMotion: true,
-          hidden: false,
-          idle: false
-        }
+      const result = service.setPerformanceState({
+        performanceModeEnabled: false,
+        weakGpuDetected: false,
+        reducedMotion: true,
+        hidden: false,
+        idle: false
       });
 
       expect(result.animationsOff).toBe(true);
@@ -88,14 +99,12 @@ describe('AnimationPerformanceService', () => {
     });
 
     it('should suppress animations when weakGPU detected with performance mode', () => {
-      const result = service.setState({
-        performanceState: {
-          performanceModeEnabled: true,
-          weakGpuDetected: true,
-          reducedMotion: false,
-          hidden: false,
-          idle: false
-        }
+      const result = service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: true,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
       });
 
       expect(result.animationsOff).toBe(true);
@@ -103,88 +112,106 @@ describe('AnimationPerformanceService', () => {
     });
 
     it('should not suppress for weakGPU alone without performance mode', () => {
-      const result = service.setState({
-        performanceState: {
-          performanceModeEnabled: false,
-          weakGpuDetected: true,
-          reducedMotion: false,
-          hidden: false,
-          idle: false
-        }
+      const result = service.setPerformanceState({
+        performanceModeEnabled: false,
+        weakGpuDetected: true,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
       });
 
       expect(result.animationsOff).toBe(false);
     });
-  });
 
-  describe('setState with combined parameters', () => {
-    it('should handle both streaming and performanceState together', () => {
-      const result = service.setState({
-        streaming: true,
-        performanceState: {
-          performanceModeEnabled: true,
-          weakGpuDetected: false,
-          reducedMotion: false,
-          hidden: true,
-          idle: false
-        }
+    it('should preserve streaming state when updating performance state', () => {
+      // First set streaming
+      service.setStreaming(true);
+
+      // Then update performance state - streaming should still be true
+      const result = service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
       });
 
       expect(result.streaming).toBe(true);
-      expect(result.hidden).toBe(true);
-      expect(result.idle).toBe(false);
       expect(result.animationsOff).toBe(true);
-    });
-  });
-
-  describe('setState with no parameters', () => {
-    it('should return default state when called with empty object', () => {
-      const result = service.setState({});
-
-      expect(result.streaming).toBe(false);
-      expect(result.idle).toBe(false);
-      expect(result.hidden).toBe(false);
-      expect(result.animationsOff).toBe(false);
     });
   });
 
   describe('animation suppression tracking', () => {
     it('should accumulate suppression reasons', () => {
       // First call: performance mode
-      let result = service.setState({
-        performanceState: {
-          performanceModeEnabled: true,
-          weakGpuDetected: false,
-          reducedMotion: false,
-          hidden: false,
-          idle: false
-        }
+      let result = service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
       });
       expect(result.animationsOff).toBe(true);
 
       // Second call: add reduced motion
-      result = service.setState({
-        performanceState: {
-          performanceModeEnabled: true,
-          weakGpuDetected: false,
-          reducedMotion: true,
-          hidden: false,
-          idle: false
-        }
+      result = service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: true,
+        hidden: false,
+        idle: false
       });
       expect(result.animationsOff).toBe(true);
 
       // Third call: remove performance mode but keep reduced motion
-      result = service.setState({
-        performanceState: {
-          performanceModeEnabled: false,
-          weakGpuDetected: false,
-          reducedMotion: true,
-          hidden: false,
-          idle: false
-        }
+      result = service.setPerformanceState({
+        performanceModeEnabled: false,
+        weakGpuDetected: false,
+        reducedMotion: true,
+        hidden: false,
+        idle: false
       });
       expect(result.animationsOff).toBe(true);
+    });
+  });
+
+  describe('state isolation between streaming and performance', () => {
+    it('should maintain independent state tracking', () => {
+      // Set performance mode
+      service.setPerformanceState({
+        performanceModeEnabled: true,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: true,
+        idle: true
+      });
+
+      // Set streaming
+      service.setStreaming(true);
+
+      // Stop streaming - should still have performance state
+      const result = service.setStreaming(false);
+
+      expect(result.streaming).toBe(false);
+      expect(result.hidden).toBe(true);
+      expect(result.idle).toBe(true);
+      expect(result.animationsOff).toBe(true);
+    });
+
+    it('should disable animationsOff when performance mode disabled and streaming changes', () => {
+      // Set performance mode off
+      service.setPerformanceState({
+        performanceModeEnabled: false,
+        weakGpuDetected: false,
+        reducedMotion: false,
+        hidden: false,
+        idle: false
+      });
+
+      // Change streaming - animationsOff should remain false
+      const result = service.setStreaming(true);
+
+      expect(result.animationsOff).toBe(false);
     });
   });
 });
