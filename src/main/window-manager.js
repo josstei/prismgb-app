@@ -214,12 +214,22 @@ class WindowManager {
   }
 
   /**
-   * Set fullscreen state using simple fullscreen (no animation)
+   * Set fullscreen state
+   * Uses simple fullscreen on macOS (no animation), native fullscreen on other platforms
    * @param {boolean} enabled - Whether to enter or exit fullscreen
    */
   setFullScreen(enabled) {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.setSimpleFullScreen(enabled);
+      if (process.platform === 'darwin') {
+        this.mainWindow.setSimpleFullScreen(enabled);
+        if (enabled) {
+          this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
+        } else {
+          this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
+        }
+      } else {
+        this.mainWindow.setFullScreen(enabled);
+      }
     }
   }
 
