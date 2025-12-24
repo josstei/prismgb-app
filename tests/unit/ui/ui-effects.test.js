@@ -403,6 +403,49 @@ describe('UIEffects', () => {
     });
   });
 
+  describe('setRecordingButtonState', () => {
+    it('should add recording class when isActive is true', () => {
+      const mockElement = { classList: { add: vi.fn(), remove: vi.fn() } };
+      effects.setRecordingButtonState(mockElement, true);
+
+      expect(mockElement.classList.add).toHaveBeenCalledWith(CSSClasses.RECORDING);
+    });
+
+    it('should remove recording class when isActive is false', () => {
+      const mockElement = { classList: { add: vi.fn(), remove: vi.fn() } };
+      effects.setRecordingButtonState(mockElement, false);
+
+      expect(mockElement.classList.remove).toHaveBeenCalledWith(CSSClasses.RECORDING);
+    });
+
+    it('should do nothing when element is null', () => {
+      expect(() => effects.setRecordingButtonState(null, true)).not.toThrow();
+    });
+
+    it('should do nothing when element is undefined', () => {
+      expect(() => effects.setRecordingButtonState(undefined, true)).not.toThrow();
+    });
+  });
+
+  describe('setCinematicMode', () => {
+    beforeEach(() => {
+      vi.spyOn(document.body.classList, 'add').mockImplementation(() => {});
+      vi.spyOn(document.body.classList, 'remove').mockImplementation(() => {});
+    });
+
+    it('should add cinematic-active class when isActive is true', () => {
+      effects.setCinematicMode(true);
+
+      expect(document.body.classList.add).toHaveBeenCalledWith(CSSClasses.CINEMATIC_ACTIVE);
+    });
+
+    it('should remove cinematic-active class when isActive is false', () => {
+      effects.setCinematicMode(false);
+
+      expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CINEMATIC_ACTIVE);
+    });
+  });
+
   describe('dispose', () => {
     it('should disable cursor auto-hide on dispose', () => {
       vi.useFakeTimers();

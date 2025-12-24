@@ -42,6 +42,8 @@ describe('UIEventBridge', () => {
       triggerButtonFeedback: vi.fn(),
       setCinematicMode: vi.fn(),
       updateFullscreenButton: vi.fn(),
+      updateRecordingButtonState: vi.fn(),
+      updateCinematicMode: vi.fn(),
       elements: {
         recordBtn: {
           classList: {
@@ -273,77 +275,63 @@ describe('UIEventBridge', () => {
     it('should handle ui:recording-state active event', () => {
       subscribedHandlers['ui:recording-state']({ active: true });
 
-      expect(mockUiController.elements.recordBtn.classList.add).toHaveBeenCalledWith('recording');
+      expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(true);
     });
 
     it('should handle ui:recording-state inactive event', () => {
       subscribedHandlers['ui:recording-state']({ active: false });
 
-      expect(mockUiController.elements.recordBtn.classList.remove).toHaveBeenCalledWith('recording');
+      expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(false);
     });
   });
 
   describe('Event Handlers - Cinematic Mode (Gated by Streaming)', () => {
-    let mockBodyClassList;
-
     beforeEach(() => {
       handler.initialize();
-
-      // Mock document.body.classList
-      mockBodyClassList = {
-        add: vi.fn(),
-        remove: vi.fn()
-      };
-      Object.defineProperty(document.body, 'classList', {
-        value: mockBodyClassList,
-        writable: true,
-        configurable: true
-      });
     });
 
-    it('should not apply cinematic CSS when enabled but not streaming', () => {
+    it('should not apply cinematic mode when enabled but not streaming', () => {
       subscribedHandlers['ui:cinematic-mode']({ enabled: true });
 
-      expect(mockBodyClassList.add).not.toHaveBeenCalled();
-      expect(mockBodyClassList.remove).toHaveBeenCalledWith('cinematic-active');
+      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
-    it('should apply cinematic CSS when enabled and streaming', () => {
+    it('should apply cinematic mode when enabled and streaming', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      mockBodyClassList.add.mockClear();
+      mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:cinematic-mode']({ enabled: true });
 
-      expect(mockBodyClassList.add).toHaveBeenCalledWith('cinematic-active');
+      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
     });
 
-    it('should remove cinematic CSS when streaming stops', () => {
+    it('should remove cinematic mode when streaming stops', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
       subscribedHandlers['ui:cinematic-mode']({ enabled: true });
-      mockBodyClassList.remove.mockClear();
+      mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:streaming-mode']({ enabled: false });
 
-      expect(mockBodyClassList.remove).toHaveBeenCalledWith('cinematic-active');
+      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
-    it('should apply cinematic CSS when streaming starts with cinematic already enabled', () => {
+    it('should apply cinematic mode when streaming starts with cinematic already enabled', () => {
       subscribedHandlers['ui:cinematic-mode']({ enabled: true });
-      mockBodyClassList.add.mockClear();
+      mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
 
-      expect(mockBodyClassList.add).toHaveBeenCalledWith('cinematic-active');
+      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
     });
 
-    it('should remove cinematic CSS when disabling cinematic mode while streaming', () => {
+    it('should remove cinematic mode when disabling cinematic mode while streaming', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
       subscribedHandlers['ui:cinematic-mode']({ enabled: true });
-      mockBodyClassList.remove.mockClear();
+      mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:cinematic-mode']({ enabled: false });
 
-      expect(mockBodyClassList.remove).toHaveBeenCalledWith('cinematic-active');
+      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
     it('should update internal cinematic state', () => {

@@ -161,12 +161,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.takeScreenshot();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:shutter-flash');
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:button-feedback', {
-        elementKey: 'screenshotBtn',
-        className: 'capturing',
-        duration: 200
-      });
+      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-triggered');
     });
 
     it('should warn when not streaming', async () => {

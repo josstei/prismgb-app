@@ -12,13 +12,12 @@ import { forEachDeviceWithModule } from '@shared/features/devices/device-iterato
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
 
-const { DEVICE_LAUNCH_DELAY, USB_SCAN_DELAY } = appConfig;
+const { USB_SCAN_DELAY } = appConfig;
 
 class DeviceServiceMain extends EventEmitter {
-  constructor({ windowManager, profileRegistry, loggerFactory }) {
+  constructor({ profileRegistry, loggerFactory }) {
     super();
     this.logger = loggerFactory.create('DeviceServiceMain');
-    this.windowManager = windowManager;
     this.profileRegistry = profileRegistry;
     this.isDeviceConnected = false;
     this.connectedDeviceInfo = null;
@@ -365,9 +364,6 @@ class DeviceServiceMain extends EventEmitter {
 
       // Emit connection changed event
       this.emit('connection-changed');
-
-      // Auto-launch window
-      this._launchWindow();
     } else {
       this.logger.info('Device ignored (not a configured device)');
     }
@@ -392,18 +388,6 @@ class DeviceServiceMain extends EventEmitter {
       // Emit connection changed event (MainAppOrchestrator handles IPC)
       this.emit('connection-changed');
     }
-  }
-
-  /**
-   * Auto-launch window after device connection
-   * Note: IPC notification is handled by MainAppOrchestrator via 'connection-changed' event
-   */
-  _launchWindow() {
-    setTimeout(() => {
-      if (this.windowManager) {
-        this.windowManager.showWindow();
-      }
-    }, DEVICE_LAUNCH_DELAY);
   }
 
   /**

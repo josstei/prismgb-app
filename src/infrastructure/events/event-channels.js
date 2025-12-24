@@ -29,6 +29,7 @@ export const EventChannels = {
 
   // Capture events
   CAPTURE: {
+    SCREENSHOT_TRIGGERED: 'capture:screenshot-triggered',
     SCREENSHOT_READY: 'capture:screenshot-ready',
     RECORDING_STARTED: 'capture:recording-started',
     RECORDING_STOPPED: 'capture:recording-stopped',

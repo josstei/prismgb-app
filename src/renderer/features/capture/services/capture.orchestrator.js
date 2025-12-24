@@ -12,7 +12,6 @@
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
-import { TIMING } from '@shared/config/constants.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 export class CaptureOrchestrator extends BaseOrchestrator {
@@ -62,11 +61,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     // Trigger immediate visual feedback via events
     this.eventBus.publish(EventChannels.UI.SHUTTER_FLASH);
-    this.eventBus.publish(EventChannels.UI.BUTTON_FEEDBACK, {
-      elementKey: 'screenshotBtn',
-      className: 'capturing',
-      duration: TIMING.BUTTON_FEEDBACK_MS
-    });
+    this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED);
 
     try {
       // Determine capture source based on active rendering mode

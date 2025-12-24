@@ -379,7 +379,10 @@ contextBridge.exposeInMainWorld('deviceAPI', {
   getDeviceStatus: deviceAPI.getStatus,
   onDeviceConnected: deviceAPI.onConnected,
   onDeviceDisconnected: deviceAPI.onDisconnected,
-  removeDeviceListeners: deviceAPI.removeListeners,
+  removeDeviceListeners: deviceAPI.removeListeners
+});
+
+contextBridge.exposeInMainWorld('shellAPI', {
   openExternal: shellAPI.openExternal
 });
 

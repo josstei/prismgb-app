@@ -6,16 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
-import { downloadFile } from '@shared/lib/file-download.js';
-
-// Mock the downloadFile module
-vi.mock('@shared/lib/file-download.js', () => ({
-  downloadFile: vi.fn(() => Promise.resolve())
-}));
 
 describe('CaptureUiBridge', () => {
   let bridge;
   let mockEventBus;
+  let mockUIController;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
@@ -31,6 +26,11 @@ describe('CaptureUiBridge', () => {
         return vi.fn(); // Return unsubscribe function
       }),
       publish: vi.fn()
+    };
+
+    // Create mock UIController
+    mockUIController = {
+      triggerDownload: vi.fn()
     };
 
     // Create mock logger
@@ -57,15 +57,27 @@ describe('CaptureUiBridge', () => {
     it('should store eventBus', () => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
       expect(bridge.eventBus).toBe(mockEventBus);
     });
 
+    it('should store uiController', () => {
+      bridge = new CaptureUiBridge({
+        eventBus: mockEventBus,
+        uiController: mockUIController,
+        loggerFactory: mockLoggerFactory
+      });
+
+      expect(bridge.uiController).toBe(mockUIController);
+    });
+
     it('should create logger from loggerFactory', () => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
@@ -76,6 +88,7 @@ describe('CaptureUiBridge', () => {
     it('should use console as fallback logger when loggerFactory is not provided', () => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: null
       });
 
@@ -84,7 +97,8 @@ describe('CaptureUiBridge', () => {
 
     it('should use console as fallback logger when loggerFactory is undefined', () => {
       bridge = new CaptureUiBridge({
-        eventBus: mockEventBus
+        eventBus: mockEventBus,
+        uiController: mockUIController
       });
 
       expect(bridge.logger).toBe(console);
@@ -93,6 +107,7 @@ describe('CaptureUiBridge', () => {
     it('should initialize subscriptions array', () => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
@@ -104,6 +119,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -112,6 +128,7 @@ describe('CaptureUiBridge', () => {
       bridge.initialize();
 
       const expectedEvents = [
+        EventChannels.CAPTURE.SCREENSHOT_TRIGGERED,
         EventChannels.CAPTURE.SCREENSHOT_READY,
         EventChannels.CAPTURE.RECORDING_STARTED,
         EventChannels.CAPTURE.RECORDING_STOPPED,
@@ -128,13 +145,13 @@ describe('CaptureUiBridge', () => {
     it('should subscribe to all capture events', () => {
       bridge.initialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(7);
     });
 
     it('should store unsubscribe functions', () => {
       bridge.initialize();
 
-      expect(bridge._subscriptions.length).toBe(6);
+      expect(bridge._subscriptions.length).toBe(7);
       bridge._subscriptions.forEach(unsub => {
         expect(typeof unsub).toBe('function');
       });
@@ -151,6 +168,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -200,9 +218,23 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
+    });
+
+    it('should publish button feedback event when screenshot is triggered', () => {
+      subscribedHandlers[EventChannels.CAPTURE.SCREENSHOT_TRIGGERED]();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.BUTTON_FEEDBACK,
+        {
+          elementKey: 'screenshotBtn',
+          className: 'capturing',
+          duration: expect.any(Number)
+        }
+      );
     });
 
     it('should handle screenshot ready event', () => {
@@ -214,7 +246,7 @@ describe('CaptureUiBridge', () => {
         filename: filename
       });
 
-      expect(downloadFile).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
     });
 
     it('should publish status message after screenshot ready', () => {
@@ -232,7 +264,7 @@ describe('CaptureUiBridge', () => {
       );
     });
 
-    it('should call downloadFile before publishing status message', () => {
+    it('should call triggerDownload before publishing status message', () => {
       const mockBlob = new Blob(['test'], { type: 'image/png' });
       const filename = 'screenshot.png';
 
@@ -241,10 +273,10 @@ describe('CaptureUiBridge', () => {
         filename: filename
       });
 
-      const downloadFileCallIndex = downloadFile.mock.invocationCallOrder[0];
+      const triggerDownloadCallIndex = mockUIController.triggerDownload.mock.invocationCallOrder[0];
       const publishCallIndex = mockEventBus.publish.mock.invocationCallOrder[0];
 
-      expect(downloadFileCallIndex).toBeLessThan(publishCallIndex);
+      expect(triggerDownloadCallIndex).toBeLessThan(publishCallIndex);
     });
   });
 
@@ -252,6 +284,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -302,6 +335,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -342,6 +376,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -356,7 +391,7 @@ describe('CaptureUiBridge', () => {
         filename: filename
       });
 
-      expect(downloadFile).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
     });
 
     it('should publish status message after recording ready', () => {
@@ -374,7 +409,7 @@ describe('CaptureUiBridge', () => {
       );
     });
 
-    it('should call downloadFile before publishing status message', () => {
+    it('should call triggerDownload before publishing status message', () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording.webm';
 
@@ -383,10 +418,10 @@ describe('CaptureUiBridge', () => {
         filename: filename
       });
 
-      const downloadFileCallIndex = downloadFile.mock.invocationCallOrder[0];
+      const triggerDownloadCallIndex = mockUIController.triggerDownload.mock.invocationCallOrder[0];
       const publishCallIndex = mockEventBus.publish.mock.invocationCallOrder[0];
 
-      expect(downloadFileCallIndex).toBeLessThan(publishCallIndex);
+      expect(triggerDownloadCallIndex).toBeLessThan(publishCallIndex);
     });
   });
 
@@ -394,6 +429,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -490,32 +526,32 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
 
-    it('should log warning message', () => {
-      const reason = 'Frame drops detected - recording at reduced quality';
-
+    it('should log warning message with dropped frames', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
-        reason: reason
+        droppedFrames: 30
       });
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('Recording degraded:', reason);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Recording degraded:',
+        'Recording quality degraded: 30 frames dropped'
+      );
     });
 
-    it('should publish warning status message', () => {
-      const reason = 'Frame drops detected - recording at reduced quality';
-
+    it('should publish warning status message with dropped frames', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
-        reason: reason
+        droppedFrames: 30
       });
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.STATUS_MESSAGE,
         {
-          message: reason,
+          message: 'Recording quality degraded: 30 frames dropped',
           type: 'warning'
         }
       );
@@ -523,7 +559,7 @@ describe('CaptureUiBridge', () => {
 
     it('should publish exactly 1 event', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
-        reason: 'Some warning'
+        droppedFrames: 30
       });
 
       expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
@@ -534,6 +570,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -548,7 +585,7 @@ describe('CaptureUiBridge', () => {
         filename: filename
       });
 
-      expect(downloadFile).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.STATUS_MESSAGE,
         { message: 'Screenshot saved!' }
@@ -582,7 +619,7 @@ describe('CaptureUiBridge', () => {
         blob: mockBlob,
         filename: filename
       });
-      expect(downloadFile).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.STATUS_MESSAGE,
         { message: 'Recording saved!' }
@@ -626,6 +663,7 @@ describe('CaptureUiBridge', () => {
     beforeEach(() => {
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -672,6 +710,7 @@ describe('CaptureUiBridge', () => {
 
       bridge = new CaptureUiBridge({
         eventBus: mockEventBus,
+        uiController: mockUIController,
         loggerFactory: null
       });
 

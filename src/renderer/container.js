@@ -409,10 +409,10 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'captureUiBridge',
-    function (eventBus, loggerFactory) {
-      return new CaptureUiBridge({ eventBus, loggerFactory });
+    function (eventBus, uiController, loggerFactory) {
+      return new CaptureUiBridge({ eventBus, uiController, loggerFactory });
     },
-    ['eventBus', 'loggerFactory']
+    ['eventBus', 'uiController', 'loggerFactory']
   );
 
   // ============================================

@@ -18,6 +18,7 @@ class MainAppOrchestrator {
     // Service references - populated during initialize()
     this._windowManager = null;
     this._deviceServiceMain = null;
+    this._deviceLifecycleCoordinator = null;
     this._trayManager = null;
     this._ipcHandlers = null;
     this._updateServiceMain = null;
@@ -37,6 +38,7 @@ class MainAppOrchestrator {
     // Resolve and cache core services
     this._windowManager = this.container.resolve('windowManager');
     this._deviceServiceMain = this.container.resolve('deviceServiceMain');
+    this._deviceLifecycleCoordinator = this.container.resolve('deviceLifecycleCoordinator');
     this._trayManager = this.container.resolve('trayManager');
     this._ipcHandlers = this.container.resolve('ipcHandlers');
     this._updateServiceMain = this.container.resolve('updateServiceMain');
@@ -45,6 +47,9 @@ class MainAppOrchestrator {
 
     // Initialize device service (loads device profiles)
     await this._deviceServiceMain.initialize();
+
+    // Initialize device lifecycle coordinator (handles auto-launch)
+    this._deviceLifecycleCoordinator.initialize();
 
     // Initialize update bridge and start auto-check (1 hour interval)
     this._updateBridgeService.initialize();
@@ -137,6 +142,15 @@ class MainAppOrchestrator {
     }
 
     try {
+      if (this._deviceLifecycleCoordinator) {
+        this._deviceLifecycleCoordinator.dispose();
+        this.logger.debug('Disposed device lifecycle coordinator');
+      }
+    } catch (error) {
+      this.logger.error('Error disposing device lifecycle coordinator:', error);
+    }
+
+    try {
       // Stop USB monitoring
       if (this._deviceServiceMain) {
         this._deviceServiceMain.stopUSBMonitoring();
@@ -178,6 +192,7 @@ class MainAppOrchestrator {
     // Clear service references
     this._windowManager = null;
     this._deviceServiceMain = null;
+    this._deviceLifecycleCoordinator = null;
     this._trayManager = null;
     this._ipcHandlers = null;
     this._updateServiceMain = null;

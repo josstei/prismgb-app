@@ -339,6 +339,33 @@ export class UIEffects {
   }
 
   /**
+   * Set recording button state
+   * @param {HTMLElement} element - The record button element
+   * @param {boolean} isActive - Whether recording is active
+   */
+  setRecordingButtonState(element, isActive) {
+    if (!element) return;
+
+    if (isActive) {
+      element.classList.add(CSSClasses.RECORDING);
+    } else {
+      element.classList.remove(CSSClasses.RECORDING);
+    }
+  }
+
+  /**
+   * Set cinematic mode body class
+   * @param {boolean} isActive - Whether cinematic mode should be visually active
+   */
+  setCinematicMode(isActive) {
+    if (isActive) {
+      document.body.classList.add(CSSClasses.CINEMATIC_ACTIVE);
+    } else {
+      document.body.classList.remove(CSSClasses.CINEMATIC_ACTIVE);
+    }
+  }
+
+  /**
    * Dispose of UIEffects and cleanup resources
    */
   dispose() {

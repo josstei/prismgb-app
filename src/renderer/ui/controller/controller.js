@@ -5,6 +5,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.js';
+import { downloadFile } from '@renderer/lib/file-download.js';
 
 class UIController {
   /**
@@ -246,6 +247,25 @@ class UIController {
   }
 
   /**
+   * Update recording button state
+   * @param {boolean} isActive - Whether recording is active
+   */
+  updateRecordingButtonState(isActive) {
+    const recordBtn = this.elements.recordBtn;
+    if (recordBtn) {
+      this.effects?.setRecordingButtonState(recordBtn, isActive);
+    }
+  }
+
+  /**
+   * Update cinematic mode visual state
+   * @param {boolean} isActive - Whether cinematic mode should be visually active
+   */
+  updateCinematicMode(isActive) {
+    this.effects?.setCinematicMode(isActive);
+  }
+
+  /**
    * Enable fullscreen controls auto-hide
    */
   enableControlsAutoHide() {
@@ -265,6 +285,15 @@ class UIController {
    */
   getFullscreenControls() {
     return this.elements.fullscreenControls;
+  }
+
+  /**
+   * Trigger a file download
+   * @param {Blob} blob - File data to download
+   * @param {string} filename - Name for the downloaded file
+   */
+  triggerDownload(blob, filename) {
+    downloadFile(blob, filename);
   }
 
   /**

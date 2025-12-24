@@ -232,8 +232,8 @@ class SettingsMenuComponent {
     const handleExternalLink = (e, url) => {
       e.preventDefault();
       // Use Electron's shell.openExternal if available via preload
-      if (window.deviceAPI?.openExternal) {
-        window.deviceAPI.openExternal(url);
+      if (window.shellAPI?.openExternal) {
+        window.shellAPI.openExternal(url);
       } else {
         window.open(url, '_blank', 'noopener,noreferrer');
       }

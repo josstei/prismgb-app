@@ -50,10 +50,12 @@ async function createAppContainer(loggerFactory) {
   // Device components
   const { default: DeviceServiceMain } = await import('@main/features/devices/device.service.main.js');
   const { default: ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
+  const { DeviceLifecycleCoordinator } = await import('@main/features/devices/device-lifecycle.coordinator.js');
 
   container.register({
     deviceServiceMain: asClass(DeviceServiceMain).singleton(),
-    profileRegistry: asClass(ProfileRegistry).singleton()
+    profileRegistry: asClass(ProfileRegistry).singleton(),
+    deviceLifecycleCoordinator: asClass(DeviceLifecycleCoordinator).singleton()
   });
 
   // Update components

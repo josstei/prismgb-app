@@ -1,21 +1,23 @@
 /**
  * Capture UI Bridge
  *
- * Translates capture events into UI feedback and downloads.
+ * Translates capture events into UI feedback.
  */
 
 import { EventChannels } from '@infrastructure/events/event-channels.js';
-import { downloadFile } from '@shared/lib/file-download.js';
+import { TIMING } from '@shared/config/constants.js';
 
 class CaptureUiBridge {
-  constructor({ eventBus, loggerFactory }) {
+  constructor({ eventBus, uiController, loggerFactory }) {
     this.eventBus = eventBus;
+    this.uiController = uiController;
     this.logger = loggerFactory?.create('CaptureUiBridge') || console;
     this._subscriptions = [];
   }
 
   initialize() {
     this._subscriptions.push(
+      this.eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () => this._handleScreenshotTriggered()),
       this.eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_READY, (data) => this._handleScreenshotReady(data)),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted()),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped()),
@@ -37,9 +39,17 @@ class CaptureUiBridge {
     this.logger.info('CaptureUiBridge disposed');
   }
 
+  _handleScreenshotTriggered() {
+    this.eventBus.publish(EventChannels.UI.BUTTON_FEEDBACK, {
+      elementKey: 'screenshotBtn',
+      className: 'capturing',
+      duration: TIMING.BUTTON_FEEDBACK_MS
+    });
+  }
+
   _handleScreenshotReady(data) {
     const { blob, filename } = data;
-    downloadFile(blob, filename);
+    this.uiController.triggerDownload(blob, filename);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
   }
 
@@ -56,7 +66,7 @@ class CaptureUiBridge {
 
   _handleRecordingReady(data) {
     const { blob, filename } = data;
-    downloadFile(blob, filename);
+    this.uiController.triggerDownload(blob, filename);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
   }
 
@@ -71,7 +81,8 @@ class CaptureUiBridge {
   }
 
   _handleRecordingDegraded(data) {
-    const { reason } = data;
+    const { droppedFrames } = data;
+    const reason = `Recording quality degraded: ${droppedFrames} frames dropped`;
     this.logger.warn('Recording degraded:', reason);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: reason,

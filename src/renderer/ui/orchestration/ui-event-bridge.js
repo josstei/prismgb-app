@@ -10,7 +10,7 @@
  */
 
 import { BaseService } from '@shared/base/service.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 export class UIEventBridge extends BaseService {
   constructor(dependencies) {
@@ -45,32 +45,32 @@ export class UIEventBridge extends BaseService {
   _subscribeToEvents() {
     const eventHandlers = {
       // Status messages
-      'ui:status-message': (data) => this._handleStatusMessage(data),
+      [EventChannels.UI.STATUS_MESSAGE]: (data) => this._handleStatusMessage(data),
 
       // Device status
-      'ui:device-status': (data) => this._handleDeviceStatus(data),
-      'ui:overlay-message': (data) => this._handleOverlayMessage(data),
-      'ui:overlay-visible': (data) => this._handleOverlayVisible(data),
-      'ui:overlay-error': (data) => this._handleOverlayError(data),
+      [EventChannels.UI.DEVICE_STATUS]: (data) => this._handleDeviceStatus(data),
+      [EventChannels.UI.OVERLAY_MESSAGE]: (data) => this._handleOverlayMessage(data),
+      [EventChannels.UI.OVERLAY_VISIBLE]: (data) => this._handleOverlayVisible(data),
+      [EventChannels.UI.OVERLAY_ERROR]: (data) => this._handleOverlayError(data),
 
       // Streaming mode
-      'ui:streaming-mode': (data) => this._handleStreamingMode(data),
-      'ui:stream-info': (data) => this._handleStreamInfo(data),
+      [EventChannels.UI.STREAMING_MODE]: (data) => this._handleStreamingMode(data),
+      [EventChannels.UI.STREAM_INFO]: (data) => this._handleStreamInfo(data),
 
       // Visual effects
-      'ui:shutter-flash': () => this._handleShutterFlash(),
-      'ui:record-button-pop': () => this._handleRecordButtonPop(),
-      'ui:record-button-press': () => this._handleRecordButtonPress(),
-      'ui:button-feedback': (data) => this._handleButtonFeedback(data),
+      [EventChannels.UI.SHUTTER_FLASH]: () => this._handleShutterFlash(),
+      [EventChannels.UI.RECORD_BUTTON_POP]: () => this._handleRecordButtonPop(),
+      [EventChannels.UI.RECORD_BUTTON_PRESS]: () => this._handleRecordButtonPress(),
+      [EventChannels.UI.BUTTON_FEEDBACK]: (data) => this._handleButtonFeedback(data),
 
       // Recording state
-      'ui:recording-state': (data) => this._handleRecordingState(data),
+      [EventChannels.UI.RECORDING_STATE]: (data) => this._handleRecordingState(data),
 
       // Cinematic mode
-      'ui:cinematic-mode': (data) => this._handleCinematicMode(data),
+      [EventChannels.UI.CINEMATIC_MODE]: (data) => this._handleCinematicMode(data),
 
       // Fullscreen
-      'ui:fullscreen-state': (data) => this._handleFullscreenState(data)
+      [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)
     };
 
     // Subscribe to all events
@@ -140,14 +140,7 @@ export class UIEventBridge extends BaseService {
 
   _handleRecordingState(data) {
     const { active } = data;
-    const recordBtn = this.uiController.elements.recordBtn;
-    if (recordBtn) {
-      if (active) {
-        recordBtn.classList.add(CSSClasses.RECORDING);
-      } else {
-        recordBtn.classList.remove(CSSClasses.RECORDING);
-      }
-    }
+    this.uiController.updateRecordingButtonState(active);
   }
 
   _handleCinematicMode(data) {
@@ -157,11 +150,8 @@ export class UIEventBridge extends BaseService {
   }
 
   _updateCinematicVisual() {
-    if (this._cinematicModeEnabled && this._isStreaming) {
-      document.body.classList.add(CSSClasses.CINEMATIC_ACTIVE);
-    } else {
-      document.body.classList.remove(CSSClasses.CINEMATIC_ACTIVE);
-    }
+    const isActive = this._cinematicModeEnabled && this._isStreaming;
+    this.uiController.updateCinematicMode(isActive);
   }
 
   _handleFullscreenState(data) {

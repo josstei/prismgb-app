@@ -300,6 +300,101 @@ describe('UIController', () => {
     });
   });
 
+  describe('updateRecordingButtonState', () => {
+    beforeEach(() => {
+      mockEffects.setRecordingButtonState = vi.fn();
+    });
+
+    it('should call setRecordingButtonState when recordBtn exists', () => {
+      controller.updateRecordingButtonState(true);
+
+      expect(mockEffects.setRecordingButtonState).toHaveBeenCalledWith(
+        controller.elements.recordBtn,
+        true
+      );
+    });
+
+    it('should call setRecordingButtonState with false when not active', () => {
+      controller.updateRecordingButtonState(false);
+
+      expect(mockEffects.setRecordingButtonState).toHaveBeenCalledWith(
+        controller.elements.recordBtn,
+        false
+      );
+    });
+
+    it('should not call effects when recordBtn is null', () => {
+      controller.elements.recordBtn = null;
+
+      expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
+      expect(mockEffects.setRecordingButtonState).not.toHaveBeenCalled();
+    });
+
+    it('should not call effects when effects is undefined', () => {
+      controller.effects = undefined;
+
+      expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
+    });
+  });
+
+  describe('updateCinematicMode', () => {
+    beforeEach(() => {
+      mockEffects.setCinematicMode = vi.fn();
+    });
+
+    it('should call setCinematicMode with true when active', () => {
+      controller.updateCinematicMode(true);
+
+      expect(mockEffects.setCinematicMode).toHaveBeenCalledWith(true);
+    });
+
+    it('should call setCinematicMode with false when not active', () => {
+      controller.updateCinematicMode(false);
+
+      expect(mockEffects.setCinematicMode).toHaveBeenCalledWith(false);
+    });
+
+    it('should not throw when effects is undefined', () => {
+      controller.effects = undefined;
+
+      expect(() => controller.updateCinematicMode(true)).not.toThrow();
+    });
+  });
+
+  describe('enableControlsAutoHide', () => {
+    beforeEach(() => {
+      mockEffects.enableControlsAutoHide = vi.fn();
+    });
+
+    it('should call enableControlsAutoHide with fullscreenControls element', () => {
+      controller.enableControlsAutoHide();
+
+      expect(mockEffects.enableControlsAutoHide).toHaveBeenCalledWith(
+        controller.elements.fullscreenControls
+      );
+    });
+  });
+
+  describe('disableControlsAutoHide', () => {
+    beforeEach(() => {
+      mockEffects.disableControlsAutoHide = vi.fn();
+    });
+
+    it('should call disableControlsAutoHide on effects', () => {
+      controller.disableControlsAutoHide();
+
+      expect(mockEffects.disableControlsAutoHide).toHaveBeenCalled();
+    });
+  });
+
+  describe('getFullscreenControls', () => {
+    it('should return fullscreenControls element', () => {
+      const result = controller.getFullscreenControls();
+
+      expect(result).toBe(controller.elements.fullscreenControls);
+    });
+  });
+
   describe('on', () => {
     it('should add event listener to element', () => {
       const handler = vi.fn();
