@@ -22,12 +22,16 @@ export class ViewportManager {
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
     this._resizeTimeout = null;
+    this._forceResizeTimeout = null;
 
     // Callback to invoke when resize occurs
     this._onResizeCallback = null;
 
     // Track last dimensions to skip redundant calculations
     this._lastDimensions = null;
+
+    // Flag to suppress ResizeObserver during forceResize (prevents race condition)
+    this._forceResizePending = false;
 
     // Bind handler for cleanup
     this._handleResize = this._handleResize.bind(this);
@@ -113,6 +117,11 @@ export class ViewportManager {
    * @private
    */
   _handleResize() {
+    // Skip if forceResize is pending (prevents race condition during fullscreen transitions)
+    if (this._forceResizePending) {
+      return;
+    }
+
     // Debounce resize events
     if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
     this._resizeTimeout = setTimeout(() => {
@@ -130,6 +139,37 @@ export class ViewportManager {
   }
 
   /**
+   * Force a resize after window finishes resizing.
+   * Suppresses ResizeObserver callbacks while pending to prevent race conditions.
+   * Uses short delay to ensure CSS layout has recalculated after fullscreen change.
+   */
+  forceResize() {
+    // Cancel any pending resize (both ResizeObserver debounce and forceResize)
+    if (this._resizeTimeout) {
+      clearTimeout(this._resizeTimeout);
+      this._resizeTimeout = null;
+    }
+    if (this._forceResizeTimeout) {
+      clearTimeout(this._forceResizeTimeout);
+    }
+
+    // Suppress ResizeObserver callbacks while forceResize is pending
+    this._forceResizePending = true;
+
+    // Reset cached dimensions to force recalculation
+    this._lastDimensions = null;
+
+    // Short delay (2 frames) to ensure layout has settled after CSS changes
+    this._forceResizeTimeout = setTimeout(() => {
+      this._forceResizeTimeout = null;
+      this._forceResizePending = false;
+      if (this._onResizeCallback) {
+        this._onResizeCallback();
+      }
+    }, 32);
+  }
+
+  /**
    * Cleanup resources
    */
   cleanup() {
@@ -140,16 +180,21 @@ export class ViewportManager {
       this.logger.debug('ResizeObserver disconnected');
     }
 
-    // Clear timeout
+    // Clear timeouts
     if (this._resizeTimeout) {
       clearTimeout(this._resizeTimeout);
       this._resizeTimeout = null;
+    }
+    if (this._forceResizeTimeout) {
+      clearTimeout(this._forceResizeTimeout);
+      this._forceResizeTimeout = null;
     }
 
     // Clear callback
     this._onResizeCallback = null;
 
-    // Reset dimension tracking
+    // Reset state
     this._lastDimensions = null;
+    this._forceResizePending = false;
   }
 }

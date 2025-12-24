@@ -73,6 +73,10 @@ export class GPURendererService extends BaseService {
     this._targetWidth = NATIVE_WIDTH;
     this._targetHeight = NATIVE_HEIGHT;
 
+    // Cached uniforms to avoid per-frame object allocation
+    this._cachedUniforms = null;
+    this._uniformsCacheKey = null;
+
     // Performance stats
     this._lastStats = null;
 
@@ -460,16 +464,11 @@ export class GPURendererService extends BaseService {
         resizeQuality: 'pixelated'
       });
 
-      // Build uniforms from current preset
-      const uniforms = buildUniformsFromPreset(
-        this._currentPreset,
-        this._scaleFactor,
-        this._targetWidth,
-        this._targetHeight
-      );
+      // Get cached uniforms (rebuilt only when preset/dimensions change)
+      const uniforms = this._getCachedUniforms();
 
-      // Apply global brightness multiplier
-      uniforms.color.brightness *= this._globalBrightness;
+      // Apply global brightness multiplier (updates cached object in-place)
+      uniforms.color.brightness = this._currentPreset.color.brightness * this._globalBrightness;
 
       // Send frame to worker
       this._pendingFrames++;
@@ -487,6 +486,27 @@ export class GPURendererService extends BaseService {
         imageBitmap.close();
       }
     }
+  }
+
+  /**
+   * Get cached uniforms, rebuilding only when preset or dimensions change
+   * @returns {Object} Uniform values for all shader passes
+   * @private
+   */
+  _getCachedUniforms() {
+    const cacheKey = `${this._currentPresetId}:${this._scaleFactor}:${this._targetWidth}:${this._targetHeight}`;
+
+    if (this._uniformsCacheKey !== cacheKey || !this._cachedUniforms) {
+      this._cachedUniforms = buildUniformsFromPreset(
+        this._currentPreset,
+        this._scaleFactor,
+        this._targetWidth,
+        this._targetHeight
+      );
+      this._uniformsCacheKey = cacheKey;
+    }
+
+    return this._cachedUniforms;
   }
 
   /**

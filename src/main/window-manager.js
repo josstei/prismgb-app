@@ -122,8 +122,12 @@ class WindowManager {
     this._leaveFullscreenListener = () => {
       this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
     };
+    this._resizedListener = () => {
+      this.send(IPC_CHANNELS.WINDOW.RESIZED);
+    };
     this.mainWindow.on('enter-full-screen', this._enterFullscreenListener);
     this.mainWindow.on('leave-full-screen', this._leaveFullscreenListener);
+    this.mainWindow.on('resized', this._resizedListener);
 
     // Handle window close - clean up listeners before window is destroyed
     this.mainWindow.on('close', (event) => {
@@ -145,13 +149,15 @@ class WindowManager {
       }
       this._downloadHandler = null;
 
-      // Clean up fullscreen listeners
+      // Clean up fullscreen and resize listeners
       if (this._enterFullscreenListener && this.mainWindow) {
         this.mainWindow.off('enter-full-screen', this._enterFullscreenListener);
         this.mainWindow.off('leave-full-screen', this._leaveFullscreenListener);
+        this.mainWindow.off('resized', this._resizedListener);
       }
       this._enterFullscreenListener = null;
       this._leaveFullscreenListener = null;
+      this._resizedListener = null;
     });
 
     this.mainWindow.on('closed', () => {
@@ -205,6 +211,27 @@ class WindowManager {
    */
   hasWindow() {
     return this.mainWindow !== null;
+  }
+
+  /**
+   * Set fullscreen state using simple fullscreen (no animation)
+   * @param {boolean} enabled - Whether to enter or exit fullscreen
+   */
+  setFullScreen(enabled) {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.setSimpleFullScreen(enabled);
+    }
+  }
+
+  /**
+   * Check if window is in fullscreen
+   * @returns {boolean} True if fullscreen
+   */
+  isFullScreen() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      return this.mainWindow.isSimpleFullScreen() || this.mainWindow.isFullScreen();
+    }
+    return false;
   }
 
   /**

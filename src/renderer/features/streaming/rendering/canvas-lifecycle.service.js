@@ -28,6 +28,14 @@ class CanvasLifecycleService extends BaseService {
     this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer);
   }
 
+  /**
+   * Handle fullscreen state change - immediately resize canvas without debounce delay.
+   * This prevents the visual glitch where canvas appears mispositioned during fullscreen transitions.
+   */
+  handleFullscreenChange() {
+    this.viewportManager.forceResize();
+  }
+
   setupCanvasSize(nativeResolution = null, useGpu = false) {
     const canvas = this.streamViewService.getCanvas();
     const container = this.streamViewService.getCanvasContainer();

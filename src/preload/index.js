@@ -25,6 +25,7 @@ const listenerRegistry = {
   disconnected: new Set(),
   enterFullscreen: new Set(),
   leaveFullscreen: new Set(),
+  resized: new Set(),
   updateAvailable: new Set(),
   updateNotAvailable: new Set(),
   updateProgress: new Set(),
@@ -197,11 +198,36 @@ const windowAPI = {
     };
   },
 
+  onResized: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('windowAPI.onResized: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.resized.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('windowAPI.onResized: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = () => callback();
+    listenerRegistry.resized.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.WINDOW.RESIZED, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.WINDOW.RESIZED, listener);
+      listenerRegistry.resized.delete(listener);
+    };
+  },
+
+  setFullScreen: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.SET_FULLSCREEN, enabled),
+
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.WINDOW.RESIZED);
     listenerRegistry.enterFullscreen.clear();
     listenerRegistry.leaveFullscreen.clear();
+    listenerRegistry.resized.clear();
   }
 };
 
@@ -389,6 +415,8 @@ contextBridge.exposeInMainWorld('shellAPI', {
 contextBridge.exposeInMainWorld('windowAPI', {
   onEnterFullscreen: windowAPI.onEnterFullscreen,
   onLeaveFullscreen: windowAPI.onLeaveFullscreen,
+  onResized: windowAPI.onResized,
+  setFullScreen: windowAPI.setFullScreen,
   removeListeners: windowAPI.removeListeners
 });
 

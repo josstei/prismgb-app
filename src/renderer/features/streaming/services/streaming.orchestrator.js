@@ -100,12 +100,23 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       [EventChannels.STREAM.ERROR]: (error) => this._handleStreamError(error),
       [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId),
       [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled),
-      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state)
+      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state),
+      [EventChannels.UI.WINDOW_RESIZED]: () => this._handleWindowResized()
     });
   }
 
   _handlePerformanceStateChanged(state) {
     this.renderPipelineService.handlePerformanceStateChanged(state);
+  }
+
+  /**
+   * Handle window resized event from Electron.
+   * Fires after window has finished resizing (not during animation).
+   * Triggers immediate canvas resize with accurate dimensions.
+   * @private
+   */
+  _handleWindowResized() {
+    this.renderPipelineService.handleFullscreenChange();
   }
 
   /**

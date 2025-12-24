@@ -9,7 +9,9 @@
   },
   "WINDOW": {
     "ENTER_FULLSCREEN": "window:enter-fullscreen",
-    "LEAVE_FULLSCREEN": "window:leave-fullscreen"
+    "LEAVE_FULLSCREEN": "window:leave-fullscreen",
+    "RESIZED": "window:resized",
+    "SET_FULLSCREEN": "window:set-fullscreen"
   },
   "UPDATE": {
     "CHECK": "update:check",

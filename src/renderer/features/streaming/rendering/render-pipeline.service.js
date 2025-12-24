@@ -73,6 +73,10 @@ export class RenderPipelineService extends BaseService {
     }
   }
 
+  handleFullscreenChange() {
+    this.canvasLifecycleService.handleFullscreenChange();
+  }
+
   handlePerformanceModeChanged(enabled) {
     this._performanceModeEnabled = enabled;
 

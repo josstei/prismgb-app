@@ -16,6 +16,7 @@ class FullscreenService extends BaseService {
     this._isFullscreenActive = false;
     this._unsubscribeEnterFullscreen = null;
     this._unsubscribeLeaveFullscreen = null;
+    this._unsubscribeResized = null;
   }
 
   initialize() {
@@ -27,6 +28,9 @@ class FullscreenService extends BaseService {
       });
       this._unsubscribeLeaveFullscreen = window.windowAPI.onLeaveFullscreen(() => {
         this._handleNativeFullscreen(false);
+      });
+      this._unsubscribeResized = window.windowAPI.onResized(() => {
+        this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
       });
     }
   }
@@ -42,18 +46,32 @@ class FullscreenService extends BaseService {
       this._unsubscribeLeaveFullscreen();
       this._unsubscribeLeaveFullscreen = null;
     }
+    if (this._unsubscribeResized) {
+      this._unsubscribeResized();
+      this._unsubscribeResized = null;
+    }
   }
 
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        this.logger.error('Error entering fullscreen:', err);
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
-        this._isFullscreenActive = false;
-        this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
+    if (window.windowAPI?.setFullScreen) {
+      // Use Electron's simple fullscreen (no animation)
+      const newState = !this._isFullscreenActive;
+      window.windowAPI.setFullScreen(newState).catch(err => {
+        this.logger.error('Error toggling fullscreen:', err);
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not toggle fullscreen', type: 'error' });
       });
     } else {
-      document.exitFullscreen();
+      // Fallback to DOM API
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          this.logger.error('Error entering fullscreen:', err);
+          this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
+          this._isFullscreenActive = false;
+          this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
+        });
+      } else {
+        document.exitFullscreen();
+      }
     }
   }
 

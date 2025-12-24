@@ -80,7 +80,8 @@ export const EventChannels = {
     BUTTON_FEEDBACK: 'ui:button-feedback',
     RECORDING_STATE: 'ui:recording-state',
     CINEMATIC_MODE: 'ui:cinematic-mode',
-    FULLSCREEN_STATE: 'ui:fullscreen-state'
+    FULLSCREEN_STATE: 'ui:fullscreen-state',
+    WINDOW_RESIZED: 'ui:window-resized'
   },
 
   // Update events

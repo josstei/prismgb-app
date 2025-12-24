@@ -8,12 +8,14 @@ import { registerDeviceHandlers } from './ipc/device-ipc.handlers.js';
 import { registerUpdateHandlers } from './ipc/update-ipc.handlers.js';
 import { registerShellHandlers } from './ipc/shell-ipc.handlers.js';
 import { registerPerformanceHandlers } from './ipc/performance-ipc.handlers.js';
+import { registerWindowHandlers } from './ipc/window-ipc.handlers.js';
 
 class IpcHandlers {
-  constructor({ deviceServiceMain, updateServiceMain, loggerFactory }) {
+  constructor({ deviceServiceMain, updateServiceMain, windowManager, loggerFactory }) {
     this.logger = loggerFactory.create('IpcHandlers');
     this.deviceServiceMain = deviceServiceMain;
     this.updateServiceMain = updateServiceMain;
+    this.windowManager = windowManager;
     this._registeredChannels = [];
   }
 
@@ -44,6 +46,12 @@ class IpcHandlers {
     registerPerformanceHandlers({
       registerHandler: this._registerHandler.bind(this),
       app,
+      logger: this.logger
+    });
+
+    registerWindowHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      windowManager: this.windowManager,
       logger: this.logger
     });
   }

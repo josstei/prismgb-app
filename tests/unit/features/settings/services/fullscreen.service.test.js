@@ -54,6 +54,9 @@ describe('FullscreenService', () => {
       onLeaveFullscreen: vi.fn((callback) => {
         leaveFullscreenCallback = callback;
         return vi.fn(); // Returns unsubscribe function
+      }),
+      onResized: vi.fn(() => {
+        return vi.fn(); // Returns unsubscribe function
       })
     };
 

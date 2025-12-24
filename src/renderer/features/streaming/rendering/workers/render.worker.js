@@ -38,6 +38,24 @@ import {
 } from './optimization-utils.js';
 
 // ============================================================================
+// Shared Utilities
+// ============================================================================
+
+/**
+ * Check if any CRT effects are enabled
+ * Shared by both WebGPU and WebGL2 renderers
+ * @param {Object} uniforms - Uniform values
+ * @returns {boolean} True if any CRT effect is enabled
+ */
+function isCrtEnabled(uniforms) {
+  return uniforms.crt.scanlineStrength > 0 ||
+    uniforms.crt.pixelMaskStrength > 0 ||
+    uniforms.crt.bloomStrength > 0 ||
+    uniforms.crt.curvature > 0 ||
+    uniforms.crt.vignetteStrength > 0;
+}
+
+// ============================================================================
 // Worker State
 // ============================================================================
 
@@ -68,6 +86,9 @@ class WebGPURenderer {
 
     // Render pipelines for each pass
     this.pipelines = {};
+
+    // Cached bind group layout for canvas pass (avoids per-frame getBindGroupLayout call)
+    this._crtLcdBindGroupLayout = null;
 
     // Textures
     this.sourceTexture = null;
@@ -335,6 +356,9 @@ class WebGPURenderer {
         topology: 'triangle-strip'
       }
     });
+
+    // Cache bind group layout for canvas pass (avoids per-frame getBindGroupLayout call)
+    this._crtLcdBindGroupLayout = this.pipelines.crtLcd.getBindGroupLayout(0);
   }
 
   uploadFrame(imageBitmap) {
@@ -404,7 +428,7 @@ class WebGPURenderer {
 
       // Pass 4: CRT/LCD → Canvas (skip shader if all effects disabled)
       const canvasTexture = this.context.getCurrentTexture();
-      const crtEffectsEnabled = this._isCrtEnabled(uniforms);
+      const crtEffectsEnabled = isCrtEnabled(uniforms);
 
       if (crtEffectsEnabled) {
         this._renderPassToCanvas(
@@ -478,8 +502,9 @@ class WebGPURenderer {
   _renderPassToCanvas(commandEncoder, pipeline, inputTexture, canvasTexture, uniformBuffer, sampler) {
     // Note: Canvas texture changes each frame (swapchain), so bind group cannot be cached
     // We still need to create a new bind group each frame for the final pass
+    // But we use the cached layout to avoid per-frame getBindGroupLayout call
     const bindGroup = this.device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
+      layout: this._crtLcdBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
         { binding: 1, resource: inputTexture.createView() },
@@ -509,8 +534,9 @@ class WebGPURenderer {
   _copyToCanvas(commandEncoder, inputTexture, canvasTexture) {
     // Use CRT pipeline but with zero-effect uniforms for passthrough
     // This is needed because intermediate textures are rgba8unorm but canvas may be bgra8unorm
+    // Use cached layout to avoid per-frame getBindGroupLayout call
     const bindGroup = this.device.createBindGroup({
-      layout: this.pipelines.crtLcd.getBindGroupLayout(0),
+      layout: this._crtLcdBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.uniformBuffers.crt } },
         { binding: 1, resource: inputTexture.createView() },
@@ -531,17 +557,6 @@ class WebGPURenderer {
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.draw(4);
     passEncoder.end();
-  }
-
-  /**
-   * Check if any CRT effects are enabled
-   */
-  _isCrtEnabled(uniforms) {
-    return uniforms.crt.scanlineStrength > 0 ||
-      uniforms.crt.pixelMaskStrength > 0 ||
-      uniforms.crt.bloomStrength > 0 ||
-      uniforms.crt.curvature > 0 ||
-      uniforms.crt.vignetteStrength > 0;
   }
 
   _updateUniforms(uniforms) {
@@ -820,7 +835,7 @@ class WebGL2Renderer {
     }
 
     // Pass 4: CRT/LCD → Canvas (skip shader if all effects disabled)
-    const crtEffectsEnabled = this._isCrtEnabled(uniforms);
+    const crtEffectsEnabled = isCrtEnabled(uniforms);
 
     if (crtEffectsEnabled) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -853,17 +868,6 @@ class WebGL2Renderer {
     }
 
     gl.bindVertexArray(null);
-  }
-
-  /**
-   * Check if any CRT effects are enabled
-   */
-  _isCrtEnabled(uniforms) {
-    return uniforms.crt.scanlineStrength > 0 ||
-      uniforms.crt.pixelMaskStrength > 0 ||
-      uniforms.crt.bloomStrength > 0 ||
-      uniforms.crt.curvature > 0 ||
-      uniforms.crt.vignetteStrength > 0;
   }
 
   resize(width, height) {
