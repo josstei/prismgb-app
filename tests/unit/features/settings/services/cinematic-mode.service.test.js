@@ -92,7 +92,7 @@ describe('CinematicModeService', () => {
         service.toggleCinematicMode();
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.CINEMATIC_MODE,
+          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
           { enabled: true }
         );
       });
@@ -128,7 +128,7 @@ describe('CinematicModeService', () => {
         service.toggleCinematicMode();
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.CINEMATIC_MODE,
+          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
           { enabled: false }
         );
       });
@@ -160,7 +160,7 @@ describe('CinematicModeService', () => {
 
         service.toggleCinematicMode();
 
-        expect(callOrder[0]).toBe(EventChannels.UI.CINEMATIC_MODE);
+        expect(callOrder[0]).toBe(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED);
         expect(callOrder[1]).toBe(EventChannels.UI.STATUS_MESSAGE);
       });
     });

@@ -13,6 +13,17 @@
 import { BaseService } from '@shared/base/service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
+/**
+ * Storage keys that should be protected from cleanup when quota is exceeded
+ * These are critical user preferences that should always be preserved
+ */
+const PROTECTED_STORAGE_KEYS = [
+  'gameVolume',
+  'statusStripVisible',
+  'renderPreset',
+  'globalBrightness'
+];
+
 class SettingsService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsService');
@@ -167,4 +178,4 @@ class SettingsService extends BaseService {
   }
 }
 
-export { SettingsService };
+export { SettingsService, PROTECTED_STORAGE_KEYS };

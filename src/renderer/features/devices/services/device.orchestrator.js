@@ -18,11 +18,11 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['deviceService', 'eventBus', 'loggerFactory'],
+      ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory'],
       'DeviceOrchestrator'
     );
-    // Store unsubscribe functions for IPC listeners
-    this._ipcUnsubscribers = [];
+    // Store unsubscribe function for IPC adapter
+    this._unsubscribeIPC = null;
   }
 
   /**
@@ -32,8 +32,11 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     // Set up device change listener
     this.deviceService.setupDeviceChangeListener();
 
-    // Set up IPC event listeners for USB events
-    this._setupIPCEventListeners();
+    // Set up IPC event listeners for USB events via adapter
+    this._unsubscribeIPC = this.deviceIPCAdapter.subscribe(
+      () => this._handleDeviceConnectedIPC(),
+      () => this._handleDeviceDisconnectedIPC()
+    );
 
     // Check initial device status
     await this.deviceService.updateDeviceStatus();
@@ -44,28 +47,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
    */
   isDeviceConnected() {
     return this.deviceService.isDeviceConnected();
-  }
-
-  /**
-   * Set up IPC event listeners for USB device events
-   * @private
-   */
-  _setupIPCEventListeners() {
-    if (!window.deviceAPI) {
-      this.logger.error('deviceAPI not available - preload script may have failed');
-      return;
-    }
-    // Store unsubscribe functions returned by the preload API
-    const unsubConnected = window.deviceAPI.onDeviceConnected(() => this._handleDeviceConnectedIPC());
-    const unsubDisconnected = window.deviceAPI.onDeviceDisconnected(() => this._handleDeviceDisconnectedIPC());
-
-    // Only track valid unsubscribe functions
-    if (typeof unsubConnected === 'function') {
-      this._ipcUnsubscribers.push(unsubConnected);
-    }
-    if (typeof unsubDisconnected === 'function') {
-      this._ipcUnsubscribers.push(unsubDisconnected);
-    }
   }
 
   /**
@@ -99,13 +80,11 @@ export class DeviceOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup() {
-    // Cleanup IPC listeners using stored unsubscribe functions
-    for (const unsubscribe of this._ipcUnsubscribers) {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
+    // Cleanup IPC adapter listeners
+    if (typeof this._unsubscribeIPC === 'function') {
+      this._unsubscribeIPC();
+      this._unsubscribeIPC = null;
     }
-    this._ipcUnsubscribers = [];
     this.logger.info('IPC device listeners removed');
 
     // Cleanup device service

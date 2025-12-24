@@ -109,14 +109,16 @@ describe('StorageService', () => {
     it('should use provided logger', () => {
       expect(service.logger).toBe(mockLogger);
     });
-  });
 
-  describe('PROTECTED_KEYS', () => {
-    it('should contain expected protected keys', () => {
-      expect(StorageService.PROTECTED_KEYS).toContain('gameVolume');
-      expect(StorageService.PROTECTED_KEYS).toContain('statusStripVisible');
-      expect(StorageService.PROTECTED_KEYS).toContain('renderPreset');
-      expect(StorageService.PROTECTED_KEYS).toContain('globalBrightness');
+    it('should use empty array as default protectedKeys when none provided', () => {
+      const defaultService = new StorageService();
+      expect(defaultService.protectedKeys).toEqual([]);
+    });
+
+    it('should use provided protectedKeys', () => {
+      const protectedKeys = ['key1', 'key2'];
+      const serviceWithProtectedKeys = new StorageService({ logger: mockLogger, protectedKeys });
+      expect(serviceWithProtectedKeys.protectedKeys).toEqual(protectedKeys);
     });
   });
 
@@ -252,6 +254,9 @@ describe('StorageService', () => {
     });
 
     it('should not remove protected keys', () => {
+      const protectedKeys = ['gameVolume', 'renderPreset', 'statusStripVisible', 'globalBrightness'];
+      const serviceWithProtectedKeys = new StorageService({ logger: mockLogger, protectedKeys });
+
       storageData['gameVolume'] = '0.5';
       storageData['renderPreset'] = 'vibrant';
       storageData['statusStripVisible'] = 'true';
@@ -259,7 +264,7 @@ describe('StorageService', () => {
       storageData['temp1'] = 'value1';
       storageData['temp2'] = 'value2';
 
-      service._cleanupOldEntries();
+      serviceWithProtectedKeys._cleanupOldEntries();
 
       const removedKeys = localStorage.removeItem.mock.calls.map(call => call[0]);
       expect(removedKeys).not.toContain('gameVolume');

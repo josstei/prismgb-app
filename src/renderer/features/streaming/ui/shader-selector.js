@@ -11,11 +11,12 @@ import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 class ShaderSelectorComponent {
-  constructor({ settingsService, appState, eventBus, logger }) {
+  constructor({ settingsService, appState, eventBus, logger, displayModeOrchestrator }) {
     this.settingsService = settingsService;
     this.appState = appState;
     this.eventBus = eventBus;
     this.logger = logger;
+    this.displayModeOrchestrator = displayModeOrchestrator;
     this.isVisible = false;
     this.currentPresetId = null;
     this.currentBrightness = 1.0;
@@ -335,17 +336,14 @@ class ShaderSelectorComponent {
 
     // Handle pill button click
     this._domListeners.add(this.cinematicToggle, 'click', () => {
-      const isActive = this.cinematicToggle.classList.contains('active');
-      const newState = !isActive;
-      this._updateCinematicPill(newState);
-      this.eventBus.publish(EventChannels.UI.CINEMATIC_MODE, {
-        enabled: newState
-      });
+      if (this.displayModeOrchestrator) {
+        this.displayModeOrchestrator.toggleCinematicMode();
+      }
     });
 
     // Sync toggle with external cinematic mode changes
     const unsubscribe = this.eventBus.subscribe(
-      EventChannels.UI.CINEMATIC_MODE,
+      EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
       ({ enabled }) => {
         const isActive = this.cinematicToggle.classList.contains('active');
         if (isActive !== enabled) {

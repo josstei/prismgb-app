@@ -33,6 +33,7 @@ import { DeviceStorageService } from '@renderer/features/devices/services/device
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 import { IpcDeviceStatusAdapter } from '@renderer/features/devices/services/device-status.adapter.js';
+import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 
 // Features: Streaming
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
@@ -54,7 +55,7 @@ import { CaptureOrchestrator } from '@renderer/features/capture/services/capture
 import { GpuRecordingService } from '@renderer/features/capture/services/gpu-recording.service.js';
 
 // Features: Settings
-import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
+import { SettingsService, PROTECTED_STORAGE_KEYS } from '@renderer/features/settings/services/settings.service.js';
 import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
 import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
 import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
@@ -104,7 +105,9 @@ function createRendererContainer() {
 
   // Browser abstraction services
   container.registerSingleton('storageService', function() {
-    return new StorageService();
+    return new StorageService({
+      protectedKeys: PROTECTED_STORAGE_KEYS
+    });
   }, []);
 
   container.registerSingleton('browserMediaService', function() {
@@ -126,6 +129,11 @@ function createRendererContainer() {
 
   container.registerSingleton('metricsAdapter', function() {
     return new MetricsAdapter();
+  }, []);
+
+  // Device IPC Adapter - wraps window.deviceAPI for testability
+  container.registerSingleton('deviceIPCAdapter', function() {
+    return new DeviceIPCAdapter();
   }, []);
 
   // Streaming infrastructure
@@ -422,14 +430,15 @@ function createRendererContainer() {
   // Device Orchestrator - Coordinates device detection
   container.registerSingleton(
     'deviceOrchestrator',
-    function (deviceService, eventBus, loggerFactory) {
+    function (deviceService, deviceIPCAdapter, eventBus, loggerFactory) {
       return new DeviceOrchestrator({
         deviceService,
+        deviceIPCAdapter,
         eventBus,
         loggerFactory
       });
     },
-    ['deviceService', 'eventBus', 'loggerFactory']
+    ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory']
   );
 
   // Streaming Orchestrator - Coordinates stream lifecycle

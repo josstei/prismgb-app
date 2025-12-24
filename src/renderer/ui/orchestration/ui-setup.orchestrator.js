@@ -80,7 +80,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         settingsService: this.settingsService,
         appState: this.appState,
         eventBus: this.eventBus,
-        logger: this.logger
+        logger: this.logger,
+        displayModeOrchestrator: this.displayModeOrchestrator
       },
       {
         shaderBtn: elements.shaderBtn,

@@ -81,6 +81,10 @@ vi.mock('@renderer/features/devices/services/device-status.adapter.js', () => ({
   IpcDeviceStatusAdapter: vi.fn()
 }));
 
+vi.mock('@renderer/features/devices/adapters/device-ipc.adapter.js', () => ({
+  DeviceIPCAdapter: vi.fn()
+}));
+
 // Features: Streaming mocks
 vi.mock('@renderer/features/streaming/services/streaming.service.js', () => ({
   StreamingService: vi.fn()
@@ -353,7 +357,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'deviceOrchestrator',
         expect.any(Function),
-        ['deviceService', 'eventBus', 'loggerFactory']
+        ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory']
       );
     });
 

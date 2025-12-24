@@ -153,7 +153,8 @@ describe('UISetupOrchestrator', () => {
           settingsService: mockSettingsService,
           appState: mockAppState,
           eventBus: mockEventBus,
-          logger: mockLogger
+          logger: mockLogger,
+          displayModeOrchestrator: mockDisplayModeOrchestrator
         },
         expect.objectContaining({
           shaderBtn: mockUiController.elements.shaderBtn,

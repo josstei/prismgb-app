@@ -44,7 +44,8 @@ export const EventChannels = {
     STATUS_STRIP_CHANGED: 'settings:status-strip-changed',
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
     BRIGHTNESS_CHANGED: 'settings:brightness-changed',
-    PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed'
+    PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
+    CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed'
   },
 
   PERFORMANCE: {

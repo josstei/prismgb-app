@@ -148,12 +148,6 @@ class UpdateService extends BaseService {
 
     this._setState(UpdateState.CHECKING);
 
-    // Force browser to paint the CHECKING state before continuing
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-    // Minimum visible time for checking state (dev mode returns instantly)
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     try {
       const result = await window.updateAPI.checkForUpdates();
       return result;

@@ -66,8 +66,8 @@ export class UIEventBridge extends BaseService {
       // Recording state
       [EventChannels.UI.RECORDING_STATE]: (data) => this._handleRecordingState(data),
 
-      // Cinematic mode
-      [EventChannels.UI.CINEMATIC_MODE]: (data) => this._handleCinematicMode(data),
+      // Settings events (translated to UI updates)
+      [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: (data) => this._handleCinematicMode(data),
 
       // Fullscreen
       [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)

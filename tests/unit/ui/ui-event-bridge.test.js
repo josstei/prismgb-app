@@ -132,7 +132,7 @@ describe('UIEventBridge', () => {
         'ui:record-button-press',
         'ui:button-feedback',
         'ui:recording-state',
-        'ui:cinematic-mode',
+        'settings:cinematic-mode-changed',
         'ui:fullscreen-state'
       ];
 
@@ -291,7 +291,7 @@ describe('UIEventBridge', () => {
     });
 
     it('should not apply cinematic mode when enabled but not streaming', () => {
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
@@ -300,14 +300,14 @@ describe('UIEventBridge', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
     });
 
     it('should remove cinematic mode when streaming stops', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:streaming-mode']({ enabled: false });
@@ -316,7 +316,7 @@ describe('UIEventBridge', () => {
     });
 
     it('should apply cinematic mode when streaming starts with cinematic already enabled', () => {
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
@@ -326,16 +326,16 @@ describe('UIEventBridge', () => {
 
     it('should remove cinematic mode when disabling cinematic mode while streaming', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
-      subscribedHandlers['ui:cinematic-mode']({ enabled: false });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: false });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
     it('should update internal cinematic state', () => {
-      subscribedHandlers['ui:cinematic-mode']({ enabled: true });
+      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
 
       expect(handler._cinematicModeEnabled).toBe(true);
     });
