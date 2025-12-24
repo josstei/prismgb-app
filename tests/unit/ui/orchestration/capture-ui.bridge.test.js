@@ -116,7 +116,8 @@ describe('CaptureUiBridge', () => {
         EventChannels.CAPTURE.RECORDING_STARTED,
         EventChannels.CAPTURE.RECORDING_STOPPED,
         EventChannels.CAPTURE.RECORDING_READY,
-        EventChannels.CAPTURE.RECORDING_ERROR
+        EventChannels.CAPTURE.RECORDING_ERROR,
+        EventChannels.CAPTURE.RECORDING_DEGRADED
       ];
 
       expectedEvents.forEach(event => {
@@ -124,16 +125,16 @@ describe('CaptureUiBridge', () => {
       });
     });
 
-    it('should subscribe to exactly 5 events', () => {
+    it('should subscribe to all capture events', () => {
       bridge.initialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
     });
 
     it('should store unsubscribe functions', () => {
       bridge.initialize();
 
-      expect(bridge._subscriptions.length).toBe(5);
+      expect(bridge._subscriptions.length).toBe(6);
       bridge._subscriptions.forEach(unsub => {
         expect(typeof unsub).toBe('function');
       });
@@ -482,6 +483,50 @@ describe('CaptureUiBridge', () => {
           type: 'error'
         }
       );
+    });
+  });
+
+  describe('Event Handlers - Recording Degraded', () => {
+    beforeEach(() => {
+      bridge = new CaptureUiBridge({
+        eventBus: mockEventBus,
+        loggerFactory: mockLoggerFactory
+      });
+      bridge.initialize();
+    });
+
+    it('should log warning message', () => {
+      const reason = 'Frame drops detected - recording at reduced quality';
+
+      subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
+        reason: reason
+      });
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('Recording degraded:', reason);
+    });
+
+    it('should publish warning status message', () => {
+      const reason = 'Frame drops detected - recording at reduced quality';
+
+      subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
+        reason: reason
+      });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.STATUS_MESSAGE,
+        {
+          message: reason,
+          type: 'warning'
+        }
+      );
+    });
+
+    it('should publish exactly 1 event', () => {
+      subscribedHandlers[EventChannels.CAPTURE.RECORDING_DEGRADED]({
+        reason: 'Some warning'
+      });
+
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
     });
   });
 

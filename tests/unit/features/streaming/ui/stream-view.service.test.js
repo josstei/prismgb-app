@@ -12,6 +12,10 @@ describe('StreamViewService', () => {
   let mockLogger;
   let mockLoggerFactory;
 
+  let mockCanvasElement;
+  let mockContainerElement;
+  let mockSectionElement;
+
   beforeEach(() => {
     mockVideoElement = {
       muted: false,
@@ -20,9 +24,17 @@ describe('StreamViewService', () => {
       load: vi.fn()
     };
 
+    mockSectionElement = document.createElement('section');
+    mockContainerElement = document.createElement('div');
+    mockCanvasElement = document.createElement('canvas');
+
+    mockContainerElement.appendChild(mockCanvasElement);
+    mockSectionElement.appendChild(mockContainerElement);
+
     mockUIController = {
       elements: {
-        streamVideo: mockVideoElement
+        streamVideo: mockVideoElement,
+        streamCanvas: mockCanvasElement
       }
     };
 
@@ -263,6 +275,147 @@ describe('StreamViewService', () => {
 
       expect(() => service.clearStream()).not.toThrow();
       expect(mockVideoElement.pause).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getVideo', () => {
+    it('should return video element when available', () => {
+      const result = service.getVideo();
+      expect(result).toBe(mockVideoElement);
+    });
+
+    it('should return null and warn when video element not found', () => {
+      mockUIController.elements.streamVideo = null;
+
+      const result = service.getVideo();
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Stream video element not found');
+    });
+
+    it('should return null when video element is undefined', () => {
+      mockUIController.elements.streamVideo = undefined;
+
+      const result = service.getVideo();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getCanvas', () => {
+    it('should return canvas element when available', () => {
+      const result = service.getCanvas();
+      expect(result).toBe(mockCanvasElement);
+    });
+
+    it('should return null and warn when canvas element not found', () => {
+      mockUIController.elements.streamCanvas = null;
+
+      const result = service.getCanvas();
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Stream canvas element not found');
+    });
+
+    it('should return null when canvas element is undefined', () => {
+      mockUIController.elements.streamCanvas = undefined;
+
+      const result = service.getCanvas();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getCanvasContainer', () => {
+    it('should return canvas parent element when available', () => {
+      const result = service.getCanvasContainer();
+      expect(result).toBe(mockContainerElement);
+    });
+
+    it('should return null when canvas element not found', () => {
+      mockUIController.elements.streamCanvas = null;
+
+      const result = service.getCanvasContainer();
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null and warn when canvas has no parent', () => {
+      // Create orphan canvas
+      const orphanCanvas = document.createElement('canvas');
+      mockUIController.elements.streamCanvas = orphanCanvas;
+
+      const result = service.getCanvasContainer();
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Canvas container element not found');
+    });
+  });
+
+  describe('getCanvasSection', () => {
+    it('should return container parent element when available', () => {
+      const result = service.getCanvasSection();
+      expect(result).toBe(mockSectionElement);
+    });
+
+    it('should return null when canvas element not found', () => {
+      mockUIController.elements.streamCanvas = null;
+
+      const result = service.getCanvasSection();
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when container has no parent', () => {
+      // Create canvas with only one level of parent
+      const container = document.createElement('div');
+      const canvas = document.createElement('canvas');
+      container.appendChild(canvas);
+      mockUIController.elements.streamCanvas = canvas;
+
+      const result = service.getCanvasSection();
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Canvas section element not found');
+    });
+  });
+
+  describe('setCanvas', () => {
+    it('should update canvas element reference', () => {
+      const newCanvas = document.createElement('canvas');
+
+      service.setCanvas(newCanvas);
+
+      expect(mockUIController.elements.streamCanvas).toBe(newCanvas);
+      expect(mockLogger.info).toHaveBeenCalledWith('Canvas element reference updated');
+    });
+
+    it('should warn and not update when null provided', () => {
+      const originalCanvas = mockUIController.elements.streamCanvas;
+
+      service.setCanvas(null);
+
+      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
+    });
+
+    it('should warn and not update when undefined provided', () => {
+      const originalCanvas = mockUIController.elements.streamCanvas;
+
+      service.setCanvas(undefined);
+
+      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
+    });
+
+    it('should warn and not update when non-canvas element provided', () => {
+      const originalCanvas = mockUIController.elements.streamCanvas;
+      const divElement = document.createElement('div');
+
+      service.setCanvas(divElement);
+
+      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
     });
   });
 });

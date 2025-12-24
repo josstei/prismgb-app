@@ -8,7 +8,7 @@ import { RenderPipelineService } from '@renderer/features/streaming/rendering/re
 describe('RenderPipelineService', () => {
   let service;
   let mockAppState;
-  let mockUIController;
+  let mockStreamViewService;
   let mockCanvasRenderer;
   let mockCanvasLifecycleService;
   let mockStreamHealthMonitor;
@@ -16,12 +16,14 @@ describe('RenderPipelineService', () => {
   let mockGpuRenderLoopService;
   let mockEventBus;
   let mockLogger;
+  let canvas;
+  let video;
 
   beforeEach(() => {
     const section = document.createElement('section');
     const container = document.createElement('div');
-    const canvas = document.createElement('canvas');
-    const video = document.createElement('video');
+    canvas = document.createElement('canvas');
+    video = document.createElement('video');
     video.requestVideoFrameCallback = vi.fn();
     video.cancelVideoFrameCallback = vi.fn();
 
@@ -33,11 +35,12 @@ describe('RenderPipelineService', () => {
       isStreaming: false
     };
 
-    mockUIController = {
-      elements: {
-        streamCanvas: canvas,
-        streamVideo: video
-      }
+    mockStreamViewService = {
+      getCanvas: vi.fn(() => canvas),
+      getVideo: vi.fn(() => video),
+      getCanvasContainer: vi.fn(() => container),
+      getCanvasSection: vi.fn(() => section),
+      setCanvas: vi.fn()
     };
 
     mockCanvasRenderer = {
@@ -95,7 +98,7 @@ describe('RenderPipelineService', () => {
 
     service = new RenderPipelineService({
       appState: mockAppState,
-      uiController: mockUIController,
+      streamViewService: mockStreamViewService,
       canvasRenderer: mockCanvasRenderer,
       canvasLifecycleService: mockCanvasLifecycleService,
       streamHealthMonitor: mockStreamHealthMonitor,
@@ -253,7 +256,7 @@ describe('RenderPipelineService', () => {
       await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
 
       expect(mockGPURendererService.initialize).toHaveBeenCalledWith(
-        mockUIController.elements.streamCanvas,
+        canvas,
         { width: 160, height: 144 }
       );
       expect(service._useGPURenderer).toBe(true);
@@ -363,7 +366,7 @@ describe('RenderPipelineService', () => {
         onError({ reason: 'timeout' });
       });
 
-      await expect(service._waitForHealthyStream(mockUIController.elements.streamVideo))
+      await expect(service._waitForHealthyStream(video))
         .rejects.toThrow('No frames received: timeout');
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Stream unhealthy: timeout');

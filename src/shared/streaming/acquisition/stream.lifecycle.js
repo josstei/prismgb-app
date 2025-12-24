@@ -4,9 +4,14 @@ import { IStreamLifecycle } from './interfaces.js';
  * Base implementation of stream lifecycle management
  */
 export class BaseStreamLifecycle extends IStreamLifecycle {
-  constructor(logger = null) {
+  /**
+   * @param {Object} logger - Optional logger instance
+   * @param {Object} mediaService - Optional media service (BrowserMediaService or compatible)
+   */
+  constructor(logger = null, mediaService = null) {
     super();
     this.logger = logger;
+    this.mediaService = mediaService;
     this.activeStreams = new Set();
   }
 
@@ -17,7 +22,10 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
     try {
       this._log('debug', 'Acquiring stream with constraints:', constraints);
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Use injected mediaService if available, fallback to direct navigator access
+      const stream = this.mediaService
+        ? await this.mediaService.getUserMedia(constraints)
+        : await navigator.mediaDevices.getUserMedia(constraints);
 
       // Validate stream has tracks before tracking
       if (!stream || !stream.getTracks || stream.getTracks().length === 0) {
@@ -40,7 +48,11 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
     } catch (error) {
       const errLabel = `${error?.name || 'Error'}: ${error?.message || 'Unknown error'}`;
       const constraintsStr = this._safeStringify(constraints);
-      const supportedStr = this._safeStringify(navigator.mediaDevices?.getSupportedConstraints?.());
+      const supportedStr = this._safeStringify(
+        this.mediaService
+          ? 'Using injected mediaService'
+          : navigator.mediaDevices?.getSupportedConstraints?.()
+      );
       this._log('error', `Failed to acquire stream - ${errLabel} | constraints=${constraintsStr} | supported=${supportedStr}`);
       throw error;
     }

@@ -11,7 +11,7 @@ class CanvasLifecycleService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
-      ['uiController', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+      ['streamViewService', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory'],
       'CanvasLifecycleService'
     );
 
@@ -29,9 +29,9 @@ class CanvasLifecycleService extends BaseService {
   }
 
   setupCanvasSize(nativeResolution = null, useGpu = false) {
-    const canvas = this.uiController.elements.streamCanvas;
-    const container = canvas?.parentElement;
-    const section = container?.parentElement;
+    const canvas = this.streamViewService.getCanvas();
+    const container = this.streamViewService.getCanvasContainer();
+    const section = this.streamViewService.getCanvasSection();
     if (!canvas || !container || !section) return;
 
     const resolution = nativeResolution || { width: 160, height: 144 };
@@ -57,7 +57,7 @@ class CanvasLifecycleService extends BaseService {
   }
 
   recreateCanvas() {
-    const oldCanvas = this.uiController.elements.streamCanvas;
+    const oldCanvas = this.streamViewService.getCanvas();
     if (!oldCanvas) return;
 
     const parent = oldCanvas.parentElement;
@@ -75,7 +75,7 @@ class CanvasLifecycleService extends BaseService {
 
     parent.replaceChild(newCanvas, oldCanvas);
 
-    this.uiController.elements.streamCanvas = newCanvas;
+    this.streamViewService.setCanvas(newCanvas);
 
     this.canvasRenderer.resetCanvasState();
     this.viewportManager.resetDimensions();

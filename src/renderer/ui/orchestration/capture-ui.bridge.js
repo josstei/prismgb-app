@@ -20,7 +20,8 @@ class CaptureUiBridge {
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted()),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped()),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_READY, (data) => this._handleRecordingReady(data)),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data) => this._handleRecordingError(data))
+      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data) => this._handleRecordingError(data)),
+      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_DEGRADED, (data) => this._handleRecordingDegraded(data))
     );
 
     this.logger.info('CaptureUiBridge initialized');
@@ -66,6 +67,15 @@ class CaptureUiBridge {
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: `Recording failed: ${error}`,
       type: 'error'
+    });
+  }
+
+  _handleRecordingDegraded(data) {
+    const { reason } = data;
+    this.logger.warn('Recording degraded:', reason);
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+      message: reason,
+      type: 'warning'
     });
   }
 }

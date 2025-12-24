@@ -178,8 +178,8 @@ vi.mock('@infrastructure/browser/storage.service.js', () => ({
   StorageService: vi.fn()
 }));
 
-vi.mock('@infrastructure/browser/media-devices.service.js', () => ({
-  MediaDevicesService: vi.fn()
+vi.mock('@infrastructure/browser/browser-media.service.js', () => ({
+  BrowserMediaService: vi.fn()
 }));
 
 // Shared mocks
@@ -323,7 +323,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'renderPipelineService',
         expect.any(Function),
-        ['appState', 'uiController', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
       );
     });
 

@@ -14,7 +14,7 @@ export class RenderPipelineService extends BaseService {
       dependencies,
       [
         'appState',
-        'uiController',
+        'streamViewService',
         'canvasRenderer',
         'canvasLifecycleService',
         'streamHealthMonitor',
@@ -83,7 +83,7 @@ export class RenderPipelineService extends BaseService {
           this._userPresetId = currentPresetId;
         }
 
-        const video = this.uiController.elements.streamVideo;
+        const video = this.streamViewService.getVideo();
         this._stopGPURenderLoop(video);
 
         this.gpuRendererService.terminateAndReset(false);
@@ -93,7 +93,7 @@ export class RenderPipelineService extends BaseService {
         const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
         this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
 
-        const canvas = this.uiController.elements.streamCanvas;
+        const canvas = this.streamViewService.getCanvas();
         this._canvas2dContextCreated = true;
         this.canvasRenderer.startRendering(
           video,
@@ -133,13 +133,13 @@ export class RenderPipelineService extends BaseService {
   }
 
   async startPipeline(capabilities) {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.streamViewService.getVideo();
     await this._waitForHealthyStream(video);
     await this._startCanvasRendering(capabilities);
   }
 
   stopPipeline() {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.streamViewService.getVideo();
 
     if (this._useGPURenderer) {
       this._stopGPURenderLoop(video);
@@ -157,7 +157,7 @@ export class RenderPipelineService extends BaseService {
     }
 
     if (!this.gpuRendererService.isCanvasTransferred()) {
-      const canvas = this.uiController.elements.streamCanvas;
+      const canvas = this.streamViewService.getCanvas();
       this.canvasRenderer.clearCanvas(canvas);
       this._canvas2dContextCreated = true;
     }
@@ -169,7 +169,7 @@ export class RenderPipelineService extends BaseService {
     this._canvas2dContextCreated = false;
 
     if (this._useGPURenderer) {
-      const video = this.uiController.elements.streamVideo;
+      const video = this.streamViewService.getVideo();
       this._stopGPURenderLoop(video);
       this.gpuRendererService.cleanup();
       this._useGPURenderer = false;
@@ -183,7 +183,7 @@ export class RenderPipelineService extends BaseService {
   _handleVisible() {
     if (this.appState.isStreaming) {
       if (this._useGPURenderer) {
-        const video = this.uiController.elements.streamVideo;
+        const video = this.streamViewService.getVideo();
         this._startGPURenderLoop(video);
         this.logger.debug('GPU rendering resumed (window visible)');
       } else {
@@ -195,7 +195,7 @@ export class RenderPipelineService extends BaseService {
 
   _handleHidden() {
     if (this.appState.isStreaming) {
-      const video = this.uiController.elements.streamVideo;
+      const video = this.streamViewService.getVideo();
 
       if (this._useGPURenderer) {
         this._stopGPURenderLoop(video);
@@ -231,8 +231,8 @@ export class RenderPipelineService extends BaseService {
   async _startCanvasRendering(capabilities) {
     this._currentCapabilities = capabilities;
 
-    let canvas = this.uiController.elements.streamCanvas;
-    const video = this.uiController.elements.streamVideo;
+    let canvas = this.streamViewService.getCanvas();
+    const video = this.streamViewService.getVideo();
 
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
 
@@ -256,7 +256,7 @@ export class RenderPipelineService extends BaseService {
       this.canvasLifecycleService.recreateCanvas();
       this._canvas2dContextCreated = false;
       this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);
-      canvas = this.uiController.elements.streamCanvas;
+      canvas = this.streamViewService.getCanvas();
     }
 
     if (this._useGPURenderer && this.gpuRendererService.isActive()) {
@@ -303,7 +303,7 @@ export class RenderPipelineService extends BaseService {
     }
 
     if (!this._useGPURenderer) {
-      canvas = this.uiController.elements.streamCanvas;
+      canvas = this.streamViewService.getCanvas();
 
       if (this.gpuRendererService.isCanvasTransferred()) {
         this.logger.error('Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.');
@@ -336,14 +336,14 @@ export class RenderPipelineService extends BaseService {
   }
 
   async _switchToGPUMidStream() {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.streamViewService.getVideo();
 
     this.canvasRenderer.stopRendering(video);
 
     this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
-    const canvas = this.uiController.elements.streamCanvas;
+    const canvas = this.streamViewService.getCanvas();
     const nativeRes = { width: 160, height: 144 };
 
     this.canvasLifecycleService.setupCanvasSize(nativeRes, this._useGPURenderer);

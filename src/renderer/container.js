@@ -154,9 +154,9 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'canvasLifecycleService',
-    function(uiController, canvasRenderer, viewportManager, gpuRendererService, eventBus, loggerFactory) {
+    function(streamViewService, canvasRenderer, viewportManager, gpuRendererService, eventBus, loggerFactory) {
       return new CanvasLifecycleService({
-        uiController,
+        streamViewService,
         canvasRenderer,
         viewportManager,
         gpuRendererService,
@@ -164,7 +164,7 @@ function createRendererContainer() {
         loggerFactory
       });
     },
-    ['uiController', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory']
+    ['streamViewService', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory']
   );
 
   container.registerSingleton(
@@ -195,10 +195,10 @@ function createRendererContainer() {
   // Render Pipeline Service - GPU/Canvas2D switching and health checks
   container.registerSingleton(
     'renderPipelineService',
-    function(appState, uiController, canvasRenderer, canvasLifecycleService, streamHealthMonitor, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
+    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthMonitor, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
       return new RenderPipelineService({
         appState,
-        uiController,
+        streamViewService,
         canvasRenderer,
         canvasLifecycleService,
         streamHealthMonitor,
@@ -208,7 +208,7 @@ function createRendererContainer() {
         loggerFactory
       });
     },
-    ['appState', 'uiController', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
   );
 
   // IPC client (window.deviceAPI exposed from preload)

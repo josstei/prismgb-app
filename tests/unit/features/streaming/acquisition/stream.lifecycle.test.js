@@ -42,6 +42,16 @@ describe('BaseStreamLifecycle', () => {
       const noLoggerLifecycle = new BaseStreamLifecycle();
       expect(noLoggerLifecycle.logger).toBeNull();
     });
+
+    it('should accept optional mediaService parameter', () => {
+      const mockMediaService = { getUserMedia: vi.fn() };
+      const lifecycleWithService = new BaseStreamLifecycle(mockLogger, mockMediaService);
+      expect(lifecycleWithService.mediaService).toBe(mockMediaService);
+    });
+
+    it('should default mediaService to null when not provided', () => {
+      expect(lifecycle.mediaService).toBeNull();
+    });
   });
 
   describe('acquireStream', () => {
@@ -115,6 +125,41 @@ describe('BaseStreamLifecycle', () => {
       navigator.mediaDevices.getUserMedia.mockRejectedValue(error);
 
       await expect(lifecycle.acquireStream({ video: true })).rejects.toThrow();
+    });
+
+    it('should use injected mediaService when provided', async () => {
+      const mockStream = {
+        id: 'injected-stream',
+        active: true,
+        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
+      };
+      const mockMediaService = {
+        getUserMedia: vi.fn().mockResolvedValue(mockStream)
+      };
+
+      const lifecycleWithService = new BaseStreamLifecycle(mockLogger, mockMediaService);
+      const constraints = { video: true };
+      const stream = await lifecycleWithService.acquireStream(constraints);
+
+      expect(stream).toBe(mockStream);
+      expect(mockMediaService.getUserMedia).toHaveBeenCalledWith(constraints);
+      expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to navigator.mediaDevices when mediaService not provided', async () => {
+      const mockStream = {
+        id: 'navigator-stream',
+        active: true,
+        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
+      };
+      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+
+      const lifecycleWithoutService = new BaseStreamLifecycle(mockLogger, null);
+      const constraints = { video: true };
+      const stream = await lifecycleWithoutService.acquireStream(constraints);
+
+      expect(stream).toBe(mockStream);
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
     });
   });
 
