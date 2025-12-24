@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PreferencesOrchestrator } from '@features/settings/services/preferences.orchestrator.js';
+import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('PreferencesOrchestrator', () => {
@@ -35,7 +35,8 @@ describe('PreferencesOrchestrator', () => {
     mockSettingsService = {
       loadAllPreferences: vi.fn(() => ({
         volume: 80,
-        statusStripVisible: false
+        statusStripVisible: false,
+        performanceMode: true
       }))
     };
 
@@ -87,6 +88,15 @@ describe('PreferencesOrchestrator', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.SETTINGS.VOLUME_CHANGED,
         80
+      );
+    });
+
+    it('should publish performance mode event', async () => {
+      await orchestrator.loadPreferences();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
+        true
       );
     });
 

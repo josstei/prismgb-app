@@ -1,0 +1,185 @@
+/**
+ * Renderer App Orchestrator Unit Tests
+ */
+
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+const { MockUIController } = vi.hoisted(() => ({
+  MockUIController: vi.fn(function() {
+    this.elements = {};
+    this.dispose = vi.fn();
+    this.initializeComponents = vi.fn();
+  })
+}));
+
+vi.mock('@renderer/ui/controller/controller.js', () => ({
+  UIController: MockUIController
+}));
+
+vi.mock('@renderer/container.js', () => ({
+  initializeContainer: vi.fn(() => ({
+    resolve: vi.fn((name) => {
+      if (name === 'appOrchestrator') {
+        return {
+          initialize: vi.fn().mockResolvedValue(),
+          start: vi.fn().mockResolvedValue(),
+          cleanup: vi.fn().mockResolvedValue()
+        };
+      }
+      if (name === 'adapterFactory') {
+        return {
+          initialize: vi.fn().mockResolvedValue()
+        };
+      }
+      if (name === 'uiComponentRegistry') {
+        return {
+          initialize: vi.fn(),
+          initSettingsMenu: vi.fn(),
+          get: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
+      if (name === 'uiEffects') {
+        return {
+          elements: null,
+          triggerShutterFlash: vi.fn(),
+          triggerButtonFeedback: vi.fn()
+        };
+      }
+      if (name === 'uiEventBridge') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
+      if (name === 'captureUiBridge') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
+      if (name === 'loggerFactory') {
+        return {
+          create: vi.fn(() => ({
+            debug: vi.fn(),
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn()
+          }))
+        };
+      }
+      return {};
+    }),
+    register: vi.fn(),
+    dispose: vi.fn()
+  })),
+  asValue: vi.fn((val) => ({ __asValue: true, value: val }))
+}));
+
+const { RendererAppOrchestrator } = await import('@renderer/renderer-app.orchestrator.js');
+
+describe('RendererAppOrchestrator', () => {
+  let app;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    app = new RendererAppOrchestrator();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('Constructor', () => {
+    it('should initialize with null container', () => {
+      expect(app.container).toBeNull();
+    });
+
+    it('should initialize with null orchestrator', () => {
+      expect(app.orchestrator).toBeNull();
+    });
+
+    it('should initialize with isInitialized false', () => {
+      expect(app.isInitialized).toBe(false);
+    });
+  });
+
+  describe('initialize', () => {
+    it('should initialize container', async () => {
+      await app.initialize();
+
+      expect(app.container).toBeDefined();
+    });
+
+    it('should initialize UI', async () => {
+      await app.initialize();
+
+      expect(MockUIController).toHaveBeenCalled();
+      expect(app._uiController).toBeDefined();
+    });
+
+    it('should resolve orchestrator', async () => {
+      await app.initialize();
+
+      expect(app.orchestrator).toBeDefined();
+    });
+
+    it('should set isInitialized to true', async () => {
+      await app.initialize();
+
+      expect(app.isInitialized).toBe(true);
+    });
+
+    it('should warn if already initialized', async () => {
+      await app.initialize();
+      await app.initialize();
+
+      expect(console.warn).toHaveBeenCalledWith('[RendererAppOrchestrator]', 'Renderer application already initialized');
+    });
+  });
+
+  describe('start', () => {
+    it('should throw if not initialized', async () => {
+      await expect(app.start()).rejects.toThrow('Renderer application not initialized');
+    });
+
+    it('should start orchestrator', async () => {
+      await app.initialize();
+      await app.start();
+
+      expect(app.orchestrator.start).toHaveBeenCalled();
+    });
+  });
+
+  describe('cleanup', () => {
+    it('should cleanup orchestrator', async () => {
+      await app.initialize();
+      await app.cleanup();
+
+      expect(app.orchestrator.cleanup).toHaveBeenCalled();
+    });
+
+    it('should dispose container', async () => {
+      await app.initialize();
+      await app.cleanup();
+
+      expect(app.container.dispose).toHaveBeenCalled();
+    });
+
+    it('should set isInitialized to false', async () => {
+      await app.initialize();
+      await app.cleanup();
+
+      expect(app.isInitialized).toBe(false);
+    });
+
+    it('should handle cleanup without initialization', async () => {
+      await expect(app.cleanup()).resolves.not.toThrow();
+    });
+  });
+});

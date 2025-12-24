@@ -1,0 +1,300 @@
+/* =====================================================
+   Base Styles
+   Reset, typography, and core element styling
+   Premium Prismatic Minimalism
+   ===================================================== */
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg-gradient);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+  transition: background var(--transition-standard);
+}
+
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Prismatic sheen - bolder rotating gradient (GPU-optimized) */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: conic-gradient(
+    from 120deg,
+    rgba(255, 0, 128, 0.08),
+    rgba(255, 100, 0, 0.07),
+    rgba(255, 200, 0, 0.05),
+    rgba(0, 255, 100, 0.05),
+    rgba(0, 200, 255, 0.07),
+    rgba(130, 0, 255, 0.08),
+    rgba(255, 0, 128, 0.08)
+  );
+  mix-blend-mode: screen;
+  filter: blur(20px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+  animation: prismatic-sheen 25s linear infinite;
+  will-change: transform;
+  contain: strict;
+  animation-play-state: running;
+}
+
+@keyframes prismatic-sheen {
+  0% { transform: rotate(0deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1.2); }
+}
+
+/* Atmospheric color orbs - floating depth elements */
+.prismatic-orbs {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.prismatic-orbs::before,
+.prismatic-orbs::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+  opacity: 0.35;
+  animation: orb-drift 20s ease-in-out infinite;
+  will-change: transform;
+  contain: layout style;
+  animation-play-state: running;
+}
+
+.prismatic-orbs::before {
+  width: 500px;
+  height: 500px;
+  top: -150px;
+  right: -100px;
+  background: radial-gradient(circle, rgba(255, 0, 128, 0.4) 0%, transparent 70%);
+  animation-delay: 0s;
+}
+
+.prismatic-orbs::after {
+  width: 400px;
+  height: 400px;
+  bottom: -100px;
+  left: -80px;
+  background: radial-gradient(circle, rgba(0, 200, 255, 0.35) 0%, transparent 70%);
+  animation-delay: -10s;
+}
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -20px) scale(1.05); }
+  50% { transform: translate(-20px, 30px) scale(0.95); }
+  75% { transform: translate(20px, 20px) scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    animation: none;
+  }
+  .prismatic-orbs::before,
+  .prismatic-orbs::after {
+    animation: none;
+  }
+}
+
+/* Pause decorative animations when streaming or idle to save GPU cycles */
+body.app-streaming::after,
+body.app-idle::after {
+  animation-play-state: paused;
+}
+
+body.app-streaming .prismatic-orbs::before,
+body.app-streaming .prismatic-orbs::after,
+body.app-idle .prismatic-orbs::before,
+body.app-idle .prismatic-orbs::after {
+  animation-play-state: paused;
+}
+
+/* When page is hidden (backgrounded), pause all decorative animations */
+body.app-hidden::after {
+  animation-play-state: paused;
+}
+
+body.app-hidden .prismatic-orbs::before,
+body.app-hidden .prismatic-orbs::after {
+  animation-play-state: paused;
+}
+
+/* Disable decorative animations entirely when user/device cannot spare cycles */
+body.app-animations-off::after {
+  animation: none;
+  opacity: 0.35;
+  will-change: auto;
+}
+
+body.app-animations-off .prismatic-orbs::before,
+body.app-animations-off .prismatic-orbs::after {
+  animation: none;
+  opacity: 0.25;
+  will-change: auto;
+}
+
+/* Extended animation suppression for performance mode */
+body.app-animations-off .app-icon,
+body.app-animations-off .icon-wrapper,
+body.app-animations-off .overlay-icon {
+  animation: none !important;
+  will-change: auto;
+}
+
+body.app-animations-off .particle {
+  animation: none !important;
+  opacity: 0;
+}
+
+body.app-animations-off .ready-ring,
+body.app-animations-off .ready-ring-inner,
+body.app-animations-off .ready-ring-outer,
+body.app-animations-off .ready-ring-ripple,
+body.app-animations-off .gem-glow {
+  animation: none !important;
+  will-change: auto;
+}
+
+body.app-animations-off .scanlines {
+  animation: none !important;
+}
+
+body.app-animations-off .btn::before {
+  display: none;
+}
+
+body.app-animations-off .btn-rainbow {
+  animation: none;
+  background-size: 100% 100%;
+}
+
+body.app-animations-off .status-indicator {
+  animation: none;
+}
+
+/* Typography - Display Font for Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Accessibility Utilities */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Visibility Utilities */
+.hidden {
+  display: none;
+}
+
+.visible {
+  display: block;
+}
+
+/* Scrollbar - Rainbow gradient */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 0, 128, 0.4) 0%,
+    rgba(255, 100, 0, 0.4) 25%,
+    rgba(0, 200, 100, 0.4) 50%,
+    rgba(0, 150, 255, 0.4) 75%,
+    rgba(130, 0, 255, 0.4) 100%
+  );
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 0, 128, 0.7) 0%,
+    rgba(255, 100, 0, 0.7) 25%,
+    rgba(0, 200, 100, 0.7) 50%,
+    rgba(0, 150, 255, 0.7) 75%,
+    rgba(130, 0, 255, 0.7) 100%
+  );
+  background-clip: padding-box;
+}
+
+/* Selection */
+::selection {
+  background: rgba(255, 0, 128, 0.3);
+  color: #fff;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Chromatic hover utility */
+.chromatic-hover {
+  transition: text-shadow var(--transition-fast);
+}
+
+.chromatic-hover:hover {
+  text-shadow:
+    -1px 0 var(--chromatic-magenta),
+    1px 0 var(--chromatic-cyan);
+}

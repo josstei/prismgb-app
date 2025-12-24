@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsService } from '@features/settings/services/settings.service.js';
+import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
 
 describe('SettingsService', () => {
   let service;
@@ -55,6 +55,7 @@ describe('SettingsService', () => {
     it('should create service with default settings', () => {
       expect(service.defaults.gameVolume).toBe(70);
       expect(service.defaults.statusStripVisible).toBe(false);
+      expect(service.defaults.performanceMode).toBe(false);
     });
 
     it('should have correct setting keys', () => {
@@ -62,6 +63,7 @@ describe('SettingsService', () => {
       expect(service.keys.STATUS_STRIP).toBe('statusStripVisible');
       expect(service.keys.RENDER_PRESET).toBe('renderPreset');
       expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
+      expect(service.keys.PERFORMANCE_MODE).toBe('performanceMode');
     });
   });
 
@@ -146,24 +148,27 @@ describe('SettingsService', () => {
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
         volume: 70,
-        statusStripVisible: false
+        statusStripVisible: false,
+        performanceMode: false
       });
     });
 
     it('should load saved preferences', () => {
       localStorageMock.store['gameVolume'] = '30';
       localStorageMock.store['statusStripVisible'] = 'false';
+      localStorageMock.store['performanceMode'] = 'false';
 
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
         volume: 30,
-        statusStripVisible: false
+        statusStripVisible: false,
+        performanceMode: false
       });
     });
 
     it('should log loaded preferences', () => {
       service.loadAllPreferences();
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false, PerformanceMode: false');
     });
   });
 
@@ -212,6 +217,39 @@ describe('SettingsService', () => {
     it('should log brightness change', () => {
       service.setGlobalBrightness(0.75);
       expect(mockLogger.debug).toHaveBeenCalledWith('Global brightness set to 0.75');
+    });
+  });
+
+  describe('getPerformanceMode', () => {
+    it('should return default when not set', () => {
+      expect(service.getPerformanceMode()).toBe(false);
+    });
+
+    it('should return saved preference (true)', () => {
+      localStorageMock.store['performanceMode'] = 'true';
+      expect(service.getPerformanceMode()).toBe(true);
+    });
+
+    it('should return saved preference (false)', () => {
+      localStorageMock.store['performanceMode'] = 'false';
+      expect(service.getPerformanceMode()).toBe(false);
+    });
+  });
+
+  describe('setPerformanceMode', () => {
+    it('should save preference to localStorage', () => {
+      service.setPerformanceMode(false);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('performanceMode', 'false');
+    });
+
+    it('should emit performance mode changed event', () => {
+      service.setPerformanceMode(true);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:performance-mode-changed', true);
+    });
+
+    it('should log preference change', () => {
+      service.setPerformanceMode(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Performance mode disabled');
     });
   });
 

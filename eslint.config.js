@@ -67,7 +67,7 @@ export default [
       'coverage/**',
       '**/*.test.js',
       // Main process files use import assertions which require special parser
-      'src/app/main/**'
+      'src/main/**'
     ]
   }
 ];

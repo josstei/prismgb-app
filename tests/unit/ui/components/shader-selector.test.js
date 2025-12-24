@@ -3,14 +3,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ShaderSelectorComponent } from '@features/streaming/ui/shader-selector.js';
+import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.js';
 
 // Mock the render presets module
-vi.mock('@/features/streaming/rendering/presets/render.presets.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/presets/render.presets.js', () => ({
   getPresetsForUI: vi.fn(() => [
     { id: 'true-color', name: 'True Color', description: 'Accurate GBC colors' },
     { id: 'vibrant', name: 'Vibrant', description: 'Boosted colors for modern displays' },
-    { id: 'hi-def', name: 'Hi-Def', description: 'Maximum clarity and sharpness' }
+    { id: 'hi-def', name: 'Hi-Def', description: 'Maximum clarity and sharpness' },
+    { id: 'performance', name: 'Performance', description: 'Minimal processing for weak GPUs' }
   ])
 }));
 
@@ -29,7 +30,8 @@ describe('ShaderSelectorComponent', () => {
       getGlobalBrightness: vi.fn(() => 1.0),
       setGlobalBrightness: vi.fn(),
       getVolume: vi.fn(() => 70),
-      setVolume: vi.fn()
+      setVolume: vi.fn(),
+      getPerformanceMode: vi.fn(() => false)
     };
 
     // Mock event bus

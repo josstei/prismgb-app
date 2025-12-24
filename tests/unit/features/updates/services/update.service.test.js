@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService, UpdateState } from '@features/updates/services/update.service.js';
+import { UpdateService, UpdateState } from '@renderer/features/updates/services/update.service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('UpdateService', () => {
@@ -219,43 +219,32 @@ describe('UpdateService', () => {
     });
 
     it('should set state to CHECKING', async () => {
-      vi.useFakeTimers();
       mockUpdateAPI.checkForUpdates.mockResolvedValue({ success: true });
 
       const promise = service.checkForUpdates();
 
-      await vi.advanceTimersByTimeAsync(0);
+      // State should be set immediately
       expect(service._state).toBe(UpdateState.CHECKING);
 
-      await vi.advanceTimersByTimeAsync(1000);
       await promise;
-      vi.useRealTimers();
     });
 
     it('should call updateAPI.checkForUpdates', async () => {
-      vi.useFakeTimers();
       mockUpdateAPI.checkForUpdates.mockResolvedValue({ success: true, version: '2.0.0' });
 
-      const promise = service.checkForUpdates();
-      await vi.advanceTimersByTimeAsync(1000);
-      const result = await promise;
+      const result = await service.checkForUpdates();
 
       expect(mockUpdateAPI.checkForUpdates).toHaveBeenCalled();
       expect(result).toEqual({ success: true, version: '2.0.0' });
-      vi.useRealTimers();
     });
 
     it('should handle error and return failure result', async () => {
-      vi.useFakeTimers();
       mockUpdateAPI.checkForUpdates.mockRejectedValue(new Error('Network error'));
 
-      const promise = service.checkForUpdates();
-      await vi.advanceTimersByTimeAsync(1000);
-      const result = await promise;
+      const result = await service.checkForUpdates();
 
       expect(result).toEqual({ success: false, error: 'Network error' });
       expect(service._state).toBe(UpdateState.ERROR);
-      vi.useRealTimers();
     });
   });
 

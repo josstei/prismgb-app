@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ViewportManager } from '@features/streaming/rendering/viewport.manager.js';
+import { ViewportManager } from '@renderer/features/streaming/rendering/viewport.manager.js';
 
 describe('ViewportManager', () => {
   let manager;

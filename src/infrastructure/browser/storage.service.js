@@ -5,19 +5,14 @@
  * Handles quota exceeded errors gracefully.
  */
 export class StorageService {
-  static PROTECTED_KEYS = [
-    'gameVolume',
-    'statusStripVisible',
-    'renderPreset',
-    'globalBrightness'
-  ];
-
   /**
    * @param {Object} [options] - Optional configuration
    * @param {Object} [options.logger] - Optional logger instance
+   * @param {string[]} [options.protectedKeys] - Keys that should not be removed during cleanup
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
+    this.protectedKeys = options.protectedKeys || [];
   }
 
   /**
@@ -83,7 +78,7 @@ export class StorageService {
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && !StorageService.PROTECTED_KEYS.includes(key)) {
+      if (key && !this.protectedKeys.includes(key)) {
         keysToRemove.push(key);
       }
     }

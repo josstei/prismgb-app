@@ -13,9 +13,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@app': path.resolve(__dirname, 'src/app'),
-      '@features': path.resolve(__dirname, 'src/features'),
-      '@ui': path.resolve(__dirname, 'src/ui'),
+      '@main': path.resolve(__dirname, 'src/main'),
+      '@renderer': path.resolve(__dirname, 'src/renderer'),
+      '@preload': path.resolve(__dirname, 'src/preload'),
       '@shared': path.resolve(__dirname, 'src/shared'),
       '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
     }
@@ -44,10 +44,9 @@ export default defineConfig({
         'scripts/**',
         'assets/**',
         // Main process files require Electron APIs that can't be tested with vitest/happy-dom
-        'src/app/main/**',
-        'src/features/devices/main/**',
+        'src/main/**',
         // Auto-update feature requires Electron autoUpdater API
-        'src/features/updates/**',
+        'src/renderer/features/updates/**',
         // Web Worker files run in Worker context, not testable in vitest
         'src/**/workers/*.js',
         // GPU rendering requires WebGPU/WebGL APIs not available in vitest

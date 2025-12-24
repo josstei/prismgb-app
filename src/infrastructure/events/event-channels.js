@@ -29,11 +29,13 @@ export const EventChannels = {
 
   // Capture events
   CAPTURE: {
+    SCREENSHOT_TRIGGERED: 'capture:screenshot-triggered',
     SCREENSHOT_READY: 'capture:screenshot-ready',
     RECORDING_STARTED: 'capture:recording-started',
     RECORDING_STOPPED: 'capture:recording-stopped',
     RECORDING_READY: 'capture:recording-ready',
-    RECORDING_ERROR: 'capture:recording-error'
+    RECORDING_ERROR: 'capture:recording-error',
+    RECORDING_DEGRADED: 'capture:recording-degraded'
   },
 
   // Settings events
@@ -41,7 +43,16 @@ export const EventChannels = {
     VOLUME_CHANGED: 'settings:volume-changed',
     STATUS_STRIP_CHANGED: 'settings:status-strip-changed',
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
-    BRIGHTNESS_CHANGED: 'settings:brightness-changed'
+    BRIGHTNESS_CHANGED: 'settings:brightness-changed',
+    PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
+    CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed'
+  },
+
+  PERFORMANCE: {
+    STATE_CHANGED: 'performance:state-changed',
+    UI_MODE_CHANGED: 'performance:ui-mode-changed',
+    RENDER_MODE_CHANGED: 'performance:render-mode-changed',
+    MEMORY_SNAPSHOT_REQUESTED: 'performance:memory-snapshot-requested'
   },
 
   // Render events (GPU rendering pipeline)
@@ -69,7 +80,8 @@ export const EventChannels = {
     BUTTON_FEEDBACK: 'ui:button-feedback',
     RECORDING_STATE: 'ui:recording-state',
     CINEMATIC_MODE: 'ui:cinematic-mode',
-    FULLSCREEN_STATE: 'ui:fullscreen-state'
+    FULLSCREEN_STATE: 'ui:fullscreen-state',
+    WINDOW_RESIZED: 'ui:window-resized'
   },
 
   // Update events

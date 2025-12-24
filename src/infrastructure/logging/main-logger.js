@@ -113,7 +113,7 @@ class MainLogger {
 
   /**
    * Creates a child logger with a specific context
-   * @param {string} context - The context name (e.g., 'DeviceManager', 'WebcamService')
+   * @param {string} context - The context name (e.g., 'DeviceServiceMain', 'WebcamService')
    * @returns {Object} Logger instance with context-aware methods
    */
   create(context) {

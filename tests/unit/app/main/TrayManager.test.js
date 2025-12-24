@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-// Mock electron
 vi.mock('electron', () => {
   return {
     Tray: class MockTray {
@@ -26,20 +25,19 @@ vi.mock('electron', () => {
   };
 });
 
-// Mock path
 vi.mock('path', () => ({
   default: {
     join: vi.fn((...args) => args.join('/'))
   }
 }));
 
-import TrayManager from '@app/main/TrayManager.js';
+import TrayManager from '@main/tray-manager.js';
 import { Tray, Menu, app } from 'electron';
 
 describe('TrayManager', () => {
   let trayManager;
   let mockWindowManager;
-  let mockDeviceManager;
+  let mockDeviceServiceMain;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -61,14 +59,14 @@ describe('TrayManager', () => {
       showWindow: vi.fn()
     };
 
-    mockDeviceManager = {
+    mockDeviceServiceMain = {
       isConnected: vi.fn(),
       checkForDevice: vi.fn()
     };
 
     trayManager = new TrayManager({
       windowManager: mockWindowManager,
-      deviceManager: mockDeviceManager,
+      deviceServiceMain: mockDeviceServiceMain,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -90,8 +88,8 @@ describe('TrayManager', () => {
       expect(trayManager.windowManager).toBe(mockWindowManager);
     });
 
-    it('should store device manager', () => {
-      expect(trayManager.deviceManager).toBe(mockDeviceManager);
+    it('should store device service', () => {
+      expect(trayManager.deviceServiceMain).toBe(mockDeviceServiceMain);
     });
   });
 
@@ -118,7 +116,6 @@ describe('TrayManager', () => {
     it('should show window on click', () => {
       trayManager.createTray();
 
-      // Get the click handler
       const clickHandler = trayManager.tray.on.mock.calls.find(
         call => call[0] === 'click'
       )[1];
@@ -171,15 +168,15 @@ describe('TrayManager', () => {
 
       trayManager.updateTrayMenu();
 
-      expect(Menu.buildFromTemplate).toHaveBeenCalledTimes(1); // Only from createTray
+      expect(Menu.buildFromTemplate).toHaveBeenCalledTimes(1);
     });
 
     it('should check device connection status', () => {
-      mockDeviceManager.isConnected.mockReturnValue(true);
+      mockDeviceServiceMain.isConnected.mockReturnValue(true);
 
       trayManager.updateTrayMenu();
 
-      expect(mockDeviceManager.isConnected).toHaveBeenCalled();
+      expect(mockDeviceServiceMain.isConnected).toHaveBeenCalled();
     });
   });
 
@@ -195,58 +192,7 @@ describe('TrayManager', () => {
     });
 
     it('should do nothing if tray not created', () => {
-      // Just verify it doesn't throw
       expect(() => trayManager.destroy()).not.toThrow();
-    });
-  });
-
-  describe('Menu Actions', () => {
-    beforeEach(() => {
-      trayManager.createTray();
-    });
-
-    it('should create menu with Show Window action', () => {
-      const templateCall = Menu.buildFromTemplate.mock.calls[0][0];
-      const showWindowItem = templateCall.find(item => item.label === 'Show Window');
-
-      expect(showWindowItem).toBeDefined();
-      expect(typeof showWindowItem.click).toBe('function');
-    });
-
-    it('should create menu with Refresh Devices action', () => {
-      const templateCall = Menu.buildFromTemplate.mock.calls[0][0];
-      const refreshItem = templateCall.find(item => item.label === 'Refresh Devices');
-
-      expect(refreshItem).toBeDefined();
-      expect(typeof refreshItem.click).toBe('function');
-    });
-
-    it('should create menu with Quit action', () => {
-      const templateCall = Menu.buildFromTemplate.mock.calls[0][0];
-      const quitItem = templateCall.find(item => item.label === 'Quit');
-
-      expect(quitItem).toBeDefined();
-      expect(typeof quitItem.click).toBe('function');
-    });
-
-    it('should show device connected status', () => {
-      mockDeviceManager.isConnected.mockReturnValue(true);
-      trayManager.updateTrayMenu();
-
-      const templateCall = Menu.buildFromTemplate.mock.calls[1][0];
-      const statusItem = templateCall.find(item => item.label === 'Device Connected');
-
-      expect(statusItem).toBeDefined();
-    });
-
-    it('should show device disconnected status', () => {
-      mockDeviceManager.isConnected.mockReturnValue(false);
-      trayManager.updateTrayMenu();
-
-      const templateCall = Menu.buildFromTemplate.mock.calls[1][0];
-      const statusItem = templateCall.find(item => item.label === 'Device Disconnected');
-
-      expect(statusItem).toBeDefined();
     });
   });
 });

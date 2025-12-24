@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamControlsComponent } from '@features/streaming/ui/stream-controls.js';
+import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.js';
 
 describe('StreamControlsComponent', () => {
   let component;

@@ -167,6 +167,11 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 - Screenshots: `PrismGB_Screenshot_YYYYMMDD_HHMMSS.png`
 - Recordings: `PrismGB_Recording_YYYYMMDD_HHMMSS.webm`
 
+## Architecture
+
+- Overview diagrams: `docs/architecture-diagrams.md`
+- Onboarding diagrams: `docs/architecture-diagrams-onboarding.md`
+
 ## Troubleshooting
 
 ### Device Not Detected

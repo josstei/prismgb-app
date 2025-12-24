@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UIEffects } from '@ui/effects/ui-effects.js';
+import { UIEffects } from '@renderer/ui/effects/ui-effects.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
 import { TIMING } from '@shared/config/constants.js';
 
@@ -403,23 +403,46 @@ describe('UIEffects', () => {
     });
   });
 
-  describe('Legacy Header Auto-Hide Methods', () => {
-    it('enableHeaderAutoHide should be a no-op', () => {
-      const addEventSpy = vi.spyOn(document, 'addEventListener');
+  describe('setRecordingButtonState', () => {
+    it('should add recording class when isActive is true', () => {
+      const mockElement = { classList: { add: vi.fn(), remove: vi.fn() } };
+      effects.setRecordingButtonState(mockElement, true);
 
-      effects.enableHeaderAutoHide();
-
-      // Should not add any listeners since it's a no-op
-      expect(addEventSpy).not.toHaveBeenCalled();
+      expect(mockElement.classList.add).toHaveBeenCalledWith(CSSClasses.RECORDING);
     });
 
-    it('disableHeaderAutoHide should be a no-op', () => {
-      const removeEventSpy = vi.spyOn(document, 'removeEventListener');
+    it('should remove recording class when isActive is false', () => {
+      const mockElement = { classList: { add: vi.fn(), remove: vi.fn() } };
+      effects.setRecordingButtonState(mockElement, false);
 
-      effects.disableHeaderAutoHide();
+      expect(mockElement.classList.remove).toHaveBeenCalledWith(CSSClasses.RECORDING);
+    });
 
-      // Should not remove any listeners since it's a no-op
-      expect(removeEventSpy).not.toHaveBeenCalled();
+    it('should do nothing when element is null', () => {
+      expect(() => effects.setRecordingButtonState(null, true)).not.toThrow();
+    });
+
+    it('should do nothing when element is undefined', () => {
+      expect(() => effects.setRecordingButtonState(undefined, true)).not.toThrow();
+    });
+  });
+
+  describe('setCinematicMode', () => {
+    beforeEach(() => {
+      vi.spyOn(document.body.classList, 'add').mockImplementation(() => {});
+      vi.spyOn(document.body.classList, 'remove').mockImplementation(() => {});
+    });
+
+    it('should add cinematic-active class when isActive is true', () => {
+      effects.setCinematicMode(true);
+
+      expect(document.body.classList.add).toHaveBeenCalledWith(CSSClasses.CINEMATIC_ACTIVE);
+    });
+
+    it('should remove cinematic-active class when isActive is false', () => {
+      effects.setCinematicMode(false);
+
+      expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CINEMATIC_ACTIVE);
     });
   });
 

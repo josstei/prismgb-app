@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DeviceRegistry, DEVICE_REGISTRY } from '@features/devices/shared/device-registry.js';
-import { ChromaticProfile } from '@features/devices/adapters/chromatic/chromatic.profile.js';
-import { ChromaticAdapter } from '@features/devices/adapters/chromatic/chromatic.adapter.js';
+import { DeviceRegistry, DEVICE_REGISTRY } from '@shared/features/devices/device-registry.js';
+import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
+import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 describe('DeviceRegistry', () => {
   let initialDeviceCount;
@@ -171,8 +171,8 @@ describe('DeviceRegistry', () => {
         enabled: true,
         usb: { vendorId: 0x374e, productId: 0x0101 },
         labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101'],
-        profileModule: '@features/devices/adapters/chromatic/chromatic.profile.js',
-        adapterModule: '@features/devices/adapters/chromatic/chromatic.adapter.js',
+        profileModule: '@shared/features/devices/profiles/chromatic/chromatic.profile.js',
+        adapterModule: '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js',
         ProfileClass: ChromaticProfile,
         AdapterClass: ChromaticAdapter
       };

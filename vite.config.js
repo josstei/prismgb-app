@@ -29,7 +29,7 @@ export default defineConfig({
     electron([
       {
         // Main process entry
-        entry: 'src/app/main/index.js',
+        entry: 'src/main/index.js',
         onstart(args) {
           // Start Electron after main and preload are built
           args.startup();
@@ -38,9 +38,9 @@ export default defineConfig({
           resolve: {
             alias: {
               '@': path.resolve(__dirname, 'src'),
-              '@app': path.resolve(__dirname, 'src/app'),
-              '@features': path.resolve(__dirname, 'src/features'),
-              '@ui': path.resolve(__dirname, 'src/ui'),
+              '@main': path.resolve(__dirname, 'src/main'),
+              '@renderer': path.resolve(__dirname, 'src/renderer'),
+              '@preload': path.resolve(__dirname, 'src/preload'),
               '@shared': path.resolve(__dirname, 'src/shared'),
               '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
             }
@@ -66,7 +66,7 @@ export default defineConfig({
       },
       {
         // Preload script entry
-        entry: 'src/app/preload/index.js',
+        entry: 'src/preload/index.js',
         onstart(args) {
           // Reload renderer when preload changes
           args.reload();
@@ -75,9 +75,9 @@ export default defineConfig({
           resolve: {
             alias: {
               '@': path.resolve(__dirname, 'src'),
-              '@app': path.resolve(__dirname, 'src/app'),
-              '@features': path.resolve(__dirname, 'src/features'),
-              '@ui': path.resolve(__dirname, 'src/ui'),
+              '@main': path.resolve(__dirname, 'src/main'),
+              '@renderer': path.resolve(__dirname, 'src/renderer'),
+              '@preload': path.resolve(__dirname, 'src/preload'),
               '@shared': path.resolve(__dirname, 'src/shared'),
               '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
             }
@@ -138,7 +138,7 @@ export default defineConfig({
     outDir: 'dist/renderer',
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'src/app/renderer/index.html')
+        main: path.resolve(__dirname, 'src/renderer/index.html')
       }
     }
   },
@@ -152,9 +152,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@app': path.resolve(__dirname, 'src/app'),
-      '@features': path.resolve(__dirname, 'src/features'),
-      '@ui': path.resolve(__dirname, 'src/ui'),
+      '@main': path.resolve(__dirname, 'src/main'),
+      '@renderer': path.resolve(__dirname, 'src/renderer'),
+      '@preload': path.resolve(__dirname, 'src/preload'),
       '@shared': path.resolve(__dirname, 'src/shared'),
       '@infrastructure': path.resolve(__dirname, 'src/infrastructure'),
       // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
