@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { AppOrchestrator } from '@app/renderer/application/app.orchestrator.js';
+import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
+import { EventChannels } from '@infrastructure/events/event-channels.js';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -14,6 +15,9 @@ describe('AppOrchestrator', () => {
   let mockDisplayModeOrchestrator;
   let mockUpdateOrchestrator;
   let mockUISetupOrchestrator;
+  let mockAnimationPerformanceOrchestrator;
+  let mockPerformanceMetricsOrchestrator;
+  let mockPerformanceStateOrchestrator;
   let mockEventBus;
   let mockLogger;
 
@@ -64,6 +68,21 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
+    mockAnimationPerformanceOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
+    mockPerformanceMetricsOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
+    mockPerformanceStateOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
     mockEventBus = {
       publish: vi.fn(),
       subscribe: vi.fn(() => vi.fn())
@@ -84,6 +103,9 @@ describe('AppOrchestrator', () => {
       displayModeOrchestrator: mockDisplayModeOrchestrator,
       updateOrchestrator: mockUpdateOrchestrator,
       uiSetupOrchestrator: mockUISetupOrchestrator,
+      animationPerformanceOrchestrator: mockAnimationPerformanceOrchestrator,
+      performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
+      performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -91,6 +113,7 @@ describe('AppOrchestrator', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    document.body.className = '';
   });
 
   describe('Constructor', () => {
@@ -107,8 +130,8 @@ describe('AppOrchestrator', () => {
     it('should wire high-level events', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:status-changed', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:enumeration-failed', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.ENUMERATION_FAILED, expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(2);
     });
 
@@ -126,6 +149,9 @@ describe('AppOrchestrator', () => {
       expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockAnimationPerformanceOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
   });
@@ -202,6 +228,9 @@ describe('AppOrchestrator', () => {
 
       // Verify all orchestrators are cleaned up
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockAnimationPerformanceOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPreferencesOrchestrator.cleanup).toHaveBeenCalled();

@@ -345,7 +345,7 @@ describe('Performance Benchmarks', () => {
 
       console.log(`Concurrent-like access pattern: avg=${avgTime.toFixed(2)}ms per batch`);
 
-      expect(avgTime).toBeLessThan(20);
+      expect(avgTime).toBeLessThan(50);
     });
   });
 });

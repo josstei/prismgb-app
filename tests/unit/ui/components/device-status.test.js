@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceStatusComponent } from '@ui/components/device-status.js';
+import { DeviceStatusComponent } from '@renderer/ui/components/device-status.js';
 
 describe('DeviceStatusComponent', () => {
   let component;

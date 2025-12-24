@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamHealthMonitor } from '@features/streaming/rendering/stream-health.monitor.js';
+import { StreamHealthMonitor } from '@renderer/features/streaming/rendering/stream-health.monitor.js';
 
 describe('StreamHealthMonitor', () => {
   let monitor;

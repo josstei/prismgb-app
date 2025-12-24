@@ -40,9 +40,6 @@ export const CSSClasses = {
   // Fullscreen controls auto-hide
   FULLSCREEN_HEADER_HIDDEN: 'fullscreen-hidden',
 
-  // Canvas resize animation
-  FULLSCREEN_ANIMATING: 'fullscreen-animating',
-
   // Fullscreen mode active (body class for reliable CSS targeting in Electron)
   FULLSCREEN_ACTIVE: 'fullscreen-active',
 
@@ -51,5 +48,14 @@ export const CSSClasses = {
   UPDATE_CHECKING: 'checking',
   UPDATE_DOWNLOADING: 'downloading',
   UPDATE_DOWNLOADED: 'downloaded',
-  UPDATE_ERROR: 'error'
+  UPDATE_ERROR: 'error',
+  AVAILABLE: 'available',
+  HIGHLIGHT: 'highlight',
+  FLASH_SUCCESS: 'flash-success',
+  BTN_INSTALL: 'btn-install',
+
+  // Shader selector states
+  PANEL_OPEN: 'panel-open',
+  JUST_SELECTED: 'just-selected',
+  FADED: 'faded'
 };

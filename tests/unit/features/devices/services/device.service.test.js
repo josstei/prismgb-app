@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceService } from '@features/devices/services/device.service.js';
+import { DeviceService } from '@renderer/features/devices/services/device.service.js';
+import { DeviceConnectionService } from '@renderer/features/devices/services/device-connection.service.js';
+import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
+import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 
 describe('DeviceService', () => {
   let service;
@@ -11,7 +14,10 @@ describe('DeviceService', () => {
   let mockDeviceStatusProvider;
   let mockLogger;
   let mockStorageService;
-  let mockMediaDevicesService;
+  let mockBrowserMediaService;
+  let deviceConnectionService;
+  let deviceStorageService;
+  let deviceMediaService;
 
   beforeEach(() => {
     mockEventBus = {
@@ -30,6 +36,8 @@ describe('DeviceService', () => {
       error: vi.fn()
     };
 
+    const mockLoggerFactory = { create: vi.fn(() => mockLogger) };
+
     // Mock storage service
     const storage = {};
     mockStorageService = {
@@ -38,8 +46,8 @@ describe('DeviceService', () => {
       removeItem: vi.fn((key) => { delete storage[key]; })
     };
 
-    // Mock media devices service
-    mockMediaDevicesService = {
+    // Mock browser media service
+    mockBrowserMediaService = {
       enumerateDevices: vi.fn(),
       getUserMedia: vi.fn(),
       addEventListener: vi.fn(),
@@ -50,12 +58,33 @@ describe('DeviceService', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
+    // Create sub-services (following the new DI pattern)
+    deviceStorageService = new DeviceStorageService({
+      storageService: mockStorageService,
+      loggerFactory: mockLoggerFactory
+    });
+
+    deviceConnectionService = new DeviceConnectionService({
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory,
+      deviceStatusProvider: mockDeviceStatusProvider
+    });
+
+    deviceMediaService = new DeviceMediaService({
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory,
+      browserMediaService: mockBrowserMediaService,
+      deviceConnectionService,
+      deviceStorageService
+    });
+
     service = new DeviceService({
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) },
+      loggerFactory: mockLoggerFactory,
       deviceStatusProvider: mockDeviceStatusProvider,
-      storageService: mockStorageService,
-      mediaDevicesService: mockMediaDevicesService
+      deviceConnectionService,
+      deviceStorageService,
+      deviceMediaService
     });
   });
 
@@ -65,7 +94,7 @@ describe('DeviceService', () => {
 
   describe('Constructor', () => {
     it('should initialize with empty videoDevices', () => {
-      expect(service.videoDevices).toEqual([]);
+      expect(service.deviceMediaService.videoDevices).toEqual([]);
     });
 
     it('should initialize with isConnected false', () => {
@@ -73,32 +102,32 @@ describe('DeviceService', () => {
     });
 
     it('should initialize with hasMediaPermission false', () => {
-      expect(service.hasMediaPermission).toBe(false);
+      expect(service.deviceMediaService.hasMediaPermission).toBe(false);
     });
   });
 
   describe('_isMatchingDevice', () => {
     it('should return device ID for labels with Chromatic VID:PID', () => {
       // Linux-style labels with VID:PID
-      expect(service._isMatchingDevice('Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
-      expect(service._isMatchingDevice('ModRetro Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
+      expect(service.deviceMediaService._isMatchingDevice('Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
+      expect(service.deviceMediaService._isMatchingDevice('ModRetro Chromatic (374e:0101)')).toBe('chromatic-mod-retro');
     });
 
     it('should return device ID for labels with Chromatic name patterns', () => {
       // Windows/Mac-style labels without VID:PID
-      expect(service._isMatchingDevice('ModRetro Chromatic')).toBe('chromatic-mod-retro');
-      expect(service._isMatchingDevice('chromatic')).toBe('chromatic-mod-retro');
+      expect(service.deviceMediaService._isMatchingDevice('ModRetro Chromatic')).toBe('chromatic-mod-retro');
+      expect(service.deviceMediaService._isMatchingDevice('chromatic')).toBe('chromatic-mod-retro');
     });
 
     it('should return null for non-Chromatic labels', () => {
-      expect(service._isMatchingDevice('Random Webcam')).toBeNull();
-      expect(service._isMatchingDevice('Integrated Camera (04f2:b7e0)')).toBeNull();
+      expect(service.deviceMediaService._isMatchingDevice('Random Webcam')).toBeNull();
+      expect(service.deviceMediaService._isMatchingDevice('Integrated Camera (04f2:b7e0)')).toBeNull();
     });
   });
 
   describe('getSelectedDeviceId', () => {
     it('should auto-select Chromatic when no device selected', () => {
-      service.videoDevices = [
+      service.deviceMediaService.videoDevices = [
         { deviceId: 'webcam-1', label: 'Integrated Camera (04f2:b7e0)' },
         { deviceId: 'chromatic-1', label: 'Chromatic (374e:0101)' }
       ];
@@ -109,7 +138,7 @@ describe('DeviceService', () => {
     });
 
     it('should return null when no Chromatic found', () => {
-      service.videoDevices = [
+      service.deviceMediaService.videoDevices = [
         { deviceId: 'webcam-1', label: 'Regular Webcam' }
       ];
 
@@ -119,7 +148,7 @@ describe('DeviceService', () => {
     });
 
     it('should return null when no devices', () => {
-      service.videoDevices = [];
+      service.deviceMediaService.videoDevices = [];
       expect(service.getSelectedDeviceId()).toBeNull();
     });
   });
@@ -154,10 +183,10 @@ describe('DeviceService', () => {
 
   describe('isDeviceConnected', () => {
     it('should return current connection state', () => {
-      service.isConnected = true;
+      service.deviceConnectionService.isConnected = true;
       expect(service.isDeviceConnected()).toBe(true);
 
-      service.isConnected = false;
+      service.deviceConnectionService.isConnected = false;
       expect(service.isDeviceConnected()).toBe(false);
     });
   });
@@ -179,8 +208,8 @@ describe('DeviceService', () => {
 
     beforeEach(() => {
       mockDeviceStatusProvider.getDeviceStatus.mockResolvedValue({ connected: true });
-      mockMediaDevicesService.getUserMedia.mockResolvedValue(mockStream);
-      mockMediaDevicesService.enumerateDevices.mockResolvedValue([
+      mockBrowserMediaService.getUserMedia.mockResolvedValue(mockStream);
+      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
         mockChromaticDevice,
         mockWebcam
       ]);
@@ -196,36 +225,36 @@ describe('DeviceService', () => {
     it('should never request getUserMedia during enumeration', async () => {
       // Even with a stored device ID, enumeration should not request permission
       // This prevents the Mac's built-in webcam from flickering
-      localStorage.setItem('chromatic-mod-retro_id', 'chromatic-1');
+      mockStorageService.setItem('chromatic-mod-retro_id', 'chromatic-1');
 
       await service.enumerateDevices();
 
-      expect(mockMediaDevicesService.getUserMedia).not.toHaveBeenCalled();
+      expect(mockBrowserMediaService.getUserMedia).not.toHaveBeenCalled();
     });
 
     it('should set hasMediaPermission true when devices have labels', async () => {
       // If we can see device labels, permission was already granted elsewhere
       await service.enumerateDevices();
 
-      expect(service.hasMediaPermission).toBe(true);
+      expect(service.deviceMediaService.hasMediaPermission).toBe(true);
     });
 
     it('should not set hasMediaPermission when devices have no labels', async () => {
       // Devices without labels means permission not yet granted
-      mockMediaDevicesService.enumerateDevices.mockResolvedValue([
+      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
         { deviceId: 'dev-1', kind: 'videoinput', label: '' },
         { deviceId: 'dev-2', kind: 'videoinput', label: '' }
       ]);
 
       await service.enumerateDevices();
 
-      expect(service.hasMediaPermission).toBe(false);
+      expect(service.deviceMediaService.hasMediaPermission).toBe(false);
     });
 
     it('should store device ID when supported device found with label', async () => {
       await service.enumerateDevices();
 
-      expect(localStorage.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
+      expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
     });
 
     it('should return connected status from provider', async () => {
@@ -258,12 +287,12 @@ describe('DeviceService', () => {
       const result = await service.enumerateDevices();
 
       expect(mockDeviceStatusProvider.getDeviceStatus).toHaveBeenCalledTimes(1);
-      expect(result).toBe(service._lastEnumerateResult);
+      expect(result).toBe(service.deviceMediaService._lastEnumerateResult);
     });
 
     it('should handle enumerateDevices failure gracefully', async () => {
       const error = new Error('Enumeration failed');
-      mockMediaDevicesService.enumerateDevices.mockRejectedValue(error);
+      mockBrowserMediaService.enumerateDevices.mockRejectedValue(error);
 
       const result = await service.enumerateDevices();
 
@@ -280,7 +309,7 @@ describe('DeviceService', () => {
     it('should add devicechange event listener', () => {
       service.setupDeviceChangeListener();
 
-      expect(mockMediaDevicesService.addEventListener).toHaveBeenCalledWith(
+      expect(mockBrowserMediaService.addEventListener).toHaveBeenCalledWith(
         'devicechange',
         expect.any(Function)
       );
@@ -289,7 +318,7 @@ describe('DeviceService', () => {
     it('should store handler reference for cleanup', () => {
       service.setupDeviceChangeListener();
 
-      expect(service._deviceChangeHandler).toBeInstanceOf(Function);
+      expect(service.deviceMediaService._deviceChangeHandler).toBeInstanceOf(Function);
     });
 
     it('should update status but NOT enumerate devices on devicechange', async () => {
@@ -299,12 +328,12 @@ describe('DeviceService', () => {
       service.setupDeviceChangeListener();
 
       // Trigger the handler
-      await service._deviceChangeHandler();
+      await service.deviceMediaService._deviceChangeHandler();
 
       // Should update status from provider
       expect(mockDeviceStatusProvider.getDeviceStatus).toHaveBeenCalled();
       // Should NOT enumerate cameras (no getUserMedia, no enumerateDevices camera probe)
-      expect(mockMediaDevicesService.getUserMedia).not.toHaveBeenCalled();
+      expect(mockBrowserMediaService.getUserMedia).not.toHaveBeenCalled();
     });
   });
 
@@ -318,23 +347,22 @@ describe('DeviceService', () => {
     });
 
     it('should not probe random devices when no stored ID', async () => {
-      mockMediaDevicesService.enumerateDevices.mockResolvedValue([
+      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
         { deviceId: 'dev-1', kind: 'videoinput', label: '' },
         { deviceId: 'dev-2', kind: 'videoinput', label: '' }
       ]);
-      mockMediaDevicesService.getUserMedia.mockResolvedValue(mockStream);
 
       const result = await service.discoverSupportedDevice();
 
       expect(result).toBeNull();
-      expect(mockMediaDevicesService.getUserMedia).not.toHaveBeenCalled();
+      expect(mockBrowserMediaService.getUserMedia).not.toHaveBeenCalled();
     });
 
     it('should request permission only for stored device ID', async () => {
       mockStorageService.setItem('chromatic-mod-retro_id', 'stored-dev');
 
       // First enumerate (before permission) - labels hidden
-      mockMediaDevicesService.enumerateDevices
+      mockBrowserMediaService.enumerateDevices
         .mockResolvedValueOnce([
           { deviceId: 'stored-dev', kind: 'videoinput', label: '' }
         ])
@@ -345,41 +373,70 @@ describe('DeviceService', () => {
 
       const stop = vi.fn();
       const stream = { getTracks: vi.fn(() => [{ stop }]) };
-      mockMediaDevicesService.getUserMedia.mockResolvedValue(stream);
+      mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
 
       const result = await service.discoverSupportedDevice();
 
-      expect(mockMediaDevicesService.getUserMedia).toHaveBeenCalledWith({
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({
         video: { deviceId: { exact: 'stored-dev' } }
       });
       expect(stop).toHaveBeenCalled();
       expect(result?.deviceId).toBe('stored-dev');
+    });
+
+    it('should stop after stored ID probe fails without probing others', async () => {
+      mockStorageService.setItem('chromatic-mod-retro_id', 'old-stale-id');
+
+      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
+        { deviceId: 'new-dev-1', kind: 'videoinput', label: '' }
+      ]);
+
+      mockBrowserMediaService.getUserMedia.mockRejectedValueOnce(new Error('Device not found'));
+
+      const result = await service.discoverSupportedDevice();
+
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(1);
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({
+        video: { deviceId: { exact: 'old-stale-id' } }
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should cache supported device after successful start', () => {
+      const device = { deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' };
+
+      const result = service.cacheSupportedDevice(device);
+
+      expect(result).toBe(true);
+      expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
+      expect(service.deviceMediaService.hasMediaPermission).toBe(true);
+      expect(service.deviceMediaService.videoDevices).toEqual([device]);
     });
   });
 
   describe('dispose', () => {
     it('should remove devicechange listener', () => {
       const handler = vi.fn();
-      service._deviceChangeHandler = handler;
+      service.deviceMediaService._deviceChangeHandler = handler;
 
       service.dispose();
 
-      expect(mockMediaDevicesService.removeEventListener).toHaveBeenCalledWith(
+      expect(mockBrowserMediaService.removeEventListener).toHaveBeenCalledWith(
         'devicechange',
         handler
       );
     });
 
     it('should clear handler reference', () => {
-      service._deviceChangeHandler = vi.fn();
+      service.deviceMediaService._deviceChangeHandler = vi.fn();
 
       service.dispose();
 
-      expect(service._deviceChangeHandler).toBeNull();
+      expect(service.deviceMediaService._deviceChangeHandler).toBeNull();
     });
 
     it('should handle no handler set', () => {
-      service._deviceChangeHandler = null;
+      service.deviceMediaService._deviceChangeHandler = null;
 
       expect(() => service.dispose()).not.toThrow();
     });

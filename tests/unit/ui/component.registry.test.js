@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UIComponentRegistry } from '@ui/controller/component.registry.js';
+import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 
 describe('UIComponentRegistry', () => {
   let registry;

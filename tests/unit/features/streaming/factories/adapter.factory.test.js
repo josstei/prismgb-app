@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { AdapterFactory } from '@features/streaming/factories/adapter.factory.js';
+import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
 
-// Mock ConstraintBuilder and BaseStreamLifecycle
-vi.mock('@features/streaming/acquisition/constraint.builder.js', () => {
+// Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
+vi.mock('@shared/streaming/acquisition/constraint.builder.js', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
@@ -14,7 +14,7 @@ vi.mock('@features/streaming/acquisition/constraint.builder.js', () => {
   };
 });
 
-vi.mock('@features/streaming/acquisition/stream.lifecycle.js', () => {
+vi.mock('@shared/streaming/acquisition/stream.lifecycle.js', () => {
   return {
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}
@@ -23,7 +23,7 @@ vi.mock('@features/streaming/acquisition/stream.lifecycle.js', () => {
 });
 
 // Mock ChromaticAdapter - this will be used by dynamic imports automatically
-vi.mock('@features/devices/adapters/chromatic/chromatic.adapter.js', () => {
+vi.mock('@renderer/features/devices/adapters/chromatic/chromatic.adapter.js', () => {
   class MockChromaticAdapter {
     constructor(deps) {
       this.deps = deps;
