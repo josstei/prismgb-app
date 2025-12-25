@@ -205,4 +205,4 @@ class ProfileRegistry {
   }
 }
 
-export default ProfileRegistry;
+export { ProfileRegistry };

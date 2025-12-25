@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 
 // Mock the component imports with proper class implementations
-vi.mock('@renderer/ui/components/status-notification.js', () => ({
+vi.mock('@renderer/ui/components/status-notification.component.js', () => ({
   StatusNotificationComponent: class {
     constructor(config) {
       this.type = 'StatusNotification';
@@ -15,7 +15,7 @@ vi.mock('@renderer/ui/components/status-notification.js', () => ({
   }
 }));
 
-vi.mock('@renderer/ui/components/device-status.js', () => ({
+vi.mock('@renderer/ui/components/device-status.component.js', () => ({
   DeviceStatusComponent: class {
     constructor(config) {
       this.type = 'DeviceStatus';
@@ -24,7 +24,7 @@ vi.mock('@renderer/ui/components/device-status.js', () => ({
   }
 }));
 
-vi.mock('@renderer/features/streaming/ui/stream-controls.js', () => ({
+vi.mock('@renderer/features/streaming/ui/stream-controls.component.js', () => ({
   StreamControlsComponent: class {
     constructor(config) {
       this.type = 'StreamControls';
@@ -33,7 +33,7 @@ vi.mock('@renderer/features/streaming/ui/stream-controls.js', () => ({
   }
 }));
 
-vi.mock('@renderer/features/settings/ui/settings-menu.js', () => ({
+vi.mock('@renderer/features/settings/ui/settings-menu.component.js', () => ({
   SettingsMenuComponent: class {
     constructor(config) {
       this.type = 'SettingsMenu';

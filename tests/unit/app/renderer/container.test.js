@@ -171,7 +171,7 @@ vi.mock('@renderer/features/updates/ui/update-ui.service.js', () => ({
 
 // Infrastructure mocks
 vi.mock('@infrastructure/events/event-bus.js', () => ({
-  default: vi.fn()
+  EventBus: vi.fn()
 }));
 
 vi.mock('@infrastructure/logging/logger.js', () => ({

@@ -6,6 +6,7 @@
 import * as awilix from 'awilix';
 const { createContainer, asClass, asValue, InjectionMode } = awilix;
 import pkg from '../../package.json' assert { type: 'json' };
+import { EventBus } from './infrastructure/events/event-bus.js';
 
 /**
  * Create and configure the DI container
@@ -31,41 +32,44 @@ async function createAppContainer(loggerFactory) {
     }),
 
     // Logger factory - singleton instance
-    loggerFactory: asValue(loggerFactory)
+    loggerFactory: asValue(loggerFactory),
+
+    // EventBus - singleton for cross-service communication
+    eventBus: asClass(EventBus).singleton()
   });
 
   // Manual registration for ESM compatibility (Awilix loadModules uses require)
 
   // Services
-  const { default: WindowManager } = await import('./window-manager.js');
-  const { default: TrayManager } = await import('./tray-manager.js');
-  const { default: IpcHandlers } = await import('./ipc-handlers.js');
+  const { WindowService } = await import('./window/window.service.js');
+  const { TrayService } = await import('./tray/tray.service.js');
+  const { IpcHandlerRegistry } = await import('./ipc/ipc-handler.registry.js');
 
   container.register({
-    windowManager: asClass(WindowManager).singleton(),
-    trayManager: asClass(TrayManager).singleton(),
-    ipcHandlers: asClass(IpcHandlers).singleton()
+    windowService: asClass(WindowService).singleton(),
+    trayService: asClass(TrayService).singleton(),
+    ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton()
   });
 
   // Device components
-  const { default: DeviceServiceMain } = await import('@main/features/devices/device.service.main.js');
-  const { default: ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
-  const { DeviceLifecycleCoordinator } = await import('@main/features/devices/device-lifecycle.coordinator.js');
+  const { DeviceService } = await import('@main/features/devices/device.service.js');
+  const { ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
+  const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
 
   container.register({
-    deviceServiceMain: asClass(DeviceServiceMain).singleton(),
+    deviceService: asClass(DeviceService).singleton(),
     profileRegistry: asClass(ProfileRegistry).singleton(),
-    deviceLifecycleCoordinator: asClass(DeviceLifecycleCoordinator).singleton()
+    deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
   });
 
   // Update components
-  const { default: UpdateServiceMain } = await import('@main/features/updates/update.service.main.js');
+  const { UpdateService } = await import('@main/features/updates/update.service.js');
 
-  const { DeviceBridgeService } = await import('./services/device-bridge.service.js');
-  const { UpdateBridgeService } = await import('./services/update-bridge.service.js');
+  const { DeviceBridgeService } = await import('./features/devices/device.bridge.js');
+  const { UpdateBridgeService } = await import('./features/updates/update.bridge.js');
 
   container.register({
-    updateServiceMain: asClass(UpdateServiceMain).singleton(),
+    updateService: asClass(UpdateService).singleton(),
     deviceBridgeService: asClass(DeviceBridgeService).singleton(),
     updateBridgeService: asClass(UpdateBridgeService).singleton()
   });

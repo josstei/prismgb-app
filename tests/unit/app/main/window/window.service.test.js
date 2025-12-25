@@ -1,5 +1,5 @@
 /**
- * WindowManager Unit Tests
+ * WindowService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -60,9 +60,9 @@ vi.mock('../../../src/shared/config/config-loader.js', () => ({
 // Mock url - need default export
 vi.mock('url', () => ({
   default: {
-    fileURLToPath: vi.fn(() => '/app/src/main/WindowManager.js')
+    fileURLToPath: vi.fn(() => '/app/src/main/window/window.service.js')
   },
-  fileURLToPath: vi.fn(() => '/app/src/main/WindowManager.js')
+  fileURLToPath: vi.fn(() => '/app/src/main/window/window.service.js')
 }));
 
 vi.mock('path', () => ({
@@ -74,11 +74,11 @@ vi.mock('path', () => ({
   dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
 }));
 
-import WindowManager from '@main/window-manager.js';
+import { WindowService } from '@main/window/window.service.js';
 import { BrowserWindow, app } from 'electron';
 
-describe('WindowManager', () => {
-  let windowManager;
+describe('WindowService', () => {
+  let windowService;
   let mockLogger;
   let mockLoggerFactory;
   let originalPlatform;
@@ -97,7 +97,7 @@ describe('WindowManager', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    windowManager = new WindowManager({
+    windowService = new WindowService({
       loggerFactory: mockLoggerFactory
     });
 
@@ -112,26 +112,26 @@ describe('WindowManager', () => {
 
   describe('Constructor', () => {
     it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('WindowManager');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('WindowService');
     });
 
     it('should initialize mainWindow as null', () => {
-      expect(windowManager.mainWindow).toBeNull();
+      expect(windowService.mainWindow).toBeNull();
     });
   });
 
   describe('createWindow', () => {
     it('should create BrowserWindow', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow).toBeDefined();
-      expect(windowManager.mainWindow).not.toBeNull();
+      expect(windowService.mainWindow).toBeDefined();
+      expect(windowService.mainWindow).not.toBeNull();
     });
 
     it('should load dev URL when not packaged', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.loadURL).toHaveBeenCalledWith(
+      expect(windowService.mainWindow.loadURL).toHaveBeenCalledWith(
         'http://localhost:3000/src/renderer/index.html'
       );
     });
@@ -140,55 +140,55 @@ describe('WindowManager', () => {
       const originalIsPackaged = app.isPackaged;
       Object.defineProperty(app, 'isPackaged', { value: true, configurable: true });
 
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.loadFile).toHaveBeenCalled();
+      expect(windowService.mainWindow.loadFile).toHaveBeenCalled();
 
       Object.defineProperty(app, 'isPackaged', { value: originalIsPackaged, configurable: true });
     });
 
     it('should register console-message handler', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.webContents.on).toHaveBeenCalledWith('console-message', expect.any(Function));
+      expect(windowService.mainWindow.webContents.on).toHaveBeenCalledWith('console-message', expect.any(Function));
     });
 
     it('should register ready-to-show handler', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.once).toHaveBeenCalledWith('ready-to-show', expect.any(Function));
+      expect(windowService.mainWindow.once).toHaveBeenCalledWith('ready-to-show', expect.any(Function));
     });
 
     it('should register close handler', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.on).toHaveBeenCalledWith('close', expect.any(Function));
+      expect(windowService.mainWindow.on).toHaveBeenCalledWith('close', expect.any(Function));
     });
 
     it('should register closed handler', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.mainWindow.on).toHaveBeenCalledWith('closed', expect.any(Function));
+      expect(windowService.mainWindow.on).toHaveBeenCalledWith('closed', expect.any(Function));
     });
 
     it('should return existing window if already created', () => {
-      windowManager.createWindow();
-      const firstWindow = windowManager.mainWindow;
+      windowService.createWindow();
+      const firstWindow = windowService.mainWindow;
 
-      windowManager.createWindow();
+      windowService.createWindow();
 
       // Should force to foreground
       expect(firstWindow.show).toHaveBeenCalled();
     });
 
     it('should return the window instance', () => {
-      const result = windowManager.createWindow();
+      const result = windowService.createWindow();
 
-      expect(result).toBe(windowManager.mainWindow);
+      expect(result).toBe(windowService.mainWindow);
     });
 
     it('should log creation', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Creating main window');
     });
@@ -196,87 +196,87 @@ describe('WindowManager', () => {
 
   describe('showWindow', () => {
     it('should show existing window', () => {
-      windowManager.createWindow();
-      const win = windowManager.mainWindow;
+      windowService.createWindow();
+      const win = windowService.mainWindow;
       win.show.mockClear();
 
-      windowManager.showWindow();
+      windowService.showWindow();
 
       expect(win.show).toHaveBeenCalled();
     });
 
     it('should create window if it does not exist', () => {
-      windowManager.showWindow();
+      windowService.showWindow();
 
-      expect(windowManager.mainWindow).not.toBeNull();
+      expect(windowService.mainWindow).not.toBeNull();
     });
   });
 
   describe('hasWindow', () => {
     it('should return false initially', () => {
-      expect(windowManager.hasWindow()).toBe(false);
+      expect(windowService.hasWindow()).toBe(false);
     });
 
     it('should return true after creation', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      expect(windowManager.hasWindow()).toBe(true);
+      expect(windowService.hasWindow()).toBe(true);
     });
   });
 
   describe('send', () => {
     it('should send message to renderer', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      windowManager.send('test-channel', 'arg1', 'arg2');
+      windowService.send('test-channel', 'arg1', 'arg2');
 
-      expect(windowManager.mainWindow.webContents.send).toHaveBeenCalledWith('test-channel', 'arg1', 'arg2');
+      expect(windowService.mainWindow.webContents.send).toHaveBeenCalledWith('test-channel', 'arg1', 'arg2');
     });
 
     it('should do nothing if window does not exist', () => {
       // Should not throw
-      expect(() => windowManager.send('test-channel', 'data')).not.toThrow();
+      expect(() => windowService.send('test-channel', 'data')).not.toThrow();
     });
 
     it('should do nothing if window is destroyed', () => {
-      windowManager.createWindow();
-      windowManager.mainWindow.isDestroyed.mockReturnValue(true);
+      windowService.createWindow();
+      windowService.mainWindow.isDestroyed.mockReturnValue(true);
 
-      windowManager.send('test-channel', 'data');
+      windowService.send('test-channel', 'data');
 
-      expect(windowManager.mainWindow.webContents.send).not.toHaveBeenCalled();
+      expect(windowService.mainWindow.webContents.send).not.toHaveBeenCalled();
     });
   });
 
   describe('_forceWindowToForeground', () => {
     it('should show and focus window', () => {
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      windowManager._forceWindowToForeground();
+      windowService._forceWindowToForeground();
 
-      expect(windowManager.mainWindow.show).toHaveBeenCalled();
-      expect(windowManager.mainWindow.focus).toHaveBeenCalled();
+      expect(windowService.mainWindow.show).toHaveBeenCalled();
+      expect(windowService.mainWindow.focus).toHaveBeenCalled();
     });
 
     it('should restore if minimized', () => {
-      windowManager.createWindow();
-      windowManager.mainWindow.isMinimized.mockReturnValue(true);
+      windowService.createWindow();
+      windowService.mainWindow.isMinimized.mockReturnValue(true);
 
-      windowManager._forceWindowToForeground();
+      windowService._forceWindowToForeground();
 
-      expect(windowManager.mainWindow.restore).toHaveBeenCalled();
+      expect(windowService.mainWindow.restore).toHaveBeenCalled();
     });
 
     it('should do nothing if window does not exist', () => {
       // Should not throw
-      expect(() => windowManager._forceWindowToForeground()).not.toThrow();
+      expect(() => windowService._forceWindowToForeground()).not.toThrow();
     });
   });
 
   describe('Window Event Handlers', () => {
     it('should handle close event by hiding window when not quitting', () => {
-      windowManager.createWindow();
-      const win = windowManager.mainWindow;
+      windowService.createWindow();
+      const win = windowService.mainWindow;
 
       const closeHandler = win.on.mock.calls.find(
         call => call[0] === 'close'
@@ -292,8 +292,8 @@ describe('WindowManager', () => {
     });
 
     it('should allow close when app is quitting', () => {
-      windowManager.createWindow();
-      const win = windowManager.mainWindow;
+      windowService.createWindow();
+      const win = windowService.mainWindow;
 
       const closeHandler = win.on.mock.calls.find(
         call => call[0] === 'close'
@@ -308,8 +308,8 @@ describe('WindowManager', () => {
     });
 
     it('should clean up webContents listener on close event when quitting', () => {
-      windowManager.createWindow();
-      const win = windowManager.mainWindow;
+      windowService.createWindow();
+      const win = windowService.mainWindow;
 
       const closeHandler = win.on.mock.calls.find(
         call => call[0] === 'close'
@@ -322,12 +322,12 @@ describe('WindowManager', () => {
 
       // Verify webContents listener was removed during close (before destroy)
       expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
-      expect(windowManager._consoleMessageListener).toBeNull();
+      expect(windowService._consoleMessageListener).toBeNull();
     });
 
     it('should null window reference on closed event', () => {
-      windowManager.createWindow();
-      const win = windowManager.mainWindow;
+      windowService.createWindow();
+      const win = windowService.mainWindow;
 
       const closedHandler = win.on.mock.calls.find(
         call => call[0] === 'closed'
@@ -336,14 +336,14 @@ describe('WindowManager', () => {
       closedHandler();
 
       // After closed, window reference should be null
-      expect(windowManager.mainWindow).toBeNull();
+      expect(windowService.mainWindow).toBeNull();
     });
 
     it('should log renderer console messages', () => {
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      windowManager.createWindow();
+      windowService.createWindow();
 
-      const consoleHandler = windowManager.mainWindow.webContents.on.mock.calls.find(
+      const consoleHandler = windowService.mainWindow.webContents.on.mock.calls.find(
         call => call[0] === 'console-message'
       )[1];
 

@@ -1,5 +1,5 @@
 /**
- * IpcHandlers Unit Tests
+ * IpcHandlerRegistry Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -16,13 +16,14 @@ vi.mock('electron', () => ({
   }
 }));
 
-import IpcHandlers from '@main/ipc-handlers.js';
+import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { ipcMain } from 'electron';
 
-describe('IpcHandlers', () => {
-  let ipcHandlers;
-  let mockDeviceServiceMain;
-  let mockUpdateServiceMain;
+describe('IpcHandlerRegistry', () => {
+  let ipcHandlerRegistry;
+  let mockDeviceService;
+  let mockUpdateService;
+  let mockWindowService;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -40,20 +41,26 @@ describe('IpcHandlers', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    mockDeviceServiceMain = {
+    mockDeviceService = {
       getStatus: vi.fn()
     };
 
-    mockUpdateServiceMain = {
+    mockUpdateService = {
       checkForUpdates: vi.fn(),
       downloadUpdate: vi.fn(),
       installUpdate: vi.fn(),
       getStatus: vi.fn()
     };
 
-    ipcHandlers = new IpcHandlers({
-      deviceServiceMain: mockDeviceServiceMain,
-      updateServiceMain: mockUpdateServiceMain,
+    mockWindowService = {
+      toggleFullscreen: vi.fn(),
+      setVolume: vi.fn()
+    };
+
+    ipcHandlerRegistry = new IpcHandlerRegistry({
+      deviceService: mockDeviceService,
+      updateService: mockUpdateService,
+      windowService: mockWindowService,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -64,23 +71,23 @@ describe('IpcHandlers', () => {
 
   describe('Constructor', () => {
     it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('IpcHandlers');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('IpcHandlerRegistry');
     });
 
     it('should store device service', () => {
-      expect(ipcHandlers.deviceServiceMain).toBe(mockDeviceServiceMain);
+      expect(ipcHandlerRegistry.deviceService).toBe(mockDeviceService);
     });
   });
 
   describe('registerHandlers', () => {
     it('should log registration', () => {
-      ipcHandlers.registerHandlers();
+      ipcHandlerRegistry.registerHandlers();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Registering IPC handlers');
     });
 
     it('should register device handlers', () => {
-      ipcHandlers.registerHandlers();
+      ipcHandlerRegistry.registerHandlers();
 
       expect(ipcMain.handle).toHaveBeenCalledWith('device:get-status', expect.any(Function));
     });
@@ -88,12 +95,12 @@ describe('IpcHandlers', () => {
 
   describe('Device Handler: GET_STATUS', () => {
     it('should return device status on success', async () => {
-      mockDeviceServiceMain.getStatus.mockReturnValue({
+      mockDeviceService.getStatus.mockReturnValue({
         connected: true,
         device: { deviceName: 'Chromatic' }
       });
 
-      ipcHandlers.registerHandlers();
+      ipcHandlerRegistry.registerHandlers();
 
       const statusHandler = ipcMain.handle.mock.calls.find(
         call => call[0] === 'device:get-status'
@@ -106,11 +113,11 @@ describe('IpcHandlers', () => {
     });
 
     it('should handle error getting status', async () => {
-      mockDeviceServiceMain.getStatus.mockImplementation(() => {
+      mockDeviceService.getStatus.mockImplementation(() => {
         throw new Error('Device error');
       });
 
-      ipcHandlers.registerHandlers();
+      ipcHandlerRegistry.registerHandlers();
 
       const statusHandler = ipcMain.handle.mock.calls.find(
         call => call[0] === 'device:get-status'

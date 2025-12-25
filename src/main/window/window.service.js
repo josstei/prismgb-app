@@ -1,5 +1,5 @@
 /**
- * Window Manager
+ * Window Service
  * Handles main application window creation and lifecycle
  */
 
@@ -9,13 +9,14 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@shared/config/config-loader.js';
 import IPC_CHANNELS from '@infrastructure/ipc/channels.json' with { type: 'json' };
+import { BaseService } from '@shared/base/service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
 
-class WindowManager {
-  constructor({ loggerFactory }) {
-    this.logger = loggerFactory.create('WindowManager');
+class WindowService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['loggerFactory'], 'WindowService');
     this.mainWindow = null;
     this._consoleMessageListener = null;
     this._downloadHandler = null;
@@ -254,4 +255,4 @@ class WindowManager {
   }
 }
 
-export default WindowManager;
+export { WindowService };

@@ -5,10 +5,10 @@
 
 import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 
-export function registerUpdateHandlers({ registerHandler, updateServiceMain, logger }) {
+export function registerUpdateHandlers({ registerHandler, updateService, logger }) {
   registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
     try {
-      const result = await updateServiceMain.checkForUpdates();
+      const result = await updateService.checkForUpdates();
       return { success: true, ...result };
     } catch (error) {
       logger.error('Failed to check for updates:', error);
@@ -18,7 +18,7 @@ export function registerUpdateHandlers({ registerHandler, updateServiceMain, log
 
   registerHandler(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
     try {
-      await updateServiceMain.downloadUpdate();
+      await updateService.downloadUpdate();
       return { success: true };
     } catch (error) {
       logger.error('Failed to download update:', error);
@@ -28,7 +28,7 @@ export function registerUpdateHandlers({ registerHandler, updateServiceMain, log
 
   registerHandler(IPC_CHANNELS.UPDATE.INSTALL, async () => {
     try {
-      updateServiceMain.installUpdate();
+      updateService.installUpdate();
       return { success: true };
     } catch (error) {
       logger.error('Failed to install update:', error);
@@ -38,7 +38,7 @@ export function registerUpdateHandlers({ registerHandler, updateServiceMain, log
 
   registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
     try {
-      const status = updateServiceMain.getStatus();
+      const status = updateService.getStatus();
       return { success: true, ...status };
     } catch (error) {
       logger.error('Failed to get update status:', error);

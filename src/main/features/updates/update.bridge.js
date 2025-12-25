@@ -10,18 +10,18 @@ class UpdateBridgeService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
-      ['updateServiceMain', 'loggerFactory'],
+      ['updateService', 'loggerFactory'],
       'UpdateBridgeService'
     );
   }
 
   initialize() {
-    this.updateServiceMain.initialize();
-    this.updateServiceMain.startAutoCheck(60 * 60 * 1000);
+    this.updateService.initialize();
+    this.updateService.startAutoCheck(60 * 60 * 1000);
   }
 
   dispose() {
-    this.updateServiceMain.dispose();
+    this.updateService.dispose();
   }
 }
 

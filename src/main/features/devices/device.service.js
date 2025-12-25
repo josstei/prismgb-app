@@ -4,21 +4,20 @@
  * Integrates with ProfileRegistry for profile-based device matching
  */
 
-import EventEmitter from 'events';
+import { BaseService } from '@shared/base/service.js';
 import usbDetection from 'usb-detection';
 import { appConfig } from '@shared/config/config-loader.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
+import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 
-class DeviceServiceMain extends EventEmitter {
-  constructor({ profileRegistry, loggerFactory }) {
-    super();
-    this.logger = loggerFactory.create('DeviceServiceMain');
-    this.profileRegistry = profileRegistry;
+class DeviceService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['profileRegistry', 'eventBus', 'loggerFactory'], 'DeviceService');
     this.isDeviceConnected = false;
     this.connectedDeviceInfo = null;
     this.usbMonitoring = false;
@@ -41,7 +40,7 @@ class DeviceServiceMain extends EventEmitter {
     }
 
     if (this._profilesInitialized) {
-      this.logger.warn('DeviceServiceMain already initialized');
+      this.logger.warn('DeviceService already initialized');
       return;
     }
 
@@ -363,8 +362,7 @@ class DeviceServiceMain extends EventEmitter {
       this.isDeviceConnected = true;
       this.connectedDeviceInfo = { ...device, configName: match.config.deviceName };
 
-      // Emit connection changed event
-      this.emit('connection-changed');
+      this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, this.getStatus());
     } else {
       this.logger.info('Device ignored (not a configured device)');
     }
@@ -386,8 +384,7 @@ class DeviceServiceMain extends EventEmitter {
       this.isDeviceConnected = false;
       this.connectedDeviceInfo = null;
 
-      // Emit connection changed event (MainAppOrchestrator handles IPC)
-      this.emit('connection-changed');
+      this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, this.getStatus());
     }
   }
 
@@ -416,4 +413,4 @@ class DeviceServiceMain extends EventEmitter {
   }
 }
 
-export default DeviceServiceMain;
+export { DeviceService };

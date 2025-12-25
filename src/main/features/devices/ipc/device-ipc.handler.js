@@ -5,10 +5,10 @@
 
 import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
 
-export function registerDeviceHandlers({ registerHandler, deviceServiceMain, logger }) {
+export function registerDeviceHandlers({ registerHandler, deviceService, logger }) {
   registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
     try {
-      const status = deviceServiceMain.getStatus();
+      const status = deviceService.getStatus();
       return status;
     } catch (error) {
       logger.error('Failed to get device status:', error);

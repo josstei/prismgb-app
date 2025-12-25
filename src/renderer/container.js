@@ -23,7 +23,7 @@ import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 import { UIEffects } from '@renderer/ui/effects/ui-effects.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.manager.js';
-import { UIEventBridge } from '@renderer/ui/orchestration/ui-event-bridge.js';
+import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
 // Features: Devices
@@ -32,7 +32,7 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/services/device-status.adapter.js';
+import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 
 // Features: Streaming
@@ -67,7 +67,7 @@ import { UpdateOrchestrator } from '@renderer/features/updates/services/update.o
 import { UpdateUiService } from '@renderer/features/updates/ui/update-ui.service.js';
 
 // Infrastructure
-import EventBus from '@infrastructure/events/event-bus.js';
+import { EventBus } from '@infrastructure/events/event-bus.js';
 import { BrowserLogger } from '@infrastructure/logging/logger.js';
 import { StorageService } from '@infrastructure/browser/storage.service.js';
 import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';

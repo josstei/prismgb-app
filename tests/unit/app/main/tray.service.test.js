@@ -1,5 +1,5 @@
 /**
- * TrayManager Unit Tests
+ * TrayService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -31,13 +31,13 @@ vi.mock('path', () => ({
   }
 }));
 
-import TrayManager from '@main/tray-manager.js';
+import { TrayService } from '@main/tray/tray.service.js';
 import { Tray, Menu, app } from 'electron';
 
-describe('TrayManager', () => {
-  let trayManager;
-  let mockWindowManager;
-  let mockDeviceServiceMain;
+describe('TrayService', () => {
+  let trayService;
+  let mockWindowService;
+  let mockDeviceService;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -55,18 +55,18 @@ describe('TrayManager', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    mockWindowManager = {
+    mockWindowService = {
       showWindow: vi.fn()
     };
 
-    mockDeviceServiceMain = {
+    mockDeviceService = {
       isConnected: vi.fn(),
       checkForDevice: vi.fn()
     };
 
-    trayManager = new TrayManager({
-      windowManager: mockWindowManager,
-      deviceServiceMain: mockDeviceServiceMain,
+    trayService = new TrayService({
+      windowService: mockWindowService,
+      deviceService: mockDeviceService,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -77,122 +77,122 @@ describe('TrayManager', () => {
 
   describe('Constructor', () => {
     it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('TrayManager');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('TrayService');
     });
 
     it('should initialize tray as null', () => {
-      expect(trayManager.tray).toBeNull();
+      expect(trayService.tray).toBeNull();
     });
 
-    it('should store window manager', () => {
-      expect(trayManager.windowManager).toBe(mockWindowManager);
+    it('should store window service', () => {
+      expect(trayService.windowService).toBe(mockWindowService);
     });
 
     it('should store device service', () => {
-      expect(trayManager.deviceServiceMain).toBe(mockDeviceServiceMain);
+      expect(trayService.deviceService).toBe(mockDeviceService);
     });
   });
 
   describe('createTray', () => {
     it('should create tray instance', () => {
-      trayManager.createTray();
+      trayService.createTray();
 
-      expect(trayManager.tray).toBeDefined();
-      expect(trayManager.tray).not.toBeNull();
+      expect(trayService.tray).toBeDefined();
+      expect(trayService.tray).not.toBeNull();
     });
 
     it('should set initial tooltip', () => {
-      trayManager.createTray();
+      trayService.createTray();
 
-      expect(trayManager.tray.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
+      expect(trayService.tray.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
     });
 
     it('should register click handler', () => {
-      trayManager.createTray();
+      trayService.createTray();
 
-      expect(trayManager.tray.on).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(trayService.tray.on).toHaveBeenCalledWith('click', expect.any(Function));
     });
 
     it('should show window on click', () => {
-      trayManager.createTray();
+      trayService.createTray();
 
-      const clickHandler = trayManager.tray.on.mock.calls.find(
+      const clickHandler = trayService.tray.on.mock.calls.find(
         call => call[0] === 'click'
       )[1];
 
       clickHandler();
 
-      expect(mockWindowManager.showWindow).toHaveBeenCalled();
+      expect(mockWindowService.showWindow).toHaveBeenCalled();
     });
 
     it('should log creation', () => {
-      trayManager.createTray();
+      trayService.createTray();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Creating system tray icon');
     });
 
     it('should return tray instance', () => {
-      const result = trayManager.createTray();
+      const result = trayService.createTray();
 
-      expect(result).toBe(trayManager.tray);
+      expect(result).toBe(trayService.tray);
     });
 
     it('should handle dist path for bundled environment', () => {
       app.getAppPath.mockReturnValue('/app/dist/main');
 
-      trayManager.createTray();
+      trayService.createTray();
 
-      expect(trayManager.tray).toBeDefined();
+      expect(trayService.tray).toBeDefined();
     });
   });
 
   describe('updateTrayMenu', () => {
     beforeEach(() => {
-      trayManager.createTray();
+      trayService.createTray();
     });
 
     it('should build menu from template', () => {
-      trayManager.updateTrayMenu();
+      trayService.updateTrayMenu();
 
       expect(Menu.buildFromTemplate).toHaveBeenCalled();
     });
 
     it('should set context menu', () => {
-      trayManager.updateTrayMenu();
+      trayService.updateTrayMenu();
 
-      expect(trayManager.tray.setContextMenu).toHaveBeenCalled();
+      expect(trayService.tray.setContextMenu).toHaveBeenCalled();
     });
 
     it('should do nothing if tray not created', () => {
-      trayManager.tray = null;
+      trayService.tray = null;
 
-      trayManager.updateTrayMenu();
+      trayService.updateTrayMenu();
 
       expect(Menu.buildFromTemplate).toHaveBeenCalledTimes(1);
     });
 
     it('should check device connection status', () => {
-      mockDeviceServiceMain.isConnected.mockReturnValue(true);
+      mockDeviceService.isConnected.mockReturnValue(true);
 
-      trayManager.updateTrayMenu();
+      trayService.updateTrayMenu();
 
-      expect(mockDeviceServiceMain.isConnected).toHaveBeenCalled();
+      expect(mockDeviceService.isConnected).toHaveBeenCalled();
     });
   });
 
   describe('destroy', () => {
     it('should destroy tray when it exists', () => {
-      trayManager.createTray();
-      const trayInstance = trayManager.tray;
+      trayService.createTray();
+      const trayInstance = trayService.tray;
 
-      trayManager.destroy();
+      trayService.destroy();
 
       expect(trayInstance.destroy).toHaveBeenCalled();
-      expect(trayManager.tray).toBeNull();
+      expect(trayService.tray).toBeNull();
     });
 
     it('should do nothing if tray not created', () => {
-      expect(() => trayManager.destroy()).not.toThrow();
+      expect(() => trayService.destroy()).not.toThrow();
     });
   });
 });

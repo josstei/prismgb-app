@@ -4,12 +4,12 @@
  * Translates update events into UI notifications and badge visibility.
  */
 
+import { BaseService } from '@shared/base/service.js';
 import { EventChannels } from '@infrastructure/events/event-channels.js';
 
-class UpdateUiService {
-  constructor({ eventBus, loggerFactory }) {
-    this.eventBus = eventBus;
-    this.logger = loggerFactory?.create('UpdateUiService') || console;
+class UpdateUiService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['eventBus'], 'UpdateUiService');
     this._subscriptions = [];
   }
 

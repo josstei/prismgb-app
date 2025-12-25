@@ -1,31 +1,30 @@
 /**
- * Tray Manager
+ * Tray Service
  * Handles system tray icon and menu
  */
 
 import { Tray, Menu, app } from 'electron';
 import path from 'path';
+import { BaseService } from '@shared/base/service.js';
 
 // Declarative menu configuration
 const MENU_CONFIG = [
   {
     label: 'Show Window',
-    service: 'windowManager',
+    service: 'windowService',
     method: 'showWindow'
   },
   {
     label: 'Refresh Devices',
-    service: 'deviceServiceMain',
+    service: 'deviceService',
     method: 'checkForDevice'
   }
 ];
 
-class TrayManager {
-  constructor({ windowManager, deviceServiceMain, loggerFactory }) {
-    this.logger = loggerFactory.create('TrayManager');
+class TrayService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['windowService', 'deviceService', 'loggerFactory'], 'TrayService');
     this.tray = null;
-    this.windowManager = windowManager;
-    this.deviceServiceMain = deviceServiceMain;
   }
 
   /**
@@ -45,8 +44,8 @@ class TrayManager {
     this.updateTrayMenu();
 
     this.tray.on('click', () => {
-      if (this.windowManager) {
-        this.windowManager.showWindow();
+      if (this.windowService) {
+        this.windowService.showWindow();
       }
     });
 
@@ -59,7 +58,7 @@ class TrayManager {
   updateTrayMenu() {
     if (!this.tray) return;
 
-    const isDeviceConnected = this.deviceServiceMain ? this.deviceServiceMain.isConnected() : false;
+    const isDeviceConnected = this.deviceService ? this.deviceService.isConnected() : false;
 
     // Build dynamic menu items from config
     const menuItems = MENU_CONFIG.map(({ label, service, method }) => ({
@@ -102,4 +101,4 @@ class TrayManager {
   }
 }
 
-export default TrayManager;
+export { TrayService };

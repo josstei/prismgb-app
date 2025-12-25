@@ -1,21 +1,19 @@
 /**
- * IPC Handlers
+ * IPC Handler Registry
  * Centralized registration of all IPC handler modules.
  */
 
 import { app, ipcMain, shell } from 'electron';
-import { registerDeviceHandlers } from './ipc/device-ipc.handlers.js';
-import { registerUpdateHandlers } from './ipc/update-ipc.handlers.js';
-import { registerShellHandlers } from './ipc/shell-ipc.handlers.js';
-import { registerPerformanceHandlers } from './ipc/performance-ipc.handlers.js';
-import { registerWindowHandlers } from './ipc/window-ipc.handlers.js';
+import { BaseService } from '@shared/base/service.js';
+import { registerDeviceHandlers } from '../features/devices/ipc/device-ipc.handler.js';
+import { registerUpdateHandlers } from '../features/updates/ipc/update-ipc.handler.js';
+import { registerShellHandlers } from '../features/shell/ipc/shell-ipc.handler.js';
+import { registerPerformanceHandlers } from '../features/performance/ipc/performance-ipc.handler.js';
+import { registerWindowHandlers } from '../features/window/ipc/window-ipc.handler.js';
 
-class IpcHandlers {
-  constructor({ deviceServiceMain, updateServiceMain, windowManager, loggerFactory }) {
-    this.logger = loggerFactory.create('IpcHandlers');
-    this.deviceServiceMain = deviceServiceMain;
-    this.updateServiceMain = updateServiceMain;
-    this.windowManager = windowManager;
+class IpcHandlerRegistry extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['deviceService', 'updateService', 'windowService', 'loggerFactory'], 'IpcHandlerRegistry');
     this._registeredChannels = [];
   }
 
@@ -27,7 +25,7 @@ class IpcHandlers {
 
     registerDeviceHandlers({
       registerHandler: this._registerHandler.bind(this),
-      deviceServiceMain: this.deviceServiceMain,
+      deviceService: this.deviceService,
       logger: this.logger
     });
 
@@ -39,7 +37,7 @@ class IpcHandlers {
 
     registerUpdateHandlers({
       registerHandler: this._registerHandler.bind(this),
-      updateServiceMain: this.updateServiceMain,
+      updateService: this.updateService,
       logger: this.logger
     });
 
@@ -51,7 +49,7 @@ class IpcHandlers {
 
     registerWindowHandlers({
       registerHandler: this._registerHandler.bind(this),
-      windowManager: this.windowManager,
+      windowService: this.windowService,
       logger: this.logger
     });
   }
@@ -73,4 +71,4 @@ class IpcHandlers {
   }
 }
 
-export default IpcHandlers;
+export { IpcHandlerRegistry };

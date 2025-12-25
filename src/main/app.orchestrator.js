@@ -1,5 +1,5 @@
 /**
- * Main Application Orchestrator
+ * Application Orchestrator
  * Coordinates main process services and application lifecycle
  */
 
@@ -8,20 +8,20 @@ import path from 'path';
 import { createAppContainer } from './container.js';
 import { MainLogger } from '@infrastructure/logging/main-logger.js';
 
-class MainAppOrchestrator {
+class AppOrchestrator {
   constructor() {
     this.container = null;
     this.initialized = false;
     this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('MainAppOrchestrator');
+    this.logger = this.loggerFactory.create('AppOrchestrator');
 
     // Service references - populated during initialize()
-    this._windowManager = null;
-    this._deviceServiceMain = null;
-    this._deviceLifecycleCoordinator = null;
-    this._trayManager = null;
-    this._ipcHandlers = null;
-    this._updateServiceMain = null;
+    this._windowService = null;
+    this._deviceService = null;
+    this._deviceLifecycleService = null;
+    this._trayService = null;
+    this._ipcHandlerRegistry = null;
+    this._updateService = null;
     this._deviceBridgeService = null;
     this._updateBridgeService = null;
   }
@@ -36,32 +36,32 @@ class MainAppOrchestrator {
     this.container = await createAppContainer(this.loggerFactory);
 
     // Resolve and cache core services
-    this._windowManager = this.container.resolve('windowManager');
-    this._deviceServiceMain = this.container.resolve('deviceServiceMain');
-    this._deviceLifecycleCoordinator = this.container.resolve('deviceLifecycleCoordinator');
-    this._trayManager = this.container.resolve('trayManager');
-    this._ipcHandlers = this.container.resolve('ipcHandlers');
-    this._updateServiceMain = this.container.resolve('updateServiceMain');
+    this._windowService = this.container.resolve('windowService');
+    this._deviceService = this.container.resolve('deviceService');
+    this._deviceLifecycleService = this.container.resolve('deviceLifecycleService');
+    this._trayService = this.container.resolve('trayService');
+    this._ipcHandlerRegistry = this.container.resolve('ipcHandlerRegistry');
+    this._updateService = this.container.resolve('updateService');
     this._deviceBridgeService = this.container.resolve('deviceBridgeService');
     this._updateBridgeService = this.container.resolve('updateBridgeService');
 
     // Initialize device service (loads device profiles)
-    await this._deviceServiceMain.initialize();
+    await this._deviceService.initialize();
 
-    // Initialize device lifecycle coordinator (handles auto-launch)
-    this._deviceLifecycleCoordinator.initialize();
+    // Initialize device lifecycle service (handles auto-launch)
+    this._deviceLifecycleService.initialize();
 
     // Initialize update bridge and start auto-check (1 hour interval)
     this._updateBridgeService.initialize();
 
     // Start USB monitoring for hot-plug detection
-    this._deviceServiceMain.startUSBMonitoring();
+    this._deviceService.startUSBMonitoring();
 
     // Subscribe to device events via bridge
     this._deviceBridgeService.initialize();
 
     // Create system tray
-    this._trayManager.createTray();
+    this._trayService.createTray();
 
     // Set dock icon in dev mode (macOS only)
     // In production, macOS uses icon.icns from app bundle automatically
@@ -72,17 +72,17 @@ class MainAppOrchestrator {
     }
 
     // Register IPC handlers
-    this._ipcHandlers.registerHandlers();
+    this._ipcHandlerRegistry.registerHandlers();
 
     // Wait for USB monitoring to initialize and enumerate devices
     // usb-detection needs time to populate its device cache after startMonitoring()
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Create main window immediately
-    this._windowManager.createWindow();
+    this._windowService.createWindow();
 
     // Check for already connected devices
-    const deviceFound = await this._deviceServiceMain.checkForDevice();
+    const deviceFound = await this._deviceService.checkForDevice();
     if (deviceFound) {
       this.logger.info('Device already connected');
     }
@@ -108,8 +108,8 @@ class MainAppOrchestrator {
     }
 
     try {
-      if (this._windowManager?.mainWindow) {
-        const win = this._windowManager.mainWindow;
+      if (this._windowService?.mainWindow) {
+        const win = this._windowService.mainWindow;
         if (!win.isDestroyed()) {
           if (win.webContents?.isDevToolsOpened()) {
             win.webContents.closeDevTools();
@@ -124,12 +124,12 @@ class MainAppOrchestrator {
     }
 
     try {
-      if (this._ipcHandlers) {
-        this._ipcHandlers.dispose();
-        this.logger.debug('Disposed IPC handlers');
+      if (this._ipcHandlerRegistry) {
+        this._ipcHandlerRegistry.dispose();
+        this.logger.debug('Disposed IPC handler registry');
       }
     } catch (error) {
-      this.logger.error('Error disposing IPC handlers:', error);
+      this.logger.error('Error disposing IPC handler registry:', error);
     }
 
     try {
@@ -142,18 +142,18 @@ class MainAppOrchestrator {
     }
 
     try {
-      if (this._deviceLifecycleCoordinator) {
-        this._deviceLifecycleCoordinator.dispose();
-        this.logger.debug('Disposed device lifecycle coordinator');
+      if (this._deviceLifecycleService) {
+        this._deviceLifecycleService.dispose();
+        this.logger.debug('Disposed device lifecycle service');
       }
     } catch (error) {
-      this.logger.error('Error disposing device lifecycle coordinator:', error);
+      this.logger.error('Error disposing device lifecycle service:', error);
     }
 
     try {
       // Stop USB monitoring
-      if (this._deviceServiceMain) {
-        this._deviceServiceMain.stopUSBMonitoring();
+      if (this._deviceService) {
+        this._deviceService.stopUSBMonitoring();
         this.logger.debug('Stopped USB monitoring');
       }
     } catch (error) {
@@ -162,8 +162,8 @@ class MainAppOrchestrator {
 
     try {
       // Destroy tray
-      if (this._trayManager) {
-        this._trayManager.destroy();
+      if (this._trayService) {
+        this._trayService.destroy();
         this.logger.debug('Destroyed system tray');
       }
     } catch (error) {
@@ -190,12 +190,12 @@ class MainAppOrchestrator {
     }
 
     // Clear service references
-    this._windowManager = null;
-    this._deviceServiceMain = null;
-    this._deviceLifecycleCoordinator = null;
-    this._trayManager = null;
-    this._ipcHandlers = null;
-    this._updateServiceMain = null;
+    this._windowService = null;
+    this._deviceService = null;
+    this._deviceLifecycleService = null;
+    this._trayService = null;
+    this._ipcHandlerRegistry = null;
+    this._updateService = null;
     this._deviceBridgeService = null;
     this._updateBridgeService = null;
 
@@ -211,4 +211,4 @@ class MainAppOrchestrator {
   }
 }
 
-export default MainAppOrchestrator;
+export { AppOrchestrator };

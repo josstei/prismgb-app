@@ -4,10 +4,11 @@
  * Manages update checking, downloading, and installation
  */
 
-import EventEmitter from 'events';
 import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { BaseService } from '@shared/base/service.js';
 import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
+import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
 
 /**
  * Update states
@@ -22,12 +23,9 @@ export const UpdateState = {
   ERROR: 'error'
 };
 
-class UpdateServiceMain extends EventEmitter {
-  constructor({ windowManager, loggerFactory, config }) {
-    super();
-    this.logger = loggerFactory.create('UpdateServiceMain');
-    this.windowManager = windowManager;
-    this.config = config;
+class UpdateService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['windowService', 'eventBus', 'loggerFactory', 'config'], 'UpdateService');
 
     this.state = UpdateState.IDLE;
     this.updateInfo = null;
@@ -44,7 +42,7 @@ class UpdateServiceMain extends EventEmitter {
    */
   initialize() {
     if (this._initialized) {
-      this.logger.warn('UpdateServiceMain already initialized');
+      this.logger.warn('UpdateService already initialized');
       return;
     }
 
@@ -126,14 +124,14 @@ class UpdateServiceMain extends EventEmitter {
   }
 
   /**
-   * Update internal state and emit event
+   * Update internal state and publish event
    * @param {string} newState - New state value
    * @private
    */
   _setState(newState) {
     const oldState = this.state;
     this.state = newState;
-    this.emit('state-changed', { oldState, newState });
+    this.eventBus.publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
   }
 
   /**
@@ -144,7 +142,7 @@ class UpdateServiceMain extends EventEmitter {
    */
   _notifyRenderer(channel, data) {
     try {
-      this.windowManager?.send(channel, data);
+      this.windowService?.send(channel, data);
     } catch (error) {
       this.logger.warn('Failed to notify renderer', { channel, error: error.message });
     }
@@ -158,7 +156,7 @@ class UpdateServiceMain extends EventEmitter {
    */
   async checkForUpdates({ force = false } = {}) {
     if (!this._initialized) {
-      throw new Error('UpdateServiceMain not initialized');
+      throw new Error('UpdateService not initialized');
     }
 
     // Skip if already downloaded or downloading (unless forced by user)
@@ -194,7 +192,7 @@ class UpdateServiceMain extends EventEmitter {
    */
   async downloadUpdate() {
     if (!this._initialized) {
-      throw new Error('UpdateServiceMain not initialized');
+      throw new Error('UpdateService not initialized');
     }
 
     if (this.state === UpdateState.DOWNLOADED) {
@@ -224,7 +222,7 @@ class UpdateServiceMain extends EventEmitter {
    */
   installUpdate() {
     if (!this._initialized) {
-      throw new Error('UpdateServiceMain not initialized');
+      throw new Error('UpdateService not initialized');
     }
 
     if (this.state !== UpdateState.DOWNLOADED) {
@@ -293,10 +291,9 @@ class UpdateServiceMain extends EventEmitter {
   dispose() {
     this.stopAutoCheck();
     autoUpdater.removeAllListeners();
-    this.removeAllListeners();
     this._initialized = false;
-    this.logger.info('UpdateServiceMain disposed');
+    this.logger.info('UpdateService disposed');
   }
 }
 
-export default UpdateServiceMain;
+export { UpdateService, UpdateState };
