@@ -8,9 +8,9 @@ Tracking implementation of 4 new settings that work together:
 
 ## Branch Status
 
-| Branch | Feature | Status | PR |
-|--------|---------|--------|-----|
-| `feature/fullscreen-on-startup` | Fullscreen on startup | **COMPLETE** | - |
+| Branch | Feature | Status | Commit |
+|--------|---------|--------|--------|
+| `feature/fullscreen-on-startup` | Fullscreen on startup | **COMPLETE** | `6129dc8` |
 | `feature/minimalist-fullscreen` | Minimalist fullscreen | PENDING | - |
 | `feature/auto-start` | Auto-start on boot | PENDING | - |
 | `feature/auto-stream` | Auto-stream on connect | PENDING | - |
@@ -23,15 +23,21 @@ Branch 2 depends on Branch 1 (both modify `fullscreen.service.js`):
 
 **Required order:** Branch 1 → Branch 2 → (Branch 3 and 4 in any order)
 
+---
+
 ## Branch 1: `feature/fullscreen-on-startup` - COMPLETE
 
-### Files Modified
+### Commit
+`6129dc8` - feat(settings): add fullscreen on startup option
+
+### Files Modified (15 total)
 - `src/renderer/infrastructure/events/event-channels.js` - Added `FULLSCREEN_ON_STARTUP_CHANGED`, `PREFERENCES_LOADED`
 - `src/shared/config/dom-selectors.js` - Added `SETTING_FULLSCREEN_ON_STARTUP`
 - `src/renderer/features/settings/services/settings.service.js` - Added fullscreenOnStartup setting
 - `src/renderer/features/settings/services/fullscreen.service.js` - Added `enterFullscreen()`/`exitFullscreen()` methods
 - `src/renderer/features/settings/services/display-mode.orchestrator.js` - Added startup behavior subscription
 - `src/renderer/features/settings/services/preferences.orchestrator.js` - Publishes `PREFERENCES_LOADED` event
+- `src/renderer/application/app.orchestrator.js` - Fixed initialization order
 - `src/renderer/container.js` - Updated DisplayModeOrchestrator dependencies
 - `src/renderer/index.html` - Added checkbox
 - `src/renderer/features/settings/ui/settings-menu.component.js` - Bound checkbox
@@ -42,9 +48,16 @@ Branch 2 depends on Branch 1 (both modify `fullscreen.service.js`):
 - `tests/unit/features/settings/services/display-mode.orchestrator.test.js` - Updated mocks
 - `tests/unit/features/settings/services/fullscreen.service.test.js` - Fixed toggle test
 
+### Codex Review
+- **Issue Found:** Initialization order bug - `PREFERENCES_LOADED` was published before `DisplayModeOrchestrator` subscribed
+- **Fix Applied:** Swapped order in `app.orchestrator.js` so DisplayModeOrchestrator initializes before PreferencesOrchestrator
+
 ### Validation
 - Lint: PASS
 - Tests: 1977 passed
+- Pushed to: `private/feature/fullscreen-on-startup`
+
+---
 
 ## Plan File
 
