@@ -516,14 +516,16 @@ function createRendererContainer() {
   // Display Mode Orchestrator - Coordinates display modes (fullscreen, volume, cinematic)
   container.registerSingleton(
     'displayModeOrchestrator',
-    function (fullscreenService, cinematicModeService, loggerFactory) {
+    function (fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory) {
       return new DisplayModeOrchestrator({
         fullscreenService,
         cinematicModeService,
+        settingsService,
+        eventBus,
         loggerFactory
       });
     },
-    ['fullscreenService', 'cinematicModeService', 'loggerFactory']
+    ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory']
   );
 
   // Update Orchestrator - Coordinates auto-updates

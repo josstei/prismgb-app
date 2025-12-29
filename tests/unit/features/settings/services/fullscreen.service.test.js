@@ -202,14 +202,13 @@ describe('FullscreenService', () => {
 
   describe('toggleFullscreen', () => {
     it('should enter fullscreen when not in fullscreen', async () => {
-      mockDocument.fullscreenElement = null;
-
       service.toggleFullscreen();
 
       expect(mockDocumentElement.requestFullscreen).toHaveBeenCalled();
     });
 
     it('should exit fullscreen when already in fullscreen', () => {
+      service._isFullscreenActive = true;
       mockDocument.fullscreenElement = mockDocumentElement;
 
       service.toggleFullscreen();

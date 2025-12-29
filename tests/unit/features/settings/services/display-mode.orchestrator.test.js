@@ -9,6 +9,8 @@ describe('DisplayModeOrchestrator', () => {
   let orchestrator;
   let mockFullscreenService;
   let mockCinematicModeService;
+  let mockSettingsService;
+  let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -27,16 +29,29 @@ describe('DisplayModeOrchestrator', () => {
     mockFullscreenService = {
       initialize: vi.fn(),
       dispose: vi.fn(),
-      toggleFullscreen: vi.fn()
+      toggleFullscreen: vi.fn(),
+      enterFullscreen: vi.fn(),
+      exitFullscreen: vi.fn()
     };
 
     mockCinematicModeService = {
       toggleCinematicMode: vi.fn()
     };
 
+    mockSettingsService = {
+      getFullscreenOnStartup: vi.fn(() => false)
+    };
+
+    mockEventBus = {
+      publish: vi.fn(),
+      subscribe: vi.fn(() => vi.fn())
+    };
+
     orchestrator = new DisplayModeOrchestrator({
       fullscreenService: mockFullscreenService,
       cinematicModeService: mockCinematicModeService,
+      settingsService: mockSettingsService,
+      eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -49,11 +64,14 @@ describe('DisplayModeOrchestrator', () => {
     it('should create orchestrator with dependencies', () => {
       expect(orchestrator.fullscreenService).toBe(mockFullscreenService);
       expect(orchestrator.cinematicModeService).toBe(mockCinematicModeService);
+      expect(orchestrator.settingsService).toBe(mockSettingsService);
+      expect(orchestrator.eventBus).toBe(mockEventBus);
     });
 
     it('should throw if missing required dependencies', () => {
       expect(() => new DisplayModeOrchestrator({
         fullscreenService: mockFullscreenService,
+        cinematicModeService: mockCinematicModeService,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
@@ -88,6 +106,40 @@ describe('DisplayModeOrchestrator', () => {
       orchestrator.toggleCinematicMode();
 
       expect(mockCinematicModeService.toggleCinematicMode).toHaveBeenCalled();
+    });
+  });
+
+  describe('enterFullscreen', () => {
+    it('should delegate to fullscreen service', () => {
+      orchestrator.enterFullscreen();
+
+      expect(mockFullscreenService.enterFullscreen).toHaveBeenCalled();
+    });
+  });
+
+  describe('exitFullscreen', () => {
+    it('should delegate to fullscreen service', () => {
+      orchestrator.exitFullscreen();
+
+      expect(mockFullscreenService.exitFullscreen).toHaveBeenCalled();
+    });
+  });
+
+  describe('_applyStartupBehaviors', () => {
+    it('should enter fullscreen when fullscreenOnStartup is enabled', () => {
+      mockSettingsService.getFullscreenOnStartup.mockReturnValue(true);
+
+      orchestrator._applyStartupBehaviors();
+
+      expect(mockFullscreenService.enterFullscreen).toHaveBeenCalled();
+    });
+
+    it('should not enter fullscreen when fullscreenOnStartup is disabled', () => {
+      mockSettingsService.getFullscreenOnStartup.mockReturnValue(false);
+
+      orchestrator._applyStartupBehaviors();
+
+      expect(mockFullscreenService.enterFullscreen).not.toHaveBeenCalled();
     });
   });
 });

@@ -72,6 +72,7 @@ class UIController {
       // Settings menu
       settingsMenuContainer: document.getElementById(DOMSelectors.SETTINGS_MENU_CONTAINER),
       settingStatusStrip: document.getElementById(DOMSelectors.SETTING_STATUS_STRIP),
+      settingFullscreenOnStartup: document.getElementById(DOMSelectors.SETTING_FULLSCREEN_ON_STARTUP),
       settingAnimationSaver: document.getElementById(DOMSelectors.SETTING_ANIMATION_SAVER),
       settingRenderPreset: document.getElementById(DOMSelectors.SETTING_RENDER_PRESET),
       disclaimerBtn: document.getElementById(DOMSelectors.DISCLAIMER_BTN),

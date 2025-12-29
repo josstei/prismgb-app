@@ -21,7 +21,8 @@ const PROTECTED_STORAGE_KEYS = [
   'gameVolume',
   'statusStripVisible',
   'renderPreset',
-  'globalBrightness'
+  'globalBrightness',
+  'fullscreenOnStartup'
 ];
 
 class SettingsService extends BaseService {
@@ -37,7 +38,8 @@ class SettingsService extends BaseService {
       statusStripVisible: false,
       renderPreset: 'vibrant',
       globalBrightness: 1.0,
-      performanceMode: false
+      performanceMode: false,
+      fullscreenOnStartup: false
     };
 
     this.keys = {
@@ -45,7 +47,8 @@ class SettingsService extends BaseService {
       STATUS_STRIP: 'statusStripVisible',
       RENDER_PRESET: 'renderPreset',
       GLOBAL_BRIGHTNESS: 'globalBrightness',
-      PERFORMANCE_MODE: 'performanceMode'
+      PERFORMANCE_MODE: 'performanceMode',
+      FULLSCREEN_ON_STARTUP: 'fullscreenOnStartup'
     };
   }
 
@@ -175,6 +178,28 @@ class SettingsService extends BaseService {
 
     // Emit event
     this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, enabled);
+  }
+
+  /**
+   * Get fullscreen on startup preference
+   * @returns {boolean} True if fullscreen on startup is enabled
+   */
+  getFullscreenOnStartup() {
+    const saved = this.storageService?.getItem(this.keys.FULLSCREEN_ON_STARTUP);
+    return saved !== null ? saved === 'true' : this.defaults.fullscreenOnStartup;
+  }
+
+  /**
+   * Set fullscreen on startup preference
+   * @param {boolean} enabled - Enable fullscreen on startup
+   */
+  setFullscreenOnStartup(enabled) {
+    this.storageService?.setItem(this.keys.FULLSCREEN_ON_STARTUP, enabled.toString());
+
+    this.logger.debug(`Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`);
+
+    // Emit event
+    this.eventBus.publish(EventChannels.SETTINGS.FULLSCREEN_ON_STARTUP_CHANGED, enabled);
   }
 }
 
