@@ -213,4 +213,3 @@ export const chromaticHelpers = Object.freeze({
   }
 });
 
-export default chromaticConfig;

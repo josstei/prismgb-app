@@ -16,8 +16,7 @@ export default defineConfig({
       '@main': path.resolve(__dirname, 'src/main'),
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@preload': path.resolve(__dirname, 'src/preload'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
-      '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
+      '@shared': path.resolve(__dirname, 'src/shared')
     }
   },
   test: {

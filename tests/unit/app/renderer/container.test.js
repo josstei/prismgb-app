@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock all the imported modules before importing the container
-vi.mock('@infrastructure/di/service-container.js', () => {
+vi.mock('@renderer/infrastructure/di/service-container.js', () => {
   return {
     ServiceContainer: class MockServiceContainer {
       constructor() {
@@ -56,11 +56,11 @@ vi.mock('@renderer/ui/controller/component.registry.js', () => ({
   UIComponentRegistry: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/ui-effects.js', () => ({
+vi.mock('@renderer/ui/effects/ui-effects.manager.js', () => ({
   UIEffects: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/ui-event-bridge.js', () => ({
+vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
   UIEventBridge: vi.fn()
 }));
 
@@ -77,7 +77,7 @@ vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
   DeviceOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-status.adapter.js', () => ({
+vi.mock('@renderer/features/devices/adapters/ipc-device-status.adapter.js', () => ({
   IpcDeviceStatusAdapter: vi.fn()
 }));
 
@@ -170,19 +170,19 @@ vi.mock('@renderer/features/updates/ui/update-ui.service.js', () => ({
 }));
 
 // Infrastructure mocks
-vi.mock('@infrastructure/events/event-bus.js', () => ({
-  default: vi.fn()
+vi.mock('@renderer/infrastructure/events/event-bus.js', () => ({
+  EventBus: vi.fn()
 }));
 
-vi.mock('@infrastructure/logging/logger.js', () => ({
+vi.mock('@renderer/infrastructure/logging/logger.js', () => ({
   BrowserLogger: vi.fn()
 }));
 
-vi.mock('@infrastructure/browser/storage.service.js', () => ({
+vi.mock('@renderer/infrastructure/browser/browser-storage.adapter.js', () => ({
   StorageService: vi.fn()
 }));
 
-vi.mock('@infrastructure/browser/browser-media.service.js', () => ({
+vi.mock('@renderer/infrastructure/browser/browser-media.adapter.js', () => ({
   BrowserMediaService: vi.fn()
 }));
 

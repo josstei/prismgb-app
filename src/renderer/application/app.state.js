@@ -6,7 +6,7 @@
  * Orchestrators should use AppState instead of calling each other directly
  */
 
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 
 class AppState {
   /**
