@@ -9,4 +9,4 @@ import channelsData from './channels.json?raw';
 
 const channels = JSON.parse(channelsData);
 
-export default channels;
+export { channels };

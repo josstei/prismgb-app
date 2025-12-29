@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BrowserLogger } from '@infrastructure/logging/logger.js';
+import { BrowserLogger } from '@renderer/infrastructure/logging/logger.js';
 
 describe('BrowserLogger', () => {
   let factory;

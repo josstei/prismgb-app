@@ -3,7 +3,7 @@
  * Registers shell-related IPC routes.
  */
 
-import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
 
 export function registerShellHandlers({ registerHandler, shell, logger }) {
   registerHandler(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, async (event, url) => {

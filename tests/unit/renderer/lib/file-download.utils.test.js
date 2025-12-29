@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { downloadFile } from '@renderer/lib/file-download.js';
+import { downloadFile } from '@renderer/lib/file-download.utils.js';
 
 describe('fileDownload', () => {
   let mockAnchor;

@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 
 // Mock the capability detector
 vi.mock('@renderer/features/streaming/rendering/gpu/capability.detector.js', () => ({

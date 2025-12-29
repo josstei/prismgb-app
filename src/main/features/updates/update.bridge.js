@@ -1,17 +1,17 @@
 /**
- * Update Bridge Service
+ * Update Bridge
  *
  * Coordinates update service initialization and auto-check scheduling.
  */
 
 import { BaseService } from '@shared/base/service.js';
 
-class UpdateBridgeService extends BaseService {
+class UpdateBridge extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
       ['updateService', 'loggerFactory'],
-      'UpdateBridgeService'
+      'UpdateBridge'
     );
   }
 
@@ -25,4 +25,4 @@ class UpdateBridgeService extends BaseService {
   }
 }
 
-export { UpdateBridgeService };
+export { UpdateBridge };

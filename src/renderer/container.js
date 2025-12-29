@@ -5,7 +5,7 @@
  * Wires domain services and orchestrators with proper dependency injection
  */
 
-import { ServiceContainer, asValue } from '@infrastructure/di/service-container.js';
+import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.js';
 
 // Application layer
 import { AppState } from '@renderer/application/app.state.js';
@@ -21,7 +21,7 @@ import { PerformanceStateService } from '@renderer/application/performance/perfo
 import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
-import { UIEffects } from '@renderer/ui/effects/ui-effects.js';
+import { UIEffects } from '@renderer/ui/effects/ui-effects.manager.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.manager.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
@@ -32,7 +32,7 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/device-status.adapter.js';
+import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 
 // Features: Streaming
@@ -46,7 +46,7 @@ import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu
 import { ViewportManager } from '@renderer/features/streaming/rendering/viewport.manager.js';
 import { StreamHealthMonitor } from '@renderer/features/streaming/rendering/stream-health.monitor.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
-import { StreamViewService } from '@renderer/features/streaming/ui/stream-view.service.js';
+import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
 
 // Features: Capture
@@ -64,13 +64,13 @@ import { CinematicModeService } from '@renderer/features/settings/services/cinem
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
-import { UpdateUiService } from '@renderer/features/updates/ui/update-ui.service.js';
+import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
 
 // Infrastructure
-import { EventBus } from '@infrastructure/events/event-bus.js';
-import { BrowserLogger } from '@infrastructure/logging/logger.js';
-import { StorageService } from '@infrastructure/browser/storage.service.js';
-import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
+import { BrowserLogger } from '@renderer/infrastructure/logging/logger.js';
+import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';

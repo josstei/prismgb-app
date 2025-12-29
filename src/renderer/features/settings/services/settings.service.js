@@ -11,7 +11,7 @@
  */
 
 import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 
 /**
  * Storage keys that should be protected from cleanup when quota is exceeded

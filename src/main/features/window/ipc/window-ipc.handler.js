@@ -3,7 +3,7 @@
  * Handles window-related IPC messages (fullscreen, etc.)
  */
 
-import IPC_CHANNELS from '@infrastructure/ipc/channels.json' with { type: 'json' };
+import IPC_CHANNELS from '@shared/ipc/channels.json' with { type: 'json' };
 
 /**
  * Register window-related IPC handlers

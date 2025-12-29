@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BrowserMediaService } from '@infrastructure/browser/browser-media.service.js';
-import { StorageService } from '@infrastructure/browser/storage.service.js';
+import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
+import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 
 describe('BrowserMediaService', () => {
   let service;

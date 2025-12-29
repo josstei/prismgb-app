@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamViewService } from '@renderer/features/streaming/ui/stream-view.service.js';
+import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 
 describe('StreamViewService', () => {
   let service;

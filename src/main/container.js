@@ -65,13 +65,13 @@ async function createAppContainer(loggerFactory) {
   // Update components
   const { UpdateService } = await import('@main/features/updates/update.service.js');
 
-  const { DeviceBridgeService } = await import('./features/devices/device.bridge.js');
-  const { UpdateBridgeService } = await import('./features/updates/update.bridge.js');
+  const { DeviceBridge } = await import('./features/devices/device.bridge.js');
+  const { UpdateBridge } = await import('./features/updates/update.bridge.js');
 
   container.register({
     updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
-    updateBridgeService: asClass(UpdateBridgeService).singleton()
+    deviceBridgeService: asClass(DeviceBridge).singleton(),
+    updateBridgeService: asClass(UpdateBridge).singleton()
   });
 
   // Log registration count

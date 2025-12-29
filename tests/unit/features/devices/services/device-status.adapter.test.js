@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/device-status.adapter.js';
+import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
 
 describe('IpcDeviceStatusAdapter', () => {

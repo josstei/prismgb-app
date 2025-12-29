@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@shared/config/config-loader.js';
-import IPC_CHANNELS from '@infrastructure/ipc/channels.json' with { type: 'json' };
+import IPC_CHANNELS from '@shared/ipc/channels.json' with { type: 'json' };
 import { BaseService } from '@shared/base/service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

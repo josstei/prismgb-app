@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { EventBus } from '@infrastructure/events/event-bus.js';
-import { createMockLoggerFactory } from '../../../mocks/index.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
+import { createMockLoggerFactory } from '../../../../mocks/index.js';
 
 describe('EventBus', () => {
   let eventBus;

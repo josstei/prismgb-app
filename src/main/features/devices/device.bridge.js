@@ -1,19 +1,19 @@
 /**
- * Device Bridge Service
+ * Device Bridge
  *
  * Bridges device connection events to tray updates and renderer IPC.
  */
 
 import { BaseService } from '@shared/base/service.js';
-import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
 import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
 
-class DeviceBridgeService extends BaseService {
+class DeviceBridge extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
       ['deviceService', 'trayService', 'windowService', 'eventBus', 'loggerFactory'],
-      'DeviceBridgeService'
+      'DeviceBridge'
     );
 
     this._unsubscribe = null;
@@ -48,4 +48,4 @@ class DeviceBridgeService extends BaseService {
   }
 }
 
-export { DeviceBridgeService };
+export { DeviceBridge };

@@ -5,7 +5,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.js';
-import { downloadFile } from '@renderer/lib/file-download.js';
+import { downloadFile } from '@renderer/lib/file-download.utils.js';
 
 class UIController {
   /**

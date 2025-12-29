@@ -7,7 +7,7 @@
 import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { BaseService } from '@shared/base/service.js';
-import IPC_CHANNELS from '@infrastructure/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
 import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
 
 /**
@@ -296,4 +296,4 @@ class UpdateService extends BaseService {
   }
 }
 
-export { UpdateService, UpdateState };
+export { UpdateService };

@@ -40,4 +40,4 @@ class FilenameGenerator {
   }
 }
 
-export default FilenameGenerator;
+export { FilenameGenerator };
