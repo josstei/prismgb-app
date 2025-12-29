@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.js';
+import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
 
 // Mock the render presets module
 vi.mock('@renderer/features/streaming/rendering/presets/render.presets.js', () => ({

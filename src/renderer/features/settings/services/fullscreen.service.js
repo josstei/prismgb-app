@@ -5,7 +5,7 @@
  */
 
 import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
 
 class FullscreenService extends BaseService {

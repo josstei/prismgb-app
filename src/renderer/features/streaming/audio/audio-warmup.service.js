@@ -6,7 +6,7 @@
  */
 
 import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 
 export class AudioWarmupService extends BaseService {
   constructor(dependencies) {

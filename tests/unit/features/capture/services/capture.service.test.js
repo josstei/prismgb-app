@@ -7,7 +7,7 @@ import { CaptureService } from '@renderer/features/capture/services/capture.serv
 
 // Mock FilenameGenerator
 vi.mock('../../../../../src/shared/utils/filename-generator.js', () => ({
-  default: {
+  FilenameGenerator: {
     forScreenshot: vi.fn(() => 'screenshot_2024-01-01_12-00-00.png'),
     forRecording: vi.fn(() => 'recording_2024-01-01_12-00-00.webm')
   }

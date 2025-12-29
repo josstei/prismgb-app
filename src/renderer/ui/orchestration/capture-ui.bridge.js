@@ -4,14 +4,18 @@
  * Translates capture events into UI feedback.
  */
 
-import { EventChannels } from '@infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 import { TIMING } from '@shared/config/constants.js';
 
-class CaptureUiBridge {
-  constructor({ eventBus, uiController, loggerFactory }) {
-    this.eventBus = eventBus;
-    this.uiController = uiController;
-    this.logger = loggerFactory?.create('CaptureUiBridge') || console;
+class CaptureUiBridge extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['eventBus', 'uiController'], 'CaptureUiBridge');
+
+    if (!this.logger) {
+      this.logger = console;
+    }
+
     this._subscriptions = [];
   }
 

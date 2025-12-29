@@ -4,7 +4,7 @@
  */
 
 import { app, BrowserWindow, Menu } from 'electron';
-import MainAppOrchestrator from './main-app.orchestrator.js';
+import { AppOrchestrator } from './app.orchestrator.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -107,14 +107,14 @@ if (process.argv.includes('--smoke-test')) {
     app.quit();
   } else {
     // Create application instance
-    const application = new MainAppOrchestrator();
+    const application = new AppOrchestrator();
 
     // Handle second instance launch - focus existing window
     app.on('second-instance', () => {
       const container = application.getContainer();
       if (container) {
-        const windowManager = container.resolve('windowManager');
-        const win = windowManager?.mainWindow;
+        const windowService = container.resolve('windowService');
+        const win = windowService?.mainWindow;
         if (win) {
           if (win.isMinimized()) win.restore();
           win.show();
@@ -138,8 +138,8 @@ if (process.argv.includes('--smoke-test')) {
         if (BrowserWindow.getAllWindows().length === 0) {
           const container = application.getContainer();
           if (container) {
-            const windowManager = container.resolve('windowManager');
-            windowManager.createWindow();
+            const windowService = container.resolve('windowService');
+            windowService.createWindow();
           }
         }
       });

@@ -41,8 +41,7 @@ export default defineConfig({
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
-              '@shared': path.resolve(__dirname, 'src/shared'),
-              '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
+              '@shared': path.resolve(__dirname, 'src/shared')
             }
           },
           build: {
@@ -78,8 +77,7 @@ export default defineConfig({
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
-              '@shared': path.resolve(__dirname, 'src/shared'),
-              '@infrastructure': path.resolve(__dirname, 'src/infrastructure')
+              '@shared': path.resolve(__dirname, 'src/shared')
             }
           },
           plugins: [
@@ -98,8 +96,8 @@ export default defineConfig({
               // Copy IPC channels.json for preload access
               name: 'copy-ipc-channels',
               writeBundle() {
-                const srcPath = path.resolve(__dirname, 'src/infrastructure/ipc/channels.json');
-                const destDir = path.resolve(__dirname, 'dist/infrastructure/ipc');
+                const srcPath = path.resolve(__dirname, 'src/shared/ipc/channels.json');
+                const destDir = path.resolve(__dirname, 'dist/shared/ipc');
                 const destPath = path.join(destDir, 'channels.json');
 
                 // Create directory if it doesn't exist
@@ -156,7 +154,6 @@ export default defineConfig({
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@preload': path.resolve(__dirname, 'src/preload'),
       '@shared': path.resolve(__dirname, 'src/shared'),
-      '@infrastructure': path.resolve(__dirname, 'src/infrastructure'),
       // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
       url: 'url/'
     }

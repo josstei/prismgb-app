@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 /**
  * IPC Channel names - imported from single source of truth
  */
-import IPC_CHANNELS from '@infrastructure/ipc/channels.json';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 
 /**
  * Preload script - exposes safe APIs to renderer process

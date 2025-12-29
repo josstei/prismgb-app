@@ -5,11 +5,11 @@
  * Eliminates window global pollution from UI components.
  */
 
-import { StatusNotificationComponent } from '../components/status-notification.js';
-import { DeviceStatusComponent } from '../components/device-status.js';
-import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.js';
-import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.js';
-import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.js';
+import { StatusNotificationComponent } from '../components/status-notification.component.js';
+import { DeviceStatusComponent } from '../components/device-status.component.js';
+import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
+import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
+import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
 
 export class UIComponentFactory {
   constructor(dependencies) {
