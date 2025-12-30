@@ -1,9 +1,9 @@
 /**
- * Browser-safe BrowserLogger
- * Lightweight console-backed logger for renderer/tests
+ * Renderer Logger
+ * Lightweight console-backed logger for renderer process and tests
  */
 
-class BrowserLogger {
+class RendererLogger {
   /**
    * Create a named logger instance
    * @param {string} [name='Log'] - Logger name prefix for console output
@@ -30,4 +30,4 @@ class BrowserLogger {
   }
 }
 
-export { BrowserLogger };
+export { RendererLogger };

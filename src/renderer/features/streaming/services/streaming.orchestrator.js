@@ -36,10 +36,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this._wireDeviceEvents();
 
     // Subscribe to canvas expiration (GPU worker terminated)
+    // and UI command events (decoupled from UISetupOrchestrator)
     this.subscribeWithCleanup({
       [EventChannels.RENDER.CANVAS_EXPIRED]: () => {
         this.renderPipelineService.handleCanvasExpired();
-      }
+      },
+      // UI command events - decoupled from UISetupOrchestrator
+      [EventChannels.UI.STREAM_START_REQUESTED]: () => this.start(),
+      [EventChannels.UI.STREAM_STOP_REQUESTED]: () => this.stop()
     });
 
     // Initialize canvas size with default resolution

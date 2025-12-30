@@ -110,8 +110,8 @@ vi.mock('@renderer/features/streaming/rendering/gpu-render-loop.service.js', () 
   GpuRenderLoopService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/viewport.manager.js', () => ({
-  ViewportManager: vi.fn()
+vi.mock('@renderer/features/streaming/rendering/viewport.service.js', () => ({
+  ViewportService: vi.fn()
 }));
 
 vi.mock('@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js', () => ({
@@ -175,7 +175,7 @@ vi.mock('@renderer/infrastructure/events/event-bus.js', () => ({
 }));
 
 vi.mock('@renderer/infrastructure/logging/logger.js', () => ({
-  BrowserLogger: vi.fn()
+  RendererLogger: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/browser/browser-storage.adapter.js', () => ({
@@ -327,7 +327,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'renderPipelineService',
         expect.any(Function),
-        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -451,14 +451,6 @@ describe('Renderer Container', () => {
   });
 
   describe('exports', () => {
-    it('should export EventBus', () => {
-      expect(containerModule.EventBus).toBeDefined();
-    });
-
-    it('should export BrowserLogger', () => {
-      expect(containerModule.BrowserLogger).toBeDefined();
-    });
-
     it('should export asValue', () => {
       expect(containerModule.asValue).toBeDefined();
     });

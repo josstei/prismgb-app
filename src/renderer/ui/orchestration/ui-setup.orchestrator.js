@@ -19,7 +19,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['appState', 'streamingOrchestrator', 'captureOrchestrator', 'displayModeOrchestrator', 'updateOrchestrator', 'settingsService', 'uiController', 'eventBus', 'loggerFactory'],
+      ['appState', 'displayModeOrchestrator', 'updateOrchestrator', 'settingsService', 'uiController', 'eventBus', 'loggerFactory'],
       'UISetupOrchestrator'
     );
 
@@ -99,20 +99,21 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   /**
    * Set up UI event listeners
+   * Uses event-based communication instead of direct orchestrator calls
    */
   setupUIEventListeners() {
-    // Header controls
+    // Header controls - publish events instead of direct orchestrator calls
     [
-      ['screenshotBtn', 'click', () => this.captureOrchestrator.takeScreenshot()],
-      ['recordBtn', 'click', () => this.captureOrchestrator.toggleRecording()],
-      ['fullscreenBtn', 'click', () => this.displayModeOrchestrator.toggleFullscreen()],
+      ['screenshotBtn', 'click', () => this.eventBus.publish(EventChannels.UI.SCREENSHOT_REQUESTED)],
+      ['recordBtn', 'click', () => this.eventBus.publish(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)],
+      ['fullscreenBtn', 'click', () => this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)],
       ['settingsBtn', 'click', (e) => this._toggleSettingsMenu(e)],
       ['shaderBtn', 'click', (e) => this._toggleShaderSelector(e)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
-    // Fullscreen controls (proxy to existing handlers)
+    // Fullscreen controls
     [
-      ['fsExitBtn', 'click', () => this.displayModeOrchestrator.toggleFullscreen()]
+      ['fsExitBtn', 'click', () => this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
     this.logger.info('UI event listeners set up');
@@ -120,6 +121,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   /**
    * Set up click handlers for overlay and video elements
+   * Uses event-based communication instead of direct orchestrator calls
    */
   setupOverlayClickHandlers() {
     const { streamOverlay, streamVideo, streamCanvas } = this.uiController.elements;
@@ -128,8 +130,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       if (streamOverlay.classList.contains(CSSClasses.HIDDEN)) {
         return;
       }
-      this.logger.info('Overlay clicked - starting stream');
-      this.streamingOrchestrator.start();
+      this.logger.info('Overlay clicked - requesting stream start');
+      this.eventBus.publish(EventChannels.UI.STREAM_START_REQUESTED);
     });
 
     // Store handler so it can be reused during canvas recreation
@@ -137,8 +139,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       if (!this.appState.isStreaming) {
         return;
       }
-      this.logger.info('Stream clicked - stopping stream');
-      this.streamingOrchestrator.stop();
+      this.logger.info('Stream clicked - requesting stream stop');
+      this.eventBus.publish(EventChannels.UI.STREAM_STOP_REQUESTED);
     };
 
     this._domListeners.add(streamVideo, 'click', this._stopStreamHandler);

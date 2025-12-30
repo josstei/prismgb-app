@@ -15,7 +15,7 @@ export const CSSClasses = {
   STATUS_STATE: 'status-state',
 
   // Overlay states
-  READY: 'ready',
+  OVERLAY_READY: 'ready',
   WAITING: 'waiting',
 
   // Visibility

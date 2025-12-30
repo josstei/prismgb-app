@@ -21,6 +21,12 @@ class GpuRecordingService extends BaseService {
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
+
+    // Performance: cached scale calculation to avoid per-frame recalculation
+    this._cachedScaleParams = null;
+    this._cachedFrameWidth = 0;
+    this._cachedFrameHeight = 0;
+    this._canvasCleared = false;
   }
 
   isActive() {
@@ -78,6 +84,13 @@ class GpuRecordingService extends BaseService {
   }
 
   _calculateRecordingScale(frameWidth, frameHeight) {
+    // Performance: return cached result if frame dimensions unchanged
+    if (this._cachedScaleParams &&
+        this._cachedFrameWidth === frameWidth &&
+        this._cachedFrameHeight === frameHeight) {
+      return this._cachedScaleParams;
+    }
+
     const canvasWidth = this._recordingWidth;
     const canvasHeight = this._recordingHeight;
 
@@ -86,8 +99,10 @@ class GpuRecordingService extends BaseService {
       return null;
     }
 
+    let scaleParams;
+
     if (frameWidth === canvasWidth && frameHeight === canvasHeight) {
-      return {
+      scaleParams = {
         scale: 1,
         drawWidth: canvasWidth,
         drawHeight: canvasHeight,
@@ -95,23 +110,30 @@ class GpuRecordingService extends BaseService {
         offsetY: 0,
         needsClearing: false
       };
+    } else {
+      const scaleX = canvasWidth / frameWidth;
+      const scaleY = canvasHeight / frameHeight;
+      const minScale = Math.min(scaleX, scaleY);
+
+      const scale = minScale >= 1
+        ? Math.floor(minScale)
+        : minScale;
+
+      const drawWidth = Math.round(frameWidth * scale);
+      const drawHeight = Math.round(frameHeight * scale);
+      const offsetX = Math.round((canvasWidth - drawWidth) / 2);
+      const offsetY = Math.round((canvasHeight - drawHeight) / 2);
+      const needsClearing = offsetX > 0 || offsetY > 0;
+
+      scaleParams = { scale, drawWidth, drawHeight, offsetX, offsetY, needsClearing };
     }
 
-    const scaleX = canvasWidth / frameWidth;
-    const scaleY = canvasHeight / frameHeight;
-    const minScale = Math.min(scaleX, scaleY);
+    // Cache the result
+    this._cachedFrameWidth = frameWidth;
+    this._cachedFrameHeight = frameHeight;
+    this._cachedScaleParams = scaleParams;
 
-    const scale = minScale >= 1
-      ? Math.floor(minScale)
-      : minScale;
-
-    const drawWidth = Math.round(frameWidth * scale);
-    const drawHeight = Math.round(frameHeight * scale);
-    const offsetX = Math.round((canvasWidth - drawWidth) / 2);
-    const offsetY = Math.round((canvasHeight - drawHeight) / 2);
-    const needsClearing = offsetX > 0 || offsetY > 0;
-
-    return { scale, drawWidth, drawHeight, offsetX, offsetY, needsClearing };
+    return scaleParams;
   }
 
   _startRecordingFrameLoop() {
@@ -131,9 +153,11 @@ class GpuRecordingService extends BaseService {
 
           const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
 
-          if (needsClearing) {
+          // Performance: only clear canvas once when dimensions require it
+          if (needsClearing && !this._canvasCleared) {
             this._recordingCtx.fillStyle = '#000000';
             this._recordingCtx.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
+            this._canvasCleared = true;
           }
 
           this._recordingCtx.drawImage(
@@ -180,6 +204,12 @@ class GpuRecordingService extends BaseService {
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
+
+    // Reset cache
+    this._cachedScaleParams = null;
+    this._cachedFrameWidth = 0;
+    this._cachedFrameHeight = 0;
+    this._canvasCleared = false;
   }
 }
 
