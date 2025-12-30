@@ -33,6 +33,9 @@ export class ViewportService {
     // Flag to suppress ResizeObserver during forceResize (prevents race condition)
     this._forceResizePending = false;
 
+    // Performance: cached computed style values (don't change during session)
+    this._cachedStyles = null;
+
     // Bind handler for cleanup
     this._handleResize = this._handleResize.bind(this);
   }
@@ -49,7 +52,7 @@ export class ViewportService {
     if (!this._resizeObserver && observeElement) {
       this._resizeObserver = new ResizeObserver(this._handleResize);
       this._resizeObserver.observe(observeElement);
-      this.logger.debug('ViewportManager initialized with ResizeObserver');
+      this.logger.debug('ViewportService initialized with ResizeObserver');
     }
   }
 
@@ -69,17 +72,22 @@ export class ViewportService {
       return null;
     }
 
-    // Use mainContent for stable measurement (not affected by canvas size)
-    // This breaks the circular dependency that causes oscillation
-    const sectionStyle = window.getComputedStyle(section);
-    const containerStyle = window.getComputedStyle(container);
-    const paddingX = parseFloat(sectionStyle.paddingLeft) + parseFloat(sectionStyle.paddingRight);
-    const paddingY = parseFloat(sectionStyle.paddingTop) + parseFloat(sectionStyle.paddingBottom);
-    const borderX = parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth);
-    const borderY = parseFloat(containerStyle.borderTopWidth) + parseFloat(containerStyle.borderBottomWidth);
+    // Performance: cache computed styles (padding, border, gap don't change during session)
+    if (!this._cachedStyles) {
+      const sectionStyle = window.getComputedStyle(section);
+      const containerStyle = window.getComputedStyle(container);
+      this._cachedStyles = {
+        paddingX: parseFloat(sectionStyle.paddingLeft) + parseFloat(sectionStyle.paddingRight),
+        paddingY: parseFloat(sectionStyle.paddingTop) + parseFloat(sectionStyle.paddingBottom),
+        borderX: parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth),
+        borderY: parseFloat(containerStyle.borderTopWidth) + parseFloat(containerStyle.borderBottomWidth),
+        gap: parseFloat(sectionStyle.gap) || 0
+      };
+    }
 
-    // Account for sibling elements (e.g., controls) and gap between flex items
-    const gap = parseFloat(sectionStyle.gap) || 0;
+    const { paddingX, paddingY, borderX, borderY, gap } = this._cachedStyles;
+
+    // Account for sibling elements (e.g., controls) - must measure each time as they may show/hide
     let siblingsHeight = 0;
     for (const child of section.children) {
       if (child !== container) {
@@ -156,8 +164,9 @@ export class ViewportService {
     // Suppress ResizeObserver callbacks while forceResize is pending
     this._forceResizePending = true;
 
-    // Reset cached dimensions to force recalculation
+    // Reset cached dimensions and styles to force recalculation
     this._lastDimensions = null;
+    this._cachedStyles = null;
 
     // Short delay (2 frames) to ensure layout has settled after CSS changes
     this._forceResizeTimeout = setTimeout(() => {
@@ -196,5 +205,6 @@ export class ViewportService {
     // Reset state
     this._lastDimensions = null;
     this._forceResizePending = false;
+    this._cachedStyles = null;
   }
 }

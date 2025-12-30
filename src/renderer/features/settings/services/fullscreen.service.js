@@ -6,7 +6,6 @@
 
 import { BaseService } from '@shared/base/service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
 
 class FullscreenService extends BaseService {
   constructor(dependencies) {
@@ -107,15 +106,15 @@ class FullscreenService extends BaseService {
     if (this._isFullscreenActive === active) return;
     this._isFullscreenActive = active;
 
+    // Enable/disable controls auto-hide behavior
     if (active) {
-      document.body.classList.add(CSSClasses.FULLSCREEN_ACTIVE);
       this.uiController.enableControlsAutoHide();
-      this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: true });
     } else {
-      document.body.classList.remove(CSSClasses.FULLSCREEN_ACTIVE);
       this.uiController.disableControlsAutoHide();
-      this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
     }
+
+    // Publish event - UIEventBridge handles DOM updates (body class)
+    this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active });
   }
 }
 

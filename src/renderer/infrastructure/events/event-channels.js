@@ -83,7 +83,13 @@ export const EventChannels = {
     RECORDING_STATE: 'ui:recording-state',
     CINEMATIC_MODE: 'ui:cinematic-mode',
     FULLSCREEN_STATE: 'ui:fullscreen-state',
-    WINDOW_RESIZED: 'ui:window-resized'
+    WINDOW_RESIZED: 'ui:window-resized',
+    // UI command events (decoupled from orchestrators)
+    SCREENSHOT_REQUESTED: 'ui:screenshot-requested',
+    RECORDING_TOGGLE_REQUESTED: 'ui:recording-toggle-requested',
+    FULLSCREEN_TOGGLE_REQUESTED: 'ui:fullscreen-toggle-requested',
+    STREAM_START_REQUESTED: 'ui:stream-start-requested',
+    STREAM_STOP_REQUESTED: 'ui:stream-stop-requested'
   },
 
   // Update events

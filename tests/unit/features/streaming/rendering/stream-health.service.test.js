@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
 
 describe('StreamHealthService', () => {
-  let monitor;
+  let service;
   let mockLogger;
   let mockVideoElement;
 
@@ -27,7 +27,7 @@ describe('StreamHealthService', () => {
       removeEventListener: vi.fn()
     };
 
-    monitor = new StreamHealthService(mockLogger);
+    service = new StreamHealthService(mockLogger);
   });
 
   afterEach(() => {
@@ -37,14 +37,14 @@ describe('StreamHealthService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(monitor._isMonitoring).toBe(false);
-      expect(monitor._timeoutMs).toBe(4000);
-      expect(monitor._timeoutHandle).toBeNull();
-      expect(monitor._rvfcHandle).toBeNull();
-      expect(monitor._firstFrameReceived).toBe(false);
-      expect(monitor._onHealthy).toBeNull();
-      expect(monitor._onUnhealthy).toBeNull();
-      expect(monitor._videoElement).toBeNull();
+      expect(service._isMonitoring).toBe(false);
+      expect(service._timeoutMs).toBe(4000);
+      expect(service._timeoutHandle).toBeNull();
+      expect(service._rvfcHandle).toBeNull();
+      expect(service._firstFrameReceived).toBe(false);
+      expect(service._onHealthy).toBeNull();
+      expect(service._onUnhealthy).toBeNull();
+      expect(service._videoElement).toBeNull();
     });
   });
 
@@ -55,12 +55,12 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(123);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 4000);
+      service.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 4000);
 
-      expect(monitor._isMonitoring).toBe(true);
-      expect(monitor._videoElement).toBe(mockVideoElement);
-      expect(monitor._onHealthy).toBe(onHealthy);
-      expect(monitor._onUnhealthy).toBe(onUnhealthy);
+      expect(service._isMonitoring).toBe(true);
+      expect(service._videoElement).toBe(mockVideoElement);
+      expect(service._onHealthy).toBe(onHealthy);
+      expect(service._onUnhealthy).toBe(onUnhealthy);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith('Stream health monitoring started (timeout: 4000ms)');
     });
@@ -73,7 +73,7 @@ describe('StreamHealthService', () => {
         removeEventListener: vi.fn()
       };
 
-      monitor.startMonitoring(videoWithoutRvfc, onHealthy, onUnhealthy);
+      service.startMonitoring(videoWithoutRvfc, onHealthy, onUnhealthy);
 
       expect(videoWithoutRvfc.addEventListener).toHaveBeenCalledWith(
         'timeupdate',
@@ -88,11 +88,11 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(123);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, onUnhealthy);
-      monitor._isMonitoring = true;
+      service.startMonitoring(mockVideoElement, onHealthy, onUnhealthy);
+      service._isMonitoring = true;
 
       // Start new monitoring
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
 
       expect(mockLogger.debug).toHaveBeenCalledWith('Stream health monitoring stopped');
     });
@@ -101,9 +101,9 @@ describe('StreamHealthService', () => {
       const onHealthy = vi.fn();
       const onUnhealthy = vi.fn();
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 2000);
+      service.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 2000);
 
-      expect(monitor._timeoutMs).toBe(2000);
+      expect(service._timeoutMs).toBe(2000);
       expect(mockLogger.debug).toHaveBeenCalledWith('Stream health monitoring started (timeout: 2000ms)');
     });
   });
@@ -116,12 +116,12 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, onUnhealthy);
+      service.startMonitoring(mockVideoElement, onHealthy, onUnhealthy);
 
       // Simulate RVFC callback
-      monitor._handleFrameCallback(100, metadata);
+      service._handleFrameCallback(100, metadata);
 
-      expect(monitor._firstFrameReceived).toBe(true);
+      expect(service._firstFrameReceived).toBe(true);
       expect(onHealthy).toHaveBeenCalledWith({ frameTime: 123.456 });
       expect(mockLogger.info).toHaveBeenCalledWith('First frame received - stream is healthy');
     });
@@ -131,10 +131,10 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, vi.fn());
+      service.startMonitoring(mockVideoElement, onHealthy, vi.fn());
 
       // Simulate RVFC callback without metadata
-      monitor._handleFrameCallback(500, null);
+      service._handleFrameCallback(500, null);
 
       expect(onHealthy).toHaveBeenCalledWith({ frameTime: 500 });
     });
@@ -144,10 +144,10 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, vi.fn());
-      monitor._firstFrameReceived = true;
+      service.startMonitoring(mockVideoElement, onHealthy, vi.fn());
+      service._firstFrameReceived = true;
 
-      monitor._handleFrameCallback(100, {});
+      service._handleFrameCallback(100, {});
 
       expect(onHealthy).not.toHaveBeenCalled();
     });
@@ -157,10 +157,10 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, vi.fn());
-      monitor._isMonitoring = false;
+      service.startMonitoring(mockVideoElement, onHealthy, vi.fn());
+      service._isMonitoring = false;
 
-      monitor._handleFrameCallback(100, {});
+      service._handleFrameCallback(100, {});
 
       expect(onHealthy).not.toHaveBeenCalled();
     });
@@ -170,13 +170,13 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, vi.fn());
+      service.startMonitoring(mockVideoElement, onHealthy, vi.fn());
 
-      expect(monitor._timeoutHandle).not.toBeNull();
+      expect(service._timeoutHandle).not.toBeNull();
 
-      monitor._handleFrameCallback(100, {});
+      service._handleFrameCallback(100, {});
 
-      expect(monitor._timeoutHandle).toBeNull();
+      expect(service._timeoutHandle).toBeNull();
     });
   });
 
@@ -187,7 +187,7 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 4000);
+      service.startMonitoring(mockVideoElement, onHealthy, onUnhealthy, 4000);
 
       // Fast-forward past timeout
       vi.advanceTimersByTime(4000);
@@ -204,8 +204,8 @@ describe('StreamHealthService', () => {
 
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), onUnhealthy, 4000);
-      monitor._firstFrameReceived = true;
+      service.startMonitoring(mockVideoElement, vi.fn(), onUnhealthy, 4000);
+      service._firstFrameReceived = true;
 
       vi.advanceTimersByTime(4000);
 
@@ -215,7 +215,7 @@ describe('StreamHealthService', () => {
     it('should cancel RVFC when timeout expires', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(42);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn(), 4000);
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn(), 4000);
 
       vi.advanceTimersByTime(4000);
 
@@ -227,17 +227,17 @@ describe('StreamHealthService', () => {
     it('should stop monitoring and cleanup', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(123);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
 
-      monitor.stopMonitoring();
+      service.stopMonitoring();
 
-      expect(monitor._isMonitoring).toBe(false);
-      expect(monitor._videoElement).toBeNull();
+      expect(service._isMonitoring).toBe(false);
+      expect(service._videoElement).toBeNull();
       expect(mockLogger.debug).toHaveBeenCalledWith('Stream health monitoring stopped');
     });
 
     it('should do nothing if not monitoring', () => {
-      monitor.stopMonitoring();
+      service.stopMonitoring();
 
       expect(mockLogger.debug).not.toHaveBeenCalledWith('Stream health monitoring stopped');
     });
@@ -245,8 +245,8 @@ describe('StreamHealthService', () => {
     it('should cancel pending RVFC', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(456);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
-      monitor.stopMonitoring();
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.stopMonitoring();
 
       expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(456);
     });
@@ -254,13 +254,13 @@ describe('StreamHealthService', () => {
     it('should clear pending timeout', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
 
-      expect(monitor._timeoutHandle).not.toBeNull();
+      expect(service._timeoutHandle).not.toBeNull();
 
-      monitor.stopMonitoring();
+      service.stopMonitoring();
 
-      expect(monitor._timeoutHandle).toBeNull();
+      expect(service._timeoutHandle).toBeNull();
     });
   });
 
@@ -268,13 +268,13 @@ describe('StreamHealthService', () => {
     it('should return true when monitoring', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
 
-      expect(monitor.isMonitoring()).toBe(true);
+      expect(service.isMonitoring()).toBe(true);
     });
 
     it('should return false when not monitoring', () => {
-      expect(monitor.isMonitoring()).toBe(false);
+      expect(service.isMonitoring()).toBe(false);
     });
   });
 
@@ -282,10 +282,10 @@ describe('StreamHealthService', () => {
     it('should call stopMonitoring', () => {
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
-      monitor.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
-      monitor.cleanup();
+      service.startMonitoring(mockVideoElement, vi.fn(), vi.fn());
+      service.cleanup();
 
-      expect(monitor._isMonitoring).toBe(false);
+      expect(service._isMonitoring).toBe(false);
     });
   });
 
@@ -297,12 +297,12 @@ describe('StreamHealthService', () => {
         removeEventListener: vi.fn()
       };
 
-      monitor.startMonitoring(videoWithoutRvfc, onHealthy, vi.fn());
+      service.startMonitoring(videoWithoutRvfc, onHealthy, vi.fn());
 
       // Simulate timeupdate callback
-      monitor._handleTimeUpdate();
+      service._handleTimeUpdate();
 
-      expect(monitor._firstFrameReceived).toBe(true);
+      expect(service._firstFrameReceived).toBe(true);
       expect(onHealthy).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Playback detected via timeupdate - stream is healthy');
     });

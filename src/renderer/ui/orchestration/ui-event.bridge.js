@@ -157,6 +157,7 @@ export class UIEventBridge extends BaseService {
   _handleFullscreenState(data) {
     const { active } = data;
     this.uiController.updateFullscreenButton(active);
+    this.uiController.updateFullscreenMode(active);
   }
 
   /**

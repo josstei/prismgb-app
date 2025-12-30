@@ -23,7 +23,9 @@ export class DisplayModeOrchestrator extends BaseOrchestrator {
     this.fullscreenService.initialize();
 
     this.subscribeWithCleanup({
-      [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors()
+      [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors(),
+      // UI command events - decoupled from UISetupOrchestrator
+      [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: () => this.toggleFullscreen()
     });
   }
 

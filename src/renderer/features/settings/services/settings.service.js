@@ -27,10 +27,7 @@ const PROTECTED_STORAGE_KEYS = [
 
 class SettingsService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsService');
-
-    // Browser abstraction service
-    this.storageService = dependencies.storageService;
+    super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
 
     // Default settings
     this.defaults = {

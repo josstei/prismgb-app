@@ -9,7 +9,7 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.js
 
 class UpdateUiService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus'], 'UpdateUiService');
+    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
     this._subscriptions = [];
   }
 

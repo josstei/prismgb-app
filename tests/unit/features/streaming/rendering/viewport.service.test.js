@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
 
 describe('ViewportService', () => {
-  let manager;
+  let service;
   let mockLogger;
   let mockCanvas;
   let mockContainer;
@@ -75,7 +75,7 @@ describe('ViewportService', () => {
       this.callback = callback;
     });
 
-    manager = new ViewportService(mockLogger);
+    service = new ViewportService(mockLogger);
   });
 
   afterEach(() => {
@@ -85,9 +85,9 @@ describe('ViewportService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(manager._resizeObserver).toBeNull();
-      expect(manager._resizeTimeout).toBeNull();
-      expect(manager._onResizeCallback).toBeNull();
+      expect(service._resizeObserver).toBeNull();
+      expect(service._resizeTimeout).toBeNull();
+      expect(service._onResizeCallback).toBeNull();
     });
   });
 
@@ -95,34 +95,34 @@ describe('ViewportService', () => {
     it('should create ResizeObserver and observe element', () => {
       const onResize = vi.fn();
 
-      manager.initialize(mockSection, onResize);
+      service.initialize(mockSection, onResize);
 
       expect(global.ResizeObserver).toHaveBeenCalled();
-      expect(manager._resizeObserver.observe).toHaveBeenCalledWith(mockSection);
-      expect(manager._onResizeCallback).toBe(onResize);
+      expect(service._resizeObserver.observe).toHaveBeenCalledWith(mockSection);
+      expect(service._onResizeCallback).toBe(onResize);
     });
 
     it('should log debug message', () => {
       const onResize = vi.fn();
 
-      manager.initialize(mockSection, onResize);
+      service.initialize(mockSection, onResize);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('ViewportManager initialized with ResizeObserver');
+      expect(mockLogger.debug).toHaveBeenCalledWith('ViewportService initialized with ResizeObserver');
     });
 
     it('should not create observer if element is null', () => {
       const onResize = vi.fn();
 
-      manager.initialize(null, onResize);
+      service.initialize(null, onResize);
 
       expect(global.ResizeObserver).not.toHaveBeenCalled();
     });
 
     it('should not create observer if already exists', () => {
       const onResize = vi.fn();
-      manager._resizeObserver = { observe: vi.fn() };
+      service._resizeObserver = { observe: vi.fn() };
 
-      manager.initialize(mockSection, onResize);
+      service.initialize(mockSection, onResize);
 
       expect(global.ResizeObserver).not.toHaveBeenCalled();
     });
@@ -139,7 +139,7 @@ describe('ViewportService', () => {
       // Scale: min(4, 4) = 4
       // Target: 160 * 4 = 640, 144 * 4 = 576
 
-      const dimensions = manager.calculateDimensions(mockCanvas, nativeResolution);
+      const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(dimensions).toEqual({
         width: 640,
@@ -151,7 +151,7 @@ describe('ViewportService', () => {
     it('should ensure minimum scale of 1', () => {
       const nativeResolution = { width: 1000, height: 1000 };
 
-      const dimensions = manager.calculateDimensions(mockCanvas, nativeResolution);
+      const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(dimensions.scale).toBeGreaterThanOrEqual(1);
     });
@@ -159,7 +159,7 @@ describe('ViewportService', () => {
     it('should return null if canvas is missing', () => {
       const nativeResolution = { width: 160, height: 144 };
 
-      const dimensions = manager.calculateDimensions(null, nativeResolution);
+      const dimensions = service.calculateDimensions(null, nativeResolution);
 
       expect(dimensions).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith('Cannot calculate dimensions - missing elements');
@@ -169,7 +169,7 @@ describe('ViewportService', () => {
       const nativeResolution = { width: 160, height: 144 };
       mockCanvas.parentElement = null;
 
-      const dimensions = manager.calculateDimensions(mockCanvas, nativeResolution);
+      const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(dimensions).toBeNull();
     });
@@ -178,7 +178,7 @@ describe('ViewportService', () => {
       const nativeResolution = { width: 160, height: 144 };
       mockContainer.parentElement = null;
 
-      const dimensions = manager.calculateDimensions(mockCanvas, nativeResolution);
+      const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(dimensions).toBeNull();
     });
@@ -186,7 +186,7 @@ describe('ViewportService', () => {
     it('should log debug message with dimensions', () => {
       const nativeResolution = { width: 160, height: 144 };
 
-      manager.calculateDimensions(mockCanvas, nativeResolution);
+      service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(mockLogger.debug).toHaveBeenCalledWith('Calculated dimensions: 640x576 (4x scale, siblings: 0px, gap: 0px)');
     });
@@ -225,7 +225,7 @@ describe('ViewportService', () => {
       // Scale: min(4, 3) = 3
       // Target: 160 * 3 = 480, 144 * 3 = 432
 
-      const dimensions = manager.calculateDimensions(mockCanvas, nativeResolution);
+      const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
       expect(dimensions).toEqual({
         width: 480,
@@ -238,11 +238,11 @@ describe('ViewportService', () => {
   describe('_handleResize', () => {
     it('should debounce resize callback', () => {
       const onResize = vi.fn();
-      manager._onResizeCallback = onResize;
+      service._onResizeCallback = onResize;
 
-      manager._handleResize();
-      manager._handleResize();
-      manager._handleResize();
+      service._handleResize();
+      service._handleResize();
+      service._handleResize();
 
       expect(onResize).not.toHaveBeenCalled();
 
@@ -253,9 +253,9 @@ describe('ViewportService', () => {
     });
 
     it('should not call callback if not set', () => {
-      manager._onResizeCallback = null;
+      service._onResizeCallback = null;
 
-      manager._handleResize();
+      service._handleResize();
       vi.advanceTimersByTime(100);
 
       // Should not throw
@@ -269,28 +269,28 @@ describe('ViewportService', () => {
         observe: vi.fn(),
         disconnect: vi.fn()
       };
-      manager._resizeObserver = mockObserver;
+      service._resizeObserver = mockObserver;
 
-      manager.cleanup();
+      service.cleanup();
 
       expect(mockObserver.disconnect).toHaveBeenCalled();
-      expect(manager._resizeObserver).toBeNull();
+      expect(service._resizeObserver).toBeNull();
     });
 
     it('should clear timeout', () => {
-      manager._resizeTimeout = 123;
+      service._resizeTimeout = 123;
 
-      manager.cleanup();
+      service.cleanup();
 
-      expect(manager._resizeTimeout).toBeNull();
+      expect(service._resizeTimeout).toBeNull();
     });
 
     it('should clear callback', () => {
-      manager._onResizeCallback = vi.fn();
+      service._onResizeCallback = vi.fn();
 
-      manager.cleanup();
+      service.cleanup();
 
-      expect(manager._onResizeCallback).toBeNull();
+      expect(service._onResizeCallback).toBeNull();
     });
 
     it('should log debug message', () => {
@@ -298,19 +298,19 @@ describe('ViewportService', () => {
         observe: vi.fn(),
         disconnect: vi.fn()
       };
-      manager._resizeObserver = mockObserver;
+      service._resizeObserver = mockObserver;
 
-      manager.cleanup();
+      service.cleanup();
 
       expect(mockLogger.debug).toHaveBeenCalledWith('ResizeObserver disconnected');
     });
 
     it('should handle cleanup when observer is null', () => {
-      manager._resizeObserver = null;
+      service._resizeObserver = null;
 
-      manager.cleanup();
+      service.cleanup();
 
-      expect(manager._resizeObserver).toBeNull();
+      expect(service._resizeObserver).toBeNull();
     });
   });
 });

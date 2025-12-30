@@ -366,6 +366,18 @@ export class UIEffects {
   }
 
   /**
+   * Set fullscreen mode body class
+   * @param {boolean} isActive - Whether fullscreen mode is active
+   */
+  setFullscreenMode(isActive) {
+    if (isActive) {
+      document.body.classList.add(CSSClasses.FULLSCREEN_ACTIVE);
+    } else {
+      document.body.classList.remove(CSSClasses.FULLSCREEN_ACTIVE);
+    }
+  }
+
+  /**
    * Dispose of UIEffects and cleanup resources
    */
   dispose() {
