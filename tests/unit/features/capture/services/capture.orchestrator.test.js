@@ -291,6 +291,39 @@ describe('CaptureOrchestrator', () => {
     });
   });
 
+  describe('_getCaptureSource', () => {
+    it('should return GPU frame when GPU renderer is active', async () => {
+      mockGpuRendererService.isActive.mockReturnValue(true);
+      const mockBitmap = { width: 160, height: 144 };
+      mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
+
+      const source = await orchestrator._getCaptureSource();
+
+      expect(source).toBe(mockBitmap);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from GPU renderer');
+    });
+
+    it('should return canvas when Canvas2D is active but GPU is not', async () => {
+      mockGpuRendererService.isActive.mockReturnValue(false);
+      mockCanvasRenderer.isActive.mockReturnValue(true);
+
+      const source = await orchestrator._getCaptureSource();
+
+      expect(source).toBe(mockUIController.elements.streamCanvas);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from Canvas2D renderer');
+    });
+
+    it('should return video element when no rendering pipeline is active', async () => {
+      mockGpuRendererService.isActive.mockReturnValue(false);
+      mockCanvasRenderer.isActive.mockReturnValue(false);
+
+      const source = await orchestrator._getCaptureSource();
+
+      expect(source).toBe(mockUIController.elements.streamVideo);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from video element (no rendering pipeline)');
+    });
+  });
+
   describe('onCleanup', () => {
     it('should stop recording if active', async () => {
       mockCaptureService.getRecordingState.mockReturnValue(true);

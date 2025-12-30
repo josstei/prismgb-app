@@ -132,9 +132,9 @@ function createRendererContainer() {
   }, []);
 
   // Device IPC Adapter - wraps window.deviceAPI for testability
-  container.registerSingleton('deviceIPCAdapter', function() {
-    return new DeviceIPCAdapter();
-  }, []);
+  container.registerSingleton('deviceIPCAdapter', function(loggerFactory) {
+    return new DeviceIPCAdapter({ logger: loggerFactory.create('DeviceIPCAdapter') });
+  }, ['loggerFactory']);
 
   // Streaming infrastructure
   container.registerSingleton('animationCache', function() {

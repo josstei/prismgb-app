@@ -192,6 +192,71 @@ describe('StreamingOrchestrator', () => {
     });
   });
 
+  describe('_startAudioWithFallback', () => {
+    it('should start audio warmup with stream', async () => {
+      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+
+      orchestrator._startAudioWithFallback(mockStream);
+
+      expect(mockAudioWarmupService.start).toHaveBeenCalledWith(mockStream);
+    });
+
+    it('should fallback to video audio when warmup fails', async () => {
+      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      mockAudioWarmupService.start.mockResolvedValue(false);
+      mockAppState.isStreaming = true;
+
+      orchestrator._startAudioWithFallback(mockStream);
+      await vi.waitFor(() => {
+        expect(mockLogger.warn).toHaveBeenCalledWith('Audio warm-up failed - falling back to video element audio');
+      });
+
+      expect(mockStreamViewService.setMuted).toHaveBeenCalledWith(false);
+    });
+
+    it('should fallback to video audio when warmup throws', async () => {
+      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      mockAudioWarmupService.start.mockRejectedValue(new Error('Warmup error'));
+      mockAppState.isStreaming = true;
+
+      orchestrator._startAudioWithFallback(mockStream);
+      await vi.waitFor(() => {
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'Audio warm-up error - falling back to video element audio',
+          expect.any(Error)
+        );
+      });
+
+      expect(mockStreamViewService.setMuted).toHaveBeenCalledWith(false);
+    });
+
+    it('should not fallback when stream has no audio', async () => {
+      const mockStream = { getAudioTracks: vi.fn(() => []) };
+      mockAudioWarmupService.start.mockResolvedValue(false);
+      mockAppState.isStreaming = true;
+
+      orchestrator._startAudioWithFallback(mockStream);
+      await vi.waitFor(() => {
+        expect(mockAudioWarmupService.start).toHaveBeenCalled();
+      });
+
+      expect(mockStreamViewService.setMuted).not.toHaveBeenCalled();
+    });
+
+    it('should not fallback when no longer streaming', async () => {
+      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      mockAudioWarmupService.start.mockResolvedValue(false);
+      mockAppState.isStreaming = false;
+
+      orchestrator._startAudioWithFallback(mockStream);
+      await vi.waitFor(() => {
+        expect(mockAudioWarmupService.start).toHaveBeenCalled();
+      });
+
+      expect(mockStreamViewService.setMuted).not.toHaveBeenCalled();
+    });
+  });
+
   describe('_handleStreamStopped', () => {
     it('should stop render pipeline and clear video', () => {
       orchestrator._handleStreamStopped();
