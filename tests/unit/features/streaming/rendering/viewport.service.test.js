@@ -1,11 +1,11 @@
 /**
- * ViewportManager Unit Tests
+ * ViewportService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ViewportManager } from '@renderer/features/streaming/rendering/viewport.manager.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
 
-describe('ViewportManager', () => {
+describe('ViewportService', () => {
   let manager;
   let mockLogger;
   let mockCanvas;
@@ -75,7 +75,7 @@ describe('ViewportManager', () => {
       this.callback = callback;
     });
 
-    manager = new ViewportManager(mockLogger);
+    manager = new ViewportService(mockLogger);
   });
 
   afterEach(() => {

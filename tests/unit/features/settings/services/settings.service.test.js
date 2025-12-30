@@ -56,6 +56,7 @@ describe('SettingsService', () => {
       expect(service.defaults.gameVolume).toBe(70);
       expect(service.defaults.statusStripVisible).toBe(false);
       expect(service.defaults.performanceMode).toBe(false);
+      expect(service.defaults.fullscreenOnStartup).toBe(false);
     });
 
     it('should have correct setting keys', () => {
@@ -64,6 +65,7 @@ describe('SettingsService', () => {
       expect(service.keys.RENDER_PRESET).toBe('renderPreset');
       expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
       expect(service.keys.PERFORMANCE_MODE).toBe('performanceMode');
+      expect(service.keys.FULLSCREEN_ON_STARTUP).toBe('fullscreenOnStartup');
     });
   });
 
@@ -250,6 +252,44 @@ describe('SettingsService', () => {
     it('should log preference change', () => {
       service.setPerformanceMode(false);
       expect(mockLogger.debug).toHaveBeenCalledWith('Performance mode disabled');
+    });
+  });
+
+  describe('getFullscreenOnStartup', () => {
+    it('should return default when not set', () => {
+      expect(service.getFullscreenOnStartup()).toBe(false);
+    });
+
+    it('should return saved preference (true)', () => {
+      localStorageMock.store['fullscreenOnStartup'] = 'true';
+      expect(service.getFullscreenOnStartup()).toBe(true);
+    });
+
+    it('should return saved preference (false)', () => {
+      localStorageMock.store['fullscreenOnStartup'] = 'false';
+      expect(service.getFullscreenOnStartup()).toBe(false);
+    });
+  });
+
+  describe('setFullscreenOnStartup', () => {
+    it('should save preference to localStorage', () => {
+      service.setFullscreenOnStartup(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('fullscreenOnStartup', 'true');
+    });
+
+    it('should emit fullscreen on startup changed event', () => {
+      service.setFullscreenOnStartup(true);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:fullscreen-on-startup-changed', true);
+    });
+
+    it('should log preference change (enabled)', () => {
+      service.setFullscreenOnStartup(true);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Fullscreen on startup enabled');
+    });
+
+    it('should log preference change (disabled)', () => {
+      service.setFullscreenOnStartup(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Fullscreen on startup disabled');
     });
   });
 

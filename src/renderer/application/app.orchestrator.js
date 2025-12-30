@@ -67,8 +67,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     await this.performanceStateOrchestrator.initialize();
     await this.animationPerformanceOrchestrator.initialize();
     await this.performanceMetricsOrchestrator.initialize();
-    await this.preferencesOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
+    await this.preferencesOrchestrator.initialize();
     await this.updateOrchestrator.initialize();
     await this.uiSetupOrchestrator.initialize();
   }

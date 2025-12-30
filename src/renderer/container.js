@@ -43,8 +43,8 @@ import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas.re
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
-import { ViewportManager } from '@renderer/features/streaming/rendering/viewport.manager.js';
-import { StreamHealthMonitor } from '@renderer/features/streaming/rendering/stream-health.monitor.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
@@ -155,7 +155,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'viewportManager',
     function(loggerFactory) {
-      return new ViewportManager(loggerFactory.create('ViewportManager'));
+      return new ViewportService(loggerFactory.create('ViewportService'));
     },
     ['loggerFactory']
   );
@@ -186,7 +186,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'streamHealthMonitor',
     function(loggerFactory) {
-      return new StreamHealthMonitor(loggerFactory.create('StreamHealthMonitor'));
+      return new StreamHealthService(loggerFactory.create('StreamHealthService'));
     },
     ['loggerFactory']
   );
@@ -516,14 +516,16 @@ function createRendererContainer() {
   // Display Mode Orchestrator - Coordinates display modes (fullscreen, volume, cinematic)
   container.registerSingleton(
     'displayModeOrchestrator',
-    function (fullscreenService, cinematicModeService, loggerFactory) {
+    function (fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory) {
       return new DisplayModeOrchestrator({
         fullscreenService,
         cinematicModeService,
+        settingsService,
+        eventBus,
         loggerFactory
       });
     },
-    ['fullscreenService', 'cinematicModeService', 'loggerFactory']
+    ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory']
   );
 
   // Update Orchestrator - Coordinates auto-updates
