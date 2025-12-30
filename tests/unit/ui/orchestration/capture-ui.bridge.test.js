@@ -85,23 +85,11 @@ describe('CaptureUiBridge', () => {
       expect(bridge.logger).toBe(mockLogger);
     });
 
-    it('should use console as fallback logger when loggerFactory is not provided', () => {
-      bridge = new CaptureUiBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: null
-      });
-
-      expect(bridge.logger).toBe(console);
-    });
-
-    it('should use console as fallback logger when loggerFactory is undefined', () => {
-      bridge = new CaptureUiBridge({
+    it('should throw when loggerFactory is missing (undefined)', () => {
+      expect(() => new CaptureUiBridge({
         eventBus: mockEventBus,
         uiController: mockUIController
-      });
-
-      expect(bridge.logger).toBe(console);
+      })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
     it('should initialize subscriptions array', () => {
@@ -704,29 +692,5 @@ describe('CaptureUiBridge', () => {
       }).not.toThrow();
     });
 
-    it('should work with console logger', () => {
-      const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      bridge = new CaptureUiBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: null
-      });
-
-      bridge.initialize();
-      expect(consoleInfoSpy).toHaveBeenCalledWith('CaptureUiBridge initialized');
-
-      subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({
-        error: 'test error'
-      });
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Recording error:', 'test error');
-
-      bridge.dispose();
-      expect(consoleInfoSpy).toHaveBeenCalledWith('CaptureUiBridge disposed');
-
-      consoleInfoSpy.mockRestore();
-      consoleErrorSpy.mockRestore();
-    });
   });
 });

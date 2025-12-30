@@ -413,15 +413,12 @@ describe('UIEventBridge', () => {
       }).not.toThrow();
     });
 
-    it('should use console as fallback logger', () => {
-      const handlerWithoutLogger = new UIEventBridge({
+    it('should throw when loggerFactory is missing (undefined)', () => {
+      expect(() => new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
-        appState: mockAppState,
-        loggerFactory: null
-      });
-
-      expect(handlerWithoutLogger.logger).toBe(console);
+        appState: mockAppState
+      })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
     it('should handle missing appState gracefully', () => {

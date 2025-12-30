@@ -14,13 +14,7 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.js
 
 export class UIEventBridge extends BaseService {
   constructor(dependencies) {
-    // loggerFactory is not required - will use BaseService's optional logger creation
-    super(dependencies, ['eventBus', 'uiController', 'appState'], 'UIEventBridge');
-
-    // Fallback to console if no logger was created
-    if (!this.logger) {
-      this.logger = console;
-    }
+    super(dependencies, ['eventBus', 'uiController', 'appState', 'loggerFactory'], 'UIEventBridge');
 
     // Track subscriptions for cleanup
     this._subscriptions = [];

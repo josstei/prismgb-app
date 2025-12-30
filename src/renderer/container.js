@@ -618,13 +618,11 @@ function createRendererContainer() {
   );
 
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
-  // Uses event-based communication for button handlers instead of direct orchestrator calls
-  // displayModeOrchestrator is still passed to shader selector for cinematic mode
+  // Uses event-based communication for button handlers (decoupled from orchestrators)
   container.registerSingleton(
     'uiSetupOrchestrator',
     function (
       appState,
-      displayModeOrchestrator,
       updateOrchestrator,
       settingsService,
       uiController,
@@ -633,7 +631,6 @@ function createRendererContainer() {
     ) {
       return new UISetupOrchestrator({
         appState,
-        displayModeOrchestrator,
         updateOrchestrator,
         settingsService,
         uiController,
@@ -643,7 +640,6 @@ function createRendererContainer() {
     },
     [
       'appState',
-      'displayModeOrchestrator',
       'updateOrchestrator',
       'settingsService',
       'uiController',

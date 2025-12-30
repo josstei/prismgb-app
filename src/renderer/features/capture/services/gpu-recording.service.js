@@ -83,6 +83,11 @@ class GpuRecordingService extends BaseService {
     this._cleanupGpuRecording();
   }
 
+  dispose() {
+    this._cleanupGpuRecording();
+    this.logger.info('GpuRecordingService disposed');
+  }
+
   _calculateRecordingScale(frameWidth, frameHeight) {
     // Performance: return cached result if frame dimensions unchanged
     if (this._cachedScaleParams &&

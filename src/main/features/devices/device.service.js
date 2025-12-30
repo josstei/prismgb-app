@@ -343,6 +343,9 @@ class DeviceService extends BaseService {
       return false;
     } catch (error) {
       this.logger.error('Error checking for device', error);
+      this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, {
+        error: error.message || 'Unknown error'
+      });
       return false;
     }
   }

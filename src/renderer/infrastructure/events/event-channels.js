@@ -47,7 +47,8 @@ export const EventChannels = {
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
     CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed',
     FULLSCREEN_ON_STARTUP_CHANGED: 'settings:fullscreen-on-startup-changed',
-    PREFERENCES_LOADED: 'settings:preferences-loaded'
+    PREFERENCES_LOADED: 'settings:preferences-loaded',
+    PREFERENCES_LOAD_FAILED: 'settings:preferences-load-failed'
   },
 
   PERFORMANCE: {
@@ -88,6 +89,7 @@ export const EventChannels = {
     SCREENSHOT_REQUESTED: 'ui:screenshot-requested',
     RECORDING_TOGGLE_REQUESTED: 'ui:recording-toggle-requested',
     FULLSCREEN_TOGGLE_REQUESTED: 'ui:fullscreen-toggle-requested',
+    CINEMATIC_TOGGLE_REQUESTED: 'ui:cinematic-toggle-requested',
     STREAM_START_REQUESTED: 'ui:stream-start-requested',
     STREAM_STOP_REQUESTED: 'ui:stream-stop-requested'
   },

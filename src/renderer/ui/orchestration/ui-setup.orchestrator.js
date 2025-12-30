@@ -19,7 +19,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['appState', 'displayModeOrchestrator', 'updateOrchestrator', 'settingsService', 'uiController', 'eventBus', 'loggerFactory'],
+      ['appState', 'updateOrchestrator', 'settingsService', 'uiController', 'eventBus', 'loggerFactory'],
       'UISetupOrchestrator'
     );
 
@@ -80,8 +80,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         settingsService: this.settingsService,
         appState: this.appState,
         eventBus: this.eventBus,
-        logger: this.logger,
-        displayModeOrchestrator: this.displayModeOrchestrator
+        logger: this.logger
       },
       {
         shaderBtn: elements.shaderBtn,
