@@ -217,6 +217,14 @@ class UIController {
   }
 
   /**
+   * Update fullscreen mode visual state (body class)
+   * @param {boolean} isActive - Whether fullscreen mode is active
+   */
+  updateFullscreenMode(isActive) {
+    this.effects?.setFullscreenMode(isActive);
+  }
+
+  /**
    * Trigger shutter flash effect
    */
   triggerShutterFlash() {

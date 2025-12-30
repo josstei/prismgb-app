@@ -30,10 +30,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       ],
       'CaptureOrchestrator'
     );
-
-    this.gpuRendererService = dependencies.gpuRendererService;
-    this.gpuRecordingService = dependencies.gpuRecordingService;
-    this.canvasRenderer = dependencies.canvasRenderer;
   }
 
   /**
@@ -41,7 +37,10 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     this.subscribeWithCleanup({
-      [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data)
+      [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
+      // UI command events - decoupled from UISetupOrchestrator
+      [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
+      [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
     });
   }
 

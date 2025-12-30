@@ -42,6 +42,7 @@ describe('UIEventBridge', () => {
       triggerButtonFeedback: vi.fn(),
       setCinematicMode: vi.fn(),
       updateFullscreenButton: vi.fn(),
+      updateFullscreenMode: vi.fn(),
       updateRecordingButtonState: vi.fn(),
       updateCinematicMode: vi.fn(),
       elements: {
@@ -350,6 +351,7 @@ describe('UIEventBridge', () => {
       subscribedHandlers['ui:fullscreen-state']({ active: true });
 
       expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
+      expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(true);
     });
   });
 

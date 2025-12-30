@@ -109,17 +109,19 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('onInitialize', () => {
-    it('should wire capture error events', async () => {
+    it('should wire capture error events and UI command events', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(1);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(3);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-error', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('ui:screenshot-requested', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('ui:recording-toggle-requested', expect.any(Function));
     });
 
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.onInitialize();
 
-      expect(orchestrator._subscriptions).toHaveLength(1);
+      expect(orchestrator._subscriptions).toHaveLength(3);
     });
   });
 

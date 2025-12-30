@@ -11,7 +11,7 @@ class CanvasLifecycleService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamViewService', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+      ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
       'CanvasLifecycleService'
     );
 
@@ -33,7 +33,7 @@ class CanvasLifecycleService extends BaseService {
    * This prevents the visual glitch where canvas appears mispositioned during fullscreen transitions.
    */
   handleFullscreenChange() {
-    this.viewportManager.forceResize();
+    this.viewportService.forceResize();
   }
 
   setupCanvasSize(nativeResolution = null, useGpu = false) {
@@ -46,7 +46,7 @@ class CanvasLifecycleService extends BaseService {
     this._nativeResolution = resolution;
     this._useGpuRenderer = useGpu;
 
-    const dimensions = this.viewportManager.calculateDimensions(canvas, resolution);
+    const dimensions = this.viewportService.calculateDimensions(canvas, resolution);
     if (!dimensions) return;
 
     if (this.gpuRendererService.isCanvasTransferred()) {
@@ -57,8 +57,8 @@ class CanvasLifecycleService extends BaseService {
       this.canvasRenderer.resize(canvas, dimensions.width, dimensions.height);
     }
 
-    if (!this.viewportManager._resizeObserver) {
-      this.viewportManager.initialize(section, () =>
+    if (!this.viewportService._resizeObserver) {
+      this.viewportService.initialize(section, () =>
         this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer)
       );
     }
@@ -86,7 +86,7 @@ class CanvasLifecycleService extends BaseService {
     this.streamViewService.setCanvas(newCanvas);
 
     this.canvasRenderer.resetCanvasState();
-    this.viewportManager.resetDimensions();
+    this.viewportService.resetDimensions();
 
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
 
@@ -94,7 +94,7 @@ class CanvasLifecycleService extends BaseService {
   }
 
   cleanup() {
-    this.viewportManager.cleanup();
+    this.viewportService.cleanup();
   }
 }
 

@@ -59,7 +59,7 @@ class DeviceStatusComponent {
     // Keep stateful classes for visuals but avoid showing textual prompts
     // The ready/waiting classes drive CSS animations via :has() selectors
     messageEl.textContent = '';
-    messageEl.classList.toggle(CSSClasses.READY, !!deviceConnected);
+    messageEl.classList.toggle(CSSClasses.OVERLAY_READY, !!deviceConnected);
     messageEl.classList.toggle(CSSClasses.WAITING, !deviceConnected);
   }
 

@@ -9,8 +9,6 @@ import { CSSClasses } from '@shared/config/css-classes.js';
 describe('UISetupOrchestrator', () => {
   let orchestrator;
   let mockAppState;
-  let mockStreamingOrchestrator;
-  let mockCaptureOrchestrator;
   let mockDisplayModeOrchestrator;
   let mockUpdateOrchestrator;
   let mockSettingsService;
@@ -42,16 +40,6 @@ describe('UISetupOrchestrator', () => {
 
     mockAppState = {
       isStreaming: false
-    };
-
-    mockStreamingOrchestrator = {
-      start: vi.fn(),
-      stop: vi.fn()
-    };
-
-    mockCaptureOrchestrator = {
-      takeScreenshot: vi.fn(),
-      toggleRecording: vi.fn()
     };
 
     mockDisplayModeOrchestrator = {
@@ -104,8 +92,6 @@ describe('UISetupOrchestrator', () => {
 
     orchestrator = new UISetupOrchestrator({
       appState: mockAppState,
-      streamingOrchestrator: mockStreamingOrchestrator,
-      captureOrchestrator: mockCaptureOrchestrator,
       displayModeOrchestrator: mockDisplayModeOrchestrator,
       updateOrchestrator: mockUpdateOrchestrator,
       settingsService: mockSettingsService,
@@ -118,8 +104,9 @@ describe('UISetupOrchestrator', () => {
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
       expect(orchestrator.appState).toBe(mockAppState);
-      expect(orchestrator.streamingOrchestrator).toBe(mockStreamingOrchestrator);
-      expect(orchestrator.captureOrchestrator).toBe(mockCaptureOrchestrator);
+      expect(orchestrator.eventBus).toBe(mockEventBus);
+      expect(orchestrator.uiController).toBe(mockUiController);
+      expect(orchestrator.displayModeOrchestrator).toBe(mockDisplayModeOrchestrator);
     });
 
     it('should throw if missing required dependencies', () => {
@@ -223,7 +210,7 @@ describe('UISetupOrchestrator', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('UI event listeners set up');
     });
 
-    it('should call takeScreenshot when screenshot handler is invoked', () => {
+    it('should publish SCREENSHOT_REQUESTED event when screenshot handler is invoked', () => {
       orchestrator.setupUIEventListeners();
 
       // Find the screenshot handler
@@ -232,10 +219,10 @@ describe('UISetupOrchestrator', () => {
 
       handler();
 
-      expect(mockCaptureOrchestrator.takeScreenshot).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:screenshot-requested');
     });
 
-    it('should call toggleRecording when record handler is invoked', () => {
+    it('should publish RECORDING_TOGGLE_REQUESTED event when record handler is invoked', () => {
       orchestrator.setupUIEventListeners();
 
       const call = mockUiController.on.mock.calls.find(c => c[0] === 'recordBtn');
@@ -243,7 +230,18 @@ describe('UISetupOrchestrator', () => {
 
       handler();
 
-      expect(mockCaptureOrchestrator.toggleRecording).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:recording-toggle-requested');
+    });
+
+    it('should publish FULLSCREEN_TOGGLE_REQUESTED event when fullscreen handler is invoked', () => {
+      orchestrator.setupUIEventListeners();
+
+      const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
+      const handler = call[2];
+
+      handler();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:fullscreen-toggle-requested');
     });
   });
 
@@ -272,41 +270,41 @@ describe('UISetupOrchestrator', () => {
       expect(typeof mockStreamCanvas.addEventListener.mock.calls[0][1]).toBe('function');
     });
 
-    it('should start stream when overlay is clicked and visible', () => {
+    it('should publish STREAM_START_REQUESTED when overlay is clicked and visible', () => {
       mockStreamOverlay.classList.contains.mockReturnValue(false); // Not hidden
       orchestrator.setupOverlayClickHandlers();
 
       // Trigger the overlay click
       mockStreamOverlay._trigger('click');
 
-      expect(mockStreamingOrchestrator.start).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-start-requested');
     });
 
-    it('should not start stream when overlay is hidden', () => {
+    it('should not publish event when overlay is hidden', () => {
       mockStreamOverlay.classList.contains.mockReturnValue(true); // Is hidden
       orchestrator.setupOverlayClickHandlers();
 
       mockStreamOverlay._trigger('click');
 
-      expect(mockStreamingOrchestrator.start).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:stream-start-requested');
     });
 
-    it('should stop stream when video is clicked while streaming', () => {
+    it('should publish STREAM_STOP_REQUESTED when video is clicked while streaming', () => {
       mockAppState.isStreaming = true;
       orchestrator.setupOverlayClickHandlers();
 
       mockStreamVideo._trigger('click');
 
-      expect(mockStreamingOrchestrator.stop).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-stop-requested');
     });
 
-    it('should not stop stream when video is clicked while not streaming', () => {
+    it('should not publish event when video is clicked while not streaming', () => {
       mockAppState.isStreaming = false;
       orchestrator.setupOverlayClickHandlers();
 
       mockStreamVideo._trigger('click');
 
-      expect(mockStreamingOrchestrator.stop).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:stream-stop-requested');
     });
 
     it('should log initialization', () => {
@@ -461,8 +459,8 @@ describe('UISetupOrchestrator', () => {
       // Trigger click on new canvas
       newCanvasListeners.click();
 
-      // Should call stop on streamingOrchestrator
-      expect(mockStreamingOrchestrator.stop).toHaveBeenCalled();
+      // Should publish STREAM_STOP_REQUESTED event
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-stop-requested');
     });
 
     it('should log debug messages during canvas recreation', () => {

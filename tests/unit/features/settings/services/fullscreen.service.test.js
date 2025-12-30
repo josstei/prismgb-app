@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
 
 describe('FullscreenService', () => {
   let service;
@@ -278,7 +277,6 @@ describe('FullscreenService', () => {
 
       service._handleFullscreenChange();
 
-      expect(mockDocument.body.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -295,7 +293,6 @@ describe('FullscreenService', () => {
       mockDocument.fullscreenElement = null;
       service._handleFullscreenChange();
 
-      expect(mockDocument.body.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -312,7 +309,6 @@ describe('FullscreenService', () => {
     it('should apply fullscreen state when entering native fullscreen', () => {
       enterFullscreenCallback();
 
-      expect(mockDocument.body.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -327,7 +323,6 @@ describe('FullscreenService', () => {
       // Then leave
       leaveFullscreenCallback();
 
-      expect(mockDocument.body.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -337,22 +332,6 @@ describe('FullscreenService', () => {
   });
 
   describe('_applyFullscreenState', () => {
-    it('should add CSS class when entering fullscreen', () => {
-      service._applyFullscreenState(true);
-
-      expect(mockDocument.body.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
-    });
-
-    it('should remove CSS class when exiting fullscreen', () => {
-      // First enter
-      service._applyFullscreenState(true);
-
-      // Then exit
-      service._applyFullscreenState(false);
-
-      expect(mockDocument.body.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
-    });
-
     it('should enable controls auto-hide when entering fullscreen', () => {
       service._applyFullscreenState(true);
 
@@ -395,14 +374,12 @@ describe('FullscreenService', () => {
       service._applyFullscreenState(true);
 
       // Reset mocks
-      mockDocument.body.classList.add.mockClear();
       mockUiController.enableControlsAutoHide.mockClear();
       mockEventBus.publish.mockClear();
 
       // Apply same state again
       service._applyFullscreenState(true);
 
-      expect(mockDocument.body.classList.add).not.toHaveBeenCalled();
       expect(mockUiController.enableControlsAutoHide).not.toHaveBeenCalled();
       expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
@@ -411,7 +388,6 @@ describe('FullscreenService', () => {
       // Service starts inactive, so apply inactive again
       service._applyFullscreenState(false);
 
-      expect(mockDocument.body.classList.remove).not.toHaveBeenCalled();
       expect(mockUiController.disableControlsAutoHide).not.toHaveBeenCalled();
       expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
@@ -443,7 +419,6 @@ describe('FullscreenService', () => {
       service._handleFullscreenChange();
 
       expect(service._isFullscreenActive).toBe(true);
-      expect(mockDocument.body.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -459,7 +434,6 @@ describe('FullscreenService', () => {
       service._handleFullscreenChange();
 
       expect(service._isFullscreenActive).toBe(false);
-      expect(mockDocument.body.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -472,15 +446,21 @@ describe('FullscreenService', () => {
       enterFullscreenCallback();
 
       expect(service._isFullscreenActive).toBe(true);
-      expect(mockDocument.body.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.FULLSCREEN_STATE,
+        { active: true }
+      );
 
       // Leave native fullscreen
       leaveFullscreenCallback();
 
       expect(service._isFullscreenActive).toBe(false);
-      expect(mockDocument.body.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_ACTIVE);
       expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.UI.FULLSCREEN_STATE,
+        { active: false }
+      );
     });
   });
 });

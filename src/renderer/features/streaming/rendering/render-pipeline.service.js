@@ -17,7 +17,7 @@ export class RenderPipelineService extends BaseService {
         'streamViewService',
         'canvasRenderer',
         'canvasLifecycleService',
-        'streamHealthMonitor',
+        'streamHealthService',
         'gpuRendererService',
         'gpuRenderLoopService',
         'eventBus',
@@ -181,7 +181,7 @@ export class RenderPipelineService extends BaseService {
 
     this.canvasRenderer.cleanup();
     this.canvasLifecycleService.cleanup();
-    this.streamHealthMonitor.cleanup();
+    this.streamHealthService.cleanup();
   }
 
   _handleVisible() {
@@ -213,7 +213,7 @@ export class RenderPipelineService extends BaseService {
 
   _waitForHealthyStream(videoElement) {
     return new Promise((resolve, reject) => {
-      this.streamHealthMonitor.startMonitoring(
+      this.streamHealthService.startMonitoring(
         videoElement,
         (frameData) => {
           this.logger.info('Stream verified healthy - first frame received');

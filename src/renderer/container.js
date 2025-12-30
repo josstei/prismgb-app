@@ -68,7 +68,7 @@ import { UpdateUiService } from '@renderer/features/updates/services/update-ui.s
 
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
-import { BrowserLogger } from '@renderer/infrastructure/logging/logger.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
 import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
@@ -100,7 +100,7 @@ function createRendererContainer() {
 
   // Logger factory
   container.registerSingleton('loggerFactory', function() {
-    return new BrowserLogger();
+    return new RendererLogger();
   }, []);
 
   // Browser abstraction services
@@ -153,7 +153,7 @@ function createRendererContainer() {
   );
 
   container.registerSingleton(
-    'viewportManager',
+    'viewportService',
     function(loggerFactory) {
       return new ViewportService(loggerFactory.create('ViewportService'));
     },
@@ -162,17 +162,17 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'canvasLifecycleService',
-    function(streamViewService, canvasRenderer, viewportManager, gpuRendererService, eventBus, loggerFactory) {
+    function(streamViewService, canvasRenderer, viewportService, gpuRendererService, eventBus, loggerFactory) {
       return new CanvasLifecycleService({
         streamViewService,
         canvasRenderer,
-        viewportManager,
+        viewportService,
         gpuRendererService,
         eventBus,
         loggerFactory
       });
     },
-    ['streamViewService', 'canvasRenderer', 'viewportManager', 'gpuRendererService', 'eventBus', 'loggerFactory']
+    ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory']
   );
 
   container.registerSingleton(
@@ -184,7 +184,7 @@ function createRendererContainer() {
   );
 
   container.registerSingleton(
-    'streamHealthMonitor',
+    'streamHealthService',
     function(loggerFactory) {
       return new StreamHealthService(loggerFactory.create('StreamHealthService'));
     },
@@ -203,20 +203,20 @@ function createRendererContainer() {
   // Render Pipeline Service - GPU/Canvas2D switching and health checks
   container.registerSingleton(
     'renderPipelineService',
-    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthMonitor, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
+    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthService, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
       return new RenderPipelineService({
         appState,
         streamViewService,
         canvasRenderer,
         canvasLifecycleService,
-        streamHealthMonitor,
+        streamHealthService,
         gpuRendererService,
         gpuRenderLoopService,
         eventBus,
         loggerFactory
       });
     },
-    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthMonitor', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
   );
 
   // IPC client (window.deviceAPI exposed from preload)
@@ -612,12 +612,12 @@ function createRendererContainer() {
   );
 
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
+  // Uses event-based communication for button handlers instead of direct orchestrator calls
+  // displayModeOrchestrator is still passed to shader selector for cinematic mode
   container.registerSingleton(
     'uiSetupOrchestrator',
     function (
       appState,
-      streamingOrchestrator,
-      captureOrchestrator,
       displayModeOrchestrator,
       updateOrchestrator,
       settingsService,
@@ -627,8 +627,6 @@ function createRendererContainer() {
     ) {
       return new UISetupOrchestrator({
         appState,
-        streamingOrchestrator,
-        captureOrchestrator,
         displayModeOrchestrator,
         updateOrchestrator,
         settingsService,
@@ -639,8 +637,6 @@ function createRendererContainer() {
     },
     [
       'appState',
-      'streamingOrchestrator',
-      'captureOrchestrator',
       'displayModeOrchestrator',
       'updateOrchestrator',
       'settingsService',
@@ -749,7 +745,5 @@ export {
   initializeContainer,
   getContainer,
   resetContainer,
-  EventBus,
-  BrowserLogger,
   asValue
 };

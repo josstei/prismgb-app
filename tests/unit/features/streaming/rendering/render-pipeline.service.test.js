@@ -11,7 +11,7 @@ describe('RenderPipelineService', () => {
   let mockStreamViewService;
   let mockCanvasRenderer;
   let mockCanvasLifecycleService;
-  let mockStreamHealthMonitor;
+  let mockStreamHealthService;
   let mockGPURendererService;
   let mockGpuRenderLoopService;
   let mockEventBus;
@@ -60,7 +60,7 @@ describe('RenderPipelineService', () => {
       cleanup: vi.fn()
     };
 
-    mockStreamHealthMonitor = {
+    mockStreamHealthService = {
       startMonitoring: vi.fn((videoEl, onHealthy) => {
         onHealthy({ frameTime: 100 });
       }),
@@ -101,7 +101,7 @@ describe('RenderPipelineService', () => {
       streamViewService: mockStreamViewService,
       canvasRenderer: mockCanvasRenderer,
       canvasLifecycleService: mockCanvasLifecycleService,
-      streamHealthMonitor: mockStreamHealthMonitor,
+      streamHealthService: mockStreamHealthService,
       gpuRendererService: mockGPURendererService,
       gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
@@ -120,7 +120,7 @@ describe('RenderPipelineService', () => {
 
     await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-    expect(mockStreamHealthMonitor.startMonitoring).toHaveBeenCalled();
+    expect(mockStreamHealthService.startMonitoring).toHaveBeenCalled();
     expect(mockCanvasRenderer.startRendering).toHaveBeenCalled();
   });
 
@@ -308,7 +308,7 @@ describe('RenderPipelineService', () => {
       expect(mockGPURendererService.cleanup).toHaveBeenCalled();
       expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
       expect(mockCanvasLifecycleService.cleanup).toHaveBeenCalled();
-      expect(mockStreamHealthMonitor.cleanup).toHaveBeenCalled();
+      expect(mockStreamHealthService.cleanup).toHaveBeenCalled();
     });
   });
 
@@ -362,7 +362,7 @@ describe('RenderPipelineService', () => {
 
   describe('_waitForHealthyStream', () => {
     it('rejection path - stream timeout or error', async () => {
-      mockStreamHealthMonitor.startMonitoring.mockImplementation((videoEl, onHealthy, onError) => {
+      mockStreamHealthService.startMonitoring.mockImplementation((videoEl, onHealthy, onError) => {
         onError({ reason: 'timeout' });
       });
 

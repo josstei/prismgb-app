@@ -20,7 +20,8 @@ class DeviceStorageService extends BaseService {
     try {
       const key = getDeviceStorageKey(deviceType);
       return this.storageService?.getItem(key) ?? null;
-    } catch {
+    } catch (error) {
+      this.logger.debug('Failed to get stored device ID:', error.message);
       return null;
     }
   }
@@ -29,8 +30,8 @@ class DeviceStorageService extends BaseService {
     try {
       const key = getDeviceStorageKey(deviceType);
       this.storageService?.setItem(key, deviceId);
-    } catch {
-      // Storage not available (e.g., in tests)
+    } catch (error) {
+      this.logger.debug('Storage not available:', error.message);
     }
   }
 

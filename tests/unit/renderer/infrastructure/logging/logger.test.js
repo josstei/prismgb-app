@@ -1,16 +1,16 @@
 /**
- * BrowserLogger Unit Tests
+ * RendererLogger Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BrowserLogger } from '@renderer/infrastructure/logging/logger.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
 
-describe('BrowserLogger', () => {
+describe('RendererLogger', () => {
   let factory;
   let consoleSpy;
 
   beforeEach(() => {
-    factory = new BrowserLogger();
+    factory = new RendererLogger();
     consoleSpy = {
       debug: vi.spyOn(console, 'debug').mockImplementation(() => {}),
       log: vi.spyOn(console, 'log').mockImplementation(() => {}),
@@ -123,8 +123,8 @@ describe('BrowserLogger', () => {
   });
 
   describe('Exports', () => {
-    it('should export BrowserLogger', () => {
-      expect(BrowserLogger).toBeDefined();
+    it('should export RendererLogger', () => {
+      expect(RendererLogger).toBeDefined();
     });
   });
 });

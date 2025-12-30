@@ -155,8 +155,8 @@ class DeviceMediaService extends BaseService {
       if (matchedDevice) {
         return this._cacheAndReturnDevice(matchedDevice);
       }
-    } catch {
-      // Device not accessible, try next
+    } catch (error) {
+      this.logger.debug('Device not accessible, trying next:', error.message);
     } finally {
       tempStream?.getTracks().forEach(track => track.stop());
     }

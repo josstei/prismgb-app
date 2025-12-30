@@ -6,15 +6,18 @@
  */
 
 const DEFAULT_ACTIVITY_EVENTS = ['pointermove', 'keydown', 'wheel', 'touchstart'];
+const THROTTLE_INTERVAL_MS = 100;
 
 export class UserActivityAdapter {
   constructor() {
     this._handleUserActivity = null;
     this._activityEvents = DEFAULT_ACTIVITY_EVENTS;
+    this._lastActivityTime = 0;
   }
 
   /**
    * Subscribe to user activity events
+   * Throttled to prevent excessive callback invocations from high-frequency events
    * @param {Function} callback - Called when user activity is detected
    * @returns {Function} Cleanup function to remove listeners
    */
@@ -23,8 +26,13 @@ export class UserActivityAdapter {
       return () => {};
     }
 
+    // Throttled handler to prevent excessive callback invocations
     this._handleUserActivity = () => {
-      callback();
+      const now = Date.now();
+      if (now - this._lastActivityTime >= THROTTLE_INTERVAL_MS) {
+        this._lastActivityTime = now;
+        callback();
+      }
     };
 
     this._activityEvents.forEach((event) => {
@@ -44,5 +52,6 @@ export class UserActivityAdapter {
       });
       this._handleUserActivity = null;
     }
+    this._lastActivityTime = 0;
   }
 }

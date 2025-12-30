@@ -8,7 +8,7 @@
  * - Manages application lifecycle
  */
 
-import { BrowserLogger } from '@renderer/infrastructure/logging/logger.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
 import { UIController } from '@renderer/ui/controller/ui.controller.js';
 
 class RendererAppOrchestrator {
@@ -18,7 +18,7 @@ class RendererAppOrchestrator {
     this.isInitialized = false;
 
     // Create logger for bootstrap logging
-    const loggerFactory = new BrowserLogger();
+    const loggerFactory = new RendererLogger();
     this.logger = loggerFactory.create('RendererAppOrchestrator');
   }
 
