@@ -263,6 +263,68 @@ describe('ViewportService', () => {
     });
   });
 
+  describe('resetDimensions', () => {
+    it('should clear last dimensions', () => {
+      service._lastDimensions = { width: 640, height: 576, scale: 4 };
+
+      service.resetDimensions();
+
+      expect(service._lastDimensions).toBeNull();
+    });
+  });
+
+  describe('forceResize', () => {
+    it('should set forceResizePending flag', () => {
+      service.forceResize();
+
+      expect(service._forceResizePending).toBe(true);
+    });
+
+    it('should reset cached dimensions and styles', () => {
+      service._lastDimensions = { width: 640, height: 576, scale: 4 };
+      service._cachedStyles = { paddingX: 20 };
+
+      service.forceResize();
+
+      expect(service._lastDimensions).toBeNull();
+      expect(service._cachedStyles).toBeNull();
+    });
+
+    it('should call callback after delay', () => {
+      const onResize = vi.fn();
+      service._onResizeCallback = onResize;
+
+      service.forceResize();
+
+      expect(onResize).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(32);
+
+      expect(onResize).toHaveBeenCalledTimes(1);
+      expect(service._forceResizePending).toBe(false);
+    });
+
+    it('should cancel pending resize timeout', () => {
+      service._resizeTimeout = setTimeout(() => {}, 1000);
+
+      service.forceResize();
+
+      expect(service._resizeTimeout).toBeNull();
+    });
+
+    it('should cancel previous forceResize timeout', () => {
+      const onResize = vi.fn();
+      service._onResizeCallback = onResize;
+
+      service.forceResize();
+      service.forceResize();
+
+      vi.advanceTimersByTime(32);
+
+      expect(onResize).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('cleanup', () => {
     it('should disconnect ResizeObserver', () => {
       const mockObserver = {
