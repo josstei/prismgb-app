@@ -1,5 +1,5 @@
 /**
- * Viewport Manager
+ * Viewport Service
  *
  * Manages viewport resizing and dimension calculations for canvas rendering.
  * Handles ResizeObserver lifecycle and calculates pixel-perfect scaling.
@@ -15,7 +15,7 @@
 
 import { TIMING } from '@shared/config/constants.js';
 
-export class ViewportManager {
+export class ViewportService {
   constructor(logger) {
     this.logger = logger;
 
