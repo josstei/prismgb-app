@@ -34,6 +34,7 @@ import { DeviceMediaService } from '@renderer/features/devices/services/device-m
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 // Features: Streaming
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
@@ -241,11 +242,16 @@ function createRendererContainer() {
   // ============================================
 
   // Adapter Factory - Creates device adapters based on device type
+  // Adapter classes are registered here via DI bootstrap for testability
   // Note: Will be initialized asynchronously in RendererAppOrchestrator
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
-      return new AdapterFactory(eventBus, loggerFactory, browserMediaService);
+      // Register adapter classes via DI (no hardcoded imports in AdapterFactory)
+      const adapterClasses = new Map([
+        ['chromatic-mod-retro', ChromaticAdapter]
+      ]);
+      return new AdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
     },
     ['eventBus', 'loggerFactory', 'browserMediaService']
   );

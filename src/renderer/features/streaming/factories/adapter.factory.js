@@ -5,6 +5,9 @@
  * Handles device detection, adapter instantiation, and dependency injection.
  *
  * Located in streaming domain as it is the primary consumer of adapters.
+ *
+ * Adapter classes are registered via DI bootstrap (container.js) to avoid
+ * hardcoded imports and improve testability.
  */
 
 import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint.builder.js';
@@ -12,14 +15,22 @@ import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream.lifecy
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
-import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 export class AdapterFactory {
-  constructor(eventBus, loggerFactory, browserMediaService = null) {
+  /**
+   * @param {Object} eventBus - Event bus for cross-service communication
+   * @param {Object} loggerFactory - Factory for creating loggers
+   * @param {Object} browserMediaService - Browser media service
+   * @param {Map<string, class>} adapterClasses - Map of device type IDs to adapter classes (injected via DI)
+   */
+  constructor(eventBus, loggerFactory, browserMediaService = null, adapterClasses = new Map()) {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
     this.browserMediaService = browserMediaService;
     this.logger = loggerFactory.create('AdapterFactory');
+
+    // Adapter classes registered via DI bootstrap
+    this._adapterClasses = adapterClasses;
 
     // Common dependencies for all adapters
     this.commonDependencies = {
@@ -39,7 +50,7 @@ export class AdapterFactory {
 
   /**
    * Initialize adapter registry
-   * Registers adapters from DEVICE_REGISTRY
+   * Registers adapters from DEVICE_REGISTRY using classes injected via DI
    */
   async initialize() {
     if (this.initialized) {
@@ -48,8 +59,10 @@ export class AdapterFactory {
     }
 
     try {
-      // Register AdapterClasses with DeviceRegistry (renderer process responsibility)
-      DeviceRegistry.registerAdapterClass('chromatic-mod-retro', ChromaticAdapter);
+      // Register adapter classes with DeviceRegistry (injected via DI bootstrap)
+      for (const [deviceId, AdapterClass] of this._adapterClasses) {
+        DeviceRegistry.registerAdapterClass(deviceId, AdapterClass);
+      }
 
       const loadedCount = await this._registerBuiltInAdapters();
       this.initialized = true;
