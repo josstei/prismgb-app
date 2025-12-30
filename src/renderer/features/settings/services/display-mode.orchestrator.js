@@ -5,11 +5,13 @@
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+
 export class DisplayModeOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['fullscreenService', 'cinematicModeService', 'loggerFactory'],
+      ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory'],
       'DisplayModeOrchestrator'
     );
   }
@@ -19,6 +21,16 @@ export class DisplayModeOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     this.fullscreenService.initialize();
+
+    this.subscribeWithCleanup({
+      [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors()
+    });
+  }
+
+  _applyStartupBehaviors() {
+    if (this.settingsService.getFullscreenOnStartup()) {
+      this.fullscreenService.enterFullscreen();
+    }
   }
 
   /**
@@ -33,6 +45,20 @@ export class DisplayModeOrchestrator extends BaseOrchestrator {
    */
   toggleFullscreen() {
     this.fullscreenService.toggleFullscreen();
+  }
+
+  /**
+   * Enter fullscreen mode
+   */
+  enterFullscreen() {
+    this.fullscreenService.enterFullscreen();
+  }
+
+  /**
+   * Exit fullscreen mode
+   */
+  exitFullscreen() {
+    this.fullscreenService.exitFullscreen();
   }
 
   /**

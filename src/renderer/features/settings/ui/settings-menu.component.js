@@ -35,6 +35,7 @@ class SettingsMenuComponent {
     this.container = elements.settingsMenuContainer;
     this.toggleButton = elements.settingsBtn;
     this.statusStripCheckbox = elements.settingStatusStrip;
+    this.fullscreenOnStartupCheckbox = elements.settingFullscreenOnStartup;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
@@ -96,6 +97,14 @@ class SettingsMenuComponent {
       });
     }
 
+    // Fullscreen on startup toggle
+    if (this.fullscreenOnStartupCheckbox) {
+      this._domListeners.add(this.fullscreenOnStartupCheckbox, 'change', () => {
+        const enabled = this.fullscreenOnStartupCheckbox.checked;
+        this.settingsService.setFullscreenOnStartup(enabled);
+      });
+    }
+
     // Animation power saver toggle
     if (this.animationSaverCheckbox) {
       this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
@@ -121,10 +130,15 @@ class SettingsMenuComponent {
    */
   _loadCurrentSettings() {
     const statusStripVisible = this.settingsService.getStatusStripVisible();
+    const fullscreenOnStartupEnabled = this.settingsService.getFullscreenOnStartup?.() ?? false;
     const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
 
     if (this.statusStripCheckbox) {
       this.statusStripCheckbox.checked = statusStripVisible;
+    }
+
+    if (this.fullscreenOnStartupCheckbox) {
+      this.fullscreenOnStartupCheckbox.checked = fullscreenOnStartupEnabled;
     }
 
     if (this.animationSaverCheckbox) {

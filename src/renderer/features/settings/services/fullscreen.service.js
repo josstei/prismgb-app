@@ -53,25 +53,45 @@ class FullscreenService extends BaseService {
   }
 
   toggleFullscreen() {
+    if (this._isFullscreenActive) {
+      this.exitFullscreen();
+    } else {
+      this.enterFullscreen();
+    }
+  }
+
+  enterFullscreen() {
+    if (this._isFullscreenActive) {
+      return;
+    }
+
     if (window.windowAPI?.setFullScreen) {
-      // Use Electron's simple fullscreen (no animation)
-      const newState = !this._isFullscreenActive;
-      window.windowAPI.setFullScreen(newState).catch(err => {
-        this.logger.error('Error toggling fullscreen:', err);
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not toggle fullscreen', type: 'error' });
+      window.windowAPI.setFullScreen(true).catch(err => {
+        this.logger.error('Error entering fullscreen:', err);
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
       });
     } else {
-      // Fallback to DOM API
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-          this.logger.error('Error entering fullscreen:', err);
-          this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
-          this._isFullscreenActive = false;
-          this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
-        });
-      } else {
-        document.exitFullscreen();
-      }
+      document.documentElement.requestFullscreen().catch(err => {
+        this.logger.error('Error entering fullscreen:', err);
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
+        this._isFullscreenActive = false;
+        this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
+      });
+    }
+  }
+
+  exitFullscreen() {
+    if (!this._isFullscreenActive) {
+      return;
+    }
+
+    if (window.windowAPI?.setFullScreen) {
+      window.windowAPI.setFullScreen(false).catch(err => {
+        this.logger.error('Error exiting fullscreen:', err);
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not exit fullscreen', type: 'error' });
+      });
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen();
     }
   }
 

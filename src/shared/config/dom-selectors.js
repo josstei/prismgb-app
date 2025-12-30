@@ -47,6 +47,7 @@ export const DOMSelectors = {
   SETTING_STATUS_STRIP: 'settingStatusStrip',
   SETTING_ANIMATION_SAVER: 'settingAnimationSaver',
   SETTING_RENDER_PRESET: 'settingRenderPreset',
+  SETTING_FULLSCREEN_ON_STARTUP: 'settingFullscreenOnStartup',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 

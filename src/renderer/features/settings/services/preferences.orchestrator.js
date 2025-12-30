@@ -41,6 +41,9 @@ export class PreferencesOrchestrator extends BaseOrchestrator {
 
       // Status strip visibility is applied by SettingsMenuComponent on initialize
 
+      // Signal that all preferences are loaded (for startup behaviors)
+      this.eventBus.publish(EventChannels.SETTINGS.PREFERENCES_LOADED, preferences);
+
       this.logger.info('Preferences loaded');
     } catch (error) {
       this.logger.error('Error loading preferences:', error);

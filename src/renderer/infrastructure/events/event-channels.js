@@ -45,7 +45,9 @@ export const EventChannels = {
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
     BRIGHTNESS_CHANGED: 'settings:brightness-changed',
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
-    CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed'
+    CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed',
+    FULLSCREEN_ON_STARTUP_CHANGED: 'settings:fullscreen-on-startup-changed',
+    PREFERENCES_LOADED: 'settings:preferences-loaded'
   },
 
   PERFORMANCE: {

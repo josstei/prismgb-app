@@ -1,11 +1,11 @@
 /**
- * StreamHealthMonitor Unit Tests
+ * StreamHealthService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamHealthMonitor } from '@renderer/features/streaming/rendering/stream-health.monitor.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
 
-describe('StreamHealthMonitor', () => {
+describe('StreamHealthService', () => {
   let monitor;
   let mockLogger;
   let mockVideoElement;
@@ -27,7 +27,7 @@ describe('StreamHealthMonitor', () => {
       removeEventListener: vi.fn()
     };
 
-    monitor = new StreamHealthMonitor(mockLogger);
+    monitor = new StreamHealthService(mockLogger);
   });
 
   afterEach(() => {
