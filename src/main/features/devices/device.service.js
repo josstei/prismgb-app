@@ -11,7 +11,7 @@ import { formatDeviceInfo } from '@shared/utils/formatters.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
-import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 

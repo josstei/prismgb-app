@@ -8,7 +8,7 @@ import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { BaseService } from '@shared/base/service.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
-import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
 
 /**
  * Update states

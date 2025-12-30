@@ -5,7 +5,7 @@
 
 import { BaseService } from '@shared/base/service.js';
 import { appConfig } from '@shared/config/config-loader.js';
-import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;
 
