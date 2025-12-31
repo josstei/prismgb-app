@@ -221,6 +221,8 @@ Contributions are welcome! See [DEVELOPMENT.md](DEVELOPMENT.md) for build instru
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+**Trademark:** PrismGB™ and the gem logo are trademarks of josstei. See [TRADEMARK](TRADEMARK) for usage guidelines.
+
 ## Acknowledgments
 
 - [Mod Retro](https://modretro.com) for creating the Chromatic handheld
