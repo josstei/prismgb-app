@@ -70,8 +70,8 @@ import { UpdateUiService } from '@renderer/features/updates/services/update-ui.s
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
-import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
-import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
+import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
@@ -106,13 +106,13 @@ function createRendererContainer() {
 
   // Browser abstraction services
   container.registerSingleton('storageService', function() {
-    return new StorageService({
+    return new BrowserStorageAdapter({
       protectedKeys: PROTECTED_STORAGE_KEYS
     });
   }, []);
 
   container.registerSingleton('browserMediaService', function() {
-    return new BrowserMediaService();
+    return new BrowserMediaAdapter();
   }, []);
 
   // DOM Adapters - wrap browser APIs for testability

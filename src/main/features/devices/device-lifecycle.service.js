@@ -13,6 +13,7 @@ export class DeviceLifecycleService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['deviceService', 'windowService', 'eventBus', 'loggerFactory'], 'DeviceLifecycleService');
     this._unsubscribe = null;
+    this._launchTimeoutId = null;
   }
 
   initialize() {
@@ -40,7 +41,13 @@ export class DeviceLifecycleService extends BaseService {
    * @private
    */
   _launchWindow() {
-    setTimeout(() => {
+    // Clear any pending launch timeout
+    if (this._launchTimeoutId) {
+      clearTimeout(this._launchTimeoutId);
+    }
+
+    this._launchTimeoutId = setTimeout(() => {
+      this._launchTimeoutId = null;
       if (this.windowService) {
         this.logger.debug('Launching window');
         this.windowService.showWindow();
@@ -53,6 +60,12 @@ export class DeviceLifecycleService extends BaseService {
    */
   dispose() {
     this.logger.info('Disposing device lifecycle service');
+
+    // Cancel any pending window launch
+    if (this._launchTimeoutId) {
+      clearTimeout(this._launchTimeoutId);
+      this._launchTimeoutId = null;
+    }
 
     if (this._unsubscribe) {
       this._unsubscribe();

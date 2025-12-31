@@ -1,10 +1,10 @@
 /**
- * Storage Service - Abstraction for localStorage API
+ * Browser Storage Adapter - Abstraction for localStorage API
  *
  * Provides a testable interface for browser storage operations.
  * Handles quota exceeded errors gracefully.
  */
-export class StorageService {
+export class BrowserStorageAdapter {
   /**
    * @param {Object} [options] - Optional configuration
    * @param {Object} [options.logger] - Optional logger instance
@@ -24,7 +24,7 @@ export class StorageService {
     try {
       return localStorage.getItem(key);
     } catch (error) {
-      this.logger.warn(`StorageService.getItem failed for key "${key}":`, error.message);
+      this.logger.warn(`BrowserStorageAdapter.getItem failed for key "${key}":`, error.message);
       return null;
     }
   }
@@ -41,18 +41,18 @@ export class StorageService {
       return true;
     } catch (error) {
       if (error.name === 'QuotaExceededError' || error.code === 22) {
-        this.logger.warn('StorageService: Quota exceeded, attempting cleanup');
+        this.logger.warn('BrowserStorageAdapter: Quota exceeded, attempting cleanup');
         this._cleanupOldEntries();
 
         try {
           localStorage.setItem(key, value);
           return true;
         } catch {
-          this.logger.error(`StorageService: Quota still exceeded after cleanup for key "${key}"`);
+          this.logger.error(`BrowserStorageAdapter: Quota still exceeded after cleanup for key "${key}"`);
           return false;
         }
       }
-      this.logger.error(`StorageService.setItem failed for key "${key}":`, error.message);
+      this.logger.error(`BrowserStorageAdapter.setItem failed for key "${key}":`, error.message);
       return false;
     }
   }
@@ -65,7 +65,7 @@ export class StorageService {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      this.logger.warn(`StorageService.removeItem failed for key "${key}":`, error.message);
+      this.logger.warn(`BrowserStorageAdapter.removeItem failed for key "${key}":`, error.message);
     }
   }
 

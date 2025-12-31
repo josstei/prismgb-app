@@ -179,11 +179,11 @@ vi.mock('@renderer/infrastructure/logging/logger.js', () => ({
 }));
 
 vi.mock('@renderer/infrastructure/browser/browser-storage.adapter.js', () => ({
-  StorageService: vi.fn()
+  BrowserStorageAdapter: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/browser/browser-media.adapter.js', () => ({
-  BrowserMediaService: vi.fn()
+  BrowserMediaAdapter: vi.fn()
 }));
 
 // Shared mocks

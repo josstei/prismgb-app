@@ -6,10 +6,5 @@ export const MainEventChannels = {
   },
   UPDATE: {
     STATE_CHANGED: 'update:state-changed',
-    PROGRESS: 'update:progress',
-  },
-  APP: {
-    READY: 'app:ready',
-    SHUTDOWN: 'app:shutdown',
   }
 };
