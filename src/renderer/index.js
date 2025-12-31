@@ -7,7 +7,7 @@
  */
 
 import './assets/styles/styles.css';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 // Mark body ready after CSS is loaded (prevents FOUC)
 document.body.classList.add(CSSClasses.BODY_READY);

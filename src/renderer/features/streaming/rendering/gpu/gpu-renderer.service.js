@@ -13,19 +13,19 @@
  * - Graceful fallback chain
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { CapabilityDetector } from './capability-detector.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { CapabilityDetector } from './capability-detector.utils.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/worker-protocol.js';
+} from '../workers/worker-protocol.config.js';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/render-presets.js';
+} from '../presets/render-presets.config.js';
 
 /**
  * Maximum number of frames that can be pending render

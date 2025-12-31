@@ -8,8 +8,8 @@
  * - Manages application lifecycle
  */
 
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
-import { UIController } from '@renderer/ui/controller/ui.controller.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
+import { UIController } from '@renderer/ui/controller/ui.class.js';
 
 class RendererAppOrchestrator {
   constructor() {

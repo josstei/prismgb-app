@@ -6,7 +6,7 @@
 import * as awilix from 'awilix';
 const { createContainer, asClass, asValue, InjectionMode } = awilix;
 import pkg from '../../package.json' assert { type: 'json' };
-import { EventBus } from './infrastructure/events/event-bus.js';
+import { EventBus } from './infrastructure/events/event-bus.class.js';
 
 /**
  * Create and configure the DI container
@@ -53,7 +53,7 @@ async function createAppContainer(loggerFactory) {
 
   // Device components
   const { DeviceService } = await import('@main/features/devices/device.service.js');
-  const { ProfileRegistry } = await import('@main/features/devices/profile-registry.js');
+  const { ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
   const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
 
   container.register({
@@ -65,7 +65,7 @@ async function createAppContainer(loggerFactory) {
   // Update components
   const { UpdateService } = await import('@main/features/updates/update.service.js');
 
-  const { DeviceBridge } = await import('./features/devices/device-bridge.service.js');
+  const { DeviceBridge } = await import('./features/devices/device.bridge.js');
   const { UpdateBridge } = await import('./features/updates/update.bridge.js');
 
   container.register({

@@ -4,14 +4,14 @@
  * Integrates with ProfileRegistry for profile-based device matching
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 import usbDetection from 'usb-detection';
-import { appConfig } from '@shared/config/config-loader.js';
-import { formatDeviceInfo } from '@shared/utils/formatters.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
-import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
+import { appConfig } from '@shared/config/config-loader.utils.js';
+import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
+import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
+import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
-import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 

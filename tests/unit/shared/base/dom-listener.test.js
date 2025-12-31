@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createDomListenerManager } from '@/shared/base/dom-listener.js';
+import { createDomListenerManager } from '@/shared/base/dom-listener.utils.js';
 
 describe('DomListenerManager', () => {
   let manager;

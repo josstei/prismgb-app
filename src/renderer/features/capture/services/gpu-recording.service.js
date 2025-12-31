@@ -5,8 +5,8 @@
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class GpuRecordingService extends BaseService {
   constructor(dependencies) {

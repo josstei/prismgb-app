@@ -8,7 +8,7 @@ import {
   getPresetById,
   getPresetsForUI,
   buildUniformsFromPreset
-} from '@renderer/features/streaming/rendering/presets/render-presets.js';
+} from '@renderer/features/streaming/rendering/presets/render-presets.config.js';
 
 describe('RenderPresets', () => {
   describe('DEFAULT_PRESET_ID', () => {

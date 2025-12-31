@@ -4,10 +4,10 @@
  * Owns media device enumeration, caching, and permission probing.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
-import { TIMING } from '@shared/config/constants.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
+import { TIMING } from '@shared/config/constants.config.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {
   constructor(dependencies) {

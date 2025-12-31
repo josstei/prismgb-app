@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
 
 // Mock the render presets module
-vi.mock('@renderer/features/streaming/rendering/presets/render-presets.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
   getPresetsForUI: vi.fn(() => [
     { id: 'true-color', name: 'True Color', description: 'Accurate GBC colors' },
     { id: 'vibrant', name: 'Vibrant', description: 'Boosted colors for modern displays' },

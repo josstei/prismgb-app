@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { channels } from '@shared/ipc/channels.js';
+import { channels } from '@shared/ipc/channels.config.js';
 
 describe('IPC Channels', () => {
   describe('DEVICE channels', () => {

@@ -5,8 +5,8 @@
  * Keeps streaming orchestration focused on stream lifecycle and UI events.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class RenderPipelineService extends BaseService {
   constructor(dependencies) {

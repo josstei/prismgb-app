@@ -4,9 +4,9 @@
  */
 
 import { BaseDeviceAdapter } from '../base.adapter.js';
-import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition-coordinator.js';
-import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.js';
-import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.js';
+import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition.orchestrator.js';
+import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.class.js';
+import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.class.js';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/chromatic.config.js';
 
 export class ChromaticAdapter extends BaseDeviceAdapter {

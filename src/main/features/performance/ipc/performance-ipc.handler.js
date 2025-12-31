@@ -3,7 +3,7 @@
  * Registers performance-related IPC routes.
  */
 
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 
 export function registerPerformanceHandlers({ registerHandler, app, logger }) {
   registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {

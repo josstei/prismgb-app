@@ -11,8 +11,8 @@
  * - Emit high-level device events
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class DeviceOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {

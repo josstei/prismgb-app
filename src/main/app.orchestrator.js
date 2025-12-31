@@ -6,7 +6,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { createAppContainer } from './container.js';
-import { MainLogger } from './infrastructure/logging/main-logger.js';
+import { MainLogger } from './infrastructure/logging/main-logger.factory.js';
 
 class AppOrchestrator {
   constructor() {

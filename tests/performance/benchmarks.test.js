@@ -10,7 +10,7 @@ import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import {
   PerformanceCache,
   AnimationCache
-} from '../../src/shared/utils/performance-cache.js';
+} from '../../src/shared/utils/performance-cache.utils.js';
 import {
   MockDevice,
   MockDeviceManager,

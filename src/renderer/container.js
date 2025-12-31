@@ -5,7 +5,7 @@
  * Wires domain services and orchestrators with proper dependency injection
  */
 
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.js';
+import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
 
 // Application layer
 import { AppState } from '@renderer/application/app.state.js';
@@ -21,8 +21,8 @@ import { PerformanceStateService } from '@renderer/application/performance/perfo
 import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
-import { UIEffects } from '@renderer/ui/effects/ui-effects.manager.js';
-import { BodyClassManager } from '@renderer/ui/effects/body-class.manager.js';
+import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
+import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
@@ -40,12 +40,12 @@ import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.service.js';
+import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.class.js';
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
-import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.class.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.class.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
@@ -68,8 +68,8 @@ import { UpdateOrchestrator } from '@renderer/features/updates/services/update.o
 import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
 
 // Infrastructure
-import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
@@ -77,7 +77,7 @@ import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-acti
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
 import { MetricsAdapter } from '@renderer/application/adapters/metrics.adapter.js';
 // Shared
-import { AnimationCache } from '@shared/utils/performance-cache.js';
+import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 
 /**
  * Create and configure the renderer DI container

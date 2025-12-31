@@ -4,7 +4,7 @@
  * Owns requestVideoFrameCallback loop lifecycle.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class GpuRenderLoopService extends BaseService {
   constructor(dependencies) {

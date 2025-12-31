@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 
 describe('RendererLogger', () => {
   let factory;

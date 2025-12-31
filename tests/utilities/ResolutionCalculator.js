@@ -7,7 +7,7 @@
  * Includes built-in caching for expensive calculations to reduce CPU overhead.
  */
 
-import { PerformanceCache } from '../../src/shared/utils/performance-cache.js';
+import { PerformanceCache } from '../../src/shared/utils/performance-cache.utils.js';
 
 /**
  * ResolutionCache - Specialized cache for resolution calculations (test-only)
