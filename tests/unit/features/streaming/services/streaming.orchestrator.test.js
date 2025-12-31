@@ -58,6 +58,7 @@ describe('StreamingOrchestrator', () => {
       handlePerformanceStateChanged: vi.fn(),
       handleRenderPresetChanged: vi.fn(),
       handlePerformanceModeChanged: vi.fn(),
+      handleFullscreenChange: vi.fn(),
       startPipeline: vi.fn().mockResolvedValue(undefined),
       stopPipeline: vi.fn(),
       cleanup: vi.fn()
@@ -322,6 +323,11 @@ describe('StreamingOrchestrator', () => {
       const state = { hidden: true };
       orchestrator._handlePerformanceStateChanged(state);
       expect(mockRenderPipelineService.handlePerformanceStateChanged).toHaveBeenCalledWith(state);
+    });
+
+    it('should delegate window resized to render pipeline', () => {
+      orchestrator._handleWindowResized();
+      expect(mockRenderPipelineService.handleFullscreenChange).toHaveBeenCalled();
     });
   });
 

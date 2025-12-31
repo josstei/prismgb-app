@@ -296,6 +296,48 @@ describe('CaptureOrchestrator', () => {
 
       expect(mockGpuRecordingService.stop).toHaveBeenCalled();
     });
+
+    it('should stop recording when stream stops', async () => {
+      mockCaptureService.isRecording = true;
+
+      const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === 'stream:stopped'
+      )[1];
+
+      await streamStoppedHandler();
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Stream stopped - stopping active recording');
+      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureService.stopRecording).toHaveBeenCalled();
+    });
+
+    it('should not stop recording when stream stops if not recording', async () => {
+      mockCaptureService.isRecording = false;
+      mockCaptureService.getRecordingState.mockReturnValue(false);
+
+      const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === 'stream:stopped'
+      )[1];
+
+      await streamStoppedHandler();
+
+      expect(mockGpuRecordingService.stop).not.toHaveBeenCalled();
+      expect(mockCaptureService.stopRecording).not.toHaveBeenCalled();
+    });
+
+    it('should stop recording when stream stops using getRecordingState', async () => {
+      mockCaptureService.isRecording = false;
+      mockCaptureService.getRecordingState.mockReturnValue(true);
+
+      const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === 'stream:stopped'
+      )[1];
+
+      await streamStoppedHandler();
+
+      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureService.stopRecording).toHaveBeenCalled();
+    });
   });
 
   describe('_getCaptureSource', () => {
