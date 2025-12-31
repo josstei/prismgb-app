@@ -75,8 +75,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Stop streaming
    * @returns {Promise<void>} Resolves when stream is stopped
    */
-  stop() {
-    return this.streamingService.stop();
+  async stop() {
+    try {
+      await this.streamingService.stop();
+    } catch (error) {
+      this.logger.error('Error stopping stream:', error);
+      // Re-throw to allow caller to handle if needed
+      throw error;
+    }
   }
 
   /**

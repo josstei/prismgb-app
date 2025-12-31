@@ -311,6 +311,13 @@ export class RenderPipelineService extends BaseService {
 
       if (this.gpuRendererService.isCanvasTransferred()) {
         this.logger.error('Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.');
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+          message: 'Rendering unavailable - video playing without shader effects',
+          type: 'warning'
+        });
+        this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, {
+          message: 'GPU rendering failed and cannot recover. Video will play without visual effects.'
+        });
         return;
       }
 

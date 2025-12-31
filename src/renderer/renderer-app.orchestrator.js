@@ -118,6 +118,16 @@ class RendererAppOrchestrator {
       this.logger.error('Error disposing UIController:', error);
     }
 
+    // Clean up AppState EventBus subscriptions
+    try {
+      const appState = this.container?.resolve('appState');
+      if (appState && typeof appState.dispose === 'function') {
+        appState.dispose();
+      }
+    } catch (error) {
+      this.logger.error('Error disposing AppState:', error);
+    }
+
     try {
       if (this.container) {
         this.container.dispose();
