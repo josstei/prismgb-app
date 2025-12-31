@@ -109,11 +109,6 @@ describe('UIEventBridge', () => {
     it('should initialize subscriptions array', () => {
       expect(handler._subscriptions).toEqual([]);
     });
-
-    it('should initialize cinematic state tracking', () => {
-      expect(handler._cinematicModeEnabled).toBe(false);
-      expect(handler._isStreaming).toBe(false);
-    });
   });
 
   describe('initialize', () => {
@@ -152,13 +147,6 @@ describe('UIEventBridge', () => {
       handler.initialize();
 
       expect(handler._subscriptions.length).toBeGreaterThan(0);
-    });
-
-    it('should initialize cinematic state from AppState', () => {
-      handler.initialize();
-
-      expect(handler._cinematicModeEnabled).toBe(true);
-      expect(handler._isStreaming).toBe(false);
     });
   });
 
@@ -214,12 +202,6 @@ describe('UIEventBridge', () => {
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
 
       expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should update internal streaming state', () => {
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
-
-      expect(handler._isStreaming).toBe(true);
     });
 
     it('should handle ui:stream-info event', () => {
@@ -286,19 +268,21 @@ describe('UIEventBridge', () => {
     });
   });
 
-  describe('Event Handlers - Cinematic Mode (Gated by Streaming)', () => {
+  describe('Event Handlers - Cinematic Mode (Reads from AppState)', () => {
     beforeEach(() => {
       handler.initialize();
     });
 
     it('should not apply cinematic mode when enabled but not streaming', () => {
+      // AppState has cinematicModeEnabled: true, isStreaming: false
       subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
     it('should apply cinematic mode when enabled and streaming', () => {
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
+      // Set AppState to streaming
+      mockAppState.isStreaming = true;
       mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
@@ -307,17 +291,21 @@ describe('UIEventBridge', () => {
     });
 
     it('should remove cinematic mode when streaming stops', () => {
+      // Start streaming with cinematic enabled
+      mockAppState.isStreaming = true;
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
+      // Stop streaming
+      mockAppState.isStreaming = false;
       subscribedHandlers['ui:streaming-mode']({ enabled: false });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
     });
 
     it('should apply cinematic mode when streaming starts with cinematic already enabled', () => {
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
+      // Enable streaming with cinematic already enabled
+      mockAppState.isStreaming = true;
       mockUiController.updateCinematicMode.mockClear();
 
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
@@ -326,32 +314,44 @@ describe('UIEventBridge', () => {
     });
 
     it('should remove cinematic mode when disabling cinematic mode while streaming', () => {
+      // Stream with cinematic enabled
+      mockAppState.isStreaming = true;
       subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
       mockUiController.updateCinematicMode.mockClear();
 
+      // Disable cinematic mode
+      mockAppState.cinematicModeEnabled = false;
       subscribedHandlers['settings:cinematic-mode-changed']({ enabled: false });
 
       expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
-    });
-
-    it('should update internal cinematic state', () => {
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
-
-      expect(handler._cinematicModeEnabled).toBe(true);
     });
   });
 
   describe('Event Handlers - Fullscreen', () => {
     beforeEach(() => {
+      // Add auto-hide methods to mock
+      mockUiController.enableControlsAutoHide = vi.fn();
+      mockUiController.disableControlsAutoHide = vi.fn();
       handler.initialize();
     });
 
-    it('should handle ui:fullscreen-state event', () => {
+    it('should handle ui:fullscreen-state active event', () => {
       subscribedHandlers['ui:fullscreen-state']({ active: true });
 
       expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
       expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(true);
+    });
+
+    it('should enable controls auto-hide when entering fullscreen', () => {
+      subscribedHandlers['ui:fullscreen-state']({ active: true });
+
+      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
+    });
+
+    it('should disable controls auto-hide when exiting fullscreen', () => {
+      subscribedHandlers['ui:fullscreen-state']({ active: false });
+
+      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
     });
   });
 
@@ -429,11 +429,8 @@ describe('UIEventBridge', () => {
         loggerFactory: mockLoggerFactory
       });
 
-      handlerWithoutAppState.initialize();
-
-      // Should default to cinematic enabled, streaming false
-      expect(handlerWithoutAppState._cinematicModeEnabled).toBe(true);
-      expect(handlerWithoutAppState._isStreaming).toBe(false);
+      // Should not throw when initializing or handling events
+      expect(() => handlerWithoutAppState.initialize()).not.toThrow();
     });
   });
 });

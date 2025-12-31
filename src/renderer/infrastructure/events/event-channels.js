@@ -82,7 +82,6 @@ export const EventChannels = {
     RECORD_BUTTON_PRESS: 'ui:record-button-press',
     BUTTON_FEEDBACK: 'ui:button-feedback',
     RECORDING_STATE: 'ui:recording-state',
-    CINEMATIC_MODE: 'ui:cinematic-mode',
     FULLSCREEN_STATE: 'ui:fullscreen-state',
     WINDOW_RESIZED: 'ui:window-resized',
     // UI command events (decoupled from orchestrators)

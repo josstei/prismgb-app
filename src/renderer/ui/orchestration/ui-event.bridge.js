@@ -18,10 +18,6 @@ export class UIEventBridge extends BaseService {
 
     // Track subscriptions for cleanup
     this._subscriptions = [];
-
-    // Local state tracking for cinematic mode gating
-    this._cinematicModeEnabled = false;
-    this._isStreaming = false;
   }
 
   /**
@@ -72,10 +68,6 @@ export class UIEventBridge extends BaseService {
       const unsubscribe = this.eventBus.subscribe(event, handler);
       this._subscriptions.push(unsubscribe);
     }
-
-    // Initialize state from AppState (cinematic enabled by default, streaming false on startup)
-    this._cinematicModeEnabled = this.appState?.cinematicModeEnabled ?? true;
-    this._isStreaming = this.appState?.isStreaming ?? false;
   }
 
   _handleStatusMessage(data) {
@@ -105,9 +97,8 @@ export class UIEventBridge extends BaseService {
 
   _handleStreamingMode(data) {
     const { enabled } = data;
-    this._isStreaming = enabled;
     this.uiController.setStreamingMode(enabled);
-    this._updateCinematicVisual();
+    this._updateCinematicVisual(enabled);
   }
 
   _handleStreamInfo(data) {
@@ -137,14 +128,20 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateRecordingButtonState(active);
   }
 
-  _handleCinematicMode(data) {
-    const { enabled } = data;
-    this._cinematicModeEnabled = enabled;
+  _handleCinematicMode() {
     this._updateCinematicVisual();
   }
 
-  _updateCinematicVisual() {
-    const isActive = this._cinematicModeEnabled && this._isStreaming;
+  /**
+   * Update cinematic mode visual state
+   * @param {boolean} [isStreaming] - Override streaming state (for timing-sensitive calls)
+   * @private
+   */
+  _updateCinematicVisual(isStreaming) {
+    // Use provided streaming state or fall back to AppState
+    // This handles race condition where STREAMING_MODE event fires before isStreaming updates
+    const streamingActive = isStreaming !== undefined ? isStreaming : this.appState?.isStreaming;
+    const isActive = this.appState?.cinematicModeEnabled && streamingActive;
     this.uiController.updateCinematicMode(isActive);
   }
 
@@ -152,6 +149,13 @@ export class UIEventBridge extends BaseService {
     const { active } = data;
     this.uiController.updateFullscreenButton(active);
     this.uiController.updateFullscreenMode(active);
+
+    // Enable/disable controls auto-hide behavior based on fullscreen state
+    if (active) {
+      this.uiController.enableControlsAutoHide();
+    } else {
+      this.uiController.disableControlsAutoHide();
+    }
   }
 
   /**

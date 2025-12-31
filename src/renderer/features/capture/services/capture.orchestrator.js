@@ -38,6 +38,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   async onInitialize() {
     this.subscribeWithCleanup({
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
+      // Stop recording when stream stops to prevent orphaned recording loop
+      [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       // UI command events - decoupled from UISetupOrchestrator
       [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
       [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
@@ -154,6 +156,19 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Clean up GPU recording resources
    * @private
    */
+
+  /**
+   * Handle stream stopped - stop any active recording
+   * Prevents orphaned GPU recording loop when stream stops
+   * @private
+   */
+  async _handleStreamStopped() {
+    const isRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
+    if (isRecording) {
+      this.logger.info('Stream stopped - stopping active recording');
+      await this._stopRecording();
+    }
+  }
 
   /**
    * Handle recording error event

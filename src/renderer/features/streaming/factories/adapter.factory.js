@@ -10,8 +10,8 @@
  * hardcoded imports and improve testability.
  */
 
-import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint.builder.js';
-import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream.lifecycle.js';
+import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint-builder.js';
+import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream-lifecycle.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';

@@ -40,13 +40,13 @@ import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas.renderer.js';
+import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.service.js';
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
 import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
 import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
-import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
+import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
 
@@ -505,10 +505,10 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'fullscreenService',
-    function (uiController, eventBus, loggerFactory) {
-      return new FullscreenService({ uiController, eventBus, loggerFactory });
+    function (eventBus, loggerFactory) {
+      return new FullscreenService({ eventBus, loggerFactory });
     },
-    ['uiController', 'eventBus', 'loggerFactory']
+    ['eventBus', 'loggerFactory']
   );
 
   container.registerSingleton(

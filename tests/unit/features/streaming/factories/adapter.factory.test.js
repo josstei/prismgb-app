@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
-vi.mock('@shared/streaming/acquisition/constraint.builder.js', () => {
+vi.mock('@shared/streaming/acquisition/constraint-builder.js', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
@@ -14,7 +14,7 @@ vi.mock('@shared/streaming/acquisition/constraint.builder.js', () => {
   };
 });
 
-vi.mock('@shared/streaming/acquisition/stream.lifecycle.js', () => {
+vi.mock('@shared/streaming/acquisition/stream-lifecycle.js', () => {
   return {
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}
