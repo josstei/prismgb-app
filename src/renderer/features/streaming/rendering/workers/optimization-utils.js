@@ -215,16 +215,32 @@ export class UniformTracker {
     this._checks = 0;
     this._skips = 0;
     this._writes = 0;
+    // Cached view for hash computation to avoid per-frame Uint8Array allocation
+    this._hashView = null;
+    this._hashViewBuffer = null;
   }
 
   /**
    * FNV-1a hash for Float32Array
+   * Uses cached Uint8Array view to avoid per-frame allocation
    * @param {Float32Array} data
    * @returns {number} 32-bit hash
    */
   _hashFloat32Array(data) {
     let hash = 2166136261; // FNV offset basis
-    const view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+
+    // Reuse cached view if buffer matches, otherwise create new view
+    // This avoids creating a new Uint8Array every frame (GC pressure at 60fps)
+    let view;
+    if (this._hashViewBuffer === data.buffer && this._hashView &&
+        this._hashView.byteOffset === data.byteOffset &&
+        this._hashView.byteLength === data.byteLength) {
+      view = this._hashView;
+    } else {
+      view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      this._hashView = view;
+      this._hashViewBuffer = data.buffer;
+    }
 
     for (let i = 0; i < view.length; i++) {
       hash ^= view[i];

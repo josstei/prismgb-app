@@ -83,11 +83,11 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     if (this.canvasRenderer.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      return this.uiController.elements.streamCanvas;
+      return this.uiController.getStreamCanvas();
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
-    return this.uiController.elements.streamVideo;
+    return this.uiController.getStreamVideo();
   }
 
   /**

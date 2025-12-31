@@ -140,6 +140,9 @@ class DeviceService extends BaseService {
       this.usbMonitoring = true;
 
       // Set up event listeners - store references for cleanup
+      // Note: Handler reassignment is intentional. If startUSBMonitoring() is called
+      // while monitoring is already active, we skip (see guard at top). The handlers
+      // are cleaned up in _cleanupUSBListeners() which is called before creating new ones.
       this._onDeviceAdd = (device) => this.onDeviceConnected(device);
       this._onDeviceRemove = (device) => this.onDeviceDisconnected(device);
       usbDetection.on('add', this._onDeviceAdd);

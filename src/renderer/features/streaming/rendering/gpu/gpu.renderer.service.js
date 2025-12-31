@@ -465,10 +465,15 @@ export class GPURendererService extends BaseService {
       });
 
       // Get cached uniforms (rebuilt only when preset/dimensions change)
-      const uniforms = this._getCachedUniforms();
-
-      // Apply global brightness multiplier (updates cached object in-place)
-      uniforms.color.brightness = this._currentPreset.color.brightness * this._globalBrightness;
+      // Clone to avoid mutating cache - mutation forces UniformTracker recompute
+      const cachedUniforms = this._getCachedUniforms();
+      const uniforms = {
+        ...cachedUniforms,
+        color: {
+          ...cachedUniforms.color,
+          brightness: this._currentPreset.color.brightness * this._globalBrightness
+        }
+      };
 
       // Send frame to worker
       this._pendingFrames++;

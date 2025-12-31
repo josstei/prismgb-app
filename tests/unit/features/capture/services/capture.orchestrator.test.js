@@ -38,12 +38,18 @@ describe('CaptureOrchestrator', () => {
       triggerButtonFeedback: vi.fn(),
       triggerRecordButtonPop: vi.fn(),
       triggerRecordButtonPress: vi.fn(),
+      getStreamCanvas: vi.fn(),
+      getStreamVideo: vi.fn(),
       elements: {
         streamVideo: { id: 'streamVideo' },
         streamCanvas: { id: 'streamCanvas' },
         recordBtn: { classList: { add: vi.fn(), remove: vi.fn() } }
       }
     };
+
+    // Configure getter mocks to return elements
+    mockUIController.getStreamCanvas.mockReturnValue(mockUIController.elements.streamCanvas);
+    mockUIController.getStreamVideo.mockReturnValue(mockUIController.elements.streamVideo);
 
     mockGpuRendererService = {
       isActive: vi.fn(() => false),
