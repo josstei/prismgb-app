@@ -9,7 +9,6 @@ import { CSSClasses } from '@shared/config/css-classes.js';
 describe('UISetupOrchestrator', () => {
   let orchestrator;
   let mockAppState;
-  let mockDisplayModeOrchestrator;
   let mockUpdateOrchestrator;
   let mockSettingsService;
   let mockUiController;
@@ -40,11 +39,6 @@ describe('UISetupOrchestrator', () => {
 
     mockAppState = {
       isStreaming: false
-    };
-
-    mockDisplayModeOrchestrator = {
-      toggleFullscreen: vi.fn(),
-      toggleCinematicMode: vi.fn()
     };
 
     mockUpdateOrchestrator = {};
@@ -92,7 +86,6 @@ describe('UISetupOrchestrator', () => {
 
     orchestrator = new UISetupOrchestrator({
       appState: mockAppState,
-      displayModeOrchestrator: mockDisplayModeOrchestrator,
       updateOrchestrator: mockUpdateOrchestrator,
       settingsService: mockSettingsService,
       uiController: mockUiController,
@@ -106,7 +99,6 @@ describe('UISetupOrchestrator', () => {
       expect(orchestrator.appState).toBe(mockAppState);
       expect(orchestrator.eventBus).toBe(mockEventBus);
       expect(orchestrator.uiController).toBe(mockUiController);
-      expect(orchestrator.displayModeOrchestrator).toBe(mockDisplayModeOrchestrator);
     });
 
     it('should throw if missing required dependencies', () => {
@@ -140,8 +132,7 @@ describe('UISetupOrchestrator', () => {
           settingsService: mockSettingsService,
           appState: mockAppState,
           eventBus: mockEventBus,
-          logger: mockLogger,
-          displayModeOrchestrator: mockDisplayModeOrchestrator
+          logger: mockLogger
         },
         expect.objectContaining({
           shaderBtn: mockUiController.elements.shaderBtn,

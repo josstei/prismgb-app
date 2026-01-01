@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
-vi.mock('@shared/streaming/acquisition/constraint.builder.js', () => {
+vi.mock('@shared/streaming/acquisition/constraint-builder.js', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
@@ -14,7 +14,7 @@ vi.mock('@shared/streaming/acquisition/constraint.builder.js', () => {
   };
 });
 
-vi.mock('@shared/streaming/acquisition/stream.lifecycle.js', () => {
+vi.mock('@shared/streaming/acquisition/stream-lifecycle.js', () => {
   return {
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}
@@ -22,24 +22,19 @@ vi.mock('@shared/streaming/acquisition/stream.lifecycle.js', () => {
   };
 });
 
-// Mock ChromaticAdapter - this will be used by dynamic imports automatically
-vi.mock('@renderer/features/devices/adapters/chromatic/chromatic.adapter.js', () => {
-  class MockChromaticAdapter {
-    constructor(deps) {
-      this.deps = deps;
-    }
+// Mock adapter class - injected via adapterClasses parameter (same pattern as container.js)
+class MockChromaticAdapter {
+  constructor(deps) {
+    this.deps = deps;
   }
-  return {
-    default: MockChromaticAdapter,
-    ChromaticAdapter: MockChromaticAdapter
-  };
-});
+}
 
 describe('AdapterFactory', () => {
   let factory;
   let mockEventBus;
   let mockLoggerFactory;
   let mockLogger;
+  let adapterClasses;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,7 +55,12 @@ describe('AdapterFactory', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    factory = new AdapterFactory(mockEventBus, mockLoggerFactory);
+    // Adapter classes injected via DI (same pattern as container.js)
+    adapterClasses = new Map([
+      ['chromatic-mod-retro', MockChromaticAdapter]
+    ]);
+
+    factory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
   });
 
   afterEach(() => {
@@ -129,7 +129,7 @@ describe('AdapterFactory', () => {
     });
 
     it('should throw if not initialized', () => {
-      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory);
+      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
 
       expect(() => uninitializedFactory.getAdapter('chromatic-mod-retro')).toThrow(
         'AdapterFactory not initialized'
@@ -178,7 +178,7 @@ describe('AdapterFactory', () => {
     });
 
     it('should throw if not initialized', () => {
-      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory);
+      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
 
       expect(() => uninitializedFactory.detectDeviceType({ label: 'test' })).toThrow(
         'AdapterFactory not initialized'

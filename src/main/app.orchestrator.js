@@ -95,10 +95,10 @@ class AppOrchestrator {
    * Cleanup on app quit (idempotent - safe to call multiple times)
    */
   cleanup() {
-    if (this._cleanedUp) {
+    if (this._isCleanedUp) {
       return;
     }
-    this._cleanedUp = true;
+    this._isCleanedUp = true;
 
     this.logger.info('Shutting down PrismGB...');
 

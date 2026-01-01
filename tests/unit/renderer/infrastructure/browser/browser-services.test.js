@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
-import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
+import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 
-describe('BrowserMediaService', () => {
+describe('BrowserMediaAdapter', () => {
   let service;
   let originalNavigator;
 
@@ -23,7 +23,7 @@ describe('BrowserMediaService', () => {
         removeEventListener: vi.fn()
       }
     };
-    service = new BrowserMediaService();
+    service = new BrowserMediaAdapter();
   });
 
   afterEach(() => {
@@ -72,7 +72,7 @@ describe('BrowserMediaService', () => {
   });
 });
 
-describe('StorageService', () => {
+describe('BrowserStorageAdapter', () => {
   let service;
   let mockLogger;
   let storageData;
@@ -97,12 +97,12 @@ describe('StorageService', () => {
         return Object.keys(storageData).length;
       }
     };
-    service = new StorageService({ logger: mockLogger });
+    service = new BrowserStorageAdapter({ logger: mockLogger });
   });
 
   describe('constructor', () => {
     it('should use console as default logger when none provided', () => {
-      const defaultService = new StorageService();
+      const defaultService = new BrowserStorageAdapter();
       expect(defaultService.logger).toBe(console);
     });
 
@@ -111,13 +111,13 @@ describe('StorageService', () => {
     });
 
     it('should use empty array as default protectedKeys when none provided', () => {
-      const defaultService = new StorageService();
+      const defaultService = new BrowserStorageAdapter();
       expect(defaultService.protectedKeys).toEqual([]);
     });
 
     it('should use provided protectedKeys', () => {
       const protectedKeys = ['key1', 'key2'];
-      const serviceWithProtectedKeys = new StorageService({ logger: mockLogger, protectedKeys });
+      const serviceWithProtectedKeys = new BrowserStorageAdapter({ logger: mockLogger, protectedKeys });
       expect(serviceWithProtectedKeys.protectedKeys).toEqual(protectedKeys);
     });
   });
@@ -145,7 +145,7 @@ describe('StorageService', () => {
 
       expect(value).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'StorageService.getItem failed for key "testKey":',
+        'BrowserStorageAdapter.getItem failed for key "testKey":',
         'Storage access denied'
       );
     });
@@ -175,7 +175,7 @@ describe('StorageService', () => {
       const result = service.setItem('myKey', 'myValue');
 
       expect(result).toBe(true);
-      expect(mockLogger.warn).toHaveBeenCalledWith('StorageService: Quota exceeded, attempting cleanup');
+      expect(mockLogger.warn).toHaveBeenCalledWith('BrowserStorageAdapter: Quota exceeded, attempting cleanup');
     });
 
     it('should attempt cleanup on quota error code 22 and retry', () => {
@@ -203,7 +203,7 @@ describe('StorageService', () => {
 
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'StorageService: Quota still exceeded after cleanup for key "myKey"'
+        'BrowserStorageAdapter: Quota still exceeded after cleanup for key "myKey"'
       );
     });
 
@@ -215,7 +215,7 @@ describe('StorageService', () => {
 
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'StorageService.setItem failed for key "myKey":',
+        'BrowserStorageAdapter.setItem failed for key "myKey":',
         'Unknown storage error'
       );
     });
@@ -235,7 +235,7 @@ describe('StorageService', () => {
       service.removeItem('testKey');
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'StorageService.removeItem failed for key "testKey":',
+        'BrowserStorageAdapter.removeItem failed for key "testKey":',
         'Remove failed'
       );
     });
@@ -255,7 +255,7 @@ describe('StorageService', () => {
 
     it('should not remove protected keys', () => {
       const protectedKeys = ['gameVolume', 'renderPreset', 'statusStripVisible', 'globalBrightness'];
-      const serviceWithProtectedKeys = new StorageService({ logger: mockLogger, protectedKeys });
+      const serviceWithProtectedKeys = new BrowserStorageAdapter({ logger: mockLogger, protectedKeys });
 
       storageData['gameVolume'] = '0.5';
       storageData['renderPreset'] = 'vibrant';

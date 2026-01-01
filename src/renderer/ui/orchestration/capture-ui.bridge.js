@@ -10,12 +10,7 @@ import { TIMING } from '@shared/config/constants.js';
 
 class CaptureUiBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController'], 'CaptureUiBridge');
-
-    if (!this.logger) {
-      this.logger = console;
-    }
-
+    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUiBridge');
     this._subscriptions = [];
   }
 

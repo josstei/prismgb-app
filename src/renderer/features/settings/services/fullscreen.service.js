@@ -9,7 +9,7 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.js
 
 class FullscreenService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['uiController', 'eventBus', 'loggerFactory'], 'FullscreenService');
+    super(dependencies, ['eventBus', 'loggerFactory'], 'FullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
@@ -106,14 +106,7 @@ class FullscreenService extends BaseService {
     if (this._isFullscreenActive === active) return;
     this._isFullscreenActive = active;
 
-    // Enable/disable controls auto-hide behavior
-    if (active) {
-      this.uiController.enableControlsAutoHide();
-    } else {
-      this.uiController.disableControlsAutoHide();
-    }
-
-    // Publish event - UIEventBridge handles DOM updates (body class)
+    // Publish event - UIEventBridge handles all UI updates (body class, controls auto-hide)
     this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active });
   }
 }

@@ -166,20 +166,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // No need to manually update appState.setStreaming() anymore
 
     this.streamViewService.attachStream(stream);
-    const hasAudio = stream?.getAudioTracks?.().length > 0;
-    this.audioWarmupService.start(stream)
-      .then((ready) => {
-        if (!ready && hasAudio && this.appState.isStreaming) {
-          this.logger.warn('Audio warm-up failed - falling back to video element audio');
-          this.streamViewService.setMuted(false);
-        }
-      })
-      .catch((error) => {
-        if (hasAudio && this.appState.isStreaming) {
-          this.logger.warn('Audio warm-up error - falling back to video element audio', error);
-          this.streamViewService.setMuted(false);
-        }
-      });
+    this._startAudioWithFallback(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -210,6 +197,29 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       // Stop the unhealthy stream
       this.streamingService.stop();
     }
+  }
+
+  /**
+   * Start audio warmup with fallback to video element audio
+   * @param {MediaStream} stream - The media stream
+   * @private
+   */
+  _startAudioWithFallback(stream) {
+    const hasAudio = stream?.getAudioTracks?.().length > 0;
+
+    this.audioWarmupService.start(stream)
+      .then((ready) => {
+        if (!ready && hasAudio && this.appState.isStreaming) {
+          this.logger.warn('Audio warm-up failed - falling back to video element audio');
+          this.streamViewService.setMuted(false);
+        }
+      })
+      .catch((error) => {
+        if (hasAudio && this.appState.isStreaming) {
+          this.logger.warn('Audio warm-up error - falling back to video element audio', error);
+          this.streamViewService.setMuted(false);
+        }
+      });
   }
 
   /**

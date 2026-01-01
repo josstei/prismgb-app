@@ -7,16 +7,15 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
-import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/render.presets.js';
+import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/render-presets.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
 
 class ShaderSelectorComponent {
-  constructor({ settingsService, appState, eventBus, logger, displayModeOrchestrator }) {
+  constructor({ settingsService, appState, eventBus, logger }) {
     this.settingsService = settingsService;
     this.appState = appState;
     this.eventBus = eventBus;
     this.logger = logger;
-    this.displayModeOrchestrator = displayModeOrchestrator;
     this.isVisible = false;
     this.currentPresetId = null;
     this.currentBrightness = 1.0;
@@ -334,11 +333,9 @@ class ShaderSelectorComponent {
     const initialState = this.appState?.cinematicModeEnabled ?? true;
     this._updateCinematicPill(initialState);
 
-    // Handle pill button click
+    // Handle pill button click - publish event instead of direct orchestrator call
     this._domListeners.add(this.cinematicToggle, 'click', () => {
-      if (this.displayModeOrchestrator) {
-        this.displayModeOrchestrator.toggleCinematicMode();
-      }
+      this.eventBus.publish(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED);
     });
 
     // Sync toggle with external cinematic mode changes

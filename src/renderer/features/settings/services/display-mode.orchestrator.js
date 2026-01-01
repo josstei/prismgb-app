@@ -25,7 +25,8 @@ export class DisplayModeOrchestrator extends BaseOrchestrator {
     this.subscribeWithCleanup({
       [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors(),
       // UI command events - decoupled from UISetupOrchestrator
-      [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: () => this.toggleFullscreen()
+      [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: () => this.toggleFullscreen(),
+      [EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED]: () => this.toggleCinematicMode()
     });
   }
 

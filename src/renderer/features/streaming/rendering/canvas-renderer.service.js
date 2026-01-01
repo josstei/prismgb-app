@@ -176,7 +176,10 @@ export class CanvasRenderer {
    * @param {HTMLCanvasElement} canvasElement - Canvas to clear
    */
   clearCanvas(canvasElement) {
-    const ctx = canvasElement.getContext('2d');
+    // Use cached context if available to avoid repeated getContext calls
+    const ctx = (canvasElement === this._cachedCanvas && this._cachedContext)
+      ? this._cachedContext
+      : canvasElement.getContext('2d');
 
     // Fill with black background
     ctx.fillStyle = '#000000';

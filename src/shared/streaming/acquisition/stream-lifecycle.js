@@ -6,7 +6,7 @@ import { IStreamLifecycle } from './interfaces.js';
 export class BaseStreamLifecycle extends IStreamLifecycle {
   /**
    * @param {Object} logger - Optional logger instance
-   * @param {Object} mediaService - Optional media service (BrowserMediaService or compatible)
+   * @param {Object} mediaService - Optional media service (BrowserMediaAdapter or compatible)
    */
   constructor(logger = null, mediaService = null) {
     super();

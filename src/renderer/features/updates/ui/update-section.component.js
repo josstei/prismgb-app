@@ -20,6 +20,7 @@ class UpdateSectionComponent {
     this._subscriptions = [];
     this._activeTimeouts = [];
     this._initialized = false;
+    this._actionClickHandler = null;
 
     this.elements = {
       section: null,
@@ -63,7 +64,8 @@ class UpdateSectionComponent {
 
   _bindEvents() {
     if (this.elements.actionBtn) {
-      this.elements.actionBtn.addEventListener('click', () => this._handleActionClick());
+      this._actionClickHandler = () => this._handleActionClick();
+      this.elements.actionBtn.addEventListener('click', this._actionClickHandler);
     }
   }
 
@@ -311,8 +313,9 @@ class UpdateSectionComponent {
     this._activeTimeouts.forEach(clearTimeout);
     this._activeTimeouts = [];
 
-    if (this.elements.actionBtn) {
-      this.elements.actionBtn.replaceWith(this.elements.actionBtn.cloneNode(true));
+    if (this.elements.actionBtn && this._actionClickHandler) {
+      this.elements.actionBtn.removeEventListener('click', this._actionClickHandler);
+      this._actionClickHandler = null;
     }
 
     this._initialized = false;

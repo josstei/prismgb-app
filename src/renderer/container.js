@@ -34,18 +34,19 @@ import { DeviceMediaService } from '@renderer/features/devices/services/device-m
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
 // Features: Streaming
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas.renderer.js';
+import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.service.js';
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
 import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
 import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
-import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js';
+import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
 
@@ -69,8 +70,8 @@ import { UpdateUiService } from '@renderer/features/updates/services/update-ui.s
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
-import { StorageService } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
-import { BrowserMediaService } from '@renderer/infrastructure/browser/browser-media.adapter.js';
+import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
@@ -105,13 +106,13 @@ function createRendererContainer() {
 
   // Browser abstraction services
   container.registerSingleton('storageService', function() {
-    return new StorageService({
+    return new BrowserStorageAdapter({
       protectedKeys: PROTECTED_STORAGE_KEYS
     });
   }, []);
 
   container.registerSingleton('browserMediaService', function() {
-    return new BrowserMediaService();
+    return new BrowserMediaAdapter();
   }, []);
 
   // DOM Adapters - wrap browser APIs for testability
@@ -132,9 +133,9 @@ function createRendererContainer() {
   }, []);
 
   // Device IPC Adapter - wraps window.deviceAPI for testability
-  container.registerSingleton('deviceIPCAdapter', function() {
-    return new DeviceIPCAdapter();
-  }, []);
+  container.registerSingleton('deviceIPCAdapter', function(loggerFactory) {
+    return new DeviceIPCAdapter({ logger: loggerFactory.create('DeviceIPCAdapter') });
+  }, ['loggerFactory']);
 
   // Streaming infrastructure
   container.registerSingleton('animationCache', function() {
@@ -241,11 +242,16 @@ function createRendererContainer() {
   // ============================================
 
   // Adapter Factory - Creates device adapters based on device type
+  // Adapter classes are registered here via DI bootstrap for testability
   // Note: Will be initialized asynchronously in RendererAppOrchestrator
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
-      return new AdapterFactory(eventBus, loggerFactory, browserMediaService);
+      // Register adapter classes via DI (no hardcoded imports in AdapterFactory)
+      const adapterClasses = new Map([
+        ['chromatic-mod-retro', ChromaticAdapter]
+      ]);
+      return new AdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
     },
     ['eventBus', 'loggerFactory', 'browserMediaService']
   );
@@ -499,10 +505,10 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'fullscreenService',
-    function (uiController, eventBus, loggerFactory) {
-      return new FullscreenService({ uiController, eventBus, loggerFactory });
+    function (eventBus, loggerFactory) {
+      return new FullscreenService({ eventBus, loggerFactory });
     },
-    ['uiController', 'eventBus', 'loggerFactory']
+    ['eventBus', 'loggerFactory']
   );
 
   container.registerSingleton(
@@ -612,13 +618,11 @@ function createRendererContainer() {
   );
 
   // UI Setup Orchestrator - Coordinates UI initialization and event listeners
-  // Uses event-based communication for button handlers instead of direct orchestrator calls
-  // displayModeOrchestrator is still passed to shader selector for cinematic mode
+  // Uses event-based communication for button handlers (decoupled from orchestrators)
   container.registerSingleton(
     'uiSetupOrchestrator',
     function (
       appState,
-      displayModeOrchestrator,
       updateOrchestrator,
       settingsService,
       uiController,
@@ -627,7 +631,6 @@ function createRendererContainer() {
     ) {
       return new UISetupOrchestrator({
         appState,
-        displayModeOrchestrator,
         updateOrchestrator,
         settingsService,
         uiController,
@@ -637,7 +640,6 @@ function createRendererContainer() {
     },
     [
       'appState',
-      'displayModeOrchestrator',
       'updateOrchestrator',
       'settingsService',
       'uiController',

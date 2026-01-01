@@ -56,12 +56,17 @@ export class BaseOrchestrator {
 
     this.logger?.info(`Initializing ${this._orchestratorName}`);
 
-    // Call subclass initialization
-    await this.onInitialize();
+    try {
+      // Call subclass initialization
+      await this.onInitialize();
 
-    this.isInitialized = true;
-    this._isCleanedUp = false;
-    this.logger?.info(`${this._orchestratorName} initialized`);
+      this.isInitialized = true;
+      this._isCleanedUp = false;
+      this.logger?.info(`${this._orchestratorName} initialized`);
+    } catch (error) {
+      this.logger?.error(`${this._orchestratorName} initialization failed`, error);
+      throw error;
+    }
   }
 
   /**
@@ -88,8 +93,13 @@ export class BaseOrchestrator {
     // Cleanup all EventBus subscriptions
     this._cleanupSubscriptions();
 
-    // Call subclass cleanup
-    await this.onCleanup();
+    try {
+      // Call subclass cleanup
+      await this.onCleanup();
+    } catch (error) {
+      this.logger?.error(`${this._orchestratorName} cleanup failed`, error);
+      // Continue cleanup even on error to ensure state is consistent
+    }
 
     this.isInitialized = false;
     this._isCleanedUp = true;

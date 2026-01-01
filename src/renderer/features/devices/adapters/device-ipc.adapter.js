@@ -10,7 +10,8 @@
  */
 
 export class DeviceIPCAdapter {
-  constructor() {
+  constructor({ logger } = {}) {
+    this._logger = logger;
     this._unsubscribeConnected = null;
     this._unsubscribeDisconnected = null;
   }
@@ -29,7 +30,7 @@ export class DeviceIPCAdapter {
 
     // Validate callbacks
     if (typeof onConnected !== 'function' || typeof onDisconnected !== 'function') {
-      console.warn('DeviceIPCAdapter.subscribe: Invalid callbacks provided');
+      this._logger?.warn('DeviceIPCAdapter.subscribe: Invalid callbacks provided');
       return () => {};
     }
 

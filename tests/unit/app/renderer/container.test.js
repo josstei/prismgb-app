@@ -98,7 +98,7 @@ vi.mock('@renderer/features/streaming/factories/adapter.factory.js', () => ({
   AdapterFactory: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/canvas.renderer.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/canvas-renderer.service.js', () => ({
   CanvasRenderer: vi.fn()
 }));
 
@@ -114,7 +114,7 @@ vi.mock('@renderer/features/streaming/rendering/viewport.service.js', () => ({
   ViewportService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/gpu/gpu.renderer.service.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js', () => ({
   GPURendererService: vi.fn()
 }));
 
@@ -179,11 +179,11 @@ vi.mock('@renderer/infrastructure/logging/logger.js', () => ({
 }));
 
 vi.mock('@renderer/infrastructure/browser/browser-storage.adapter.js', () => ({
-  StorageService: vi.fn()
+  BrowserStorageAdapter: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/browser/browser-media.adapter.js', () => ({
-  BrowserMediaService: vi.fn()
+  BrowserMediaAdapter: vi.fn()
 }));
 
 // Shared mocks

@@ -8,6 +8,7 @@ import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc
 describe('DeviceIPCAdapter', () => {
   let adapter;
   let mockDeviceAPI;
+  let mockLogger;
 
   beforeEach(() => {
     // Create mock deviceAPI
@@ -16,10 +17,18 @@ describe('DeviceIPCAdapter', () => {
       onDeviceDisconnected: vi.fn()
     };
 
+    // Create mock logger
+    mockLogger = {
+      warn: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn()
+    };
+
     // Mock window.deviceAPI
     global.window = { deviceAPI: mockDeviceAPI };
 
-    adapter = new DeviceIPCAdapter();
+    adapter = new DeviceIPCAdapter({ logger: mockLogger });
   });
 
   afterEach(() => {
@@ -92,27 +101,31 @@ describe('DeviceIPCAdapter', () => {
     });
 
     it('should handle invalid callbacks gracefully', () => {
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
       const cleanup = adapter.subscribe(null, undefined);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(mockLogger.warn).toHaveBeenCalledWith(
         'DeviceIPCAdapter.subscribe: Invalid callbacks provided'
       );
       expect(typeof cleanup).toBe('function');
-
-      consoleWarnSpy.mockRestore();
     });
 
     it('should not call deviceAPI methods with invalid callbacks', () => {
-      vi.spyOn(console, 'warn').mockImplementation(() => {});
-
       adapter.subscribe(null, undefined);
 
       expect(mockDeviceAPI.onDeviceConnected).not.toHaveBeenCalled();
       expect(mockDeviceAPI.onDeviceDisconnected).not.toHaveBeenCalled();
+    });
 
-      vi.restoreAllMocks();
+    it('should handle invalid callbacks without logger gracefully', () => {
+      const adapterWithoutLogger = new DeviceIPCAdapter();
+
+      const cleanup = adapterWithoutLogger.subscribe(null, undefined);
+
+      expect(typeof cleanup).toBe('function');
+      expect(mockDeviceAPI.onDeviceConnected).not.toHaveBeenCalled();
+      expect(mockDeviceAPI.onDeviceDisconnected).not.toHaveBeenCalled();
+
+      adapterWithoutLogger.dispose();
     });
   });
 

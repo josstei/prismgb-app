@@ -1,10 +1,10 @@
 /**
- * Browser Media Service - Abstraction for navigator.mediaDevices API
+ * Browser Media Adapter - Abstraction for navigator.mediaDevices API
  *
  * Provides a testable interface for media device operations.
  * Allows mocking in tests without polluting the global navigator object.
  */
-export class BrowserMediaService {
+export class BrowserMediaAdapter {
   /**
    * Check if MediaDevices API is available
    * @returns {boolean} True if API is available

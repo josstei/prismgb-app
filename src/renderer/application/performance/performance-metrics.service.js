@@ -10,7 +10,6 @@ export class PerformanceMetricsService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 
-    this.metricsAdapter = dependencies.metricsAdapter;
     this._pendingTimeouts = new Set();
     this._intervalId = null;
     this._timeoutId = null;

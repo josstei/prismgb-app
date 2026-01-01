@@ -277,6 +277,26 @@ describe('DeviceRegistry', () => {
     });
   });
 
+  describe('ChromaticProfile', () => {
+    it('should have matchesLabel method', () => {
+      const profile = new ChromaticProfile();
+      expect(profile.matchesLabel).toBeDefined();
+      expect(typeof profile.matchesLabel).toBe('function');
+    });
+
+    it('should match chromatic labels', () => {
+      const profile = new ChromaticProfile();
+      expect(profile.matchesLabel('chromatic')).toBe(true);
+      expect(profile.matchesLabel('Chromatic Device')).toBe(true);
+    });
+
+    it('should not match non-chromatic labels', () => {
+      const profile = new ChromaticProfile();
+      expect(profile.matchesLabel('Some Other Device')).toBe(false);
+      expect(profile.matchesLabel(null)).toBe(false);
+    });
+  });
+
   describe('integration with device system', () => {
     it('should support full device lifecycle', () => {
       // Register device

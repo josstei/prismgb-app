@@ -5,11 +5,11 @@
 
 import { app, ipcMain, shell } from 'electron';
 import { BaseService } from '@shared/base/service.js';
-import { registerDeviceHandlers } from '../features/devices/ipc/device-ipc.handler.js';
-import { registerUpdateHandlers } from '../features/updates/ipc/update-ipc.handler.js';
-import { registerShellHandlers } from '../features/shell/ipc/shell-ipc.handler.js';
-import { registerPerformanceHandlers } from '../features/performance/ipc/performance-ipc.handler.js';
-import { registerWindowHandlers } from '../features/window/ipc/window-ipc.handler.js';
+import { registerDeviceHandlers } from '@main/features/devices/ipc/device-ipc.handler.js';
+import { registerUpdateHandlers } from '@main/features/updates/ipc/update-ipc.handler.js';
+import { registerShellHandlers } from '@main/features/shell/ipc/shell-ipc.handler.js';
+import { registerPerformanceHandlers } from '@main/features/performance/ipc/performance-ipc.handler.js';
+import { registerWindowHandlers } from '@main/features/window/ipc/window-ipc.handler.js';
 
 class IpcHandlerRegistry extends BaseService {
   constructor(dependencies) {

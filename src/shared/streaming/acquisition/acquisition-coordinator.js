@@ -1,4 +1,4 @@
-import { DeviceAwareFallbackStrategy } from './fallback.strategy.js';
+import { DeviceAwareFallbackStrategy } from './fallback-strategy.js';
 import { formatErrorLabel } from '@shared/lib/errors.js';
 
 /**

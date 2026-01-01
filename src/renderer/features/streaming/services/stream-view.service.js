@@ -128,7 +128,7 @@ class StreamViewService extends BaseService {
       this.logger.warn('Invalid canvas element provided to setCanvas');
       return;
     }
-    this.uiController.elements.streamCanvas = canvas;
+    this.uiController.setStreamCanvas(canvas);
     this.logger.info('Canvas element reference updated');
   }
 }

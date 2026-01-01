@@ -15,7 +15,7 @@ import {
   WorkerResponseType,
   createWorkerResponse,
   isValidWorkerMessage
-} from './worker.protocol.js';
+} from './worker-protocol.js';
 
 import pixelUpscaleWGSL from '../shaders/webgpu/pixel-upscale.wgsl?raw';
 import unsharpMaskWGSL from '../shaders/webgpu/unsharp-mask.wgsl?raw';
@@ -502,12 +502,12 @@ class WebGPURenderer {
   _renderPassToCanvas(commandEncoder, pipeline, inputTexture, canvasTexture, uniformBuffer, sampler) {
     // Note: Canvas texture changes each frame (swapchain), so bind group cannot be cached
     // We still need to create a new bind group each frame for the final pass
-    // But we use the cached layout to avoid per-frame getBindGroupLayout call
+    // But we use the cached layout and intermediate texture view to minimize per-frame allocations
     const bindGroup = this.device.createBindGroup({
       layout: this._crtLcdBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
-        { binding: 1, resource: inputTexture.createView() },
+        { binding: 1, resource: this._getIntermediateTextureView(inputTexture) },
         { binding: 2, resource: sampler }
       ]
     });
@@ -534,12 +534,12 @@ class WebGPURenderer {
   _copyToCanvas(commandEncoder, inputTexture, canvasTexture) {
     // Use CRT pipeline but with zero-effect uniforms for passthrough
     // This is needed because intermediate textures are rgba8unorm but canvas may be bgra8unorm
-    // Use cached layout to avoid per-frame getBindGroupLayout call
+    // Use cached layout and intermediate texture view to minimize per-frame allocations
     const bindGroup = this.device.createBindGroup({
       layout: this._crtLcdBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.uniformBuffers.crt } },
-        { binding: 1, resource: inputTexture.createView() },
+        { binding: 1, resource: this._getIntermediateTextureView(inputTexture) },
         { binding: 2, resource: this.linearSampler }
       ]
     });
