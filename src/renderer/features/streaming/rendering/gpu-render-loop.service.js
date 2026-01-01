@@ -42,19 +42,17 @@ class GpuRenderLoopService extends BaseService {
   stop(videoElement) {
     this._active = false;
 
-    if (this._rvfcHandle !== null && videoElement?.cancelVideoFrameCallback) {
-      videoElement.cancelVideoFrameCallback(this._rvfcHandle);
+    if (this._rvfcHandle !== null) {
+      if (videoElement?.cancelVideoFrameCallback) {
+        videoElement.cancelVideoFrameCallback(this._rvfcHandle);
+      }
       this._rvfcHandle = null;
     }
   }
 
   cleanup(videoElement) {
-    this._active = false;
-    // Cancel any pending RVFC handle before nulling
-    if (this._rvfcHandle !== null && videoElement?.cancelVideoFrameCallback) {
-      videoElement.cancelVideoFrameCallback(this._rvfcHandle);
-    }
-    this._rvfcHandle = null;
+    // Delegate to stop() - handles both cancellation and state reset
+    this.stop(videoElement);
   }
 }
 

@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -201,7 +201,9 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       });
 
       // Stop the unhealthy stream
-      this.streamingService.stop();
+      this.streamingService.stop().catch(error => {
+        this.logger.error('Error stopping unhealthy stream:', error);
+      });
     }
   }
 
@@ -232,10 +234,16 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle stream stopped event
    * @private
    */
-  _handleStreamStopped() {
+  async _handleStreamStopped() {
     this.logger.info('Stream stopped event received');
 
-    // Get video element reference (requires direct element access)
+    // Stop GPU recording BEFORE releasing GPU resources to avoid Skia race condition
+    // Must await to ensure in-flight captures complete before GPU cleanup
+    if (this.gpuRecordingService.isActive()) {
+      this.logger.info('Stopping GPU recording before pipeline cleanup');
+      await this.gpuRecordingService.stop();
+    }
+
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
     this.audioWarmupService.stop();
@@ -270,7 +278,9 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   _handleDeviceDisconnectedDuringStream() {
     if (this.appState.isStreaming) {
       this.logger.warn('Device disconnected during stream - stopping');
-      this.streamingService.stop();
+      this.streamingService.stop().catch(error => {
+        this.logger.error('Error stopping stream after device disconnect:', error);
+      });
     }
   }
 

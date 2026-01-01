@@ -1,21 +1,30 @@
 /**
  * Application Orchestrator
  * Coordinates main process services and application lifecycle
+ *
+ * Note: This is a bootstrap orchestrator that creates the DI container,
+ * so it passes a pre-created loggerFactory to BaseOrchestrator rather
+ * than receiving it as an injected dependency.
  */
 
 import { app } from 'electron';
 import path from 'path';
+import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { createAppContainer } from './container.js';
 import { MainLogger } from './infrastructure/logging/main-logger.factory.js';
 
-class AppOrchestrator {
+class AppOrchestrator extends BaseOrchestrator {
   constructor() {
-    this.container = null;
-    this.initialized = false;
-    this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('AppOrchestrator');
+    // Create logger factory before calling super (bootstrap pattern)
+    const loggerFactory = new MainLogger();
 
-    // Service references - populated during initialize()
+    // Call base constructor with pre-created loggerFactory
+    super({ loggerFactory }, ['loggerFactory'], 'AppOrchestrator');
+
+    // Container will be created during onInitialize()
+    this.container = null;
+
+    // Service references - populated during onInitialize()
     this._windowService = null;
     this._deviceService = null;
     this._deviceLifecycleService = null;
@@ -28,8 +37,9 @@ class AppOrchestrator {
 
   /**
    * Initialize the application and DI container
+   * Called by BaseOrchestrator.initialize()
    */
-  async initialize() {
+  async onInitialize() {
     this.logger.info('Starting PrismGB...');
 
     // Create DI container with shared logger factory (eliminates duplicate instance)
@@ -87,19 +97,14 @@ class AppOrchestrator {
       this.logger.info('Device already connected');
     }
 
-    this.initialized = true;
     this.logger.info('PrismGB initialized successfully');
   }
 
   /**
-   * Cleanup on app quit (idempotent - safe to call multiple times)
+   * Cleanup on app quit
+   * Called by BaseOrchestrator.cleanup()
    */
-  cleanup() {
-    if (this._isCleanedUp) {
-      return;
-    }
-    this._isCleanedUp = true;
-
+  async onCleanup() {
     this.logger.info('Shutting down PrismGB...');
 
     if (!this.container) {

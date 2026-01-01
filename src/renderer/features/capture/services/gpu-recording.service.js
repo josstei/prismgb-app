@@ -27,6 +27,10 @@ class GpuRecordingService extends BaseService {
     this._cachedFrameWidth = 0;
     this._cachedFrameHeight = 0;
     this._canvasCleared = false;
+
+    // Draining state: track in-flight capture to await before cleanup
+    this._isDraining = false;
+    this._lastCapturePromise = null;
   }
 
   isActive() {
@@ -79,7 +83,39 @@ class GpuRecordingService extends BaseService {
     return this._recordingStream;
   }
 
-  stop() {
+  /**
+   * Stop GPU recording with draining to await in-flight captures.
+   * This prevents race conditions with GPU resource cleanup.
+   * @returns {Promise<void>}
+   */
+  async stop() {
+    if (!this._isRecording) {
+      return;
+    }
+
+    // Enter draining state - no new captures will start
+    this._isDraining = true;
+
+    // Cancel the RAF loop first
+    if (this._recordingFrameId) {
+      cancelAnimationFrame(this._recordingFrameId);
+      this._recordingFrameId = null;
+    }
+
+    // Wait for any in-flight capture to complete (with timeout)
+    if (this._lastCapturePromise) {
+      this.logger.debug('Waiting for in-flight capture to complete...');
+      try {
+        await Promise.race([
+          this._lastCapturePromise,
+          new Promise(resolve => setTimeout(resolve, 500)) // 500ms timeout
+        ]);
+      } catch {
+        // Capture may have failed due to GPU shutdown - that's expected
+        this.logger.debug('In-flight capture completed with error (expected during shutdown)');
+      }
+    }
+
     this._cleanupGpuRecording();
   }
 
@@ -143,13 +179,19 @@ class GpuRecordingService extends BaseService {
 
   _startRecordingFrameLoop() {
     const captureAndDraw = async () => {
-      if (!this._isRecording) return;
+      // Don't start new captures if draining or stopped
+      if (!this._isRecording || this._isDraining) return;
 
       if (!this._capturePending) {
         this._capturePending = true;
         let frame = null;
+
+        // Track the capture promise for draining
+        const capturePromise = this.gpuRendererService.captureFrame();
+        this._lastCapturePromise = capturePromise;
+
         try {
-          frame = await this.gpuRendererService.captureFrame();
+          frame = await capturePromise;
 
           const scaleParams = this._calculateRecordingScale(frame.width, frame.height);
           if (!scaleParams) {
@@ -182,6 +224,7 @@ class GpuRecordingService extends BaseService {
         } finally {
           frame?.close();
           this._capturePending = false;
+          this._lastCapturePromise = null;
         }
       }
 
@@ -215,6 +258,10 @@ class GpuRecordingService extends BaseService {
     this._cachedFrameWidth = 0;
     this._cachedFrameHeight = 0;
     this._canvasCleared = false;
+
+    // Reset draining state
+    this._isDraining = false;
+    this._lastCapturePromise = null;
   }
 }
 
