@@ -21,7 +21,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       [
         'captureService',
         'appState',
-        'uiController',
+        'streamViewService',
         'gpuRendererService',
         'gpuRecordingService',
         'canvasRenderer',
@@ -85,11 +85,11 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     if (this.canvasRenderer.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      return this.uiController.getStreamCanvas();
+      return this.streamViewService.getCanvas();
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
-    return this.uiController.getStreamVideo();
+    return this.streamViewService.getVideo();
   }
 
   /**

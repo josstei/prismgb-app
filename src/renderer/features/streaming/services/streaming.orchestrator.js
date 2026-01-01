@@ -293,7 +293,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this.audioWarmupService.cleanup();
 
     if (this.streamingService.isActive()) {
-      this.streamingService.stop();
+      try {
+        await this.streamingService.stop();
+      } catch (error) {
+        this.logger.error('Error stopping stream during cleanup:', error);
+      }
     }
   }
 }

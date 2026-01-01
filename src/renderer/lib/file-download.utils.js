@@ -9,20 +9,28 @@
  * @returns {Promise<void>} Resolves after download is initiated
  */
 export function downloadFile(blob, filename) {
-  return new Promise((resolve) => {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  return new Promise((resolve, reject) => {
+    try {
+      if (!blob || !(blob instanceof Blob)) {
+        throw new Error('Invalid blob provided');
+      }
 
-    // Delay URL revocation to ensure download has started
-    // Browser needs time to read the blob URL before it's revoked
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-      resolve();
-    }, 5000);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Delay URL revocation to ensure download has started
+      // Browser needs time to read the blob URL before it's revoked
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        resolve();
+      }, 5000);
+    } catch (error) {
+      reject(error);
+    }
   });
 }
