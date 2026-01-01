@@ -6,9 +6,9 @@
  * Manages badge visibility and rainbow border animation.
  */
 
-import { DOMSelectors } from '@shared/config/dom-selectors.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { UpdateState } from '../services/update.service.js';
 
 class UpdateSectionComponent {

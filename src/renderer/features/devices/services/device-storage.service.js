@@ -4,8 +4,8 @@
  * Manages persisted device IDs per device type.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
 function getDeviceStorageKey(deviceType) {
   return `${deviceType || 'device'}_id`;

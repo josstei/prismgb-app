@@ -1,4 +1,4 @@
-import { IConstraintBuilder } from './interfaces.js';
+import { IConstraintBuilder } from './acquisition.interface.js';
 
 /**
  * ConstraintBuilder

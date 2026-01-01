@@ -16,7 +16,7 @@
  * ```
  */
 
-import { validateDependencies } from './validate-deps.js';
+import { validateDependencies } from './validate-deps.utils.js';
 
 export class BaseService {
   /**

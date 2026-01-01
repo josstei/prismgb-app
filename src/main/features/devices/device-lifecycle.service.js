@@ -3,9 +3,9 @@
  * Owns the device auto-launch sequence, decoupling device detection from window management
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { appConfig } from '@shared/config/config-loader.js';
-import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { appConfig } from '@shared/config/config-loader.utils.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;
 

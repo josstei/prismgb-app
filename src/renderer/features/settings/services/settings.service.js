@@ -10,8 +10,8 @@
  * - 'settings:status-strip-changed' - Status strip visibility changed
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 /**
  * Storage keys that should be protected from cleanup when quota is exceeded

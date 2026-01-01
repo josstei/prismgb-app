@@ -5,7 +5,7 @@
  * to focused services while preserving the legacy interface.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class DeviceService extends BaseService {
   /**

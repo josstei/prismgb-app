@@ -4,7 +4,7 @@
  * Owns process metrics snapshot scheduling and logging.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 export class PerformanceMetricsService extends BaseService {
   constructor(dependencies) {

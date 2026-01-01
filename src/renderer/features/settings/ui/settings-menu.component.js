@@ -5,9 +5,9 @@
  * Implements standard popup behavior (click-outside-to-close, escape key).
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 class SettingsMenuComponent {
   constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {

@@ -4,8 +4,8 @@
  * Owns fullscreen event listeners and UI state updates.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class FullscreenService extends BaseService {
   constructor(dependencies) {

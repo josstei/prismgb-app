@@ -3,18 +3,26 @@
  *
  * Factory for creating UI components with proper dependency injection.
  * Eliminates window global pollution from UI components.
+ *
+ * Component classes from feature modules are injected via DI to avoid
+ * compile-time coupling between UI infrastructure and feature layers.
  */
 
 import { StatusNotificationComponent } from '../components/status-notification.component.js';
 import { DeviceStatusComponent } from '../components/device-status.component.js';
-import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
-import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
-import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
-import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
 
 export class UIComponentFactory {
   constructor(dependencies) {
     this.eventBus = dependencies.eventBus;
+
+    // Store injected component classes from feature modules
+    // This avoids direct imports from features layer, maintaining proper layering
+    this._componentClasses = {
+      SettingsMenuComponent: dependencies.settingsMenuComponent,
+      StreamControlsComponent: dependencies.streamControlsComponent,
+      ShaderSelectorComponent: dependencies.shaderSelectorComponent,
+      UpdateSectionComponent: dependencies.updateSectionComponent
+    };
   }
 
   /**
@@ -41,7 +49,8 @@ export class UIComponentFactory {
    * @returns {StreamControlsComponent}
    */
   createStreamControlsComponent(config) {
-    return new StreamControlsComponent(config);
+    const ComponentClass = this._componentClasses.StreamControlsComponent;
+    return new ComponentClass(config);
   }
 
   /**
@@ -50,17 +59,20 @@ export class UIComponentFactory {
    * @returns {SettingsMenuComponent}
    */
   createSettingsMenuComponent(config) {
+    const SettingsMenuClass = this._componentClasses.SettingsMenuComponent;
+    const UpdateSectionClass = this._componentClasses.UpdateSectionComponent;
+
     // Compose UpdateSectionComponent if updateOrchestrator is available
     let updateSectionComponent = null;
-    if (config.updateOrchestrator) {
-      updateSectionComponent = new UpdateSectionComponent({
+    if (config.updateOrchestrator && UpdateSectionClass) {
+      updateSectionComponent = new UpdateSectionClass({
         updateOrchestrator: config.updateOrchestrator,
         eventBus: this.eventBus,
         loggerFactory: config.loggerFactory
       });
     }
 
-    return new SettingsMenuComponent({
+    return new SettingsMenuClass({
       settingsService: config.settingsService,
       updateSectionComponent,
       eventBus: this.eventBus,
@@ -75,7 +87,8 @@ export class UIComponentFactory {
    * @returns {ShaderSelectorComponent}
    */
   createShaderSelectorComponent(config) {
-    return new ShaderSelectorComponent({
+    const ComponentClass = this._componentClasses.ShaderSelectorComponent;
+    return new ComponentClass({
       ...config,
       eventBus: this.eventBus
     });

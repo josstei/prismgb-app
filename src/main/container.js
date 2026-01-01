@@ -6,7 +6,7 @@
 import * as awilix from 'awilix';
 const { createContainer, asClass, asValue, InjectionMode } = awilix;
 import pkg from '../../package.json' assert { type: 'json' };
-import { EventBus } from './infrastructure/events/event-bus.js';
+import { EventBus } from './infrastructure/events/event-bus.class.js';
 
 /**
  * Create and configure the DI container

@@ -7,7 +7,7 @@
  */
 
 import './assets/styles/styles.css';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 // Mark body ready after CSS is loaded (prevents FOUC)
 document.body.classList.add(CSSClasses.BODY_READY);
@@ -61,9 +61,15 @@ async function cleanup() {
     await app.cleanup();
   }
 
-  // Cleanup IPC listeners
-  if (window.deviceAPI) {
+  // Cleanup IPC listeners for all APIs
+  if (window.deviceAPI?.removeDeviceListeners) {
     window.deviceAPI.removeDeviceListeners();
+  }
+  if (window.windowAPI?.removeListeners) {
+    window.windowAPI.removeListeners();
+  }
+  if (window.updateAPI?.removeListeners) {
+    window.updateAPI.removeListeners();
   }
 }
 

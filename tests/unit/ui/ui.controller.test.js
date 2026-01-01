@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UIController } from '@renderer/ui/controller/ui.controller.js';
+import { UIController } from '@renderer/ui/controller/ui.class.js';
 
 describe('UIController', () => {
   let controller;

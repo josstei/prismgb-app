@@ -4,8 +4,8 @@
  * Translates update events into UI notifications and badge visibility.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class UpdateUiService extends BaseService {
   constructor(dependencies) {

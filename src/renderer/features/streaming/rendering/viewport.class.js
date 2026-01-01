@@ -13,7 +13,7 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
-import { TIMING } from '@shared/config/constants.js';
+import { TIMING } from '@shared/config/constants.config.js';
 
 export class ViewportService {
   constructor(logger) {

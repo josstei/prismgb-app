@@ -8,7 +8,7 @@
  * - Provide facade for update actions
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.js';
+import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { UpdateState } from './update.service.js';
 
 class UpdateOrchestrator extends BaseOrchestrator {

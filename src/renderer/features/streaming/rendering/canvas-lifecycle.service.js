@@ -4,8 +4,8 @@
  * Owns canvas creation and size management for rendering.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CanvasLifecycleService extends BaseService {
   constructor(dependencies) {

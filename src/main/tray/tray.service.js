@@ -5,7 +5,7 @@
 
 import { Tray, Menu, app } from 'electron';
 import path from 'path';
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 // Declarative menu configuration
 const MENU_CONFIG = [

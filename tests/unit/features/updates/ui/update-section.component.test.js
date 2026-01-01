@@ -5,9 +5,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
 import { UpdateState } from '@renderer/features/updates/services/update.service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 describe('UpdateSectionComponent', () => {
   let component;

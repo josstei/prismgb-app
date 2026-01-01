@@ -9,7 +9,7 @@ describe('CaptureOrchestrator', () => {
   let orchestrator;
   let mockCaptureService;
   let mockAppState;
-  let mockUIController;
+  let mockStreamViewService;
   let mockGpuRendererService;
   let mockGpuRecordingService;
   let mockCanvasRenderer;
@@ -32,24 +32,23 @@ describe('CaptureOrchestrator', () => {
       currentCapabilities: null
     };
 
-    mockUIController = {
-      updateStatusMessage: vi.fn(),
-      triggerShutterFlash: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
-      triggerRecordButtonPop: vi.fn(),
-      triggerRecordButtonPress: vi.fn(),
-      getStreamCanvas: vi.fn(),
-      getStreamVideo: vi.fn(),
-      elements: {
-        streamVideo: { id: 'streamVideo' },
-        streamCanvas: { id: 'streamCanvas' },
-        recordBtn: { classList: { add: vi.fn(), remove: vi.fn() } }
-      }
+    // Mock stream view elements
+    const mockStreamVideo = { id: 'streamVideo' };
+    const mockStreamCanvas = { id: 'streamCanvas' };
+
+    mockStreamViewService = {
+      getCanvas: vi.fn(() => mockStreamCanvas),
+      getVideo: vi.fn(() => mockStreamVideo),
+      attachStream: vi.fn(),
+      clearStream: vi.fn(),
+      setMuted: vi.fn()
     };
 
-    // Configure getter mocks to return elements
-    mockUIController.getStreamCanvas.mockReturnValue(mockUIController.elements.streamCanvas);
-    mockUIController.getStreamVideo.mockReturnValue(mockUIController.elements.streamVideo);
+    // Store element references for test assertions
+    mockStreamViewService._elements = {
+      streamVideo: mockStreamVideo,
+      streamCanvas: mockStreamCanvas
+    };
 
     mockGpuRendererService = {
       isActive: vi.fn(() => false),
@@ -99,7 +98,7 @@ describe('CaptureOrchestrator', () => {
     orchestrator = new CaptureOrchestrator({
       captureService: mockCaptureService,
       appState: mockAppState,
-      uiController: mockUIController,
+      streamViewService: mockStreamViewService,
       gpuRendererService: mockGpuRendererService,
       gpuRecordingService: mockGpuRecordingService,
       canvasRenderer: mockCanvasRenderer,
@@ -140,7 +139,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.takeScreenshot();
 
-      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockUIController.elements.streamVideo);
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamViewService._elements.streamVideo);
     });
 
     it('should capture from GPU renderer when GPU is active', async () => {
@@ -162,7 +161,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.takeScreenshot();
 
-      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockUIController.elements.streamCanvas);
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamViewService._elements.streamCanvas);
     });
 
     it('should trigger visual feedback when streaming', async () => {
@@ -358,7 +357,7 @@ describe('CaptureOrchestrator', () => {
 
       const source = await orchestrator._getCaptureSource();
 
-      expect(source).toBe(mockUIController.elements.streamCanvas);
+      expect(source).toBe(mockStreamViewService._elements.streamCanvas);
       expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from Canvas2D renderer');
     });
 
@@ -368,7 +367,7 @@ describe('CaptureOrchestrator', () => {
 
       const source = await orchestrator._getCaptureSource();
 
-      expect(source).toBe(mockUIController.elements.streamVideo);
+      expect(source).toBe(mockStreamViewService._elements.streamVideo);
       expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from video element (no rendering pipeline)');
     });
   });

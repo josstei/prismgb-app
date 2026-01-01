@@ -4,7 +4,7 @@
  * Coordinates update service initialization and auto-check scheduling.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class UpdateBridge extends BaseService {
   constructor(dependencies) {

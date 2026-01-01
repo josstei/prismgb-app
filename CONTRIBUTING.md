@@ -210,6 +210,33 @@ We use ESLint for code style enforcement:
 - Use `EventBus` for cross-service communication
 - Use dependency injection via the container
 
+### File Naming Convention
+
+All JavaScript files follow the pattern: `{name}.{type}.js`
+
+| Suffix | Purpose |
+|--------|---------|
+| `.service.js` | Business logic (extends `BaseService`) |
+| `.orchestrator.js` | Lifecycle coordination (extends `BaseOrchestrator`) |
+| `.adapter.js` | External API wrappers |
+| `.component.js` | UI components |
+| `.handler.js` | IPC handlers |
+| `.factory.js` | Instance creation |
+| `.bridge.js` | Cross-module coordination |
+| `.registry.js` | Collection management |
+| `.interface.js` | Interface definitions |
+| `.worker.js` | Web Workers |
+| `.state.js` | State management |
+| `.config.js` | Configuration constants |
+| `.profile.js` | Device profiles |
+| `.utils.js` | Pure utility functions |
+| `.class.js` | Plain classes (no DI) |
+| `.base.js` | Abstract base classes |
+
+**Rules:**
+- If filename contains type word with hyphen, use dot: `profile-registry.js` → `profile.registry.js`
+- Entry points (`index.js`) and DI containers (`container.js`) are exceptions
+
 ### Example Service
 
 ```javascript
