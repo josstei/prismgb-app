@@ -297,6 +297,30 @@ class UIController {
   }
 
   /**
+   * Get stream canvas element
+   * @returns {HTMLCanvasElement|null} Stream canvas DOM element
+   */
+  getStreamCanvas() {
+    return this.elements.streamCanvas;
+  }
+
+  /**
+   * Set stream canvas element (used when canvas is recreated for WebGPU)
+   * @param {HTMLCanvasElement} canvas - The new canvas element
+   */
+  setStreamCanvas(canvas) {
+    this.elements.streamCanvas = canvas;
+  }
+
+  /**
+   * Get stream video element
+   * @returns {HTMLVideoElement|null} Stream video DOM element
+   */
+  getStreamVideo() {
+    return this.elements.streamVideo;
+  }
+
+  /**
    * Trigger a file download
    * @param {Blob} blob - File data to download
    * @param {string} filename - Name for the downloaded file

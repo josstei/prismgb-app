@@ -15,17 +15,17 @@
 
 import { BaseService } from '@shared/base/service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { CapabilityDetector } from './capability.detector.js';
+import { CapabilityDetector } from './capability-detector.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/worker.protocol.js';
+} from '../workers/worker-protocol.js';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/render.presets.js';
+} from '../presets/render-presets.js';
 
 /**
  * Maximum number of frames that can be pending render
@@ -464,11 +464,9 @@ export class GPURendererService extends BaseService {
         resizeQuality: 'pixelated'
       });
 
-      // Get cached uniforms (rebuilt only when preset/dimensions change)
+      // Get cached uniforms (rebuilt only when preset/dimensions/brightness change)
+      // Brightness is now included in cache key, so we can use cached uniforms directly
       const uniforms = this._getCachedUniforms();
-
-      // Apply global brightness multiplier (updates cached object in-place)
-      uniforms.color.brightness = this._currentPreset.color.brightness * this._globalBrightness;
 
       // Send frame to worker
       this._pendingFrames++;
@@ -489,20 +487,29 @@ export class GPURendererService extends BaseService {
   }
 
   /**
-   * Get cached uniforms, rebuilding only when preset or dimensions change
+   * Get cached uniforms, rebuilding only when preset, dimensions, or brightness change
+   * Includes final brightness calculation to avoid per-frame object allocation
    * @returns {Object} Uniform values for all shader passes
    * @private
    */
   _getCachedUniforms() {
-    const cacheKey = `${this._currentPresetId}:${this._scaleFactor}:${this._targetWidth}:${this._targetHeight}`;
+    const cacheKey = `${this._currentPresetId}:${this._scaleFactor}:${this._targetWidth}:${this._targetHeight}:${this._globalBrightness}`;
 
     if (this._uniformsCacheKey !== cacheKey || !this._cachedUniforms) {
-      this._cachedUniforms = buildUniformsFromPreset(
+      const baseUniforms = buildUniformsFromPreset(
         this._currentPreset,
         this._scaleFactor,
         this._targetWidth,
         this._targetHeight
       );
+      // Apply global brightness to cached uniforms to avoid per-frame object allocation
+      this._cachedUniforms = {
+        ...baseUniforms,
+        color: {
+          ...baseUniforms.color,
+          brightness: this._currentPreset.color.brightness * this._globalBrightness
+        }
+      };
       this._uniformsCacheKey = cacheKey;
     }
 

@@ -117,14 +117,18 @@ describe('PreferencesOrchestrator', () => {
       expect(mockLogger.error).toHaveBeenCalledWith('Error loading preferences:', error);
     });
 
-    it('should not publish events when error occurs', async () => {
+    it('should publish PREFERENCES_LOAD_FAILED event when error occurs', async () => {
       mockSettingsService.loadAllPreferences.mockImplementation(() => {
         throw new Error('Load failed');
       });
 
       await orchestrator.loadPreferences();
 
-      expect(mockEventBus.publish).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        'settings:preferences-load-failed',
+        { error: 'Load failed' }
+      );
     });
   });
 });

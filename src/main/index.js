@@ -131,7 +131,18 @@ if (process.argv.includes('--smoke-test')) {
         Menu.setApplicationMenu(macMenu);
       }
 
-      await application.initialize();
+      try {
+        await application.initialize();
+      } catch (error) {
+        console.error('Application initialization failed:', error);
+        const { dialog } = require('electron');
+        dialog.showErrorBox(
+          'Initialization Error',
+          `${APP_NAME} failed to start: ${error.message}`
+        );
+        app.quit();
+        return;
+      }
 
       // macOS: recreate window when dock icon clicked
       app.on('activate', () => {

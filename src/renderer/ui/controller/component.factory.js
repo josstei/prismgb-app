@@ -10,6 +10,7 @@ import { DeviceStatusComponent } from '../components/device-status.component.js'
 import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
 import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
 import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
+import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
 
 export class UIComponentFactory {
   constructor(dependencies) {
@@ -45,13 +46,26 @@ export class UIComponentFactory {
 
   /**
    * Create SettingsMenuComponent
-   * @param {Object} config - { settingsService, eventBus, logger }
+   * @param {Object} config - { settingsService, updateOrchestrator, loggerFactory, logger }
    * @returns {SettingsMenuComponent}
    */
   createSettingsMenuComponent(config) {
+    // Compose UpdateSectionComponent if updateOrchestrator is available
+    let updateSectionComponent = null;
+    if (config.updateOrchestrator) {
+      updateSectionComponent = new UpdateSectionComponent({
+        updateOrchestrator: config.updateOrchestrator,
+        eventBus: this.eventBus,
+        loggerFactory: config.loggerFactory
+      });
+    }
+
     return new SettingsMenuComponent({
-      ...config,
-      eventBus: this.eventBus
+      settingsService: config.settingsService,
+      updateSectionComponent,
+      eventBus: this.eventBus,
+      loggerFactory: config.loggerFactory,
+      logger: config.logger
     });
   }
 

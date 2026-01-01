@@ -17,11 +17,6 @@ describe('ConfigLoader', () => {
       expect(appConfig.USB_SCAN_DELAY).toBeGreaterThanOrEqual(0);
     });
 
-    it('should export USB_INIT_DELAY as a number', () => {
-      expect(typeof appConfig.USB_INIT_DELAY).toBe('number');
-      expect(appConfig.USB_INIT_DELAY).toBeGreaterThanOrEqual(0);
-    });
-
     it('should be frozen', () => {
       expect(Object.isFrozen(appConfig)).toBe(true);
     });

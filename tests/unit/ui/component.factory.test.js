@@ -37,7 +37,22 @@ vi.mock('@renderer/features/settings/ui/settings-menu.component.js', () => ({
   SettingsMenuComponent: class {
     constructor(config) {
       this.type = 'SettingsMenu';
-      this.config = config;
+      this.settingsService = config.settingsService;
+      this.updateSectionComponent = config.updateSectionComponent;
+      this.eventBus = config.eventBus;
+      this.loggerFactory = config.loggerFactory;
+      this.logger = config.logger;
+    }
+  }
+}));
+
+vi.mock('@renderer/features/updates/ui/update-section.component.js', () => ({
+  UpdateSectionComponent: class {
+    constructor(config) {
+      this.type = 'UpdateSection';
+      this.updateOrchestrator = config.updateOrchestrator;
+      this.eventBus = config.eventBus;
+      this.loggerFactory = config.loggerFactory;
     }
   }
 }));
@@ -98,22 +113,41 @@ describe('UIComponentFactory', () => {
 
   describe('createSettingsMenuComponent', () => {
     it('should create SettingsMenuComponent with config and eventBus', () => {
-      const config = { settingsService: {}, logger: {} };
+      const mockSettingsService = { getSettings: vi.fn() };
+      const mockLogger = { debug: vi.fn() };
+      const config = { settingsService: mockSettingsService, logger: mockLogger };
 
       const component = factory.createSettingsMenuComponent(config);
 
       expect(component.type).toBe('SettingsMenu');
-      expect(component.config.settingsService).toBe(config.settingsService);
-      expect(component.config.eventBus).toBe(mockEventBus);
+      expect(component.settingsService).toBe(mockSettingsService);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.logger).toBe(mockLogger);
     });
 
-    it('should merge eventBus from factory with provided config', () => {
-      const config = { settingsService: {}, logger: {}, customProp: 'test' };
+    it('should create UpdateSectionComponent when updateOrchestrator is provided', () => {
+      const mockUpdateOrchestrator = { checkForUpdates: vi.fn() };
+      const mockLoggerFactory = { create: vi.fn() };
+      const config = {
+        settingsService: {},
+        updateOrchestrator: mockUpdateOrchestrator,
+        loggerFactory: mockLoggerFactory
+      };
 
       const component = factory.createSettingsMenuComponent(config);
 
-      expect(component.config.customProp).toBe('test');
-      expect(component.config.eventBus).toBe(mockEventBus);
+      expect(component.type).toBe('SettingsMenu');
+      expect(component.updateSectionComponent).toBeDefined();
+      expect(component.updateSectionComponent.type).toBe('UpdateSection');
+      expect(component.updateSectionComponent.updateOrchestrator).toBe(mockUpdateOrchestrator);
+    });
+
+    it('should not create UpdateSectionComponent when updateOrchestrator is not provided', () => {
+      const config = { settingsService: {} };
+
+      const component = factory.createSettingsMenuComponent(config);
+
+      expect(component.updateSectionComponent).toBeNull();
     });
   });
 });

@@ -10,8 +10,7 @@ import Joi from 'joi';
 // App config - application-level settings (device-agnostic)
 const app = {
   DEVICE_LAUNCH_DELAY: 500,    // Delay before launching stream after device connection
-  USB_SCAN_DELAY: 1000,        // Delay before scanning for connected devices after USB monitoring starts
-  USB_INIT_DELAY: 500          // Delay for USB monitoring to initialize before enumeration
+  USB_SCAN_DELAY: 1000         // Delay before scanning for connected devices after USB monitoring starts
 };
 
 // UI config - window and display settings
@@ -32,8 +31,7 @@ const ui = {
 const configSchema = Joi.object({
   app: Joi.object({
     DEVICE_LAUNCH_DELAY: Joi.number().integer().min(0).required(),
-    USB_SCAN_DELAY: Joi.number().integer().min(0).required(),
-    USB_INIT_DELAY: Joi.number().integer().min(0).required()
+    USB_SCAN_DELAY: Joi.number().integer().min(0).required()
   }).required(),
 
   ui: Joi.object({

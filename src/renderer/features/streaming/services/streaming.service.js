@@ -371,8 +371,8 @@ export class StreamingService extends BaseService {
         const device = await this._getDeviceById(deviceId);
         this.logger.info('Using stored device ID:', device.label);
         return device;
-      } catch {
-        this.logger.warn('Stored device ID not found in enumeration');
+      } catch (error) {
+        this.logger.warn('Stored device ID not found in enumeration:', error.message || error);
       }
     }
 
@@ -413,5 +413,14 @@ export class StreamingService extends BaseService {
       audio: audioTracks.length > 0 ? audioTracks[0].getSettings() : null,
       hasAudio: audioTracks.length > 0
     };
+  }
+
+  /**
+   * Dispose and release all resources
+   * Called during application shutdown
+   */
+  async dispose() {
+    await this.stop();
+    this.logger.info('StreamingService disposed');
   }
 }

@@ -8,7 +8,7 @@ import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { BaseService } from '@shared/base/service.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
-import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
 
 /**
  * Update states
@@ -34,6 +34,7 @@ class UpdateService extends BaseService {
 
     this._initialized = false;
     this._autoCheckIntervalId = null;
+    this._initialCheckTimeoutId = null;
   }
 
   /**
@@ -245,7 +246,8 @@ class UpdateService extends BaseService {
     }
 
     // Perform initial check after a short delay (don't block startup)
-    setTimeout(() => {
+    this._initialCheckTimeoutId = setTimeout(() => {
+      this._initialCheckTimeoutId = null;
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Initial update check failed', error.message);
       });
@@ -265,6 +267,10 @@ class UpdateService extends BaseService {
    * Stop automatic update checking
    */
   stopAutoCheck() {
+    if (this._initialCheckTimeoutId) {
+      clearTimeout(this._initialCheckTimeoutId);
+      this._initialCheckTimeoutId = null;
+    }
     if (this._autoCheckIntervalId) {
       clearInterval(this._autoCheckIntervalId);
       this._autoCheckIntervalId = null;

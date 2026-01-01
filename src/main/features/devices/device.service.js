@@ -11,7 +11,7 @@ import { formatDeviceInfo } from '@shared/utils/formatters.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
 import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
-import { MainEventChannels } from '../../infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 
@@ -140,6 +140,9 @@ class DeviceService extends BaseService {
       this.usbMonitoring = true;
 
       // Set up event listeners - store references for cleanup
+      // Note: Handler reassignment is intentional. If startUSBMonitoring() is called
+      // while monitoring is already active, we skip (see guard at top). The handlers
+      // are cleaned up in _cleanupUSBListeners() which is called before creating new ones.
       this._onDeviceAdd = (device) => this.onDeviceConnected(device);
       this._onDeviceRemove = (device) => this.onDeviceDisconnected(device);
       usbDetection.on('add', this._onDeviceAdd);
@@ -343,6 +346,9 @@ class DeviceService extends BaseService {
       return false;
     } catch (error) {
       this.logger.error('Error checking for device', error);
+      this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, {
+        error: error.message || 'Unknown error'
+      });
       return false;
     }
   }

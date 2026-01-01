@@ -35,7 +35,10 @@ describe('StreamViewService', () => {
       elements: {
         streamVideo: mockVideoElement,
         streamCanvas: mockCanvasElement
-      }
+      },
+      setStreamCanvas: vi.fn((canvas) => {
+        mockUIController.elements.streamCanvas = canvas;
+      })
     };
 
     mockLogger = {

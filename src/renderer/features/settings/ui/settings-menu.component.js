@@ -8,12 +8,10 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.js';
 import { CSSClasses } from '@shared/config/css-classes.js';
-import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
 
 class SettingsMenuComponent {
-  constructor({ settingsService, updateOrchestrator, eventBus, loggerFactory, logger }) {
+  constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {
     this.settingsService = settingsService;
-    this.updateOrchestrator = updateOrchestrator;
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
     this.logger = logger;
@@ -23,8 +21,8 @@ class SettingsMenuComponent {
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
 
-    // Update section component
-    this._updateSection = null;
+    // Update section component (composed externally)
+    this._updateSection = updateSectionComponent || null;
   }
 
   /**
@@ -57,16 +55,10 @@ class SettingsMenuComponent {
   }
 
   _initializeUpdateSection() {
-    if (!this.updateOrchestrator) {
-      this.logger?.warn('UpdateOrchestrator not available - update section disabled');
+    if (!this._updateSection) {
+      this.logger?.debug('UpdateSectionComponent not provided - update section disabled');
       return;
     }
-
-    this._updateSection = new UpdateSectionComponent({
-      updateOrchestrator: this.updateOrchestrator,
-      eventBus: this.eventBus,
-      loggerFactory: this.loggerFactory
-    });
 
     this._updateSection.initialize();
 

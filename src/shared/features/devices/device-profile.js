@@ -5,6 +5,17 @@
  * All device-specific profiles should extend this class.
  */
 
+/**
+ * No-op logger for when no logger is provided
+ * Silent by default to maintain logging consistency across shared modules
+ */
+const NO_OP_LOGGER = Object.freeze({
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {}
+});
+
 class DeviceProfile {
   /**
    * Create a new device profile
@@ -12,13 +23,8 @@ class DeviceProfile {
    * @param {Object} logger - Optional logger instance
    */
   constructor(config, logger = null) {
-    // Use provided logger or create a minimal console logger
-    this.logger = logger || {
-      info: (...args) => console.log('[DeviceProfile]', ...args),
-      warn: (...args) => console.warn('[DeviceProfile]', ...args),
-      error: (...args) => console.error('[DeviceProfile]', ...args),
-      debug: (...args) => console.debug('[DeviceProfile]', ...args)
-    };
+    // Use provided logger or no-op (no console fallback in shared modules)
+    this.logger = logger || NO_OP_LOGGER;
 
     // Validate configuration
     this._validateConfig(config);
