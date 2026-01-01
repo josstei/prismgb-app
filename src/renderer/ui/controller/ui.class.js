@@ -3,8 +3,8 @@
  * Delegates to UIComponentRegistry and UIEffects for actual work
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.js';
+import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
 
 class UIController {

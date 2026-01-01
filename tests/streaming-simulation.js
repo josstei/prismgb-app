@@ -9,7 +9,7 @@ import { performance } from 'node:perf_hooks';
 import {
   PerformanceCache,
   AnimationCache
-} from '../src/shared/utils/performance-cache.js';
+} from '../src/shared/utils/performance-cache.utils.js';
 import { ResolutionCalculator } from './utilities/ResolutionCalculator.js';
 
 // Create local animation cache instance for this benchmark

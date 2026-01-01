@@ -5,7 +5,7 @@
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class AnimationPerformanceService extends BaseService {
   constructor(dependencies) {

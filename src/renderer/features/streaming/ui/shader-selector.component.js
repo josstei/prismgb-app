@@ -5,10 +5,10 @@
  * Includes fullscreen mouse activity tracking for toolbar opacity.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
-import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/render-presets.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/render-presets.config.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class ShaderSelectorComponent {
   constructor({ settingsService, appState, eventBus, logger }) {

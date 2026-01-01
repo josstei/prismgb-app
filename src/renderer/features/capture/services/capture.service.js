@@ -12,9 +12,9 @@
  * - 'capture:recording-error' - Recording failed (codec error, disk full, etc.)
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { FilenameGenerator } from '@shared/utils/filename-generator.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { FilenameGenerator } from '@shared/utils/filename-generator.utils.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {
   /**

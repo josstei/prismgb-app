@@ -14,11 +14,12 @@ describe('StreamingOrchestrator', () => {
   let mockEventBus;
   let mockLogger;
   let mockRenderPipelineService;
+  let mockGpuRecordingService;
 
   beforeEach(() => {
     mockStreamingService = {
       start: vi.fn().mockResolvedValue({}),
-      stop: vi.fn(),
+      stop: vi.fn().mockResolvedValue(),
       getStream: vi.fn(),
       isActive: vi.fn()
     };
@@ -64,12 +65,18 @@ describe('StreamingOrchestrator', () => {
       cleanup: vi.fn()
     };
 
+    mockGpuRecordingService = {
+      isActive: vi.fn().mockReturnValue(false),
+      stop: vi.fn()
+    };
+
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
       appState: mockAppState,
       streamViewService: mockStreamViewService,
       audioWarmupService: mockAudioWarmupService,
       renderPipelineService: mockRenderPipelineService,
+      gpuRecordingService: mockGpuRecordingService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });

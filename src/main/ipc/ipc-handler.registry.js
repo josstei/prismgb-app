@@ -4,7 +4,7 @@
  */
 
 import { app, ipcMain, shell } from 'electron';
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 import { registerDeviceHandlers } from '@main/features/devices/ipc/device-ipc.handler.js';
 import { registerUpdateHandlers } from '@main/features/updates/ipc/update-ipc.handler.js';
 import { registerShellHandlers } from '@main/features/shell/ipc/shell-ipc.handler.js';

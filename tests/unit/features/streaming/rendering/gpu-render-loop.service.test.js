@@ -394,7 +394,7 @@ describe('GpuRenderLoopService', () => {
       service.stop(videoWithoutCancel);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBe(42); // Not cleared when cancel not available
+      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should handle null videoElement gracefully', () => {
@@ -403,7 +403,7 @@ describe('GpuRenderLoopService', () => {
       service.stop(null);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBe(42); // Not cleared when videoElement null
+      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should handle undefined videoElement gracefully', () => {
@@ -412,7 +412,7 @@ describe('GpuRenderLoopService', () => {
       service.stop(undefined);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBe(42); // Not cleared when videoElement undefined
+      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should be safe to call multiple times', () => {

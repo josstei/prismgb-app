@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock all the imported modules before importing the container
-vi.mock('@renderer/infrastructure/di/service-container.js', () => {
+vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => {
   return {
     ServiceContainer: class MockServiceContainer {
       constructor() {
@@ -56,7 +56,7 @@ vi.mock('@renderer/ui/controller/component.registry.js', () => ({
   UIComponentRegistry: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/ui-effects.manager.js', () => ({
+vi.mock('@renderer/ui/effects/ui-effects.class.js', () => ({
   UIEffects: vi.fn()
 }));
 
@@ -98,7 +98,7 @@ vi.mock('@renderer/features/streaming/factories/adapter.factory.js', () => ({
   AdapterFactory: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/canvas-renderer.service.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/canvas-renderer.class.js', () => ({
   CanvasRenderer: vi.fn()
 }));
 
@@ -110,7 +110,7 @@ vi.mock('@renderer/features/streaming/rendering/gpu-render-loop.service.js', () 
   GpuRenderLoopService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/viewport.service.js', () => ({
+vi.mock('@renderer/features/streaming/rendering/viewport.class.js', () => ({
   ViewportService: vi.fn()
 }));
 
@@ -367,7 +367,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingOrchestrator',
         expect.any(Function),
-        ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory']
+        ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -377,7 +377,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'captureOrchestrator',
         expect.any(Function),
-        ['captureService', 'appState', 'uiController', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
+        ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
       );
     });
 

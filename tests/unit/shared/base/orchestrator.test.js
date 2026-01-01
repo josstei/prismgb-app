@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseOrchestrator } from '@shared/base/orchestrator.js';
+import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 
 describe('BaseOrchestrator', () => {
   let mockLoggerFactory;

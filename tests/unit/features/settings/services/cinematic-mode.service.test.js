@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('CinematicModeService', () => {
   let service;

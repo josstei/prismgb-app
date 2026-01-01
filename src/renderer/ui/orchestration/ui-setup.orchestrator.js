@@ -10,10 +10,10 @@
  * - Toggle settings menu
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.js';
-import { createDomListenerManager } from '@shared/base/dom-listener.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {

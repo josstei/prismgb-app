@@ -5,7 +5,7 @@
  * Acts as the single source of truth for all supported devices.
  */
 
-import { formatDeviceInfo } from '@shared/utils/formatters.js';
+import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 
 class ProfileRegistry {
   constructor({ loggerFactory }) {

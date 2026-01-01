@@ -49,7 +49,11 @@ export default defineConfig({
         // Web Worker files run in Worker context, not testable in vitest
         'src/**/workers/*.js',
         // GPU rendering requires WebGPU/WebGL APIs not available in vitest
-        'src/**/rendering/gpu/*.js'
+        'src/**/rendering/gpu/*.js',
+        // Audio warmup requires Web Audio API not available in vitest
+        'src/**/audio/*.js',
+        // Canvas lifecycle requires complex DOM/Canvas API interactions
+        'src/**/canvas-lifecycle.service.js'
       ],
       // 80% coverage threshold for testable code
       thresholds: {

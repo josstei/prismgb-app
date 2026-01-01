@@ -28,7 +28,7 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
-import { MainLogger } from '@main/infrastructure/logging/main-logger.js';
+import { MainLogger } from '@main/infrastructure/logging/main-logger.factory.js';
 
 // Mock winston
 vi.mock('winston', () => {

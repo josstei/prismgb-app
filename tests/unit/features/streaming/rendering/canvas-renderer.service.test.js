@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.service.js';
+import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.class.js';
 
 describe('CanvasRenderer', () => {
   let renderer;

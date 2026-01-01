@@ -4,9 +4,9 @@
  * Translates capture events into UI feedback.
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { TIMING } from '@shared/config/constants.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { TIMING } from '@shared/config/constants.config.js';
 
 class CaptureUiBridge extends BaseService {
   constructor(dependencies) {

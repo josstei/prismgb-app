@@ -3,7 +3,7 @@
  * Registers device-related IPC routes.
  */
 
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 
 export function registerDeviceHandlers({ registerHandler, deviceService, logger }) {
   registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {

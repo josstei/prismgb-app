@@ -1,5 +1,5 @@
-import { DeviceAwareFallbackStrategy } from './fallback-strategy.js';
-import { formatErrorLabel } from '@shared/lib/errors.js';
+import { DeviceAwareFallbackStrategy } from './fallback-strategy.class.js';
+import { formatErrorLabel } from '@shared/lib/errors.utils.js';
 
 /**
  * StreamAcquisitionCoordinator

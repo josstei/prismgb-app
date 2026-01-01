@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.js';
+import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
 
 describe('ServiceContainer', () => {
   let container;

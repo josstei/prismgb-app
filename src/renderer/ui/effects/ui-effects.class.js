@@ -3,8 +3,8 @@
  * Manages flash overlays, button animation feedback, and cursor auto-hide
  */
 
-import { TIMING } from '@shared/config/constants.js';
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { TIMING } from '@shared/config/constants.config.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 export class UIEffects {
   constructor(dependencies = {}) {

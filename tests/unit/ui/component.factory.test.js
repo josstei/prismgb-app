@@ -24,38 +24,40 @@ vi.mock('@renderer/ui/components/device-status.component.js', () => ({
   }
 }));
 
-vi.mock('@renderer/features/streaming/ui/stream-controls.component.js', () => ({
-  StreamControlsComponent: class {
-    constructor(config) {
-      this.type = 'StreamControls';
-      this.config = config;
-    }
+// Create mock component classes that will be injected via DI
+class MockStreamControlsComponent {
+  constructor(config) {
+    this.type = 'StreamControls';
+    this.config = config;
   }
-}));
+}
 
-vi.mock('@renderer/features/settings/ui/settings-menu.component.js', () => ({
-  SettingsMenuComponent: class {
-    constructor(config) {
-      this.type = 'SettingsMenu';
-      this.settingsService = config.settingsService;
-      this.updateSectionComponent = config.updateSectionComponent;
-      this.eventBus = config.eventBus;
-      this.loggerFactory = config.loggerFactory;
-      this.logger = config.logger;
-    }
+class MockSettingsMenuComponent {
+  constructor(config) {
+    this.type = 'SettingsMenu';
+    this.settingsService = config.settingsService;
+    this.updateSectionComponent = config.updateSectionComponent;
+    this.eventBus = config.eventBus;
+    this.loggerFactory = config.loggerFactory;
+    this.logger = config.logger;
   }
-}));
+}
 
-vi.mock('@renderer/features/updates/ui/update-section.component.js', () => ({
-  UpdateSectionComponent: class {
-    constructor(config) {
-      this.type = 'UpdateSection';
-      this.updateOrchestrator = config.updateOrchestrator;
-      this.eventBus = config.eventBus;
-      this.loggerFactory = config.loggerFactory;
-    }
+class MockShaderSelectorComponent {
+  constructor(config) {
+    this.type = 'ShaderSelector';
+    this.config = config;
   }
-}));
+}
+
+class MockUpdateSectionComponent {
+  constructor(config) {
+    this.type = 'UpdateSection';
+    this.updateOrchestrator = config.updateOrchestrator;
+    this.eventBus = config.eventBus;
+    this.loggerFactory = config.loggerFactory;
+  }
+}
 
 describe('UIComponentFactory', () => {
   let factory;
@@ -69,7 +71,14 @@ describe('UIComponentFactory', () => {
       subscribe: vi.fn()
     };
 
-    factory = new UIComponentFactory({ eventBus: mockEventBus });
+    // Create factory with injected component classes
+    factory = new UIComponentFactory({
+      eventBus: mockEventBus,
+      settingsMenuComponent: MockSettingsMenuComponent,
+      streamControlsComponent: MockStreamControlsComponent,
+      shaderSelectorComponent: MockShaderSelectorComponent,
+      updateSectionComponent: MockUpdateSectionComponent
+    });
   });
 
   describe('constructor', () => {

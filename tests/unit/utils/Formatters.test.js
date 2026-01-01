@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatDeviceInfo } from '../../../src/shared/utils/formatters.js';
+import { formatDeviceInfo } from '../../../src/shared/utils/formatters.utils.js';
 
 describe('Formatters', () => {
   describe('formatDeviceInfo', () => {

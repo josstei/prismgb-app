@@ -12,7 +12,7 @@ import { cpus } from 'node:os';
 import {
   PerformanceCache,
   AnimationCache
-} from '../src/shared/utils/performance-cache.js';
+} from '../src/shared/utils/performance-cache.utils.js';
 import { ResolutionCalculator } from './utilities/ResolutionCalculator.js';
 
 // Test configuration

@@ -3,7 +3,7 @@
  * Registers update-related IPC routes.
  */
 
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.js';
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 
 export function registerUpdateHandlers({ registerHandler, updateService, logger }) {
   registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {

@@ -5,7 +5,7 @@
  * Handles all UI elements related to device connection state.
  */
 
-import { CSSClasses } from '@shared/config/css-classes.js';
+import { CSSClasses } from '@shared/config/css-classes.config.js';
 
 class DeviceStatusComponent {
   /**

@@ -1,0 +1,45 @@
+TRADEMARK POLICY
+
+"PrismGB" and the PrismGB gem logo are trademarks of josstei.
+
+WHAT YOU MAY NOT DO
+
+You may NOT use the PrismGB name or logo to:
+
+- Endorse or promote derivative products or services
+- Suggest official affiliation, sponsorship, or endorsement
+- Create confusion about the source or origin of the software
+- Register domain names, social media accounts, or app store listings
+  using the PrismGB name without permission
+- Create modified versions and distribute them under the PrismGB name
+
+WHAT YOU MAY DO
+
+You MAY:
+
+- Use the name to accurately describe or refer to this software
+  (e.g., "Compatible with PrismGB", "Based on PrismGB")
+- Use the name for commentary, criticism, news reporting, or education
+- Fork the code and distribute under a DIFFERENT name and branding
+- Use the name in file paths, package dependencies, or technical contexts
+  where it refers to this specific software
+
+DERIVATIVE WORKS
+
+If you create a modified version of PrismGB:
+
+1. You must choose a different name for your version
+2. You must use different branding (logo, icons, colors)
+3. You must clearly indicate that your version is not PrismGB
+4. You may state that your software is "based on" or "derived from" PrismGB
+
+RELATIONSHIP TO SOURCE LICENSE
+
+The source code is licensed under the MIT License (see LICENSE file).
+The MIT License grants rights to the code only. It does NOT grant any
+rights to the PrismGB trademarks.
+
+QUESTIONS
+
+For trademark questions or permission requests, open an issue at:
+https://github.com/josstei/prismgb-app/issues

@@ -4,7 +4,7 @@
  * Owns requestVideoFrameCallback loop lifecycle.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class GpuRenderLoopService extends BaseService {
   constructor(dependencies) {
@@ -42,15 +42,17 @@ class GpuRenderLoopService extends BaseService {
   stop(videoElement) {
     this._active = false;
 
-    if (this._rvfcHandle !== null && videoElement?.cancelVideoFrameCallback) {
-      videoElement.cancelVideoFrameCallback(this._rvfcHandle);
+    if (this._rvfcHandle !== null) {
+      if (videoElement?.cancelVideoFrameCallback) {
+        videoElement.cancelVideoFrameCallback(this._rvfcHandle);
+      }
       this._rvfcHandle = null;
     }
   }
 
-  cleanup() {
-    this._active = false;
-    this._rvfcHandle = null;
+  cleanup(videoElement) {
+    // Delegate to stop() - handles both cancellation and state reset
+    this.stop(videoElement);
   }
 }
 

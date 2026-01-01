@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.class.js';
 
 describe('ViewportService', () => {
   let service;

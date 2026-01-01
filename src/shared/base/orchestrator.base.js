@@ -11,7 +11,7 @@
  * - EventBus subscription management with automatic cleanup
  */
 
-import { validateDependencies } from './validate-deps.js';
+import { validateDependencies } from './validate-deps.utils.js';
 
 export class BaseOrchestrator {
   /**

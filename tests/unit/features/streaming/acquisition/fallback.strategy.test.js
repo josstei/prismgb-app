@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.js';
-import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.js';
+import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.class.js';
+import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.class.js';
 
 describe('DeviceAwareFallbackStrategy', () => {
   let strategy;

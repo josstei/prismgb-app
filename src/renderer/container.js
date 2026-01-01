@@ -5,7 +5,7 @@
  * Wires domain services and orchestrators with proper dependency injection
  */
 
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.js';
+import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
 
 // Application layer
 import { AppState } from '@renderer/application/app.state.js';
@@ -21,8 +21,8 @@ import { PerformanceStateService } from '@renderer/application/performance/perfo
 import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
-import { UIEffects } from '@renderer/ui/effects/ui-effects.manager.js';
-import { BodyClassManager } from '@renderer/ui/effects/body-class.manager.js';
+import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
+import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
 import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
@@ -40,15 +40,17 @@ import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.service.js';
+import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.class.js';
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
-import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.class.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.class.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
+import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
+import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
@@ -61,15 +63,17 @@ import { PreferencesOrchestrator } from '@renderer/features/settings/services/pr
 import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
 import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
 import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
+import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
 
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
 import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
+import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
 
 // Infrastructure
-import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
+import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
@@ -77,7 +81,7 @@ import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-acti
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
 import { MetricsAdapter } from '@renderer/application/adapters/metrics.adapter.js';
 // Shared
-import { AnimationCache } from '@shared/utils/performance-cache.js';
+import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 
 /**
  * Create and configure the renderer DI container
@@ -375,10 +379,20 @@ function createRendererContainer() {
   // - uiController
 
   // UI Component Factory
+  // Component classes from features are imported statically and injected here
+  // to maintain proper layer boundaries (UI factory doesn't import from features)
   container.registerSingleton(
     'uiComponentFactory',
     function (eventBus) {
-      return new UIComponentFactory({ eventBus });
+      return new UIComponentFactory({
+        eventBus,
+        // Inject feature component classes via DI container
+        // These imports are centralized here instead of in UIComponentFactory
+        settingsMenuComponent: SettingsMenuComponent,
+        streamControlsComponent: StreamControlsComponent,
+        shaderSelectorComponent: ShaderSelectorComponent,
+        updateSectionComponent: UpdateSectionComponent
+      });
     },
     ['eventBus']
   );
@@ -449,32 +463,35 @@ function createRendererContainer() {
 
   // Streaming Orchestrator - Coordinates stream lifecycle
   // Uses appState instead of deviceOrchestrator for decoupling
+  // Requires gpuRecordingService to stop recording before GPU cleanup (avoids Skia race)
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, eventBus, loggerFactory) {
+    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, gpuRecordingService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
         streamViewService,
         audioWarmupService,
         renderPipelineService,
+        gpuRecordingService,
         eventBus,
         loggerFactory
       });
     },
-    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'eventBus', 'loggerFactory']
+    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording
   // Uses appState instead of streamingOrchestrator for decoupling
+  // Uses streamViewService for DOM element access instead of direct uiController
   // Requires gpuRendererService and canvasRenderer for screenshot source selection
   container.registerSingleton(
     'captureOrchestrator',
-    function (captureService, appState, uiController, gpuRendererService, gpuRecordingService, canvasRenderer, eventBus, loggerFactory) {
+    function (captureService, appState, streamViewService, gpuRendererService, gpuRecordingService, canvasRenderer, eventBus, loggerFactory) {
       return new CaptureOrchestrator({
         captureService,
         appState,
-        uiController,
+        streamViewService,
         gpuRendererService,
         gpuRecordingService,
         canvasRenderer,
@@ -482,7 +499,7 @@ function createRendererContainer() {
         loggerFactory
       });
     },
-    ['captureService', 'appState', 'uiController', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
+    ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
   );
 
   // ============================================

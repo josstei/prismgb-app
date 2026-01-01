@@ -4,14 +4,14 @@
  * Integrates with ProfileRegistry for profile-based device matching
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 import usbDetection from 'usb-detection';
-import { appConfig } from '@shared/config/config-loader.js';
-import { formatDeviceInfo } from '@shared/utils/formatters.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.js';
-import { DeviceRegistry } from '@shared/features/devices/device-registry.js';
+import { appConfig } from '@shared/config/config-loader.utils.js';
+import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
+import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
+import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { ChromaticProfile } from '@shared/features/devices/profiles/chromatic/chromatic.profile.js';
-import { MainEventChannels } from '@main/infrastructure/events/event-channels.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 
@@ -72,6 +72,7 @@ class DeviceService extends BaseService {
     try {
       let registeredCount = 0;
       let firstProfileId = null;
+      const failedProfiles = [];
 
       // Register ProfileClasses with DeviceRegistry (main process responsibility)
       DeviceRegistry.registerProfileClass('chromatic-mod-retro', ChromaticProfile);
@@ -90,6 +91,7 @@ class DeviceService extends BaseService {
 
           if (!ProfileClass) {
             this.logger.error(`No profile class found for device: ${device.id}`);
+            failedProfiles.push({ id: device.id, reason: 'No profile class found' });
             continue;
           }
 
@@ -107,6 +109,7 @@ class DeviceService extends BaseService {
           this.logger.info(`Registered profile for ${device.name} (${device.id})`);
         } catch (error) {
           this.logger.error(`Failed to load profile for ${device.id}:`, error);
+          failedProfiles.push({ id: device.id, reason: error.message });
         }
       }
 
@@ -116,6 +119,12 @@ class DeviceService extends BaseService {
       }
 
       this.logger.info(`Registered ${registeredCount} device profile(s) from registry`);
+
+      // Log summary warning if any profiles failed to load
+      if (failedProfiles.length > 0) {
+        const failedIds = failedProfiles.map(p => p.id).join(', ');
+        this.logger.warn(`Failed to initialize ${failedProfiles.length} device profile(s): ${failedIds}`);
+      }
     } catch (error) {
       this.logger.error('Failed to initialize device profiles', error);
     }
@@ -123,11 +132,13 @@ class DeviceService extends BaseService {
 
   /**
    * Initialize USB monitoring
+   * Publishes DEVICE.CHECK_ERROR event if monitoring fails to start
+   * @returns {boolean} True if monitoring started successfully, false otherwise
    */
   startUSBMonitoring() {
     if (this.usbMonitoring) {
       this.logger.warn('USB monitoring already started');
-      return;
+      return true;
     }
 
     try {
@@ -153,8 +164,14 @@ class DeviceService extends BaseService {
       this._scanTimeoutId = setTimeout(() => this._scanAlreadyConnectedDevices(), USB_SCAN_DELAY);
 
       this.logger.info('USB monitoring started');
+      return true;
     } catch (error) {
       this.logger.error('Failed to start USB monitoring', error);
+      this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, {
+        type: 'usb-monitoring-failed',
+        error: error.message || 'Unknown error'
+      });
+      return false;
     }
   }
 

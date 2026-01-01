@@ -12,9 +12,9 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 /**
  * Stream lifecycle states for the state machine

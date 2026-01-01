@@ -13,19 +13,19 @@
  * - Graceful fallback chain
  */
 
-import { BaseService } from '@shared/base/service.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.js';
-import { CapabilityDetector } from './capability-detector.js';
+import { BaseService } from '@shared/base/service.base.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { CapabilityDetector } from './capability-detector.utils.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/worker-protocol.js';
+} from '../workers/worker-protocol.config.js';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/render-presets.js';
+} from '../presets/render-presets.config.js';
 
 /**
  * Maximum number of frames that can be pending render
@@ -38,6 +38,15 @@ const MAX_PENDING_FRAMES = 2;
  */
 const NATIVE_WIDTH = 160;
 const NATIVE_HEIGHT = 144;
+
+/**
+ * Frozen options for createImageBitmap to avoid per-frame allocation
+ */
+const BITMAP_OPTIONS = Object.freeze({
+  resizeWidth: NATIVE_WIDTH,
+  resizeHeight: NATIVE_HEIGHT,
+  resizeQuality: 'pixelated'
+});
 
 export class GPURendererService extends BaseService {
   /**
@@ -94,6 +103,9 @@ export class GPURendererService extends BaseService {
 
     // Brightness event subscription (for cleanup)
     this._brightnessUnsubscribe = null;
+
+    // Destruction guard to prevent captures during teardown
+    this._isDestroying = false;
 
     // Ready promise resolvers (for direct resolution instead of polling)
     this._readyResolve = null;
@@ -458,11 +470,7 @@ export class GPURendererService extends BaseService {
 
     try {
       // Create ImageBitmap from video for efficient transfer
-      imageBitmap = await createImageBitmap(videoElement, {
-        resizeWidth: NATIVE_WIDTH,
-        resizeHeight: NATIVE_HEIGHT,
-        resizeQuality: 'pixelated'
-      });
+      imageBitmap = await createImageBitmap(videoElement, BITMAP_OPTIONS);
 
       // Get cached uniforms (rebuilt only when preset/dimensions/brightness change)
       // Brightness is now included in cache key, so we can use cached uniforms directly
@@ -644,6 +652,11 @@ export class GPURendererService extends BaseService {
    * @throws {Error} If renderer not ready or capture already in progress
    */
   async captureFrame() {
+    // Guard against captures during GPU teardown
+    if (this._isDestroying) {
+      throw new Error('GPU renderer is shutting down');
+    }
+
     if (!this._isReady || !this._worker) {
       throw new Error('GPU renderer not ready');
     }
@@ -752,6 +765,9 @@ export class GPURendererService extends BaseService {
    * @param {boolean} [emitCanvasExpired=true] - Whether to emit CANVAS_EXPIRED if canvas was transferred
    */
   _cleanup(emitCanvasExpired = true) {
+    // Set destroying flag FIRST to reject any new/in-flight captures
+    this._isDestroying = true;
+
     // Unsubscribe from brightness events
     if (this._brightnessUnsubscribe) {
       this._brightnessUnsubscribe();
@@ -791,6 +807,9 @@ export class GPURendererService extends BaseService {
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
       this.logger.info('Canvas expired - orchestrator will recreate for next session');
     }
+
+    // Reset destroying flag so service can be reused
+    this._isDestroying = false;
   }
 
   /**

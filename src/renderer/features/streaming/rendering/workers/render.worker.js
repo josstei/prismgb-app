@@ -15,7 +15,7 @@ import {
   WorkerResponseType,
   createWorkerResponse,
   isValidWorkerMessage
-} from './worker-protocol.js';
+} from './worker-protocol.config.js';
 
 import pixelUpscaleWGSL from '../shaders/webgpu/pixel-upscale.wgsl?raw';
 import unsharpMaskWGSL from '../shaders/webgpu/unsharp-mask.wgsl?raw';
@@ -35,7 +35,7 @@ import {
   UniformTracker,
   CaptureBufferManager,
   ShaderProgram
-} from './optimization-utils.js';
+} from './optimization.utils.js';
 
 // ============================================================================
 // Shared Utilities

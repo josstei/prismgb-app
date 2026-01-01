@@ -5,7 +5,7 @@
  * Keeps streaming orchestration free of direct DOM manipulation.
  */
 
-import { BaseService } from '@shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 class StreamViewService extends BaseService {
   constructor(dependencies) {
