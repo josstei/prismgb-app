@@ -143,7 +143,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _stopRecording() {
-    this.gpuRecordingService.stop();
+    await this.gpuRecordingService.stop();
 
     try {
       await this.captureService.stopRecording();
@@ -192,6 +192,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         this.logger.error('Error stopping recording during cleanup:', error);
       }
     }
-    this.gpuRecordingService.stop();
+    await this.gpuRecordingService.stop();
   }
 }

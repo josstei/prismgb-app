@@ -90,6 +90,21 @@ export class UIComponentRegistry {
   }
 
   /**
+   * Initialize notes panel component
+   * @param {Object} dependencies - Notes panel dependencies
+   * @param {Object} elements - DOM element references for the notes panel
+   */
+  initNotesPanel(dependencies, elements) {
+    this.logger?.debug('Initializing notes panel component');
+
+    const notesPanelComponent = this.factory.createNotesPanelComponent(dependencies);
+    notesPanelComponent.initialize(elements);
+    this.components.set('notesPanelComponent', notesPanelComponent);
+
+    this.logger?.info('Notes panel component initialized');
+  }
+
+  /**
    * Get a component by name
    * @param {string} name - Component name
    * @returns {Object|undefined} Component instance or undefined

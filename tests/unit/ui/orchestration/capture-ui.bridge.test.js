@@ -1,13 +1,13 @@
 /**
- * CaptureUiBridge Unit Tests
+ * CaptureUIBridge Unit Tests
  * Tests the event bridge between capture events and UI feedback
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
+import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('CaptureUiBridge', () => {
+describe('CaptureUIBridge', () => {
   let bridge;
   let mockEventBus;
   let mockUIController;
@@ -55,7 +55,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Constructor', () => {
     it('should store eventBus', () => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -65,7 +65,7 @@ describe('CaptureUiBridge', () => {
     });
 
     it('should store uiController', () => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -75,25 +75,25 @@ describe('CaptureUiBridge', () => {
     });
 
     it('should create logger from loggerFactory', () => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureUiBridge');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureUIBridge');
       expect(bridge.logger).toBe(mockLogger);
     });
 
     it('should throw when loggerFactory is missing (undefined)', () => {
-      expect(() => new CaptureUiBridge({
+      expect(() => new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
     it('should initialize subscriptions array', () => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -105,7 +105,7 @@ describe('CaptureUiBridge', () => {
 
   describe('initialize', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -148,13 +148,13 @@ describe('CaptureUiBridge', () => {
     it('should log initialization', () => {
       bridge.initialize();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('CaptureUiBridge initialized');
+      expect(mockLogger.info).toHaveBeenCalledWith('CaptureUIBridge initialized');
     });
   });
 
   describe('dispose', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -183,7 +183,7 @@ describe('CaptureUiBridge', () => {
       bridge.initialize();
       bridge.dispose();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('CaptureUiBridge disposed');
+      expect(mockLogger.info).toHaveBeenCalledWith('CaptureUIBridge disposed');
     });
 
     it('should handle non-function items in subscriptions array gracefully', () => {
@@ -204,7 +204,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Screenshot', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -270,7 +270,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Recording Started', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -321,7 +321,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Recording Stopped', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -362,7 +362,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Recording Ready', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -415,7 +415,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Recording Error', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -512,7 +512,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Event Handlers - Recording Degraded', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -556,7 +556,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Integration - Full Workflow', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
@@ -649,7 +649,7 @@ describe('CaptureUiBridge', () => {
 
   describe('Edge Cases', () => {
     beforeEach(() => {
-      bridge = new CaptureUiBridge({
+      bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory

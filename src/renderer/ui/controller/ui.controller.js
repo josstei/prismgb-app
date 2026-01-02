@@ -84,7 +84,20 @@ class UIController {
       fsExitBtn: document.getElementById(DOMSelectors.FS_EXIT_BTN),
 
       // Stream container
-      streamContainer: document.getElementById(DOMSelectors.STREAM_CONTAINER)
+      streamContainer: document.getElementById(DOMSelectors.STREAM_CONTAINER),
+
+      // Notes panel
+      notesBtn: document.getElementById(DOMSelectors.NOTES_BTN),
+      notesPanel: document.getElementById(DOMSelectors.NOTES_PANEL),
+      notesSearchInput: document.getElementById(DOMSelectors.NOTES_SEARCH_INPUT),
+      notesList: document.getElementById(DOMSelectors.NOTES_LIST),
+      notesEditor: document.getElementById(DOMSelectors.NOTES_EDITOR),
+      notesEmptyState: document.getElementById(DOMSelectors.NOTES_EMPTY_STATE),
+      notesTitleInput: document.getElementById(DOMSelectors.NOTES_TITLE_INPUT),
+      notesContentArea: document.getElementById(DOMSelectors.NOTES_CONTENT_AREA),
+      notesNewBtn: document.getElementById(DOMSelectors.NOTES_NEW_BTN),
+      notesDeleteBtn: document.getElementById(DOMSelectors.NOTES_DELETE_BTN),
+      notesCloseBtn: document.getElementById(DOMSelectors.NOTES_CLOSE_BTN)
     };
   }
 
@@ -141,6 +154,27 @@ class UIController {
   toggleShaderSelector() {
     const shaderSelector = this.registry?.get('shaderSelectorComponent');
     shaderSelector?.toggle();
+  }
+
+  /**
+   * Initialize notes panel component
+   * @param {Object} dependencies - Dependencies object
+   * @param {NotesService} dependencies.notesService - Notes service
+   * @param {Logger} dependencies.logger - Logger instance
+   * @param {Object} elements - DOM element references for the notes panel
+   */
+  initNotesPanel(dependencies, elements) {
+    if (this.registry) {
+      this.registry.initNotesPanel(dependencies, elements);
+    }
+  }
+
+  /**
+   * Toggle notes panel visibility
+   */
+  toggleNotesPanel() {
+    const notesPanel = this.registry?.get('notesPanelComponent');
+    notesPanel?.toggle();
   }
 
   /**

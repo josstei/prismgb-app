@@ -24,7 +24,7 @@ import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
-import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
+import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
 // Features: Devices
 import { DeviceService } from '@renderer/features/devices/services/device.service.js';
@@ -32,7 +32,7 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
+import { IPCDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
@@ -58,12 +58,17 @@ import { CaptureOrchestrator } from '@renderer/features/capture/services/capture
 import { GpuRecordingService } from '@renderer/features/capture/services/gpu-recording.service.js';
 
 // Features: Settings
-import { SettingsService, PROTECTED_STORAGE_KEYS } from '@renderer/features/settings/services/settings.service.js';
+import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
+import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
 import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
 import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
 import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
 import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
 import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
+
+// Features: Notes
+import { NotesService } from '@renderer/features/notes/services/notes.service.js';
+import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
 
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
@@ -236,7 +241,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'deviceStatusProvider',
     function (ipcClient) {
-      return new IpcDeviceStatusAdapter(ipcClient);
+      return new IPCDeviceStatusAdapter(ipcClient);
     },
     ['ipcClient']
   );
@@ -333,6 +338,15 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory', 'storageService']
   );
 
+  // Notes Service (note management)
+  container.registerSingleton(
+    'notesService',
+    function (eventBus, loggerFactory, storageService) {
+      return new NotesService({ eventBus, loggerFactory, storageService });
+    },
+    ['eventBus', 'loggerFactory', 'storageService']
+  );
+
   // Update Service (auto-updates)
   container.registerSingleton(
     'updateService',
@@ -391,7 +405,8 @@ function createRendererContainer() {
         settingsMenuComponent: SettingsMenuComponent,
         streamControlsComponent: StreamControlsComponent,
         shaderSelectorComponent: ShaderSelectorComponent,
-        updateSectionComponent: UpdateSectionComponent
+        updateSectionComponent: UpdateSectionComponent,
+        notesPanelComponent: NotesPanelComponent
       });
     },
     ['eventBus']
@@ -438,7 +453,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'captureUiBridge',
     function (eventBus, uiController, loggerFactory) {
-      return new CaptureUiBridge({ eventBus, uiController, loggerFactory });
+      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
     },
     ['eventBus', 'uiController', 'loggerFactory']
   );
@@ -642,6 +657,7 @@ function createRendererContainer() {
       appState,
       updateOrchestrator,
       settingsService,
+      notesService,
       uiController,
       eventBus,
       loggerFactory
@@ -650,6 +666,7 @@ function createRendererContainer() {
         appState,
         updateOrchestrator,
         settingsService,
+        notesService,
         uiController,
         eventBus,
         loggerFactory
@@ -659,6 +676,7 @@ function createRendererContainer() {
       'appState',
       'updateOrchestrator',
       'settingsService',
+      'notesService',
       'uiController',
       'eventBus',
       'loggerFactory'

@@ -19,7 +19,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['appState', 'updateOrchestrator', 'settingsService', 'uiController', 'eventBus', 'loggerFactory'],
+      ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory'],
       'UISetupOrchestrator'
     );
 
@@ -92,6 +92,33 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         volumeSlider: elements.volumeSliderVertical,
         volumePercentage: elements.volumePercentageVertical,
         streamVideo: elements.streamVideo
+      }
+    );
+  }
+
+  /**
+   * Initialize notes panel component
+   */
+  initializeNotesPanel() {
+    const elements = this.uiController.elements;
+    this.uiController.initNotesPanel(
+      {
+        notesService: this.notesService,
+        eventBus: this.eventBus,
+        logger: this.logger
+      },
+      {
+        notesBtn: elements.notesBtn,
+        notesPanel: elements.notesPanel,
+        notesSearchInput: elements.notesSearchInput,
+        notesList: elements.notesList,
+        notesEditor: elements.notesEditor,
+        notesEmptyState: elements.notesEmptyState,
+        notesTitleInput: elements.notesTitleInput,
+        notesContentArea: elements.notesContentArea,
+        notesNewBtn: elements.notesNewBtn,
+        notesDeleteBtn: elements.notesDeleteBtn,
+        notesCloseBtn: elements.notesCloseBtn
       }
     );
   }

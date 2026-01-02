@@ -11,6 +11,7 @@ describe('UISetupOrchestrator', () => {
   let mockAppState;
   let mockUpdateOrchestrator;
   let mockSettingsService;
+  let mockNotesService;
   let mockUiController;
   let mockEventBus;
   let mockLogger;
@@ -44,6 +45,8 @@ describe('UISetupOrchestrator', () => {
     mockUpdateOrchestrator = {};
 
     mockSettingsService = {};
+
+    mockNotesService = {};
 
     // Create mock DOM elements with event listener support
     const createMockElement = () => {
@@ -88,6 +91,7 @@ describe('UISetupOrchestrator', () => {
       appState: mockAppState,
       updateOrchestrator: mockUpdateOrchestrator,
       settingsService: mockSettingsService,
+      notesService: mockNotesService,
       uiController: mockUiController,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory

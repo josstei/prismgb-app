@@ -53,7 +53,14 @@ export default defineConfig({
         // Audio warmup requires Web Audio API not available in vitest
         'src/**/audio/*.js',
         // Canvas lifecycle requires complex DOM/Canvas API interactions
-        'src/**/canvas-lifecycle.service.js'
+        'src/**/canvas-lifecycle.service.js',
+        // UI templates use Vite ?raw imports for SVGs not available in vitest
+        'src/renderer/ui/templates/*.js',
+        'src/renderer/ui/icons/*.js',
+        // Interface files are abstract base classes (throw stubs) not meant to be tested
+        'src/shared/interfaces/*.interface.js',
+        // JSON configuration files
+        '**/*.json'
       ],
       // 80% coverage threshold for testable code
       thresholds: {
@@ -78,12 +85,8 @@ export default defineConfig({
 
     // Parallel test execution with thread isolation
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: 4,
-        maxThreads: 8
-      }
-    },
+    minThreads: 4,
+    maxThreads: 8,
     isolate: true
   }
 });

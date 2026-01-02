@@ -53,7 +53,7 @@ async function createAppContainer(loggerFactory) {
 
   // Device components
   const { DeviceService } = await import('@main/features/devices/device.service.js');
-  const { ProfileRegistry } = await import('@main/features/devices/profile-registry.js');
+  const { ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
   const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
 
   container.register({

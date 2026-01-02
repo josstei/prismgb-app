@@ -284,6 +284,11 @@ class CaptureService extends BaseService {
 
     // Stop any active recording
     if (this.isRecording && this.mediaRecorder) {
+      // Nullify event handlers before stopping to prevent callback races
+      this.mediaRecorder.ondataavailable = null;
+      this.mediaRecorder.onstop = null;
+      this.mediaRecorder.onerror = null;
+
       try {
         this.mediaRecorder.stop();
       } catch (error) {

@@ -47,6 +47,20 @@ class MockShaderSelectorComponent {
   constructor(config) {
     this.type = 'ShaderSelector';
     this.config = config;
+    this.settingsService = config.settingsService;
+    this.appState = config.appState;
+    this.eventBus = config.eventBus;
+    this.logger = config.logger;
+  }
+}
+
+class MockNotesPanelComponent {
+  constructor(config) {
+    this.type = 'NotesPanel';
+    this.config = config;
+    this.notesService = config.notesService;
+    this.eventBus = config.eventBus;
+    this.logger = config.logger;
   }
 }
 
@@ -77,7 +91,8 @@ describe('UIComponentFactory', () => {
       settingsMenuComponent: MockSettingsMenuComponent,
       streamControlsComponent: MockStreamControlsComponent,
       shaderSelectorComponent: MockShaderSelectorComponent,
-      updateSectionComponent: MockUpdateSectionComponent
+      updateSectionComponent: MockUpdateSectionComponent,
+      notesPanelComponent: MockNotesPanelComponent
     });
   });
 
@@ -157,6 +172,67 @@ describe('UIComponentFactory', () => {
       const component = factory.createSettingsMenuComponent(config);
 
       expect(component.updateSectionComponent).toBeNull();
+    });
+  });
+
+  describe('createShaderSelectorComponent', () => {
+    it('should create ShaderSelectorComponent with config and eventBus', () => {
+      const mockSettingsService = { getPreset: vi.fn() };
+      const mockAppState = { state: {} };
+      const mockLogger = { debug: vi.fn() };
+      const config = {
+        settingsService: mockSettingsService,
+        appState: mockAppState,
+        logger: mockLogger
+      };
+
+      const component = factory.createShaderSelectorComponent(config);
+
+      expect(component.type).toBe('ShaderSelector');
+      expect(component.settingsService).toBe(mockSettingsService);
+      expect(component.appState).toBe(mockAppState);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.logger).toBe(mockLogger);
+    });
+
+    it('should spread config into component constructor', () => {
+      const config = {
+        settingsService: {},
+        customProp: 'custom value'
+      };
+
+      const component = factory.createShaderSelectorComponent(config);
+
+      expect(component.config.customProp).toBe('custom value');
+    });
+  });
+
+  describe('createNotesPanelComponent', () => {
+    it('should create NotesPanelComponent with config and eventBus', () => {
+      const mockNotesService = { getAllNotes: vi.fn() };
+      const mockLogger = { debug: vi.fn() };
+      const config = {
+        notesService: mockNotesService,
+        logger: mockLogger
+      };
+
+      const component = factory.createNotesPanelComponent(config);
+
+      expect(component.type).toBe('NotesPanel');
+      expect(component.notesService).toBe(mockNotesService);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.logger).toBe(mockLogger);
+    });
+
+    it('should spread config into component constructor', () => {
+      const config = {
+        notesService: {},
+        customProp: 'custom value'
+      };
+
+      const component = factory.createNotesPanelComponent(config);
+
+      expect(component.config.customProp).toBe('custom value');
     });
   });
 });

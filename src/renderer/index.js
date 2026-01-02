@@ -8,8 +8,15 @@
 
 import './assets/styles/styles.css';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { renderAppTemplates } from './ui/templates/index.js';
 
-// Mark body ready after CSS is loaded (prevents FOUC)
+// Render templates into app container
+const appContainer = document.getElementById('appContainer');
+if (appContainer) {
+  renderAppTemplates(appContainer);
+}
+
+// Mark body ready after CSS and templates are loaded (prevents FOUC)
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
@@ -86,4 +93,23 @@ window.addEventListener('beforeunload', cleanup);
 // Expose app for debugging in development only
 if (import.meta.env.DEV) {
   window.__app = () => app;
+}
+
+// Dev-only: Handle Vite connection loss/recovery during sleep/wake
+if (import.meta.hot) {
+  let connectionLost = false;
+
+  // Detect when Vite connection is lost
+  import.meta.hot.on('vite:ws:disconnect', () => {
+    connectionLost = true;
+    console.debug('[vite] Connection lost, will reload on reconnect');
+  });
+
+  // When Vite reconnects after connection loss, do a controlled reload
+  import.meta.hot.on('vite:ws:connect', () => {
+    if (connectionLost) {
+      console.debug('[vite] Connection restored, reloading in 500ms...');
+      setTimeout(() => window.location.reload(), 500);
+    }
+  });
 }

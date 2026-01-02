@@ -65,7 +65,7 @@ vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
 }));
 
 vi.mock('@renderer/ui/orchestration/capture-ui.bridge.js', () => ({
-  CaptureUiBridge: vi.fn()
+  CaptureUIBridge: vi.fn()
 }));
 
 // Features: Devices mocks
@@ -78,7 +78,7 @@ vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
 }));
 
 vi.mock('@renderer/features/devices/adapters/ipc-device-status.adapter.js', () => ({
-  IpcDeviceStatusAdapter: vi.fn()
+  IPCDeviceStatusAdapter: vi.fn()
 }));
 
 vi.mock('@renderer/features/devices/adapters/device-ipc.adapter.js', () => ({

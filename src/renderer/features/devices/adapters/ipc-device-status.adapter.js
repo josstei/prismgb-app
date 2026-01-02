@@ -1,6 +1,6 @@
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
 
-export class IpcDeviceStatusAdapter extends IDeviceStatusProvider {
+export class IPCDeviceStatusAdapter extends IDeviceStatusProvider {
   constructor(ipcClient) {
     super();
     this.ipcClient = ipcClient;

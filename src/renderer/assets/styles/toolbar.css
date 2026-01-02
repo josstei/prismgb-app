@@ -211,6 +211,24 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
   animation: spin 1s linear infinite;
 }
 
+/* Notes button - info cyan */
+.toolbar-btn.toolbar-notes {
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.15) 0%, rgba(0, 150, 180, 0.1) 100%);
+}
+
+.toolbar-btn.toolbar-notes:hover:not(:disabled) {
+  border-color: rgba(var(--color-info-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
+  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
+}
+
+.toolbar-btn.toolbar-notes.panel-open {
+  border-color: rgba(var(--color-info-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
+  box-shadow: var(--shadow-glow-prismatic);
+}
+
 /* =====================================================
    Shader Panel - Dropdown Below Button
    ===================================================== */

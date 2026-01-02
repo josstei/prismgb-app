@@ -63,6 +63,7 @@ describe('AppOrchestrator', () => {
       initialize: vi.fn().mockResolvedValue(),
       initializeSettingsMenu: vi.fn(),
       initializeShaderSelector: vi.fn(),
+      initializeNotesPanel: vi.fn(),
       setupOverlayClickHandlers: vi.fn(),
       setupUIEventListeners: vi.fn(),
       cleanup: vi.fn().mockResolvedValue()

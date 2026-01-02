@@ -73,5 +73,18 @@ export const DOMSelectors = {
   UPDATE_PROGRESS_FILL: 'updateProgressFill',
   UPDATE_PROGRESS_TEXT: 'updateProgressText',
   UPDATE_ACTION_BTN: 'updateActionBtn',
-  UPDATE_BADGE: 'updateBadge'
+  UPDATE_BADGE: 'updateBadge',
+
+  // Notes panel
+  NOTES_BTN: 'notesBtn',
+  NOTES_PANEL: 'notesPanel',
+  NOTES_SEARCH_INPUT: 'notesSearchInput',
+  NOTES_LIST: 'notesList',
+  NOTES_EDITOR: 'notesEditor',
+  NOTES_EMPTY_STATE: 'notesEmptyState',
+  NOTES_TITLE_INPUT: 'notesTitleInput',
+  NOTES_CONTENT_AREA: 'notesContentArea',
+  NOTES_NEW_BTN: 'notesNewBtn',
+  NOTES_DELETE_BTN: 'notesDeleteBtn',
+  NOTES_CLOSE_BTN: 'notesCloseBtn'
 };

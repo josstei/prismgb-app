@@ -9,6 +9,7 @@ import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/render-presets.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { sliderToBrightness, brightnessToSlider } from '@shared/utils/brightness.utils.js';
 
 class ShaderSelectorComponent {
   constructor({ settingsService, appState, eventBus, logger }) {
@@ -115,8 +116,7 @@ class ShaderSelectorComponent {
   _loadCurrentBrightness() {
     this.currentBrightness = this.settingsService.getGlobalBrightness();
     if (this.brightnessSlider) {
-      // Convert brightness (0.5-1.5) to slider value (0-100)
-      this.brightnessSlider.value = Math.round((this.currentBrightness - 0.5) * 100);
+      this.brightnessSlider.value = brightnessToSlider(this.currentBrightness);
     }
     this._updateBrightnessDisplay();
   }
@@ -397,8 +397,7 @@ class ShaderSelectorComponent {
         if (Math.abs(brightness - this.currentBrightness) > 0.01) {
           this.currentBrightness = brightness;
           if (this.brightnessSlider) {
-            // Convert brightness (0.5-1.5) to slider value (0-100)
-            this.brightnessSlider.value = Math.round((brightness - 0.5) * 100);
+            this.brightnessSlider.value = brightnessToSlider(brightness);
           }
           this._updateBrightnessDisplay();
         }
@@ -451,9 +450,8 @@ class ShaderSelectorComponent {
    * @private
    */
   _handleBrightnessChange(saveToSettings) {
-    // Convert slider value (0-100) to brightness multiplier (0.5-1.5)
     const sliderValue = parseInt(this.brightnessSlider.value);
-    const brightness = (sliderValue / 100) + 0.5;
+    const brightness = sliderToBrightness(sliderValue);
 
     this.currentBrightness = brightness;
     this._updateBrightnessDisplay();

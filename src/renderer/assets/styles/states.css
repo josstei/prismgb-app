@@ -104,7 +104,8 @@ body.cursor-hidden * {
 
 /* Hide capture buttons when not streaming */
 #screenshotBtn,
-#recordBtn {
+#recordBtn,
+#notesBtn {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
@@ -112,7 +113,8 @@ body.cursor-hidden * {
 
 /* Show buttons when streaming - pop in */
 body.streaming-mode #screenshotBtn,
-body.streaming-mode #recordBtn {
+body.streaming-mode #recordBtn,
+body.streaming-mode #notesBtn {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
@@ -121,7 +123,8 @@ body.streaming-mode #recordBtn {
 
 /* Pop out animation when hiding */
 #screenshotBtn.hiding,
-#recordBtn.hiding {
+#recordBtn.hiding,
+#notesBtn.hiding {
   animation: button-hide 0.15s cubic-bezier(0.55, 0, 1, 0.45) forwards;
   pointer-events: none;
 }

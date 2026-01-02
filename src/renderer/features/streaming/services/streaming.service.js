@@ -95,7 +95,7 @@ export class StreamingService extends BaseService {
 
     // Clean up any partial state from previous ERROR before starting
     if (this._state === StreamState.ERROR) {
-      this._cleanupPartialState();
+      await this._cleanupPartialState();
     }
 
     this._state = StreamState.STARTING;
@@ -302,17 +302,19 @@ export class StreamingService extends BaseService {
    * Called when transitioning from ERROR state to allow clean restart
    * @private
    */
-  _cleanupPartialState() {
+  async _cleanupPartialState() {
     this.logger.debug('Cleaning up partial state from ERROR');
 
     // Remove any track monitoring that might have been set up
     this._removeTrackMonitoring();
 
-    // Release stream if it was acquired
+    // Release stream if it was acquired - await to prevent race conditions
     if (this.currentAdapter && this.currentStream) {
-      this.currentAdapter.releaseStream(this.currentStream).catch(error => {
+      try {
+        await this.currentAdapter.releaseStream(this.currentStream);
+      } catch (error) {
         this.logger.warn('Error releasing stream during partial cleanup:', error);
-      });
+      }
     }
 
     // Clear all state

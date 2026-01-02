@@ -35,12 +35,25 @@ describe('UIComponentRegistry', () => {
       }
     };
 
+    // Create mock shader selector and notes panel components
+    mockComponents.shaderSelectorComponent = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    };
+
+    mockComponents.notesPanelComponent = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    };
+
     // Create mock factory with factory methods
     mockFactory = {
       createStatusNotificationComponent: vi.fn().mockReturnValue(mockComponents.statusNotificationComponent),
       createDeviceStatusComponent: vi.fn().mockReturnValue(mockComponents.deviceStatusComponent),
       createStreamControlsComponent: vi.fn().mockReturnValue(mockComponents.streamControlsComponent),
-      createSettingsMenuComponent: vi.fn().mockReturnValue(mockComponents.settingsMenuComponent)
+      createSettingsMenuComponent: vi.fn().mockReturnValue(mockComponents.settingsMenuComponent),
+      createShaderSelectorComponent: vi.fn().mockReturnValue(mockComponents.shaderSelectorComponent),
+      createNotesPanelComponent: vi.fn().mockReturnValue(mockComponents.notesPanelComponent)
     };
 
     // Create mock event bus
@@ -223,6 +236,146 @@ describe('UIComponentRegistry', () => {
       registry.initSettingsMenu(dependencies);
 
       expect(mockLogger.info).toHaveBeenCalledWith('Settings menu component initialized');
+    });
+  });
+
+  describe('initShaderSelector', () => {
+    it('should log initialization debug message', () => {
+      const dependencies = {
+        settingsService: {},
+        appState: {},
+        logger: mockLogger
+      };
+      const elements = {
+        shaderPanel: {},
+        shaderOptions: []
+      };
+
+      registry.initShaderSelector(dependencies, elements);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing shader selector component');
+    });
+
+    it('should create ShaderSelectorComponent with dependencies', () => {
+      const dependencies = {
+        settingsService: {},
+        appState: {},
+        logger: mockLogger
+      };
+      const elements = {
+        shaderPanel: {},
+        shaderOptions: []
+      };
+
+      registry.initShaderSelector(dependencies, elements);
+
+      expect(mockFactory.createShaderSelectorComponent).toHaveBeenCalledWith(dependencies);
+    });
+
+    it('should initialize component with elements', () => {
+      const dependencies = {
+        settingsService: {},
+        appState: {},
+        logger: mockLogger
+      };
+      const elements = {
+        shaderPanel: {},
+        shaderOptions: []
+      };
+
+      registry.initShaderSelector(dependencies, elements);
+
+      expect(mockComponents.shaderSelectorComponent.initialize).toHaveBeenCalledWith(elements);
+    });
+
+    it('should store ShaderSelectorComponent in components Map', () => {
+      const dependencies = {
+        settingsService: {},
+        appState: {},
+        logger: mockLogger
+      };
+      const elements = {};
+
+      registry.initShaderSelector(dependencies, elements);
+
+      expect(registry.components.get('shaderSelectorComponent')).toBe(mockComponents.shaderSelectorComponent);
+    });
+
+    it('should log completion info message', () => {
+      const dependencies = {};
+      const elements = {};
+
+      registry.initShaderSelector(dependencies, elements);
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Shader selector component initialized');
+    });
+  });
+
+  describe('initNotesPanel', () => {
+    it('should log initialization debug message', () => {
+      const dependencies = {
+        notesService: {},
+        logger: mockLogger
+      };
+      const elements = {
+        notesPanel: {},
+        notesList: {}
+      };
+
+      registry.initNotesPanel(dependencies, elements);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing notes panel component');
+    });
+
+    it('should create NotesPanelComponent with dependencies', () => {
+      const dependencies = {
+        notesService: {},
+        logger: mockLogger
+      };
+      const elements = {
+        notesPanel: {},
+        notesList: {}
+      };
+
+      registry.initNotesPanel(dependencies, elements);
+
+      expect(mockFactory.createNotesPanelComponent).toHaveBeenCalledWith(dependencies);
+    });
+
+    it('should initialize component with elements', () => {
+      const dependencies = {
+        notesService: {},
+        logger: mockLogger
+      };
+      const elements = {
+        notesPanel: {},
+        notesList: {}
+      };
+
+      registry.initNotesPanel(dependencies, elements);
+
+      expect(mockComponents.notesPanelComponent.initialize).toHaveBeenCalledWith(elements);
+    });
+
+    it('should store NotesPanelComponent in components Map', () => {
+      const dependencies = {
+        notesService: {},
+        logger: mockLogger
+      };
+      const elements = {};
+
+      registry.initNotesPanel(dependencies, elements);
+
+      expect(registry.components.get('notesPanelComponent')).toBe(mockComponents.notesPanelComponent);
+    });
+
+    it('should log completion info message', () => {
+      const dependencies = {};
+      const elements = {};
+
+      registry.initNotesPanel(dependencies, elements);
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Notes panel component initialized');
     });
   });
 
