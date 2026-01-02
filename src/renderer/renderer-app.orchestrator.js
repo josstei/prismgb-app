@@ -11,6 +11,30 @@
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { UIController } from '@renderer/ui/controller/ui.class.js';
 
+/**
+ * Retry a dynamic import with exponential backoff
+ * @param {() => Promise<T>} importFn - Function that returns the import promise
+ * @param {number} maxRetries - Maximum retry attempts
+ * @param {number} baseDelayMs - Base delay between retries (doubles each attempt)
+ * @returns {Promise<T>}
+ */
+async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await importFn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.debug(`[importWithRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 class RendererAppOrchestrator {
   constructor() {
     this.container = null;
@@ -35,8 +59,10 @@ class RendererAppOrchestrator {
     this.logger.info('Initializing renderer application...');
 
     try {
-      // 1. Create DI container (NEW ARCHITECTURE)
-      const { initializeContainer } = await import('./container.js');
+      // 1. Create DI container with retry for resilience
+      const { initializeContainer } = await importWithRetry(
+        () => import('./container.js')
+      );
       this.container = initializeContainer();
 
       // 2. Initialize UI components (not managed by DI)
@@ -172,7 +198,7 @@ class RendererAppOrchestrator {
    * @private
    */
   async _registerUIComponents() {
-    const { asValue } = await import('./container.js');
+    const { asValue } = await importWithRetry(() => import('./container.js'));
 
     // Register UI components as values (already instantiated)
     this.container.register({

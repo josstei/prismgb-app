@@ -94,3 +94,22 @@ window.addEventListener('beforeunload', cleanup);
 if (import.meta.env.DEV) {
   window.__app = () => app;
 }
+
+// Dev-only: Handle Vite connection loss/recovery during sleep/wake
+if (import.meta.hot) {
+  let connectionLost = false;
+
+  // Detect when Vite connection is lost
+  import.meta.hot.on('vite:ws:disconnect', () => {
+    connectionLost = true;
+    console.debug('[vite] Connection lost, will reload on reconnect');
+  });
+
+  // When Vite reconnects after connection loss, do a controlled reload
+  import.meta.hot.on('vite:ws:connect', () => {
+    if (connectionLost) {
+      console.debug('[vite] Connection restored, reloading in 500ms...');
+      setTimeout(() => window.location.reload(), 500);
+    }
+  });
+}
