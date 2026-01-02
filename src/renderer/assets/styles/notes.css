@@ -16,7 +16,8 @@
 /* Sidebar Container - Glass morphism with prismatic border */
 .notes-panel {
   position: fixed;
-  top: var(--side-panel-center-offset);
+  /* Top position set dynamically by JS to align with toolbar */
+  top: var(--notes-panel-top, var(--side-panel-center-offset));
   right: var(--side-panel-offset-right);
   /* Left position set dynamically by JS based on toolbar location */
   left: var(--notes-panel-left, var(--side-panel-offset-left));
@@ -48,8 +49,8 @@
   flex-direction: column;
   overflow: hidden;
 
-  /* Hidden state - slide off right edge, vertically centered */
-  transform: translateX(100%) translateY(-50%);
+  /* Hidden state - slide off right edge */
+  transform: translateX(100%);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -80,9 +81,9 @@
   z-index: -1;
 }
 
-/* Visible state - slide in from right, stay centered */
+/* Visible state - slide in from right */
 .notes-panel.visible {
-  transform: translateX(0) translateY(-50%);
+  transform: translateX(0);
   opacity: 1;
   pointer-events: auto;
 }
@@ -524,11 +525,11 @@ body:not(.streaming-mode) .notes-panel {
   }
 
   .notes-panel:not(.visible) {
-    transform: translateX(100%) translateY(-50%) !important;
+    transform: translateX(100%) !important;
   }
 
   .notes-panel.visible {
-    transform: translateX(0) translateY(-50%) !important;
+    transform: translateX(0) !important;
   }
 
   .notes-action-btn,

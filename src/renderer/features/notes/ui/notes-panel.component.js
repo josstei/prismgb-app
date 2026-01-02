@@ -488,7 +488,8 @@ class NotesPanelComponent {
   }
 
   /**
-   * Update panel left position based on toolbar location
+   * Update panel position based on toolbar location
+   * Aligns panel top with toolbar top, and left edge to toolbar right
    * @private
    */
   _updatePanelPosition() {
@@ -500,8 +501,10 @@ class NotesPanelComponent {
     const toolbarRect = toolbar.getBoundingClientRect();
     const gap = 16;
     const leftPos = Math.round(toolbarRect.right + gap);
+    const topPos = Math.round(toolbarRect.top);
 
     this.elements.notesPanel.style.setProperty('--notes-panel-left', `${leftPos}px`);
+    this.elements.notesPanel.style.setProperty('--notes-panel-top', `${topPos}px`);
   }
 
   /**
