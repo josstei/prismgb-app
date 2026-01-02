@@ -87,6 +87,11 @@
   pointer-events: auto;
 }
 
+/* Hide panel when not streaming */
+body:not(.streaming-mode) .notes-panel {
+  display: none;
+}
+
 /* =====================================================
    Header
    ===================================================== */
