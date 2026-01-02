@@ -58,7 +58,8 @@ import { CaptureOrchestrator } from '@renderer/features/capture/services/capture
 import { GpuRecordingService } from '@renderer/features/capture/services/gpu-recording.service.js';
 
 // Features: Settings
-import { SettingsService, PROTECTED_STORAGE_KEYS } from '@renderer/features/settings/services/settings.service.js';
+import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
+import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
 import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
 import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
 import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
