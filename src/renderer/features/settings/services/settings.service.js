@@ -12,18 +12,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-
-/**
- * Storage keys that should be protected from cleanup when quota is exceeded
- * These are critical user preferences that should always be preserved
- */
-const PROTECTED_STORAGE_KEYS = [
-  'gameVolume',
-  'statusStripVisible',
-  'renderPreset',
-  'globalBrightness',
-  'fullscreenOnStartup'
-];
+import { SettingsStorageKeys } from '@shared/config/storage-keys.config.js';
 
 class SettingsService extends BaseService {
   constructor(dependencies) {
@@ -39,14 +28,8 @@ class SettingsService extends BaseService {
       fullscreenOnStartup: false
     };
 
-    this.keys = {
-      VOLUME: 'gameVolume',
-      STATUS_STRIP: 'statusStripVisible',
-      RENDER_PRESET: 'renderPreset',
-      GLOBAL_BRIGHTNESS: 'globalBrightness',
-      PERFORMANCE_MODE: 'performanceMode',
-      FULLSCREEN_ON_STARTUP: 'fullscreenOnStartup'
-    };
+    // Use centralized storage keys
+    this.keys = SettingsStorageKeys;
   }
 
   /**
@@ -200,4 +183,4 @@ class SettingsService extends BaseService {
   }
 }
 
-export { SettingsService, PROTECTED_STORAGE_KEYS };
+export { SettingsService };

@@ -152,4 +152,21 @@
   /* Chromatic Aberration Colors */
   --chromatic-magenta: rgba(255, 0, 128, 0.5);
   --chromatic-cyan: rgba(0, 255, 255, 0.5);
+
+  /* Side Panel System
+     Configurable dimensions for slide-out panels (notes, future panels)
+     Override per-panel with --{panel}-height, --{panel}-width, etc. */
+  --side-panel-height: 66%;
+  --side-panel-max-height: calc(100vh - 130px);
+  --side-panel-min-height: 300px;
+  --side-panel-width: 30%;
+  --side-panel-min-width: 200px;
+  --side-panel-max-width: 450px;
+  --side-panel-offset-right: 8px;
+  --side-panel-offset-left: 70%; /* Prevents overlap with toolbar */
+  --side-panel-border-radius: 18px;
+
+  /* Vertical centering offset (accounts for header ~80px and footer ~50px)
+     Center point shifted slightly down to account for header/footer asymmetry */
+  --side-panel-center-offset: calc(50% + 15px);
 }

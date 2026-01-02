@@ -9,7 +9,32 @@
  */
 
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
-import { UIController } from '@renderer/ui/controller/ui.class.js';
+import { UIController } from '@renderer/ui/controller/ui.controller.js';
+import { safeDispose, safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
+
+/**
+ * Retry a dynamic import with exponential backoff
+ * @param {() => Promise<T>} importFn - Function that returns the import promise
+ * @param {number} maxRetries - Maximum retry attempts
+ * @param {number} baseDelayMs - Base delay between retries (doubles each attempt)
+ * @returns {Promise<T>}
+ */
+async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await importFn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.debug(`[importWithRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
 
 class RendererAppOrchestrator {
   constructor() {
@@ -35,8 +60,10 @@ class RendererAppOrchestrator {
     this.logger.info('Initializing renderer application...');
 
     try {
-      // 1. Create DI container (NEW ARCHITECTURE)
-      const { initializeContainer } = await import('./container.js');
+      // 1. Create DI container with retry for resilience
+      const { initializeContainer } = await importWithRetry(
+        () => import('./container.js')
+      );
       this.container = initializeContainer();
 
       // 2. Initialize UI components (not managed by DI)
@@ -93,48 +120,21 @@ class RendererAppOrchestrator {
   async cleanup() {
     this.logger.info('Cleaning up renderer application...');
 
-    try {
-      if (this.orchestrator) {
-        await this.orchestrator.cleanup();
-      }
-    } catch (error) {
-      this.logger.error('Error cleaning up orchestrator:', error);
-    }
+    // Cleanup orchestrator first
+    await safeDispose(this.logger, 'orchestrator', this.orchestrator, 'cleanup');
 
-    try {
-      if (this._captureUiBridge) {
-        this._captureUiBridge.dispose();
-      }
-    } catch (error) {
-      this.logger.error('Error disposing CaptureUiBridge:', error);
-    }
+    // Cleanup UI bridges and controllers
+    await safeDisposeAll(this.logger, [
+      ['CaptureUIBridge', this._captureUiBridge],
+      ['UIController', this._uiController]
+    ]);
 
-    try {
-      // Clean up UIController (event listeners)
-      if (this._uiController && typeof this._uiController.dispose === 'function') {
-        this._uiController.dispose();
-      }
-    } catch (error) {
-      this.logger.error('Error disposing UIController:', error);
-    }
+    // Cleanup AppState (resolved from container)
+    const appState = this.container?.resolve?.('appState');
+    await safeDispose(this.logger, 'AppState', appState);
 
-    // Clean up AppState EventBus subscriptions
-    try {
-      const appState = this.container?.resolve('appState');
-      if (appState && typeof appState.dispose === 'function') {
-        appState.dispose();
-      }
-    } catch (error) {
-      this.logger.error('Error disposing AppState:', error);
-    }
-
-    try {
-      if (this.container) {
-        this.container.dispose();
-      }
-    } catch (error) {
-      this.logger.error('Error disposing container:', error);
-    }
+    // Cleanup container last
+    await safeDispose(this.logger, 'container', this.container);
 
     this.isInitialized = false;
     this.logger.info('Renderer application cleanup complete');
@@ -172,7 +172,7 @@ class RendererAppOrchestrator {
    * @private
    */
   async _registerUIComponents() {
-    const { asValue } = await import('./container.js');
+    const { asValue } = await importWithRetry(() => import('./container.js'));
 
     // Register UI components as values (already instantiated)
     this.container.register({

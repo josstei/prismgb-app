@@ -125,8 +125,21 @@ class DeviceService extends BaseService {
         const failedIds = failedProfiles.map(p => p.id).join(', ');
         this.logger.warn(`Failed to initialize ${failedProfiles.length} device profile(s): ${failedIds}`);
       }
+
+      const requiredProfileIds = new Set(['chromatic-mod-retro']);
+      const failedRequiredProfiles = failedProfiles.filter(profile => requiredProfileIds.has(profile.id));
+
+      if (registeredCount === 0) {
+        throw new Error('No device profiles were successfully initialized');
+      }
+
+      if (failedRequiredProfiles.length > 0) {
+        const requiredIds = failedRequiredProfiles.map(profile => profile.id).join(', ');
+        throw new Error(`Required device profile(s) failed to initialize: ${requiredIds}`);
+      }
     } catch (error) {
       this.logger.error('Failed to initialize device profiles', error);
+      throw error; // Re-throw to indicate initialization failure
     }
   }
 

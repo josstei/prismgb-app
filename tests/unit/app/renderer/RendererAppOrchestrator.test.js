@@ -12,7 +12,7 @@ const { MockUIController } = vi.hoisted(() => ({
   })
 }));
 
-vi.mock('@renderer/ui/controller/ui.class.js', () => ({
+vi.mock('@renderer/ui/controller/ui.controller.js', () => ({
   UIController: MockUIController
 }));
 

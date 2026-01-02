@@ -83,6 +83,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Delegate UI setup to UISetupOrchestrator
     this.uiSetupOrchestrator.initializeSettingsMenu();
     this.uiSetupOrchestrator.initializeShaderSelector();
+    this.uiSetupOrchestrator.initializeNotesPanel();
     this.uiSetupOrchestrator.setupOverlayClickHandlers();
     this.uiSetupOrchestrator.setupUIEventListeners();
 

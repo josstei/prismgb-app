@@ -8,9 +8,9 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { TIMING } from '@shared/config/constants.config.js';
 
-class CaptureUiBridge extends BaseService {
+class CaptureUIBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUiBridge');
+    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
     this._subscriptions = [];
   }
 
@@ -25,7 +25,7 @@ class CaptureUiBridge extends BaseService {
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_DEGRADED, (data) => this._handleRecordingDegraded(data))
     );
 
-    this.logger.info('CaptureUiBridge initialized');
+    this.logger.info('CaptureUIBridge initialized');
   }
 
   dispose() {
@@ -35,7 +35,7 @@ class CaptureUiBridge extends BaseService {
       }
     });
     this._subscriptions = [];
-    this.logger.info('CaptureUiBridge disposed');
+    this.logger.info('CaptureUIBridge disposed');
   }
 
   _handleScreenshotTriggered() {
@@ -90,4 +90,4 @@ class CaptureUiBridge extends BaseService {
   }
 }
 
-export { CaptureUiBridge };
+export { CaptureUIBridge };
