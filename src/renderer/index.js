@@ -8,8 +8,15 @@
 
 import './assets/styles/styles.css';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { renderAppTemplates } from './ui/templates/index.js';
 
-// Mark body ready after CSS is loaded (prevents FOUC)
+// Render templates into app container
+const appContainer = document.getElementById('appContainer');
+if (appContainer) {
+  renderAppTemplates(appContainer);
+}
+
+// Mark body ready after CSS and templates are loaded (prevents FOUC)
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
