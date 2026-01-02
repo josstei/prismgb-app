@@ -30,6 +30,8 @@ class NotesPanelComponent {
     this._domListeners = createDomListenerManager({ logger });
     this._eventSubscriptions = [];
 
+    // ResizeObserver for stream layout changes
+    this._panelResizeObserver = null;
   }
 
   /**
@@ -88,6 +90,7 @@ class NotesPanelComponent {
   show() {
     if (!this.elements.notesPanel) return;
 
+    this._updatePanelPosition();
     this.elements.notesPanel.classList.add(CSSClasses.VISIBLE);
     this.elements.notesBtn?.classList.add(CSSClasses.PANEL_OPEN);
     this.elements.notesBtn?.setAttribute('aria-expanded', 'true');
@@ -400,6 +403,14 @@ class NotesPanelComponent {
     this._domListeners.add(window, 'resize', () => {
       this._updatePanelPosition();
     });
+
+    const streamContainer = document.getElementById(DOMSelectors.STREAM_CONTAINER);
+    if (!streamContainer || typeof ResizeObserver === 'undefined') return;
+
+    this._panelResizeObserver = new ResizeObserver(() => {
+      this._updatePanelPosition();
+    });
+    this._panelResizeObserver.observe(streamContainer);
   }
 
   /**
@@ -450,6 +461,11 @@ class NotesPanelComponent {
     if (this._saveTimeout) {
       clearTimeout(this._saveTimeout);
       this._saveTimeout = null;
+    }
+
+    if (this._panelResizeObserver) {
+      this._panelResizeObserver.disconnect();
+      this._panelResizeObserver = null;
     }
 
     this._domListeners.removeAll();
