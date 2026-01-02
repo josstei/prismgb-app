@@ -36,30 +36,6 @@ async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
   throw lastError;
 }
 
-/**
- * Retry a dynamic import with exponential backoff
- * @param {() => Promise<T>} importFn - Function that returns the import promise
- * @param {number} maxRetries - Maximum retry attempts
- * @param {number} baseDelayMs - Base delay between retries (doubles each attempt)
- * @returns {Promise<T>}
- */
-async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await importFn();
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxRetries) {
-        const delay = baseDelayMs * Math.pow(2, attempt);
-        console.debug(`[importWithRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  throw lastError;
-}
-
 class RendererAppOrchestrator {
   constructor() {
     this.container = null;
