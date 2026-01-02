@@ -12,38 +12,56 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-
-const STORAGE_KEY = 'userNotes';
+import { generateEntityId } from '@shared/utils/string.utils.js';
+import { NotesStorageKeys } from '@shared/config/storage-keys.config.js';
 
 class NotesService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
+
+    // In-memory cache to avoid redundant JSON parsing
+    this._notesCache = null;
+    this._cacheValid = false;
   }
 
   /**
-   * Generate a unique ID for a note
-   * @returns {string} UUID-like identifier
+   * Invalidate the in-memory cache
+   * @private
    */
-  _generateId() {
-    return `note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  _invalidateCache() {
+    this._notesCache = null;
+    this._cacheValid = false;
   }
 
   /**
-   * Get all notes from storage
+   * Get all notes from storage (with caching)
    * @returns {Array<Object>} Array of note objects sorted by updatedAt (newest first)
    */
   getAllNotes() {
-    const raw = this.storageService?.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    // Return cached data if valid
+    if (this._cacheValid && this._notesCache !== null) {
+      return this._notesCache;
+    }
+
+    const raw = this.storageService?.getItem(NotesStorageKeys.USER_NOTES);
+    if (!raw) {
+      this._notesCache = [];
+      this._cacheValid = true;
+      return this._notesCache;
+    }
 
     try {
       const notes = JSON.parse(raw);
-      return Array.isArray(notes)
+      this._notesCache = Array.isArray(notes)
         ? notes.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
         : [];
+      this._cacheValid = true;
+      return this._notesCache;
     } catch (error) {
-      this.logger.warn('Failed to parse notes from storage', error);
-      return [];
+      this.logger.error('Failed to parse notes from storage - data may be corrupted', error);
+      this._notesCache = [];
+      this._cacheValid = true;
+      return this._notesCache;
     }
   }
 
@@ -61,12 +79,12 @@ class NotesService extends BaseService {
    * Create a new note
    * @param {string} [title=''] - Note title
    * @param {string} [content=''] - Note content
-   * @returns {Object} Created note object
+   * @returns {Object|null} Created note object, or null if save failed
    */
   createNote(title = '', content = '') {
     const now = Date.now();
     const note = {
-      id: this._generateId(),
+      id: generateEntityId('note'),
       title: title || 'Untitled Note',
       content,
       createdAt: now,
@@ -75,7 +93,11 @@ class NotesService extends BaseService {
 
     const notes = this.getAllNotes();
     notes.unshift(note);
-    this._saveNotes(notes);
+
+    if (!this._saveNotes(notes)) {
+      this.logger.error('Failed to create note - storage error');
+      return null;
+    }
 
     this.logger.debug(`Created note: ${note.id}`);
     this.eventBus.publish(EventChannels.NOTES.NOTE_CREATED, note);
@@ -87,7 +109,7 @@ class NotesService extends BaseService {
    * Update an existing note
    * @param {string} id - Note ID
    * @param {Object} updates - Fields to update (title, content)
-   * @returns {Object|null} Updated note or null if not found
+   * @returns {Object|null} Updated note or null if not found or save failed
    */
   updateNote(id, updates) {
     const notes = this.getAllNotes();
@@ -105,7 +127,11 @@ class NotesService extends BaseService {
     };
 
     notes[index] = updatedNote;
-    this._saveNotes(notes);
+
+    if (!this._saveNotes(notes)) {
+      this.logger.error(`Failed to update note: ${id} - storage error`);
+      return null;
+    }
 
     this.logger.debug(`Updated note: ${id}`);
     this.eventBus.publish(EventChannels.NOTES.NOTE_UPDATED, updatedNote);
@@ -116,7 +142,7 @@ class NotesService extends BaseService {
   /**
    * Delete a note
    * @param {string} id - Note ID
-   * @returns {boolean} True if deleted, false if not found
+   * @returns {boolean} True if deleted, false if not found or save failed
    */
   deleteNote(id) {
     const notes = this.getAllNotes();
@@ -128,7 +154,11 @@ class NotesService extends BaseService {
     }
 
     notes.splice(index, 1);
-    this._saveNotes(notes);
+
+    if (!this._saveNotes(notes)) {
+      this.logger.error(`Failed to delete note: ${id} - storage error`);
+      return false;
+    }
 
     this.logger.debug(`Deleted note: ${id}`);
     this.eventBus.publish(EventChannels.NOTES.NOTE_DELETED, { id });
@@ -151,8 +181,11 @@ class NotesService extends BaseService {
 
     return notes
       .map(note => {
-        const titleScore = this._fuzzyScore(note.title.toLowerCase(), normalizedQuery);
-        const contentScore = this._fuzzyScore(note.content.toLowerCase(), normalizedQuery) * 0.5;
+        // Guard against corrupted notes with missing/non-string fields
+        const title = typeof note.title === 'string' ? note.title : '';
+        const content = typeof note.content === 'string' ? note.content : '';
+        const titleScore = this._fuzzyScore(title.toLowerCase(), normalizedQuery);
+        const contentScore = this._fuzzyScore(content.toLowerCase(), normalizedQuery) * 0.5;
         return { note, score: Math.max(titleScore, contentScore) };
       })
       .filter(({ score }) => score > 0)
@@ -165,6 +198,7 @@ class NotesService extends BaseService {
    * @param {string} text - Text to search in
    * @param {string} query - Search query
    * @returns {number} Score from 0 to 1 (higher = better match)
+   * @private
    */
   _fuzzyScore(text, query) {
     const index = text.indexOf(query);
@@ -177,12 +211,20 @@ class NotesService extends BaseService {
   /**
    * Save notes array to storage
    * @param {Array<Object>} notes - Notes to save
+   * @returns {boolean} True if saved successfully, false otherwise
+   * @private
    */
   _saveNotes(notes) {
     try {
-      this.storageService?.setItem(STORAGE_KEY, JSON.stringify(notes));
+      this.storageService?.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes));
+      // Sort and cache the saved data to maintain getAllNotes() contract
+      this._notesCache = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      this._cacheValid = true;
+      return true;
     } catch (error) {
-      this.logger.error('Failed to save notes', error);
+      this.logger.error('Failed to save notes to storage', error);
+      this._invalidateCache();
+      return false;
     }
   }
 }
