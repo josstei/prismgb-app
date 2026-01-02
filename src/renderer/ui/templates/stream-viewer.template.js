@@ -109,3 +109,28 @@ export default function createStreamViewerTemplate() {
     </div>
   `;
 }
+
+/**
+ * DOM selectors for stream viewer elements
+ */
+export const selectors = {
+  streamContainer: 'streamContainer',
+  streamVideo: 'streamVideo',
+  streamCanvas: 'streamCanvas',
+  streamOverlay: 'streamOverlay',
+  overlayMessage: 'overlayMessage',
+  streamToolbar: 'streamToolbar',
+  shaderControls: 'shaderControls',
+  shaderBtn: 'shaderBtn',
+  shaderDropdown: 'shaderDropdown',
+  brightnessSlider: 'brightnessSlider',
+  brightnessPercentage: 'brightnessPercentage',
+  volumeSliderVertical: 'volumeSliderVertical',
+  volumePercentageVertical: 'volumePercentageVertical',
+  cinematicToggle: 'cinematicToggle',
+  screenshotBtn: 'screenshotBtn',
+  recordBtn: 'recordBtn',
+  notesBtn: 'notesBtn',
+  fullscreenControls: 'fullscreenControls',
+  fsExitBtn: 'fsExitBtn'
+};

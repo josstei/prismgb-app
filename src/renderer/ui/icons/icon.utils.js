@@ -69,6 +69,47 @@ const icons = {
 };
 
 /**
+ * Create an SVG icon element
+ * @param {string} name - Icon name from registry
+ * @param {Object} [options] - Optional configuration
+ * @param {number} [options.size] - Icon size (width and height), overrides SVG default
+ * @param {string} [options.className] - Additional CSS class
+ * @param {string} [options.ariaLabel] - Accessibility label (if provided, sets aria-hidden to false)
+ * @returns {HTMLSpanElement} Wrapper span containing SVG
+ */
+export function createIcon(name, options = {}) {
+  const { size, className = '', ariaLabel = '' } = options;
+
+  const svgString = icons[name];
+  if (!svgString) {
+    console.warn(`Icon "${name}" not found in registry`);
+    return document.createElement('span');
+  }
+
+  // Create wrapper span for consistent styling
+  const wrapper = document.createElement('span');
+  wrapper.className = `icon icon-${name}${className ? ` ${className}` : ''}`;
+  wrapper.setAttribute('aria-hidden', ariaLabel ? 'false' : 'true');
+  if (ariaLabel) {
+    wrapper.setAttribute('aria-label', ariaLabel);
+  }
+
+  // Parse and insert SVG
+  wrapper.innerHTML = svgString;
+
+  // Apply size to SVG element if provided
+  if (size) {
+    const svg = wrapper.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('width', String(size));
+      svg.setAttribute('height', String(size));
+    }
+  }
+
+  return wrapper;
+}
+
+/**
  * Get raw SVG string for inline use in templates
  * @param {string} name - Icon name from registry
  * @param {number} [size] - Optional size to apply
@@ -90,4 +131,21 @@ export function getIconSvg(name, size) {
   return svgString
     .replace(/width="[^"]*"/, `width="${size}"`)
     .replace(/height="[^"]*"/, `height="${size}"`);
+}
+
+/**
+ * Check if an icon exists in the registry
+ * @param {string} name - Icon name
+ * @returns {boolean} True if icon exists
+ */
+export function hasIcon(name) {
+  return name in icons;
+}
+
+/**
+ * Get all available icon names
+ * @returns {string[]} Array of icon names
+ */
+export function getIconNames() {
+  return Object.keys(icons);
 }

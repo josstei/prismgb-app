@@ -110,3 +110,33 @@ export default function createHeaderTemplate() {
     </header>
   `;
 }
+
+/**
+ * DOM selectors for header elements
+ */
+export const selectors = {
+  fullscreenBtn: 'fullscreenBtn',
+  settingsBtn: 'settingsBtn',
+  settingsMenuContainer: 'settingsMenuContainer',
+  deviceStatus: 'deviceStatus',
+  statusIndicator: 'statusIndicator',
+  statusText: 'statusText',
+  updateBadge: 'updateBadge',
+  settingStatusStrip: 'settingStatusStrip',
+  settingFullscreenOnStartup: 'settingFullscreenOnStartup',
+  settingAnimationSaver: 'settingAnimationSaver',
+  updateSection: 'updateSection',
+  updateCurrentVersion: 'updateCurrentVersion',
+  updateStatusIndicator: 'updateStatusIndicator',
+  updateStatusText: 'updateStatusText',
+  updateProgressContainer: 'updateProgressContainer',
+  updateProgressFill: 'updateProgressFill',
+  updateProgressText: 'updateProgressText',
+  updateActionBtn: 'updateActionBtn',
+  appVersion: 'appVersion',
+  linkGithub: 'linkGithub',
+  linkWebsite: 'linkWebsite',
+  disclaimerBtn: 'disclaimerBtn',
+  disclaimerContent: 'disclaimerContent',
+  linkModRetro: 'linkModRetro'
+};
