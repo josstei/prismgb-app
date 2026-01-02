@@ -3,14 +3,33 @@
    Premium Prismatic Minimalism
    ===================================================== */
 
+/* Notes panel overrides (inherits from side-panel system in tokens.css)
+   Adjust these to customize notes panel specifically */
+:root {
+  --notes-panel-height: var(--side-panel-height);
+  --notes-panel-max-height: var(--side-panel-max-height);
+  --notes-panel-min-height: var(--side-panel-min-height);
+  --notes-panel-min-width: var(--side-panel-min-width);
+  --notes-panel-max-width: var(--side-panel-max-width);
+}
+
 /* Sidebar Container - Glass morphism with prismatic border */
 .notes-panel {
   position: fixed;
-  top: var(--notes-panel-top-offset, 80px);
-  left: var(--notes-panel-left, 70%);
-  right: 8px;
-  bottom: var(--notes-panel-bottom-offset, 50px);
-  min-width: 200px;
+  top: var(--side-panel-center-offset);
+  right: var(--side-panel-offset-right);
+  /* Left position set dynamically by JS based on toolbar location */
+  left: var(--notes-panel-left, var(--side-panel-offset-left));
+  bottom: auto;
+
+  /* Dimensions from panel system */
+  height: var(--notes-panel-height);
+  max-height: var(--notes-panel-max-height);
+  min-height: var(--notes-panel-min-height);
+  /* Width determined by left/right positioning, with constraints */
+  min-width: var(--notes-panel-min-width);
+  max-width: var(--notes-panel-max-width);
+
   z-index: var(--z-dropdown);
 
   /* Glass morphism background */
@@ -19,7 +38,7 @@
   -webkit-backdrop-filter: blur(var(--blur-standard));
 
   border: 1px solid transparent;
-  border-radius: 18px;
+  border-radius: var(--side-panel-border-radius);
   box-shadow:
     -1px 0 0 rgba(var(--color-primary-rgb), 0.15),
     -8px 0 32px rgba(0, 0, 0, 0.4),
@@ -29,8 +48,8 @@
   flex-direction: column;
   overflow: hidden;
 
-  /* Hidden state - slide off right edge */
-  transform: translateX(100%);
+  /* Hidden state - slide off right edge, vertically centered */
+  transform: translateX(100%) translateY(-50%);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -61,16 +80,11 @@
   z-index: -1;
 }
 
-/* Visible state - slide in from right */
+/* Visible state - slide in from right, stay centered */
 .notes-panel.visible {
-  transform: translateX(0);
+  transform: translateX(0) translateY(-50%);
   opacity: 1;
   pointer-events: auto;
-}
-
-/* Fullscreen: keep some bottom padding */
-body.fullscreen-active .notes-panel {
-  --notes-panel-bottom-offset: 8px;
 }
 
 /* =====================================================
@@ -413,7 +427,7 @@ body.fullscreen-active .notes-panel {
   padding: 12px 16px;
   position: relative;
   background: rgba(0, 0, 0, 0.12);
-  border-radius: 0 0 18px 18px;
+  border-radius: 0 0 var(--side-panel-border-radius) var(--side-panel-border-radius);
 }
 
 /* Subtle gradient divider at top */
@@ -505,11 +519,11 @@ body.fullscreen-active .notes-panel {
   }
 
   .notes-panel:not(.visible) {
-    transform: translateX(100%) !important;
+    transform: translateX(100%) translateY(-50%) !important;
   }
 
   .notes-panel.visible {
-    transform: translateX(0) !important;
+    transform: translateX(0) translateY(-50%) !important;
   }
 
   .notes-action-btn,
