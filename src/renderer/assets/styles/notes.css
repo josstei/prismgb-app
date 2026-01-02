@@ -6,13 +6,11 @@
 .notes-panel {
   position: fixed;
   top: var(--notes-panel-top-offset, 80px);
+  left: var(--notes-panel-left, 70%);
   right: 8px;
   bottom: var(--notes-panel-bottom-offset, 50px);
-  width: var(--notes-panel-width, 280px);
-  max-width: 400px;
   min-width: 200px;
   z-index: var(--z-dropdown);
-  contain: layout style;
 
   background: rgb(20, 20, 30);
   border: 1px solid transparent;

@@ -7,6 +7,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Debounce delay for auto-save
@@ -62,6 +63,8 @@ class NotesPanelComponent {
     this._setupNewButton();
     this._setupDeleteButton();
     this._setupEscapeKey();
+    this._setupResizeHandler();
+    this._updatePanelPosition(); // Set initial position
     this._renderNotesList();
     this._subscribeToEvents();
 
@@ -90,8 +93,8 @@ class NotesPanelComponent {
     this.elements.notesBtn?.setAttribute('aria-expanded', 'true');
     this.isVisible = true;
 
-    // Focus search input
-    this.elements.notesSearchInput?.focus();
+    // Focus search input without scrolling
+    this.elements.notesSearchInput?.focus({ preventScroll: true });
 
     this.eventBus.publish(EventChannels.NOTES.PANEL_VISIBILITY_CHANGED, { visible: true });
     this.logger?.debug('Notes panel shown');
@@ -387,6 +390,33 @@ class NotesPanelComponent {
         this.hide();
       }
     });
+  }
+
+  /**
+   * Setup window resize handler to update panel position
+   * @private
+   */
+  _setupResizeHandler() {
+    this._domListeners.add(window, 'resize', () => {
+      this._updatePanelPosition();
+    });
+  }
+
+  /**
+   * Update panel left position based on toolbar location
+   * @private
+   */
+  _updatePanelPosition() {
+    if (!this.elements.notesPanel) return;
+
+    const toolbar = document.getElementById(DOMSelectors.STREAM_TOOLBAR);
+    if (!toolbar) return;
+
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const gap = 16;
+    const leftPos = Math.round(toolbarRect.right + gap);
+
+    this.elements.notesPanel.style.setProperty('--notes-panel-left', `${leftPos}px`);
   }
 
   /**
