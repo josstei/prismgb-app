@@ -1,0 +1,363 @@
+/* =====================================================
+   Notes Sidebar - Fixed Right Edge Panel
+   ===================================================== */
+
+/* Sidebar Container - Fixed to right edge of viewport */
+.notes-panel {
+  position: fixed;
+  top: var(--notes-panel-top-offset, 80px);
+  right: 8px;
+  bottom: var(--notes-panel-bottom-offset, 50px);
+  width: var(--notes-panel-width, 280px);
+  max-width: 400px;
+  min-width: 200px;
+  z-index: var(--z-dropdown);
+  contain: layout style;
+
+  background: rgb(20, 20, 30);
+  border: 1px solid transparent;
+  border-radius: 18px;
+  box-shadow:
+    -1px 0 0 rgba(var(--color-primary-rgb), 0.2),
+    -8px 0 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+
+  /* Hidden state - slide off right edge */
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+
+/* Rainbow gradient border */
+.notes-panel::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 206, 209, 0.4),
+    rgba(0, 150, 200, 0.3),
+    rgba(0, 206, 209, 0.4),
+    rgba(100, 200, 255, 0.3)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Visible state - slide in from right */
+.notes-panel.visible {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fullscreen: keep some bottom padding */
+body.fullscreen-active .notes-panel {
+  --notes-panel-bottom-offset: 8px;
+}
+
+/* =====================================================
+   Header
+   ===================================================== */
+
+.notes-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.notes-panel-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.notes-panel-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.notes-action-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.notes-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* =====================================================
+   Search
+   ===================================================== */
+
+.notes-panel-search {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.notes-panel-search input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.notes-panel-search input:focus {
+  border-color: rgba(var(--color-info-rgb), 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.notes-panel-search input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* =====================================================
+   Content area (split list + editor)
+   ===================================================== */
+
+.notes-panel-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Notes list */
+.notes-list {
+  width: 120px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.notes-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.note-list-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.1s ease;
+}
+
+.note-list-item:hover {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.note-list-item.active {
+  background: rgba(var(--color-info-rgb), 0.2);
+}
+
+.note-list-item-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-list-item-date {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.notes-list-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+
+/* =====================================================
+   Editor
+   ===================================================== */
+
+.notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.notes-title-input {
+  width: 100%;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.notes-title-input:focus {
+  border-bottom-color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.notes-title-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.notes-content-area {
+  flex: 1;
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  min-height: 150px;
+}
+
+.notes-content-area::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Empty state placeholder */
+.notes-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.notes-empty-state svg {
+  opacity: 0.5;
+}
+
+.notes-empty-state strong {
+  color: var(--color-info);
+}
+
+/* Hide empty state when note selected (editor has-note class) */
+.notes-editor.has-note .notes-empty-state {
+  display: none;
+}
+
+/* Hide inputs when no note selected (default) */
+.notes-editor .notes-title-input,
+.notes-editor .notes-content-area {
+  display: none;
+}
+
+/* Show inputs when note is selected */
+.notes-editor.has-note .notes-title-input,
+.notes-editor.has-note .notes-content-area {
+  display: block;
+}
+
+/* =====================================================
+   Footer
+   ===================================================== */
+
+.notes-panel-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.notes-footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.notes-footer-btn:hover:not(:disabled) {
+  background: rgba(var(--color-info-rgb), 0.15);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+}
+
+.notes-footer-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.notes-delete-btn:hover:not(:disabled) {
+  background: rgba(var(--color-danger-rgb), 0.15);
+  border-color: rgba(var(--color-danger-rgb), 0.3);
+  color: var(--color-danger);
+}
+
+/* =====================================================
+   Reduced motion
+   ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-panel {
+    transition: none !important;
+  }
+
+  .notes-panel:not(.visible) {
+    transform: translateX(100%) !important;
+  }
+
+  .notes-panel.visible {
+    transform: translateX(0) !important;
+  }
+}

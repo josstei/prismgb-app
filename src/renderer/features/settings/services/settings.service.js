@@ -22,7 +22,9 @@ const PROTECTED_STORAGE_KEYS = [
   'statusStripVisible',
   'renderPreset',
   'globalBrightness',
-  'fullscreenOnStartup'
+  'fullscreenOnStartup',
+  'userNotes',
+  'notesPanelPosition'
 ];
 
 class SettingsService extends BaseService {

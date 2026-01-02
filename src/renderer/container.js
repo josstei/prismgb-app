@@ -65,6 +65,10 @@ import { FullscreenService } from '@renderer/features/settings/services/fullscre
 import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
 import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
 
+// Features: Notes
+import { NotesService } from '@renderer/features/notes/services/notes.service.js';
+import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
+
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
@@ -333,6 +337,15 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory', 'storageService']
   );
 
+  // Notes Service (note management)
+  container.registerSingleton(
+    'notesService',
+    function (eventBus, loggerFactory, storageService) {
+      return new NotesService({ eventBus, loggerFactory, storageService });
+    },
+    ['eventBus', 'loggerFactory', 'storageService']
+  );
+
   // Update Service (auto-updates)
   container.registerSingleton(
     'updateService',
@@ -391,7 +404,8 @@ function createRendererContainer() {
         settingsMenuComponent: SettingsMenuComponent,
         streamControlsComponent: StreamControlsComponent,
         shaderSelectorComponent: ShaderSelectorComponent,
-        updateSectionComponent: UpdateSectionComponent
+        updateSectionComponent: UpdateSectionComponent,
+        notesPanelComponent: NotesPanelComponent
       });
     },
     ['eventBus']
@@ -642,6 +656,7 @@ function createRendererContainer() {
       appState,
       updateOrchestrator,
       settingsService,
+      notesService,
       uiController,
       eventBus,
       loggerFactory
@@ -650,6 +665,7 @@ function createRendererContainer() {
         appState,
         updateOrchestrator,
         settingsService,
+        notesService,
         uiController,
         eventBus,
         loggerFactory
@@ -659,6 +675,7 @@ function createRendererContainer() {
       'appState',
       'updateOrchestrator',
       'settingsService',
+      'notesService',
       'uiController',
       'eventBus',
       'loggerFactory'

@@ -21,7 +21,8 @@ export class UIComponentFactory {
       SettingsMenuComponent: dependencies.settingsMenuComponent,
       StreamControlsComponent: dependencies.streamControlsComponent,
       ShaderSelectorComponent: dependencies.shaderSelectorComponent,
-      UpdateSectionComponent: dependencies.updateSectionComponent
+      UpdateSectionComponent: dependencies.updateSectionComponent,
+      NotesPanelComponent: dependencies.notesPanelComponent
     };
   }
 
@@ -88,6 +89,19 @@ export class UIComponentFactory {
    */
   createShaderSelectorComponent(config) {
     const ComponentClass = this._componentClasses.ShaderSelectorComponent;
+    return new ComponentClass({
+      ...config,
+      eventBus: this.eventBus
+    });
+  }
+
+  /**
+   * Create NotesPanelComponent
+   * @param {Object} config - { notesService, logger }
+   * @returns {NotesPanelComponent}
+   */
+  createNotesPanelComponent(config) {
+    const ComponentClass = this._componentClasses.NotesPanelComponent;
     return new ComponentClass({
       ...config,
       eventBus: this.eventBus

@@ -103,5 +103,14 @@ export const EventChannels = {
     STATE_CHANGED: 'update:state-changed',
     BADGE_SHOW: 'update:badge-show',
     BADGE_HIDE: 'update:badge-hide'
+  },
+
+  // Notes events
+  NOTES: {
+    NOTE_CREATED: 'notes:note-created',
+    NOTE_UPDATED: 'notes:note-updated',
+    NOTE_DELETED: 'notes:note-deleted',
+    NOTE_SELECTED: 'notes:note-selected',
+    PANEL_VISIBILITY_CHANGED: 'notes:panel-visibility-changed'
   }
 };
