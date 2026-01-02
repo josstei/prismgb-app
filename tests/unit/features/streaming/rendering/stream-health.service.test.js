@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.class.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
 
 describe('StreamHealthService', () => {
   let service;

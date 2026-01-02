@@ -10,6 +10,7 @@
 import { app } from 'electron';
 import path from 'path';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
 import { createAppContainer } from './container.js';
 import { MainLogger } from './infrastructure/logging/main-logger.factory.js';
 
@@ -112,6 +113,7 @@ class AppOrchestrator extends BaseOrchestrator {
       return;
     }
 
+    // Window cleanup requires special handling (isDestroyed check, devtools)
     try {
       if (this._windowService?.mainWindow) {
         const win = this._windowService.mainWindow;
@@ -128,73 +130,19 @@ class AppOrchestrator extends BaseOrchestrator {
       this.logger.error('Error destroying window:', error);
     }
 
-    try {
-      if (this._ipcHandlerRegistry) {
-        this._ipcHandlerRegistry.dispose();
-        this.logger.debug('Disposed IPC handler registry');
-      }
-    } catch (error) {
-      this.logger.error('Error disposing IPC handler registry:', error);
-    }
-
-    try {
-      if (this._deviceBridgeService) {
-        this._deviceBridgeService.dispose();
-        this.logger.debug('Disposed device bridge service');
-      }
-    } catch (error) {
-      this.logger.error('Error disposing device bridge service:', error);
-    }
-
-    try {
-      if (this._deviceLifecycleService) {
-        this._deviceLifecycleService.dispose();
-        this.logger.debug('Disposed device lifecycle service');
-      }
-    } catch (error) {
-      this.logger.error('Error disposing device lifecycle service:', error);
-    }
-
-    try {
-      // Stop USB monitoring
-      if (this._deviceService) {
-        this._deviceService.stopUSBMonitoring();
-        this.logger.debug('Stopped USB monitoring');
-      }
-    } catch (error) {
-      this.logger.error('Error stopping USB monitoring:', error);
-    }
-
-    try {
-      // Destroy tray
-      if (this._trayService) {
-        this._trayService.destroy();
-        this.logger.debug('Destroyed system tray');
-      }
-    } catch (error) {
-      this.logger.error('Error destroying tray:', error);
-    }
-
-    try {
-      // Dispose update bridge
-      if (this._updateBridgeService) {
-        this._updateBridgeService.dispose();
-        this.logger.debug('Disposed update bridge service');
-      }
-    } catch (error) {
-      this.logger.error('Error disposing update bridge service:', error);
-    }
-
-    try {
-      // Dispose container
-      this.container.dispose();
-      this.container = null;
-      this.logger.debug('Disposed DI container');
-    } catch (error) {
-      this.logger.error('Error disposing container:', error);
-    }
+    // Dispose services using safe utility (eliminates repetitive try-catch)
+    await safeDisposeAll(this.logger, [
+      ['IPC handler registry', this._ipcHandlerRegistry],
+      ['device bridge service', this._deviceBridgeService],
+      ['device lifecycle service', this._deviceLifecycleService],
+      ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
+      ['system tray', this._trayService, 'destroy'],
+      ['update bridge service', this._updateBridgeService],
+      ['DI container', this.container]
+    ]);
 
     // Clear service references
+    this.container = null;
     this._windowService = null;
     this._deviceService = null;
     this._deviceLifecycleService = null;

@@ -16,7 +16,6 @@ class CinematicModeService extends BaseService {
     const newMode = !this.appState.cinematicModeEnabled;
     this.appState.setCinematicMode(newMode);
     this.eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: newMode });
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode ' + (newMode ? 'enabled' : 'disabled') });
   }
 }
 

@@ -75,7 +75,7 @@ class UpdateService extends BaseService {
         this._error = result.error;
       }
     } catch (error) {
-      this.logger.warn('Failed to load initial update status', error.message);
+      this.logger.warn('Failed to load initial update status', error);
     }
   }
 

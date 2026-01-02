@@ -44,8 +44,8 @@ import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-re
 import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
 import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
 import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.class.js';
-import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.class.js';
+import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
+import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.service.js';
 import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
 import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
 import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
