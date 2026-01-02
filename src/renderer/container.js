@@ -24,7 +24,7 @@ import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
-import { CaptureUiBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
+import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 
 // Features: Devices
 import { DeviceService } from '@renderer/features/devices/services/device.service.js';
@@ -32,7 +32,7 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
+import { IPCDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
 
@@ -241,7 +241,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'deviceStatusProvider',
     function (ipcClient) {
-      return new IpcDeviceStatusAdapter(ipcClient);
+      return new IPCDeviceStatusAdapter(ipcClient);
     },
     ['ipcClient']
   );
@@ -453,7 +453,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'captureUiBridge',
     function (eventBus, uiController, loggerFactory) {
-      return new CaptureUiBridge({ eventBus, uiController, loggerFactory });
+      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
     },
     ['eventBus', 'uiController', 'loggerFactory']
   );

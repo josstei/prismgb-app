@@ -54,19 +54,3 @@ export default function createNotesPanelTemplate() {
     </div>
   `;
 }
-
-/**
- * DOM selectors for notes panel elements
- */
-export const selectors = {
-  notesPanel: 'notesPanel',
-  notesCloseBtn: 'notesCloseBtn',
-  notesSearchInput: 'notesSearchInput',
-  notesList: 'notesList',
-  notesEditor: 'notesEditor',
-  notesEmptyState: 'notesEmptyState',
-  notesTitleInput: 'notesTitleInput',
-  notesContentArea: 'notesContentArea',
-  notesNewBtn: 'notesNewBtn',
-  notesDeleteBtn: 'notesDeleteBtn'
-};

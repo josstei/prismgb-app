@@ -127,6 +127,7 @@ class DeviceService extends BaseService {
       }
     } catch (error) {
       this.logger.error('Failed to initialize device profiles', error);
+      throw error; // Re-throw to indicate initialization failure
     }
   }
 

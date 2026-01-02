@@ -34,14 +34,3 @@ export default function createStatusFooterTemplate() {
     </footer>
   `;
 }
-
-/**
- * DOM selectors for footer elements
- */
-export const selectors = {
-  statusMessage: 'statusMessage',
-  deviceStatusText: 'deviceStatusText',
-  deviceName: 'deviceName',
-  currentResolution: 'currentResolution',
-  currentFPS: 'currentFPS'
-};

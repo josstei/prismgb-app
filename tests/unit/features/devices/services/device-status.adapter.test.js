@@ -1,12 +1,12 @@
 /**
- * IpcDeviceStatusAdapter Unit Tests
+ * IPCDeviceStatusAdapter Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { IpcDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
+import { IPCDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
 
-describe('IpcDeviceStatusAdapter', () => {
+describe('IPCDeviceStatusAdapter', () => {
   let adapter;
   let mockIpcClient;
 
@@ -15,7 +15,7 @@ describe('IpcDeviceStatusAdapter', () => {
       getDeviceStatus: vi.fn()
     };
 
-    adapter = new IpcDeviceStatusAdapter(mockIpcClient);
+    adapter = new IPCDeviceStatusAdapter(mockIpcClient);
   });
 
   describe('Constructor', () => {
