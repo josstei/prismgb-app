@@ -57,5 +57,9 @@ export const CSSClasses = {
   // Shader selector states
   PANEL_OPEN: 'panel-open',
   JUST_SELECTED: 'just-selected',
-  FADED: 'faded'
+  FADED: 'faded',
+
+  // Notes panel states
+  LIST_COLLAPSED: 'list-collapsed',
+  GAME_GROUP_COLLAPSED: 'collapsed'
 };

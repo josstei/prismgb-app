@@ -111,14 +111,20 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         notesBtn: elements.notesBtn,
         notesPanel: elements.notesPanel,
         notesSearchInput: elements.notesSearchInput,
+        notesGameFilter: elements.notesGameFilter,
+        notesListToggle: elements.notesListToggle,
         notesList: elements.notesList,
         notesEditor: elements.notesEditor,
         notesEmptyState: elements.notesEmptyState,
+        notesGameAddBtn: elements.notesGameAddBtn,
+        notesGameTagRow: elements.notesGameTagRow,
+        notesGameTag: elements.notesGameTag,
+        notesGameInput: elements.notesGameInput,
+        notesGameAutocomplete: elements.notesGameAutocomplete,
         notesTitleInput: elements.notesTitleInput,
         notesContentArea: elements.notesContentArea,
         notesNewBtn: elements.notesNewBtn,
-        notesDeleteBtn: elements.notesDeleteBtn,
-        notesCloseBtn: elements.notesCloseBtn
+        notesDeleteBtn: elements.notesDeleteBtn
       }
     );
   }

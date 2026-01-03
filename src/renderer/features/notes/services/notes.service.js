@@ -79,12 +79,14 @@ class NotesService extends BaseService {
    * Create a new note
    * @param {string} [title=''] - Note title
    * @param {string} [content=''] - Note content
+   * @param {string} [gameName=''] - Game name for organization
    * @returns {Object|null} Created note object, or null if save failed
    */
-  createNote(title = '', content = '') {
+  createNote(title = '', content = '', gameName = '') {
     const now = Date.now();
     const note = {
       id: generateEntityId('note'),
+      gameName: gameName || '',
       title: title || 'Untitled Note',
       content,
       createdAt: now,
@@ -169,28 +171,73 @@ class NotesService extends BaseService {
   /**
    * Search notes with fuzzy matching
    * @param {string} query - Search query
+   * @param {string} [gameFilter=''] - Optional game name to filter by
    * @returns {Array<Object>} Matching notes sorted by relevance
    */
-  searchNotes(query) {
+  searchNotes(query, gameFilter = '') {
+    let notes = this.getAllNotes();
+
+    // Apply game filter if provided
+    if (gameFilter) {
+      notes = notes.filter(note => (note.gameName || '') === gameFilter);
+    }
+
     if (!query || query.trim().length === 0) {
-      return this.getAllNotes();
+      return notes;
     }
 
     const normalizedQuery = query.toLowerCase().trim();
-    const notes = this.getAllNotes();
 
     return notes
       .map(note => {
         // Guard against corrupted notes with missing/non-string fields
         const title = typeof note.title === 'string' ? note.title : '';
         const content = typeof note.content === 'string' ? note.content : '';
+        const gameName = typeof note.gameName === 'string' ? note.gameName : '';
         const titleScore = this._fuzzyScore(title.toLowerCase(), normalizedQuery);
         const contentScore = this._fuzzyScore(content.toLowerCase(), normalizedQuery) * 0.5;
-        return { note, score: Math.max(titleScore, contentScore) };
+        const gameScore = this._fuzzyScore(gameName.toLowerCase(), normalizedQuery) * 0.7;
+        return { note, score: Math.max(titleScore, contentScore, gameScore) };
       })
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score)
       .map(({ note }) => note);
+  }
+
+  /**
+   * Get unique game names from all notes
+   * @returns {Array<string>} Sorted array of unique game names (excludes empty)
+   */
+  getUniqueGames() {
+    const notes = this.getAllNotes();
+    const games = new Set();
+
+    for (const note of notes) {
+      if (note.gameName && typeof note.gameName === 'string') {
+        games.add(note.gameName);
+      }
+    }
+
+    return [...games].sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Get notes grouped by game name
+   * @returns {Object} Map of gameName to array of notes, with '' key for general notes
+   */
+  getNotesGroupedByGame() {
+    const notes = this.getAllNotes();
+    const groups = {};
+
+    for (const note of notes) {
+      const gameName = note.gameName || '';
+      if (!groups[gameName]) {
+        groups[gameName] = [];
+      }
+      groups[gameName].push(note);
+    }
+
+    return groups;
   }
 
   /**

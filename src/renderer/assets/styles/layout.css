@@ -122,6 +122,11 @@ body.fullscreen-active .stream-section {
   contain: layout style;
 }
 
+/* Elevate header when settings menu is open so it appears above notes panel */
+.header:has(.settings-menu-container.visible) {
+  z-index: var(--z-tooltip);
+}
+
 /* Rainbow gradient border at bottom */
 .header::after {
   content: '';
@@ -199,6 +204,11 @@ body.fullscreen-active .stream-section {
   justify-content: center;
   transition: box-shadow 0.4s ease, border-color 0.4s ease;
   contain: layout style;
+}
+
+/* Elevate stream-container when shader panel is open so it appears above notes panel */
+.stream-container:has(.shader-panel.visible) {
+  z-index: var(--z-tooltip);
 }
 
 /* Rainbow gradient border using pseudo-element with mask */
