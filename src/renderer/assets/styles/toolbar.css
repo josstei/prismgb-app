@@ -19,6 +19,11 @@
   transition: opacity 0.4s ease;
 }
 
+/* Elevate toolbar when shader panel is open so it appears above notes panel */
+.stream-toolbar:has(.shader-panel.visible) {
+  z-index: var(--z-tooltip);
+}
+
 /* Fade toolbar when mouse inactive */
 .stream-toolbar.faded {
   opacity: 0.25;
@@ -122,9 +127,9 @@
   position: relative;
 }
 
-/* Elevate toolbar-item when panel is open so panel appears above sibling buttons */
+/* Elevate toolbar-item when panel is open so panel appears above sibling buttons and notes panel */
 .toolbar-item:has(.shader-panel.visible) {
-  z-index: 100;
+  z-index: var(--z-tooltip);
 }
 
 /* =====================================================

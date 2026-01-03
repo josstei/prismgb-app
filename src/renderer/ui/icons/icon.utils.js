@@ -26,10 +26,12 @@ import settingsWebsite from '@renderer/assets/icons/settings-website.svg?raw';
 import settingsDisclaimer from '@renderer/assets/icons/settings-disclaimer.svg?raw';
 
 // Notes panel icons
-import notesClose from '@renderer/assets/icons/notes-close.svg?raw';
 import notesNew from '@renderer/assets/icons/notes-new.svg?raw';
 import notesDelete from '@renderer/assets/icons/notes-delete.svg?raw';
 import notesEmpty from '@renderer/assets/icons/notes-empty.svg?raw';
+import search from '@renderer/assets/icons/search.svg?raw';
+import filter from '@renderer/assets/icons/filter.svg?raw';
+import tagAdd from '@renderer/assets/icons/tag-add.svg?raw';
 
 // Overlay icons
 import overlayFullscreenExit from '@renderer/assets/icons/overlay-fullscreen-exit.svg?raw';
@@ -59,10 +61,12 @@ const icons = {
   'settings-disclaimer': settingsDisclaimer,
 
   // Notes panel
-  'notes-close': notesClose,
   'notes-new': notesNew,
   'notes-delete': notesDelete,
   'notes-empty': notesEmpty,
+  'search': search,
+  'filter': filter,
+  'tag-add': tagAdd,
 
   // Overlay
   'overlay-fullscreen-exit': overlayFullscreenExit

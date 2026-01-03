@@ -90,14 +90,20 @@ class UIController {
       notesBtn: document.getElementById(DOMSelectors.NOTES_BTN),
       notesPanel: document.getElementById(DOMSelectors.NOTES_PANEL),
       notesSearchInput: document.getElementById(DOMSelectors.NOTES_SEARCH_INPUT),
+      notesGameFilter: document.getElementById(DOMSelectors.NOTES_GAME_FILTER),
+      notesListToggle: document.getElementById(DOMSelectors.NOTES_LIST_TOGGLE),
       notesList: document.getElementById(DOMSelectors.NOTES_LIST),
       notesEditor: document.getElementById(DOMSelectors.NOTES_EDITOR),
       notesEmptyState: document.getElementById(DOMSelectors.NOTES_EMPTY_STATE),
+      notesGameAddBtn: document.getElementById(DOMSelectors.NOTES_GAME_ADD_BTN),
+      notesGameTagRow: document.getElementById(DOMSelectors.NOTES_GAME_TAG_ROW),
+      notesGameTag: document.getElementById(DOMSelectors.NOTES_GAME_TAG),
+      notesGameInput: document.getElementById(DOMSelectors.NOTES_GAME_INPUT),
+      notesGameAutocomplete: document.getElementById(DOMSelectors.NOTES_GAME_AUTOCOMPLETE),
       notesTitleInput: document.getElementById(DOMSelectors.NOTES_TITLE_INPUT),
       notesContentArea: document.getElementById(DOMSelectors.NOTES_CONTENT_AREA),
       notesNewBtn: document.getElementById(DOMSelectors.NOTES_NEW_BTN),
-      notesDeleteBtn: document.getElementById(DOMSelectors.NOTES_DELETE_BTN),
-      notesCloseBtn: document.getElementById(DOMSelectors.NOTES_CLOSE_BTN)
+      notesDeleteBtn: document.getElementById(DOMSelectors.NOTES_DELETE_BTN)
     };
   }
 

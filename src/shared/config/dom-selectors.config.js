@@ -79,12 +79,18 @@ export const DOMSelectors = {
   NOTES_BTN: 'notesBtn',
   NOTES_PANEL: 'notesPanel',
   NOTES_SEARCH_INPUT: 'notesSearchInput',
+  NOTES_GAME_FILTER: 'notesGameFilter',
   NOTES_LIST: 'notesList',
+  NOTES_LIST_TOGGLE: 'notesListToggle',
   NOTES_EDITOR: 'notesEditor',
   NOTES_EMPTY_STATE: 'notesEmptyState',
+  NOTES_GAME_ADD_BTN: 'notesGameAddBtn',
+  NOTES_GAME_TAG_ROW: 'notesGameTagRow',
+  NOTES_GAME_TAG: 'notesGameTag',
+  NOTES_GAME_INPUT: 'notesGameInput',
+  NOTES_GAME_AUTOCOMPLETE: 'notesGameAutocomplete',
   NOTES_TITLE_INPUT: 'notesTitleInput',
   NOTES_CONTENT_AREA: 'notesContentArea',
   NOTES_NEW_BTN: 'notesNewBtn',
-  NOTES_DELETE_BTN: 'notesDeleteBtn',
-  NOTES_CLOSE_BTN: 'notesCloseBtn'
+  NOTES_DELETE_BTN: 'notesDeleteBtn'
 };
