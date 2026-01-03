@@ -1,16 +1,16 @@
 /**
- * AnimationPerformanceOrchestrator Unit Tests
+ * PerformanceAnimationOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AnimationPerformanceOrchestrator } from '@renderer/application/performance/animation-performance.orchestrator.js';
+import { PerformanceAnimationOrchestrator } from '@renderer/application/performance/performance-animation.orchestrator.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('AnimationPerformanceOrchestrator', () => {
+describe('PerformanceAnimationOrchestrator', () => {
   let orchestrator;
   let mockEventBus;
   let mockLogger;
-  let mockAnimationPerformanceService;
+  let mockPerformanceAnimationService;
   let mockBodyClassManager;
   let handlers;
 
@@ -31,7 +31,7 @@ describe('AnimationPerformanceOrchestrator', () => {
       error: vi.fn()
     };
 
-    mockAnimationPerformanceService = {
+    mockPerformanceAnimationService = {
       setStreaming: vi.fn((isStreaming) => ({
         streaming: isStreaming,
         idle: false,
@@ -53,9 +53,9 @@ describe('AnimationPerformanceOrchestrator', () => {
       setAnimationsOff: vi.fn()
     };
 
-    orchestrator = new AnimationPerformanceOrchestrator({
+    orchestrator = new PerformanceAnimationOrchestrator({
       eventBus: mockEventBus,
-      animationPerformanceService: mockAnimationPerformanceService,
+      animationPerformanceService: mockPerformanceAnimationService,
       bodyClassManager: mockBodyClassManager,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -72,7 +72,7 @@ describe('AnimationPerformanceOrchestrator', () => {
       idle: false
     };
 
-    mockAnimationPerformanceService.setPerformanceState.mockReturnValue({
+    mockPerformanceAnimationService.setPerformanceState.mockReturnValue({
       streaming: false,
       idle: false,
       hidden: false,
@@ -81,7 +81,7 @@ describe('AnimationPerformanceOrchestrator', () => {
 
     handlers[EventChannels.PERFORMANCE.STATE_CHANGED](performanceState);
 
-    expect(mockAnimationPerformanceService.setPerformanceState).toHaveBeenCalledWith(performanceState);
+    expect(mockPerformanceAnimationService.setPerformanceState).toHaveBeenCalledWith(performanceState);
     expect(mockBodyClassManager.setStreaming).toHaveBeenCalledWith(false);
     expect(mockBodyClassManager.setIdle).toHaveBeenCalledWith(false);
     expect(mockBodyClassManager.setHidden).toHaveBeenCalledWith(false);
@@ -91,7 +91,7 @@ describe('AnimationPerformanceOrchestrator', () => {
   it('should delegate streaming state updates to the service and apply body classes', async () => {
     await orchestrator.onInitialize();
 
-    mockAnimationPerformanceService.setStreaming.mockReturnValue({
+    mockPerformanceAnimationService.setStreaming.mockReturnValue({
       streaming: true,
       idle: false,
       hidden: false,
@@ -100,10 +100,10 @@ describe('AnimationPerformanceOrchestrator', () => {
 
     handlers[EventChannels.STREAM.STARTED]();
 
-    expect(mockAnimationPerformanceService.setStreaming).toHaveBeenCalledWith(true);
+    expect(mockPerformanceAnimationService.setStreaming).toHaveBeenCalledWith(true);
     expect(mockBodyClassManager.setStreaming).toHaveBeenCalledWith(true);
 
-    mockAnimationPerformanceService.setStreaming.mockReturnValue({
+    mockPerformanceAnimationService.setStreaming.mockReturnValue({
       streaming: false,
       idle: false,
       hidden: false,
@@ -112,7 +112,7 @@ describe('AnimationPerformanceOrchestrator', () => {
 
     handlers[EventChannels.STREAM.STOPPED]();
 
-    expect(mockAnimationPerformanceService.setStreaming).toHaveBeenCalledWith(false);
+    expect(mockPerformanceAnimationService.setStreaming).toHaveBeenCalledWith(false);
     expect(mockBodyClassManager.setStreaming).toHaveBeenCalledWith(false);
   });
 
@@ -120,7 +120,7 @@ describe('AnimationPerformanceOrchestrator', () => {
     await orchestrator.onInitialize();
 
     // When stream stops but performance mode is on, animationsOff should stay true
-    mockAnimationPerformanceService.setStreaming.mockReturnValue({
+    mockPerformanceAnimationService.setStreaming.mockReturnValue({
       streaming: false,
       idle: false,
       hidden: false,
@@ -129,7 +129,7 @@ describe('AnimationPerformanceOrchestrator', () => {
 
     handlers[EventChannels.STREAM.STOPPED]();
 
-    expect(mockAnimationPerformanceService.setStreaming).toHaveBeenCalledWith(false);
+    expect(mockPerformanceAnimationService.setStreaming).toHaveBeenCalledWith(false);
     expect(mockBodyClassManager.setAnimationsOff).toHaveBeenCalledWith(true);
   });
 });

@@ -35,7 +35,7 @@ export class StreamingService extends BaseService {
    * @param {DeviceService} dependencies.deviceService - Device enumeration service
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
-   * @param {AdapterFactory} dependencies.adapterFactory - Creates device adapters
+   * @param {StreamingAdapterFactory} dependencies.adapterFactory - Creates device adapters
    * @param {Object} dependencies.ipcClient - IPC client for main process communication
    */
   constructor(dependencies) {

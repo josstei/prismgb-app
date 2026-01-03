@@ -1,14 +1,14 @@
 /**
- * DisplayModeOrchestrator Unit Tests
+ * SettingsDisplayModeOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
+import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
 
-describe('DisplayModeOrchestrator', () => {
+describe('SettingsDisplayModeOrchestrator', () => {
   let orchestrator;
-  let mockFullscreenService;
-  let mockCinematicModeService;
+  let mockSettingsFullscreenService;
+  let mockSettingsCinematicModeService;
   let mockSettingsService;
   let mockEventBus;
   let mockLogger;
@@ -26,7 +26,7 @@ describe('DisplayModeOrchestrator', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    mockFullscreenService = {
+    mockSettingsFullscreenService = {
       initialize: vi.fn(),
       dispose: vi.fn(),
       toggleFullscreen: vi.fn(),
@@ -34,7 +34,7 @@ describe('DisplayModeOrchestrator', () => {
       exitFullscreen: vi.fn()
     };
 
-    mockCinematicModeService = {
+    mockSettingsCinematicModeService = {
       toggleCinematicMode: vi.fn()
     };
 
@@ -47,9 +47,9 @@ describe('DisplayModeOrchestrator', () => {
       subscribe: vi.fn(() => vi.fn())
     };
 
-    orchestrator = new DisplayModeOrchestrator({
-      fullscreenService: mockFullscreenService,
-      cinematicModeService: mockCinematicModeService,
+    orchestrator = new SettingsDisplayModeOrchestrator({
+      fullscreenService: mockSettingsFullscreenService,
+      cinematicModeService: mockSettingsCinematicModeService,
       settingsService: mockSettingsService,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
@@ -62,16 +62,16 @@ describe('DisplayModeOrchestrator', () => {
 
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
-      expect(orchestrator.fullscreenService).toBe(mockFullscreenService);
-      expect(orchestrator.cinematicModeService).toBe(mockCinematicModeService);
+      expect(orchestrator.fullscreenService).toBe(mockSettingsFullscreenService);
+      expect(orchestrator.cinematicModeService).toBe(mockSettingsCinematicModeService);
       expect(orchestrator.settingsService).toBe(mockSettingsService);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
 
     it('should throw if missing required dependencies', () => {
-      expect(() => new DisplayModeOrchestrator({
-        fullscreenService: mockFullscreenService,
-        cinematicModeService: mockCinematicModeService,
+      expect(() => new SettingsDisplayModeOrchestrator({
+        fullscreenService: mockSettingsFullscreenService,
+        cinematicModeService: mockSettingsCinematicModeService,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
@@ -81,7 +81,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should initialize fullscreen service', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockFullscreenService.initialize).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.initialize).toHaveBeenCalled();
     });
   });
 
@@ -89,7 +89,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should dispose fullscreen service', async () => {
       await orchestrator.onCleanup();
 
-      expect(mockFullscreenService.dispose).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.dispose).toHaveBeenCalled();
     });
   });
 
@@ -97,7 +97,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should delegate to fullscreen service', () => {
       orchestrator.toggleFullscreen();
 
-      expect(mockFullscreenService.toggleFullscreen).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.toggleFullscreen).toHaveBeenCalled();
     });
   });
 
@@ -105,7 +105,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should delegate to cinematic mode service', () => {
       orchestrator.toggleCinematicMode();
 
-      expect(mockCinematicModeService.toggleCinematicMode).toHaveBeenCalled();
+      expect(mockSettingsCinematicModeService.toggleCinematicMode).toHaveBeenCalled();
     });
   });
 
@@ -113,7 +113,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should delegate to fullscreen service', () => {
       orchestrator.enterFullscreen();
 
-      expect(mockFullscreenService.enterFullscreen).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.enterFullscreen).toHaveBeenCalled();
     });
   });
 
@@ -121,7 +121,7 @@ describe('DisplayModeOrchestrator', () => {
     it('should delegate to fullscreen service', () => {
       orchestrator.exitFullscreen();
 
-      expect(mockFullscreenService.exitFullscreen).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.exitFullscreen).toHaveBeenCalled();
     });
   });
 
@@ -131,7 +131,7 @@ describe('DisplayModeOrchestrator', () => {
 
       orchestrator._applyStartupBehaviors();
 
-      expect(mockFullscreenService.enterFullscreen).toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.enterFullscreen).toHaveBeenCalled();
     });
 
     it('should not enter fullscreen when fullscreenOnStartup is disabled', () => {
@@ -139,7 +139,7 @@ describe('DisplayModeOrchestrator', () => {
 
       orchestrator._applyStartupBehaviors();
 
-      expect(mockFullscreenService.enterFullscreen).not.toHaveBeenCalled();
+      expect(mockSettingsFullscreenService.enterFullscreen).not.toHaveBeenCalled();
     });
   });
 });

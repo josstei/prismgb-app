@@ -7,12 +7,12 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class CanvasLifecycleService extends BaseService {
+class StreamingCanvasLifecycleService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
       ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
-      'CanvasLifecycleService'
+      'StreamingCanvasLifecycleService'
     );
 
     this._nativeResolution = null;
@@ -98,4 +98,4 @@ class CanvasLifecycleService extends BaseService {
   }
 }
 
-export { CanvasLifecycleService };
+export { StreamingCanvasLifecycleService };

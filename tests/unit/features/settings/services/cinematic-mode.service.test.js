@@ -1,12 +1,12 @@
 /**
- * CinematicModeService Unit Tests
+ * SettingsCinematicModeService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
+import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('CinematicModeService', () => {
+describe('SettingsCinematicModeService', () => {
   let service;
   let mockAppState;
   let mockEventBus;
@@ -36,7 +36,7 @@ describe('CinematicModeService', () => {
       setCinematicMode: vi.fn()
     };
 
-    service = new CinematicModeService({
+    service = new SettingsCinematicModeService({
       appState: mockAppState,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
@@ -51,28 +51,28 @@ describe('CinematicModeService', () => {
     });
 
     it('should throw if missing appState dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should throw if missing eventBus dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         appState: mockAppState,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should throw if missing loggerFactory dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         appState: mockAppState,
         eventBus: mockEventBus
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should create logger with correct service name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CinematicModeService');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('SettingsCinematicModeService');
     });
   });
 
@@ -97,19 +97,10 @@ describe('CinematicModeService', () => {
         );
       });
 
-      it('should publish status message event with enabled text', () => {
+      it('should publish domain event only (UI messaging handled by UIEventBridge)', () => {
         service.toggleCinematicMode();
 
-        expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.STATUS_MESSAGE,
-          { message: 'Cinematic mode enabled' }
-        );
-      });
-
-      it('should publish both events', () => {
-        service.toggleCinematicMode();
-
-        expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+        expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -133,35 +124,10 @@ describe('CinematicModeService', () => {
         );
       });
 
-      it('should publish status message event with disabled text', () => {
+      it('should publish domain event only (UI messaging handled by UIEventBridge)', () => {
         service.toggleCinematicMode();
 
-        expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.STATUS_MESSAGE,
-          { message: 'Cinematic mode disabled' }
-        );
-      });
-
-      it('should publish both events', () => {
-        service.toggleCinematicMode();
-
-        expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
-      });
-    });
-
-    describe('event publishing order', () => {
-      it('should publish cinematic mode event before status message', () => {
-        mockAppState.cinematicModeEnabled = false;
-        const callOrder = [];
-
-        mockEventBus.publish.mockImplementation((channel) => {
-          callOrder.push(channel);
-        });
-
-        service.toggleCinematicMode();
-
-        expect(callOrder[0]).toBe(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED);
-        expect(callOrder[1]).toBe(EventChannels.UI.STATUS_MESSAGE);
+        expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -199,14 +165,14 @@ describe('CinematicModeService', () => {
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(false);
       });
 
-      it('should publish correct messages on each toggle', () => {
+      it('should publish correct domain events on each toggle', () => {
         mockAppState.cinematicModeEnabled = false;
 
         // Enable
         service.toggleCinematicMode();
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.STATUS_MESSAGE,
-          { message: 'Cinematic mode enabled' }
+          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
+          { enabled: true }
         );
 
         // Simulate state change and clear mocks
@@ -216,8 +182,8 @@ describe('CinematicModeService', () => {
         // Disable
         service.toggleCinematicMode();
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.UI.STATUS_MESSAGE,
-          { message: 'Cinematic mode disabled' }
+          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
+          { enabled: false }
         );
       });
     });

@@ -47,8 +47,8 @@ export class UIComponentRegistry {
     });
     this.components.set('deviceStatusComponent', deviceStatusComponent);
 
-    // Create StreamControlsComponent
-    const streamControlsComponent = this.factory.createStreamControlsComponent({
+    // Create StreamingControlsComponent
+    const streamControlsComponent = this.factory.createStreamingControlsComponent({
       currentResolution: elements.currentResolution,
       currentFPS: elements.currentFPS,
       screenshotBtn: elements.screenshotBtn,
@@ -82,7 +82,7 @@ export class UIComponentRegistry {
   initShaderSelector(dependencies, elements) {
     this.logger?.debug('Initializing shader selector component');
 
-    const shaderSelectorComponent = this.factory.createShaderSelectorComponent(dependencies);
+    const shaderSelectorComponent = this.factory.createStreamingShaderSelectorComponent(dependencies);
     shaderSelectorComponent.initialize(elements);
     this.components.set('shaderSelectorComponent', shaderSelectorComponent);
 

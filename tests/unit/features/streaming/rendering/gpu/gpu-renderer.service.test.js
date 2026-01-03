@@ -1,11 +1,11 @@
 /**
- * GPURendererService Unit Tests
+ * StreamingGpuRendererService Unit Tests
  *
  * Tests for canvas recovery and cleanup behavior
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
+import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Mock the capability detector
@@ -56,7 +56,7 @@ vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js
   }))
 }));
 
-describe('GPURendererService', () => {
+describe('StreamingGpuRendererService', () => {
   let service;
   let mockEventBus;
   let mockLogger;
@@ -95,7 +95,7 @@ describe('GPURendererService', () => {
       onerror: null
     }));
 
-    service = new GPURendererService({
+    service = new StreamingGpuRendererService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       settingsService: mockSettingsService

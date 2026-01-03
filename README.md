@@ -40,13 +40,16 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 ## Features
 
 - **Live Video Streaming** - Stream your Chromatic's display to your desktop in real-time
+- **Render Presets** - True Color, Vibrant, Hi-Def, Vintage (CRT), Pixel, Performance
+- **Brightness + Volume Controls** - Adjust display brightness and audio levels with real-time preview
+- **Cinematic Mode** - Distraction-free viewing with auto-fading controls
+- **Fullscreen + Fullscreen-on-Startup** - Immersive viewing with optional auto-enter
+- **Performance Mode** - Reduce effects for weaker GPUs
 - **Screenshot Capture** - Take instant screenshots of your gameplay
 - **Video Recording** - Record your gaming sessions
-- **Render Presets** - Choose from visual styles: True Color, Vibrant, Hi-Def, Vintage (CRT), or Pixel
-- **Brightness Control** - Adjust display brightness to your preference
-- **Volume Control** - Adjust audio levels with an intuitive slider
-- **Cinematic Mode** - Distraction-free fullscreen viewing
-- **Fullscreen Support** - Expand to fullscreen for the best viewing experience
+- **Notes Panel** - Take notes with search and autosave
+- **Status Strip** - Device state, resolution, and FPS (toggle in settings)
+- **Update Checks** - In-app check, download, and install flow
 - **System Tray Integration** - Runs quietly in your system tray
 - **Cross-Platform** - Available for Windows, macOS, and Linux
 
@@ -55,6 +58,10 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 - A [Mod Retro Chromatic](https://modretro.com) device
 - USB connection to your computer
 - Windows 10+, macOS 10.15+, or Linux (Ubuntu 18.04+, Fedora, Arch, etc.)
+
+## Supported Devices
+
+- Mod Retro Chromatic (USB)
 
 ## Installation
 
@@ -150,9 +157,16 @@ sudo pacman -S libusb
 4. Use the control buttons to:
    - Take a **screenshot**
    - Start/stop **video recording**
-   - Adjust **volume**
+   - Choose a **render preset**
+   - Adjust **brightness** and **volume**
+   - Toggle the **notes** panel
    - Enter **fullscreen** mode
    - Toggle **cinematic mode** for a cleaner viewing experience
+5. Open the settings menu to manage:
+   - **Status strip** visibility
+   - **Performance mode**
+   - **Fullscreen on startup**
+   - **Update** checks and installs
 
 ### File Locations
 
@@ -167,10 +181,19 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 - Screenshots: `PrismGB_Screenshot_YYYYMMDD_HHMMSS.png`
 - Recordings: `PrismGB_Recording_YYYYMMDD_HHMMSS.webm`
 
-## Architecture
+### Local Data
 
-- Overview diagrams: `docs/architecture-diagrams.md`
-- Onboarding diagrams: `docs/architecture-diagrams-onboarding.md`
+- Settings and notes are stored locally (clear app data to reset).
+- Device IDs are stored locally to speed up reconnects.
+
+## Documentation
+
+- Development guide: `DEVELOPMENT.md`
+- Contributing guide: `CONTRIBUTING.md`
+- Feature map: `docs/feature-map.md`
+- Naming conventions: `docs/naming-conventions.md`
+- Architecture diagrams: `docs/architecture-diagrams.md`
+- Architecture onboarding: `docs/architecture-diagrams-onboarding.md`
 
 ## Troubleshooting
 
@@ -186,6 +209,15 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 1. Click on the video area to initiate the stream
 2. Check that no other application is using the Chromatic's video feed
 3. Try disconnecting and reconnecting the device
+
+### GPU or Rendering Issues
+
+1. Enable **Performance Mode** in Settings to reduce rendering load
+2. Disable GPU acceleration by launching with `PRISMGB_DISABLE_GPU=1`
+
+### App Keeps Running After Closing the Window
+
+PrismGB stays in the system tray so device monitoring can continue. Use the tray icon and choose **Quit** to exit.
 
 ### Permission Issues (Linux)
 

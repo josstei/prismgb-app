@@ -15,17 +15,17 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CapabilityDetector } from './capability-detector.utils.js';
+import { CapabilityDetector } from './streaming-capability-detector.utils.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/worker-protocol.config.js';
+} from '../workers/streaming-worker-protocol.config.js';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/render-presets.config.js';
+} from '../presets/streaming-render-presets.config.js';
 
 /**
  * Maximum number of frames that can be pending render
@@ -48,7 +48,7 @@ const BITMAP_OPTIONS = Object.freeze({
   resizeQuality: 'pixelated'
 });
 
-export class GPURendererService extends BaseService {
+export class StreamingGpuRendererService extends BaseService {
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for render events
@@ -59,7 +59,7 @@ export class GPURendererService extends BaseService {
     super(
       dependencies,
       ['eventBus', 'loggerFactory', 'settingsService'],
-      'GPURendererService'
+      'StreamingGpuRendererService'
     );
 
     // Worker state
@@ -84,7 +84,12 @@ export class GPURendererService extends BaseService {
 
     // Cached uniforms to avoid per-frame object allocation
     this._cachedUniforms = null;
-    this._uniformsCacheKey = null;
+    // Track values used to build cached uniforms (avoids per-frame string allocation)
+    this._cachedPresetId = null;
+    this._cachedScaleFactor = null;
+    this._cachedTargetWidth = null;
+    this._cachedTargetHeight = null;
+    this._cachedBrightness = null;
 
     // Performance stats
     this._lastStats = null;
@@ -233,7 +238,7 @@ export class GPURendererService extends BaseService {
 
       // Create the render worker
       this._worker = new Worker(
-        new URL('../workers/render.worker.js', import.meta.url),
+        new URL('../workers/streaming-render.worker.js', import.meta.url),
         { type: 'module' }
       );
 
@@ -497,29 +502,43 @@ export class GPURendererService extends BaseService {
   /**
    * Get cached uniforms, rebuilding only when preset, dimensions, or brightness change
    * Includes final brightness calculation to avoid per-frame object allocation
+   * Uses direct value comparison instead of string concatenation to avoid GC pressure
    * @returns {Object} Uniform values for all shader passes
    * @private
    */
   _getCachedUniforms() {
-    const cacheKey = `${this._currentPresetId}:${this._scaleFactor}:${this._targetWidth}:${this._targetHeight}:${this._globalBrightness}`;
-
-    if (this._uniformsCacheKey !== cacheKey || !this._cachedUniforms) {
-      const baseUniforms = buildUniformsFromPreset(
-        this._currentPreset,
-        this._scaleFactor,
-        this._targetWidth,
-        this._targetHeight
-      );
-      // Apply global brightness to cached uniforms to avoid per-frame object allocation
-      this._cachedUniforms = {
-        ...baseUniforms,
-        color: {
-          ...baseUniforms.color,
-          brightness: this._currentPreset.color.brightness * this._globalBrightness
-        }
-      };
-      this._uniformsCacheKey = cacheKey;
+    // Fast path: check if any value changed using direct comparison (no string allocation)
+    if (this._cachedUniforms &&
+        this._cachedPresetId === this._currentPresetId &&
+        this._cachedScaleFactor === this._scaleFactor &&
+        this._cachedTargetWidth === this._targetWidth &&
+        this._cachedTargetHeight === this._targetHeight &&
+        this._cachedBrightness === this._globalBrightness) {
+      return this._cachedUniforms;
     }
+
+    // Cache miss: rebuild uniforms and update tracking values
+    const baseUniforms = buildUniformsFromPreset(
+      this._currentPreset,
+      this._scaleFactor,
+      this._targetWidth,
+      this._targetHeight
+    );
+    // Apply global brightness to cached uniforms to avoid per-frame object allocation
+    this._cachedUniforms = {
+      ...baseUniforms,
+      color: {
+        ...baseUniforms.color,
+        brightness: this._currentPreset.color.brightness * this._globalBrightness
+      }
+    };
+
+    // Update tracked values
+    this._cachedPresetId = this._currentPresetId;
+    this._cachedScaleFactor = this._scaleFactor;
+    this._cachedTargetWidth = this._targetWidth;
+    this._cachedTargetHeight = this._targetHeight;
+    this._cachedBrightness = this._globalBrightness;
 
     return this._cachedUniforms;
   }

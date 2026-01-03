@@ -82,8 +82,8 @@ export class PerformanceMetricsService extends BaseService {
 
         this.logger.debug(`[Perf] ${label} - total ${snapshot.totalMB} MB, renderer ${rendererMem}, gpu ${gpuMem}`);
       })
-      .catch(() => {
-        this.logger.debug(`[Perf] ${label} - process metrics error`);
+      .catch((error) => {
+        this.logger.debug(`[Perf] ${label} - process metrics error`, error);
       });
   }
 }

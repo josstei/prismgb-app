@@ -8,7 +8,7 @@ import { DeviceOrchestrator } from '@renderer/features/devices/services/device.o
 describe('DeviceOrchestrator', () => {
   let orchestrator;
   let mockDeviceService;
-  let mockDeviceIPCAdapter;
+  let mockDeviceIpcAdapter;
   let mockEventBus;
   let mockLogger;
 
@@ -21,7 +21,7 @@ describe('DeviceOrchestrator', () => {
       dispose: vi.fn()
     };
 
-    mockDeviceIPCAdapter = {
+    mockDeviceIpcAdapter = {
       subscribe: vi.fn(() => vi.fn()),  // Returns unsubscribe function
       dispose: vi.fn()
     };
@@ -40,7 +40,7 @@ describe('DeviceOrchestrator', () => {
 
     orchestrator = new DeviceOrchestrator({
       deviceService: mockDeviceService,
-      deviceIPCAdapter: mockDeviceIPCAdapter,
+      deviceIpcAdapter: mockDeviceIpcAdapter,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -53,7 +53,7 @@ describe('DeviceOrchestrator', () => {
   describe('Constructor', () => {
     it('should store dependencies', () => {
       expect(orchestrator.deviceService).toBe(mockDeviceService);
-      expect(orchestrator.deviceIPCAdapter).toBe(mockDeviceIPCAdapter);
+      expect(orchestrator.deviceIpcAdapter).toBe(mockDeviceIpcAdapter);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
   });
@@ -68,7 +68,7 @@ describe('DeviceOrchestrator', () => {
     it('should subscribe to IPC events via adapter', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockDeviceIPCAdapter.subscribe).toHaveBeenCalledWith(
+      expect(mockDeviceIpcAdapter.subscribe).toHaveBeenCalledWith(
         expect.any(Function),
         expect.any(Function)
       );
@@ -98,7 +98,7 @@ describe('DeviceOrchestrator', () => {
   describe('IPC event handling via adapter', () => {
     it('should call connected handler when adapter triggers connected event', async () => {
       let connectedCallback;
-      mockDeviceIPCAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
         connectedCallback = onConnected;
         return vi.fn();
       });
@@ -113,7 +113,7 @@ describe('DeviceOrchestrator', () => {
 
     it('should call disconnected handler when adapter triggers disconnected event', async () => {
       let disconnectedCallback;
-      mockDeviceIPCAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
         disconnectedCallback = onDisconnected;
         return vi.fn();
       });
@@ -167,7 +167,7 @@ describe('DeviceOrchestrator', () => {
   describe('onCleanup', () => {
     it('should call unsubscribe function from IPC adapter', async () => {
       const mockUnsubscribe = vi.fn();
-      mockDeviceIPCAdapter.subscribe.mockReturnValue(mockUnsubscribe);
+      mockDeviceIpcAdapter.subscribe.mockReturnValue(mockUnsubscribe);
 
       // Initialize to set up listeners
       await orchestrator.onInitialize();

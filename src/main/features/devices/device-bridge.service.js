@@ -8,12 +8,12 @@ import { BaseService } from '@shared/base/service.base.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
-class DeviceBridge extends BaseService {
+class DeviceBridgeService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
       ['deviceService', 'trayService', 'windowService', 'eventBus', 'loggerFactory'],
-      'DeviceBridge'
+      'DeviceBridgeService'
     );
 
     this._unsubscribe = null;
@@ -48,4 +48,4 @@ class DeviceBridge extends BaseService {
   }
 }
 
-export { DeviceBridge };
+export { DeviceBridgeService };

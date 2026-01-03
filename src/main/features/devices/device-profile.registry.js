@@ -7,9 +7,9 @@
 
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 
-class ProfileRegistry {
+class DeviceProfileRegistry {
   constructor({ loggerFactory }) {
-    this.logger = loggerFactory.create('ProfileRegistry');
+    this.logger = loggerFactory.create('DeviceProfileRegistry');
     this.profiles = new Map(); // profileId -> DeviceProfile
     this.usbIndex = new Map();  // "vendorId:productId" -> DeviceProfile
     this.defaultProfileId = null;
@@ -205,4 +205,4 @@ class ProfileRegistry {
   }
 }
 
-export { ProfileRegistry };
+export { DeviceProfileRegistry };

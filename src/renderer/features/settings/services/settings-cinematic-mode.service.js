@@ -7,17 +7,16 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class CinematicModeService extends BaseService {
+class SettingsCinematicModeService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'CinematicModeService');
+    super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'SettingsCinematicModeService');
   }
 
   toggleCinematicMode() {
     const newMode = !this.appState.cinematicModeEnabled;
     this.appState.setCinematicMode(newMode);
     this.eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: newMode });
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode ' + (newMode ? 'enabled' : 'disabled') });
   }
 }
 
-export { CinematicModeService };
+export { SettingsCinematicModeService };

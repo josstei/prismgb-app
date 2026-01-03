@@ -3,13 +3,13 @@
  * Domain-based architecture with clean dependencies
  */
 
-import { BaseDeviceAdapter } from '../base.adapter.js';
+import { BaseDeviceAdapter } from '../device-base.adapter.js';
 import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition.class.js';
 import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.class.js';
 import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.class.js';
-import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/chromatic.config.js';
+import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
-export class ChromaticAdapter extends BaseDeviceAdapter {
+export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Create Chromatic adapter
    * @param {Object} dependencies - Injected dependencies
@@ -18,7 +18,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
     super(dependencies);
 
     if (!dependencies.ipcClient) {
-      throw new Error('ChromaticAdapter: ipcClient is required');
+      throw new Error('DeviceChromaticAdapter: ipcClient is required');
     }
 
     this.ipcClient = dependencies.ipcClient;
@@ -46,7 +46,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
       });
     }
 
-    this._log('info', 'ChromaticAdapter initialized');
+    this._log('info', 'DeviceChromaticAdapter initialized');
   }
 
   /**
@@ -76,7 +76,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
     }
 
     if (!this.deviceInfo || !this.deviceInfo.deviceId) {
-      throw new Error('ChromaticAdapter: Device not initialized');
+      throw new Error('DeviceChromaticAdapter: Device not initialized');
     }
 
     this._log('info', 'Getting stream from Chromatic device:', this.deviceInfo.label);
@@ -166,7 +166,7 @@ export class ChromaticAdapter extends BaseDeviceAdapter {
    */
   setCanvasScale(scale) {
     if (typeof scale !== 'number' || scale < 1 || scale > 8) {
-      throw new Error('ChromaticAdapter.setCanvasScale: Scale must be a number between 1 and 8');
+      throw new Error('DeviceChromaticAdapter.setCanvasScale: Scale must be a number between 1 and 8');
     }
 
     this.canvasScale = scale;

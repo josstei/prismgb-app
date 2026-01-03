@@ -16,7 +16,7 @@ import { DeviceDetectionHelper } from '@shared/features/devices/device-detection
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
-export class AdapterFactory {
+export class StreamingAdapterFactory {
   /**
    * @param {Object} eventBus - Event bus for cross-service communication
    * @param {Object} loggerFactory - Factory for creating loggers
@@ -27,7 +27,7 @@ export class AdapterFactory {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
     this.browserMediaService = browserMediaService;
-    this.logger = loggerFactory.create('AdapterFactory');
+    this.logger = loggerFactory.create('StreamingAdapterFactory');
 
     // Adapter classes registered via DI bootstrap
     this._adapterClasses = adapterClasses;
@@ -40,7 +40,7 @@ export class AdapterFactory {
       browserMediaService: this.browserMediaService
     };
 
-    // Adapter and metadata registries (previously in AdapterFactory)
+    // Adapter and metadata registries (previously in StreamingAdapterFactory)
     this.adapterRegistry = new Map();
     this.metadataRegistry = new Map();
 
@@ -54,7 +54,7 @@ export class AdapterFactory {
    */
   async initialize() {
     if (this.initialized) {
-      this.logger.warn('AdapterFactory already initialized');
+      this.logger.warn('StreamingAdapterFactory already initialized');
       return;
     }
 
@@ -139,7 +139,7 @@ export class AdapterFactory {
    */
   getAdapter(deviceType, dependencies = {}) {
     if (!this.initialized) {
-      throw new Error('AdapterFactory not initialized. Call initialize() first.');
+      throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
 
     this.logger.debug(`Creating adapter for device type: ${deviceType}`);
@@ -182,7 +182,7 @@ export class AdapterFactory {
    */
   detectDeviceType(device) {
     if (!this.initialized) {
-      throw new Error('AdapterFactory not initialized. Call initialize() first.');
+      throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
 
     if (!device || !device.label) {

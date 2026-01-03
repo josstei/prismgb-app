@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { chromaticHelpers, chromaticConfig } from '@shared/features/devices/profiles/chromatic/chromatic.config.js';
+import { chromaticHelpers, chromaticConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 describe('chromaticHelpers', () => {
   describe('matchesUSB', () => {

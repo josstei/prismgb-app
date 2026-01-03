@@ -9,9 +9,9 @@
  */
 
 import { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
-import { chromaticConfig, chromaticHelpers as chromaticConfigHelpers, mediaConfig } from './chromatic.config.js';
+import { chromaticConfig, chromaticHelpers as chromaticConfigHelpers, mediaConfig } from './device-chromatic.config.js';
 
-export class ChromaticProfile extends DeviceProfile {
+export class DeviceChromaticProfile extends DeviceProfile {
   constructor(logger = null) {
     // Build configuration for base DeviceProfile
     const profileConfig = {

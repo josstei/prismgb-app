@@ -8,9 +8,9 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class GpuRecordingService extends BaseService {
+class CaptureGpuRecordingService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'GpuRecordingService');
+    super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
 
     this._recordingCanvas = null;
     this._recordingCtx = null;
@@ -121,7 +121,7 @@ class GpuRecordingService extends BaseService {
 
   dispose() {
     this._cleanupGpuRecording();
-    this.logger.info('GpuRecordingService disposed');
+    this.logger.info('CaptureGpuRecordingService disposed');
   }
 
   _calculateRecordingScale(frameWidth, frameHeight) {
@@ -265,4 +265,4 @@ class GpuRecordingService extends BaseService {
   }
 }
 
-export { GpuRecordingService };
+export { CaptureGpuRecordingService };

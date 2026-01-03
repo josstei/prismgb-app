@@ -5,7 +5,7 @@
  * ProfileClass and AdapterClass are registered at runtime by each process.
  *
  * Main process registers: ProfileClass (via device.service.main.js)
- * Renderer registers: AdapterClass (via adapter.factory.js)
+ * Renderer registers: AdapterClass (via streaming-adapter.factory.js)
  */
 
 /**
@@ -39,8 +39,8 @@ const BUILT_IN_DEVICES = [
       'mod retro',
       '374e:0101'
     ],
-    profileModule: 'chromatic.profile',
-    adapterModule: 'chromatic.adapter'
+    profileModule: 'device-chromatic.profile',
+    adapterModule: 'device-chromatic.adapter'
   }
 ];
 
