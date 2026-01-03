@@ -2,6 +2,10 @@
 
 This document is a simplified view of the core flows. It favors readability over completeness.
 
+Related docs:
+- `docs/feature-map.md`
+- `docs/naming-conventions.md`
+
 Legend
 - Solid edges: delegation or control flow.
 - Dashed edges: error/cleanup or retry path.
