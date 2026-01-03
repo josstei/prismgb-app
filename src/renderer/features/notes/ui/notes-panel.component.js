@@ -16,6 +16,9 @@ const SAVE_DEBOUNCE_MS = 500;
 const SEARCH_DEBOUNCE_MS = 200;
 const RESIZE_DEBOUNCE_MS = 100;
 
+// Autocomplete debounce
+const AUTOCOMPLETE_DEBOUNCE_MS = 100;
+
 class NotesPanelComponent {
   constructor({ notesService, eventBus, logger }) {
     this.notesService = notesService;
@@ -25,11 +28,16 @@ class NotesPanelComponent {
     // Panel state
     this.isVisible = false;
     this.currentNoteId = null;
+    this.isListVisible = true;
+    this.currentGameFilter = '';
+    this.collapsedGameGroups = new Set();
+    this.autocompleteHighlightIndex = -1;
 
     // Debounce timers
     this._saveTimeout = null;
     this._searchTimeout = null;
     this._resizeTimeout = null;
+    this._autocompleteTimeout = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -48,13 +56,19 @@ class NotesPanelComponent {
       notesBtn: elements.notesBtn,
       notesPanel: elements.notesPanel,
       notesSearchInput: elements.notesSearchInput,
+      notesGameFilter: elements.notesGameFilter,
+      notesListToggle: elements.notesListToggle,
       notesList: elements.notesList,
       notesEditor: elements.notesEditor,
+      notesGameAddBtn: elements.notesGameAddBtn,
+      notesGameTagRow: elements.notesGameTagRow,
+      notesGameTag: elements.notesGameTag,
+      notesGameInput: elements.notesGameInput,
+      notesGameAutocomplete: elements.notesGameAutocomplete,
       notesTitleInput: elements.notesTitleInput,
       notesContentArea: elements.notesContentArea,
       notesNewBtn: elements.notesNewBtn,
-      notesDeleteBtn: elements.notesDeleteBtn,
-      notesCloseBtn: elements.notesCloseBtn
+      notesDeleteBtn: elements.notesDeleteBtn
     };
 
     if (!this.elements.notesBtn || !this.elements.notesPanel) {
@@ -63,15 +77,19 @@ class NotesPanelComponent {
     }
 
     this._setupToggleButton();
-    this._setupCloseButton();
     this._setupSearch();
+    this._setupGameFilter();
+    this._setupListToggle();
     this._setupEditor();
+    this._setupGameTagUI();
+    this._setupGameInput();
     this._setupNewButton();
     this._setupDeleteButton();
     this._setupEscapeKey();
     this._setupResizeHandler();
-    this._setupListClickHandler(); // Event delegation for list
+    this._setupListClickHandler();
     this._updatePanelPosition();
+    this._updateGameFilterOptions();
     this._renderNotesList();
     this._subscribeToEvents();
 
@@ -143,18 +161,6 @@ class NotesPanelComponent {
   }
 
   /**
-   * Setup close button
-   * @private
-   */
-  _setupCloseButton() {
-    if (!this.elements.notesCloseBtn) return;
-
-    this._domListeners.add(this.elements.notesCloseBtn, 'click', () => {
-      this.hide();
-    });
-  }
-
-  /**
    * Setup search input with debouncing
    * @private
    */
@@ -164,6 +170,79 @@ class NotesPanelComponent {
     this._domListeners.add(this.elements.notesSearchInput, 'input', () => {
       this._scheduleSearch();
     });
+  }
+
+  /**
+   * Setup game filter dropdown
+   * @private
+   */
+  _setupGameFilter() {
+    if (!this.elements.notesGameFilter) return;
+
+    this._domListeners.add(this.elements.notesGameFilter, 'change', () => {
+      this.currentGameFilter = this.elements.notesGameFilter.value;
+      this._renderNotesList(this.elements.notesSearchInput?.value || '');
+    });
+  }
+
+  /**
+   * Update game filter dropdown options
+   * @private
+   */
+  _updateGameFilterOptions() {
+    if (!this.elements.notesGameFilter) return;
+
+    const games = this.notesService.getUniqueGames();
+    const currentValue = this.elements.notesGameFilter.value;
+
+    // Rebuild options
+    this.elements.notesGameFilter.innerHTML = '<option value="">All Games</option>';
+
+    for (const game of games) {
+      const option = document.createElement('option');
+      option.value = game;
+      option.textContent = game;
+      this.elements.notesGameFilter.appendChild(option);
+    }
+
+    // Restore selection if still valid
+    if (currentValue && games.includes(currentValue)) {
+      this.elements.notesGameFilter.value = currentValue;
+    } else {
+      this.elements.notesGameFilter.value = '';
+      this.currentGameFilter = '';
+    }
+  }
+
+  /**
+   * Setup list toggle (collapse/expand divider)
+   * @private
+   */
+  _setupListToggle() {
+    if (!this.elements.notesListToggle) return;
+
+    this._domListeners.add(this.elements.notesListToggle, 'click', () => {
+      this._toggleListVisibility();
+    });
+  }
+
+  /**
+   * Toggle list visibility
+   * @private
+   */
+  _toggleListVisibility() {
+    this.isListVisible = !this.isListVisible;
+
+    const content = this.elements.notesPanel?.querySelector('.notes-panel-content');
+    if (!content) return;
+
+    if (this.isListVisible) {
+      content.classList.remove(CSSClasses.LIST_COLLAPSED);
+      this.elements.notesListToggle?.setAttribute('aria-expanded', 'true');
+    } else {
+      content.classList.add(CSSClasses.LIST_COLLAPSED);
+      this.elements.notesListToggle?.setAttribute('aria-expanded', 'false');
+    }
   }
 
   /**
@@ -188,6 +267,232 @@ class NotesPanelComponent {
   _handleSearch() {
     const query = this.elements.notesSearchInput?.value || '';
     this._renderNotesList(query);
+  }
+
+  /**
+   * Setup game tag UI (add button, tag click to edit)
+   * @private
+   */
+  _setupGameTagUI() {
+    // Add game button - show game input
+    if (this.elements.notesGameAddBtn) {
+      this._domListeners.add(this.elements.notesGameAddBtn, 'click', () => {
+        this._showGameInput();
+      });
+    }
+
+    // Game tag click - edit game
+    if (this.elements.notesGameTag) {
+      this._domListeners.add(this.elements.notesGameTag, 'click', () => {
+        this._showGameInput();
+      });
+    }
+  }
+
+  /**
+   * Show game input for editing
+   * @private
+   */
+  _showGameInput() {
+    if (!this.elements.notesGameTagRow || !this.elements.notesGameInput) return;
+
+    this.elements.notesGameTagRow.classList.add('editing');
+    this.elements.notesGameInput.focus();
+    this.elements.notesGameInput.select();
+  }
+
+  /**
+   * Hide game input and show tag
+   * @private
+   */
+  _hideGameInput() {
+    if (!this.elements.notesGameTagRow) return;
+
+    this.elements.notesGameTagRow.classList.remove('editing');
+    this._updateGameTagDisplay();
+  }
+
+  /**
+   * Update game tag display based on current value
+   * @private
+   */
+  _updateGameTagDisplay() {
+    const gameName = this.elements.notesGameInput?.value || '';
+
+    // Update tag text
+    if (this.elements.notesGameTag) {
+      this.elements.notesGameTag.textContent = gameName;
+    }
+
+    // Toggle has-game class on editor
+    if (this.elements.notesEditor) {
+      if (gameName) {
+        this.elements.notesEditor.classList.add('has-game');
+      } else {
+        this.elements.notesEditor.classList.remove('has-game');
+      }
+    }
+  }
+
+  /**
+   * Setup game input with autocomplete
+   * @private
+   */
+  _setupGameInput() {
+    if (!this.elements.notesGameInput) return;
+
+    // Autocomplete on input
+    this._domListeners.add(this.elements.notesGameInput, 'input', () => {
+      this._scheduleAutocomplete();
+      this._scheduleSave();
+      this._updateGameTagDisplay();
+    });
+
+    // Keyboard navigation
+    this._domListeners.add(this.elements.notesGameInput, 'keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this._hideGameInput();
+        return;
+      }
+      if (e.key === 'Escape') {
+        this._hideGameInput();
+        return;
+      }
+      this._handleAutocompleteKeydown(e);
+    });
+
+    // Hide input on blur (with delay to allow autocomplete click)
+    this._domListeners.add(this.elements.notesGameInput, 'blur', () => {
+      setTimeout(() => {
+        this._hideAutocomplete();
+        this._hideGameInput();
+      }, 150);
+    });
+
+    // Show autocomplete on focus
+    this._domListeners.add(this.elements.notesGameInput, 'focus', () => {
+      this._showAutocomplete();
+    });
+  }
+
+  /**
+   * Schedule autocomplete update with debounce
+   * @private
+   */
+  _scheduleAutocomplete() {
+    if (this._autocompleteTimeout) {
+      clearTimeout(this._autocompleteTimeout);
+    }
+
+    this._autocompleteTimeout = setTimeout(() => {
+      this._autocompleteTimeout = null;
+      this._showAutocomplete();
+    }, AUTOCOMPLETE_DEBOUNCE_MS);
+  }
+
+  /**
+   * Show autocomplete dropdown
+   * @private
+   */
+  _showAutocomplete() {
+    if (!this.elements.notesGameAutocomplete || !this.elements.notesGameInput) return;
+
+    const query = this.elements.notesGameInput.value.toLowerCase().trim();
+    const games = this.notesService.getUniqueGames();
+
+    // Filter games matching query
+    const matches = query
+      ? games.filter(g => g.toLowerCase().includes(query))
+      : games;
+
+    if (matches.length === 0) {
+      this._hideAutocomplete();
+      return;
+    }
+
+    this.autocompleteHighlightIndex = -1;
+    this.elements.notesGameAutocomplete.innerHTML = matches
+      .map((game, i) => `<div class="notes-game-autocomplete-item" data-index="${i}" data-value="${escapeHtml(game)}">${escapeHtml(game)}</div>`)
+      .join('');
+
+    // Add click handlers
+    this.elements.notesGameAutocomplete.querySelectorAll('.notes-game-autocomplete-item').forEach(item => {
+      item.addEventListener('click', () => {
+        this._selectAutocompleteItem(item.dataset.value);
+      });
+    });
+
+    this.elements.notesGameAutocomplete.classList.add(CSSClasses.VISIBLE);
+  }
+
+  /**
+   * Hide autocomplete dropdown
+   * @private
+   */
+  _hideAutocomplete() {
+    this.elements.notesGameAutocomplete?.classList.remove(CSSClasses.VISIBLE);
+    this.autocompleteHighlightIndex = -1;
+  }
+
+  /**
+   * Handle keyboard navigation in autocomplete
+   * @param {KeyboardEvent} e
+   * @private
+   */
+  _handleAutocompleteKeydown(e) {
+    const items = this.elements.notesGameAutocomplete?.querySelectorAll('.notes-game-autocomplete-item');
+    if (!items || items.length === 0) return;
+
+    const isVisible = this.elements.notesGameAutocomplete?.classList.contains(CSSClasses.VISIBLE);
+    if (!isVisible) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.autocompleteHighlightIndex = Math.min(this.autocompleteHighlightIndex + 1, items.length - 1);
+      this._updateAutocompleteHighlight(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.autocompleteHighlightIndex = Math.max(this.autocompleteHighlightIndex - 1, 0);
+      this._updateAutocompleteHighlight(items);
+    } else if (e.key === 'Enter' && this.autocompleteHighlightIndex >= 0) {
+      e.preventDefault();
+      const selectedItem = items[this.autocompleteHighlightIndex];
+      if (selectedItem) {
+        this._selectAutocompleteItem(selectedItem.dataset.value);
+      }
+    } else if (e.key === 'Escape') {
+      this._hideAutocomplete();
+    }
+  }
+
+  /**
+   * Update autocomplete highlight
+   * @param {NodeList} items
+   * @private
+   */
+  _updateAutocompleteHighlight(items) {
+    items.forEach((item, i) => {
+      if (i === this.autocompleteHighlightIndex) {
+        item.classList.add('highlighted');
+      } else {
+        item.classList.remove('highlighted');
+      }
+    });
+  }
+
+  /**
+   * Select an autocomplete item
+   * @param {string} value
+   * @private
+   */
+  _selectAutocompleteItem(value) {
+    if (this.elements.notesGameInput) {
+      this.elements.notesGameInput.value = value;
+    }
+    this._hideAutocomplete();
+    this._hideGameInput();
+    this._scheduleSave();
   }
 
   /**
@@ -234,24 +539,36 @@ class NotesPanelComponent {
 
     const title = this.elements.notesTitleInput?.value || '';
     const content = this.elements.notesContentArea?.value || '';
+    const gameName = this.elements.notesGameInput?.value || '';
 
-    const result = this.notesService.updateNote(this.currentNoteId, { title, content });
+    const oldNote = this.notesService.getNote(this.currentNoteId);
+    const oldGameName = oldNote?.gameName || '';
+    const gameChanged = oldGameName !== gameName;
+
+    const result = this.notesService.updateNote(this.currentNoteId, { title, content, gameName });
     if (!result) {
       this.logger?.warn('Failed to save note - may have been deleted');
       return;
     }
 
-    // Update only the current item in the list (not full rebuild)
-    this._updateListItemDisplay(this.currentNoteId, title);
+    // If game changed, update filter options and re-render list for proper grouping
+    if (gameChanged) {
+      this._updateGameFilterOptions();
+      this._renderNotesList(this.elements.notesSearchInput?.value || '');
+    } else {
+      // Update only the current item in the list (not full rebuild)
+      this._updateListItemDisplay(this.currentNoteId, title, gameName);
+    }
   }
 
   /**
    * Update a single list item's display without full rebuild
    * @param {string} noteId - Note ID
    * @param {string} title - New title
+   * @param {string} [gameName] - Game name
    * @private
    */
-  _updateListItemDisplay(noteId, title) {
+  _updateListItemDisplay(noteId, title, gameName) {
     const item = this.elements.notesList?.querySelector(`[data-note-id="${noteId}"]`);
     if (item) {
       const titleEl = item.querySelector('.note-list-item-title');
@@ -261,6 +578,12 @@ class NotesPanelComponent {
       const dateEl = item.querySelector('.note-list-item-date');
       if (dateEl) {
         dateEl.textContent = new Date().toLocaleDateString();
+      }
+      // Update game tag if present
+      const gameTagEl = item.querySelector('.note-list-item-game-tag');
+      if (gameTagEl && gameName !== undefined) {
+        gameTagEl.textContent = gameName || '';
+        gameTagEl.style.display = gameName ? '' : 'none';
       }
     }
   }
@@ -282,13 +605,16 @@ class NotesPanelComponent {
    * @private
    */
   _createNewNote() {
-    const note = this.notesService.createNote();
+    // Use current game filter as default game for new note
+    const gameName = this.currentGameFilter || '';
+    const note = this.notesService.createNote('', '', gameName);
     if (!note) {
       this.logger?.error('Failed to create note');
       return;
     }
 
     this._selectNote(note.id);
+    this._updateGameFilterOptions();
     this._renderNotesList();
 
     // Focus title input
@@ -324,6 +650,9 @@ class NotesPanelComponent {
     this.currentNoteId = null;
 
     // Clear editor
+    if (this.elements.notesGameInput) {
+      this.elements.notesGameInput.value = '';
+    }
     if (this.elements.notesTitleInput) {
       this.elements.notesTitleInput.value = '';
     }
@@ -334,9 +663,12 @@ class NotesPanelComponent {
     // Update delete button state
     this.elements.notesDeleteBtn?.setAttribute('disabled', '');
 
+    // Update game filter options (game might no longer have notes)
+    this._updateGameFilterOptions();
+
     // Re-render list and select first note if available, or show empty state
     this._renderNotesList();
-    const notes = this.notesService.getAllNotes();
+    const notes = this.notesService.searchNotes('', this.currentGameFilter);
     if (notes.length > 0) {
       this._selectNote(notes[0].id);
     } else {
@@ -346,14 +678,23 @@ class NotesPanelComponent {
   }
 
   /**
-   * Setup event delegation for list item clicks
-   * Single listener on container handles all item clicks
+   * Setup event delegation for list item and game header clicks
+   * Single listener on container handles all clicks
    * @private
    */
   _setupListClickHandler() {
     if (!this.elements.notesList) return;
 
     this._domListeners.add(this.elements.notesList, 'click', (e) => {
+      // Handle game group header click (expand/collapse)
+      const gameHeader = e.target.closest('.notes-game-header');
+      if (gameHeader) {
+        const gameName = gameHeader.dataset.gameToggle || '';
+        this._toggleGameGroup(gameName);
+        return;
+      }
+
+      // Handle note item click
       const item = e.target.closest('.note-list-item');
       if (!item) return;
 
@@ -367,40 +708,134 @@ class NotesPanelComponent {
   }
 
   /**
-   * Render notes list (without individual click handlers - using event delegation)
+   * Toggle game group expand/collapse
+   * @param {string} gameName
+   * @private
+   */
+  _toggleGameGroup(gameName) {
+    const group = this.elements.notesList?.querySelector(`[data-game="${gameName}"]`);
+    if (!group) return;
+
+    if (this.collapsedGameGroups.has(gameName)) {
+      this.collapsedGameGroups.delete(gameName);
+      group.classList.remove(CSSClasses.GAME_GROUP_COLLAPSED);
+    } else {
+      this.collapsedGameGroups.add(gameName);
+      group.classList.add(CSSClasses.GAME_GROUP_COLLAPSED);
+    }
+  }
+
+  /**
+   * Render notes list with game grouping
    * @param {string} [searchQuery=''] - Optional search query
    * @private
    */
   _renderNotesList(searchQuery = '') {
     if (!this.elements.notesList) return;
 
-    const notes = searchQuery
-      ? this.notesService.searchNotes(searchQuery)
-      : this.notesService.getAllNotes();
+    const notes = this.notesService.searchNotes(searchQuery, this.currentGameFilter);
 
     if (notes.length === 0) {
       this.elements.notesList.innerHTML = `
         <div class="notes-list-empty">
-          ${searchQuery ? 'No matching notes' : 'No notes yet'}
+          ${searchQuery ? 'No matching notes' : (this.currentGameFilter ? 'No notes for this game' : 'No notes yet')}
         </div>
       `;
       return;
     }
 
-    this.elements.notesList.innerHTML = notes
-      .map(note => {
-        const isActive = note.id === this.currentNoteId;
-        const safeId = escapeHtml(note.id || '');
-        const title = escapeHtml(note.title || 'Untitled Note');
-        const date = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '';
-        return `
-          <div class="note-list-item${isActive ? ' active' : ''}" data-note-id="${safeId}">
-            <div class="note-list-item-title">${title}</div>
-            <div class="note-list-item-date">${date}</div>
-          </div>
-        `;
-      })
+    // If filtering by a specific game, show flat list
+    if (this.currentGameFilter) {
+      this.elements.notesList.innerHTML = notes
+        .map(note => this._renderNoteItem(note, false))
+        .join('');
+      return;
+    }
+
+    // Group by game for "All Games" view
+    const grouped = this._groupNotesByGame(notes);
+    const gameNames = Object.keys(grouped).sort((a, b) => {
+      // "General" (empty string) goes last
+      if (a === '') return 1;
+      if (b === '') return -1;
+      return a.localeCompare(b);
+    });
+
+    this.elements.notesList.innerHTML = gameNames
+      .map(gameName => this._renderGameGroup(gameName, grouped[gameName]))
       .join('');
+  }
+
+  /**
+   * Group notes by game name
+   * @param {Array} notes
+   * @returns {Object} Map of gameName to notes array
+   * @private
+   */
+  _groupNotesByGame(notes) {
+    const groups = {};
+    for (const note of notes) {
+      const gameName = note.gameName || '';
+      if (!groups[gameName]) {
+        groups[gameName] = [];
+      }
+      groups[gameName].push(note);
+    }
+    return groups;
+  }
+
+  /**
+   * Render a game group
+   * @param {string} gameName
+   * @param {Array} notes
+   * @returns {string} HTML
+   * @private
+   */
+  _renderGameGroup(gameName, notes) {
+    const isCollapsed = this.collapsedGameGroups.has(gameName);
+    const displayName = gameName || 'General';
+    const safeGameName = escapeHtml(gameName);
+
+    return `
+      <div class="notes-game-group${isCollapsed ? ' collapsed' : ''}" data-game="${safeGameName}">
+        <button class="notes-game-header" data-game-toggle="${safeGameName}">
+          <span class="game-name">${escapeHtml(displayName)}</span>
+          <span class="game-count">${notes.length}</span>
+          <svg class="game-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <div class="notes-game-notes">
+          ${notes.map(note => this._renderNoteItem(note, false)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render a single note item
+   * @param {Object} note
+   * @param {boolean} showGameTag - Whether to show the game tag
+   * @returns {string} HTML
+   * @private
+   */
+  _renderNoteItem(note, showGameTag = true) {
+    const isActive = note.id === this.currentNoteId;
+    const safeId = escapeHtml(note.id || '');
+    const title = escapeHtml(note.title || 'Untitled Note');
+    const date = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '';
+    const gameName = note.gameName || '';
+    const gameTagHtml = showGameTag && gameName
+      ? `<div class="note-list-item-game-tag">${escapeHtml(gameName)}</div>`
+      : '';
+
+    return `
+      <div class="note-list-item${isActive ? ' active' : ''}" data-note-id="${safeId}">
+        <div class="note-list-item-title">${title}</div>
+        ${gameTagHtml}
+        <div class="note-list-item-date">${date}</div>
+      </div>
+    `;
   }
 
   /**
@@ -418,12 +853,18 @@ class NotesPanelComponent {
     this.elements.notesEditor?.classList.add('has-note');
 
     // Update editor
+    if (this.elements.notesGameInput) {
+      this.elements.notesGameInput.value = note.gameName || '';
+    }
     if (this.elements.notesTitleInput) {
       this.elements.notesTitleInput.value = note.title || '';
     }
     if (this.elements.notesContentArea) {
       this.elements.notesContentArea.value = note.content || '';
     }
+
+    // Update game tag display
+    this._updateGameTagDisplay();
 
     // Enable delete button
     this.elements.notesDeleteBtn?.removeAttribute('disabled');
@@ -550,6 +991,10 @@ class NotesPanelComponent {
       clearTimeout(this._resizeTimeout);
       this._resizeTimeout = null;
     }
+    if (this._autocompleteTimeout) {
+      clearTimeout(this._autocompleteTimeout);
+      this._autocompleteTimeout = null;
+    }
 
     // Disconnect resize observer
     if (this._resizeObserver) {
@@ -577,6 +1022,9 @@ class NotesPanelComponent {
     this.logger = null;
     this.currentNoteId = null;
     this.isVisible = false;
+    this.isListVisible = true;
+    this.currentGameFilter = '';
+    this.collapsedGameGroups.clear();
   }
 }
 

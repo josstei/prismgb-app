@@ -22,7 +22,9 @@ describe('NotesPanelComponent', () => {
       createNote: vi.fn(),
       updateNote: vi.fn(),
       deleteNote: vi.fn(),
-      searchNotes: vi.fn(() => [])
+      searchNotes: vi.fn(() => []),
+      getUniqueGames: vi.fn(() => []),
+      getNotesGroupedByGame: vi.fn(() => ({}))
     };
 
     // Mock event bus
@@ -44,13 +46,19 @@ describe('NotesPanelComponent', () => {
       notesBtn: document.createElement('button'),
       notesPanel: document.createElement('div'),
       notesSearchInput: document.createElement('input'),
+      notesGameFilter: document.createElement('select'),
+      notesListToggle: document.createElement('button'),
       notesList: document.createElement('div'),
       notesEditor: document.createElement('div'),
+      notesGameAddBtn: document.createElement('button'),
+      notesGameTagRow: document.createElement('div'),
+      notesGameTag: document.createElement('button'),
+      notesGameInput: document.createElement('input'),
+      notesGameAutocomplete: document.createElement('div'),
       notesTitleInput: document.createElement('input'),
       notesContentArea: document.createElement('textarea'),
       notesNewBtn: document.createElement('button'),
-      notesDeleteBtn: document.createElement('button'),
-      notesCloseBtn: document.createElement('button')
+      notesDeleteBtn: document.createElement('button')
     };
 
     // Set up element IDs for querySelector usage
@@ -94,7 +102,7 @@ describe('NotesPanelComponent', () => {
     it('should render notes list on initialize', () => {
       component.initialize(mockElements);
 
-      expect(mockNotesService.getAllNotes).toHaveBeenCalled();
+      expect(mockNotesService.searchNotes).toHaveBeenCalled();
     });
 
     it('should subscribe to events on initialize', () => {
@@ -230,6 +238,7 @@ describe('NotesPanelComponent', () => {
 
     it('should save current note before hiding', () => {
       component.currentNoteId = 'note_1';
+      mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'Test Title';
       mockElements.notesContentArea.value = 'Test Content';
 
@@ -237,7 +246,8 @@ describe('NotesPanelComponent', () => {
 
       expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
         title: 'Test Title',
-        content: 'Test Content'
+        content: 'Test Content',
+        gameName: ''
       });
     });
 
@@ -343,9 +353,9 @@ describe('NotesPanelComponent', () => {
     });
 
     it('should select first remaining note after deletion', () => {
-      const remainingNote = { id: 'note_2', title: 'Remaining', content: '' };
+      const remainingNote = { id: 'note_2', title: 'Remaining', gameName: '', content: '' };
       mockNotesService.deleteNote.mockReturnValue(true);
-      mockNotesService.getAllNotes.mockReturnValue([remainingNote]);
+      mockNotesService.searchNotes.mockReturnValue([remainingNote]);
       mockNotesService.getNote.mockReturnValue(remainingNote);
 
       component._deleteCurrentNote();
@@ -477,10 +487,10 @@ describe('NotesPanelComponent', () => {
 
     it('should render note list items', () => {
       const notes = [
-        { id: 'note_1', title: 'First Note', updatedAt: Date.now() },
-        { id: 'note_2', title: 'Second Note', updatedAt: Date.now() }
+        { id: 'note_1', title: 'First Note', gameName: '', updatedAt: Date.now() },
+        { id: 'note_2', title: 'Second Note', gameName: '', updatedAt: Date.now() }
       ];
-      mockNotesService.getAllNotes.mockReturnValue(notes);
+      mockNotesService.searchNotes.mockReturnValue(notes);
 
       component._renderNotesList();
 
@@ -491,8 +501,8 @@ describe('NotesPanelComponent', () => {
 
     it('should mark current note as active', () => {
       component.currentNoteId = 'note_1';
-      const notes = [{ id: 'note_1', title: 'Active Note', updatedAt: Date.now() }];
-      mockNotesService.getAllNotes.mockReturnValue(notes);
+      const notes = [{ id: 'note_1', title: 'Active Note', gameName: '', updatedAt: Date.now() }];
+      mockNotesService.searchNotes.mockReturnValue(notes);
 
       component._renderNotesList();
 
@@ -500,8 +510,8 @@ describe('NotesPanelComponent', () => {
     });
 
     it('should escape HTML in note titles', () => {
-      const notes = [{ id: 'note_1', title: '<script>alert("xss")</script>', updatedAt: Date.now() }];
-      mockNotesService.getAllNotes.mockReturnValue(notes);
+      const notes = [{ id: 'note_1', title: '<script>alert("xss")</script>', gameName: '', updatedAt: Date.now() }];
+      mockNotesService.searchNotes.mockReturnValue(notes);
 
       component._renderNotesList();
 
@@ -510,8 +520,8 @@ describe('NotesPanelComponent', () => {
     });
 
     it('should use default title for untitled notes', () => {
-      const notes = [{ id: 'note_1', title: '', updatedAt: Date.now() }];
-      mockNotesService.getAllNotes.mockReturnValue(notes);
+      const notes = [{ id: 'note_1', title: '', gameName: '', updatedAt: Date.now() }];
+      mockNotesService.searchNotes.mockReturnValue(notes);
 
       component._renderNotesList();
 
@@ -523,7 +533,7 @@ describe('NotesPanelComponent', () => {
 
       component._renderNotesList('search term');
 
-      expect(mockNotesService.searchNotes).toHaveBeenCalledWith('search term');
+      expect(mockNotesService.searchNotes).toHaveBeenCalledWith('search term', '');
     });
   });
 
@@ -542,15 +552,18 @@ describe('NotesPanelComponent', () => {
 
     it('should save current note with editor values', () => {
       component.currentNoteId = 'note_1';
+      mockElements.notesGameInput.value = 'Test Game';
       mockElements.notesTitleInput.value = 'Updated Title';
       mockElements.notesContentArea.value = 'Updated Content';
       mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
+      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: 'Test Game' });
 
       component._saveCurrentNote();
 
       expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
         title: 'Updated Title',
-        content: 'Updated Content'
+        content: 'Updated Content',
+        gameName: 'Test Game'
       });
     });
 
@@ -608,20 +621,21 @@ describe('NotesPanelComponent', () => {
 
       vi.advanceTimersByTime(200);
 
-      // getAllNotes is called during _renderNotesList, searchNotes only when query present
-      expect(mockNotesService.getAllNotes).toHaveBeenCalled();
+      // searchNotes is always called during _renderNotesList (with empty query for no search)
+      expect(mockNotesService.searchNotes).toHaveBeenCalled();
     });
 
     it('should delay search by 200ms', () => {
-      const initialCallCount = mockNotesService.getAllNotes.mock.calls.length;
+      mockNotesService.searchNotes.mockReturnValue([]);
+      const initialCallCount = mockNotesService.searchNotes.mock.calls.length;
 
       component._scheduleSearch();
 
       vi.advanceTimersByTime(100);
-      expect(mockNotesService.getAllNotes.mock.calls.length).toBe(initialCallCount);
+      expect(mockNotesService.searchNotes.mock.calls.length).toBe(initialCallCount);
 
       vi.advanceTimersByTime(100);
-      expect(mockNotesService.getAllNotes.mock.calls.length).toBeGreaterThan(initialCallCount);
+      expect(mockNotesService.searchNotes.mock.calls.length).toBeGreaterThan(initialCallCount);
     });
   });
 
@@ -765,10 +779,10 @@ describe('NotesPanelComponent', () => {
       component.show();
     });
 
-    it('should hide panel on close button click', () => {
+    it('should hide panel on toggle button click when visible', () => {
       expect(component.isVisible).toBe(true);
 
-      mockElements.notesCloseBtn.click();
+      mockElements.notesBtn.click();
 
       expect(component.isVisible).toBe(false);
     });
@@ -829,12 +843,15 @@ describe('NotesPanelComponent', () => {
 
     it('should save current note before switching', () => {
       component.currentNoteId = 'old_note';
+      mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'Old Title';
       mockElements.notesContentArea.value = 'Old Content';
       mockNotesService.updateNote.mockReturnValue({ id: 'old_note' });
+      mockNotesService.getNote.mockReturnValue({ id: 'old_note', gameName: '' });
 
-      const newNote = { id: 'new_note', title: 'New', content: '' };
-      mockNotesService.getNote.mockReturnValue(newNote);
+      const newNote = { id: 'new_note', title: 'New', content: '', gameName: '' };
+      mockNotesService.getNote.mockReturnValueOnce({ id: 'old_note', gameName: '' });
+      mockNotesService.getNote.mockReturnValueOnce(newNote);
 
       mockElements.notesList.innerHTML = `
         <div class="note-list-item" data-note-id="new_note">
@@ -847,7 +864,8 @@ describe('NotesPanelComponent', () => {
 
       expect(mockNotesService.updateNote).toHaveBeenCalledWith('old_note', {
         title: 'Old Title',
-        content: 'Old Content'
+        content: 'Old Content',
+        gameName: ''
       });
     });
 

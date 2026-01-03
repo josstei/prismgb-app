@@ -94,19 +94,19 @@ body:not(.streaming-mode) .notes-panel {
 }
 
 /* =====================================================
-   Header
+   Toolbar (Search + Filter)
    ===================================================== */
 
-.notes-panel-header {
+.notes-panel-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 14px 16px;
+  gap: 6px;
+  padding: 10px 12px;
   position: relative;
 }
 
 /* Subtle gradient divider */
-.notes-panel-header::after {
+.notes-panel-toolbar::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -116,90 +116,47 @@ body:not(.streaming-mode) .notes-panel {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(var(--color-info-rgb), 0.25) 20%,
-    rgba(var(--color-info-rgb), 0.35) 50%,
-    rgba(var(--color-info-rgb), 0.25) 80%,
+    rgba(var(--color-info-rgb), 0.2) 20%,
+    rgba(var(--color-info-rgb), 0.3) 50%,
+    rgba(var(--color-info-rgb), 0.2) 80%,
     transparent 100%
   );
 }
 
-.notes-panel-title {
+/* Search input with icon */
+.notes-search-wrapper {
   flex: 1;
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.notes-panel-actions {
+  position: relative;
   display: flex;
-  gap: var(--space-xs);
+  align-items: center;
 }
 
-.notes-action-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.5);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+.notes-search-icon {
+  position: absolute;
+  left: 8px;
+  width: 12px;
+  height: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
 }
 
-.notes-action-btn:hover {
-  background: rgba(var(--color-info-rgb), 0.12);
-  border-color: rgba(var(--color-info-rgb), 0.2);
-  color: rgba(255, 255, 255, 0.92);
-  transform: scale(1.04);
+.notes-search-icon svg {
+  width: 12px;
+  height: 12px;
 }
 
-.notes-action-btn:active {
-  transform: scale(0.98);
-}
-
-/* =====================================================
-   Search
-   ===================================================== */
-
-.notes-panel-search {
-  padding: 10px 16px 14px;
-  position: relative;
-}
-
-/* Subtle gradient divider */
-.notes-panel-search::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: var(--space-md);
-  right: var(--space-md);
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.06) 50%,
-    transparent 100%
-  );
-}
-
-.notes-panel-search input {
+.notes-search-wrapper input {
   width: 100%;
-  padding: 9px 12px;
+  padding: 6px 8px 6px 26px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: var(--font-size-sm);
+  font-size: 11px;
   outline: none;
   transition:
     border-color var(--transition-fast),
@@ -207,15 +164,86 @@ body:not(.streaming-mode) .notes-panel {
     box-shadow var(--transition-fast);
 }
 
-.notes-panel-search input:focus {
+.notes-search-wrapper input:focus {
   border-color: rgba(var(--color-info-rgb), 0.4);
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 3px rgba(var(--color-info-rgb), 0.08);
+  box-shadow: 0 0 0 2px rgba(var(--color-info-rgb), 0.08);
 }
 
-.notes-panel-search input::placeholder {
+.notes-search-wrapper input:focus + .notes-search-icon,
+.notes-search-wrapper input:not(:placeholder-shown) + .notes-search-icon {
+  color: rgba(var(--color-info-rgb), 0.6);
+}
+
+.notes-search-wrapper input::placeholder {
   color: rgba(255, 255, 255, 0.28);
-  font-style: italic;
+}
+
+/* Filter dropdown with icon */
+.notes-filter-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.notes-filter-icon {
+  position: absolute;
+  left: 6px;
+  width: 10px;
+  height: 10px;
+  color: rgba(var(--color-info-rgb), 0.5);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notes-filter-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.notes-panel-toolbar .notes-game-filter {
+  padding: 6px 20px 6px 22px;
+  background: rgba(var(--color-info-rgb), 0.06);
+  border: 1px solid rgba(var(--color-info-rgb), 0.15);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 60px;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.notes-panel-toolbar .notes-game-filter:hover {
+  background: rgba(var(--color-info-rgb), 0.1);
+  border-color: rgba(var(--color-info-rgb), 0.25);
+}
+
+.notes-panel-toolbar .notes-game-filter:focus {
+  border-color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.notes-filter-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 3px solid rgba(var(--color-info-rgb), 0.5);
+  pointer-events: none;
 }
 
 /* =====================================================
@@ -229,45 +257,64 @@ body:not(.streaming-mode) .notes-panel {
   overflow: hidden;
 }
 
+/* List wrapper - handles collapse animation */
+.notes-list-wrapper {
+  width: 130px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  will-change: width, opacity;
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+
+/* Collapsed state */
+.notes-panel-content.list-collapsed .notes-list-wrapper {
+  width: 0;
+  opacity: 0;
+  border-right: none;
+}
+
+/* Game filter option styling */
+.notes-game-filter option {
+  background: #1a1a1f;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px;
+}
+
 /* Notes list */
 .notes-list {
-  width: 125px;
-  flex-shrink: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  flex: 1;
   overflow-y: auto;
-  padding: var(--space-xs);
+  padding: 4px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 .notes-list::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .notes-list::-webkit-scrollbar-track {
   background: transparent;
-  margin: var(--space-xs) 0;
+  margin: 4px 0;
 }
 
 .notes-list::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    rgba(var(--color-info-rgb), 0.25),
-    rgba(var(--color-primary-rgb), 0.2)
-  );
+  background: rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-full);
+  transition: background 0.2s ease;
 }
 
 .notes-list::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(var(--color-info-rgb), 0.4),
-    rgba(var(--color-primary-rgb), 0.35)
-  );
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .note-list-item {
-  padding: 10px 11px;
+  padding: 8px 9px;
   cursor: pointer;
   margin-bottom: 2px;
   border-radius: var(--radius-sm);
@@ -314,11 +361,152 @@ body:not(.streaming-mode) .notes-panel {
 }
 
 .notes-list-empty {
-  padding: 24px 12px;
+  padding: 16px 10px;
   text-align: center;
   color: rgba(255, 255, 255, 0.38);
   font-size: var(--font-size-xs);
   font-style: italic;
+}
+
+/* =====================================================
+   Game Groups
+   ===================================================== */
+
+.notes-game-group {
+  margin-bottom: 4px;
+}
+
+.notes-game-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 7px;
+  background: rgba(var(--color-info-rgb), 0.06);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.notes-game-header:hover {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.notes-game-header .game-name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(var(--color-info-rgb), 0.9);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.notes-game-header .game-count {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 5px;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-game-header .game-chevron {
+  width: 10px;
+  height: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.notes-game-group.collapsed .notes-game-header .game-chevron {
+  transform: rotate(-90deg);
+}
+
+.notes-game-notes {
+  overflow: hidden;
+  max-height: 500px;
+  opacity: 1;
+  transition:
+    max-height 0.2s ease-out,
+    opacity 0.15s ease;
+}
+
+.notes-game-group.collapsed .notes-game-notes {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Game tag on note items */
+.note-list-item-game-tag {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(var(--color-info-rgb), 0.7);
+  background: rgba(var(--color-info-rgb), 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-top: 2px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hide game tag when viewing a filtered game or in grouped view */
+.notes-game-notes .note-list-item-game-tag,
+.notes-list[data-filtered] .note-list-item-game-tag {
+  display: none;
+}
+
+/* =====================================================
+   List Toggle Divider
+   ===================================================== */
+
+.notes-list-toggle {
+  width: 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: col-resize;
+  position: relative;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.notes-list-toggle:hover {
+  background: rgba(var(--color-info-rgb), 0.05);
+}
+
+.notes-list-toggle .toggle-handle {
+  width: 2px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 1px;
+  transition:
+    background 0.2s ease,
+    height 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.notes-list-toggle:hover .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.5);
+  height: 36px;
+  box-shadow: 0 0 8px rgba(var(--color-info-rgb), 0.3);
+}
+
+/* Visual indicator when collapsed */
+.notes-panel-content.list-collapsed .notes-list-toggle .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.4);
 }
 
 /* =====================================================
@@ -329,29 +517,43 @@ body:not(.streaming-mode) .notes-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
+  padding: 10px 12px;
   min-width: 0;
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.08);
 }
 
-.notes-title-input {
-  width: 100%;
-  padding: 10px 0;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
-  color: var(--color-text-primary);
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  outline: none;
+/* Title row with game tag - wraps when needed */
+.notes-title-row {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   transition: border-color var(--transition-fast);
 }
 
-.notes-title-input:focus {
-  border-bottom-color: rgba(var(--color-info-rgb), 0.5);
+.notes-editor.has-note .notes-title-row {
+  display: flex;
+}
+
+.notes-title-row:focus-within {
+  border-bottom-color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.notes-title-input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  outline: none;
 }
 
 .notes-title-input::placeholder {
@@ -359,18 +561,180 @@ body:not(.streaming-mode) .notes-panel {
   font-weight: 400;
 }
 
+/* Game tag pill - inline with title, wraps below if needed */
+.notes-game-tag {
+  display: none;
+  align-items: center;
+  padding: 2px 6px;
+  background: rgba(var(--color-info-rgb), 0.1);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: 8px;
+  color: rgba(var(--color-info-rgb), 0.85);
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.notes-game-tag:hover {
+  background: rgba(var(--color-info-rgb), 0.15);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+}
+
+.notes-editor.has-game .notes-game-tag {
+  display: inline-flex;
+}
+
+/* Add game button */
+.notes-game-add-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.notes-game-add-btn:hover {
+  color: rgba(var(--color-info-rgb), 0.8);
+  background: rgba(var(--color-info-rgb), 0.08);
+  border-color: rgba(var(--color-info-rgb), 0.15);
+}
+
+.notes-game-add-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Hide add button when game is set */
+.notes-editor.has-game .notes-game-add-btn {
+  display: none;
+}
+
+/* Game input row - appears below title when editing */
+.notes-game-input-row {
+  display: none;
+  padding: 4px 0;
+  position: relative;
+}
+
+.notes-game-input-row.editing {
+  display: block;
+}
+
+/* Game input wrapper */
+.notes-game-input-wrapper {
+  position: relative;
+}
+
+.notes-game-input {
+  width: 100%;
+  padding: 3px 8px;
+  background: rgba(var(--color-info-rgb), 0.06);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.notes-game-input:focus {
+  border-color: rgba(var(--color-info-rgb), 0.4);
+  background: rgba(var(--color-info-rgb), 0.08);
+  box-shadow: 0 0 0 2px rgba(var(--color-info-rgb), 0.08);
+}
+
+.notes-game-input::placeholder {
+  color: rgba(var(--color-info-rgb), 0.4);
+}
+
+/* Autocomplete dropdown */
+.notes-game-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-top: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.notes-game-autocomplete.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.notes-game-autocomplete-item {
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.notes-game-autocomplete-item:hover,
+.notes-game-autocomplete-item.highlighted {
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.notes-game-autocomplete-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.notes-game-autocomplete-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
 .notes-content-area {
   flex: 1;
   width: 100%;
-  padding: 12px 0;
+  padding: 10px 0;
   background: transparent;
   border: none;
   color: var(--color-text-primary);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.5;
   resize: none;
   outline: none;
-  min-height: 150px;
+  min-height: 120px;
 }
 
 .notes-content-area::selection {
@@ -388,12 +752,12 @@ body:not(.streaming-mode) .notes-panel {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
   height: 100%;
   color: rgba(255, 255, 255, 0.4);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   text-align: center;
-  padding: 24px;
+  padding: 16px;
 }
 
 .notes-empty-state svg {
@@ -411,13 +775,18 @@ body:not(.streaming-mode) .notes-panel {
   display: none;
 }
 
-/* Hide inputs when no note selected (default) */
-.notes-editor .notes-title-input,
+/* Hide content area when no note selected */
 .notes-editor .notes-content-area {
   display: none;
 }
 
-/* Show inputs when note is selected */
+/* Show content area when note is selected */
+.notes-editor.has-note .notes-content-area {
+  display: block;
+}
+
+/* Note: .notes-title-row visibility is handled above */
+/* Keep this for backwards compatibility */
 .notes-editor.has-note .notes-title-input,
 .notes-editor.has-note .notes-content-area {
   display: block;
@@ -429,8 +798,8 @@ body:not(.streaming-mode) .notes-panel {
 
 .notes-panel-footer {
   display: flex;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   position: relative;
   background: rgba(0, 0, 0, 0.12);
   border-radius: 0 0 var(--side-panel-border-radius) var(--side-panel-border-radius);
@@ -459,18 +828,18 @@ body:not(.streaming-mode) .notes-panel {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 14px;
+  gap: 5px;
+  padding: 7px 12px;
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.06) 0%,
     rgba(255, 255, 255, 0.03) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.7);
   font-family: var(--font-display);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 500;
   letter-spacing: 0.2px;
   cursor: pointer;
@@ -534,7 +903,13 @@ body:not(.streaming-mode) .notes-panel {
 
   .notes-action-btn,
   .notes-footer-btn,
-  .note-list-item {
+  .note-list-item,
+  .notes-list-wrapper,
+  .notes-list-toggle,
+  .notes-list-toggle .toggle-handle,
+  .notes-game-notes,
+  .notes-game-autocomplete,
+  .notes-game-header .game-chevron {
     transition: none !important;
   }
 }
