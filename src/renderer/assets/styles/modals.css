@@ -11,6 +11,11 @@
   display: inline-block;
 }
 
+/* Elevate settings-control when menu is open so it appears above notes panel */
+.settings-control:has(.settings-menu-container.visible) {
+  z-index: var(--z-tooltip);
+}
+
 .settings-menu-container {
   position: absolute;
   top: calc(100% + 10px);
