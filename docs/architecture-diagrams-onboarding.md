@@ -112,8 +112,8 @@ flowchart LR
 flowchart LR
   DeviceBridge[DeviceBridgeService]
   UpdateBridge[UpdateBridgeService]
-  DeviceServiceRenderer[DeviceService (Renderer)]
-  UIService[UIService / UI Components]
+  DeviceServiceRenderer["DeviceService (Renderer)"]
+  UIService["UIService / UI Components"]
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
   UpdateBridge -- IPC: update-status --> UIService

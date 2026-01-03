@@ -148,8 +148,8 @@ flowchart LR
   end
 
   subgraph RENDERER[Renderer]
-    DeviceServiceRenderer[DeviceService (Renderer)]
-    UIService[UIService / UI Components]
+    DeviceServiceRenderer["DeviceService (Renderer)"]
+    UIService["UIService / UI Components"]
   end
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
