@@ -1,11 +1,11 @@
 /**
- * CanvasRenderer Unit Tests
+ * StreamingCanvasRenderer Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.class.js';
+import { StreamingCanvasRenderer } from '@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js';
 
-describe('CanvasRenderer', () => {
+describe('StreamingCanvasRenderer', () => {
   let renderer;
   let mockLogger;
   let mockCanvas;
@@ -68,7 +68,7 @@ describe('CanvasRenderer', () => {
       configurable: true
     });
 
-    renderer = new CanvasRenderer(mockLogger, mockAnimationCache);
+    renderer = new StreamingCanvasRenderer(mockLogger, mockAnimationCache);
   });
 
   afterEach(() => {

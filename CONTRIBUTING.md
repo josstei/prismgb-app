@@ -8,9 +8,12 @@ Thank you for your interest in contributing to PrismGB! This document provides g
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Development Workflow](#development-workflow)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
 - [Commit Guidelines](#commit-guidelines)
 - [Pull Request Process](#pull-request-process)
 - [Code Style](#code-style)
+- [Naming Conventions](#naming-conventions)
 - [Testing](#testing)
 
 ## Code of Conduct
@@ -73,48 +76,41 @@ npm run dev
 
 ```bash
 npm run dev              # Start Vite dev server with Electron
-npm run build            # Build for current platform
+npm run build            # Build and package for current platform
 npm run lint             # Check for linting errors
-npm run lint:fix         # Auto-fix linting issues
-npm test                 # Run tests in watch mode
-npm run test:run         # Run tests once
 npm run test:coverage    # Run tests with coverage report
+npm run test:integration # Run integration tests
+npm run test:smoke        # Run smoke test against built app
 ```
 
-### Project Structure
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the full script list and local setup notes.
+
+## Project Structure
 
 ```
 src/
-├── app/                # Electron processes
-│   ├── main/           # Main process (Node.js)
-│   ├── renderer/       # Renderer process (browser)
-│   │   ├── application/  # AppOrchestrator, AppState
-│   │   └── assets/       # Styles, fonts
-│   └── preload/        # Preload bridge
-├── features/           # Domain features
-│   ├── capture/        # Screenshot and recording
-│   ├── devices/        # Device detection, adapters
-│   ├── settings/       # User preferences
-│   ├── streaming/      # Video streaming, rendering
-│   └── updates/        # Auto-update
-├── infrastructure/     # Shared infrastructure
-│   ├── browser/        # Browser API abstractions
-│   ├── di/             # ServiceContainer
-│   ├── events/         # EventBus
-│   ├── ipc/            # IPC channels
-│   └── logging/        # Logger factories
-├── shared/             # Shared utilities
-│   ├── base/           # BaseService, BaseOrchestrator
-│   ├── config/         # Constants, selectors
-│   ├── interfaces/     # Core interfaces
-│   ├── lib/            # Errors, file-download
-│   └── utils/          # Formatters, caches
-└── ui/                 # UI layer
-    ├── components/     # Reusable components
-    ├── controller/     # UIController, factories
-    ├── effects/        # Visual effects
-    └── orchestration/  # UI setup, event handler
+├── main/               # Electron main process
+├── preload/            # Context bridge APIs
+├── renderer/           # Renderer process and UI
+│   ├── application/    # App orchestrators and state
+│   ├── assets/         # Styles, fonts, images
+│   ├── features/       # Domain features (capture, devices, notes, settings, streaming, updates)
+│   ├── infrastructure/ # Event bus, logging, adapters
+│   ├── ui/             # Templates, components, orchestration
+│   └── lib/            # Renderer-only utilities
+├── shared/             # Shared utilities and config
+tests/                  # Unit and integration tests
+docs/                   # Architecture and feature docs
+scripts/                # Build and tooling scripts
 ```
+
+## Documentation
+
+- Development guide: `DEVELOPMENT.md`
+- Feature map: `docs/feature-map.md`
+- Naming conventions: `docs/naming-conventions.md`
+- Architecture diagrams: `docs/architecture-diagrams.md`
+- Architecture onboarding: `docs/architecture-diagrams-onboarding.md`
 
 ## Commit Guidelines
 
@@ -159,8 +155,8 @@ ci: add security scanning to PR workflow
 
 This project uses Husky to enforce commit conventions:
 
-- **pre-commit**: Runs the full test suite
-- **commit-msg**: Validates commit message format
+- **pre-commit**: Runs `npm test` (Vitest watch mode)
+- **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
 
@@ -176,7 +172,8 @@ If commits fail validation, check your commit message format against the guideli
 3. **Run quality checks** before pushing:
    ```bash
    npm run lint
-   npm run test:run
+   npm run test:coverage
+   npm run test:integration
    ```
 
 4. **Push your branch** and open a pull request
@@ -190,9 +187,12 @@ If commits fail validation, check your commit message format against the guideli
 All PRs must pass:
 
 - Linting (`npm run lint`)
-- Tests (`npm run test:run`)
-- Security audit (`npm audit --audit-level=high`)
-- Commit message validation (conventional commits)
+- Tests with coverage (`npm run test:coverage`)
+- Integration tests (`npm run test:integration`)
+- Build smoke check (`npm run build:vite`)
+- Conventional commit validation (PR title and commits)
+
+Optional: add the `full-ci` label on a PR to run macOS and Windows validation.
 
 ## Code Style
 
@@ -210,7 +210,11 @@ We use ESLint for code style enforcement:
 - Use `EventBus` for cross-service communication
 - Use dependency injection via the container
 
-### File Naming Convention
+## Naming Conventions
+
+See `docs/naming-conventions.md` for the full guide. Highlights are below.
+
+### File Naming
 
 All JavaScript files follow the pattern: `{name}.{type}.js`
 
@@ -234,13 +238,15 @@ All JavaScript files follow the pattern: `{name}.{type}.js`
 | `.base.js` | Abstract base classes |
 
 **Rules:**
-- If filename contains type word with hyphen, use dot: `profile-registry.js` → `profile.registry.js`
+- Use kebab-case for filenames
+- Type suffix uses dot separator: `device-profile.registry.js`, `streaming-worker-protocol.config.js`
+- Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
 - Entry points (`index.js`) and DI containers (`container.js`) are exceptions
 
 ### Example Service
 
 ```javascript
-import { BaseService } from '@/shared/base/service.js';
+import { BaseService } from '@shared/base/service.base.js';
 
 export class MyService extends BaseService {
   constructor(dependencies) {
@@ -262,10 +268,13 @@ We use [Vitest](https://vitest.dev/) for testing.
 
 ```bash
 npm test                 # Watch mode
+npm run test:ui          # Vitest UI
 npm run test:run         # Single run
 npm run test:unit        # Unit tests only
 npm run test:integration # Integration tests only
+npm run test:integration:watch # Watch integration tests
 npm run test:coverage    # With coverage report
+npm run test:smoke       # Smoke test (requires build)
 ```
 
 ### Coverage Requirements

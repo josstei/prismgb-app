@@ -1,11 +1,11 @@
 /**
- * GpuRenderLoopService Unit Tests
+ * StreamingGpuRenderLoopService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
+import { StreamingGpuRenderLoopService } from '@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js';
 
-describe('GpuRenderLoopService', () => {
+describe('StreamingGpuRenderLoopService', () => {
   let service;
   let mockLogger;
   let mockVideoElement;
@@ -30,7 +30,7 @@ describe('GpuRenderLoopService', () => {
       HAVE_CURRENT_DATA: 2
     };
 
-    service = new GpuRenderLoopService({
+    service = new StreamingGpuRenderLoopService({
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
   });
@@ -47,9 +47,9 @@ describe('GpuRenderLoopService', () => {
 
     it('should create logger with service name', () => {
       const mockLoggerFactory = { create: vi.fn(() => mockLogger) };
-      new GpuRenderLoopService({ loggerFactory: mockLoggerFactory });
+      new StreamingGpuRenderLoopService({ loggerFactory: mockLoggerFactory });
 
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('GpuRenderLoopService');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamingGpuRenderLoopService');
     });
   });
 

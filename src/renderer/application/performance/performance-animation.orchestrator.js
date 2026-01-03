@@ -8,11 +8,11 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
+export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   /**
    * @param {Object} dependencies
    * @param {EventBus} dependencies.eventBus
-   * @param {AnimationPerformanceService} dependencies.animationPerformanceService
+   * @param {PerformanceAnimationService} dependencies.animationPerformanceService
    * @param {BodyClassManager} dependencies.bodyClassManager
    * @param {Function} dependencies.loggerFactory
    */
@@ -20,7 +20,7 @@ export class AnimationPerformanceOrchestrator extends BaseOrchestrator {
     super(
       dependencies,
       ['eventBus', 'animationPerformanceService', 'bodyClassManager', 'loggerFactory'],
-      'AnimationPerformanceOrchestrator'
+      'PerformanceAnimationOrchestrator'
     );
   }
 

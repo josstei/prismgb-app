@@ -9,7 +9,7 @@
  * - onDeviceDisconnected IPC event
  */
 
-export class DeviceIPCAdapter {
+export class DeviceIpcAdapter {
   constructor({ logger } = {}) {
     this._logger = logger;
     this._unsubscribeConnected = null;
@@ -30,7 +30,7 @@ export class DeviceIPCAdapter {
 
     // Validate callbacks
     if (typeof onConnected !== 'function' || typeof onDisconnected !== 'function') {
-      this._logger?.warn('DeviceIPCAdapter.subscribe: Invalid callbacks provided');
+      this._logger?.warn('DeviceIpcAdapter.subscribe: Invalid callbacks provided');
       return () => {};
     }
 

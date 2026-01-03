@@ -1,11 +1,11 @@
 /**
- * AnimationPerformanceService Unit Tests
+ * PerformanceAnimationService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AnimationPerformanceService } from '@renderer/application/performance/animation-performance.service.js';
+import { PerformanceAnimationService } from '@renderer/application/performance/performance-animation.service.js';
 
-describe('AnimationPerformanceService', () => {
+describe('PerformanceAnimationService', () => {
   let service;
   let mockLogger;
 
@@ -17,7 +17,7 @@ describe('AnimationPerformanceService', () => {
       error: vi.fn()
     };
 
-    service = new AnimationPerformanceService({
+    service = new PerformanceAnimationService({
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
   });

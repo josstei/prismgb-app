@@ -9,10 +9,10 @@ describe('CaptureOrchestrator', () => {
   let orchestrator;
   let mockCaptureService;
   let mockAppState;
-  let mockStreamViewService;
+  let mockStreamingViewService;
   let mockGpuRendererService;
-  let mockGpuRecordingService;
-  let mockCanvasRenderer;
+  let mockCaptureGpuRecordingService;
+  let mockStreamingCanvasRenderer;
   let mockEventBus;
   let mockLogger;
 
@@ -36,7 +36,7 @@ describe('CaptureOrchestrator', () => {
     const mockStreamVideo = { id: 'streamVideo' };
     const mockStreamCanvas = { id: 'streamCanvas' };
 
-    mockStreamViewService = {
+    mockStreamingViewService = {
       getCanvas: vi.fn(() => mockStreamCanvas),
       getVideo: vi.fn(() => mockStreamVideo),
       attachStream: vi.fn(),
@@ -45,7 +45,7 @@ describe('CaptureOrchestrator', () => {
     };
 
     // Store element references for test assertions
-    mockStreamViewService._elements = {
+    mockStreamingViewService._elements = {
       streamVideo: mockStreamVideo,
       streamCanvas: mockStreamCanvas
     };
@@ -56,12 +56,12 @@ describe('CaptureOrchestrator', () => {
       getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
     };
 
-    mockGpuRecordingService = {
+    mockCaptureGpuRecordingService = {
       start: vi.fn(async () => ({ id: 'gpu-stream' })),
       stop: vi.fn()
     };
 
-    mockCanvasRenderer = {
+    mockStreamingCanvasRenderer = {
       isActive: vi.fn(() => false)
     };
 
@@ -98,10 +98,10 @@ describe('CaptureOrchestrator', () => {
     orchestrator = new CaptureOrchestrator({
       captureService: mockCaptureService,
       appState: mockAppState,
-      streamViewService: mockStreamViewService,
+      streamViewService: mockStreamingViewService,
       gpuRendererService: mockGpuRendererService,
-      gpuRecordingService: mockGpuRecordingService,
-      canvasRenderer: mockCanvasRenderer,
+      gpuRecordingService: mockCaptureGpuRecordingService,
+      canvasRenderer: mockStreamingCanvasRenderer,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -135,11 +135,11 @@ describe('CaptureOrchestrator', () => {
     it('should capture from video element when no rendering pipeline active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderer.isActive.mockReturnValue(false);
+      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
 
       await orchestrator.takeScreenshot();
 
-      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamViewService._elements.streamVideo);
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamingViewService._elements.streamVideo);
     });
 
     it('should capture from GPU renderer when GPU is active', async () => {
@@ -157,11 +157,11 @@ describe('CaptureOrchestrator', () => {
     it('should capture from canvas when Canvas2D rendering is active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderer.isActive.mockReturnValue(true);
+      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
 
       await orchestrator.takeScreenshot();
 
-      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamViewService._elements.streamCanvas);
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamingViewService._elements.streamCanvas);
     });
 
     it('should trigger visual feedback when streaming', async () => {
@@ -200,7 +200,7 @@ describe('CaptureOrchestrator', () => {
       await orchestrator.toggleRecording();
 
       expect(mockCaptureService.startRecording).toHaveBeenCalledWith(mockStream);
-      expect(mockGpuRecordingService.start).not.toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.start).not.toHaveBeenCalled();
     });
 
     it('should start GPU recording when GPU renderer is active', async () => {
@@ -211,7 +211,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.toggleRecording();
 
-      expect(mockGpuRecordingService.start).toHaveBeenCalledWith({
+      expect(mockCaptureGpuRecordingService.start).toHaveBeenCalledWith({
         stream: mockStream,
         frameRate: 75
       });
@@ -226,7 +226,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.toggleRecording();
 
-      expect(mockGpuRecordingService.start).toHaveBeenCalledWith({
+      expect(mockCaptureGpuRecordingService.start).toHaveBeenCalledWith({
         stream: mockStream,
         frameRate: 60
       });
@@ -237,7 +237,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.toggleRecording();
 
-      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
       expect(mockCaptureService.stopRecording).toHaveBeenCalled();
       expect(mockCaptureService.startRecording).not.toHaveBeenCalled();
     });
@@ -293,7 +293,7 @@ describe('CaptureOrchestrator', () => {
 
       errorHandler({ error: 'Test error' });
 
-      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
     });
 
     it('should stop recording when stream stops', async () => {
@@ -306,7 +306,7 @@ describe('CaptureOrchestrator', () => {
       await streamStoppedHandler();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Stream stopped - stopping active recording');
-      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
       expect(mockCaptureService.stopRecording).toHaveBeenCalled();
     });
 
@@ -320,7 +320,7 @@ describe('CaptureOrchestrator', () => {
 
       await streamStoppedHandler();
 
-      expect(mockGpuRecordingService.stop).not.toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).not.toHaveBeenCalled();
       expect(mockCaptureService.stopRecording).not.toHaveBeenCalled();
     });
 
@@ -334,7 +334,7 @@ describe('CaptureOrchestrator', () => {
 
       await streamStoppedHandler();
 
-      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
       expect(mockCaptureService.stopRecording).toHaveBeenCalled();
     });
   });
@@ -353,21 +353,21 @@ describe('CaptureOrchestrator', () => {
 
     it('should return canvas when Canvas2D is active but GPU is not', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderer.isActive.mockReturnValue(true);
+      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
 
       const source = await orchestrator._getCaptureSource();
 
-      expect(source).toBe(mockStreamViewService._elements.streamCanvas);
+      expect(source).toBe(mockStreamingViewService._elements.streamCanvas);
       expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from Canvas2D renderer');
     });
 
     it('should return video element when no rendering pipeline is active', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderer.isActive.mockReturnValue(false);
+      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
 
       const source = await orchestrator._getCaptureSource();
 
-      expect(source).toBe(mockStreamViewService._elements.streamVideo);
+      expect(source).toBe(mockStreamingViewService._elements.streamVideo);
       expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from video element (no rendering pipeline)');
     });
   });
@@ -393,7 +393,7 @@ describe('CaptureOrchestrator', () => {
     it('should stop GPU recording on cleanup', async () => {
       await orchestrator.onCleanup();
 
-      expect(mockGpuRecordingService.stop).toHaveBeenCalled();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
     });
   });
 });

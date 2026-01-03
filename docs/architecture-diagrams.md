@@ -2,6 +2,10 @@
 
 These diagrams provide focused, review-friendly views of the application's core orchestration and service boundaries.
 
+Related docs:
+- `docs/feature-map.md`
+- `docs/naming-conventions.md`
+
 Legend
 - Solid edges: control flow or delegation.
 - Dashed edges: error/cleanup or retry flow.
@@ -144,8 +148,8 @@ flowchart LR
   end
 
   subgraph RENDERER[Renderer]
-    DeviceServiceRenderer[DeviceService (Renderer)]
-    UIService[UIService / UI Components]
+    DeviceServiceRenderer["DeviceService (Renderer)"]
+    UIService["UIService / UI Components"]
   end
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer

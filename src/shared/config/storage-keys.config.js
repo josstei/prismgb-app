@@ -32,7 +32,7 @@ export const NotesStorageKeys = {
  * 1. User-created content (notes) - irreplaceable user data
  * 2. User preferences - can be recreated but inconvenient to lose
  */
-export const CRITICAL_STORAGE_KEYS = [
+const CRITICAL_STORAGE_KEYS = [
   NotesStorageKeys.USER_NOTES  // User notes are irreplaceable content
 ];
 

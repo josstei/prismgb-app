@@ -1,11 +1,11 @@
 /**
- * StreamViewService Unit Tests
+ * StreamingViewService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
+import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 
-describe('StreamViewService', () => {
+describe('StreamingViewService', () => {
   let service;
   let mockUIController;
   let mockVideoElement;
@@ -52,7 +52,7 @@ describe('StreamViewService', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    service = new StreamViewService({
+    service = new StreamingViewService({
       uiController: mockUIController,
       loggerFactory: mockLoggerFactory
     });
@@ -65,7 +65,7 @@ describe('StreamViewService', () => {
     });
 
     it('should create logger with correct name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamViewService');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamingViewService');
     });
   });
 

@@ -120,11 +120,12 @@ describe('UpdateService', () => {
     });
 
     it('should handle getStatus error gracefully', async () => {
-      mockUpdateAPI.getStatus.mockRejectedValue(new Error('IPC error'));
+      const testError = new Error('IPC error');
+      mockUpdateAPI.getStatus.mockRejectedValue(testError);
 
       await service.initialize();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('Failed to load initial update status', 'IPC error');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Failed to load initial update status', testError);
       expect(service._initialized).toBe(true);
     });
   });

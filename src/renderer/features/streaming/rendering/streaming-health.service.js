@@ -7,7 +7,7 @@
  * Follows the same lightweight, focused, callback-based pattern as other render helpers.
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
-export class StreamHealthService {
+export class StreamingHealthService {
   constructor(logger) {
     this.logger = logger;
     this._timeoutMs = 4000;

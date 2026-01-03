@@ -1,12 +1,12 @@
 /**
- * FullscreenService Unit Tests
+ * SettingsFullscreenService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
+import { SettingsFullscreenService } from '@renderer/features/settings/services/settings-fullscreen.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('FullscreenService', () => {
+describe('SettingsFullscreenService', () => {
   let service;
   let mockEventBus;
   let mockLogger;
@@ -76,7 +76,7 @@ describe('FullscreenService', () => {
     global.document = mockDocument;
 
     // Create service (no longer requires uiController - auto-hide moved to UIEventBridge)
-    service = new FullscreenService({
+    service = new SettingsFullscreenService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
@@ -102,7 +102,7 @@ describe('FullscreenService', () => {
     });
 
     it('should throw if missing required dependencies', () => {
-      expect(() => new FullscreenService({
+      expect(() => new SettingsFullscreenService({
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
@@ -129,7 +129,7 @@ describe('FullscreenService', () => {
 
     it('should handle missing windowAPI gracefully', () => {
       global.window.windowAPI = undefined;
-      const serviceWithoutAPI = new FullscreenService({
+      const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
@@ -167,7 +167,7 @@ describe('FullscreenService', () => {
     });
 
     it('should handle dispose when not initialized', () => {
-      const uninitializedService = new FullscreenService({
+      const uninitializedService = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
@@ -177,7 +177,7 @@ describe('FullscreenService', () => {
 
     it('should handle dispose without windowAPI', () => {
       global.window.windowAPI = undefined;
-      const serviceWithoutAPI = new FullscreenService({
+      const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });

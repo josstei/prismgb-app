@@ -128,8 +128,11 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateRecordingButtonState(active);
   }
 
-  _handleCinematicMode() {
+  _handleCinematicMode(data) {
+    const { enabled } = data;
     this._updateCinematicVisual();
+    // Show status message (moved from CinematicModeService for separation of concerns)
+    this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**

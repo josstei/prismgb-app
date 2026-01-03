@@ -53,24 +53,24 @@ async function createAppContainer(loggerFactory) {
 
   // Device components
   const { DeviceService } = await import('@main/features/devices/device.service.js');
-  const { ProfileRegistry } = await import('@main/features/devices/profile.registry.js');
+  const { DeviceProfileRegistry } = await import('@main/features/devices/device-profile.registry.js');
   const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
 
   container.register({
     deviceService: asClass(DeviceService).singleton(),
-    profileRegistry: asClass(ProfileRegistry).singleton(),
+    profileRegistry: asClass(DeviceProfileRegistry).singleton(),
     deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
   });
 
   // Update components
   const { UpdateService } = await import('@main/features/updates/update.service.js');
 
-  const { DeviceBridge } = await import('./features/devices/device-bridge.service.js');
+  const { DeviceBridgeService } = await import('./features/devices/device-bridge.service.js');
   const { UpdateBridge } = await import('./features/updates/update.bridge.js');
 
   container.register({
     updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridge).singleton(),
+    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
     updateBridgeService: asClass(UpdateBridge).singleton()
   });
 

@@ -45,11 +45,11 @@ export class UIComponentFactory {
   }
 
   /**
-   * Create StreamControlsComponent
+   * Create StreamingControlsComponent
    * @param {Object} config - DOM element references
-   * @returns {StreamControlsComponent}
+   * @returns {StreamingControlsComponent}
    */
-  createStreamControlsComponent(config) {
+  createStreamingControlsComponent(config) {
     const ComponentClass = this._componentClasses.StreamControlsComponent;
     return new ComponentClass(config);
   }
@@ -83,11 +83,11 @@ export class UIComponentFactory {
   }
 
   /**
-   * Create ShaderSelectorComponent
+   * Create StreamingShaderSelectorComponent
    * @param {Object} config - { settingsService, appState, logger }
-   * @returns {ShaderSelectorComponent}
+   * @returns {StreamingShaderSelectorComponent}
    */
-  createShaderSelectorComponent(config) {
+  createStreamingShaderSelectorComponent(config) {
     const ComponentClass = this._componentClasses.ShaderSelectorComponent;
     return new ComponentClass({
       ...config,

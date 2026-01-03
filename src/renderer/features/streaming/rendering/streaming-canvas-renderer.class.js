@@ -17,7 +17,7 @@
  * - Desynchronized rendering for lower latency
  */
 
-export class CanvasRenderer {
+export class StreamingCanvasRenderer {
   /**
    * Create a canvas renderer
    * @param {Object} logger - Logger instance for debugging

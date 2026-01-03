@@ -27,12 +27,12 @@ vi.mock('@renderer/application/app.orchestrator.js', () => ({
   AppOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/animation-performance.orchestrator.js', () => ({
-  AnimationPerformanceOrchestrator: vi.fn()
+vi.mock('@renderer/application/performance/performance-animation.orchestrator.js', () => ({
+  PerformanceAnimationOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/animation-performance.service.js', () => ({
-  AnimationPerformanceService: vi.fn()
+vi.mock('@renderer/application/performance/performance-animation.service.js', () => ({
+  PerformanceAnimationService: vi.fn()
 }));
 
 vi.mock('@renderer/application/performance/performance-state.orchestrator.js', () => ({
@@ -77,12 +77,12 @@ vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
   DeviceOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/ipc-device-status.adapter.js', () => ({
-  IPCDeviceStatusAdapter: vi.fn()
+vi.mock('@renderer/features/devices/adapters/device-ipc-status.adapter.js', () => ({
+  DeviceIpcStatusAdapter: vi.fn()
 }));
 
 vi.mock('@renderer/features/devices/adapters/device-ipc.adapter.js', () => ({
-  DeviceIPCAdapter: vi.fn()
+  DeviceIpcAdapter: vi.fn()
 }));
 
 // Features: Streaming mocks
@@ -94,32 +94,32 @@ vi.mock('@renderer/features/streaming/services/streaming.orchestrator.js', () =>
   StreamingOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/factories/adapter.factory.js', () => ({
-  AdapterFactory: vi.fn()
+vi.mock('@renderer/features/streaming/factories/streaming-adapter.factory.js', () => ({
+  StreamingAdapterFactory: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/canvas-renderer.class.js', () => ({
-  CanvasRenderer: vi.fn()
+vi.mock('@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js', () => ({
+  StreamingCanvasRenderer: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/canvas-lifecycle.service.js', () => ({
-  CanvasLifecycleService: vi.fn()
+vi.mock('@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js', () => ({
+  StreamingCanvasLifecycleService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/gpu-render-loop.service.js', () => ({
-  GpuRenderLoopService: vi.fn()
+vi.mock('@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js', () => ({
+  StreamingGpuRenderLoopService: vi.fn()
 }));
 
 vi.mock('@renderer/features/streaming/rendering/viewport.class.js', () => ({
-  ViewportService: vi.fn()
+  StreamingViewportService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js', () => ({
-  GPURendererService: vi.fn()
+vi.mock('@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js', () => ({
+  StreamingGpuRendererService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/ui/stream-view.service.js', () => ({
-  StreamViewService: vi.fn()
+vi.mock('@renderer/features/streaming/ui/streaming-view.service.js', () => ({
+  StreamingViewService: vi.fn()
 }));
 
 // Features: Capture mocks
@@ -131,8 +131,8 @@ vi.mock('@renderer/features/capture/services/capture.orchestrator.js', () => ({
   CaptureOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/gpu-recording.service.js', () => ({
-  GpuRecordingService: vi.fn()
+vi.mock('@renderer/features/capture/services/capture-gpu-recording.service.js', () => ({
+  CaptureGpuRecordingService: vi.fn()
 }));
 
 // Features: Settings mocks
@@ -140,20 +140,20 @@ vi.mock('@renderer/features/settings/services/settings.service.js', () => ({
   SettingsService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/preferences.orchestrator.js', () => ({
-  PreferencesOrchestrator: vi.fn()
+vi.mock('@renderer/features/settings/services/settings-preferences.orchestrator.js', () => ({
+  SettingsPreferencesOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/display-mode.orchestrator.js', () => ({
-  DisplayModeOrchestrator: vi.fn()
+vi.mock('@renderer/features/settings/services/settings-display-mode.orchestrator.js', () => ({
+  SettingsDisplayModeOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/fullscreen.service.js', () => ({
-  FullscreenService: vi.fn()
+vi.mock('@renderer/features/settings/services/settings-fullscreen.service.js', () => ({
+  SettingsFullscreenService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/cinematic-mode.service.js', () => ({
-  CinematicModeService: vi.fn()
+vi.mock('@renderer/features/settings/services/settings-cinematic-mode.service.js', () => ({
+  SettingsCinematicModeService: vi.fn()
 }));
 
 // Features: Updates mocks
@@ -357,7 +357,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'deviceOrchestrator',
         expect.any(Function),
-        ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory']
+        ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory']
       );
     });
 

@@ -296,14 +296,16 @@ describe('PerformanceMetricsService', () => {
 
     it('should handle adapter promise rejection', async () => {
       mockMetricsAdapter.isAvailable.mockReturnValue(true);
-      mockMetricsAdapter.getProcessMetrics.mockRejectedValue(new Error('IPC error'));
+      const testError = new Error('IPC error');
+      mockMetricsAdapter.getProcessMetrics.mockRejectedValue(testError);
 
       service._logSnapshot('test');
 
       await vi.runAllTimersAsync();
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('error')
+        expect.stringContaining('error'),
+        testError
       );
     });
 

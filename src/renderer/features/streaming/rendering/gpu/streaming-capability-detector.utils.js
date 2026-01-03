@@ -7,7 +7,7 @@
  * Detection hierarchy:
  * 1. WebGPU (preferred) - Modern API with compute shaders
  * 2. WebGL2 - Fallback with wide support
- * 3. Canvas2D - Final fallback (existing CanvasRenderer)
+ * 3. Canvas2D - Final fallback (existing StreamingCanvasRenderer)
  */
 
 /**

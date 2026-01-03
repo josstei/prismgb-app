@@ -73,7 +73,7 @@ class RendererAppOrchestrator {
       await this._registerUIComponents();
 
       // 4. Initialize adapter factory (async initialization)
-      await this._initializeAdapterFactory();
+      await this._initializeStreamingAdapterFactory();
 
       // 5. Initialize UI event bridge (bridges events to UIController)
       await this._initializeUIEventBridge();
@@ -184,7 +184,7 @@ class RendererAppOrchestrator {
    * Initialize adapter factory
    * @private
    */
-  async _initializeAdapterFactory() {
+  async _initializeStreamingAdapterFactory() {
     try {
       const adapterFactory = this.container.resolve('adapterFactory');
       await adapterFactory.initialize();

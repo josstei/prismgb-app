@@ -8,9 +8,9 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-export class AudioWarmupService extends BaseService {
+export class StreamingAudioWarmupService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'AudioWarmupService');
+    super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioWarmupService');
 
     this._audioContext = null;
     this._sourceNode = null;

@@ -1,9 +1,9 @@
 /**
- * AdapterFactory Unit Tests
+ * StreamingAdapterFactory Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
+import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
 vi.mock('@shared/streaming/acquisition/constraint-builder.js', () => {
@@ -23,13 +23,13 @@ vi.mock('@shared/streaming/acquisition/stream-lifecycle.js', () => {
 });
 
 // Mock adapter class - injected via adapterClasses parameter (same pattern as container.js)
-class MockChromaticAdapter {
+class MockDeviceChromaticAdapter {
   constructor(deps) {
     this.deps = deps;
   }
 }
 
-describe('AdapterFactory', () => {
+describe('StreamingAdapterFactory', () => {
   let factory;
   let mockEventBus;
   let mockLoggerFactory;
@@ -57,10 +57,10 @@ describe('AdapterFactory', () => {
 
     // Adapter classes injected via DI (same pattern as container.js)
     adapterClasses = new Map([
-      ['chromatic-mod-retro', MockChromaticAdapter]
+      ['chromatic-mod-retro', MockDeviceChromaticAdapter]
     ]);
 
-    factory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
+    factory = new StreamingAdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
   });
 
   afterEach(() => {
@@ -77,7 +77,7 @@ describe('AdapterFactory', () => {
     });
 
     it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('AdapterFactory');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamingAdapterFactory');
       expect(factory.logger).toBe(mockLogger);
     });
 
@@ -119,7 +119,7 @@ describe('AdapterFactory', () => {
       await factory.initialize();
       await factory.initialize();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('AdapterFactory already initialized');
+      expect(mockLogger.warn).toHaveBeenCalledWith('StreamingAdapterFactory already initialized');
     });
   });
 
@@ -129,10 +129,10 @@ describe('AdapterFactory', () => {
     });
 
     it('should throw if not initialized', () => {
-      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
+      const uninitializedFactory = new StreamingAdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
 
       expect(() => uninitializedFactory.getAdapter('chromatic-mod-retro')).toThrow(
-        'AdapterFactory not initialized'
+        'StreamingAdapterFactory not initialized'
       );
     });
 
@@ -178,10 +178,10 @@ describe('AdapterFactory', () => {
     });
 
     it('should throw if not initialized', () => {
-      const uninitializedFactory = new AdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
+      const uninitializedFactory = new StreamingAdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
 
       expect(() => uninitializedFactory.detectDeviceType({ label: 'test' })).toThrow(
-        'AdapterFactory not initialized'
+        'StreamingAdapterFactory not initialized'
       );
     });
 

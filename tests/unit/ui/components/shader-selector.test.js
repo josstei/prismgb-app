@@ -1,9 +1,9 @@
 /**
- * ShaderSelectorComponent Unit Tests
+ * StreamingShaderSelectorComponent Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/ui/streaming-shader-selector.component.js';
 
 // Mock the render presets module
 vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
@@ -15,7 +15,7 @@ vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js
   ])
 }));
 
-describe('ShaderSelectorComponent', () => {
+describe('StreamingShaderSelectorComponent', () => {
   let component;
   let mockSettingsService;
   let mockEventBus;
@@ -68,7 +68,7 @@ describe('ShaderSelectorComponent', () => {
       brightnessPercentage: brightnessPercentage
     };
 
-    component = new ShaderSelectorComponent({
+    component = new StreamingShaderSelectorComponent({
       settingsService: mockSettingsService,
       eventBus: mockEventBus,
       logger: mockLogger
@@ -112,8 +112,8 @@ describe('ShaderSelectorComponent', () => {
       component.initialize(mockElements);
 
       const options = mockElements.shaderDropdown.querySelectorAll('.shader-option');
-      // 3 options + 1 pill element
-      expect(options.length).toBe(3);
+      // 5 presets visible (performance preset is hidden when performance mode is off)
+      expect(options.length).toBe(5);
     });
 
     it('should mark current preset as active', () => {
@@ -133,7 +133,7 @@ describe('ShaderSelectorComponent', () => {
     it('should log initialization success', () => {
       component.initialize(mockElements);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('ShaderSelectorComponent initialized');
+      expect(mockLogger.debug).toHaveBeenCalledWith('StreamingShaderSelectorComponent initialized');
     });
   });
 

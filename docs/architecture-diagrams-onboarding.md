@@ -2,6 +2,10 @@
 
 This document is a simplified view of the core flows. It favors readability over completeness.
 
+Related docs:
+- `docs/feature-map.md`
+- `docs/naming-conventions.md`
+
 Legend
 - Solid edges: delegation or control flow.
 - Dashed edges: error/cleanup or retry path.
@@ -108,8 +112,8 @@ flowchart LR
 flowchart LR
   DeviceBridge[DeviceBridgeService]
   UpdateBridge[UpdateBridgeService]
-  DeviceServiceRenderer[DeviceService (Renderer)]
-  UIService[UIService / UI Components]
+  DeviceServiceRenderer["DeviceService (Renderer)"]
+  UIService["UIService / UI Components"]
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
   UpdateBridge -- IPC: update-status --> UIService

@@ -217,7 +217,7 @@ describe('UIController', () => {
   });
 
   describe('setStreamingMode', () => {
-    it('should delegate to StreamControlsComponent', () => {
+    it('should delegate to StreamingControlsComponent', () => {
       controller.setStreamingMode(true);
 
       expect(mockStreamControls.setStreamingMode).toHaveBeenCalledWith(true);
@@ -243,7 +243,7 @@ describe('UIController', () => {
   });
 
   describe('updateStreamInfo', () => {
-    it('should delegate to StreamControlsComponent', () => {
+    it('should delegate to StreamingControlsComponent', () => {
       const settings = { width: 160, height: 144 };
 
       controller.updateStreamInfo(settings);

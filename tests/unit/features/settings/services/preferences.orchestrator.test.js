@@ -1,12 +1,12 @@
 /**
- * PreferencesOrchestrator Unit Tests
+ * SettingsPreferencesOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
+import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/services/settings-preferences.orchestrator.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('PreferencesOrchestrator', () => {
+describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;
   let mockSettingsService;
   let mockAppState;
@@ -42,7 +42,7 @@ describe('PreferencesOrchestrator', () => {
 
     mockAppState = {};
 
-    orchestrator = new PreferencesOrchestrator({
+    orchestrator = new SettingsPreferencesOrchestrator({
       settingsService: mockSettingsService,
       appState: mockAppState,
       eventBus: mockEventBus,
@@ -58,7 +58,7 @@ describe('PreferencesOrchestrator', () => {
     });
 
     it('should throw if missing required dependencies', () => {
-      expect(() => new PreferencesOrchestrator({
+      expect(() => new SettingsPreferencesOrchestrator({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);

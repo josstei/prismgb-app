@@ -25,7 +25,7 @@ vi.mock('@renderer/ui/components/device-status.component.js', () => ({
 }));
 
 // Create mock component classes that will be injected via DI
-class MockStreamControlsComponent {
+class MockStreamingControlsComponent {
   constructor(config) {
     this.type = 'StreamControls';
     this.config = config;
@@ -43,7 +43,7 @@ class MockSettingsMenuComponent {
   }
 }
 
-class MockShaderSelectorComponent {
+class MockStreamingShaderSelectorComponent {
   constructor(config) {
     this.type = 'ShaderSelector';
     this.config = config;
@@ -89,8 +89,8 @@ describe('UIComponentFactory', () => {
     factory = new UIComponentFactory({
       eventBus: mockEventBus,
       settingsMenuComponent: MockSettingsMenuComponent,
-      streamControlsComponent: MockStreamControlsComponent,
-      shaderSelectorComponent: MockShaderSelectorComponent,
+      streamControlsComponent: MockStreamingControlsComponent,
+      shaderSelectorComponent: MockStreamingShaderSelectorComponent,
       updateSectionComponent: MockUpdateSectionComponent,
       notesPanelComponent: MockNotesPanelComponent
     });
@@ -124,11 +124,11 @@ describe('UIComponentFactory', () => {
     });
   });
 
-  describe('createStreamControlsComponent', () => {
-    it('should create StreamControlsComponent with config', () => {
+  describe('createStreamingControlsComponent', () => {
+    it('should create StreamingControlsComponent with config', () => {
       const config = { screenshotBtn: {}, recordBtn: {} };
 
-      const component = factory.createStreamControlsComponent(config);
+      const component = factory.createStreamingControlsComponent(config);
 
       expect(component.type).toBe('StreamControls');
       expect(component.config).toBe(config);
@@ -175,8 +175,8 @@ describe('UIComponentFactory', () => {
     });
   });
 
-  describe('createShaderSelectorComponent', () => {
-    it('should create ShaderSelectorComponent with config and eventBus', () => {
+  describe('createStreamingShaderSelectorComponent', () => {
+    it('should create StreamingShaderSelectorComponent with config and eventBus', () => {
       const mockSettingsService = { getPreset: vi.fn() };
       const mockAppState = { state: {} };
       const mockLogger = { debug: vi.fn() };
@@ -186,7 +186,7 @@ describe('UIComponentFactory', () => {
         logger: mockLogger
       };
 
-      const component = factory.createShaderSelectorComponent(config);
+      const component = factory.createStreamingShaderSelectorComponent(config);
 
       expect(component.type).toBe('ShaderSelector');
       expect(component.settingsService).toBe(mockSettingsService);
@@ -201,7 +201,7 @@ describe('UIComponentFactory', () => {
         customProp: 'custom value'
       };
 
-      const component = factory.createShaderSelectorComponent(config);
+      const component = factory.createStreamingShaderSelectorComponent(config);
 
       expect(component.config.customProp).toBe('custom value');
     });

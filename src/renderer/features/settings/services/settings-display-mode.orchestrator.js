@@ -7,12 +7,12 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-export class DisplayModeOrchestrator extends BaseOrchestrator {
+export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
       ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory'],
-      'DisplayModeOrchestrator'
+      'SettingsDisplayModeOrchestrator'
     );
   }
 

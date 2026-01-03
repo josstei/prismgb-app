@@ -15,7 +15,7 @@
 
 import { TIMING } from '@shared/config/constants.config.js';
 
-export class ViewportService {
+export class StreamingViewportService {
   constructor(logger) {
     this.logger = logger;
 
@@ -52,7 +52,7 @@ export class ViewportService {
     if (!this._resizeObserver && observeElement) {
       this._resizeObserver = new ResizeObserver(this._handleResize);
       this._resizeObserver.observe(observeElement);
-      this.logger.debug('ViewportService initialized with ResizeObserver');
+      this.logger.debug('StreamingViewportService initialized with ResizeObserver');
     }
   }
 

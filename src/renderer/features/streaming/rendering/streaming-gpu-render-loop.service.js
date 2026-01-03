@@ -6,9 +6,9 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 
-class GpuRenderLoopService extends BaseService {
+class StreamingGpuRenderLoopService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'GpuRenderLoopService');
+    super(dependencies, ['loggerFactory'], 'StreamingGpuRenderLoopService');
     this._rvfcHandle = null;
     this._active = false;
   }
@@ -56,4 +56,4 @@ class GpuRenderLoopService extends BaseService {
   }
 }
 
-export { GpuRenderLoopService };
+export { StreamingGpuRenderLoopService };

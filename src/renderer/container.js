@@ -10,8 +10,8 @@ import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-c
 // Application layer
 import { AppState } from '@renderer/application/app.state.js';
 import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
-import { AnimationPerformanceOrchestrator } from '@renderer/application/performance/animation-performance.orchestrator.js';
-import { AnimationPerformanceService } from '@renderer/application/performance/animation-performance.service.js';
+import { PerformanceAnimationOrchestrator } from '@renderer/application/performance/performance-animation.orchestrator.js';
+import { PerformanceAnimationService } from '@renderer/application/performance/performance-animation.service.js';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/performance/performance-metrics.orchestrator.js';
 import { PerformanceMetricsService } from '@renderer/application/performance/performance-metrics.service.js';
 import { PerformanceStateOrchestrator } from '@renderer/application/performance/performance-state.orchestrator.js';
@@ -32,38 +32,38 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { IPCDeviceStatusAdapter } from '@renderer/features/devices/adapters/ipc-device-status.adapter.js';
-import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
-import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
+import { DeviceIpcStatusAdapter } from '@renderer/features/devices/adapters/device-ipc-status.adapter.js';
+import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js';
 
 // Features: Streaming
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
-import { AdapterFactory } from '@renderer/features/streaming/factories/adapter.factory.js';
-import { CanvasRenderer } from '@renderer/features/streaming/rendering/canvas-renderer.class.js';
-import { RenderPipelineService } from '@renderer/features/streaming/rendering/render-pipeline.service.js';
-import { CanvasLifecycleService } from '@renderer/features/streaming/rendering/canvas-lifecycle.service.js';
-import { GpuRenderLoopService } from '@renderer/features/streaming/rendering/gpu-render-loop.service.js';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.class.js';
-import { StreamHealthService } from '@renderer/features/streaming/rendering/stream-health.class.js';
-import { GPURendererService } from '@renderer/features/streaming/rendering/gpu/gpu-renderer.service.js';
-import { StreamViewService } from '@renderer/features/streaming/services/stream-view.service.js';
-import { AudioWarmupService } from '@renderer/features/streaming/audio/audio-warmup.service.js';
-import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
-import { ShaderSelectorComponent } from '@renderer/features/streaming/ui/shader-selector.component.js';
+import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
+import { StreamingCanvasRenderer } from '@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js';
+import { StreamingRenderPipelineService } from '@renderer/features/streaming/rendering/streaming-render-pipeline.service.js';
+import { StreamingCanvasLifecycleService } from '@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js';
+import { StreamingGpuRenderLoopService } from '@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js';
+import { StreamingViewportService } from '@renderer/features/streaming/rendering/streaming-viewport.service.js';
+import { StreamingHealthService } from '@renderer/features/streaming/rendering/streaming-health.service.js';
+import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
+import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
+import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
+import { StreamingControlsComponent } from '@renderer/features/streaming/ui/streaming-controls.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/ui/streaming-shader-selector.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
 import { CaptureOrchestrator } from '@renderer/features/capture/services/capture.orchestrator.js';
-import { GpuRecordingService } from '@renderer/features/capture/services/gpu-recording.service.js';
+import { CaptureGpuRecordingService } from '@renderer/features/capture/services/capture-gpu-recording.service.js';
 
 // Features: Settings
 import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
 import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
-import { PreferencesOrchestrator } from '@renderer/features/settings/services/preferences.orchestrator.js';
-import { DisplayModeOrchestrator } from '@renderer/features/settings/services/display-mode.orchestrator.js';
-import { FullscreenService } from '@renderer/features/settings/services/fullscreen.service.js';
-import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
+import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/services/settings-preferences.orchestrator.js';
+import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
+import { SettingsFullscreenService } from '@renderer/features/settings/services/settings-fullscreen.service.js';
+import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
 import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
 
 // Features: Notes
@@ -142,8 +142,8 @@ function createRendererContainer() {
   }, []);
 
   // Device IPC Adapter - wraps window.deviceAPI for testability
-  container.registerSingleton('deviceIPCAdapter', function(loggerFactory) {
-    return new DeviceIPCAdapter({ logger: loggerFactory.create('DeviceIPCAdapter') });
+  container.registerSingleton('deviceIpcAdapter', function(loggerFactory) {
+    return new DeviceIpcAdapter({ logger: loggerFactory.create('DeviceIpcAdapter') });
   }, ['loggerFactory']);
 
   // Streaming infrastructure
@@ -154,8 +154,8 @@ function createRendererContainer() {
   container.registerSingleton(
     'canvasRenderer',
     function(loggerFactory, animationCache) {
-      return new CanvasRenderer(
-        loggerFactory.create('CanvasRenderer'),
+      return new StreamingCanvasRenderer(
+        loggerFactory.create('StreamingCanvasRenderer'),
         animationCache
       );
     },
@@ -165,7 +165,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'viewportService',
     function(loggerFactory) {
-      return new ViewportService(loggerFactory.create('ViewportService'));
+      return new StreamingViewportService(loggerFactory.create('StreamingViewportService'));
     },
     ['loggerFactory']
   );
@@ -173,7 +173,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'canvasLifecycleService',
     function(streamViewService, canvasRenderer, viewportService, gpuRendererService, eventBus, loggerFactory) {
-      return new CanvasLifecycleService({
+      return new StreamingCanvasLifecycleService({
         streamViewService,
         canvasRenderer,
         viewportService,
@@ -188,7 +188,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'gpuRenderLoopService',
     function(loggerFactory) {
-      return new GpuRenderLoopService({ loggerFactory });
+      return new StreamingGpuRenderLoopService({ loggerFactory });
     },
     ['loggerFactory']
   );
@@ -196,7 +196,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'streamHealthService',
     function(loggerFactory) {
-      return new StreamHealthService(loggerFactory.create('StreamHealthService'));
+      return new StreamingHealthService(loggerFactory.create('StreamingHealthService'));
     },
     ['loggerFactory']
   );
@@ -205,7 +205,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'gpuRendererService',
     function(eventBus, loggerFactory, settingsService) {
-      return new GPURendererService({ eventBus, loggerFactory, settingsService });
+      return new StreamingGpuRendererService({ eventBus, loggerFactory, settingsService });
     },
     ['eventBus', 'loggerFactory', 'settingsService']
   );
@@ -214,7 +214,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'renderPipelineService',
     function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthService, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
-      return new RenderPipelineService({
+      return new StreamingRenderPipelineService({
         appState,
         streamViewService,
         canvasRenderer,
@@ -241,7 +241,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'deviceStatusProvider',
     function (ipcClient) {
-      return new IPCDeviceStatusAdapter(ipcClient);
+      return new DeviceIpcStatusAdapter(ipcClient);
     },
     ['ipcClient']
   );
@@ -256,11 +256,11 @@ function createRendererContainer() {
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
-      // Register adapter classes via DI (no hardcoded imports in AdapterFactory)
+      // Register adapter classes via DI (no hardcoded imports in StreamingAdapterFactory)
       const adapterClasses = new Map([
-        ['chromatic-mod-retro', ChromaticAdapter]
+        ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
-      return new AdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
+      return new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
     },
     ['eventBus', 'loggerFactory', 'browserMediaService']
   );
@@ -324,7 +324,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'gpuRecordingService',
     function (gpuRendererService, eventBus, loggerFactory) {
-      return new GpuRecordingService({ gpuRendererService, eventBus, loggerFactory });
+      return new CaptureGpuRecordingService({ gpuRendererService, eventBus, loggerFactory });
     },
     ['gpuRendererService', 'eventBus', 'loggerFactory']
   );
@@ -367,7 +367,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'streamViewService',
     function (uiController, loggerFactory) {
-      return new StreamViewService({ uiController, loggerFactory });
+      return new StreamingViewService({ uiController, loggerFactory });
     },
     ['uiController', 'loggerFactory']
   );
@@ -375,7 +375,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'audioWarmupService',
     function (eventBus, loggerFactory, settingsService) {
-      return new AudioWarmupService({ eventBus, loggerFactory, settingsService });
+      return new StreamingAudioWarmupService({ eventBus, loggerFactory, settingsService });
     },
     ['eventBus', 'loggerFactory', 'settingsService']
   );
@@ -403,8 +403,8 @@ function createRendererContainer() {
         // Inject feature component classes via DI container
         // These imports are centralized here instead of in UIComponentFactory
         settingsMenuComponent: SettingsMenuComponent,
-        streamControlsComponent: StreamControlsComponent,
-        shaderSelectorComponent: ShaderSelectorComponent,
+        streamControlsComponent: StreamingControlsComponent,
+        shaderSelectorComponent: StreamingShaderSelectorComponent,
         updateSectionComponent: UpdateSectionComponent,
         notesPanelComponent: NotesPanelComponent
       });
@@ -465,15 +465,15 @@ function createRendererContainer() {
   // Device Orchestrator - Coordinates device detection
   container.registerSingleton(
     'deviceOrchestrator',
-    function (deviceService, deviceIPCAdapter, eventBus, loggerFactory) {
+    function (deviceService, deviceIpcAdapter, eventBus, loggerFactory) {
       return new DeviceOrchestrator({
         deviceService,
-        deviceIPCAdapter,
+        deviceIpcAdapter,
         eventBus,
         loggerFactory
       });
     },
-    ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory']
+    ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory']
   );
 
   // Streaming Orchestrator - Coordinates stream lifecycle
@@ -525,7 +525,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'preferencesOrchestrator',
     function (settingsService, appState, eventBus, loggerFactory) {
-      return new PreferencesOrchestrator({
+      return new SettingsPreferencesOrchestrator({
         settingsService,
         appState,
         eventBus,
@@ -538,7 +538,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'fullscreenService',
     function (eventBus, loggerFactory) {
-      return new FullscreenService({ eventBus, loggerFactory });
+      return new SettingsFullscreenService({ eventBus, loggerFactory });
     },
     ['eventBus', 'loggerFactory']
   );
@@ -546,7 +546,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'cinematicModeService',
     function (appState, eventBus, loggerFactory) {
-      return new CinematicModeService({ appState, eventBus, loggerFactory });
+      return new SettingsCinematicModeService({ appState, eventBus, loggerFactory });
     },
     ['appState', 'eventBus', 'loggerFactory']
   );
@@ -555,7 +555,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'displayModeOrchestrator',
     function (fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory) {
-      return new DisplayModeOrchestrator({
+      return new SettingsDisplayModeOrchestrator({
         fullscreenService,
         cinematicModeService,
         settingsService,
@@ -596,7 +596,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'animationPerformanceOrchestrator',
     function (eventBus, loggerFactory, animationPerformanceService, bodyClassManager) {
-      return new AnimationPerformanceOrchestrator({
+      return new PerformanceAnimationOrchestrator({
         eventBus,
         animationPerformanceService,
         bodyClassManager,
@@ -631,7 +631,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'animationPerformanceService',
     function (loggerFactory) {
-      return new AnimationPerformanceService({ loggerFactory });
+      return new PerformanceAnimationService({ loggerFactory });
     },
     ['loggerFactory']
   );

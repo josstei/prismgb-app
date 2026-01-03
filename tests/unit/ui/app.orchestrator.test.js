@@ -11,11 +11,11 @@ describe('AppOrchestrator', () => {
   let mockDeviceOrchestrator;
   let mockStreamingOrchestrator;
   let mockCaptureOrchestrator;
-  let mockPreferencesOrchestrator;
-  let mockDisplayModeOrchestrator;
+  let mockSettingsPreferencesOrchestrator;
+  let mockSettingsDisplayModeOrchestrator;
   let mockUpdateOrchestrator;
   let mockUISetupOrchestrator;
-  let mockAnimationPerformanceOrchestrator;
+  let mockPerformanceAnimationOrchestrator;
   let mockPerformanceMetricsOrchestrator;
   let mockPerformanceStateOrchestrator;
   let mockEventBus;
@@ -41,13 +41,13 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
-    mockPreferencesOrchestrator = {
+    mockSettingsPreferencesOrchestrator = {
       initialize: vi.fn().mockResolvedValue(),
       loadPreferences: vi.fn().mockResolvedValue(),
       cleanup: vi.fn().mockResolvedValue()
     };
 
-    mockDisplayModeOrchestrator = {
+    mockSettingsDisplayModeOrchestrator = {
       initialize: vi.fn().mockResolvedValue(),
       toggleFullscreen: vi.fn(),
       toggleCinematicMode: vi.fn(),
@@ -69,7 +69,7 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
-    mockAnimationPerformanceOrchestrator = {
+    mockPerformanceAnimationOrchestrator = {
       initialize: vi.fn().mockResolvedValue(),
       cleanup: vi.fn().mockResolvedValue()
     };
@@ -100,11 +100,11 @@ describe('AppOrchestrator', () => {
       deviceOrchestrator: mockDeviceOrchestrator,
       streamingOrchestrator: mockStreamingOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
-      preferencesOrchestrator: mockPreferencesOrchestrator,
-      displayModeOrchestrator: mockDisplayModeOrchestrator,
+      preferencesOrchestrator: mockSettingsPreferencesOrchestrator,
+      displayModeOrchestrator: mockSettingsDisplayModeOrchestrator,
       updateOrchestrator: mockUpdateOrchestrator,
       uiSetupOrchestrator: mockUISetupOrchestrator,
-      animationPerformanceOrchestrator: mockAnimationPerformanceOrchestrator,
+      animationPerformanceOrchestrator: mockPerformanceAnimationOrchestrator,
       performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
       performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus,
@@ -147,11 +147,11 @@ describe('AppOrchestrator', () => {
     it('should initialize all application orchestrators', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockSettingsPreferencesOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockSettingsDisplayModeOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockAnimationPerformanceOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockPerformanceAnimationOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
@@ -176,12 +176,12 @@ describe('AppOrchestrator', () => {
       expect(mockUISetupOrchestrator.setupUIEventListeners).toHaveBeenCalled();
     });
 
-    it('should not call loadPreferences directly (delegated to PreferencesOrchestrator.initialize)', async () => {
+    it('should not call loadPreferences directly (delegated to SettingsPreferencesOrchestrator.initialize)', async () => {
       await orchestrator.start();
 
-      // loadPreferences is now called during PreferencesOrchestrator.initialize()
+      // loadPreferences is now called during SettingsPreferencesOrchestrator.initialize()
       // not directly by AppOrchestrator.start()
-      expect(mockPreferencesOrchestrator.loadPreferences).not.toHaveBeenCalled();
+      expect(mockSettingsPreferencesOrchestrator.loadPreferences).not.toHaveBeenCalled();
     });
   });
 
@@ -229,12 +229,12 @@ describe('AppOrchestrator', () => {
 
       // Verify all orchestrators are cleaned up
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockAnimationPerformanceOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockPerformanceAnimationOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPreferencesOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockSettingsPreferencesOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
