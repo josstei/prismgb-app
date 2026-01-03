@@ -64,9 +64,8 @@ export default function createNotesPanelTemplate() {
           ${getIconSvg('notes-new')}
           New
         </button>
-        <button class="notes-footer-btn notes-delete-btn" id="notesDeleteBtn" aria-label="Delete note" disabled>
-          ${getIconSvg('notes-delete')}
-          Delete
+        <button class="notes-footer-btn notes-delete-btn" id="notesDeleteBtn" aria-label="Hold to delete note" title="Hold to delete" disabled>
+          <span class="btn-content">${getIconSvg('notes-delete')}Delete</span>
         </button>
       </div>
     </div>

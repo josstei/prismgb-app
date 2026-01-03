@@ -15,6 +15,7 @@ import { escapeHtml } from '@shared/utils/string.utils.js';
 const SAVE_DEBOUNCE_MS = 500;
 const SEARCH_DEBOUNCE_MS = 200;
 const RESIZE_DEBOUNCE_MS = 100;
+const DELETE_HOLD_MS = 2000;
 
 // Autocomplete debounce
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
@@ -629,9 +630,45 @@ class NotesPanelComponent {
   _setupDeleteButton() {
     if (!this.elements.notesDeleteBtn) return;
 
-    this._domListeners.add(this.elements.notesDeleteBtn, 'click', () => {
-      this._deleteCurrentNote();
-    });
+    this._deleteHoldTimeout = null;
+
+    // Start hold on mousedown/touchstart
+    const startHold = (e) => {
+      e.preventDefault();
+      if (this.elements.notesDeleteBtn.disabled) return;
+
+      this.elements.notesDeleteBtn.classList.add('holding');
+      this.elements.notesDeleteBtn.style.setProperty('--hold-duration', `${DELETE_HOLD_MS}ms`);
+
+      this._deleteHoldTimeout = setTimeout(() => {
+        this._deleteCurrentNote();
+        this._cancelDeleteHold();
+      }, DELETE_HOLD_MS);
+    };
+
+    // Cancel hold on mouseup/mouseleave/touchend/touchcancel
+    const cancelHold = () => {
+      this._cancelDeleteHold();
+    };
+
+    this._domListeners.add(this.elements.notesDeleteBtn, 'mousedown', startHold);
+    this._domListeners.add(this.elements.notesDeleteBtn, 'touchstart', startHold);
+    this._domListeners.add(this.elements.notesDeleteBtn, 'mouseup', cancelHold);
+    this._domListeners.add(this.elements.notesDeleteBtn, 'mouseleave', cancelHold);
+    this._domListeners.add(this.elements.notesDeleteBtn, 'touchend', cancelHold);
+    this._domListeners.add(this.elements.notesDeleteBtn, 'touchcancel', cancelHold);
+  }
+
+  /**
+   * Cancel delete hold operation
+   * @private
+   */
+  _cancelDeleteHold() {
+    if (this._deleteHoldTimeout) {
+      clearTimeout(this._deleteHoldTimeout);
+      this._deleteHoldTimeout = null;
+    }
+    this.elements.notesDeleteBtn?.classList.remove('holding');
   }
 
   /**

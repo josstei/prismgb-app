@@ -884,6 +884,54 @@ body:not(.streaming-mode) .notes-panel {
   box-shadow: 0 4px 12px rgba(var(--color-danger-rgb), 0.15);
 }
 
+/* Hold-to-delete progress indicator */
+.notes-delete-btn {
+  position: relative;
+  overflow: hidden;
+  --hold-duration: 2000ms;
+}
+
+.notes-delete-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--color-danger-rgb), 0.4) 0%,
+    rgba(var(--color-danger-rgb), 0.25) 100%
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.notes-delete-btn.holding::before {
+  animation: hold-progress var(--hold-duration) linear forwards;
+}
+
+.notes-delete-btn.holding {
+  border-color: rgba(var(--color-danger-rgb), 0.5);
+  color: var(--color-danger-light);
+}
+
+@keyframes hold-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.notes-delete-btn .btn-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 /* =====================================================
    Reduced motion
    ===================================================== */

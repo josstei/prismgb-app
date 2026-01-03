@@ -803,19 +803,74 @@ describe('NotesPanelComponent', () => {
     });
   });
 
-  describe('Delete button click', () => {
+  describe('Delete button hold-to-delete', () => {
     beforeEach(() => {
+      vi.useFakeTimers();
       component.initialize(mockElements);
       component.currentNoteId = 'note_1';
     });
 
-    it('should delete current note on button click', () => {
+    it('should delete current note after holding for 2 seconds', () => {
       mockNotesService.deleteNote.mockReturnValue(true);
       mockNotesService.getAllNotes.mockReturnValue([]);
 
-      mockElements.notesDeleteBtn.click();
+      // Simulate mousedown to start hold
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mousedown'));
 
+      // Should not delete immediately
+      expect(mockNotesService.deleteNote).not.toHaveBeenCalled();
+
+      // Advance timers by 2 seconds
+      vi.advanceTimersByTime(2000);
+
+      // Now it should be deleted
       expect(mockNotesService.deleteNote).toHaveBeenCalledWith('note_1');
+    });
+
+    it('should cancel delete if mouseup before 2 seconds', () => {
+      mockNotesService.deleteNote.mockReturnValue(true);
+
+      // Start hold
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mousedown'));
+
+      // Release after 1 second
+      vi.advanceTimersByTime(1000);
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mouseup'));
+
+      // Advance past the 2 second mark
+      vi.advanceTimersByTime(1500);
+
+      // Should not have deleted
+      expect(mockNotesService.deleteNote).not.toHaveBeenCalled();
+    });
+
+    it('should cancel delete if mouse leaves button', () => {
+      mockNotesService.deleteNote.mockReturnValue(true);
+
+      // Start hold
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mousedown'));
+
+      // Leave button after 500ms
+      vi.advanceTimersByTime(500);
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mouseleave'));
+
+      // Advance past the 2 second mark
+      vi.advanceTimersByTime(2000);
+
+      // Should not have deleted
+      expect(mockNotesService.deleteNote).not.toHaveBeenCalled();
+    });
+
+    it('should add holding class during hold', () => {
+      // Start hold
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mousedown'));
+
+      expect(mockElements.notesDeleteBtn.classList.contains('holding')).toBe(true);
+
+      // Release
+      mockElements.notesDeleteBtn.dispatchEvent(new MouseEvent('mouseup'));
+
+      expect(mockElements.notesDeleteBtn.classList.contains('holding')).toBe(false);
     });
   });
 
