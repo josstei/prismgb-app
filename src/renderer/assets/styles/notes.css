@@ -291,7 +291,7 @@ body:not(.streaming-mode) .notes-panel {
   overflow-y: auto;
   padding: 4px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
 }
 
 .notes-list::-webkit-scrollbar {
@@ -304,13 +304,12 @@ body:not(.streaming-mode) .notes-panel {
 }
 
 .notes-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--color-info-rgb), 0.25);
   border-radius: var(--radius-full);
-  transition: background 0.2s ease;
 }
 
 .notes-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(var(--color-info-rgb), 0.4);
 }
 
 .note-list-item {
@@ -744,6 +743,29 @@ body:not(.streaming-mode) .notes-panel {
 .notes-content-area::placeholder {
   color: rgba(255, 255, 255, 0.25);
   font-style: italic;
+}
+
+/* Content area scrollbar - matches tag color */
+.notes-content-area {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
+}
+
+.notes-content-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-content-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-content-area::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-info-rgb), 0.25);
+  border-radius: var(--radius-full);
+}
+
+.notes-content-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-info-rgb), 0.4);
 }
 
 /* Empty state placeholder */
