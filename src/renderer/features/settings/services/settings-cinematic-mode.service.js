@@ -7,9 +7,9 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class CinematicModeService extends BaseService {
+class SettingsCinematicModeService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'CinematicModeService');
+    super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'SettingsCinematicModeService');
   }
 
   toggleCinematicMode() {
@@ -19,4 +19,4 @@ class CinematicModeService extends BaseService {
   }
 }
 
-export { CinematicModeService };
+export { SettingsCinematicModeService };

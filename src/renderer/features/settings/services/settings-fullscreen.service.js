@@ -7,9 +7,9 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class FullscreenService extends BaseService {
+class SettingsFullscreenService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'FullscreenService');
+    super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
@@ -111,4 +111,4 @@ class FullscreenService extends BaseService {
   }
 }
 
-export { FullscreenService };
+export { SettingsFullscreenService };

@@ -1,11 +1,11 @@
 /**
- * StreamControlsComponent Unit Tests
+ * StreamingControlsComponent Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamControlsComponent } from '@renderer/features/streaming/ui/stream-controls.component.js';
+import { StreamingControlsComponent } from '@renderer/features/streaming/ui/streaming-controls.component.js';
 
-describe('StreamControlsComponent', () => {
+describe('StreamingControlsComponent', () => {
   let component;
   let mockElements;
 
@@ -46,7 +46,7 @@ describe('StreamControlsComponent', () => {
       currentFPS: { textContent: '' }
     };
 
-    component = new StreamControlsComponent(mockElements);
+    component = new StreamingControlsComponent(mockElements);
   });
 
   describe('Constructor', () => {

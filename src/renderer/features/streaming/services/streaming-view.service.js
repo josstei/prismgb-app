@@ -7,9 +7,9 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 
-class StreamViewService extends BaseService {
+class StreamingViewService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['uiController', 'loggerFactory'], 'StreamViewService');
+    super(dependencies, ['uiController', 'loggerFactory'], 'StreamingViewService');
   }
 
   /**
@@ -133,4 +133,4 @@ class StreamViewService extends BaseService {
   }
 }
 
-export { StreamViewService };
+export { StreamingViewService };

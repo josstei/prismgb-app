@@ -1,11 +1,11 @@
 /**
- * GpuRecordingService Unit Tests
+ * CaptureGpuRecordingService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GpuRecordingService } from '@renderer/features/capture/services/gpu-recording.service.js';
+import { CaptureGpuRecordingService } from '@renderer/features/capture/services/capture-gpu-recording.service.js';
 
-describe('GpuRecordingService', () => {
+describe('CaptureGpuRecordingService', () => {
   let service;
   let mockGpuRendererService;
   let mockEventBus;
@@ -28,7 +28,7 @@ describe('GpuRecordingService', () => {
       error: vi.fn()
     };
 
-    service = new GpuRecordingService({
+    service = new CaptureGpuRecordingService({
       gpuRendererService: mockGpuRendererService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }

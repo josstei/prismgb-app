@@ -1,11 +1,11 @@
 /**
- * ViewportService Unit Tests
+ * StreamingViewportService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ViewportService } from '@renderer/features/streaming/rendering/viewport.service.js';
+import { StreamingViewportService } from '@renderer/features/streaming/rendering/streaming-viewport.service.js';
 
-describe('ViewportService', () => {
+describe('StreamingViewportService', () => {
   let service;
   let mockLogger;
   let mockCanvas;
@@ -75,7 +75,7 @@ describe('ViewportService', () => {
       this.callback = callback;
     });
 
-    service = new ViewportService(mockLogger);
+    service = new StreamingViewportService(mockLogger);
   });
 
   afterEach(() => {
@@ -107,7 +107,7 @@ describe('ViewportService', () => {
 
       service.initialize(mockSection, onResize);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('ViewportService initialized with ResizeObserver');
+      expect(mockLogger.debug).toHaveBeenCalledWith('StreamingViewportService initialized with ResizeObserver');
     });
 
     it('should not create observer if element is null', () => {

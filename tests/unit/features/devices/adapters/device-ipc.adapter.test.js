@@ -1,11 +1,11 @@
 /**
- * DeviceIPCAdapter Unit Tests
+ * DeviceIpcAdapter Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeviceIPCAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 
-describe('DeviceIPCAdapter', () => {
+describe('DeviceIpcAdapter', () => {
   let adapter;
   let mockDeviceAPI;
   let mockLogger;
@@ -28,7 +28,7 @@ describe('DeviceIPCAdapter', () => {
     // Mock window.deviceAPI
     global.window = { deviceAPI: mockDeviceAPI };
 
-    adapter = new DeviceIPCAdapter({ logger: mockLogger });
+    adapter = new DeviceIpcAdapter({ logger: mockLogger });
   });
 
   afterEach(() => {
@@ -104,7 +104,7 @@ describe('DeviceIPCAdapter', () => {
       const cleanup = adapter.subscribe(null, undefined);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'DeviceIPCAdapter.subscribe: Invalid callbacks provided'
+        'DeviceIpcAdapter.subscribe: Invalid callbacks provided'
       );
       expect(typeof cleanup).toBe('function');
     });
@@ -117,7 +117,7 @@ describe('DeviceIPCAdapter', () => {
     });
 
     it('should handle invalid callbacks without logger gracefully', () => {
-      const adapterWithoutLogger = new DeviceIPCAdapter();
+      const adapterWithoutLogger = new DeviceIpcAdapter();
 
       const cleanup = adapterWithoutLogger.subscribe(null, undefined);
 

@@ -18,7 +18,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['deviceService', 'deviceIPCAdapter', 'eventBus', 'loggerFactory'],
+      ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory'],
       'DeviceOrchestrator'
     );
     // Store unsubscribe function for IPC adapter
@@ -33,7 +33,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     this.deviceService.setupDeviceChangeListener();
 
     // Set up IPC event listeners for USB events via adapter
-    this._unsubscribeIPC = this.deviceIPCAdapter.subscribe(
+    this._unsubscribeIPC = this.deviceIpcAdapter.subscribe(
       () => this._handleDeviceConnectedIPC(),
       () => this._handleDeviceDisconnectedIPC()
     );

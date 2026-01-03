@@ -15,17 +15,17 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CapabilityDetector } from './capability-detector.utils.js';
+import { CapabilityDetector } from './streaming-capability-detector.utils.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/worker-protocol.config.js';
+} from '../workers/streaming-worker-protocol.config.js';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/render-presets.config.js';
+} from '../presets/streaming-render-presets.config.js';
 
 /**
  * Maximum number of frames that can be pending render
@@ -48,7 +48,7 @@ const BITMAP_OPTIONS = Object.freeze({
   resizeQuality: 'pixelated'
 });
 
-export class GPURendererService extends BaseService {
+export class StreamingGpuRendererService extends BaseService {
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for render events
@@ -59,7 +59,7 @@ export class GPURendererService extends BaseService {
     super(
       dependencies,
       ['eventBus', 'loggerFactory', 'settingsService'],
-      'GPURendererService'
+      'StreamingGpuRendererService'
     );
 
     // Worker state
@@ -238,7 +238,7 @@ export class GPURendererService extends BaseService {
 
       // Create the render worker
       this._worker = new Worker(
-        new URL('../workers/render.worker.js', import.meta.url),
+        new URL('../workers/streaming-render.worker.js', import.meta.url),
         { type: 'module' }
       );
 

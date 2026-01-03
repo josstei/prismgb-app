@@ -1,11 +1,11 @@
 /**
- * ChromaticAdapter Unit Tests
+ * DeviceChromaticAdapter Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/chromatic.adapter.js';
+import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js';
 
-describe('ChromaticAdapter', () => {
+describe('DeviceChromaticAdapter', () => {
   let adapter;
   let mockIpcClient;
   let mockConstraintBuilder;
@@ -34,7 +34,7 @@ describe('ChromaticAdapter', () => {
       error: vi.fn()
     };
 
-    adapter = new ChromaticAdapter({
+    adapter = new DeviceChromaticAdapter({
       ipcClient: mockIpcClient,
       constraintBuilder: mockConstraintBuilder,
       streamLifecycle: mockStreamLifecycle,
@@ -44,7 +44,7 @@ describe('ChromaticAdapter', () => {
 
   describe('Constructor', () => {
     it('should throw when ipcClient is not provided', () => {
-      expect(() => new ChromaticAdapter({})).toThrow('ChromaticAdapter: ipcClient is required');
+      expect(() => new DeviceChromaticAdapter({})).toThrow('DeviceChromaticAdapter: ipcClient is required');
     });
 
     it('should store ipcClient', () => {
@@ -88,7 +88,7 @@ describe('ChromaticAdapter', () => {
         rendering: { canvasScale: 2 }
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,
@@ -107,7 +107,7 @@ describe('ChromaticAdapter', () => {
         audioFull: { channelCount: { ideal: 1 } }
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,
@@ -124,7 +124,7 @@ describe('ChromaticAdapter', () => {
         getResolutionByScale: vi.fn().mockReturnValue({ width: 100, height: 100 })
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,
@@ -244,7 +244,7 @@ describe('ChromaticAdapter', () => {
         getResolutionByScale: vi.fn().mockReturnValue({ width: 640, height: 480 })
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,
@@ -288,7 +288,7 @@ describe('ChromaticAdapter', () => {
         media: { video: { width: 320 } }
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,
@@ -345,7 +345,7 @@ describe('ChromaticAdapter', () => {
         rendering: { canvasScale: 3 }
       };
 
-      const customAdapter = new ChromaticAdapter({
+      const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
         constraintBuilder: mockConstraintBuilder,
         streamLifecycle: mockStreamLifecycle,

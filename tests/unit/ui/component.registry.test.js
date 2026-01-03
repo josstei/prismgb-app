@@ -50,9 +50,9 @@ describe('UIComponentRegistry', () => {
     mockFactory = {
       createStatusNotificationComponent: vi.fn().mockReturnValue(mockComponents.statusNotificationComponent),
       createDeviceStatusComponent: vi.fn().mockReturnValue(mockComponents.deviceStatusComponent),
-      createStreamControlsComponent: vi.fn().mockReturnValue(mockComponents.streamControlsComponent),
+      createStreamingControlsComponent: vi.fn().mockReturnValue(mockComponents.streamControlsComponent),
       createSettingsMenuComponent: vi.fn().mockReturnValue(mockComponents.settingsMenuComponent),
-      createShaderSelectorComponent: vi.fn().mockReturnValue(mockComponents.shaderSelectorComponent),
+      createStreamingShaderSelectorComponent: vi.fn().mockReturnValue(mockComponents.shaderSelectorComponent),
       createNotesPanelComponent: vi.fn().mockReturnValue(mockComponents.notesPanelComponent)
     };
 
@@ -165,8 +165,8 @@ describe('UIComponentRegistry', () => {
       expect(registry.components.get('deviceStatusComponent')).toBe(mockComponents.deviceStatusComponent);
     });
 
-    it('should create StreamControlsComponent with correct elements', () => {
-      expect(mockFactory.createStreamControlsComponent).toHaveBeenCalledWith({
+    it('should create StreamingControlsComponent with correct elements', () => {
+      expect(mockFactory.createStreamingControlsComponent).toHaveBeenCalledWith({
         currentResolution: mockElements.currentResolution,
         currentFPS: mockElements.currentFPS,
         screenshotBtn: mockElements.screenshotBtn,
@@ -176,7 +176,7 @@ describe('UIComponentRegistry', () => {
       });
     });
 
-    it('should store StreamControlsComponent in components Map', () => {
+    it('should store StreamingControlsComponent in components Map', () => {
       expect(registry.components.get('streamControlsComponent')).toBe(mockComponents.streamControlsComponent);
     });
 
@@ -256,7 +256,7 @@ describe('UIComponentRegistry', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith('Initializing shader selector component');
     });
 
-    it('should create ShaderSelectorComponent with dependencies', () => {
+    it('should create StreamingShaderSelectorComponent with dependencies', () => {
       const dependencies = {
         settingsService: {},
         appState: {},
@@ -269,7 +269,7 @@ describe('UIComponentRegistry', () => {
 
       registry.initShaderSelector(dependencies, elements);
 
-      expect(mockFactory.createShaderSelectorComponent).toHaveBeenCalledWith(dependencies);
+      expect(mockFactory.createStreamingShaderSelectorComponent).toHaveBeenCalledWith(dependencies);
     });
 
     it('should initialize component with elements', () => {
@@ -288,7 +288,7 @@ describe('UIComponentRegistry', () => {
       expect(mockComponents.shaderSelectorComponent.initialize).toHaveBeenCalledWith(elements);
     });
 
-    it('should store ShaderSelectorComponent in components Map', () => {
+    it('should store StreamingShaderSelectorComponent in components Map', () => {
       const dependencies = {
         settingsService: {},
         appState: {},

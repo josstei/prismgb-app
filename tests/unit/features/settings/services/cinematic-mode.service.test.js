@@ -1,12 +1,12 @@
 /**
- * CinematicModeService Unit Tests
+ * SettingsCinematicModeService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CinematicModeService } from '@renderer/features/settings/services/cinematic-mode.service.js';
+import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-describe('CinematicModeService', () => {
+describe('SettingsCinematicModeService', () => {
   let service;
   let mockAppState;
   let mockEventBus;
@@ -36,7 +36,7 @@ describe('CinematicModeService', () => {
       setCinematicMode: vi.fn()
     };
 
-    service = new CinematicModeService({
+    service = new SettingsCinematicModeService({
       appState: mockAppState,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
@@ -51,28 +51,28 @@ describe('CinematicModeService', () => {
     });
 
     it('should throw if missing appState dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should throw if missing eventBus dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         appState: mockAppState,
         loggerFactory: mockLoggerFactory
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should throw if missing loggerFactory dependency', () => {
-      expect(() => new CinematicModeService({
+      expect(() => new SettingsCinematicModeService({
         appState: mockAppState,
         eventBus: mockEventBus
       })).toThrow(/Missing required dependencies/);
     });
 
     it('should create logger with correct service name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CinematicModeService');
+      expect(mockLoggerFactory.create).toHaveBeenCalledWith('SettingsCinematicModeService');
     });
   });
 

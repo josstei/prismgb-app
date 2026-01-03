@@ -1,7 +1,7 @@
 /**
  * Device Registry Iterator
  * Shared helper for iterating DEVICE_REGISTRY with consistent filtering.
- * Used by both main process (DeviceServiceMain) and renderer process (AdapterFactory).
+ * Used by both main process (DeviceServiceMain) and renderer process (StreamingAdapterFactory).
  */
 
 import { DeviceRegistry } from './device.registry.js';

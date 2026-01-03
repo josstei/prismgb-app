@@ -7,9 +7,9 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 
-class AnimationPerformanceService extends BaseService {
+class PerformanceAnimationService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'AnimationPerformanceService');
+    super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,
@@ -94,4 +94,4 @@ class AnimationPerformanceService extends BaseService {
   }
 }
 
-export { AnimationPerformanceService };
+export { PerformanceAnimationService };

@@ -7,7 +7,7 @@
 
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 
-class StreamControlsComponent {
+class StreamingControlsComponent {
   /**
    * Create stream controls component
    * @param {Object} elements - DOM elements
@@ -79,4 +79,4 @@ class StreamControlsComponent {
   }
 }
 
-export { StreamControlsComponent };
+export { StreamingControlsComponent };

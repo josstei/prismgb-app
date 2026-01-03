@@ -234,7 +234,8 @@ All JavaScript files follow the pattern: `{name}.{type}.js`
 | `.base.js` | Abstract base classes |
 
 **Rules:**
-- If filename contains type word with hyphen, use dot: `profile-registry.js` → `profile.registry.js`
+- Type suffix uses dot separator: `device-profile.registry.js`, `streaming-worker-protocol.config.js`
+- Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
 - Entry points (`index.js`) and DI containers (`container.js`) are exceptions
 
 ### Example Service
