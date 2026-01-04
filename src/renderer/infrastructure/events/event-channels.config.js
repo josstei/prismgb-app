@@ -41,15 +41,12 @@ export const EventChannels = {
   // Settings events
   SETTINGS: {
     VOLUME_CHANGED: 'settings:volume-changed',
-    STATUS_STRIP_CHANGED: 'settings:status-strip-changed',
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
     BRIGHTNESS_CHANGED: 'settings:brightness-changed',
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
     CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed',
-    FULLSCREEN_ON_STARTUP_CHANGED: 'settings:fullscreen-on-startup-changed',
     MINIMALIST_FULLSCREEN_CHANGED: 'settings:minimalist-fullscreen-changed',
-    PREFERENCES_LOADED: 'settings:preferences-loaded',
-    PREFERENCES_LOAD_FAILED: 'settings:preferences-load-failed'
+    PREFERENCES_LOADED: 'settings:preferences-loaded'
   },
 
   PERFORMANCE: {
@@ -109,9 +106,6 @@ export const EventChannels = {
   // Notes events
   NOTES: {
     NOTE_CREATED: 'notes:note-created',
-    NOTE_UPDATED: 'notes:note-updated',
-    NOTE_DELETED: 'notes:note-deleted',
-    NOTE_SELECTED: 'notes:note-selected',
-    PANEL_VISIBILITY_CHANGED: 'notes:panel-visibility-changed'
+    NOTE_DELETED: 'notes:note-deleted'
   }
 };
