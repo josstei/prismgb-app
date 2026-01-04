@@ -25,7 +25,8 @@ class SettingsService extends BaseService {
       renderPreset: 'vibrant',
       globalBrightness: 1.0,
       performanceMode: false,
-      fullscreenOnStartup: false
+      fullscreenOnStartup: false,
+      minimalistFullscreen: false
     };
 
     // Use centralized storage keys
@@ -40,13 +41,17 @@ class SettingsService extends BaseService {
     const volume = this.getVolume();
     const statusStripVisible = this.getStatusStripVisible();
     const performanceMode = this.getPerformanceMode();
+    const minimalistFullscreen = this.getMinimalistFullscreen();
 
-    this.logger.info(`Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, PerformanceMode: ${performanceMode}`);
+    this.logger.info(
+      `Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, PerformanceMode: ${performanceMode}, MinimalistFullscreen: ${minimalistFullscreen}`
+    );
 
     return {
       volume,
       statusStripVisible,
-      performanceMode
+      performanceMode,
+      minimalistFullscreen
     };
   }
 
@@ -180,6 +185,28 @@ class SettingsService extends BaseService {
 
     // Emit event
     this.eventBus.publish(EventChannels.SETTINGS.FULLSCREEN_ON_STARTUP_CHANGED, enabled);
+  }
+
+  /**
+   * Get minimalist fullscreen preference
+   * @returns {boolean} True if minimalist fullscreen is enabled
+   */
+  getMinimalistFullscreen() {
+    const saved = this.storageService?.getItem(this.keys.MINIMALIST_FULLSCREEN);
+    return saved !== null ? saved === 'true' : this.defaults.minimalistFullscreen;
+  }
+
+  /**
+   * Set minimalist fullscreen preference
+   * @param {boolean} enabled - Enable minimalist fullscreen
+   */
+  setMinimalistFullscreen(enabled) {
+    this.storageService?.setItem(this.keys.MINIMALIST_FULLSCREEN, enabled.toString());
+
+    this.logger.debug(`Minimalist fullscreen ${enabled ? 'enabled' : 'disabled'}`);
+
+    // Emit event
+    this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, enabled);
   }
 }
 

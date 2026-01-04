@@ -57,6 +57,7 @@ describe('SettingsService', () => {
       expect(service.defaults.statusStripVisible).toBe(false);
       expect(service.defaults.performanceMode).toBe(false);
       expect(service.defaults.fullscreenOnStartup).toBe(false);
+      expect(service.defaults.minimalistFullscreen).toBe(false);
     });
 
     it('should have correct setting keys', () => {
@@ -66,6 +67,7 @@ describe('SettingsService', () => {
       expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
       expect(service.keys.PERFORMANCE_MODE).toBe('performanceMode');
       expect(service.keys.FULLSCREEN_ON_STARTUP).toBe('fullscreenOnStartup');
+      expect(service.keys.MINIMALIST_FULLSCREEN).toBe('minimalistFullscreen');
     });
   });
 
@@ -151,7 +153,8 @@ describe('SettingsService', () => {
       expect(prefs).toEqual({
         volume: 70,
         statusStripVisible: false,
-        performanceMode: false
+        performanceMode: false,
+        minimalistFullscreen: false
       });
     });
 
@@ -159,18 +162,20 @@ describe('SettingsService', () => {
       localStorageMock.store['gameVolume'] = '30';
       localStorageMock.store['statusStripVisible'] = 'false';
       localStorageMock.store['performanceMode'] = 'false';
+      localStorageMock.store['minimalistFullscreen'] = 'true';
 
       const prefs = service.loadAllPreferences();
       expect(prefs).toEqual({
         volume: 30,
         statusStripVisible: false,
-        performanceMode: false
+        performanceMode: false,
+        minimalistFullscreen: true
       });
     });
 
     it('should log loaded preferences', () => {
       service.loadAllPreferences();
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false, PerformanceMode: false');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false, PerformanceMode: false, MinimalistFullscreen: false');
     });
   });
 

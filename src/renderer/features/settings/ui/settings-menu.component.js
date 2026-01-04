@@ -34,6 +34,7 @@ class SettingsMenuComponent {
     this.toggleButton = elements.settingsBtn;
     this.statusStripCheckbox = elements.settingStatusStrip;
     this.fullscreenOnStartupCheckbox = elements.settingFullscreenOnStartup;
+    this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
@@ -97,6 +98,14 @@ class SettingsMenuComponent {
       });
     }
 
+    // Minimalist fullscreen toggle
+    if (this.minimalistFullscreenCheckbox) {
+      this._domListeners.add(this.minimalistFullscreenCheckbox, 'change', () => {
+        const enabled = this.minimalistFullscreenCheckbox.checked;
+        this.settingsService.setMinimalistFullscreen(enabled);
+      });
+    }
+
     // Animation power saver toggle
     if (this.animationSaverCheckbox) {
       this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
@@ -123,6 +132,7 @@ class SettingsMenuComponent {
   _loadCurrentSettings() {
     const statusStripVisible = this.settingsService.getStatusStripVisible();
     const fullscreenOnStartupEnabled = this.settingsService.getFullscreenOnStartup?.() ?? false;
+    const minimalistFullscreenEnabled = this.settingsService.getMinimalistFullscreen?.() ?? false;
     const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
 
     if (this.statusStripCheckbox) {
@@ -131,6 +141,10 @@ class SettingsMenuComponent {
 
     if (this.fullscreenOnStartupCheckbox) {
       this.fullscreenOnStartupCheckbox.checked = fullscreenOnStartupEnabled;
+    }
+
+    if (this.minimalistFullscreenCheckbox) {
+      this.minimalistFullscreenCheckbox.checked = minimalistFullscreenEnabled;
     }
 
     if (this.animationSaverCheckbox) {

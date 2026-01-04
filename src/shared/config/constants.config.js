@@ -18,4 +18,7 @@ export const TIMING = {
 
   // Cursor auto-hide delay (ms)
   CURSOR_HIDE_DELAY_MS: 2000,
+
+  // Minimalist fullscreen transition duration (ms)
+  MINIMALIST_TRANSITION_MS: 250,
 };

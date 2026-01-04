@@ -48,6 +48,7 @@ export const DOMSelectors = {
   SETTING_ANIMATION_SAVER: 'settingAnimationSaver',
   SETTING_RENDER_PRESET: 'settingRenderPreset',
   SETTING_FULLSCREEN_ON_STARTUP: 'settingFullscreenOnStartup',
+  SETTING_MINIMALIST_FULLSCREEN: 'settingMinimalistFullscreen',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 

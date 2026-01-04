@@ -18,6 +18,11 @@ export class UIEventBridge extends BaseService {
 
     // Track subscriptions for cleanup
     this._subscriptions = [];
+
+    // Minimalist fullscreen state tracking
+    this._minimalistEnabled = false;
+    this._isFullscreenActive = Boolean(document.fullscreenElement);
+    this._isStreamingActive = Boolean(this.appState?.isStreaming);
   }
 
   /**
@@ -58,6 +63,7 @@ export class UIEventBridge extends BaseService {
 
       // Settings events (translated to UI updates)
       [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: (data) => this._handleCinematicMode(data),
+      [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: (enabled) => this._handleMinimalistFullscreenChanged(enabled),
 
       // Fullscreen
       [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)
@@ -99,6 +105,8 @@ export class UIEventBridge extends BaseService {
     const { enabled } = data;
     this.uiController.setStreamingMode(enabled);
     this._updateCinematicVisual(enabled);
+    this._isStreamingActive = Boolean(enabled);
+    this._updateMinimalistVisual();
   }
 
   _handleStreamInfo(data) {
@@ -135,6 +143,11 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
+  _handleMinimalistFullscreenChanged(enabled) {
+    this._minimalistEnabled = Boolean(enabled);
+    this._updateMinimalistVisual();
+  }
+
   /**
    * Update cinematic mode visual state
    * @param {boolean} [isStreaming] - Override streaming state (for timing-sensitive calls)
@@ -150,8 +163,10 @@ export class UIEventBridge extends BaseService {
 
   _handleFullscreenState(data) {
     const { active } = data;
+    this._isFullscreenActive = Boolean(active);
     this.uiController.updateFullscreenButton(active);
     this.uiController.updateFullscreenMode(active);
+    this._updateMinimalistVisual();
 
     // Enable/disable controls auto-hide behavior based on fullscreen state
     if (active) {
@@ -159,6 +174,15 @@ export class UIEventBridge extends BaseService {
     } else {
       this.uiController.disableControlsAutoHide();
     }
+  }
+
+  /**
+   * Update minimalist fullscreen visual state
+   * @private
+   */
+  _updateMinimalistVisual() {
+    const shouldEnable = this._minimalistEnabled && this._isFullscreenActive && this._isStreamingActive;
+    this.uiController.updateMinimalistFullscreen(shouldEnable);
   }
 
   /**

@@ -29,6 +29,8 @@ export const CSSClasses = {
 
   // Mode classes
   CINEMATIC_ACTIVE: 'cinematic-active',
+  MINIMALIST_FULLSCREEN: 'minimalist-fullscreen',
+  MINIMALIST_TRANSITION: 'minimalist-transition',
   STREAMING_MODE: 'streaming-mode',
 
   // Settings menu
