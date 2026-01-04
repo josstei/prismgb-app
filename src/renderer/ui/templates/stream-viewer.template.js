@@ -5,6 +5,7 @@
  */
 
 import { getIconSvg } from '@renderer/ui/icons/icon.utils.js';
+import overlayIconUrl from '/assets/overlay-icons/default.svg';
 
 /**
  * Create stream viewer HTML (includes toolbar and fullscreen controls)
@@ -40,7 +41,7 @@ export default function createStreamViewerTemplate() {
             <div class="gem-glow" aria-hidden="true"></div>
             <!-- Flash overlay for transition -->
             <div class="ready-flash" aria-hidden="true"></div>
-            <img class="overlay-icon pixelated" src="/assets/overlay-icons/default.svg" width="150" height="150" alt="">
+            <img class="overlay-icon pixelated" src="${overlayIconUrl}" width="150" height="150" alt="">
           </div>
           <!-- Hidden but kept for JS state management -->
           <p id="overlayMessage" class="sr-only waiting">Click to start</p>
