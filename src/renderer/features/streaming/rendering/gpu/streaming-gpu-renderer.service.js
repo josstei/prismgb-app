@@ -645,14 +645,6 @@ export class StreamingGpuRendererService extends BaseService {
   }
 
   /**
-   * Get last performance statistics from worker
-   * @returns {Object|null} Stats with fps and frameTime, or null
-   */
-  getStats() {
-    return this._lastStats;
-  }
-
-  /**
    * Get current target rendering dimensions
    * @returns {{width: number, height: number}} Target dimensions for rendered output
    */

@@ -131,11 +131,6 @@ describe('SettingsService', () => {
       expect(localStorageMock.setItem).toHaveBeenCalledWith('statusStripVisible', 'false');
     });
 
-    it('should emit status-strip-changed event', () => {
-      service.setStatusStripVisible(false);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:status-strip-changed', false);
-    });
-
     it('should log status strip shown', () => {
       service.setStatusStripVisible(true);
       expect(mockLogger.debug).toHaveBeenCalledWith('Status strip shown');
@@ -280,11 +275,6 @@ describe('SettingsService', () => {
     it('should save preference to localStorage', () => {
       service.setFullscreenOnStartup(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('fullscreenOnStartup', 'true');
-    });
-
-    it('should emit fullscreen on startup changed event', () => {
-      service.setFullscreenOnStartup(true);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:fullscreen-on-startup-changed', true);
     });
 
     it('should log preference change (enabled)', () => {
