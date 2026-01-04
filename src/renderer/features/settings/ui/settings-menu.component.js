@@ -247,6 +247,8 @@ class SettingsMenuComponent {
   _setupExternalLinks() {
     const linkGithub = document.getElementById(DOMSelectors.LINK_GITHUB);
     const linkWebsite = document.getElementById(DOMSelectors.LINK_WEBSITE);
+    const linkX = document.getElementById(DOMSelectors.LINK_X);
+    const linkKofi = document.getElementById(DOMSelectors.LINK_KOFI);
     const linkModRetro = document.getElementById(DOMSelectors.LINK_MOD_RETRO);
 
     const handleExternalLink = (e, url) => {
@@ -261,13 +263,25 @@ class SettingsMenuComponent {
 
     if (linkGithub) {
       this._domListeners.add(linkGithub, 'click', (e) => {
-        handleExternalLink(e, 'https://github.com/modretro/prismgb');
+        handleExternalLink(e, 'https://github.com/josstei/prismgb-app');
       });
     }
 
     if (linkWebsite) {
       this._domListeners.add(linkWebsite, 'click', (e) => {
-        handleExternalLink(e, 'https://prismgb.io');
+        handleExternalLink(e, 'https://prismgb.com');
+      });
+    }
+
+    if (linkX) {
+      this._domListeners.add(linkX, 'click', (e) => {
+        handleExternalLink(e, 'https://x.com/prism_gb');
+      });
+    }
+
+    if (linkKofi) {
+      this._domListeners.add(linkKofi, 'click', (e) => {
+        handleExternalLink(e, 'https://ko-fi.com/josstei');
       });
     }
 
