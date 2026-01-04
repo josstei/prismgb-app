@@ -72,11 +72,8 @@ export default function createHeaderTemplate() {
               <!-- Updates Section -->
               <section class="settings-section settings-updates" id="updateSection">
                 <div class="update-content">
-                  <div class="update-version-row">
-                    <span class="update-label">Current Version</span>
-                    <span class="update-current-version" id="updateCurrentVersion">v1.0.0</span>
-                  </div>
                   <div class="update-status-row">
+                    <span class="update-current-version" id="updateCurrentVersion">v1.0.0</span>
                     <span class="update-status-indicator" id="updateStatusIndicator"></span>
                     <span class="update-status-text" id="updateStatusText">Up to date</span>
                   </div>
