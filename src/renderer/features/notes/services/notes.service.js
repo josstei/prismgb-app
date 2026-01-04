@@ -136,7 +136,6 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Updated note: ${id}`);
-    this.eventBus.publish(EventChannels.NOTES.NOTE_UPDATED, updatedNote);
 
     return updatedNote;
   }

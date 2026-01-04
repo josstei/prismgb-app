@@ -48,9 +48,6 @@ export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
       this.logger.info('Preferences loaded');
     } catch (error) {
       this.logger.error('Error loading preferences:', error);
-      this.eventBus.publish(EventChannels.SETTINGS.PREFERENCES_LOAD_FAILED, {
-        error: error.message || 'Unknown error'
-      });
     }
   }
 }

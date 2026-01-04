@@ -123,7 +123,6 @@ class NotesPanelComponent {
     // Focus search input without scrolling
     this.elements.notesSearchInput?.focus({ preventScroll: true });
 
-    this.eventBus.publish(EventChannels.NOTES.PANEL_VISIBILITY_CHANGED, { visible: true });
     this.logger?.debug('Notes panel shown');
   }
 
@@ -145,7 +144,6 @@ class NotesPanelComponent {
     this.elements.notesBtn?.setAttribute('aria-expanded', 'false');
     this.isVisible = false;
 
-    this.eventBus.publish(EventChannels.NOTES.PANEL_VISIBILITY_CHANGED, { visible: false });
     this.logger?.debug('Notes panel hidden');
   }
 
@@ -375,6 +373,16 @@ class NotesPanelComponent {
     this._domListeners.add(this.elements.notesGameInput, 'focus', () => {
       this._showAutocomplete();
     });
+
+    // Delegated click handler for autocomplete items (avoids untracked listeners)
+    if (this.elements.notesGameAutocomplete) {
+      this._domListeners.add(this.elements.notesGameAutocomplete, 'click', (e) => {
+        const item = e.target.closest('.notes-game-autocomplete-item');
+        if (item) {
+          this._selectAutocompleteItem(item.dataset.value);
+        }
+      });
+    }
   }
 
   /**
@@ -417,13 +425,7 @@ class NotesPanelComponent {
       .map((game, i) => `<div class="notes-game-autocomplete-item" data-index="${i}" data-value="${escapeHtml(game)}">${escapeHtml(game)}</div>`)
       .join('');
 
-    // Add click handlers
-    this.elements.notesGameAutocomplete.querySelectorAll('.notes-game-autocomplete-item').forEach(item => {
-      item.addEventListener('click', () => {
-        this._selectAutocompleteItem(item.dataset.value);
-      });
-    });
-
+    // Click handlers use event delegation (see _setupGameInput)
     this.elements.notesGameAutocomplete.classList.add(CSSClasses.VISIBLE);
   }
 
@@ -916,7 +918,6 @@ class NotesPanelComponent {
       }
     });
 
-    this.eventBus.publish(EventChannels.NOTES.NOTE_SELECTED, { id: noteId });
     this.logger?.debug(`Selected note: ${noteId}`);
   }
 

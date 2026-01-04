@@ -178,15 +178,6 @@ describe('NotesPanelComponent', () => {
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
     });
 
-    it('should publish panel visibility event', () => {
-      component.show();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.PANEL_VISIBILITY_CHANGED,
-        { visible: true }
-      );
-    });
-
     it('should not throw if panel element is missing', () => {
       component.elements.notesPanel = null;
 
@@ -225,15 +216,6 @@ describe('NotesPanelComponent', () => {
       component.hide();
 
       expect(component.isVisible).toBe(false);
-    });
-
-    it('should publish panel visibility event', () => {
-      component.hide();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.PANEL_VISIBILITY_CHANGED,
-        { visible: false }
-      );
     });
 
     it('should save current note before hiding', () => {
@@ -431,18 +413,6 @@ describe('NotesPanelComponent', () => {
       component._selectNote('note_1');
 
       expect(mockElements.notesDeleteBtn.hasAttribute('disabled')).toBe(false);
-    });
-
-    it('should publish note selected event', () => {
-      const note = { id: 'note_1', title: 'Test', content: '' };
-      mockNotesService.getNote.mockReturnValue(note);
-
-      component._selectNote('note_1');
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.NOTE_SELECTED,
-        { id: 'note_1' }
-      );
     });
 
     it('should not select if note not found', () => {

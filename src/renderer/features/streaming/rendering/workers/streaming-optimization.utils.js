@@ -173,7 +173,7 @@ export class TypedArrayPool {
   }
 
   /**
-   * Get pool statistics
+   * Get pool statistics (for benchmarks)
    */
   getStats() {
     let totalArrays = 0;
@@ -181,7 +181,7 @@ export class TypedArrayPool {
 
     this._float32Pools.forEach((pool, size) => {
       totalArrays += pool.arrays.length;
-      totalBytes += size * 4 * pool.arrays.length; // 4 bytes per float32
+      totalBytes += size * 4 * pool.arrays.length;
     });
 
     return {
@@ -374,18 +374,6 @@ export class CaptureBufferManager {
     return frame;
   }
 
-  /**
-   * Get capture statistics
-   */
-  getStats() {
-    return {
-      captureCount: this._captureCount,
-      lazyCaptures: this._lazyCaptures,
-      hasPendingCapture: this._captureRequested,
-      hasBufferedFrame: this._capturedFrame !== null
-    };
-  }
-
   hasPendingCapture() {
     return this._captureRequested;
   }
@@ -494,18 +482,6 @@ export class ShaderProgram {
   setUniform2f(name, x, y) {
     const loc = this.getUniformLocation(name);
     if (loc !== null) this.gl.uniform2f(loc, x, y);
-  }
-
-  /**
-   * Get shader program statistics
-   */
-  getStats() {
-    return {
-      cachedLocations: this.uniformLocations.size,
-      uniformCalls: this._uniformCalls,
-      cacheHits: this._cacheHits,
-      hitRate: this._uniformCalls > 0 ? (this._cacheHits / this._uniformCalls * 100).toFixed(1) : '0'
-    };
   }
 
   destroy() {

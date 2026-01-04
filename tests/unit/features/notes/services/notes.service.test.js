@@ -271,15 +271,6 @@ describe('NotesService', () => {
       expect(stored[0].title).toBe('Updated');
     });
 
-    it('should publish NOTE_UPDATED event', () => {
-      const updated = service.updateNote('note_1', { title: 'Updated' });
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.NOTE_UPDATED,
-        updated
-      );
-    });
-
     it('should return null if storage fails', () => {
       mockStorageService.setItem = vi.fn(() => { throw new Error('Storage error'); });
 

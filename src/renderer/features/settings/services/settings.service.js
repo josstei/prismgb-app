@@ -93,9 +93,6 @@ class SettingsService extends BaseService {
     this.storageService?.setItem(this.keys.STATUS_STRIP, visible.toString());
 
     this.logger.debug(`Status strip ${visible ? 'shown' : 'hidden'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.STATUS_STRIP_CHANGED, visible);
   }
 
   /**
@@ -182,9 +179,6 @@ class SettingsService extends BaseService {
     this.storageService?.setItem(this.keys.FULLSCREEN_ON_STARTUP, enabled.toString());
 
     this.logger.debug(`Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.FULLSCREEN_ON_STARTUP_CHANGED, enabled);
   }
 
   /**
