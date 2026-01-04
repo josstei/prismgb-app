@@ -18,4 +18,8 @@ export function registerWindowHandlers({ registerHandler, windowService, logger 
     windowService.setFullScreen(enabled);
     return { success: true };
   });
+
+  registerHandler(IPC_CHANNELS.WINDOW.IS_FULLSCREEN, async () => {
+    return windowService.isFullScreen();
+  });
 }
