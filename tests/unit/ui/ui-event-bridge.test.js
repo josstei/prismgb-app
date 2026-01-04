@@ -45,6 +45,7 @@ describe('UIEventBridge', () => {
       updateFullscreenMode: vi.fn(),
       updateRecordingButtonState: vi.fn(),
       updateCinematicMode: vi.fn(),
+      updateMinimalistFullscreen: vi.fn(),
       elements: {
         recordBtn: {
           classList: {
@@ -129,6 +130,7 @@ describe('UIEventBridge', () => {
         'ui:button-feedback',
         'ui:recording-state',
         'settings:cinematic-mode-changed',
+        'settings:minimalist-fullscreen-changed',
         'ui:fullscreen-state'
       ];
 

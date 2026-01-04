@@ -34,6 +34,9 @@ export class UIEffects {
     this._controlsElement = null;
     this._lastMouseMoveTime = 0;
     this._mouseMoveThrottle = 100; // Throttle mousemove events to once per 100ms
+
+    // Minimalist transition state
+    this._minimalistTransitionTimer = null;
   }
 
   /**
@@ -366,6 +369,35 @@ export class UIEffects {
   }
 
   /**
+   * Set minimalist fullscreen body class
+   * @param {boolean} isActive - Whether minimalist fullscreen should be active
+   */
+  setMinimalistFullscreen(isActive) {
+    const currentlyActive = document.body.classList.contains(CSSClasses.MINIMALIST_FULLSCREEN);
+    if (currentlyActive === isActive) return;
+
+    this._setMinimalistTransitionActive();
+    document.body.classList.toggle(CSSClasses.MINIMALIST_FULLSCREEN, isActive);
+  }
+
+  /**
+   * Apply transition class for minimalist mode changes
+   * @private
+   */
+  _setMinimalistTransitionActive() {
+    if (this._minimalistTransitionTimer) {
+      clearTimeout(this._minimalistTransitionTimer);
+      this._minimalistTransitionTimer = null;
+    }
+
+    document.body.classList.add(CSSClasses.MINIMALIST_TRANSITION);
+    this._minimalistTransitionTimer = setTimeout(() => {
+      document.body.classList.remove(CSSClasses.MINIMALIST_TRANSITION);
+      this._minimalistTransitionTimer = null;
+    }, TIMING.MINIMALIST_TRANSITION_MS);
+  }
+
+  /**
    * Set fullscreen mode body class
    * @param {boolean} isActive - Whether fullscreen mode is active
    */
@@ -392,6 +424,12 @@ export class UIEffects {
       clearTimeout(timeoutId);
     }
     this._activeTimeouts.clear();
+
+    if (this._minimalistTransitionTimer) {
+      clearTimeout(this._minimalistTransitionTimer);
+      this._minimalistTransitionTimer = null;
+    }
+    document.body.classList.remove(CSSClasses.MINIMALIST_TRANSITION);
 
     // Clear element references
     this.elements = null;

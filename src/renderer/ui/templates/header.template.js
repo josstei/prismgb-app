@@ -48,6 +48,16 @@ export default function createHeaderTemplate() {
                 </label>
                 <label class="settings-item toggle settings-item-with-hint">
                   <span class="settings-item-text">
+                    <span class="settings-item-title">Minimalist fullscreen</span>
+                    <span class="settings-item-hint" id="minimalistFullscreenHint">
+                      Pure black fullscreen with minimal controls during streaming.
+                    </span>
+                  </span>
+                  <input type="checkbox" id="settingMinimalistFullscreen" aria-describedby="minimalistFullscreenHint">
+                  <span class="toggle-slider"></span>
+                </label>
+                <label class="settings-item toggle settings-item-with-hint">
+                  <span class="settings-item-text">
                     <span class="settings-item-title">Performance mode</span>
                     <span class="settings-item-hint" id="animationSaverHint">
                       Pause background effects to improve performance.

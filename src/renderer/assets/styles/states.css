@@ -88,6 +88,74 @@ body.cinematic-active .stream-container::before {
 }
 
 /* =====================================================
+   Minimalist Fullscreen Mode
+   Pure black fullscreen with minimal controls (streaming only)
+   ===================================================== */
+
+body.minimalist-transition {
+  transition: background 250ms ease;
+}
+
+body.minimalist-transition::before,
+body.minimalist-transition::after,
+body.minimalist-transition .prismatic-orbs,
+body.minimalist-transition .prismatic-orbs::before,
+body.minimalist-transition .prismatic-orbs::after,
+body.minimalist-transition .stream-container,
+body.minimalist-transition .stream-container::before,
+body.minimalist-transition .fullscreen-controls,
+body.minimalist-transition .fs-control-btn {
+  transition: opacity 250ms ease, background 250ms ease, box-shadow 250ms ease, border-color 250ms ease, filter 250ms ease, transform 250ms ease;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen {
+  background: #000;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen::before,
+body.fullscreen-active.streaming-mode.minimalist-fullscreen::after {
+  opacity: 0;
+  animation: none;
+  filter: none;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .prismatic-orbs,
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .prismatic-orbs::before,
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .prismatic-orbs::after {
+  opacity: 0;
+  animation: none;
+  filter: none;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .stream-container {
+  box-shadow: none;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .stream-container::before {
+  opacity: 0;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .fullscreen-controls {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
+  backdrop-filter: none;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn {
+  color: #e6e6e6;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn:focus-visible {
+  outline-color: rgba(255, 255, 255, 0.5);
+}
+
+/* =====================================================
    Cursor Auto-Hide
    Hide cursor after inactivity during streaming
    ===================================================== */
@@ -344,4 +412,3 @@ body.streaming-mode.cinematic-active .app-logo {
     opacity: 0.1;
   }
 }
-
