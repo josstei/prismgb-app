@@ -97,16 +97,10 @@
   gap: var(--space-sm);
 }
 
-.update-version-row,
 .update-status-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.update-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  gap: 8px;
 }
 
 .update-current-version {
@@ -117,10 +111,10 @@
   letter-spacing: -0.02em;
 }
 
-/* Status row */
-.update-status-row {
-  justify-content: flex-start;
-  gap: var(--space-sm);
+.update-current-version::after {
+  content: '·';
+  margin-left: 8px;
+  color: var(--color-text-muted);
 }
 
 /* Status indicator dot */
