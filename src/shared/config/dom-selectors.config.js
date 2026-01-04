@@ -56,6 +56,8 @@ export const DOMSelectors = {
   APP_VERSION: 'appVersion',
   LINK_GITHUB: 'linkGithub',
   LINK_WEBSITE: 'linkWebsite',
+  LINK_X: 'linkX',
+  LINK_KOFI: 'linkKofi',
   LINK_MOD_RETRO: 'linkModRetro',
 
   // Fullscreen controls
