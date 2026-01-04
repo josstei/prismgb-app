@@ -11,7 +11,8 @@
     "ENTER_FULLSCREEN": "window:enter-fullscreen",
     "LEAVE_FULLSCREEN": "window:leave-fullscreen",
     "RESIZED": "window:resized",
-    "SET_FULLSCREEN": "window:set-fullscreen"
+    "SET_FULLSCREEN": "window:set-fullscreen",
+    "IS_FULLSCREEN": "window:is-fullscreen"
   },
   "UPDATE": {
     "CHECK": "update:check",

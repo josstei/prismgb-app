@@ -29,9 +29,12 @@ class SettingsFullscreenService extends BaseService {
         this._handleNativeFullscreen(false);
       });
       this._unsubscribeResized = window.windowAPI.onResized(() => {
+        this._syncFullscreenState();
         this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
       });
     }
+
+    this._syncFullscreenState();
   }
 
   dispose() {
@@ -51,18 +54,41 @@ class SettingsFullscreenService extends BaseService {
     }
   }
 
-  toggleFullscreen() {
-    if (this._isFullscreenActive) {
-      this.exitFullscreen();
+  async toggleFullscreen() {
+    const isActuallyFullscreen = await this._syncFullscreenState();
+
+    if (isActuallyFullscreen) {
+      this._forceExitFullscreen();
     } else {
-      this.enterFullscreen();
+      this._forceEnterFullscreen();
     }
+  }
+
+  async _syncFullscreenState() {
+    if (window.windowAPI?.isFullScreen) {
+      try {
+        const isActuallyFullscreen = await window.windowAPI.isFullScreen();
+        this._applyFullscreenState(isActuallyFullscreen);
+        return isActuallyFullscreen;
+      } catch (err) {
+        this.logger.error('Error querying fullscreen state:', err);
+        return this._isFullscreenActive;
+      }
+    }
+
+    const isDocumentFullscreen = Boolean(document.fullscreenElement);
+    this._applyFullscreenState(isDocumentFullscreen);
+    return isDocumentFullscreen;
   }
 
   enterFullscreen() {
     if (this._isFullscreenActive) {
       return;
     }
+    this._forceEnterFullscreen();
+  }
+
+  _forceEnterFullscreen() {
 
     if (window.windowAPI?.setFullScreen) {
       window.windowAPI.setFullScreen(true).catch(err => {
@@ -83,7 +109,10 @@ class SettingsFullscreenService extends BaseService {
     if (!this._isFullscreenActive) {
       return;
     }
+    this._forceExitFullscreen();
+  }
 
+  _forceExitFullscreen() {
     if (window.windowAPI?.setFullScreen) {
       window.windowAPI.setFullScreen(false).catch(err => {
         this.logger.error('Error exiting fullscreen:', err);

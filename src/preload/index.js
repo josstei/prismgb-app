@@ -221,6 +221,8 @@ const windowAPI = {
 
   setFullScreen: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.SET_FULLSCREEN, enabled),
 
+  isFullScreen: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW.IS_FULLSCREEN),
+
   removeListeners: () => {
     ipcRenderer.removeAllListeners(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     ipcRenderer.removeAllListeners(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
@@ -417,6 +419,7 @@ contextBridge.exposeInMainWorld('windowAPI', {
   onLeaveFullscreen: windowAPI.onLeaveFullscreen,
   onResized: windowAPI.onResized,
   setFullScreen: windowAPI.setFullScreen,
+  isFullScreen: windowAPI.isFullScreen,
   removeListeners: windowAPI.removeListeners
 });
 

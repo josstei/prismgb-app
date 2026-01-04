@@ -188,16 +188,16 @@ describe('SettingsFullscreenService', () => {
 
   describe('toggleFullscreen', () => {
     it('should enter fullscreen when not in fullscreen', async () => {
-      service.toggleFullscreen();
+      await service.toggleFullscreen();
 
       expect(mockDocumentElement.requestFullscreen).toHaveBeenCalled();
     });
 
-    it('should exit fullscreen when already in fullscreen', () => {
+    it('should exit fullscreen when already in fullscreen', async () => {
       service._isFullscreenActive = true;
       mockDocument.fullscreenElement = mockDocumentElement;
 
-      service.toggleFullscreen();
+      await service.toggleFullscreen();
 
       expect(mockDocument.exitFullscreen).toHaveBeenCalled();
     });
@@ -373,10 +373,10 @@ describe('SettingsFullscreenService', () => {
       service.initialize();
     });
 
-    it('should handle complete fullscreen entry and exit cycle', () => {
+    it('should handle complete fullscreen entry and exit cycle', async () => {
       // Enter fullscreen
       mockDocument.fullscreenElement = null;
-      service.toggleFullscreen();
+      await service.toggleFullscreen();
       expect(mockDocumentElement.requestFullscreen).toHaveBeenCalled();
 
       // Simulate fullscreenchange event
@@ -390,7 +390,7 @@ describe('SettingsFullscreenService', () => {
       );
 
       // Exit fullscreen
-      service.toggleFullscreen();
+      await service.toggleFullscreen();
       expect(mockDocument.exitFullscreen).toHaveBeenCalled();
 
       // Simulate fullscreenchange event
