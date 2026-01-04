@@ -224,9 +224,11 @@ class UIController {
   setStreamingMode(isStreaming) {
     this.registry?.get('streamControlsComponent')?.setStreamingMode(isStreaming);
     if (isStreaming) {
+      this.effects?.enableToolbarAutoHide(this.elements.streamToolbar);
       this.effects?.enableCursorAutoHide();
     } else {
       this.effects?.disableCursorAutoHide();
+      this.effects?.disableToolbarAutoHide();
       this.registry?.get('shaderSelectorComponent')?.hide?.();
     }
   }

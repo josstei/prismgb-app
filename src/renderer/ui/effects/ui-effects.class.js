@@ -37,6 +37,15 @@ export class UIEffects {
 
     // Minimalist transition state
     this._minimalistTransitionTimer = null;
+
+    // Streaming toolbar auto-hide state
+    this._toolbarElement = null;
+    this._toolbarHideTimer = null;
+    this._toolbarHideEnabled = false;
+    this._toolbarHovering = false;
+    this._boundHandleToolbarMouseMove = this._handleToolbarMouseMove.bind(this);
+    this._boundHandleToolbarMouseEnter = this._handleToolbarMouseEnter.bind(this);
+    this._boundHandleToolbarMouseLeave = this._handleToolbarMouseLeave.bind(this);
   }
 
   /**
@@ -176,6 +185,163 @@ export class UIEffects {
    */
   _showCursor() {
     document.body.classList.remove(CSSClasses.CURSOR_HIDDEN);
+  }
+
+  // =====================================================
+  // Streaming Toolbar Auto-Hide
+  // =====================================================
+
+  /**
+   * Enable toolbar auto-hide
+   * Hides toolbar after inactivity, shows on mouse move
+   * Pauses hide timer when hovering or focused on toolbar
+   * @param {HTMLElement} toolbarElement - The toolbar element to auto-hide
+   */
+  enableToolbarAutoHide(toolbarElement) {
+    if (this._toolbarHideEnabled) return;
+
+    this._toolbarElement = toolbarElement;
+    if (!this._toolbarElement) return;
+
+    this._toolbarHideEnabled = true;
+    this._toolbarHovering = false;
+
+    // Mouse movement shows toolbar and resets timer
+    document.addEventListener('mousemove', this._boundHandleToolbarMouseMove);
+
+    // Hover pauses the hide timer
+    this._toolbarElement.addEventListener('mouseenter', this._boundHandleToolbarMouseEnter);
+    this._toolbarElement.addEventListener('mouseleave', this._boundHandleToolbarMouseLeave);
+
+    // Start the hide timer immediately
+    this._startToolbarHideTimer();
+  }
+
+  /**
+   * Disable toolbar auto-hide
+   * Removes event listeners and shows toolbar
+   */
+  disableToolbarAutoHide() {
+    if (!this._toolbarHideEnabled) return;
+
+    this._toolbarHideEnabled = false;
+
+    document.removeEventListener('mousemove', this._boundHandleToolbarMouseMove);
+
+    if (this._toolbarElement) {
+      this._toolbarElement.removeEventListener('mouseenter', this._boundHandleToolbarMouseEnter);
+      this._toolbarElement.removeEventListener('mouseleave', this._boundHandleToolbarMouseLeave);
+    }
+
+    // Clear timer and show toolbar
+    this._clearToolbarHideTimer();
+    this._showToolbar();
+
+    // Reset state
+    this._toolbarElement = null;
+    this._toolbarHovering = false;
+  }
+
+  /**
+   * Handle mouse move - show toolbar and reset hide timer
+   * @private
+   */
+  _handleToolbarMouseMove() {
+    this._showToolbar();
+    this._startToolbarHideTimer();
+  }
+
+  /**
+   * Handle mouse enter on toolbar - pause hide timer
+   * @private
+   */
+  _handleToolbarMouseEnter() {
+    this._toolbarHovering = true;
+    this._clearToolbarHideTimer();
+    this._showToolbar();
+  }
+
+  /**
+   * Handle mouse leave on toolbar - resume hide timer
+   * @private
+   */
+  _handleToolbarMouseLeave() {
+    this._toolbarHovering = false;
+    if (!this._isToolbarPanelOpen()) {
+      this._startToolbarHideTimer();
+    }
+  }
+
+  /**
+   * Start or reset the toolbar hide timer
+   * Only starts if not hovering and no panel open
+   * @private
+   */
+  _startToolbarHideTimer() {
+    this._clearToolbarHideTimer();
+
+    // Don't start timer if hovering or panel is open
+    if (this._toolbarHovering || this._isToolbarPanelOpen()) {
+      return;
+    }
+
+    this._toolbarHideTimer = setTimeout(() => {
+      this._hideToolbar();
+    }, TIMING.CURSOR_HIDE_DELAY_MS);
+  }
+
+  /**
+   * Clear the toolbar hide timer
+   * @private
+   */
+  _clearToolbarHideTimer() {
+    if (this._toolbarHideTimer) {
+      clearTimeout(this._toolbarHideTimer);
+      this._toolbarHideTimer = null;
+    }
+  }
+
+  /**
+   * Hide the streaming toolbar
+   * @private
+   */
+  _hideToolbar() {
+    // Don't hide if panel is open
+    if (this._isToolbarPanelOpen()) {
+      return;
+    }
+    if (this._toolbarElement) {
+      this._toolbarElement.classList.add(CSSClasses.TOOLBAR_HIDDEN);
+    }
+  }
+
+  /**
+   * Show the streaming toolbar
+   * @private
+   */
+  _showToolbar() {
+    if (this._toolbarElement) {
+      this._toolbarElement.classList.remove(CSSClasses.TOOLBAR_HIDDEN);
+    }
+  }
+
+  /**
+   * Check if any toolbar panel is currently open
+   * @returns {boolean} True if shader panel or notes panel is open
+   * @private
+   */
+  _isToolbarPanelOpen() {
+    if (!this._toolbarElement) return false;
+
+    // Check for visible shader panel
+    const shaderPanel = this._toolbarElement.querySelector('.shader-panel.visible');
+    if (shaderPanel) return true;
+
+    // Check for panel-open class on any button (indicates a panel is open)
+    const openButton = this._toolbarElement.querySelector('.panel-open');
+    if (openButton) return true;
+
+    return false;
   }
 
   /**
@@ -418,6 +584,9 @@ export class UIEffects {
 
     // Disable fullscreen controls auto-hide
     this.disableControlsAutoHide();
+
+    // Disable toolbar auto-hide
+    this.disableToolbarAutoHide();
 
     // Clear all active timeouts
     for (const timeoutId of this._activeTimeouts) {

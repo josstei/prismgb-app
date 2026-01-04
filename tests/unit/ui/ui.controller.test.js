@@ -91,6 +91,8 @@ describe('UIController', () => {
       triggerButtonFeedback: vi.fn(),
       enableCursorAutoHide: vi.fn(),
       disableCursorAutoHide: vi.fn(),
+      enableToolbarAutoHide: vi.fn(),
+      disableToolbarAutoHide: vi.fn(),
       dispose: vi.fn()
     };
 
@@ -229,10 +231,24 @@ describe('UIController', () => {
       expect(mockEffects.enableCursorAutoHide).toHaveBeenCalled();
     });
 
+    it('should enable toolbar auto-hide when streaming starts', () => {
+      controller.setStreamingMode(true);
+
+      expect(mockEffects.enableToolbarAutoHide).toHaveBeenCalledWith(
+        controller.elements.streamToolbar
+      );
+    });
+
     it('should disable cursor auto-hide when streaming stops', () => {
       controller.setStreamingMode(false);
 
       expect(mockEffects.disableCursorAutoHide).toHaveBeenCalled();
+    });
+
+    it('should disable toolbar auto-hide when streaming stops', () => {
+      controller.setStreamingMode(false);
+
+      expect(mockEffects.disableToolbarAutoHide).toHaveBeenCalled();
     });
 
     it('should hide shader selector when disabling streaming', () => {

@@ -2,7 +2,6 @@
  * Shader Selector Component
  *
  * Panel component for selecting shader presets and toggling cinematic mode.
- * Includes fullscreen mouse activity tracking for toolbar opacity.
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
@@ -27,14 +26,12 @@ class StreamingShaderSelectorComponent {
 
     // Toolbar elements
     this.cinematicToggle = null;
-    this.toolbar = null;
     this.brightnessSlider = null;
     this.brightnessPercentage = null;
     this.brightnessControl = null;
     this.volumeSlider = null;
     this.volumePercentage = null;
     this.streamVideo = null;
-    this._mouseActivityTimeout = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -49,7 +46,6 @@ class StreamingShaderSelectorComponent {
     this.button = elements.shaderBtn;
     this.dropdown = elements.shaderDropdown;
     this.cinematicToggle = elements.cinematicToggle;
-    this.toolbar = elements.streamToolbar;
     this.brightnessSlider = elements.brightnessSlider;
     this.brightnessPercentage = elements.brightnessPercentage;
     this.brightnessControl = this.brightnessSlider?.closest('.brightness-control');
@@ -72,7 +68,6 @@ class StreamingShaderSelectorComponent {
     this._setupCinematicToggle();
     this._setupBrightnessSlider();
     this._setupVolumeSlider();
-    this._setupFullscreenMouseActivity();
     this._subscribeToEvents();
 
     this.logger?.debug('StreamingShaderSelectorComponent initialized');
@@ -544,64 +539,9 @@ class StreamingShaderSelectorComponent {
   }
 
   /**
-   * Setup mouse activity tracking for toolbar fade
-   * Toolbar fades after 10 seconds of mouse inactivity
-   * @private
-   */
-  _setupFullscreenMouseActivity() {
-    if (!this.toolbar) return;
-
-    // Show toolbar on any mouse movement
-    this._domListeners.add(document, 'mousemove', () => {
-      this._showToolbar();
-      this._resetMouseActivityTimeout();
-    });
-
-    // Also show on mouse click
-    this._domListeners.add(document, 'mousedown', () => {
-      this._showToolbar();
-      this._resetMouseActivityTimeout();
-    });
-
-    // Start the initial fade timeout
-    this._resetMouseActivityTimeout();
-
-    this.logger?.debug('Mouse activity tracking initialized');
-  }
-
-  /**
-   * Show toolbar (remove faded class)
-   * @private
-   */
-  _showToolbar() {
-    this.toolbar?.classList.remove(CSSClasses.FADED);
-  }
-
-  /**
-   * Reset mouse activity timeout
-   * @private
-   */
-  _resetMouseActivityTimeout() {
-    if (this._mouseActivityTimeout) {
-      clearTimeout(this._mouseActivityTimeout);
-    }
-
-    this._mouseActivityTimeout = setTimeout(() => {
-      // Don't fade if panel is open
-      if (!this.isVisible) {
-        this.toolbar?.classList.add(CSSClasses.FADED);
-      }
-    }, 10000); // 10 seconds
-  }
-
-  /**
    * Dispose and cleanup event listeners
    */
   dispose() {
-    if (this._mouseActivityTimeout) {
-      clearTimeout(this._mouseActivityTimeout);
-      this._mouseActivityTimeout = null;
-    }
     this._domListeners.removeAll();
     this._eventSubscriptions.forEach(unsubscribe => unsubscribe());
     this._eventSubscriptions = [];
