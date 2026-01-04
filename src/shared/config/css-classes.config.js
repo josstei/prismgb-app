@@ -59,7 +59,9 @@ export const CSSClasses = {
   // Shader selector states
   PANEL_OPEN: 'panel-open',
   JUST_SELECTED: 'just-selected',
-  FADED: 'faded',
+
+  // Toolbar auto-hide
+  TOOLBAR_HIDDEN: 'toolbar-hidden',
 
   // Notes panel states
   LIST_COLLAPSED: 'list-collapsed',

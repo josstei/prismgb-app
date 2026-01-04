@@ -24,13 +24,11 @@
   z-index: var(--z-tooltip);
 }
 
-/* Fade toolbar when mouse inactive */
-.stream-toolbar.faded {
-  opacity: 0.25;
-}
-
-.stream-toolbar:hover {
-  opacity: 1 !important;
+/* Hide toolbar when mouse inactive - needs high specificity to override cinematic mode */
+.stream-toolbar.toolbar-hidden,
+body.cinematic-active .stream-toolbar.toolbar-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* =====================================================
