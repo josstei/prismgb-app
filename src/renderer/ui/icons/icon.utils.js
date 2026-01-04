@@ -23,6 +23,8 @@ import shaderVolume from '@renderer/assets/icons/shader-volume.svg?raw';
 // Settings menu icons
 import settingsGithub from '@renderer/assets/icons/settings-github.svg?raw';
 import settingsWebsite from '@renderer/assets/icons/settings-website.svg?raw';
+import settingsX from '@renderer/assets/icons/settings-x.svg?raw';
+import settingsKofi from '@renderer/assets/icons/settings-kofi.svg?raw';
 import settingsDisclaimer from '@renderer/assets/icons/settings-disclaimer.svg?raw';
 
 // Notes panel icons
@@ -58,6 +60,8 @@ const icons = {
   // Settings menu
   'settings-github': settingsGithub,
   'settings-website': settingsWebsite,
+  'settings-x': settingsX,
+  'settings-kofi': settingsKofi,
   'settings-disclaimer': settingsDisclaimer,
 
   // Notes panel

@@ -35,7 +35,6 @@ export default function createHeaderTemplate() {
             <div class="settings-menu" role="menu" aria-label="Settings">
               <!-- Settings Section -->
               <section class="settings-section settings-main">
-                <h3 class="settings-section-title">Display</h3>
                 <label class="settings-item toggle">
                   <span>Show Status Bar</span>
                   <input type="checkbox" id="settingStatusStrip">
@@ -50,7 +49,7 @@ export default function createHeaderTemplate() {
                   <span class="settings-item-text">
                     <span class="settings-item-title">Minimalist fullscreen</span>
                     <span class="settings-item-hint" id="minimalistFullscreenHint">
-                      Pure black fullscreen with minimal controls during streaming.
+                      Black background while streaming.
                     </span>
                   </span>
                   <input type="checkbox" id="settingMinimalistFullscreen" aria-describedby="minimalistFullscreenHint">
@@ -60,7 +59,7 @@ export default function createHeaderTemplate() {
                   <span class="settings-item-text">
                     <span class="settings-item-title">Performance mode</span>
                     <span class="settings-item-hint" id="animationSaverHint">
-                      Pause background effects to improve performance.
+                      Use basic renderer for lower CPU.
                     </span>
                   </span>
                   <input type="checkbox" id="settingAnimationSaver" aria-describedby="animationSaverHint">
@@ -68,15 +67,13 @@ export default function createHeaderTemplate() {
                 </label>
               </section>
 
+              <div class="settings-divider"></div>
+
               <!-- Updates Section -->
               <section class="settings-section settings-updates" id="updateSection">
-                <h3 class="settings-section-title">Updates</h3>
                 <div class="update-content">
-                  <div class="update-version-row">
-                    <span class="update-label">Current Version</span>
-                    <span class="update-current-version" id="updateCurrentVersion">v1.0.0</span>
-                  </div>
                   <div class="update-status-row">
+                    <span class="update-current-version" id="updateCurrentVersion">v1.0.0</span>
                     <span class="update-status-indicator" id="updateStatusIndicator"></span>
                     <span class="update-status-text" id="updateStatusText">Up to date</span>
                   </div>
@@ -94,7 +91,6 @@ export default function createHeaderTemplate() {
 
               <!-- Compact Footer -->
               <footer class="settings-footer">
-                <span class="settings-version" id="appVersion">v1.0.0</span>
                 <div class="settings-footer-links">
                   <a href="#" id="linkGithub" class="settings-icon-link" aria-label="GitHub" title="GitHub">
                     ${getIconSvg('settings-github')}
@@ -102,10 +98,16 @@ export default function createHeaderTemplate() {
                   <a href="#" id="linkWebsite" class="settings-icon-link" aria-label="Website" title="Website">
                     ${getIconSvg('settings-website')}
                   </a>
+                  <a href="#" id="linkX" class="settings-icon-link" aria-label="X" title="X">
+                    ${getIconSvg('settings-x')}
+                  </a>
                   <button id="disclaimerBtn" class="settings-icon-link settings-info-btn" aria-label="Disclaimer & Credits" title="Disclaimer & Credits" aria-expanded="false">
                     ${getIconSvg('settings-disclaimer')}
                   </button>
                 </div>
+                <button id="linkKofi" class="settings-support-btn" aria-label="Support the Developer">
+                  ${getIconSvg('settings-kofi')} Support the Developer
+                </button>
               </footer>
             </div>
             <!-- Disclaimer Tooltip - positioned below menu -->
