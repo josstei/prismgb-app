@@ -5,6 +5,7 @@
  */
 
 import { getIconSvg } from '@renderer/ui/icons/icon.utils.js';
+import logoUrl from '/Logo.png?url';
 
 /**
  * Create header HTML
@@ -15,7 +16,7 @@ export default function createHeaderTemplate() {
     <header class="header">
       <div class="header-left">
         <h1>
-          <img class="app-logo pixelated" src="/assets/Logo.png" width="120" height="30" alt="PrismGB">
+          <img class="app-logo pixelated" src="${logoUrl}" width="120" height="30" alt="PrismGB">
         </h1>
         <div class="device-status" id="deviceStatus">
           <span class="status-indicator" id="statusIndicator"></span>
