@@ -5,7 +5,7 @@
  */
 
 import { getIconSvg } from '@renderer/ui/icons/icon.utils.js';
-import overlayIconUrl from '/assets/overlay-icons/default.svg';
+import overlayIconUrl from '/overlay-icons/default.svg?url';
 
 /**
  * Create stream viewer HTML (includes toolbar and fullscreen controls)

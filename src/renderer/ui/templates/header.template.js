@@ -5,7 +5,7 @@
  */
 
 import { getIconSvg } from '@renderer/ui/icons/icon.utils.js';
-import logoUrl from '/assets/Logo.png';
+import logoUrl from '/Logo.png?url';
 
 /**
  * Create header HTML
