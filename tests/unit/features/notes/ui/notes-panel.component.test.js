@@ -46,7 +46,9 @@ describe('NotesPanelComponent', () => {
       notesBtn: document.createElement('button'),
       notesPanel: document.createElement('div'),
       notesSearchInput: document.createElement('input'),
-      notesGameFilter: document.createElement('select'),
+      notesGameFilter: document.createElement('button'),
+      notesGameFilterLabel: document.createElement('span'),
+      notesGameFilterMenu: document.createElement('div'),
       notesListToggle: document.createElement('button'),
       notesList: document.createElement('div'),
       notesEditor: document.createElement('div'),
@@ -922,19 +924,32 @@ describe('NotesPanelComponent', () => {
 
       component._updateGameFilterOptions();
 
-      expect(mockElements.notesGameFilter.innerHTML).toContain('All Games');
-      expect(mockElements.notesGameFilter.innerHTML).toContain('Alpha');
-      expect(mockElements.notesGameFilter.innerHTML).toContain('Beta');
+      expect(mockElements.notesGameFilterMenu.textContent).toContain('All Games');
+      expect(mockElements.notesGameFilterMenu.textContent).toContain('Alpha');
+      expect(mockElements.notesGameFilterMenu.textContent).toContain('Beta');
     });
 
     it('should handle game filter change event', () => {
       mockNotesService.searchNotes.mockReturnValue([]);
+      mockNotesService.getUniqueGames.mockReturnValue(['Alpha']);
 
-      // Trigger the change event to cover the event handler
-      mockElements.notesGameFilter.dispatchEvent(new Event('change'));
+      component._updateGameFilterOptions();
+      mockNotesService.searchNotes.mockClear();
 
-      // The handler runs without error
+      const option = mockElements.notesGameFilterMenu.querySelector('[data-value="Alpha"]');
+      option?.click();
+
       expect(mockNotesService.searchNotes).toHaveBeenCalled();
+    });
+
+    it('should sync the filter label with the selected option', () => {
+      mockNotesService.getUniqueGames.mockReturnValue(['Alpha']);
+
+      component._updateGameFilterOptions();
+      const option = mockElements.notesGameFilterMenu.querySelector('[data-value="Alpha"]');
+      option?.click();
+
+      expect(mockElements.notesGameFilterLabel.textContent).toBe('Alpha');
     });
   });
 
@@ -1072,6 +1087,85 @@ describe('NotesPanelComponent', () => {
       component._hideAutocomplete();
 
       expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
+    });
+
+    it('should select highlighted autocomplete item on Enter key', () => {
+      mockNotesService.getUniqueGames.mockReturnValue(['My Game', 'Another Game']);
+      component.currentNoteId = 'note_1';
+      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: '' });
+      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
+
+      // Show autocomplete with items
+      component._showAutocomplete();
+      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(true);
+
+      // Highlight first item with arrow down
+      mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+      expect(component.autocompleteHighlightIndex).toBe(0);
+
+      // Press Enter to select
+      mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+      // Should have set the value
+      expect(mockElements.notesGameInput.value).toBe('My Game');
+
+      // Advance timers to trigger save
+      vi.advanceTimersByTime(500);
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
+        gameName: 'My Game'
+      }));
+    });
+
+    it('should schedule save on Enter key without highlighted item', () => {
+      component.currentNoteId = 'note_1';
+      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: '' });
+      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
+      mockElements.notesGameInput.value = 'Custom Game';
+
+      // Press Enter without highlighting anything
+      mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+      // Should hide input
+      expect(mockElements.notesGameTagRow.classList.contains('editing')).toBe(false);
+
+      // Advance timers to trigger save
+      vi.advanceTimersByTime(500);
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
+        gameName: 'Custom Game'
+      }));
+    });
+
+    it('should set tag and save when clicking autocomplete item', () => {
+      mockNotesService.getUniqueGames.mockReturnValue(['My Game', 'Another Game']);
+      component.currentNoteId = 'note_1';
+      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: '' });
+      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
+
+      // Show autocomplete with items
+      component._showAutocomplete();
+
+      // Simulate click on first autocomplete item
+      const item = mockElements.notesGameAutocomplete.querySelector('.notes-game-autocomplete-item');
+      expect(item).not.toBeNull();
+
+      const clickEvent = new MouseEvent('click', { bubbles: true });
+      item.dispatchEvent(clickEvent);
+
+      // Should have set the value
+      expect(mockElements.notesGameInput.value).toBe('My Game');
+
+      // Should have hidden autocomplete
+      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
+
+      // Should have updated game tag display
+      expect(mockElements.notesGameTag.textContent).toBe('My Game');
+      expect(mockElements.notesEditor.classList.contains('has-game')).toBe(true);
+
+      // Advance timers to trigger save
+      vi.advanceTimersByTime(500);
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
+        gameName: 'My Game'
+      }));
     });
   });
 

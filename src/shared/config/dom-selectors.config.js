@@ -83,6 +83,8 @@ export const DOMSelectors = {
   NOTES_PANEL: 'notesPanel',
   NOTES_SEARCH_INPUT: 'notesSearchInput',
   NOTES_GAME_FILTER: 'notesGameFilter',
+  NOTES_GAME_FILTER_LABEL: 'notesGameFilterLabel',
+  NOTES_GAME_FILTER_MENU: 'notesGameFilterMenu',
   NOTES_LIST: 'notesList',
   NOTES_LIST_TOGGLE: 'notesListToggle',
   NOTES_EDITOR: 'notesEditor',

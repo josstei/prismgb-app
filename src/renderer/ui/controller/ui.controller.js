@@ -92,6 +92,8 @@ class UIController {
       notesPanel: document.getElementById(DOMSelectors.NOTES_PANEL),
       notesSearchInput: document.getElementById(DOMSelectors.NOTES_SEARCH_INPUT),
       notesGameFilter: document.getElementById(DOMSelectors.NOTES_GAME_FILTER),
+      notesGameFilterLabel: document.getElementById(DOMSelectors.NOTES_GAME_FILTER_LABEL),
+      notesGameFilterMenu: document.getElementById(DOMSelectors.NOTES_GAME_FILTER_MENU),
       notesListToggle: document.getElementById(DOMSelectors.NOTES_LIST_TOGGLE),
       notesList: document.getElementById(DOMSelectors.NOTES_LIST),
       notesEditor: document.getElementById(DOMSelectors.NOTES_EDITOR),
