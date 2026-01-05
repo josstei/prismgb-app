@@ -351,7 +351,19 @@ class NotesPanelComponent {
     this._domListeners.add(this.elements.notesGameInput, 'keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        // Check if autocomplete has a highlighted item to select
+        const isAutocompleteVisible = this.elements.notesGameAutocomplete?.classList.contains(CSSClasses.VISIBLE);
+        if (isAutocompleteVisible && this.autocompleteHighlightIndex >= 0) {
+          const items = this.elements.notesGameAutocomplete.querySelectorAll('.notes-game-autocomplete-item');
+          const selectedItem = items[this.autocompleteHighlightIndex];
+          if (selectedItem) {
+            this._selectAutocompleteItem(selectedItem.dataset.value);
+            return;
+          }
+        }
+        // No highlighted item - just hide input and save current value
         this._hideGameInput();
+        this._scheduleSave();
         return;
       }
       if (e.key === 'Escape') {
@@ -374,14 +386,20 @@ class NotesPanelComponent {
       this._showAutocomplete();
     });
 
-    // Delegated click handler for autocomplete items (avoids untracked listeners)
+    // Delegated selection handler for autocomplete items (avoids untracked listeners)
     if (this.elements.notesGameAutocomplete) {
-      this._domListeners.add(this.elements.notesGameAutocomplete, 'click', (e) => {
-        const item = e.target.closest('.notes-game-autocomplete-item');
-        if (item) {
-          this._selectAutocompleteItem(item.dataset.value);
-        }
-      });
+      const handleAutocompleteSelect = (e) => {
+        const target = e.target instanceof Element ? e.target : e.target?.parentElement;
+        const item = target?.closest('.notes-game-autocomplete-item');
+        if (!item) return;
+
+        // Prevent blur from cancelling the selection before it applies.
+        e.preventDefault();
+        this._selectAutocompleteItem(item.dataset.value);
+      };
+
+      this._domListeners.add(this.elements.notesGameAutocomplete, 'pointerdown', handleAutocompleteSelect);
+      this._domListeners.add(this.elements.notesGameAutocomplete, 'click', handleAutocompleteSelect);
     }
   }
 

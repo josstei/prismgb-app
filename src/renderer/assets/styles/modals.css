@@ -27,24 +27,18 @@
   padding: 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: var(--z-dropdown);
-  min-width: 260px;
+  min-width: 300px;
   contain: layout style;
 }
 
-/* Rainbow gradient border */
+/* Subtle border - removed rainbow gradient for cleaner look */
 .settings-menu-container::before {
   content: '';
   position: absolute;
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 0, 128, 0.4),
-    rgba(255, 150, 0, 0.3),
-    rgba(0, 200, 255, 0.4),
-    rgba(130, 0, 255, 0.3)
-  );
+  background: rgba(255, 255, 255, 0.08);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -89,7 +83,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 14px 0;
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
 }
@@ -167,31 +161,25 @@
 /* Settings Footer */
 .settings-footer {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) 20px;
+  gap: 12px;
+  padding: 16px 20px;
   background: rgba(0, 0, 0, 0.2);
   border-top: 1px solid transparent;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   position: relative;
 }
 
-/* Rainbow gradient border at top */
+/* Subtle divider at top */
 .settings-footer::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 1rem;
-  right: 1rem;
+  left: 20px;
+  right: 20px;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 0, 128, 0.4) 20%,
-    rgba(0, 200, 255, 0.4) 50%,
-    rgba(130, 0, 255, 0.4) 80%,
-    transparent 100%
-  );
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .settings-version {
@@ -203,7 +191,8 @@
 .settings-footer-links {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  justify-content: center;
+  gap: 12px;
 }
 
 .settings-icon-link {
@@ -219,12 +208,47 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   text-decoration: none;
+  opacity: 0.6;
 }
 
 .settings-icon-link:hover {
-  color: var(--color-primary-light);
-  background: rgba(var(--color-primary-rgb), 0.15);
-  box-shadow: 0 0 12px rgba(255, 0, 128, 0.3), 0 0 20px rgba(0, 200, 255, 0.15);
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
+/* Support Developer Button */
+.settings-support-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: rgba(255, 95, 95, 0.12);
+  border: 1px solid rgba(255, 95, 95, 0.25);
+  border-radius: var(--radius-md);
+  color: #ff6b6b;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.settings-support-btn:hover {
+  background: rgba(255, 95, 95, 0.2);
+  border-color: rgba(255, 95, 95, 0.4);
+}
+
+.settings-support-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Settings Divider */
+.settings-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 20px;
 }
 
 .settings-info-btn[aria-expanded="true"] {
