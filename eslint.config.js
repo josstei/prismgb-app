@@ -27,6 +27,7 @@ export default [
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
         ResizeObserver: 'readonly',
+        Element: 'readonly',
         HTMLVideoElement: 'readonly',
         HTMLCanvasElement: 'readonly',
         ImageBitmap: 'readonly',

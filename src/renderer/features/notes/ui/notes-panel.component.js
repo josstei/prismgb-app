@@ -31,6 +31,7 @@ class NotesPanelComponent {
     this.currentNoteId = null;
     this.isListVisible = true;
     this.currentGameFilter = '';
+    this.isGameFilterOpen = false;
     this.collapsedGameGroups = new Set();
     this.autocompleteHighlightIndex = -1;
 
@@ -58,6 +59,8 @@ class NotesPanelComponent {
       notesPanel: elements.notesPanel,
       notesSearchInput: elements.notesSearchInput,
       notesGameFilter: elements.notesGameFilter,
+      notesGameFilterLabel: elements.notesGameFilterLabel,
+      notesGameFilterMenu: elements.notesGameFilterMenu,
       notesListToggle: elements.notesListToggle,
       notesList: elements.notesList,
       notesEditor: elements.notesEditor,
@@ -139,6 +142,8 @@ class NotesPanelComponent {
     }
     this._saveCurrentNote();
 
+    this._hideGameFilterMenu();
+
     this.elements.notesPanel.classList.remove(CSSClasses.VISIBLE);
     this.elements.notesBtn?.classList.remove(CSSClasses.PANEL_OPEN);
     this.elements.notesBtn?.setAttribute('aria-expanded', 'false');
@@ -176,11 +181,42 @@ class NotesPanelComponent {
    * @private
    */
   _setupGameFilter() {
-    if (!this.elements.notesGameFilter) return;
+    if (!this.elements.notesGameFilter || !this.elements.notesGameFilterMenu) return;
 
-    this._domListeners.add(this.elements.notesGameFilter, 'change', () => {
-      this.currentGameFilter = this.elements.notesGameFilter.value;
-      this._renderNotesList(this.elements.notesSearchInput?.value || '');
+    this._domListeners.add(this.elements.notesGameFilter, 'click', (event) => {
+      event.preventDefault();
+      this._toggleGameFilterMenu();
+    });
+
+    this._domListeners.add(this.elements.notesGameFilter, 'keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        this._toggleGameFilterMenu();
+        return;
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this._showGameFilterMenu();
+        this._focusCurrentGameFilterOption();
+      }
+    });
+
+    this._domListeners.add(this.elements.notesGameFilterMenu, 'click', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const option = target?.closest('.notes-game-filter-option');
+      if (!option) return;
+
+      this._selectGameFilterOption(option.dataset.value, option.textContent || '');
+    });
+
+    this._domListeners.add(document, 'pointerdown', (event) => {
+      if (!this.isGameFilterOpen) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('.notes-filter-wrapper')) return;
+
+      this._hideGameFilterMenu();
     });
   }
 
@@ -189,28 +225,138 @@ class NotesPanelComponent {
    * @private
    */
   _updateGameFilterOptions() {
-    if (!this.elements.notesGameFilter) return;
+    if (!this.elements.notesGameFilterMenu) return;
 
     const games = this.notesService.getUniqueGames();
-    const currentValue = this.elements.notesGameFilter.value;
 
-    // Rebuild options
-    this.elements.notesGameFilter.innerHTML = '<option value="">All Games</option>';
-
-    for (const game of games) {
-      const option = document.createElement('option');
-      option.value = game;
-      option.textContent = game;
-      this.elements.notesGameFilter.appendChild(option);
-    }
-
-    // Restore selection if still valid
-    if (currentValue && games.includes(currentValue)) {
-      this.elements.notesGameFilter.value = currentValue;
-    } else {
-      this.elements.notesGameFilter.value = '';
+    if (this.currentGameFilter && !games.includes(this.currentGameFilter)) {
       this.currentGameFilter = '';
     }
+
+    this.elements.notesGameFilterMenu.innerHTML = '';
+
+    const allOption = this._createGameFilterOption('', 'All Games');
+    this.elements.notesGameFilterMenu.appendChild(allOption);
+
+    games.forEach((game) => {
+      const option = this._createGameFilterOption(game, game);
+      this.elements.notesGameFilterMenu.appendChild(option);
+    });
+
+    this._updateGameFilterActiveState();
+    this._updateGameFilterLabel();
+  }
+
+  /**
+   * Sync game filter label with the selected option
+   * @private
+   */
+  _updateGameFilterLabel(labelOverride = '') {
+    if (!this.elements.notesGameFilterLabel) return;
+
+    const label = labelOverride || this.currentGameFilter || 'All Games';
+    this.elements.notesGameFilterLabel.textContent = label;
+  }
+
+  /**
+   * Create a filter option button
+   * @param {string} value - Game filter value
+   * @param {string} label - Display label
+   * @returns {HTMLButtonElement}
+   * @private
+   */
+  _createGameFilterOption(value, label) {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'notes-game-filter-option';
+    option.dataset.value = value;
+    option.setAttribute('role', 'option');
+    option.textContent = label;
+    return option;
+  }
+
+  /**
+   * Update active state in the filter menu
+   * @private
+   */
+  _updateGameFilterActiveState() {
+    if (!this.elements.notesGameFilterMenu) return;
+
+    const options = this.elements.notesGameFilterMenu.querySelectorAll('.notes-game-filter-option');
+    options.forEach((option) => {
+      const isActive = option.dataset.value === this.currentGameFilter;
+      option.classList.toggle(CSSClasses.ACTIVE, isActive);
+      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+
+  /**
+   * Select a game filter option
+   * @param {string} value - Selected game value
+   * @param {string} label - Selected label
+   * @private
+   */
+  _selectGameFilterOption(value, label) {
+    const nextValue = value || '';
+    if (this.currentGameFilter === nextValue) {
+      this._hideGameFilterMenu();
+      return;
+    }
+
+    this.currentGameFilter = nextValue;
+    this._updateGameFilterLabel(label);
+    this._updateGameFilterActiveState();
+    this._hideGameFilterMenu();
+    this._renderNotesList(this.elements.notesSearchInput?.value || '');
+  }
+
+  /**
+   * Toggle the filter menu
+   * @private
+   */
+  _toggleGameFilterMenu() {
+    if (this.isGameFilterOpen) {
+      this._hideGameFilterMenu();
+    } else {
+      this._showGameFilterMenu();
+      this._focusCurrentGameFilterOption();
+    }
+  }
+
+  /**
+   * Show the filter menu
+   * @private
+   */
+  _showGameFilterMenu() {
+    if (!this.elements.notesGameFilterMenu) return;
+
+    this.elements.notesGameFilterMenu.classList.add(CSSClasses.VISIBLE);
+    this.elements.notesGameFilter?.setAttribute('aria-expanded', 'true');
+    this.isGameFilterOpen = true;
+  }
+
+  /**
+   * Hide the filter menu
+   * @private
+   */
+  _hideGameFilterMenu() {
+    if (!this.elements.notesGameFilterMenu) return;
+
+    this.elements.notesGameFilterMenu.classList.remove(CSSClasses.VISIBLE);
+    this.elements.notesGameFilter?.setAttribute('aria-expanded', 'false');
+    this.isGameFilterOpen = false;
+  }
+
+  /**
+   * Focus the current or first option in the filter menu
+   * @private
+   */
+  _focusCurrentGameFilterOption() {
+    if (!this.elements.notesGameFilterMenu) return;
+
+    const activeOption = this.elements.notesGameFilterMenu.querySelector('.notes-game-filter-option.active');
+    const option = activeOption || this.elements.notesGameFilterMenu.querySelector('.notes-game-filter-option');
+    option?.focus();
   }
 
   /**
@@ -351,7 +497,19 @@ class NotesPanelComponent {
     this._domListeners.add(this.elements.notesGameInput, 'keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        // Check if autocomplete has a highlighted item to select
+        const isAutocompleteVisible = this.elements.notesGameAutocomplete?.classList.contains(CSSClasses.VISIBLE);
+        if (isAutocompleteVisible && this.autocompleteHighlightIndex >= 0) {
+          const items = this.elements.notesGameAutocomplete.querySelectorAll('.notes-game-autocomplete-item');
+          const selectedItem = items[this.autocompleteHighlightIndex];
+          if (selectedItem) {
+            this._selectAutocompleteItem(selectedItem.dataset.value);
+            return;
+          }
+        }
+        // No highlighted item - just hide input and save current value
         this._hideGameInput();
+        this._scheduleSave();
         return;
       }
       if (e.key === 'Escape') {
@@ -374,14 +532,20 @@ class NotesPanelComponent {
       this._showAutocomplete();
     });
 
-    // Delegated click handler for autocomplete items (avoids untracked listeners)
+    // Delegated selection handler for autocomplete items (avoids untracked listeners)
     if (this.elements.notesGameAutocomplete) {
-      this._domListeners.add(this.elements.notesGameAutocomplete, 'click', (e) => {
-        const item = e.target.closest('.notes-game-autocomplete-item');
-        if (item) {
-          this._selectAutocompleteItem(item.dataset.value);
-        }
-      });
+      const handleAutocompleteSelect = (e) => {
+        const target = e.target instanceof Element ? e.target : e.target?.parentElement;
+        const item = target?.closest('.notes-game-autocomplete-item');
+        if (!item) return;
+
+        // Prevent blur from cancelling the selection before it applies.
+        e.preventDefault();
+        this._selectAutocompleteItem(item.dataset.value);
+      };
+
+      this._domListeners.add(this.elements.notesGameAutocomplete, 'pointerdown', handleAutocompleteSelect);
+      this._domListeners.add(this.elements.notesGameAutocomplete, 'click', handleAutocompleteSelect);
     }
   }
 
@@ -928,6 +1092,11 @@ class NotesPanelComponent {
   _setupEscapeKey() {
     this._domListeners.add(document, 'keydown', (e) => {
       if (e.key === 'Escape' && this.isVisible) {
+        if (this.isGameFilterOpen) {
+          this._hideGameFilterMenu();
+          return;
+        }
+
         this.hide();
       }
     });
@@ -1062,6 +1231,7 @@ class NotesPanelComponent {
     this.isVisible = false;
     this.isListVisible = true;
     this.currentGameFilter = '';
+    this.isGameFilterOpen = false;
     this.collapsedGameGroups.clear();
   }
 }

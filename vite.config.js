@@ -146,6 +146,9 @@ export default defineConfig({
     port: 3000
   },
 
+  // Serve assets from the assets directory
+  publicDir: 'assets',
+
   // Resolve options
   resolve: {
     alias: {

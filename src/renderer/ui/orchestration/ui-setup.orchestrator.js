@@ -112,6 +112,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         notesPanel: elements.notesPanel,
         notesSearchInput: elements.notesSearchInput,
         notesGameFilter: elements.notesGameFilter,
+        notesGameFilterLabel: elements.notesGameFilterLabel,
+        notesGameFilterMenu: elements.notesGameFilterMenu,
         notesListToggle: elements.notesListToggle,
         notesList: elements.notesList,
         notesEditor: elements.notesEditor,

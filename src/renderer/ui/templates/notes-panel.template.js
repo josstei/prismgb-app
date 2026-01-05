@@ -20,9 +20,10 @@ export default function createNotesPanelTemplate() {
         </div>
         <div class="notes-filter-wrapper">
           <span class="notes-filter-icon">${getIconSvg('filter')}</span>
-          <select class="notes-game-filter" id="notesGameFilter" aria-label="Filter by game">
-            <option value="">All</option>
-          </select>
+          <button class="notes-game-filter" id="notesGameFilter" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="notesGameFilterMenu">
+            <span class="notes-filter-label" id="notesGameFilterLabel">All Games</span>
+          </button>
+          <div class="notes-game-filter-menu" id="notesGameFilterMenu" role="listbox" aria-label="Filter by game"></div>
         </div>
       </div>
 
