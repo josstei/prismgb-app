@@ -46,6 +46,8 @@ describe('UIEventBridge', () => {
       updateRecordingButtonState: vi.fn(),
       updateCinematicMode: vi.fn(),
       updateMinimalistFullscreen: vi.fn(),
+      enableControlsAutoHide: vi.fn(),
+      disableControlsAutoHide: vi.fn(),
       elements: {
         recordBtn: {
           classList: {

@@ -234,9 +234,28 @@ describe('UISetupOrchestrator', () => {
       const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
       const handler = call[2];
 
-      handler();
+      const mockEvent = {
+        currentTarget: {
+          blur: vi.fn(),
+          style: {}
+        }
+      };
+      handler(mockEvent);
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:fullscreen-toggle-requested');
+    });
+
+    it('should blur fullscreen button when clicked', () => {
+      orchestrator.setupUIEventListeners();
+
+      const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
+      const handler = call[2];
+
+      const mockButton = { blur: vi.fn() };
+      const mockEvent = { currentTarget: mockButton };
+      handler(mockEvent);
+
+      expect(mockButton.blur).toHaveBeenCalled();
     });
   });
 

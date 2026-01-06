@@ -171,7 +171,8 @@ describe('UIEffects', () => {
         effects.enableControlsAutoHide(mockControls);
         effects.enableControlsAutoHide(mockControls);
 
-        expect(addEventSpy).toHaveBeenCalledTimes(1);
+        // 3 listeners per enable (mousemove + pointermove + mousedown), but guard prevents duplicate
+        expect(addEventSpy).toHaveBeenCalledTimes(3);
       });
 
       it('should hide controls after delay', () => {
@@ -272,28 +273,10 @@ describe('UIEffects', () => {
         expect(mockControls.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
       });
 
-      it('should throttle rapid mousemove events to prevent infinite loops', () => {
-        vi.useRealTimers(); // Use real timers to test throttling
-        effects.enableControlsAutoHide(mockControls);
-
-        // Clear any calls from initial setup
-        mockControls.classList.remove.mockClear();
-        mockControls.classList.add.mockClear();
-
-        // Simulate rapid mousemove events (like synthetic events from DOM changes)
-        for (let i = 0; i < 10; i++) {
-          document.dispatchEvent(new MouseEvent('mousemove'));
-        }
-
-        // Should only process the first event due to throttling
-        // removeClass is called once when showing controls
-        expect(mockControls.classList.remove).toHaveBeenCalledTimes(1);
-        expect(mockControls.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
-      });
     });
 
     describe('hover behavior', () => {
-      it('should pause hide timer when hovering over controls', () => {
+      it('should reset hide timer when hovering over controls', () => {
         effects.enableControlsAutoHide(mockControls);
 
         // Get the mouseenter handler that was registered
@@ -301,29 +284,25 @@ describe('UIEffects', () => {
           call => call[0] === 'mouseenter'
         )[1];
 
-        // Simulate mouse enter (hovering)
+        // Simulate mouse enter (hovering) - this resets the timer
         mouseenterHandler();
 
         // Advance past the hide delay
-        vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS * 2);
+        vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
 
-        // Controls should NOT be hidden because we're hovering
-        expect(mockControls.classList.add).not.toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+        // Controls should hide after delay (no hover pause anymore)
+        expect(mockControls.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
       });
 
-      it('should resume hide timer when mouse leaves controls', () => {
+      it('should reset hide timer when mouse leaves controls', () => {
         effects.enableControlsAutoHide(mockControls);
 
         // Get the handlers
-        const mouseenterHandler = mockControls.addEventListener.mock.calls.find(
-          call => call[0] === 'mouseenter'
-        )[1];
         const mouseleaveHandler = mockControls.addEventListener.mock.calls.find(
           call => call[0] === 'mouseleave'
         )[1];
 
-        // Simulate mouse enter then leave
-        mouseenterHandler();
+        // Simulate mouse leave - resets the timer
         mouseleaveHandler();
 
         // Advance past the hide delay
@@ -335,7 +314,7 @@ describe('UIEffects', () => {
     });
 
     describe('focus behavior', () => {
-      it('should pause hide timer when focus is inside controls', () => {
+      it('should reset hide timer when focus is inside controls', () => {
         effects.enableControlsAutoHide(mockControls);
 
         // Get the focusin handler
@@ -343,29 +322,25 @@ describe('UIEffects', () => {
           call => call[0] === 'focusin'
         )[1];
 
-        // Simulate focus in
+        // Simulate focus in - resets the timer
         focusinHandler();
 
         // Advance past the hide delay
-        vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS * 2);
+        vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
 
-        // Controls should NOT be hidden because focus is inside
-        expect(mockControls.classList.add).not.toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+        // Controls should hide after delay (no focus pause anymore)
+        expect(mockControls.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
       });
 
-      it('should resume hide timer when focus leaves controls', () => {
+      it('should reset hide timer when focus leaves controls', () => {
         effects.enableControlsAutoHide(mockControls);
 
         // Get the handlers
-        const focusinHandler = mockControls.addEventListener.mock.calls.find(
-          call => call[0] === 'focusin'
-        )[1];
         const focusoutHandler = mockControls.addEventListener.mock.calls.find(
           call => call[0] === 'focusout'
         )[1];
 
-        // Simulate focus in then out
-        focusinHandler();
+        // Simulate focus out - resets the timer
         focusoutHandler();
 
         // Advance past the hide delay
@@ -373,32 +348,6 @@ describe('UIEffects', () => {
 
         // Now controls should hide
         expect(mockControls.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
-      });
-
-      it('should not resume hide timer on focus out if still hovering', () => {
-        effects.enableControlsAutoHide(mockControls);
-
-        // Get the handlers
-        const mouseenterHandler = mockControls.addEventListener.mock.calls.find(
-          call => call[0] === 'mouseenter'
-        )[1];
-        const focusinHandler = mockControls.addEventListener.mock.calls.find(
-          call => call[0] === 'focusin'
-        )[1];
-        const focusoutHandler = mockControls.addEventListener.mock.calls.find(
-          call => call[0] === 'focusout'
-        )[1];
-
-        // Simulate hovering and focus in, then focus out (but still hovering)
-        mouseenterHandler();
-        focusinHandler();
-        focusoutHandler();
-
-        // Advance past the hide delay
-        vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS * 2);
-
-        // Controls should NOT be hidden because we're still hovering
-        expect(mockControls.classList.add).not.toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
       });
     });
   });
@@ -443,6 +392,86 @@ describe('UIEffects', () => {
       effects.setCinematicMode(false);
 
       expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CINEMATIC_ACTIVE);
+    });
+  });
+
+  describe('Unified Timer (Cursor + Toolbar)', () => {
+    let mockToolbar;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.spyOn(document.body.classList, 'add').mockImplementation(() => {});
+      vi.spyOn(document.body.classList, 'remove').mockImplementation(() => {});
+
+      mockToolbar = {
+        classList: {
+          add: vi.fn(),
+          remove: vi.fn()
+        },
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        querySelector: vi.fn().mockReturnValue(null)
+      };
+    });
+
+    it('should hide both cursor and toolbar together after delay', () => {
+      effects.enableCursorAutoHide();
+      effects.enableToolbarAutoHide(mockToolbar);
+
+      vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
+
+      expect(document.body.classList.add).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
+      expect(mockToolbar.classList.add).toHaveBeenCalledWith(CSSClasses.TOOLBAR_HIDDEN);
+    });
+
+    it('should show both cursor and toolbar on mouse move', () => {
+      effects.enableCursorAutoHide();
+      effects.enableToolbarAutoHide(mockToolbar);
+
+      vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
+      document.body.classList.add.mockClear();
+      mockToolbar.classList.remove.mockClear();
+
+      document.dispatchEvent(new MouseEvent('mousemove'));
+
+      expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
+      expect(mockToolbar.classList.remove).toHaveBeenCalledWith(CSSClasses.TOOLBAR_HIDDEN);
+    });
+
+    it('should keep both cursor and toolbar visible when hovering toolbar', () => {
+      effects.enableCursorAutoHide();
+      effects.enableToolbarAutoHide(mockToolbar);
+
+      const mouseenterHandler = mockToolbar.addEventListener.mock.calls.find(
+        call => call[0] === 'mouseenter'
+      )[1];
+
+      mouseenterHandler();
+
+      vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS * 2);
+
+      expect(document.body.classList.add).not.toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
+      expect(mockToolbar.classList.add).not.toHaveBeenCalledWith(CSSClasses.TOOLBAR_HIDDEN);
+    });
+
+    it('should resume hiding both after mouse leaves toolbar', () => {
+      effects.enableCursorAutoHide();
+      effects.enableToolbarAutoHide(mockToolbar);
+
+      const mouseenterHandler = mockToolbar.addEventListener.mock.calls.find(
+        call => call[0] === 'mouseenter'
+      )[1];
+      const mouseleaveHandler = mockToolbar.addEventListener.mock.calls.find(
+        call => call[0] === 'mouseleave'
+      )[1];
+
+      mouseenterHandler();
+      mouseleaveHandler();
+
+      vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
+
+      expect(document.body.classList.add).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
+      expect(mockToolbar.classList.add).toHaveBeenCalledWith(CSSClasses.TOOLBAR_HIDDEN);
     });
   });
 

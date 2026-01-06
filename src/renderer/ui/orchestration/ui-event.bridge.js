@@ -168,7 +168,6 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateFullscreenMode(active);
     this._updateMinimalistVisual();
 
-    // Enable/disable controls auto-hide behavior based on fullscreen state
     if (active) {
       this.uiController.enableControlsAutoHide();
     } else {
