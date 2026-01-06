@@ -98,6 +98,12 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
   outline-offset: 2px;
 }
 
+/* Prevent macOS cursor caching - fullscreen buttons use default cursor */
+#fullscreenBtn,
+#fsExitBtn {
+  cursor: default;
+}
+
 /* Fullscreen: Remove padding/gap so viewport manager has full space */
 body.fullscreen-active .stream-section {
   padding: 0;
