@@ -140,14 +140,20 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     [
       ['screenshotBtn', 'click', () => this.eventBus.publish(EventChannels.UI.SCREENSHOT_REQUESTED)],
       ['recordBtn', 'click', () => this.eventBus.publish(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)],
-      ['fullscreenBtn', 'click', () => this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)],
+      ['fullscreenBtn', 'click', (e) => this._handleFullscreenClick(e)],
       ['settingsBtn', 'click', (e) => this._toggleSettingsMenu(e)],
       ['shaderBtn', 'click', (e) => this._toggleShaderSelector(e)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
+    // Clear tooltip on mousedown to prevent it persisting through fullscreen transition
+    [
+      ['fullscreenBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }],
+      ['fsExitBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }]
+    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
+
     // Fullscreen controls
     [
-      ['fsExitBtn', 'click', () => this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)]
+      ['fsExitBtn', 'click', (e) => this._handleFullscreenClick(e)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
     this.logger.info('UI event listeners set up');
@@ -181,6 +187,16 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     this._domListeners.add(streamCanvas, 'click', this._stopStreamHandler);
 
     this.logger.info('Overlay click handlers initialized');
+  }
+
+  /**
+   * Handle fullscreen button click
+   * @param {Event} e - Click event
+   * @private
+   */
+  _handleFullscreenClick(e) {
+    e.currentTarget.blur();
+    this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
   }
 
   /**

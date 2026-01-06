@@ -80,6 +80,8 @@ class NotesPanelComponent {
       return;
     }
 
+    this._panelSizeDefaults = this._getPanelSizeDefaults();
+
     this._setupToggleButton();
     this._setupSearch();
     this._setupGameFilter();
@@ -1147,12 +1149,81 @@ class NotesPanelComponent {
     if (!toolbar) return;
 
     const toolbarRect = toolbar.getBoundingClientRect();
+    const panelStyles = window.getComputedStyle(this.elements.notesPanel);
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     const gap = 16;
-    const leftPos = Math.round(toolbarRect.right + gap);
-    const topPos = Math.round(toolbarRect.top);
+    const safeEdge = 8;
+    const rightOffset = parseFloat(panelStyles.right) || 0;
+
+    const defaults = this._panelSizeDefaults || {
+      minWidth: 200,
+      maxWidth: 450,
+      minHeight: 300,
+      maxHeight: 600
+    };
+
+    const desiredLeft = Math.round(toolbarRect.right + gap);
+    const availableWidth = viewportWidth - rightOffset - safeEdge - desiredLeft;
+    let minWidth = defaults.minWidth;
+    let maxWidth = defaults.maxWidth;
+
+    let shouldDockBelow = availableWidth < defaults.minWidth;
+    if (availableWidth > 0 && !shouldDockBelow) {
+      minWidth = Math.min(minWidth, availableWidth);
+      maxWidth = Math.min(maxWidth, availableWidth);
+    } else if (shouldDockBelow) {
+      const fallbackWidth = Math.max(1, viewportWidth - rightOffset - safeEdge * 2);
+      maxWidth = Math.min(maxWidth, fallbackWidth);
+      minWidth = Math.min(minWidth, maxWidth);
+    }
+
+    this.elements.notesPanel.style.setProperty('--notes-panel-min-width', `${Math.round(minWidth)}px`);
+    this.elements.notesPanel.style.setProperty('--notes-panel-max-width', `${Math.round(maxWidth)}px`);
+
+    const maxFittableHeight = Math.max(200, viewportHeight - safeEdge * 2);
+    let minHeight = Math.min(defaults.minHeight, maxFittableHeight);
+    let maxHeight = defaults.maxHeight;
+
+    const maxLeft = Math.max(safeEdge, viewportWidth - rightOffset - minWidth);
+    const leftPos = shouldDockBelow
+      ? Math.min(Math.max(Math.round(toolbarRect.left), safeEdge), maxLeft)
+      : Math.min(desiredLeft, maxLeft);
+
+    const desiredTop = shouldDockBelow
+      ? Math.round(toolbarRect.bottom + gap)
+      : Math.round(toolbarRect.top);
+
+    if (shouldDockBelow) {
+      const availableHeightBelow = Math.max(120, viewportHeight - desiredTop - safeEdge);
+      maxHeight = Math.min(maxHeight, availableHeightBelow);
+      minHeight = Math.min(minHeight, maxHeight);
+    }
+
+    this.elements.notesPanel.style.setProperty('--notes-panel-min-height', `${Math.round(minHeight)}px`);
+    this.elements.notesPanel.style.setProperty('--notes-panel-max-height', `${Math.round(maxHeight)}px`);
+    const maxTop = Math.max(safeEdge, viewportHeight - minHeight - safeEdge);
+    const topPos = Math.min(Math.max(desiredTop, safeEdge), maxTop);
 
     this.elements.notesPanel.style.setProperty('--notes-panel-left', `${leftPos}px`);
     this.elements.notesPanel.style.setProperty('--notes-panel-top', `${topPos}px`);
+  }
+
+  _getPanelSizeDefaults() {
+    if (!this.elements?.notesPanel) return null;
+
+    const styles = window.getComputedStyle(this.elements.notesPanel);
+    const minWidth = parseFloat(styles.minWidth);
+    const maxWidth = parseFloat(styles.maxWidth);
+    const minHeight = parseFloat(styles.minHeight);
+    const maxHeight = parseFloat(styles.maxHeight);
+
+    return {
+      minWidth: Number.isFinite(minWidth) ? minWidth : 200,
+      maxWidth: Number.isFinite(maxWidth) ? maxWidth : 450,
+      minHeight: Number.isFinite(minHeight) ? minHeight : 300,
+      maxHeight: Number.isFinite(maxHeight) ? maxHeight : 600
+    };
   }
 
   /**

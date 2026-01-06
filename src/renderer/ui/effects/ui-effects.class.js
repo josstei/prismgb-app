@@ -17,33 +17,29 @@ export class UIEffects {
     this._activeTimeouts = new Set();
 
     // Cursor auto-hide state
-    this._cursorHideTimer = null;
     this._cursorHideEnabled = false;
     this._boundHandleMouseMove = this._handleMouseMove.bind(this);
+
+    // Unified timer for synchronized cursor and toolbar hiding
+    this._unifiedHideTimer = null;
 
     // Fullscreen controls auto-hide state
     this._controlsHideTimer = null;
     this._controlsHideEnabled = false;
-    this._controlsHovering = false;
-    this._controlsFocused = false;
     this._boundHandleControlsMouseMove = this._handleControlsMouseMove.bind(this);
     this._boundHandleControlsMouseEnter = this._handleControlsMouseEnter.bind(this);
     this._boundHandleControlsMouseLeave = this._handleControlsMouseLeave.bind(this);
     this._boundHandleControlsFocusIn = this._handleControlsFocusIn.bind(this);
     this._boundHandleControlsFocusOut = this._handleControlsFocusOut.bind(this);
     this._controlsElement = null;
-    this._lastMouseMoveTime = 0;
-    this._mouseMoveThrottle = 100; // Throttle mousemove events to once per 100ms
 
     // Minimalist transition state
     this._minimalistTransitionTimer = null;
 
     // Streaming toolbar auto-hide state
     this._toolbarElement = null;
-    this._toolbarHideTimer = null;
     this._toolbarHideEnabled = false;
     this._toolbarHovering = false;
-    this._boundHandleToolbarMouseMove = this._handleToolbarMouseMove.bind(this);
     this._boundHandleToolbarMouseEnter = this._handleToolbarMouseEnter.bind(this);
     this._boundHandleToolbarMouseLeave = this._handleToolbarMouseLeave.bind(this);
   }
@@ -118,13 +114,14 @@ export class UIEffects {
   /**
    * Enable cursor auto-hide
    * Hides cursor after inactivity, shows on mouse move
+   * Uses unified timer shared with toolbar for synchronized hiding
    */
   enableCursorAutoHide() {
     if (this._cursorHideEnabled) return;
 
     this._cursorHideEnabled = true;
     document.addEventListener('mousemove', this._boundHandleMouseMove);
-    this._startCursorHideTimer();
+    this._startUnifiedHideTimer();
   }
 
   /**
@@ -136,38 +133,61 @@ export class UIEffects {
 
     this._cursorHideEnabled = false;
     document.removeEventListener('mousemove', this._boundHandleMouseMove);
-    this._clearCursorHideTimer();
+
+    if (!this._toolbarHideEnabled) {
+      this._clearUnifiedHideTimer();
+    }
     this._showCursor();
   }
 
   /**
-   * Handle mouse move - show cursor and reset hide timer
+   * Handle mouse move - show cursor and reset unified hide timer
    * @private
    */
   _handleMouseMove() {
     this._showCursor();
-    this._startCursorHideTimer();
+    if (this._toolbarHideEnabled) {
+      this._showToolbar();
+    }
+    this._startUnifiedHideTimer();
   }
 
   /**
-   * Start or reset the cursor hide timer
+   * Start or reset the unified hide timer for cursor and toolbar
+   * Only starts if not hovering toolbar, no panel is open, and controls auto-hide is not active
+   * When controls auto-hide is active, it manages cursor hiding instead
    * @private
    */
-  _startCursorHideTimer() {
-    this._clearCursorHideTimer();
-    this._cursorHideTimer = setTimeout(() => {
-      this._hideCursor();
+  _startUnifiedHideTimer() {
+    this._clearUnifiedHideTimer();
+
+    // Don't start if controls auto-hide is managing cursor
+    if (this._controlsHideEnabled) {
+      return;
+    }
+
+    if (this._toolbarHovering || this._isToolbarPanelOpen()) {
+      return;
+    }
+
+    this._unifiedHideTimer = setTimeout(() => {
+      if (this._cursorHideEnabled) {
+        this._hideCursor();
+      }
+      if (this._toolbarHideEnabled) {
+        this._hideToolbar();
+      }
     }, TIMING.CURSOR_HIDE_DELAY_MS);
   }
 
   /**
-   * Clear the cursor hide timer
+   * Clear the unified hide timer
    * @private
    */
-  _clearCursorHideTimer() {
-    if (this._cursorHideTimer) {
-      clearTimeout(this._cursorHideTimer);
-      this._cursorHideTimer = null;
+  _clearUnifiedHideTimer() {
+    if (this._unifiedHideTimer) {
+      clearTimeout(this._unifiedHideTimer);
+      this._unifiedHideTimer = null;
     }
   }
 
@@ -193,7 +213,7 @@ export class UIEffects {
 
   /**
    * Enable toolbar auto-hide
-   * Hides toolbar after inactivity, shows on mouse move
+   * Uses unified timer shared with cursor for synchronized hiding
    * Pauses hide timer when hovering or focused on toolbar
    * @param {HTMLElement} toolbarElement - The toolbar element to auto-hide
    */
@@ -206,15 +226,10 @@ export class UIEffects {
     this._toolbarHideEnabled = true;
     this._toolbarHovering = false;
 
-    // Mouse movement shows toolbar and resets timer
-    document.addEventListener('mousemove', this._boundHandleToolbarMouseMove);
-
-    // Hover pauses the hide timer
     this._toolbarElement.addEventListener('mouseenter', this._boundHandleToolbarMouseEnter);
     this._toolbarElement.addEventListener('mouseleave', this._boundHandleToolbarMouseLeave);
 
-    // Start the hide timer immediately
-    this._startToolbarHideTimer();
+    this._startUnifiedHideTimer();
   }
 
   /**
@@ -226,78 +241,41 @@ export class UIEffects {
 
     this._toolbarHideEnabled = false;
 
-    document.removeEventListener('mousemove', this._boundHandleToolbarMouseMove);
-
     if (this._toolbarElement) {
       this._toolbarElement.removeEventListener('mouseenter', this._boundHandleToolbarMouseEnter);
       this._toolbarElement.removeEventListener('mouseleave', this._boundHandleToolbarMouseLeave);
     }
 
-    // Clear timer and show toolbar
-    this._clearToolbarHideTimer();
+    if (!this._cursorHideEnabled) {
+      this._clearUnifiedHideTimer();
+    }
     this._showToolbar();
 
-    // Reset state
     this._toolbarElement = null;
     this._toolbarHovering = false;
   }
 
   /**
-   * Handle mouse move - show toolbar and reset hide timer
-   * @private
-   */
-  _handleToolbarMouseMove() {
-    this._showToolbar();
-    this._startToolbarHideTimer();
-  }
-
-  /**
-   * Handle mouse enter on toolbar - pause hide timer
+   * Handle mouse enter on toolbar - pause unified hide timer and show both
    * @private
    */
   _handleToolbarMouseEnter() {
     this._toolbarHovering = true;
-    this._clearToolbarHideTimer();
+    this._clearUnifiedHideTimer();
     this._showToolbar();
+    if (this._cursorHideEnabled) {
+      this._showCursor();
+    }
   }
 
   /**
-   * Handle mouse leave on toolbar - resume hide timer
+   * Handle mouse leave on toolbar - resume unified hide timer
    * @private
    */
   _handleToolbarMouseLeave() {
     this._toolbarHovering = false;
     if (!this._isToolbarPanelOpen()) {
-      this._startToolbarHideTimer();
-    }
-  }
-
-  /**
-   * Start or reset the toolbar hide timer
-   * Only starts if not hovering and no panel open
-   * @private
-   */
-  _startToolbarHideTimer() {
-    this._clearToolbarHideTimer();
-
-    // Don't start timer if hovering or panel is open
-    if (this._toolbarHovering || this._isToolbarPanelOpen()) {
-      return;
-    }
-
-    this._toolbarHideTimer = setTimeout(() => {
-      this._hideToolbar();
-    }, TIMING.CURSOR_HIDE_DELAY_MS);
-  }
-
-  /**
-   * Clear the toolbar hide timer
-   * @private
-   */
-  _clearToolbarHideTimer() {
-    if (this._toolbarHideTimer) {
-      clearTimeout(this._toolbarHideTimer);
-      this._toolbarHideTimer = null;
+      this._startUnifiedHideTimer();
     }
   }
 
@@ -306,7 +284,6 @@ export class UIEffects {
    * @private
    */
   _hideToolbar() {
-    // Don't hide if panel is open
     if (this._isToolbarPanelOpen()) {
       return;
     }
@@ -333,11 +310,9 @@ export class UIEffects {
   _isToolbarPanelOpen() {
     if (!this._toolbarElement) return false;
 
-    // Check for visible shader panel
     const shaderPanel = this._toolbarElement.querySelector('.shader-panel.visible');
     if (shaderPanel) return true;
 
-    // Check for panel-open class on any button (indicates a panel is open)
     const openButton = this._toolbarElement.querySelector('.panel-open');
     if (openButton) return true;
 
@@ -346,7 +321,7 @@ export class UIEffects {
 
   /**
    * Enable fullscreen controls auto-hide
-   * Hides controls after inactivity, shows on mouse move
+   * Hides controls and cursor after inactivity, shows on mouse move or click
    * Pauses hide timer when hovering or focused on controls
    * @param {HTMLElement} controlsElement - The fullscreen controls element
    */
@@ -357,11 +332,14 @@ export class UIEffects {
     if (!this._controlsElement) return;
 
     this._controlsHideEnabled = true;
-    this._controlsHovering = false;
-    this._controlsFocused = false;
 
-    // Mouse movement shows controls and resets timer
+    // Pause unified timer - fullscreen controls will manage cursor hiding
+    this._clearUnifiedHideTimer();
+
+    // Mouse/pointer movement and clicks show controls and reset timer
     document.addEventListener('mousemove', this._boundHandleControlsMouseMove);
+    document.addEventListener('pointermove', this._boundHandleControlsMouseMove);
+    document.addEventListener('mousedown', this._boundHandleControlsMouseMove);
 
     // Hover pauses the hide timer
     this._controlsElement.addEventListener('mouseenter', this._boundHandleControlsMouseEnter);
@@ -377,6 +355,7 @@ export class UIEffects {
   /**
    * Disable fullscreen controls auto-hide
    * Removes event listeners and shows controls
+   * Resumes unified timer if cursor/toolbar hiding still active
    */
   disableControlsAutoHide() {
     if (!this._controlsHideEnabled) return;
@@ -384,6 +363,8 @@ export class UIEffects {
     this._controlsHideEnabled = false;
 
     document.removeEventListener('mousemove', this._boundHandleControlsMouseMove);
+    document.removeEventListener('pointermove', this._boundHandleControlsMouseMove);
+    document.removeEventListener('mousedown', this._boundHandleControlsMouseMove);
 
     if (this._controlsElement) {
       this._controlsElement.removeEventListener('mouseenter', this._boundHandleControlsMouseEnter);
@@ -395,81 +376,69 @@ export class UIEffects {
     this._clearControlsHideTimer();
     this._showControls();
     this._controlsElement = null;
-    this._controlsHovering = false;
-    this._controlsFocused = false;
-    this._lastMouseMoveTime = 0; // Reset throttle state
+
+    // Resume unified timer if cursor or toolbar hiding still active
+    if (this._cursorHideEnabled || this._toolbarHideEnabled) {
+      this._startUnifiedHideTimer();
+    }
   }
 
   /**
-   * Handle mouse move - show controls and reset hide timer
-   * Throttled to prevent infinite loops from synthetic mousemove events
+   * Handle mouse move - show controls, toolbar, and cursor, reset hide timer
    * @private
    */
   _handleControlsMouseMove() {
-    const now = Date.now();
-    if (now - this._lastMouseMoveTime < this._mouseMoveThrottle) {
-      return; // Throttle: ignore if called too frequently
-    }
-    this._lastMouseMoveTime = now;
-
     this._showControls();
+    this._showCursor();
+    if (this._toolbarHideEnabled) {
+      this._showToolbar();
+    }
     this._startControlsHideTimer();
   }
 
   /**
-   * Handle mouse enter on controls - pause hide timer
+   * Handle mouse enter on controls - reset hide timer
    * @private
    */
   _handleControlsMouseEnter() {
-    this._controlsHovering = true;
-    this._clearControlsHideTimer();
     this._showControls();
+    this._showCursor();
+    this._startControlsHideTimer();
   }
 
   /**
-   * Handle mouse leave on controls - resume hide timer
+   * Handle mouse leave on controls - reset hide timer
    * @private
    */
   _handleControlsMouseLeave() {
-    this._controlsHovering = false;
-    if (!this._controlsFocused) {
-      this._startControlsHideTimer();
-    }
+    this._startControlsHideTimer();
   }
 
   /**
-   * Handle focus in on controls - pause hide timer
+   * Handle focus in on controls - reset hide timer
    * @private
    */
   _handleControlsFocusIn() {
-    this._controlsFocused = true;
-    this._clearControlsHideTimer();
     this._showControls();
+    this._showCursor();
+    this._startControlsHideTimer();
   }
 
   /**
-   * Handle focus out on controls - resume hide timer if not hovering
+   * Handle focus out on controls - reset hide timer
    * @private
    */
   _handleControlsFocusOut() {
-    this._controlsFocused = false;
-    if (!this._controlsHovering) {
-      this._startControlsHideTimer();
-    }
+    this._startControlsHideTimer();
   }
 
   /**
    * Start or reset the controls hide timer
-   * Only starts if not hovering and not focused
+   * Always starts - any mouse/pointer activity will reset it
    * @private
    */
   _startControlsHideTimer() {
     this._clearControlsHideTimer();
-
-    // Don't start timer if hovering or focused
-    if (this._controlsHovering || this._controlsFocused) {
-      return;
-    }
 
     this._controlsHideTimer = setTimeout(() => {
       this._hideControls();
@@ -488,23 +457,31 @@ export class UIEffects {
   }
 
   /**
-   * Hide the fullscreen controls
+   * Hide the fullscreen controls, toolbar, and cursor
    * @private
    */
   _hideControls() {
     if (this._controlsElement) {
       this._controlsElement.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
     }
+    if (this._toolbarHideEnabled) {
+      this._hideToolbar();
+    }
+    this._hideCursor();
   }
 
   /**
-   * Show the fullscreen controls
+   * Show the fullscreen controls, toolbar, and cursor
    * @private
    */
   _showControls() {
     if (this._controlsElement) {
       this._controlsElement.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
     }
+    if (this._toolbarHideEnabled) {
+      this._showToolbar();
+    }
+    this._showCursor();
   }
 
   /**
