@@ -384,12 +384,15 @@ export class UIEffects {
   }
 
   /**
-   * Handle mouse move - show controls and cursor, reset hide timer
+   * Handle mouse move - show controls, toolbar, and cursor, reset hide timer
    * @private
    */
   _handleControlsMouseMove() {
     this._showControls();
     this._showCursor();
+    if (this._toolbarHideEnabled) {
+      this._showToolbar();
+    }
     this._startControlsHideTimer();
   }
 
@@ -454,23 +457,29 @@ export class UIEffects {
   }
 
   /**
-   * Hide the fullscreen controls and cursor
+   * Hide the fullscreen controls, toolbar, and cursor
    * @private
    */
   _hideControls() {
     if (this._controlsElement) {
       this._controlsElement.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
     }
+    if (this._toolbarHideEnabled) {
+      this._hideToolbar();
+    }
     this._hideCursor();
   }
 
   /**
-   * Show the fullscreen controls and cursor
+   * Show the fullscreen controls, toolbar, and cursor
    * @private
    */
   _showControls() {
     if (this._controlsElement) {
       this._controlsElement.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+    }
+    if (this._toolbarHideEnabled) {
+      this._showToolbar();
     }
     this._showCursor();
   }
