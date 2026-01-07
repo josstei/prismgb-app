@@ -336,56 +336,58 @@ jobs:
 
       - name: Merge macOS auto-update YAML files
         run: |
-          # Find all macOS YAML files from different arch builds
-          MAC_YAMLS=$(find artifacts -name "latest-mac.yml" -type f)
-          MAC_YAML_COUNT=$(echo "$MAC_YAMLS" | grep -c "latest-mac.yml" || echo "0")
+          set -e
 
-          echo "Found $MAC_YAML_COUNT macOS YAML files"
+          # Install yq for YAML manipulation
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
-          if [ "$MAC_YAML_COUNT" -eq "0" ]; then
+          # Find all macOS YAML files
+          mapfile -t MAC_YAMLS < <(find artifacts -name "latest-mac.yml" -type f | sort)
+          echo "Found ${#MAC_YAMLS[@]} macOS YAML files"
+
+          if [ ${#MAC_YAMLS[@]} -eq 0 ]; then
             echo "No macOS YAML files found, skipping merge"
-          elif [ "$MAC_YAML_COUNT" -eq "1" ]; then
-            echo "Single macOS YAML file, copying directly"
-            cp $MAC_YAMLS release-files/latest-mac.yml
-          else
-            echo "Multiple macOS YAML files found, merging..."
-
-            # Install yq for YAML manipulation
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
-
-            # Get the first YAML as base (for version, releaseDate, etc.)
-            FIRST_YAML=$(echo "$MAC_YAMLS" | head -1)
-            cp "$FIRST_YAML" release-files/latest-mac.yml
-
-            # Extract and merge files arrays from all YAMLs
-            echo "files:" > /tmp/merged-files.yml
-            for yml in $MAC_YAMLS; do
-              echo "Processing: $yml"
-              yq '.files[]' "$yml" | while read -r line; do
-                echo "  $line" >> /tmp/merged-files.yml
-              done
-            done
-
-            # Merge the files array into the final YAML
-            # First, get all files from all YAMLs
-            ALL_FILES=""
-            for yml in $MAC_YAMLS; do
-              FILES=$(yq -o=json '.files' "$yml")
-              if [ -z "$ALL_FILES" ]; then
-                ALL_FILES="$FILES"
-              else
-                ALL_FILES=$(echo "$ALL_FILES $FILES" | jq -s 'add')
-              fi
-            done
-
-            # Update the merged YAML with combined files array
-            echo "$ALL_FILES" | yq -P '.' > /tmp/files-array.yml
-            yq -i ".files = load(\"/tmp/files-array.yml\")" release-files/latest-mac.yml
-
-            echo "=== Merged latest-mac.yml ==="
-            cat release-files/latest-mac.yml
+            exit 0
           fi
+
+          # Get metadata from first YAML
+          VERSION=$(yq '.version' "${MAC_YAMLS[0]}")
+          RELEASE_DATE=$(yq '.releaseDate' "${MAC_YAMLS[0]}")
+          echo "Version: $VERSION, Release Date: $RELEASE_DATE"
+
+          # Build merged files array with arch field
+          echo "[]" > /tmp/all-files.json
+
+          for yml in "${MAC_YAMLS[@]}"; do
+            echo "Processing: $yml"
+
+            # Detect arch from artifact path (release-macOS-ARM64 or release-macOS-X64)
+            if echo "$yml" | grep -qi "arm64"; then
+              ARCH="arm64"
+            else
+              ARCH="x64"
+            fi
+            echo "  Detected arch: $ARCH"
+
+            # Add arch field to each file entry and append to all-files
+            yq -o=json ".files[] | . + {\"arch\": \"$ARCH\"}" "$yml" | jq -s '.' > /tmp/arch-files.json
+            jq -s 'add' /tmp/all-files.json /tmp/arch-files.json > /tmp/merged.json
+            mv /tmp/merged.json /tmp/all-files.json
+          done
+
+          # Create final YAML with proper structure
+          {
+            echo "version: $VERSION"
+            echo "files:"
+            jq -r '.[] | "  - url: \(.url)\n    sha512: \(.sha512)\n    size: \(.size)\n    arch: \(.arch)"' /tmp/all-files.json
+            echo "path: $(jq -r '.[0].url' /tmp/all-files.json)"
+            echo "sha512: $(jq -r '.[0].sha512' /tmp/all-files.json)"
+            echo "releaseDate: '$RELEASE_DATE'"
+          } > release-files/latest-mac.yml
+
+          echo "=== Merged latest-mac.yml ==="
+          cat release-files/latest-mac.yml
 
       - name: Generate combined checksums
         run: |
