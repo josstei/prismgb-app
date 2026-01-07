@@ -38,8 +38,9 @@ export class DeviceOrchestrator extends BaseOrchestrator {
       () => this._handleDeviceDisconnectedIPC()
     );
 
-    // Check initial device status
+    // Check initial device status and enumerate
     await this.deviceService.updateDeviceStatus();
+    await this.deviceService.enumerateDevices();
   }
 
   /**
@@ -63,6 +64,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
    */
   async _handleDeviceConnectedIPC() {
     await this._refreshDeviceInfo();
+    await this.deviceService.enumerateDevices();
   }
 
   /**

@@ -34,6 +34,7 @@ class SettingsMenuComponent {
     this.toggleButton = elements.settingsBtn;
     this.statusStripCheckbox = elements.settingStatusStrip;
     this.fullscreenOnStartupCheckbox = elements.settingFullscreenOnStartup;
+    this.autoStreamOnConnectCheckbox = elements.settingAutoStreamOnConnect;
     this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.disclaimerBtn = elements.disclaimerBtn;
@@ -98,6 +99,13 @@ class SettingsMenuComponent {
       });
     }
 
+    // Auto-stream on connect toggle
+    if (this.autoStreamOnConnectCheckbox) {
+      this._domListeners.add(this.autoStreamOnConnectCheckbox, 'change', () => {
+        this.settingsService.setAutoStreamOnConnect(this.autoStreamOnConnectCheckbox.checked);
+      });
+    }
+
     // Minimalist fullscreen toggle
     if (this.minimalistFullscreenCheckbox) {
       this._domListeners.add(this.minimalistFullscreenCheckbox, 'change', () => {
@@ -132,6 +140,7 @@ class SettingsMenuComponent {
   _loadCurrentSettings() {
     const statusStripVisible = this.settingsService.getStatusStripVisible();
     const fullscreenOnStartupEnabled = this.settingsService.getFullscreenOnStartup?.() ?? false;
+    const autoStreamOnConnectEnabled = this.settingsService.getAutoStreamOnConnect?.() ?? false;
     const minimalistFullscreenEnabled = this.settingsService.getMinimalistFullscreen?.() ?? false;
     const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
 
@@ -141,6 +150,10 @@ class SettingsMenuComponent {
 
     if (this.fullscreenOnStartupCheckbox) {
       this.fullscreenOnStartupCheckbox.checked = fullscreenOnStartupEnabled;
+    }
+
+    if (this.autoStreamOnConnectCheckbox) {
+      this.autoStreamOnConnectCheckbox.checked = autoStreamOnConnectEnabled;
     }
 
     if (this.minimalistFullscreenCheckbox) {

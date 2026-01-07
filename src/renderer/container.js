@@ -479,9 +479,10 @@ function createRendererContainer() {
   // Streaming Orchestrator - Coordinates stream lifecycle
   // Uses appState instead of deviceOrchestrator for decoupling
   // Requires gpuRecordingService to stop recording before GPU cleanup (avoids Skia race)
+  // Requires settingsService for auto-stream on connect feature
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, gpuRecordingService, eventBus, loggerFactory) {
+    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, gpuRecordingService, settingsService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
@@ -489,11 +490,12 @@ function createRendererContainer() {
         audioWarmupService,
         renderPipelineService,
         gpuRecordingService,
+        settingsService,
         eventBus,
         loggerFactory
       });
     },
-    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'eventBus', 'loggerFactory']
+    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording
