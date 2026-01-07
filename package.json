@@ -1,6 +1,6 @@
 {
   "name": "prismgb",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
@@ -129,9 +129,27 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] },
-        { "target": "tar.gz", "arch": ["x64", "arm64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "Utility",
       "icon": "assets/icon.png",
