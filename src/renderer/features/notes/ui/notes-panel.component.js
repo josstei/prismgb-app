@@ -20,6 +20,12 @@ const DELETE_HOLD_MS = 2000;
 // Autocomplete debounce
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 
+// List resize constraints
+const DRAG_THRESHOLD = 3;
+const LIST_WIDTH_MIN = 80;
+const LIST_WIDTH_MAX = 200;
+const LIST_WIDTH_DEFAULT = 130;
+
 class NotesPanelComponent {
   constructor({ notesService, eventBus, logger }) {
     this.notesService = notesService;
@@ -34,6 +40,14 @@ class NotesPanelComponent {
     this.isGameFilterOpen = false;
     this.collapsedGameGroups = new Set();
     this.autocompleteHighlightIndex = -1;
+
+    // Drag resize state
+    this._isDragging = false;
+    this._dragStartX = 0;
+    this._dragStartWidth = 0;
+    this._customListWidth = LIST_WIDTH_DEFAULT;
+    this._boundDragMove = null;
+    this._boundDragEnd = null;
 
     // Debounce timers
     this._saveTimeout = null;
@@ -362,15 +376,73 @@ class NotesPanelComponent {
   }
 
   /**
-   * Setup list toggle (collapse/expand divider)
+   * Setup list toggle with drag-to-resize and click-to-collapse
    * @private
    */
   _setupListToggle() {
     if (!this.elements.notesListToggle) return;
 
-    this._domListeners.add(this.elements.notesListToggle, 'click', () => {
-      this._toggleListVisibility();
-    });
+    const getClientX = (e) => e.touches?.[0]?.clientX ?? e.clientX;
+
+    const startDrag = (e) => {
+      e.preventDefault();
+
+      this._dragStartX = getClientX(e);
+      this._dragStartWidth = this._getListWidth();
+      this._isDragging = false;
+
+      this._boundDragMove = handleMove;
+      this._boundDragEnd = endDrag;
+
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('touchmove', handleMove, { passive: false });
+      document.addEventListener('touchend', endDrag);
+      document.addEventListener('touchcancel', endDrag);
+
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    };
+
+    const handleMove = (e) => {
+      const currentX = getClientX(e);
+      const delta = currentX - this._dragStartX;
+
+      if (!this._isDragging && Math.abs(delta) >= DRAG_THRESHOLD) {
+        this._isDragging = true;
+        this.elements.notesListToggle?.classList.add('dragging');
+      }
+
+      if (this._isDragging) {
+        e.preventDefault();
+        const newWidth = Math.min(
+          LIST_WIDTH_MAX,
+          Math.max(LIST_WIDTH_MIN, this._dragStartWidth + delta)
+        );
+        this._setListWidth(newWidth);
+      }
+    };
+
+    const endDrag = () => {
+      this._cleanupDragListeners();
+
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      this.elements.notesListToggle?.classList.remove('dragging');
+
+      if (!this._isDragging) {
+        this._toggleListVisibility();
+      } else {
+        this._customListWidth = this._getListWidth();
+      }
+
+      this._isDragging = false;
+      this._boundDragMove = null;
+      this._boundDragEnd = null;
+    };
+
+    this._domListeners.add(this.elements.notesListToggle, 'mousedown', startDrag);
+    this._domListeners.add(this.elements.notesListToggle, 'touchstart', startDrag, { passive: false });
   }
 
   /**
@@ -385,10 +457,35 @@ class NotesPanelComponent {
 
     if (this.isListVisible) {
       content.classList.remove(CSSClasses.LIST_COLLAPSED);
+      this._setListWidth(this._customListWidth);
       this.elements.notesListToggle?.setAttribute('aria-expanded', 'true');
     } else {
       content.classList.add(CSSClasses.LIST_COLLAPSED);
       this.elements.notesListToggle?.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  _getListWidth() {
+    const listWrapper = this.elements.notesPanel?.querySelector('.notes-list-wrapper');
+    if (!listWrapper) return LIST_WIDTH_DEFAULT;
+    return listWrapper.offsetWidth;
+  }
+
+  _setListWidth(width) {
+    const content = this.elements.notesPanel?.querySelector('.notes-panel-content');
+    if (!content) return;
+    content.style.setProperty('--notes-list-width', `${width}px`);
+  }
+
+  _cleanupDragListeners() {
+    if (this._boundDragMove) {
+      document.removeEventListener('mousemove', this._boundDragMove);
+      document.removeEventListener('touchmove', this._boundDragMove);
+    }
+    if (this._boundDragEnd) {
+      document.removeEventListener('mouseup', this._boundDragEnd);
+      document.removeEventListener('touchend', this._boundDragEnd);
+      document.removeEventListener('touchcancel', this._boundDragEnd);
     }
   }
 
@@ -1279,6 +1376,12 @@ class NotesPanelComponent {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
     }
+
+    // Clean up drag state
+    this._cleanupDragListeners();
+    this._isDragging = false;
+    this._boundDragMove = null;
+    this._boundDragEnd = null;
 
     // Remove DOM listeners
     this._domListeners.removeAll();
