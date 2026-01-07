@@ -102,9 +102,12 @@ jobs:
 
       - name: Build (Linux)
         if: runner.os == 'Linux'
-        run: npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
+        run: |
+          npx vite build
+          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
         env:
           USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
+          npm_config_arch: ${{ matrix.arch }}
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
