@@ -218,9 +218,8 @@ jobs:
       - name: Build (Linux)
         if: runner.os == 'Linux'
         run: |
-          npm run build:linux -- --${{ matrix.arch }} \
-            --config.linux.target='[{"target":"AppImage","arch":["${{ matrix.arch }}"]},{"target":"deb","arch":["${{ matrix.arch }}"]},{"target":"tar.gz","arch":["${{ matrix.arch }}"]}]' \
-            --publish never
+          npx vite build
+          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
         env:
           USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
           npm_config_arch: ${{ matrix.arch }}
