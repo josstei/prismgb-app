@@ -62,6 +62,9 @@ runs:
       run: |
         if [ "${{ inputs.skip-native-deps }}" = "true" ]; then
           npm ci --ignore-scripts
+        elif [ "${{ runner.os }}" = "Linux" ] && [ "${{ runner.arch }}" = "ARM64" ]; then
+          # Skip native module builds on ARM64 Linux - electron-builder will rebuild them
+          npm ci --ignore-scripts
         else
           npm ci
         fi
