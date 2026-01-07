@@ -59,8 +59,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     this._wireHighLevelEvents();
 
     // Initialize domain orchestrators
-    await this.deviceOrchestrator.initialize();
     await this.streamingOrchestrator.initialize();
+    await this.deviceOrchestrator.initialize();
     await this.captureOrchestrator.initialize();
 
     // Initialize application orchestrators

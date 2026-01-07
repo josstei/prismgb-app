@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -155,7 +155,8 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   _wireDeviceEvents() {
     this.subscribeWithCleanup({
-      [EventChannels.DEVICE.DISCONNECTED_DURING_SESSION]: () => this._handleDeviceDisconnectedDuringStream()
+      [EventChannels.DEVICE.DISCONNECTED_DURING_SESSION]: () => this._handleDeviceDisconnectedDuringStream(),
+      [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: (data) => this._handleSupportedDeviceAvailable(data)
     });
   }
 
@@ -281,6 +282,25 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       this.streamingService.stop().catch(error => {
         this.logger.error('Error stopping stream after device disconnect:', error);
       });
+    }
+  }
+
+  /**
+   * Handle supported device available event for auto-stream on connect
+   * Triggered when browser enumeration detects a new supported device
+   * Bypasses appState.deviceConnected check since browser enumeration confirmed device exists
+   * @param {Object} data - Device data with deviceId and label
+   * @private
+   */
+  async _handleSupportedDeviceAvailable(data) {
+    if (this.settingsService.getAutoStreamOnConnect() && !this.streamingService.isActive()) {
+      this.logger.info(`Auto-starting stream - device available: ${data.label}`);
+      try {
+        await this.streamingService.start(data.deviceId);
+      } catch (error) {
+        this.logger.error('Failed to auto-start stream:', error);
+        this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
+      }
     }
   }
 

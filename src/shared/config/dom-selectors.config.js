@@ -49,6 +49,7 @@ export const DOMSelectors = {
   SETTING_RENDER_PRESET: 'settingRenderPreset',
   SETTING_FULLSCREEN_ON_STARTUP: 'settingFullscreenOnStartup',
   SETTING_MINIMALIST_FULLSCREEN: 'settingMinimalistFullscreen',
+  SETTING_AUTO_STREAM_ON_CONNECT: 'settingAutoStreamOnConnect',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 
