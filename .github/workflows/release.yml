@@ -318,11 +318,71 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          # Flatten all platform artifacts into one directory
+          # Flatten all platform artifacts into one directory (excluding latest*.yml for now)
           find artifacts -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" \
-            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "latest*.yml" \) \
+            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \) \
             -exec cp {} release-files/ \;
+
+          # Copy Linux YAML files directly (they have arch suffix for arm64)
+          find artifacts -type f -name "latest-linux*.yml" -exec cp {} release-files/ \;
+
+          # Copy Windows YAML file directly
+          find artifacts -type f -name "latest.yml" -exec cp {} release-files/ \; 2>/dev/null || true
+
           ls -la release-files/
+
+      - name: Merge macOS auto-update YAML files
+        run: |
+          # Find all macOS YAML files from different arch builds
+          MAC_YAMLS=$(find artifacts -name "latest-mac.yml" -type f)
+          MAC_YAML_COUNT=$(echo "$MAC_YAMLS" | grep -c "latest-mac.yml" || echo "0")
+
+          echo "Found $MAC_YAML_COUNT macOS YAML files"
+
+          if [ "$MAC_YAML_COUNT" -eq "0" ]; then
+            echo "No macOS YAML files found, skipping merge"
+          elif [ "$MAC_YAML_COUNT" -eq "1" ]; then
+            echo "Single macOS YAML file, copying directly"
+            cp $MAC_YAMLS release-files/latest-mac.yml
+          else
+            echo "Multiple macOS YAML files found, merging..."
+
+            # Install yq for YAML manipulation
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+
+            # Get the first YAML as base (for version, releaseDate, etc.)
+            FIRST_YAML=$(echo "$MAC_YAMLS" | head -1)
+            cp "$FIRST_YAML" release-files/latest-mac.yml
+
+            # Extract and merge files arrays from all YAMLs
+            echo "files:" > /tmp/merged-files.yml
+            for yml in $MAC_YAMLS; do
+              echo "Processing: $yml"
+              yq '.files[]' "$yml" | while read -r line; do
+                echo "  $line" >> /tmp/merged-files.yml
+              done
+            done
+
+            # Merge the files array into the final YAML
+            # First, get all files from all YAMLs
+            ALL_FILES=""
+            for yml in $MAC_YAMLS; do
+              FILES=$(yq -o=json '.files' "$yml")
+              if [ -z "$ALL_FILES" ]; then
+                ALL_FILES="$FILES"
+              else
+                ALL_FILES=$(echo "$ALL_FILES $FILES" | jq -s 'add')
+              fi
+            done
+
+            # Update the merged YAML with combined files array
+            echo "$ALL_FILES" | yq -P '.' > /tmp/files-array.yml
+            yq -i ".files = load(\"/tmp/files-array.yml\")" release-files/latest-mac.yml
+
+            echo "=== Merged latest-mac.yml ==="
+            cat release-files/latest-mac.yml
+          fi
 
       - name: Generate combined checksums
         run: |
