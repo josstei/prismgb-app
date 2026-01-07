@@ -113,9 +113,9 @@ jobs:
           PLATFORMS="${{ inputs.platforms || 'all' }}"
 
           if [ "$PLATFORMS" == "all" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "linux" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "macos" ]; then
             echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "windows" ]; then
@@ -145,6 +145,17 @@ jobs:
         uses: ./.github/actions/setup-node-deps
         with:
           install-xvfb: 'true'
+
+      - name: Install ARM64 build dependencies (Linux ARM64)
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            ruby ruby-dev rubygems
+          sudo gem install fpm --no-document
 
       - name: Cache electron-builder
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
@@ -204,8 +215,14 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Build (Linux/Windows)
-        if: runner.os != 'macOS'
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
+        env:
+          USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
         run: npm run ${{ matrix.build_script }} -- --publish never
 
       - name: Install FUSE for AppImage (Linux)
