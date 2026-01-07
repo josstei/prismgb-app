@@ -128,6 +128,20 @@ jobs:
         run: ls -la release/
         shell: bash
 
+      - name: Verify auto-update YAML files
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          echo "=== Auto-update YAML files ==="
+          ls -la release/latest*.yml 2>/dev/null || echo "Warning: No latest*.yml files found"
+          for yml in release/latest*.yml; do
+            if [ -f "$yml" ]; then
+              echo ""
+              echo "=== $(basename $yml) ==="
+              cat "$yml"
+            fi
+          done
+        shell: bash
+
       - name: Upload artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -139,6 +153,7 @@ jobs:
             release/*.dmg
             release/*.zip
             release/*.exe
+            release/latest*.yml
           if-no-files-found: error
           retention-days: 7
 
