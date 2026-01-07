@@ -61,6 +61,14 @@
   overflow-y: auto;
 }
 
+.settings-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 0, 128, 0.5);
+}
+
+.settings-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 0, 128, 0.8);
+}
+
 /* Main settings area with generous spacing */
 .settings-section.settings-main {
   padding: 20px var(--space-lg);
