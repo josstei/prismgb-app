@@ -105,6 +105,7 @@ jobs:
         run: npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
         env:
           USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
+          npm_config_arch: ${{ matrix.arch }}
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
