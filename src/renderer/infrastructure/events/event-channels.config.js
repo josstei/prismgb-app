@@ -14,6 +14,7 @@ export const EventChannels = {
   // Device events
   DEVICE: {
     STATUS_CHANGED: 'device:status-changed',
+    SUPPORTED_DEVICE_AVAILABLE: 'device:supported-device-available',
     ENUMERATION_FAILED: 'device:enumeration-failed',
     DISCONNECTED_DURING_SESSION: 'device:disconnected-during-session'
   },

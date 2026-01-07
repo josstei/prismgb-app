@@ -26,6 +26,7 @@ class DeviceMediaService extends BaseService {
     this._enumerateCooldownMs = TIMING.DEVICE_ENUMERATE_COOLDOWN_MS;
     this._lastEnumerateResult = null;
     this._deviceChangeHandler = null;
+    this._knownSupportedDeviceIds = new Set();
   }
 
   invalidateEnumerationCache() {
@@ -82,6 +83,12 @@ class DeviceMediaService extends BaseService {
         }
 
         this.videoDevices = videoDevices;
+
+        if (videoDevices.length === 0) {
+          this._knownSupportedDeviceIds.clear();
+        } else {
+          this._checkForNewSupportedDevice();
+        }
 
         const result = {
           devices: videoDevices,
@@ -190,10 +197,25 @@ class DeviceMediaService extends BaseService {
 
     this._deviceChangeHandler = async () => {
       this.logger.info('Device change detected');
+      this.invalidateEnumerationCache();
       await onChange();
+      await this.enumerateDevices();
     };
     this.browserMediaService.addEventListener('devicechange', this._deviceChangeHandler);
     this.logger.info('Device change listener set up');
+  }
+
+  _checkForNewSupportedDevice() {
+    for (const device of this.videoDevices) {
+      if (!this._knownSupportedDeviceIds.has(device.deviceId)) {
+        this._knownSupportedDeviceIds.add(device.deviceId);
+        this.logger.info(`New supported device available: ${device.label}`);
+        this.eventBus.publish(EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE, {
+          deviceId: device.deviceId,
+          label: device.label
+        });
+      }
+    }
   }
 
   dispose() {

@@ -288,4 +288,37 @@ describe('SettingsService', () => {
     });
   });
 
+  describe('getAutoStreamOnConnect', () => {
+    it('should return default when not set', () => {
+      expect(service.getAutoStreamOnConnect()).toBe(false);
+    });
+
+    it('should return saved preference (true)', () => {
+      localStorageMock.store['autoStreamOnConnect'] = 'true';
+      expect(service.getAutoStreamOnConnect()).toBe(true);
+    });
+
+    it('should return saved preference (false)', () => {
+      localStorageMock.store['autoStreamOnConnect'] = 'false';
+      expect(service.getAutoStreamOnConnect()).toBe(false);
+    });
+  });
+
+  describe('setAutoStreamOnConnect', () => {
+    it('should save preference to localStorage', () => {
+      service.setAutoStreamOnConnect(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('autoStreamOnConnect', 'true');
+    });
+
+    it('should log preference change (enabled)', () => {
+      service.setAutoStreamOnConnect(true);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Auto-stream on connect enabled');
+    });
+
+    it('should log preference change (disabled)', () => {
+      service.setAutoStreamOnConnect(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Auto-stream on connect disabled');
+    });
+  });
+
 });

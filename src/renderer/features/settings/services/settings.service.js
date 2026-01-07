@@ -26,7 +26,8 @@ class SettingsService extends BaseService {
       globalBrightness: 1.0,
       performanceMode: false,
       fullscreenOnStartup: false,
-      minimalistFullscreen: false
+      minimalistFullscreen: false,
+      autoStreamOnConnect: false
     };
 
     // Use centralized storage keys
@@ -201,6 +202,25 @@ class SettingsService extends BaseService {
 
     // Emit event
     this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, enabled);
+  }
+
+  /**
+   * Get auto-stream on connect preference
+   * @returns {boolean} True if auto-stream on connect is enabled
+   */
+  getAutoStreamOnConnect() {
+    const saved = this.storageService?.getItem(this.keys.AUTO_STREAM_ON_CONNECT);
+    return saved !== null ? saved === 'true' : this.defaults.autoStreamOnConnect;
+  }
+
+  /**
+   * Set auto-stream on connect preference
+   * @param {boolean} enabled - Enable auto-stream on connect
+   */
+  setAutoStreamOnConnect(enabled) {
+    this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
+
+    this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
   }
 }
 
