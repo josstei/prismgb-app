@@ -73,6 +73,7 @@ class UIController {
       settingsMenuContainer: document.getElementById(DOMSelectors.SETTINGS_MENU_CONTAINER),
       settingStatusStrip: document.getElementById(DOMSelectors.SETTING_STATUS_STRIP),
       settingFullscreenOnStartup: document.getElementById(DOMSelectors.SETTING_FULLSCREEN_ON_STARTUP),
+      settingAutoStreamOnConnect: document.getElementById(DOMSelectors.SETTING_AUTO_STREAM_ON_CONNECT),
       settingMinimalistFullscreen: document.getElementById(DOMSelectors.SETTING_MINIMALIST_FULLSCREEN),
       settingAnimationSaver: document.getElementById(DOMSelectors.SETTING_ANIMATION_SAVER),
       settingRenderPreset: document.getElementById(DOMSelectors.SETTING_RENDER_PRESET),

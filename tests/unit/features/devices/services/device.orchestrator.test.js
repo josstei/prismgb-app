@@ -74,10 +74,11 @@ describe('DeviceOrchestrator', () => {
       );
     });
 
-    it('should check initial device status', async () => {
+    it('should check initial device status and enumerate', async () => {
       await orchestrator.onInitialize();
 
       expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
+      expect(mockDeviceService.enumerateDevices).toHaveBeenCalled();
     });
   });
 
@@ -135,11 +136,10 @@ describe('DeviceOrchestrator', () => {
       expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
     });
 
-    it('should NOT enumerate devices (deferred to streaming start)', async () => {
-      // Camera enumeration is deferred to prevent macOS webcam flicker
+    it('should enumerate devices to detect new supported devices', async () => {
       await orchestrator._handleDeviceConnectedIPC();
 
-      expect(mockDeviceService.enumerateDevices).not.toHaveBeenCalled();
+      expect(mockDeviceService.enumerateDevices).toHaveBeenCalled();
     });
   });
 

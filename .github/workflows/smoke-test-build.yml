@@ -1,0 +1,178 @@
+name: Smoke Test Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux-x64
+          - linux-arm64
+          - macos-x64
+          - macos-arm64
+          - windows
+
+concurrency:
+  group: smoke-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Setup Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Generate build matrix
+        id: matrix
+        run: |
+          PLATFORM="${{ inputs.platform }}"
+
+          case "$PLATFORM" in
+            "all")
+              echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64","name":"Linux x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64","name":"Linux ARM64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64","name":"macOS x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64","name":"macOS ARM64"},{"os":"windows-latest","build_script":"build:win","arch":"x64","name":"Windows x64"}]' >> $GITHUB_OUTPUT
+              ;;
+            "linux-x64")
+              echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64","name":"Linux x64"}]' >> $GITHUB_OUTPUT
+              ;;
+            "linux-arm64")
+              echo 'matrix=[{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64","name":"Linux ARM64"}]' >> $GITHUB_OUTPUT
+              ;;
+            "macos-x64")
+              echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64","name":"macOS x64"}]' >> $GITHUB_OUTPUT
+              ;;
+            "macos-arm64")
+              echo 'matrix=[{"os":"macos-14","build_script":"build:mac","arch":"arm64","name":"macOS ARM64"}]' >> $GITHUB_OUTPUT
+              ;;
+            "windows")
+              echo 'matrix=[{"os":"windows-latest","build_script":"build:win","arch":"x64","name":"Windows x64"}]' >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: [setup]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: 'true'
+
+      - name: Install ARM64 build dependencies (Linux ARM64)
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            ruby ruby-dev rubygems
+          sudo gem install fpm --no-document
+
+      - name: Cache electron-builder
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-electron-builder-
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --config.mac.identity=null --publish never
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npx vite build
+          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
+        env:
+          USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
+          npm_config_arch: ${{ matrix.arch }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: npm run ${{ matrix.build_script }} -- --publish never
+
+      - name: Install FUSE for AppImage (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+
+      - name: Run smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run test:smoke
+        timeout-minutes: 2
+
+      - name: Run smoke test (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: npm run test:smoke
+        timeout-minutes: 2
+
+      - name: List build artifacts
+        run: ls -la release/
+        shell: bash
+
+      - name: Verify auto-update YAML files
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          echo "=== Auto-update YAML files ==="
+          ls -la release/latest*.yml 2>/dev/null || echo "Warning: No latest*.yml files found"
+          for yml in release/latest*.yml; do
+            if [ -f "$yml" ]; then
+              echo ""
+              echo "=== $(basename $yml) ==="
+              cat "$yml"
+            fi
+          done
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: smoke-test-${{ matrix.name }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.tar.gz
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/latest*.yml
+          if-no-files-found: error
+          retention-days: 7
+
+  summary:
+    name: Build Summary
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Smoke Test Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** ${{ inputs.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "Build artifacts are available for download for 7 days." >> $GITHUB_STEP_SUMMARY

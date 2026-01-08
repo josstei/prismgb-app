@@ -15,6 +15,7 @@ describe('StreamingOrchestrator', () => {
   let mockLogger;
   let mockStreamingRenderPipelineService;
   let mockCaptureGpuRecordingService;
+  let mockSettingsService;
 
   beforeEach(() => {
     mockStreamingService = {
@@ -70,6 +71,10 @@ describe('StreamingOrchestrator', () => {
       stop: vi.fn()
     };
 
+    mockSettingsService = {
+      getAutoStreamOnConnect: vi.fn().mockReturnValue(false)
+    };
+
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
       appState: mockAppState,
@@ -77,6 +82,7 @@ describe('StreamingOrchestrator', () => {
       audioWarmupService: mockStreamingAudioWarmupService,
       renderPipelineService: mockStreamingRenderPipelineService,
       gpuRecordingService: mockCaptureGpuRecordingService,
+      settingsService: mockSettingsService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -96,6 +102,7 @@ describe('StreamingOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:render-mode-changed', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:state-changed', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:disconnected-during-session', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:supported-device-available', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('render:canvas-expired', expect.any(Function));
       expect(mockStreamingRenderPipelineService.initialize).toHaveBeenCalled();
     });
@@ -312,6 +319,72 @@ describe('StreamingOrchestrator', () => {
       orchestrator._handleDeviceDisconnectedDuringStream();
 
       expect(mockStreamingService.stop).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_handleSupportedDeviceAvailable', () => {
+    const mockDeviceData = { deviceId: 'test-device-id', label: 'Test Device' };
+
+    it('should auto-start stream when device becomes available and setting enabled', async () => {
+      mockStreamingService.isActive.mockReturnValue(false);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Auto-starting stream - device available: Test Device');
+      expect(mockStreamingService.start).toHaveBeenCalledWith('test-device-id');
+    });
+
+    it('should bypass appState.deviceConnected check (browser enumeration is source of truth)', async () => {
+      mockAppState.deviceConnected = false;
+      mockStreamingService.isActive.mockReturnValue(false);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockStreamingService.start).toHaveBeenCalledWith('test-device-id');
+    });
+
+    it('should not auto-start when setting disabled', async () => {
+      mockStreamingService.isActive.mockReturnValue(false);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(false);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockStreamingService.start).not.toHaveBeenCalled();
+    });
+
+    it('should not auto-start when streaming service is active', async () => {
+      mockStreamingService.isActive.mockReturnValue(true);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockStreamingService.start).not.toHaveBeenCalled();
+    });
+
+    it('should handle rapid duplicate device available events gracefully', async () => {
+      mockStreamingService.isActive.mockReturnValue(false);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      mockStreamingService.isActive.mockReturnValue(true);
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockStreamingService.start).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle start error gracefully', async () => {
+      mockStreamingService.isActive.mockReturnValue(false);
+      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockStreamingService.start.mockRejectedValue(new Error('Start failed'));
+
+      await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to auto-start stream:', expect.any(Error));
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', { message: 'Start failed' });
     });
   });
 

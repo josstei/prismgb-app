@@ -113,9 +113,9 @@ jobs:
           PLATFORMS="${{ inputs.platforms || 'all' }}"
 
           if [ "$PLATFORMS" == "all" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "linux" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "macos" ]; then
             echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "windows" ]; then
@@ -145,6 +145,17 @@ jobs:
         uses: ./.github/actions/setup-node-deps
         with:
           install-xvfb: 'true'
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            ruby ruby-dev rubygems
+          sudo gem install fpm --no-document
 
       - name: Cache electron-builder
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
@@ -204,8 +215,17 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Build (Linux/Windows)
-        if: runner.os != 'macOS'
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npx vite build
+          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
+        env:
+          USE_SYSTEM_FPM: 'true'
+          npm_config_arch: ${{ matrix.arch }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
         run: npm run ${{ matrix.build_script }} -- --publish never
 
       - name: Install FUSE for AppImage (Linux)
@@ -253,6 +273,20 @@ jobs:
           Get-Content SHA256SUMS.txt
         shell: pwsh
 
+      - name: Verify auto-update YAML files
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          echo "=== Auto-update YAML files ==="
+          ls -la release/latest*.yml 2>/dev/null || echo "Warning: No latest*.yml files found"
+          for yml in release/latest*.yml; do
+            if [ -f "$yml" ]; then
+              echo ""
+              echo "=== $(basename $yml) ==="
+              cat "$yml"
+            fi
+          done
+        shell: bash
+
       - name: Upload artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -287,11 +321,73 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          # Flatten all platform artifacts into one directory
+          # Flatten all platform artifacts into one directory (excluding latest*.yml for now)
           find artifacts -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" \
-            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "latest*.yml" \) \
+            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \) \
             -exec cp {} release-files/ \;
+
+          # Copy Linux YAML files directly (they have arch suffix for arm64)
+          find artifacts -type f -name "latest-linux*.yml" -exec cp {} release-files/ \;
+
+          # Copy Windows YAML file directly
+          find artifacts -type f -name "latest.yml" -exec cp {} release-files/ \; 2>/dev/null || true
+
           ls -la release-files/
+
+      - name: Merge macOS auto-update YAML files
+        run: |
+          set -e
+
+          # Install yq for YAML manipulation
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+          # Find all macOS YAML files
+          mapfile -t MAC_YAMLS < <(find artifacts -name "latest-mac.yml" -type f | sort)
+          echo "Found ${#MAC_YAMLS[@]} macOS YAML files"
+
+          if [ ${#MAC_YAMLS[@]} -eq 0 ]; then
+            echo "No macOS YAML files found, skipping merge"
+            exit 0
+          fi
+
+          # Get metadata from first YAML
+          VERSION=$(yq '.version' "${MAC_YAMLS[0]}")
+          RELEASE_DATE=$(yq '.releaseDate' "${MAC_YAMLS[0]}")
+          echo "Version: $VERSION, Release Date: $RELEASE_DATE"
+
+          # Build merged files array with arch field
+          echo "[]" > /tmp/all-files.json
+
+          for yml in "${MAC_YAMLS[@]}"; do
+            echo "Processing: $yml"
+
+            # Detect arch from artifact path (release-macOS-ARM64 or release-macOS-X64)
+            if echo "$yml" | grep -qi "arm64"; then
+              ARCH="arm64"
+            else
+              ARCH="x64"
+            fi
+            echo "  Detected arch: $ARCH"
+
+            # Add arch field to each file entry and append to all-files
+            yq -o=json ".files[] | . + {\"arch\": \"$ARCH\"}" "$yml" | jq -s '.' > /tmp/arch-files.json
+            jq -s 'add' /tmp/all-files.json /tmp/arch-files.json > /tmp/merged.json
+            mv /tmp/merged.json /tmp/all-files.json
+          done
+
+          # Create final YAML with proper structure
+          {
+            echo "version: $VERSION"
+            echo "files:"
+            jq -r '.[] | "  - url: \(.url)\n    sha512: \(.sha512)\n    size: \(.size)\n    arch: \(.arch)"' /tmp/all-files.json
+            echo "path: $(jq -r '.[0].url' /tmp/all-files.json)"
+            echo "sha512: $(jq -r '.[0].sha512' /tmp/all-files.json)"
+            echo "releaseDate: '$RELEASE_DATE'"
+          } > release-files/latest-mac.yml
+
+          echo "=== Merged latest-mac.yml ==="
+          cat release-files/latest-mac.yml
 
       - name: Generate combined checksums
         run: |
@@ -333,6 +429,17 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           ls -la release-files/ >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Auto-Update YAML Files" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          for yml in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
+            if [ -f "release-files/$yml" ]; then
+              echo "| $yml | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $yml | ❌ Missing |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "1. Review the [draft release](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY

@@ -48,6 +48,16 @@ export default function createHeaderTemplate() {
                 </label>
                 <label class="settings-item toggle settings-item-with-hint">
                   <span class="settings-item-text">
+                    <span class="settings-item-title">Auto-start stream</span>
+                    <span class="settings-item-hint" id="autoStreamHint">
+                      Automatically start streaming when device connects.
+                    </span>
+                  </span>
+                  <input type="checkbox" id="settingAutoStreamOnConnect" aria-describedby="autoStreamHint">
+                  <span class="toggle-slider"></span>
+                </label>
+                <label class="settings-item toggle settings-item-with-hint">
+                  <span class="settings-item-text">
                     <span class="settings-item-title">Minimalist fullscreen</span>
                     <span class="settings-item-hint" id="minimalistFullscreenHint">
                       Black background while streaming.

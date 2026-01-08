@@ -21,8 +21,10 @@ class DeviceConnectionService extends BaseService {
 
       this.isConnected = connected;
 
-      this.logger.info(`Device status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
-      this.eventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, status);
+      if (changed) {
+        this.logger.info(`Device status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+        this.eventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, status);
+      }
 
       return { status, changed };
     } catch (error) {

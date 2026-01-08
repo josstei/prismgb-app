@@ -313,6 +313,7 @@ body:not(.streaming-mode) .notes-panel {
    ===================================================== */
 
 .notes-panel-content {
+  --notes-list-width: 130px;
   flex: 1;
   display: flex;
   min-height: 0;
@@ -321,7 +322,7 @@ body:not(.streaming-mode) .notes-panel {
 
 /* List wrapper - handles collapse animation */
 .notes-list-wrapper {
-  width: 130px;
+  width: var(--notes-list-width, 130px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -396,9 +397,11 @@ body:not(.streaming-mode) .notes-panel {
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.72);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
   transition: color 0.15s ease;
 }
 
@@ -556,6 +559,22 @@ body:not(.streaming-mode) .notes-panel {
   background: rgba(var(--color-info-rgb), 0.5);
   height: 36px;
   box-shadow: 0 0 8px rgba(var(--color-info-rgb), 0.3);
+}
+
+/* Dragging state */
+.notes-list-toggle.dragging {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.notes-list-toggle.dragging .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.7);
+  height: 44px;
+  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
+}
+
+/* Disable transition during drag for responsive feedback */
+.notes-panel-content:has(.notes-list-toggle.dragging) .notes-list-wrapper {
+  transition: none;
 }
 
 /* Visual indicator when collapsed */

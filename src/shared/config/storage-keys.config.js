@@ -15,7 +15,8 @@ export const SettingsStorageKeys = {
   GLOBAL_BRIGHTNESS: 'globalBrightness',
   PERFORMANCE_MODE: 'performanceMode',
   FULLSCREEN_ON_STARTUP: 'fullscreenOnStartup',
-  MINIMALIST_FULLSCREEN: 'minimalistFullscreen'
+  MINIMALIST_FULLSCREEN: 'minimalistFullscreen',
+  AUTO_STREAM_ON_CONNECT: 'autoStreamOnConnect'
 };
 
 /**
@@ -52,5 +53,6 @@ export const PROTECTED_STORAGE_KEYS = [
   SettingsStorageKeys.GLOBAL_BRIGHTNESS,
   SettingsStorageKeys.PERFORMANCE_MODE,
   SettingsStorageKeys.FULLSCREEN_ON_STARTUP,
-  SettingsStorageKeys.MINIMALIST_FULLSCREEN
+  SettingsStorageKeys.MINIMALIST_FULLSCREEN,
+  SettingsStorageKeys.AUTO_STREAM_ON_CONNECT
 ];

@@ -1,6 +1,6 @@
 {
   "name": "prismgb",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
@@ -48,8 +48,8 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.2.0",
-    "@commitlint/config-conventional": "^20.2.0",
+    "@commitlint/cli": "^20.3.0",
+    "@commitlint/config-conventional": "^20.3.0",
     "@electron/notarize": "^2.5.0",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.14",
@@ -129,13 +129,31 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb",
-        "tar.gz"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "Utility",
       "icon": "assets/icon.png",
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
       "desktop": {
         "entry": {
           "Name": "PrismGB",
