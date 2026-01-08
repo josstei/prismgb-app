@@ -4,8 +4,9 @@ import { spawn } from 'child_process';
 
 const KEEP_LOCALES = new Set(['en-US']);
 
-// Libraries to bundle in AppImage for maximum portability on minimal Linux systems.
+// Libraries to bundle for maximum portability on minimal Linux systems.
 // See: https://github.com/AppImage/AppImageKit/issues/1092
+// See: https://github.com/electron-userland/electron-builder/issues/7835
 // The issue is Electron links against libz.so (unversioned) which doesn't exist
 // on minimal installations - only libz.so.1 (versioned) is present.
 const BUNDLE_LIBRARIES = [
@@ -28,6 +29,15 @@ const LIB_SEARCH_PATHS = {
   [Arch.armv7l]: ['/usr/lib/arm-linux-gnueabihf', '/lib/arm-linux-gnueabihf', '/usr/lib', '/lib'],
   [Arch.ia32]: ['/usr/lib/i386-linux-gnu', '/lib/i386-linux-gnu', '/usr/lib32', '/usr/lib', '/lib'],
 };
+
+// Wrapper script template for non-AppImage Linux builds (deb, tar.gz).
+// Sets LD_LIBRARY_PATH to include bundled libraries before launching the real binary.
+const WRAPPER_SCRIPT = `#!/bin/bash
+# Wrapper script to set LD_LIBRARY_PATH for bundled libraries
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+export LD_LIBRARY_PATH="\${SCRIPT_DIR}/lib:\${SCRIPT_DIR}/usr/lib:\${LD_LIBRARY_PATH}"
+exec "\${SCRIPT_DIR}/{{BINARY_NAME}}.bin" "$@"
+`;
 
 const logger = (message) => {
   // Keep hook output minimal; electron-builder will surface console logs.
@@ -77,7 +87,10 @@ async function bundleSystemLibraries(appOutDir, arch) {
     return;
   }
 
-  const libDir = path.join(appOutDir, 'lib');
+  // Place libraries in usr/lib for AppImage compatibility.
+  // AppRun sets LD_LIBRARY_PATH to include $APPDIR/usr/lib.
+  // For non-AppImage builds, the wrapper script includes both lib/ and usr/lib/.
+  const libDir = path.join(appOutDir, 'usr', 'lib');
   await fs.mkdir(libDir, { recursive: true });
 
   for (const lib of BUNDLE_LIBRARIES) {
@@ -90,7 +103,7 @@ async function bundleSystemLibraries(appOutDir, arch) {
         await fs.access(srcPath);
         const destPath = path.join(libDir, lib.versioned);
         await fs.copyFile(srcPath, destPath);
-        logger(`Bundled ${lib.versioned} from ${searchPath}`);
+        logger(`Bundled ${lib.versioned} from ${searchPath} to usr/lib/`);
         bundled = true;
         break;
       } catch {
@@ -117,11 +130,43 @@ async function bundleSystemLibraries(appOutDir, arch) {
   }
 }
 
+async function createWrapperScript(appOutDir, executableName) {
+  const binaryPath = path.join(appOutDir, executableName);
+  const renamedBinaryPath = path.join(appOutDir, `${executableName}.bin`);
+
+  try {
+    await fs.access(binaryPath);
+  } catch {
+    logger(`No binary found at ${binaryPath}, skipping wrapper creation`);
+    return;
+  }
+
+  // Rename the actual Electron binary
+  await fs.rename(binaryPath, renamedBinaryPath);
+  logger(`Renamed ${executableName} to ${executableName}.bin`);
+
+  // Create wrapper script that sets LD_LIBRARY_PATH
+  const wrapperContent = WRAPPER_SCRIPT.replace('{{BINARY_NAME}}', executableName);
+  await fs.writeFile(binaryPath, wrapperContent, { mode: 0o755 });
+  logger(`Created wrapper script at ${binaryPath}`);
+}
+
 export default async function afterPack(context) {
   await pruneLocales(context.appOutDir);
 
   if (context.electronPlatformName === 'linux') {
-    await stripLinuxBinary(context.appOutDir, context.packager.executableName);
+    const executableName = context.packager.executableName;
+
+    // Bundle required system libraries to usr/lib (AppImage-compatible location)
     await bundleSystemLibraries(context.appOutDir, context.arch);
+
+    // Create wrapper script that sets LD_LIBRARY_PATH.
+    // This ensures bundled libraries are found at runtime for all Linux targets:
+    // - AppImage: AppRun will execute our wrapper, which adds the lib paths
+    // - deb/tar.gz: Users execute the wrapper directly
+    await createWrapperScript(context.appOutDir, executableName);
+
+    // Strip debug symbols from the renamed binary (.bin extension)
+    await stripLinuxBinary(context.appOutDir, `${executableName}.bin`);
   }
 }
