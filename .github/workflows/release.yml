@@ -154,6 +154,7 @@ jobs:
             build-essential \
             libudev-dev \
             libusb-1.0-0-dev \
+            patchelf \
             ruby ruby-dev rubygems
           sudo gem install fpm --no-document
 

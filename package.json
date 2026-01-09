@@ -101,6 +101,7 @@
       "!dist/builder-debug.yml"
     ],
     "afterPack": "./scripts/afterPack.js",
+    "artifactBuildCompleted": "./scripts/patch-appimage-runtime.js",
     "directories": {
       "output": "release",
       "buildResources": "assets"
