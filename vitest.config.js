@@ -77,8 +77,14 @@ export default defineConfig({
       'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
     ],
 
+    // Exclude E2E tests (run with Playwright instead)
+    exclude: [
+      'tests/e2e/**',
+      'node_modules/**'
+    ],
+
     // Setup files
-    setupFiles: ['./tests/setup.js'],
+    setupFiles: ['./tests/setup.js', './tests/testing-library.setup.js'],
 
     // Test timeout
     testTimeout: 10000,
