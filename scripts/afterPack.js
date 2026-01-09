@@ -87,63 +87,43 @@ async function bundleSystemLibraries(appOutDir, arch) {
     return;
   }
 
-  // Bundle strategy (single copy + symlinks for maximum compatibility):
-  // 1. Copy versioned library to usr/lib/ (e.g., usr/lib/libz.so.1)
-  // 2. Create unversioned symlink in usr/lib/ (libz.so -> libz.so.1)
-  // 3. Create symlink in root for RPATH=$ORIGIN (libz.so -> usr/lib/libz.so.1)
-  //
-  // This satisfies:
-  // - Electron's RPATH=$ORIGIN (finds libz.so in root via symlink)
-  // - AppRun's LD_LIBRARY_PATH=$APPDIR/usr/lib (finds libz.so in usr/lib)
-  // - Avoids duplicating the library file
-  const usrLibDir = path.join(appOutDir, 'usr', 'lib');
-  await fs.mkdir(usrLibDir, { recursive: true });
-
+  // Bundle strategy: copy library to root directory for RPATH=$ORIGIN compatibility.
+  // Electron's binary has RPATH=$ORIGIN, so it looks for libraries in its own directory.
+  // We copy both the versioned (libz.so.1) and create unversioned symlink (libz.so).
   for (const lib of BUNDLE_LIBRARIES) {
-    let bundled = false;
+    let srcLibPath = null;
 
-    // Find and copy the versioned library to usr/lib/
+    // Find the versioned library on the system
     for (const searchPath of searchPaths) {
       const srcPath = path.join(searchPath, lib.versioned);
       try {
         await fs.access(srcPath);
-        const destPath = path.join(usrLibDir, lib.versioned);
-        await fs.copyFile(srcPath, destPath);
-        logger(`Bundled ${lib.versioned} to usr/lib/`);
-        bundled = true;
+        srcLibPath = srcPath;
         break;
       } catch {
         // Library not found in this path, try next
       }
     }
 
-    if (bundled && lib.unversioned) {
-      // Create unversioned symlink in usr/lib (libz.so -> libz.so.1)
-      const usrLibSymlink = path.join(usrLibDir, lib.unversioned);
-      try {
-        await fs.symlink(lib.versioned, usrLibSymlink);
-        logger(`Created symlink usr/lib/${lib.unversioned} -> ${lib.versioned}`);
-      } catch (error) {
-        if (error.code !== 'EEXIST') {
-          logger(`Failed to create usr/lib symlink: ${error.message}`);
+    if (srcLibPath) {
+      // Copy versioned library to root directory (for RPATH=$ORIGIN)
+      const destPath = path.join(appOutDir, lib.versioned);
+      await fs.copyFile(srcLibPath, destPath);
+      logger(`Bundled ${lib.versioned} to root directory`);
+
+      // Create unversioned symlink in root (libz.so -> libz.so.1)
+      if (lib.unversioned) {
+        const symlinkPath = path.join(appOutDir, lib.unversioned);
+        try {
+          await fs.symlink(lib.versioned, symlinkPath);
+          logger(`Created symlink ${lib.unversioned} -> ${lib.versioned}`);
+        } catch (error) {
+          if (error.code !== 'EEXIST') {
+            logger(`Failed to create symlink: ${error.message}`);
+          }
         }
       }
-
-      // Create symlink in root for RPATH=$ORIGIN (libz.so -> usr/lib/libz.so.1)
-      // This allows Electron to find the library via its RPATH setting
-      const rootSymlink = path.join(appOutDir, lib.unversioned);
-      const relativeTarget = path.join('usr', 'lib', lib.versioned);
-      try {
-        await fs.symlink(relativeTarget, rootSymlink);
-        logger(`Created symlink ${lib.unversioned} -> ${relativeTarget} in root`);
-      } catch (error) {
-        if (error.code !== 'EEXIST') {
-          logger(`Failed to create root symlink: ${error.message}`);
-        }
-      }
-    }
-
-    if (!bundled) {
+    } else {
       logger(`Warning: Could not find ${lib.versioned} in any search path`);
     }
   }
