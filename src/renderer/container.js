@@ -25,6 +25,7 @@ import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
 import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
+import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 
 // Features: Devices
 import { DeviceService } from '@renderer/features/devices/services/device.service.js';
@@ -56,6 +57,10 @@ import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/u
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
 import { CaptureOrchestrator } from '@renderer/features/capture/services/capture.orchestrator.js';
 import { CaptureGpuRecordingService } from '@renderer/features/capture/services/capture-gpu-recording.service.js';
+import { CaptureSaveService } from '@renderer/features/capture/services/capture-save.service.js';
+
+// Features: Transcode
+import { TranscodeService } from '@renderer/features/transcode/services/transcode.service.js';
 
 // Features: Settings
 import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
@@ -329,6 +334,24 @@ function createRendererContainer() {
     ['gpuRendererService', 'eventBus', 'loggerFactory']
   );
 
+  // Transcode Service (video format conversion)
+  container.registerSingleton(
+    'transcodeService',
+    function (eventBus, loggerFactory) {
+      return new TranscodeService({ eventBus, loggerFactory });
+    },
+    ['eventBus', 'loggerFactory']
+  );
+
+  // Capture Save Service (handles saving recordings with optional transcoding)
+  container.registerSingleton(
+    'captureSaveService',
+    function (eventBus, settingsService, transcodeService, loggerFactory) {
+      return new CaptureSaveService({ eventBus, settingsService, transcodeService, loggerFactory });
+    },
+    ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory']
+  );
+
   // Settings Service (user preferences)
   container.registerSingleton(
     'settingsService',
@@ -452,8 +475,17 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'captureUiBridge',
+    function (eventBus, uiController, captureSaveService, loggerFactory) {
+      return new CaptureUIBridge({ eventBus, uiController, captureSaveService, loggerFactory });
+    },
+    ['eventBus', 'uiController', 'captureSaveService', 'loggerFactory']
+  );
+
+  // Transcode UI Bridge - shows transcode progress and manages record button state
+  container.registerSingleton(
+    'transcodeUiBridge',
     function (eventBus, uiController, loggerFactory) {
-      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
+      return new TranscodeUIBridge({ eventBus, uiController, loggerFactory });
     },
     ['eventBus', 'uiController', 'loggerFactory']
   );
@@ -502,9 +534,10 @@ function createRendererContainer() {
   // Uses appState instead of streamingOrchestrator for decoupling
   // Uses streamViewService for DOM element access instead of direct uiController
   // Requires gpuRendererService and canvasRenderer for screenshot source selection
+  // Requires transcodeService to check transcode status before allowing new recordings
   container.registerSingleton(
     'captureOrchestrator',
-    function (captureService, appState, streamViewService, gpuRendererService, gpuRecordingService, canvasRenderer, eventBus, loggerFactory) {
+    function (captureService, appState, streamViewService, gpuRendererService, gpuRecordingService, canvasRenderer, transcodeService, eventBus, loggerFactory) {
       return new CaptureOrchestrator({
         captureService,
         appState,
@@ -512,11 +545,12 @@ function createRendererContainer() {
         gpuRendererService,
         gpuRecordingService,
         canvasRenderer,
+        transcodeService,
         eventBus,
         loggerFactory
       });
     },
-    ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'eventBus', 'loggerFactory']
+    ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'eventBus', 'loggerFactory']
   );
 
   // ============================================

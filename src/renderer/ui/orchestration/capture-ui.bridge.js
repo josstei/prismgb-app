@@ -10,7 +10,7 @@ import { TIMING } from '@shared/config/constants.config.js';
 
 class CaptureUIBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
+    super(dependencies, ['eventBus', 'uiController', 'captureSaveService', 'loggerFactory'], 'CaptureUIBridge');
     this._subscriptions = [];
   }
 
@@ -63,10 +63,17 @@ class CaptureUIBridge extends BaseService {
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
   }
 
-  _handleRecordingReady(data) {
+  async _handleRecordingReady(data) {
     const { blob, filename } = data;
-    this.uiController.triggerDownload(blob, filename);
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
+
+    // Use captureSaveService to handle recording save (may transcode)
+    const result = await this.captureSaveService.saveRecording(blob, filename);
+
+    // Only show status message for direct saves (webm)
+    // Transcoded saves show their own status messages
+    if (result.success && !result.transcoded) {
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
+    }
   }
 
   _handleRecordingError(data) {

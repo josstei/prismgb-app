@@ -58,6 +58,18 @@ vi.mock('@renderer/container.js', () => ({
           dispose: vi.fn()
         };
       }
+      if (name === 'transcodeUiBridge') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
+      if (name === 'transcodeService') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
       if (name === 'loggerFactory') {
         return {
           create: vi.fn(() => ({

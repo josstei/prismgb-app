@@ -50,6 +50,7 @@ export const DOMSelectors = {
   SETTING_FULLSCREEN_ON_STARTUP: 'settingFullscreenOnStartup',
   SETTING_MINIMALIST_FULLSCREEN: 'settingMinimalistFullscreen',
   SETTING_AUTO_STREAM_ON_CONNECT: 'settingAutoStreamOnConnect',
+  SETTING_RECORDING_FORMAT: 'settingRecordingFormat',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 
@@ -78,6 +79,10 @@ export const DOMSelectors = {
   UPDATE_PROGRESS_TEXT: 'updateProgressText',
   UPDATE_ACTION_BTN: 'updateActionBtn',
   UPDATE_BADGE: 'updateBadge',
+
+  // Transcode progress (on record button)
+  TRANSCODE_RING: 'transcodeRing',
+  TRANSCODE_PERCENT_LABEL: 'transcodePercentLabel',
 
   // Notes panel
   NOTES_BTN: 'notesBtn',

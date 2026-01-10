@@ -11,6 +11,7 @@ describe('CaptureUIBridge', () => {
   let bridge;
   let mockEventBus;
   let mockUIController;
+  let mockCaptureSaveService;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
@@ -31,6 +32,12 @@ describe('CaptureUIBridge', () => {
     // Create mock UIController
     mockUIController = {
       triggerDownload: vi.fn()
+    };
+
+    // Create mock CaptureSaveService
+    mockCaptureSaveService = {
+      saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false }),
+      saveScreenshot: vi.fn().mockResolvedValue({ success: true })
     };
 
     // Create mock logger
@@ -58,6 +65,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
 
@@ -68,6 +76,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
 
@@ -78,6 +87,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
 
@@ -96,6 +106,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
 
@@ -108,6 +119,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -157,6 +169,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -207,6 +220,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -273,6 +287,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -324,6 +339,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -365,28 +381,32 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
 
-    it('should handle recording ready event', () => {
+    it('should call captureSaveService.saveRecording with blob and filename', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording-2025-01-15-10-30-45.webm';
 
-      subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
+      await subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
         blob: mockBlob,
         filename: filename
       });
 
-      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(mockBlob, filename);
     });
 
-    it('should publish status message after recording ready', () => {
+    it('should publish status message after direct save (non-transcoded)', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording-2025-01-15-10-30-45.webm';
 
-      subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
+      // Mock direct save (webm, no transcoding)
+      mockCaptureSaveService.saveRecording.mockResolvedValue({ success: true, transcoded: false });
+
+      await subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
         blob: mockBlob,
         filename: filename
       });
@@ -397,19 +417,22 @@ describe('CaptureUIBridge', () => {
       );
     });
 
-    it('should call triggerDownload before publishing status message', () => {
+    it('should not publish status message when transcoding (handled by captureSaveService)', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording.webm';
 
-      subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
+      // Mock transcoded save - captureSaveService handles status messages
+      mockCaptureSaveService.saveRecording.mockResolvedValue({ success: true, transcoded: true });
+
+      await subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
         blob: mockBlob,
         filename: filename
       });
 
-      const triggerDownloadCallIndex = mockUIController.triggerDownload.mock.invocationCallOrder[0];
-      const publishCallIndex = mockEventBus.publish.mock.invocationCallOrder[0];
-
-      expect(triggerDownloadCallIndex).toBeLessThan(publishCallIndex);
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith(
+        EventChannels.UI.STATUS_MESSAGE,
+        { message: 'Recording saved!' }
+      );
     });
   });
 
@@ -418,6 +441,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -515,6 +539,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -559,6 +584,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
@@ -580,7 +606,7 @@ describe('CaptureUIBridge', () => {
       );
     });
 
-    it('should handle complete recording workflow', () => {
+    it('should handle complete recording workflow', async () => {
       const mockBlob = new Blob(['video data'], { type: 'video/webm' });
       const filename = 'test-recording.webm';
 
@@ -602,12 +628,12 @@ describe('CaptureUIBridge', () => {
 
       mockEventBus.publish.mockClear();
 
-      // Recording ready
-      subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
+      // Recording ready - uses captureSaveService
+      await subscribedHandlers[EventChannels.CAPTURE.RECORDING_READY]({
         blob: mockBlob,
         filename: filename
       });
-      expect(mockUIController.triggerDownload).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(mockBlob, filename);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.STATUS_MESSAGE,
         { message: 'Recording saved!' }
@@ -652,6 +678,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        captureSaveService: mockCaptureSaveService,
         loggerFactory: mockLoggerFactory
       });
     });

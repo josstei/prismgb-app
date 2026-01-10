@@ -30,7 +30,11 @@ const listenerRegistry = {
   updateNotAvailable: new Set(),
   updateProgress: new Set(),
   updateDownloaded: new Set(),
-  updateError: new Set()
+  updateError: new Set(),
+  transcodeProgress: new Set(),
+  transcodeCompleted: new Set(),
+  transcodeError: new Set(),
+  transcodeCancelled: new Set()
 };
 
 /**
@@ -73,6 +77,44 @@ function isValidProgress(progress) {
 
 function isValidError(error) {
   if (!error || typeof error !== 'object') return false;
+  return true;
+}
+
+/**
+ * Validate transcode progress object
+ * @param {*} progress - Progress object to validate
+ * @returns {boolean} True if valid progress object
+ */
+function isValidTranscodeProgress(progress) {
+  if (!progress || typeof progress !== 'object') return false;
+  if (progress.percent !== undefined && typeof progress.percent !== 'number') return false;
+  if (progress.fps !== undefined && typeof progress.fps !== 'number') return false;
+  if (progress.time !== undefined && typeof progress.time !== 'string') return false;
+  return true;
+}
+
+/**
+ * Validate transcode result object
+ * @param {*} result - Result object to validate
+ * @returns {boolean} True if valid result object
+ */
+function isValidTranscodeResult(result) {
+  if (!result || typeof result !== 'object') return false;
+  return true;
+}
+
+/**
+ * Validate transcode start parameters
+ * @param {*} buffer - ArrayBuffer to validate
+ * @param {*} format - Format string to validate
+ * @returns {boolean} True if valid parameters
+ */
+function isValidTranscodeParams(buffer, format) {
+  if (!(buffer instanceof ArrayBuffer)) return false;
+  if (typeof format !== 'string' || format.length === 0) return false;
+  // Must match formats in transcode.config.js
+  const validFormats = ['mp4', 'webm', 'mov'];
+  if (!validFormats.includes(format.toLowerCase())) return false;
   return true;
 }
 
@@ -401,6 +443,143 @@ const metricsAPI = {
 };
 
 /**
+ * Transcode API
+ * Handles video transcoding operations via FFmpeg
+ */
+const transcodeAPI = {
+  start: (arrayBuffer, format) => {
+    if (!isValidTranscodeParams(arrayBuffer, format)) {
+      console.warn('transcodeAPI.start: Invalid parameters provided');
+      return Promise.resolve({ success: false, error: 'Invalid parameters' });
+    }
+    return ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.START, { inputBuffer: arrayBuffer, format });
+  },
+
+  cancel: (jobId) => {
+    if (typeof jobId !== 'string' || jobId.length === 0) {
+      console.warn('transcodeAPI.cancel: Invalid jobId provided');
+      return Promise.resolve({ success: false, error: 'Invalid jobId' });
+    }
+    return ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.CANCEL, { jobId });
+  },
+
+  getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.GET_STATUS),
+
+  onProgress: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('transcodeAPI.onProgress: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.transcodeProgress.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('transcodeAPI.onProgress: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, progress) => {
+      if (!isValidTranscodeProgress(progress)) {
+        console.warn('transcodeAPI.onProgress: Invalid progress received');
+        return;
+      }
+      callback(progress);
+    };
+    listenerRegistry.transcodeProgress.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.TRANSCODE.PROGRESS, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TRANSCODE.PROGRESS, listener);
+      listenerRegistry.transcodeProgress.delete(listener);
+    };
+  },
+
+  onCompleted: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('transcodeAPI.onCompleted: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.transcodeCompleted.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('transcodeAPI.onCompleted: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, result) => {
+      if (!isValidTranscodeResult(result)) {
+        console.warn('transcodeAPI.onCompleted: Invalid result received');
+        return;
+      }
+      callback(result);
+    };
+    listenerRegistry.transcodeCompleted.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.TRANSCODE.COMPLETED, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TRANSCODE.COMPLETED, listener);
+      listenerRegistry.transcodeCompleted.delete(listener);
+    };
+  },
+
+  onError: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('transcodeAPI.onError: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.transcodeError.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('transcodeAPI.onError: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = (event, error) => {
+      if (!isValidError(error)) {
+        console.warn('transcodeAPI.onError: Invalid error received');
+        return;
+      }
+      callback(error);
+    };
+    listenerRegistry.transcodeError.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.TRANSCODE.ERROR, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TRANSCODE.ERROR, listener);
+      listenerRegistry.transcodeError.delete(listener);
+    };
+  },
+
+  onCancelled: (callback) => {
+    if (!isValidCallback(callback)) {
+      console.warn('transcodeAPI.onCancelled: Invalid callback provided');
+      return () => {};
+    }
+
+    if (listenerRegistry.transcodeCancelled.size >= MAX_LISTENERS_PER_CHANNEL) {
+      console.warn('transcodeAPI.onCancelled: Maximum listener limit reached');
+      return () => {};
+    }
+
+    const listener = () => callback();
+    listenerRegistry.transcodeCancelled.add(listener);
+    ipcRenderer.on(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
+      listenerRegistry.transcodeCancelled.delete(listener);
+    };
+  },
+
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.TRANSCODE.PROGRESS);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.TRANSCODE.COMPLETED);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.TRANSCODE.ERROR);
+    ipcRenderer.removeAllListeners(IPC_CHANNELS.TRANSCODE.CANCELLED);
+    listenerRegistry.transcodeProgress.clear();
+    listenerRegistry.transcodeCompleted.clear();
+    listenerRegistry.transcodeError.clear();
+    listenerRegistry.transcodeCancelled.clear();
+  }
+};
+
+/**
  * Expose APIs to renderer process
  */
 contextBridge.exposeInMainWorld('deviceAPI', {
@@ -438,4 +617,15 @@ contextBridge.exposeInMainWorld('updateAPI', {
 
 contextBridge.exposeInMainWorld('metricsAPI', {
   getProcessMetrics: metricsAPI.getProcessMetrics
+});
+
+contextBridge.exposeInMainWorld('transcodeAPI', {
+  start: transcodeAPI.start,
+  cancel: transcodeAPI.cancel,
+  getStatus: transcodeAPI.getStatus,
+  onProgress: transcodeAPI.onProgress,
+  onCompleted: transcodeAPI.onCompleted,
+  onError: transcodeAPI.onError,
+  onCancelled: transcodeAPI.onCancelled,
+  removeListeners: transcodeAPI.removeListeners
 });
