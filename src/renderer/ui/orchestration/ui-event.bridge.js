@@ -60,6 +60,8 @@ export class UIEventBridge extends BaseService {
 
       // Recording state
       [EventChannels.UI.RECORDING_STATE]: (data) => this._handleRecordingState(data),
+      [EventChannels.UI.RECORD_BUTTON_DISABLED]: () => this._handleRecordButtonDisabled(),
+      [EventChannels.UI.RECORD_BUTTON_ENABLED]: () => this._handleRecordButtonEnabled(),
 
       // Settings events (translated to UI updates)
       [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: (data) => this._handleCinematicMode(data),
@@ -134,6 +136,14 @@ export class UIEventBridge extends BaseService {
   _handleRecordingState(data) {
     const { active } = data;
     this.uiController.updateRecordingButtonState(active);
+  }
+
+  _handleRecordButtonDisabled() {
+    this.uiController.setRecordButtonDisabled(true);
+  }
+
+  _handleRecordButtonEnabled() {
+    this.uiController.setRecordButtonDisabled(false);
   }
 
   _handleCinematicMode(data) {

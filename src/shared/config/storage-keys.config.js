@@ -16,7 +16,8 @@ export const SettingsStorageKeys = {
   PERFORMANCE_MODE: 'performanceMode',
   FULLSCREEN_ON_STARTUP: 'fullscreenOnStartup',
   MINIMALIST_FULLSCREEN: 'minimalistFullscreen',
-  AUTO_STREAM_ON_CONNECT: 'autoStreamOnConnect'
+  AUTO_STREAM_ON_CONNECT: 'autoStreamOnConnect',
+  RECORDING_FORMAT: 'recordingFormat'
 };
 
 /**
@@ -54,5 +55,6 @@ export const PROTECTED_STORAGE_KEYS = [
   SettingsStorageKeys.PERFORMANCE_MODE,
   SettingsStorageKeys.FULLSCREEN_ON_STARTUP,
   SettingsStorageKeys.MINIMALIST_FULLSCREEN,
-  SettingsStorageKeys.AUTO_STREAM_ON_CONNECT
+  SettingsStorageKeys.AUTO_STREAM_ON_CONNECT,
+  SettingsStorageKeys.RECORDING_FORMAT
 ];

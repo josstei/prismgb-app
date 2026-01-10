@@ -37,6 +37,7 @@ class SettingsMenuComponent {
     this.autoStreamOnConnectCheckbox = elements.settingAutoStreamOnConnect;
     this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
+    this.recordingFormatSelect = elements.settingRecordingFormat;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
     this.footer = elements.footer;
@@ -122,6 +123,14 @@ class SettingsMenuComponent {
       });
     }
 
+    // Recording format select
+    if (this.recordingFormatSelect) {
+      this._domListeners.add(this.recordingFormatSelect, 'change', () => {
+        const format = this.recordingFormatSelect.value;
+        this.settingsService.setRecordingFormat(format);
+      });
+    }
+
     // Disclaimer expand/collapse
     if (this.disclaimerBtn && this.disclaimerContent) {
       this._domListeners.add(this.disclaimerBtn, 'click', () => {
@@ -143,6 +152,7 @@ class SettingsMenuComponent {
     const autoStreamOnConnectEnabled = this.settingsService.getAutoStreamOnConnect?.() ?? false;
     const minimalistFullscreenEnabled = this.settingsService.getMinimalistFullscreen?.() ?? false;
     const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
+    const recordingFormat = this.settingsService.getRecordingFormat?.() ?? 'webm';
 
     if (this.statusStripCheckbox) {
       this.statusStripCheckbox.checked = statusStripVisible;
@@ -162,6 +172,10 @@ class SettingsMenuComponent {
 
     if (this.animationSaverCheckbox) {
       this.animationSaverCheckbox.checked = performanceModeEnabled;
+    }
+
+    if (this.recordingFormatSelect) {
+      this.recordingFormatSelect.value = recordingFormat;
     }
 
     this._applyStatusStripVisibility(statusStripVisible);

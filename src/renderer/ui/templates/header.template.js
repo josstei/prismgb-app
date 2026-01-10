@@ -76,6 +76,19 @@ export default function createHeaderTemplate() {
                   <input type="checkbox" id="settingAnimationSaver" aria-describedby="animationSaverHint">
                   <span class="toggle-slider"></span>
                 </label>
+                <div class="settings-item settings-item-with-hint">
+                  <span class="settings-item-text">
+                    <span class="settings-item-title">Recording format</span>
+                    <span class="settings-item-hint" id="recordingFormatHint">
+                      Output format for video recordings.
+                    </span>
+                  </span>
+                  <select id="settingRecordingFormat" class="settings-select" aria-describedby="recordingFormatHint">
+                    <option value="webm">WebM</option>
+                    <option value="mp4">MP4</option>
+                    <option value="mov">MOV</option>
+                  </select>
+                </div>
               </section>
 
               <div class="settings-divider"></div>
