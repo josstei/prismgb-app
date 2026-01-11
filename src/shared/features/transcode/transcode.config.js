@@ -77,10 +77,7 @@ export const TRANSCODE_CONFIG = Object.freeze({
   // Temp file prefix for transcode sessions
   tempPrefix: 'prismgb-transcode-',
 
-  // Output file prefix
-  outputPrefix: 'chromatic-recording-',
-
-  // Progress update interval (ms)
+  // Progress update interval (ms) - used to throttle IPC emissions
   progressIntervalMs: 100,
 
   // Timeout for ffprobe duration detection (ms)

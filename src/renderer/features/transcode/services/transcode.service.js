@@ -59,9 +59,10 @@ class TranscodeService extends BaseService {
    * Start transcoding a blob to a different format
    * @param {Blob} blob - The source video blob
    * @param {string} format - Target format (e.g., 'mp4', 'mov')
+   * @param {string} [outputBaseName] - Base name for output file (without extension)
    * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
    */
-  async transcode(blob, format) {
+  async transcode(blob, format, outputBaseName) {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -79,7 +80,7 @@ class TranscodeService extends BaseService {
       const arrayBuffer = await blob.arrayBuffer();
 
       // Call the main process transcode API
-      const result = await window.transcodeAPI.start(arrayBuffer, format);
+      const result = await window.transcodeAPI.start(arrayBuffer, format, outputBaseName);
 
       if (result.success && result.jobId) {
         // Track state locally since main process doesn't emit STARTED event

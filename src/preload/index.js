@@ -88,8 +88,8 @@ function isValidError(error) {
 function isValidTranscodeProgress(progress) {
   if (!progress || typeof progress !== 'object') return false;
   if (progress.percent !== undefined && typeof progress.percent !== 'number') return false;
-  if (progress.fps !== undefined && typeof progress.fps !== 'number') return false;
-  if (progress.time !== undefined && typeof progress.time !== 'string') return false;
+  if (progress.timeUs !== undefined && typeof progress.timeUs !== 'number') return false;
+  if (progress.elapsedMs !== undefined && typeof progress.elapsedMs !== 'number') return false;
   return true;
 }
 
@@ -447,12 +447,16 @@ const metricsAPI = {
  * Handles video transcoding operations via FFmpeg
  */
 const transcodeAPI = {
-  start: (arrayBuffer, format) => {
+  start: (arrayBuffer, format, outputFilename) => {
     if (!isValidTranscodeParams(arrayBuffer, format)) {
       console.warn('transcodeAPI.start: Invalid parameters provided');
       return Promise.resolve({ success: false, error: 'Invalid parameters' });
     }
-    return ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.START, { inputBuffer: arrayBuffer, format });
+    return ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.START, {
+      inputBuffer: arrayBuffer,
+      format,
+      outputFilename: typeof outputFilename === 'string' ? outputFilename : undefined
+    });
   },
 
   cancel: (jobId) => {
@@ -557,7 +561,7 @@ const transcodeAPI = {
       return () => {};
     }
 
-    const listener = () => callback();
+    const listener = (event, data) => callback(data);
     listenerRegistry.transcodeCancelled.add(listener);
     ipcRenderer.on(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
 

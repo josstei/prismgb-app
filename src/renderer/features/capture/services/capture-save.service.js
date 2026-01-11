@@ -37,7 +37,9 @@ class CaptureSaveService extends BaseService {
     }
 
     // Transcoding needed - the main process will save the file
-    return this._transcodeAndSave(blob, format);
+    // Extract base name (without extension) for consistent naming
+    const baseName = filename.replace(/\.[^.]+$/, '');
+    return this._transcodeAndSave(blob, format, baseName);
   }
 
   /**
@@ -83,16 +85,17 @@ class CaptureSaveService extends BaseService {
    * Transcode and save via main process
    * @param {Blob} blob - The source blob
    * @param {string} format - Target format (mp4, mov)
+   * @param {string} outputBaseName - Base name for output file (without extension)
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    * @private
    */
-  async _transcodeAndSave(blob, format) {
+  async _transcodeAndSave(blob, format, outputBaseName) {
     try {
       this.logger.info(`Starting transcode to ${format}`);
 
       // Start transcode - main process handles file saving
       // UI status is handled by TranscodeUIBridge listening to TRANSCODE events
-      const result = await this.transcodeService.transcode(blob, format);
+      const result = await this.transcodeService.transcode(blob, format, outputBaseName);
 
       if (!result.success) {
         this.logger.error('Transcode failed', result.error);

@@ -8,6 +8,7 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
 import crypto from 'node:crypto';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 
@@ -54,15 +55,15 @@ export function createTempSession() {
 }
 
 /**
- * Write a buffer to a temp file within a session
+ * Write a buffer to a temp file within a session (async to avoid blocking event loop)
  * @param {string} sessionDir - Session directory path
  * @param {string} filename - Name of the file to write
  * @param {Buffer} buffer - Data to write
- * @returns {string} Path to the written file
+ * @returns {Promise<string>} Path to the written file
  */
-export function writeTempFile(sessionDir, filename, buffer) {
+export async function writeTempFile(sessionDir, filename, buffer) {
   const filePath = path.join(sessionDir, filename);
-  fs.writeFileSync(filePath, buffer);
+  await fsPromises.writeFile(filePath, buffer);
   return filePath;
 }
 

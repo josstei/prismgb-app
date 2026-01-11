@@ -89,6 +89,7 @@ export class TranscodeProcess extends EventEmitter {
     this._killed = false;
     this._completed = false;
     this._startTime = null;
+    this._lastProgressEmit = 0;
   }
 
   /**
@@ -176,7 +177,15 @@ export class TranscodeProcess extends EventEmitter {
     if (line.startsWith('out_time_us=')) {
       const timeUs = parseInt(line.substring(12), 10);
       if (!isNaN(timeUs)) {
-        const elapsedMs = Date.now() - this._startTime;
+        const now = Date.now();
+
+        // Throttle progress emissions to avoid IPC spam
+        if (now - this._lastProgressEmit < TRANSCODE_CONFIG.progressIntervalMs) {
+          return;
+        }
+        this._lastProgressEmit = now;
+
+        const elapsedMs = now - this._startTime;
 
         // Calculate percentage if duration is known, otherwise -1
         const percent = this._durationUs > 0

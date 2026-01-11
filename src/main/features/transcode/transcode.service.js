@@ -81,7 +81,7 @@ class TranscodeService extends BaseService {
    * @param {Object} options - Transcode options
    * @param {Buffer} options.inputBuffer - Input video buffer (WebM)
    * @param {string} options.format - Output format (webm, mp4, mov)
-   * @param {string} [options.outputFilename] - Custom output filename (without extension)
+   * @param {string} options.outputFilename - Output filename (without extension)
    * @returns {Promise<{ success: boolean, jobId?: string, filePath?: string, error?: string }>}
    */
   async transcode({ inputBuffer, format, outputFilename }) {
@@ -95,14 +95,19 @@ class TranscodeService extends BaseService {
       return { success: false, error: `Unsupported format: ${format}` };
     }
 
+    // Validate outputFilename
+    if (!outputFilename || typeof outputFilename !== 'string') {
+      return { success: false, error: 'Output filename is required' };
+    }
+
     // Create temp session
     const { sessionId, sessionDir } = createTempSession();
     this.logger.info('Created transcode session', { sessionId, format });
 
     try {
-      // Write input buffer to temp file
+      // Write input buffer to temp file (async to avoid blocking event loop)
       const inputFilename = 'input.webm';
-      const inputPath = writeTempFile(sessionDir, inputFilename, inputBuffer);
+      const inputPath = await writeTempFile(sessionDir, inputFilename, inputBuffer);
 
       // Get video duration for progress tracking
       let durationUs;
@@ -116,9 +121,7 @@ class TranscodeService extends BaseService {
 
       // Determine output path (save directly to Downloads)
       const downloadsDir = app.getPath('downloads');
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -5);
-      const baseName = outputFilename || `${TRANSCODE_CONFIG.outputPrefix}${timestamp}`;
-      const outputPath = path.join(downloadsDir, `${baseName}.${formatConfig.extension}`);
+      const outputPath = path.join(downloadsDir, `${outputFilename}.${formatConfig.extension}`);
 
       // Create job record
       // Note: outputPath is set early so cleanup can delete partial files on cancel/error
@@ -287,9 +290,14 @@ class TranscodeService extends BaseService {
       }
     }
 
-    // TODO: Completed jobs are retained in _jobs map indefinitely for status queries.
-    // Consider adding a TTL-based cleanup (e.g., remove after 5 minutes) or
-    // clearing jobs after the renderer acknowledges completion.
+    // Schedule job record cleanup after TTL (5 minutes)
+    // This allows status queries for recently completed jobs while preventing memory leaks
+    setTimeout(() => {
+      if (this._jobs.has(jobId)) {
+        this._jobs.delete(jobId);
+        this.logger.debug('Removed stale job record', { jobId });
+      }
+    }, 5 * 60 * 1000);
   }
 
   /**

@@ -23,7 +23,7 @@ class TranscodeToastComponent {
    * Show the progress indicator
    * @param {string} format - Format being converted to (e.g., 'MP4', 'MOV') - unused but kept for API compatibility
    */
-  show(format = 'MP4') {
+  show(_format = 'MP4') {
     if (!this.elements.recordBtn) return;
 
     // Clear any pending hide timeout
@@ -35,6 +35,11 @@ class TranscodeToastComponent {
     // Show transcoding state with spinning animation
     this.elements.recordBtn.classList.remove('transcode-success', 'transcode-error');
     this.elements.recordBtn.classList.add('transcoding');
+
+    // Reset progress ring to 0 (prevents showing stale 100% from previous transcode)
+    if (this.elements.transcodeRing) {
+      this.elements.transcodeRing.style.setProperty('--progress', 0);
+    }
 
     // Clear any previous percentage
     if (this.elements.transcodePercentLabel) {
@@ -92,7 +97,7 @@ class TranscodeToastComponent {
    * Show error state and hide after delay
    * @param {string} message - Error message (unused, kept for API compatibility)
    */
-  showError(message = 'Failed') {
+  showError(_message = 'Failed') {
     if (!this.elements.recordBtn) return;
 
     // Show X mark
