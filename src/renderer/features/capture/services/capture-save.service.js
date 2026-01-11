@@ -32,7 +32,7 @@ class CaptureSaveService extends BaseService {
     this.logger.info(`Saving recording with format preference: ${format}`);
 
     // If format is webm or transcoding is not available, use direct download
-    if (format === 'webm' || !window.transcodeAPI) {
+    if (format === 'webm' || !this.transcodeService.isAvailable()) {
       return this._directSave(blob, filename);
     }
 

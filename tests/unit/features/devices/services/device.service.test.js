@@ -402,10 +402,10 @@ describe('DeviceService', () => {
       expect(result).toBeNull();
     });
 
-    it('should cache supported device after successful start', () => {
+    it('should register supported device after successful start', () => {
       const device = { deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' };
 
-      const result = service.cacheSupportedDevice(device);
+      const result = service.registerSupportedDevice(device);
 
       expect(result).toBe(true);
       expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');

@@ -170,7 +170,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'viewportService',
     function(loggerFactory) {
-      return new StreamingViewportService(loggerFactory.create('StreamingViewportService'));
+      return new StreamingViewportService({ loggerFactory });
     },
     ['loggerFactory']
   );
@@ -201,7 +201,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'streamHealthService',
     function(loggerFactory) {
-      return new StreamingHealthService(loggerFactory.create('StreamingHealthService'));
+      return new StreamingHealthService({ loggerFactory });
     },
     ['loggerFactory']
   );

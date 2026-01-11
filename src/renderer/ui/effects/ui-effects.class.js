@@ -42,6 +42,14 @@ export class UIEffects {
     this._toolbarHovering = false;
     this._boundHandleToolbarMouseEnter = this._handleToolbarMouseEnter.bind(this);
     this._boundHandleToolbarMouseLeave = this._handleToolbarMouseLeave.bind(this);
+
+    // RAF throttling state for mousemove handlers
+    this._cursorMouseMoveFramePending = false;
+    this._controlsMouseMoveFramePending = false;
+
+    // Cached toolbar panel state (avoid repeated DOM queries)
+    this._toolbarPanelOpenCache = false;
+    this._toolbarPanelCacheDirty = true;
   }
 
   /**
@@ -142,14 +150,21 @@ export class UIEffects {
 
   /**
    * Handle mouse move - show cursor and reset unified hide timer
+   * Uses RAF throttling to avoid excessive handler execution
    * @private
    */
   _handleMouseMove() {
-    this._showCursor();
-    if (this._toolbarHideEnabled) {
-      this._showToolbar();
-    }
-    this._startUnifiedHideTimer();
+    if (this._cursorMouseMoveFramePending) return;
+
+    this._cursorMouseMoveFramePending = true;
+    requestAnimationFrame(() => {
+      this._cursorMouseMoveFramePending = false;
+      this._showCursor();
+      if (this._toolbarHideEnabled) {
+        this._showToolbar();
+      }
+      this._startUnifiedHideTimer();
+    });
   }
 
   /**
@@ -225,6 +240,7 @@ export class UIEffects {
 
     this._toolbarHideEnabled = true;
     this._toolbarHovering = false;
+    this._toolbarPanelCacheDirty = true; // Invalidate cache for new element
 
     this._toolbarElement.addEventListener('mouseenter', this._boundHandleToolbarMouseEnter);
     this._toolbarElement.addEventListener('mouseleave', this._boundHandleToolbarMouseLeave);
@@ -253,6 +269,8 @@ export class UIEffects {
 
     this._toolbarElement = null;
     this._toolbarHovering = false;
+    this._toolbarPanelCacheDirty = true; // Invalidate cache when element cleared
+    this._toolbarPanelOpenCache = false;
   }
 
   /**
@@ -304,19 +322,33 @@ export class UIEffects {
 
   /**
    * Check if any toolbar panel is currently open
+   * Uses cached value when available to avoid repeated DOM queries
    * @returns {boolean} True if shader panel or notes panel is open
    * @private
    */
   _isToolbarPanelOpen() {
     if (!this._toolbarElement) return false;
 
+    // Return cached value if still valid
+    if (!this._toolbarPanelCacheDirty) {
+      return this._toolbarPanelOpenCache;
+    }
+
+    // Query DOM and cache result
     const shaderPanel = this._toolbarElement.querySelector('.shader-panel.visible');
-    if (shaderPanel) return true;
-
     const openButton = this._toolbarElement.querySelector('.panel-open');
-    if (openButton) return true;
+    this._toolbarPanelOpenCache = !!(shaderPanel || openButton);
+    this._toolbarPanelCacheDirty = false;
 
-    return false;
+    return this._toolbarPanelOpenCache;
+  }
+
+  /**
+   * Invalidate the toolbar panel open state cache
+   * Call this when panel visibility changes
+   */
+  invalidateToolbarPanelCache() {
+    this._toolbarPanelCacheDirty = true;
   }
 
   /**
@@ -385,15 +417,22 @@ export class UIEffects {
 
   /**
    * Handle mouse move - show controls, toolbar, and cursor, reset hide timer
+   * Uses RAF throttling to avoid excessive handler execution
    * @private
    */
   _handleControlsMouseMove() {
-    this._showControls();
-    this._showCursor();
-    if (this._toolbarHideEnabled) {
-      this._showToolbar();
-    }
-    this._startControlsHideTimer();
+    if (this._controlsMouseMoveFramePending) return;
+
+    this._controlsMouseMoveFramePending = true;
+    requestAnimationFrame(() => {
+      this._controlsMouseMoveFramePending = false;
+      this._showControls();
+      this._showCursor();
+      if (this._toolbarHideEnabled) {
+        this._showToolbar();
+      }
+      this._startControlsHideTimer();
+    });
   }
 
   /**

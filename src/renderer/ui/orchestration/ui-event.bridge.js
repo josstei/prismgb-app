@@ -19,7 +19,11 @@ export class UIEventBridge extends BaseService {
     // Track subscriptions for cleanup
     this._subscriptions = [];
 
-    // Minimalist fullscreen state tracking
+    // UI coordination state for minimalist fullscreen
+    // These track upstream state changes to compute the combined visual effect.
+    // Note: This is UI coordination logic, not domain business logic.
+    // The bridge needs to know all three states to determine when to apply
+    // the minimalist visual treatment (requires: setting enabled + fullscreen + streaming).
     this._minimalistEnabled = false;
     this._isFullscreenActive = Boolean(document.fullscreenElement);
     this._isStreamingActive = Boolean(this.appState?.isStreaming);

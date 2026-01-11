@@ -60,8 +60,8 @@ class DeviceService extends BaseService {
     return this.deviceMediaService.discoverSupportedDevice();
   }
 
-  cacheSupportedDevice(device) {
-    return this.deviceMediaService.cacheSupportedDevice(device);
+  registerSupportedDevice(device) {
+    return this.deviceMediaService.registerSupportedDevice(device);
   }
 
   setupDeviceChangeListener() {

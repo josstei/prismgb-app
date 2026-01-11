@@ -1,3 +1,5 @@
+import { BaseService } from '@shared/base/service.base.js';
+
 /**
  * Stream Health Service
  *
@@ -7,9 +9,10 @@
  * Follows the same lightweight, focused, callback-based pattern as other render helpers.
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
-export class StreamingHealthService {
-  constructor(logger) {
-    this.logger = logger;
+export class StreamingHealthService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['loggerFactory'], 'StreamingHealthService');
+
     this._timeoutMs = 4000;
     this._isMonitoring = false;
     this._timeoutHandle = null;
@@ -190,5 +193,13 @@ export class StreamingHealthService {
    */
   cleanup() {
     this.stopMonitoring();
+  }
+
+  /**
+   * Dispose the service
+   */
+  dispose() {
+    this.cleanup();
+    this.logger.info('StreamingHealthService disposed');
   }
 }

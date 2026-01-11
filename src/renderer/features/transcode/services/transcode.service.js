@@ -125,6 +125,15 @@ class TranscodeService extends BaseService {
   }
 
   /**
+   * Check if transcoding capability is available
+   * Use this instead of directly checking window.transcodeAPI
+   * @returns {boolean}
+   */
+  isAvailable() {
+    return Boolean(window.transcodeAPI);
+  }
+
+  /**
    * Handle transcode progress event from IPC
    * @param {Object} data - Progress data (percent, timeRemaining, etc.)
    * @private

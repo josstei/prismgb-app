@@ -44,6 +44,9 @@ class TranscodeService extends BaseService {
     /** @type {Map<string, { sessionId: string, sessionDir: string }>} */
     this._sessions = new Map();
 
+    /** @type {Map<string, NodeJS.Timeout>} Track job cleanup timeouts */
+    this._cleanupTimeouts = new Map();
+
     this._initialized = false;
   }
 
@@ -292,12 +295,14 @@ class TranscodeService extends BaseService {
 
     // Schedule job record cleanup after TTL (5 minutes)
     // This allows status queries for recently completed jobs while preventing memory leaks
-    setTimeout(() => {
+    const timeoutHandle = setTimeout(() => {
+      this._cleanupTimeouts.delete(jobId);
       if (this._jobs.has(jobId)) {
         this._jobs.delete(jobId);
         this.logger.debug('Removed stale job record', { jobId });
       }
     }, 5 * 60 * 1000);
+    this._cleanupTimeouts.set(jobId, timeoutHandle);
   }
 
   /**
@@ -345,6 +350,12 @@ class TranscodeService extends BaseService {
         process.cancel();
       }
     }
+
+    // Clear all cleanup timeouts to prevent memory leaks
+    for (const timeoutHandle of this._cleanupTimeouts.values()) {
+      clearTimeout(timeoutHandle);
+    }
+    this._cleanupTimeouts.clear();
 
     // Clean up all temp sessions
     cleanupAllSessions();

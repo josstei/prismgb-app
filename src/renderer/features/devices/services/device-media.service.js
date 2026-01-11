@@ -171,13 +171,13 @@ class DeviceMediaService extends BaseService {
   }
 
   _cacheAndReturnDevice(device) {
-    if (!this.cacheSupportedDevice(device)) {
+    if (!this.registerSupportedDevice(device)) {
       return null;
     }
     return device;
   }
 
-  cacheSupportedDevice(device) {
+  registerSupportedDevice(device) {
     const deviceType = DeviceDetectionHelper.detectDeviceType(device);
     if (!deviceType || !device?.deviceId) {
       this.logger.warn('Could not cache device - unsupported or missing deviceId');
