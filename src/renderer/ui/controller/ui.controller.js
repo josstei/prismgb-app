@@ -78,6 +78,7 @@ class UIController {
       settingAnimationSaver: document.getElementById(DOMSelectors.SETTING_ANIMATION_SAVER),
       settingRenderPreset: document.getElementById(DOMSelectors.SETTING_RENDER_PRESET),
       settingRecordingFormat: document.getElementById(DOMSelectors.SETTING_RECORDING_FORMAT),
+      recordingFormatMenu: document.getElementById(DOMSelectors.RECORDING_FORMAT_MENU),
       disclaimerBtn: document.getElementById(DOMSelectors.DISCLAIMER_BTN),
       disclaimerContent: document.getElementById(DOMSelectors.DISCLAIMER_CONTENT),
       footer: document.querySelector('.footer'),

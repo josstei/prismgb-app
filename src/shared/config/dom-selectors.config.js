@@ -51,6 +51,7 @@ export const DOMSelectors = {
   SETTING_MINIMALIST_FULLSCREEN: 'settingMinimalistFullscreen',
   SETTING_AUTO_STREAM_ON_CONNECT: 'settingAutoStreamOnConnect',
   SETTING_RECORDING_FORMAT: 'settingRecordingFormat',
+  RECORDING_FORMAT_MENU: 'recordingFormatMenu',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 

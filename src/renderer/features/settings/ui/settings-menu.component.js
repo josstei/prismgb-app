@@ -37,7 +37,9 @@ class SettingsMenuComponent {
     this.autoStreamOnConnectCheckbox = elements.settingAutoStreamOnConnect;
     this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
-    this.recordingFormatSelect = elements.settingRecordingFormat;
+    this.recordingFormatTrigger = elements.settingRecordingFormat;
+    this.recordingFormatMenu = elements.recordingFormatMenu;
+    this.isRecordingFormatOpen = false;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
     this.footer = elements.footer;
@@ -123,11 +125,17 @@ class SettingsMenuComponent {
       });
     }
 
-    // Recording format select
-    if (this.recordingFormatSelect) {
-      this._domListeners.add(this.recordingFormatSelect, 'change', () => {
-        const format = this.recordingFormatSelect.value;
-        this.settingsService.setRecordingFormat(format);
+    // Recording format dropdown
+    if (this.recordingFormatTrigger && this.recordingFormatMenu) {
+      this._domListeners.add(this.recordingFormatTrigger, 'click', (e) => {
+        e.stopPropagation();
+        this._toggleRecordingFormatMenu();
+      });
+
+      this._domListeners.add(this.recordingFormatMenu, 'click', (e) => {
+        const option = e.target.closest('.settings-select-option');
+        if (!option) return;
+        this._selectRecordingFormat(option.dataset.value, option.textContent);
       });
     }
 
@@ -174,8 +182,18 @@ class SettingsMenuComponent {
       this.animationSaverCheckbox.checked = performanceModeEnabled;
     }
 
-    if (this.recordingFormatSelect) {
-      this.recordingFormatSelect.value = recordingFormat;
+    if (this.recordingFormatTrigger && this.recordingFormatMenu) {
+      // Update label and active state
+      const label = this.recordingFormatTrigger.querySelector('.settings-select-label');
+      const options = this.recordingFormatMenu.querySelectorAll('.settings-select-option');
+      options.forEach(option => {
+        const isActive = option.dataset.value === recordingFormat;
+        option.classList.toggle('active', isActive);
+        option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        if (isActive && label) {
+          label.textContent = option.textContent;
+        }
+      });
     }
 
     this._applyStatusStripVisibility(statusStripVisible);
@@ -230,6 +248,9 @@ class SettingsMenuComponent {
     this.toggleButton?.setAttribute('aria-expanded', 'false');
     this.isVisible = false;
 
+    // Close dropdowns when menu closes
+    this._hideRecordingFormatMenu();
+
     // Collapse disclaimer when menu closes
     if (this.disclaimerExpanded) {
       this._collapseDisclaimer();
@@ -239,12 +260,79 @@ class SettingsMenuComponent {
   }
 
   /**
+   * Toggle recording format dropdown
+   * @private
+   */
+  _toggleRecordingFormatMenu() {
+    if (this.isRecordingFormatOpen) {
+      this._hideRecordingFormatMenu();
+    } else {
+      this._showRecordingFormatMenu();
+    }
+  }
+
+  /**
+   * Show recording format dropdown
+   * @private
+   */
+  _showRecordingFormatMenu() {
+    if (!this.recordingFormatMenu) return;
+    this.recordingFormatMenu.classList.add(CSSClasses.VISIBLE);
+    this.recordingFormatTrigger?.setAttribute('aria-expanded', 'true');
+    this.isRecordingFormatOpen = true;
+  }
+
+  /**
+   * Hide recording format dropdown
+   * @private
+   */
+  _hideRecordingFormatMenu() {
+    if (!this.recordingFormatMenu) return;
+    this.recordingFormatMenu.classList.remove(CSSClasses.VISIBLE);
+    this.recordingFormatTrigger?.setAttribute('aria-expanded', 'false');
+    this.isRecordingFormatOpen = false;
+  }
+
+  /**
+   * Select a recording format option
+   * @param {string} value - Format value
+   * @param {string} label - Display label
+   * @private
+   */
+  _selectRecordingFormat(value, label) {
+    // Update label
+    const labelEl = this.recordingFormatTrigger?.querySelector('.settings-select-label');
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+
+    // Update active state
+    const options = this.recordingFormatMenu?.querySelectorAll('.settings-select-option');
+    options?.forEach(option => {
+      const isActive = option.dataset.value === value;
+      option.classList.toggle('active', isActive);
+      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    // Save setting
+    this.settingsService.setRecordingFormat(value);
+
+    // Close dropdown
+    this._hideRecordingFormatMenu();
+  }
+
+  /**
    * Setup click-outside-to-close behavior
    * @private
    */
   _setupClickOutside() {
     this._domListeners.add(document, 'click', (e) => {
       if (!this.isVisible) return;
+
+      // Close recording format dropdown when clicking outside it
+      if (this.isRecordingFormatOpen && !e.target.closest('.settings-select-wrapper')) {
+        this._hideRecordingFormatMenu();
+      }
 
       // Don't close if clicking inside the menu or on the toggle button
       if (e.target.closest('.settings-menu-container') || e.target.closest('#settingsBtn')) {

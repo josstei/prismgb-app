@@ -83,11 +83,16 @@ export default function createHeaderTemplate() {
                       Output format for video recordings.
                     </span>
                   </span>
-                  <select id="settingRecordingFormat" class="settings-select" aria-describedby="recordingFormatHint">
-                    <option value="webm">WebM</option>
-                    <option value="mp4">MP4</option>
-                    <option value="mov">MOV</option>
-                  </select>
+                  <div class="settings-select-wrapper" aria-describedby="recordingFormatHint">
+                    <button type="button" class="settings-select-trigger" id="settingRecordingFormat" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="settings-select-label">WebM</span>
+                    </button>
+                    <div class="settings-select-menu" id="recordingFormatMenu" role="listbox">
+                      <button type="button" class="settings-select-option active" data-value="webm" role="option" aria-selected="true">WebM</button>
+                      <button type="button" class="settings-select-option" data-value="mp4" role="option" aria-selected="false">MP4</button>
+                      <button type="button" class="settings-select-option" data-value="mov" role="option" aria-selected="false">MOV</button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
