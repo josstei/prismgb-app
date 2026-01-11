@@ -97,8 +97,8 @@ describe('DeviceService', () => {
       expect(service.deviceMediaService.videoDevices).toEqual([]);
     });
 
-    it('should initialize with isConnected false', () => {
-      expect(service.isConnected).toBe(false);
+    it('should initialize with isConnected null', () => {
+      expect(service.isConnected).toBeNull();
     });
 
     it('should initialize with hasMediaPermission false', () => {
@@ -402,10 +402,10 @@ describe('DeviceService', () => {
       expect(result).toBeNull();
     });
 
-    it('should cache supported device after successful start', () => {
+    it('should register supported device after successful start', () => {
       const device = { deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' };
 
-      const result = service.cacheSupportedDevice(device);
+      const result = service.registerSupportedDevice(device);
 
       expect(result).toBe(true);
       expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');

@@ -11,7 +11,6 @@ on:
         options:
           - all
           - linux-x64
-          - linux-arm64
           - macos-x64
           - macos-arm64
           - windows
@@ -34,13 +33,10 @@ jobs:
 
           case "$PLATFORM" in
             "all")
-              echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64","name":"Linux x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64","name":"Linux ARM64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64","name":"macOS x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64","name":"macOS ARM64"},{"os":"windows-latest","build_script":"build:win","arch":"x64","name":"Windows x64"}]' >> $GITHUB_OUTPUT
+              echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64","name":"Linux x64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64","name":"macOS x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64","name":"macOS ARM64"},{"os":"windows-latest","build_script":"build:win","arch":"x64","name":"Windows x64"}]' >> $GITHUB_OUTPUT
               ;;
             "linux-x64")
               echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64","name":"Linux x64"}]' >> $GITHUB_OUTPUT
-              ;;
-            "linux-arm64")
-              echo 'matrix=[{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64","name":"Linux ARM64"}]' >> $GITHUB_OUTPUT
               ;;
             "macos-x64")
               echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64","name":"macOS x64"}]' >> $GITHUB_OUTPUT
@@ -71,17 +67,6 @@ jobs:
         with:
           install-xvfb: 'true'
 
-      - name: Install ARM64 build dependencies (Linux ARM64)
-        if: runner.os == 'Linux' && runner.arch == 'ARM64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            libudev-dev \
-            libusb-1.0-0-dev \
-            ruby ruby-dev rubygems
-          sudo gem install fpm --no-document
-
       - name: Cache electron-builder
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
@@ -106,7 +91,6 @@ jobs:
           npx vite build
           npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
         env:
-          USE_SYSTEM_FPM: ${{ runner.arch == 'ARM64' && 'true' || '' }}
           npm_config_arch: ${{ matrix.arch }}
 
       - name: Build (Windows)

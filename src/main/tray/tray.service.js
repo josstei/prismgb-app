@@ -31,6 +31,12 @@ class TrayService extends BaseService {
    * Create system tray icon
    */
   createTray() {
+    // Skip tray creation in test mode
+    if (process.env.DISABLE_TRAY === 'true') {
+      this.logger.info('Tray disabled via DISABLE_TRAY environment variable');
+      return null;
+    }
+
     const appPath = app.getAppPath();
     const trayIconPath = app.isPackaged
       ? path.join(appPath, 'dist/renderer/assets/tray-icon.png')

@@ -36,7 +36,8 @@ class WindowService extends BaseService {
     this.logger.info('Creating main window');
 
     // Determine dev vs production mode
-    const isDev = !app.isPackaged;
+    // ELECTRON_IS_DEV=0 forces production mode for E2E tests
+    const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged;
     const appPath = app.getAppPath();
 
     const preloadPath = path.join(__dirname, '../preload/index.js');

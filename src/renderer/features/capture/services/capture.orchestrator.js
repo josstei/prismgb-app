@@ -25,6 +25,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         'gpuRendererService',
         'gpuRecordingService',
         'canvasRenderer',
+        'transcodeService',
         'eventBus',
         'loggerFactory'
       ],
@@ -96,12 +97,23 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Toggle recording (start/stop)
    * When GPU renderer active, captures rendered frames with shader effects.
    * Otherwise falls back to raw device stream.
+   * Blocks new recording if transcoding is in progress.
    */
   async toggleRecording() {
     const isCurrentlyRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
 
     if (isCurrentlyRecording) {
       await this._stopRecording();
+      return;
+    }
+
+    // Block recording if transcoding is in progress
+    if (this.transcodeService?.isTranscoding?.()) {
+      this.logger.warn('Cannot start recording - transcoding in progress');
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Cannot record while converting video',
+        type: 'warning'
+      });
       return;
     }
 

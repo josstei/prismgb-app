@@ -139,7 +139,7 @@ export class StreamingService extends BaseService {
       // Get stream from adapter
       this.currentStream = await this.currentAdapter.getStream(device);
       this.currentDevice = device;
-      this.deviceService.cacheSupportedDevice(device);
+      this.deviceService.registerSupportedDevice(device);
 
       // Get stream settings
       const settings = this._getStreamSettings();
@@ -286,14 +286,20 @@ export class StreamingService extends BaseService {
    * @private
    */
   _removeTrackMonitoring() {
-    if (!this.currentStream || !this._trackEndedHandler) return;
+    // Always clear handler reference to prevent leaks, even if stream is gone
+    const handler = this._trackEndedHandler;
+    this._trackEndedHandler = null;
 
-    const videoTrack = this.currentStream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.removeEventListener('ended', this._trackEndedHandler);
+    if (!handler) return;
+
+    // Only try to remove from track if stream exists
+    if (this.currentStream) {
+      const videoTrack = this.currentStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.removeEventListener('ended', handler);
+      }
     }
 
-    this._trackEndedHandler = null;
     this.logger.debug('Track monitoring removed');
   }
 
@@ -308,20 +314,20 @@ export class StreamingService extends BaseService {
     // Remove any track monitoring that might have been set up
     this._removeTrackMonitoring();
 
-    // Release stream if it was acquired - await to prevent race conditions
-    if (this.currentAdapter && this.currentStream) {
-      try {
+    try {
+      // Release stream if it was acquired - await to prevent race conditions
+      if (this.currentAdapter && this.currentStream) {
         await this.currentAdapter.releaseStream(this.currentStream);
-      } catch (error) {
-        this.logger.warn('Error releasing stream during partial cleanup:', error);
       }
+    } catch (error) {
+      this.logger.warn('Error releasing stream during partial cleanup:', error);
+    } finally {
+      // Always clear all state, even if release failed
+      this.currentStream = null;
+      this.currentAdapter = null;
+      this.currentDevice = null;
+      this.currentCapabilities = null;
     }
-
-    // Clear all state
-    this.currentStream = null;
-    this.currentAdapter = null;
-    this.currentDevice = null;
-    this.currentCapabilities = null;
   }
 
   /**

@@ -33,7 +33,7 @@ class DeviceService extends BaseService {
   }
 
   async updateDeviceStatus() {
-    const { status, changed } = await this.deviceConnectionService.refreshStatus();
+    const { status, changed } = await this.deviceConnectionService.updateConnectionStatus();
     if (changed) {
       this.deviceMediaService.invalidateEnumerationCache();
     }
@@ -60,8 +60,8 @@ class DeviceService extends BaseService {
     return this.deviceMediaService.discoverSupportedDevice();
   }
 
-  cacheSupportedDevice(device) {
-    return this.deviceMediaService.cacheSupportedDevice(device);
+  registerSupportedDevice(device) {
+    return this.deviceMediaService.registerSupportedDevice(device);
   }
 
   setupDeviceChangeListener() {

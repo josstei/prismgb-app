@@ -51,5 +51,11 @@ screenshots/
 tests/coverage/
 .vitest/
 
+# Playwright E2E test artifacts
+tests/e2e/test-results/
+tests/e2e/screenshots/
+playwright-report/
+test-results/
+
 # Build logs
 scripts/*.log
