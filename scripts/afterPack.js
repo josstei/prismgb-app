@@ -167,24 +167,50 @@ function getUnpackedAsarDir(appOutDir, platform) {
 }
 
 /**
+ * Get the platform and arch subdirectories for ffprobe-static
+ * ffprobe-static uses: bin/<platform>/<arch>/ffprobe (e.g., bin/linux/x64/ffprobe)
+ * @param {string} platform - The target platform (darwin, linux, win32)
+ * @param {number} arch - The architecture (Arch enum value)
+ * @returns {string[]} Array of [platform, arch] directory names
+ */
+function getFfprobePlatformDirs(platform, arch) {
+  const archMap = {
+    [Arch.x64]: 'x64',
+    [Arch.ia32]: 'ia32',
+    [Arch.armv7l]: 'arm',
+    [Arch.universal]: 'x64', // Universal builds use x64 binary
+  };
+
+  // For arm64 on macOS, electron-builder uses arch value 3
+  const ARM64 = 3;
+  if (arch === ARM64) {
+    return [platform, 'arm64'];
+  }
+
+  const archStr = archMap[arch] || 'x64';
+  return [platform, archStr];
+}
+
+/**
  * Find the ffmpeg binary path based on platform
  * @param {string} unpackedDir - The unpacked asar directory
  * @param {string} binaryName - The binary name (ffmpeg or ffprobe)
  * @param {string} platform - The target platform
+ * @param {number} arch - The architecture (Arch enum value)
  * @returns {string} Full path to the binary
  */
-function getFfmpegBinaryPath(unpackedDir, binaryName, platform) {
+function getFfmpegBinaryPath(unpackedDir, binaryName, platform, arch) {
   const extension = platform === 'win32' ? '.exe' : '';
   const moduleName = binaryName === 'ffprobe' ? 'ffprobe-static' : 'ffmpeg-static';
 
   // ffmpeg-static stores binary directly in module root
-  // ffprobe-static stores in bin/<platform>-<arch>/ffprobe
+  // ffprobe-static stores in bin/<platform>/<arch>/ffprobe
   if (binaryName === 'ffmpeg') {
     return path.join(unpackedDir, 'node_modules', moduleName, `${binaryName}${extension}`);
   } else {
-    // ffprobe-static has platform-specific subdirectories
-    // The actual binary location depends on how ffprobe-static is structured
-    return path.join(unpackedDir, 'node_modules', moduleName, 'bin', `${binaryName}${extension}`);
+    // ffprobe-static has platform-specific subdirectories: bin/<platform>/<arch>/
+    const [platformDir, archDir] = getFfprobePlatformDirs(platform, arch);
+    return path.join(unpackedDir, 'node_modules', moduleName, 'bin', platformDir, archDir, `${binaryName}${extension}`);
   }
 }
 
@@ -192,8 +218,9 @@ function getFfmpegBinaryPath(unpackedDir, binaryName, platform) {
  * Set execute permissions on ffmpeg/ffprobe binaries for Linux and macOS
  * @param {string} appOutDir - The output directory for the app
  * @param {string} platform - The target platform
+ * @param {number} arch - The architecture (Arch enum value)
  */
-async function setFfmpegExecutePermissions(appOutDir, platform) {
+async function setFfmpegExecutePermissions(appOutDir, platform, arch) {
   if (platform === 'win32') {
     logger('Skipping execute permissions on Windows');
     return;
@@ -202,7 +229,7 @@ async function setFfmpegExecutePermissions(appOutDir, platform) {
   const unpackedDir = getUnpackedAsarDir(appOutDir, platform);
 
   for (const binaryName of FFMPEG_BINARIES) {
-    const binaryPath = getFfmpegBinaryPath(unpackedDir, binaryName, platform);
+    const binaryPath = getFfmpegBinaryPath(unpackedDir, binaryName, platform, arch);
 
     try {
       await fs.access(binaryPath);
@@ -220,8 +247,9 @@ async function setFfmpegExecutePermissions(appOutDir, platform) {
  * Only runs when CSC_LINK environment variable is set (code signing configured)
  * @param {string} appOutDir - The output directory for the app
  * @param {string} platform - The target platform
+ * @param {number} arch - The architecture (Arch enum value)
  */
-async function signFfmpegBinaries(appOutDir, platform) {
+async function signFfmpegBinaries(appOutDir, platform, arch) {
   if (platform !== 'darwin') {
     return;
   }
@@ -239,7 +267,7 @@ async function signFfmpegBinaries(appOutDir, platform) {
   const identity = process.env.CSC_NAME || '-';
 
   for (const binaryName of FFMPEG_BINARIES) {
-    const binaryPath = getFfmpegBinaryPath(unpackedDir, binaryName, platform);
+    const binaryPath = getFfmpegBinaryPath(unpackedDir, binaryName, platform, arch);
 
     try {
       await fs.access(binaryPath);
@@ -277,10 +305,11 @@ export default async function afterPack(context) {
   await pruneLocales(context.appOutDir);
 
   const platform = context.electronPlatformName;
+  const arch = context.arch;
 
   // Handle ffmpeg/ffprobe binaries for all platforms
-  await setFfmpegExecutePermissions(context.appOutDir, platform);
-  await signFfmpegBinaries(context.appOutDir, platform);
+  await setFfmpegExecutePermissions(context.appOutDir, platform, arch);
+  await signFfmpegBinaries(context.appOutDir, platform, arch);
 
   if (platform === 'linux') {
     const executableName = context.packager.executableName;

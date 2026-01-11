@@ -93,20 +93,9 @@ export function getFfprobePath() {
     throw new Error(`Unsupported Linux architecture: ${process.arch}`);
   }
 
-  // Determine the correct subdirectory for the platform
-  let platformDir;
-  switch (platform) {
-    case 'darwin':
-      platformDir = process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
-      break;
-    case 'win32':
-      platformDir = 'win32-x64';
-      break;
-    case 'linux':
-    default:
-      platformDir = 'linux-x64';
-      break;
-  }
+  // Determine the correct subdirectories for the platform
+  // ffprobe-static uses: bin/<platform>/<arch>/ffprobe
+  const archDir = process.arch === 'arm64' ? 'arm64' : 'x64';
 
   if (isPackaged) {
     // In packaged app, binaries are unpacked to app.asar.unpacked
@@ -116,7 +105,8 @@ export function getFfprobePath() {
       'node_modules',
       'ffprobe-static',
       'bin',
-      platformDir,
+      platform,
+      archDir,
       executableName
     );
 
@@ -130,7 +120,8 @@ export function getFfprobePath() {
       'node_modules',
       'ffprobe-static',
       'bin',
-      platformDir,
+      platform,
+      archDir,
       executableName
     );
 
@@ -156,7 +147,8 @@ export function getFfprobePath() {
     'node_modules',
     'ffprobe-static',
     'bin',
-    platformDir,
+    platform,
+    archDir,
     executableName
   );
 
