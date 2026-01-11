@@ -46,7 +46,7 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 - **Fullscreen + Fullscreen-on-Startup** - Immersive viewing with optional auto-enter
 - **Performance Mode** - Reduce effects for weaker GPUs
 - **Screenshot Capture** - Take instant screenshots of your gameplay
-- **Video Recording** - Record your gaming sessions
+- **Video Recording** - Record your gaming sessions with format selection (WebM, MP4, MOV)
 - **Notes Panel** - Take notes with search and autosave
 - **Status Strip** - Device state, resolution, and FPS (toggle in settings)
 - **Update Checks** - In-app check, download, and install flow
@@ -178,8 +178,8 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 | macOS    | `~/Downloads/` |
 | Linux    | `~/Downloads/` |
 
-- Screenshots: `PrismGB_Screenshot_YYYYMMDD_HHMMSS.png`
-- Recordings: `PrismGB_Recording_YYYYMMDD_HHMMSS.webm`
+- Screenshots: `prismgb-screenshot-YYYYMMDD-HHMMSS.png`
+- Recordings: `prismgb-recording-YYYYMMDD-HHMMSS.<format>` (WebM, MP4, or MOV based on settings)
 
 ### Local Data
 
