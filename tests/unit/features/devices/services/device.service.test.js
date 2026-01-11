@@ -97,8 +97,8 @@ describe('DeviceService', () => {
       expect(service.deviceMediaService.videoDevices).toEqual([]);
     });
 
-    it('should initialize with isConnected false', () => {
-      expect(service.isConnected).toBe(false);
+    it('should initialize with isConnected null', () => {
+      expect(service.isConnected).toBeNull();
     });
 
     it('should initialize with hasMediaPermission false', () => {
