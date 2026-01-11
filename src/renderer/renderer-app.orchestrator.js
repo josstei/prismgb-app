@@ -123,8 +123,10 @@ class RendererAppOrchestrator {
     // Cleanup orchestrator first
     await safeDispose(this.logger, 'orchestrator', this.orchestrator, 'cleanup');
 
-    // Cleanup UI bridges and controllers
+    // Cleanup UI bridges, services, and controllers
     await safeDisposeAll(this.logger, [
+      ['TranscodeService', this._transcodeService],
+      ['TranscodeUIBridge', this._transcodeUiBridge],
       ['CaptureUIBridge', this._captureUiBridge],
       ['UIController', this._uiController]
     ]);
@@ -207,6 +209,15 @@ class RendererAppOrchestrator {
       const captureUiBridge = this.container.resolve('captureUiBridge');
       captureUiBridge.initialize();
       this._captureUiBridge = captureUiBridge;
+
+      const transcodeUiBridge = this.container.resolve('transcodeUiBridge');
+      transcodeUiBridge.initialize();
+      this._transcodeUiBridge = transcodeUiBridge;
+
+      // Initialize TranscodeService to set up IPC event listeners
+      const transcodeService = this.container.resolve('transcodeService');
+      transcodeService.initialize();
+      this._transcodeService = transcodeService;
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);
       throw error;

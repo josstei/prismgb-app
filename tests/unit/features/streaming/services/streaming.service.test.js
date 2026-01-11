@@ -25,7 +25,7 @@ describe('StreamingService', () => {
       getRegisteredStoredDeviceIds: vi.fn(),
       enumerateDevices: vi.fn(),
       discoverSupportedDevice: vi.fn(),
-      cacheSupportedDevice: vi.fn()
+      registerSupportedDevice: vi.fn()
     };
 
     mockAdapter = {

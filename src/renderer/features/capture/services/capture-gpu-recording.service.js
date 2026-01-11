@@ -105,11 +105,31 @@ class CaptureGpuRecordingService extends BaseService {
     // Wait for any in-flight capture to complete (with timeout)
     if (this._lastCapturePromise) {
       this.logger.debug('Waiting for in-flight capture to complete...');
+      const capturePromise = this._lastCapturePromise;
+      let timedOut = false;
+
       try {
         await Promise.race([
-          this._lastCapturePromise,
-          new Promise(resolve => setTimeout(resolve, 500)) // 500ms timeout
+          capturePromise,
+          new Promise(resolve => {
+            setTimeout(() => {
+              timedOut = true;
+              resolve();
+            }, 500);
+          })
         ]);
+
+        // If timeout won the race, ensure any later-resolving ImageBitmap is closed
+        if (timedOut) {
+          capturePromise.then(bitmap => {
+            if (bitmap && typeof bitmap.close === 'function') {
+              bitmap.close();
+              this.logger.debug('Closed late-resolving ImageBitmap after timeout');
+            }
+          }).catch(() => {
+            // Ignore errors - capture may have failed
+          });
+        }
       } catch {
         // Capture may have failed due to GPU shutdown - that's expected
         this.logger.debug('In-flight capture completed with error (expected during shutdown)');

@@ -9,6 +9,7 @@ describe('StreamingHealthService', () => {
   let service;
   let mockLogger;
   let mockVideoElement;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -20,6 +21,10 @@ describe('StreamingHealthService', () => {
       error: vi.fn()
     };
 
+    mockLoggerFactory = {
+      create: vi.fn(() => mockLogger)
+    };
+
     mockVideoElement = {
       requestVideoFrameCallback: vi.fn(),
       cancelVideoFrameCallback: vi.fn(),
@@ -27,7 +32,7 @@ describe('StreamingHealthService', () => {
       removeEventListener: vi.fn()
     };
 
-    service = new StreamingHealthService(mockLogger);
+    service = new StreamingHealthService({ loggerFactory: mockLoggerFactory });
   });
 
   afterEach(() => {

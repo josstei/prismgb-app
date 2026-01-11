@@ -10,6 +10,7 @@
 
 import { StatusNotificationComponent } from '../components/status-notification.component.js';
 import { DeviceStatusComponent } from '../components/device-status.component.js';
+import { TranscodeToastComponent } from '../components/transcode-toast.component.js';
 
 export class UIComponentFactory {
   constructor(dependencies) {
@@ -42,6 +43,15 @@ export class UIComponentFactory {
    */
   createDeviceStatusComponent(config) {
     return new DeviceStatusComponent(config);
+  }
+
+  /**
+   * Create TranscodeToastComponent
+   * @param {Object} config - DOM element references
+   * @returns {TranscodeToastComponent}
+   */
+  createTranscodeToastComponent(config) {
+    return new TranscodeToastComponent(config);
   }
 
   /**

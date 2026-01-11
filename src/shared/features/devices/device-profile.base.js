@@ -192,22 +192,6 @@ class DeviceProfile {
   }
 
   /**
-   * Check if device matches this profile by USB identifiers
-   * @param {Object} device - USB device object
-   * @returns {boolean} True if device matches
-   */
-  matchesUSB(device) {
-    if (!device || !device.vendorId || !device.productId) {
-      return false;
-    }
-
-    return this.usbIdentifiers.some(identifier =>
-      identifier.vendorId === device.vendorId &&
-      identifier.productId === device.productId
-    );
-  }
-
-  /**
    * Check if profile has a specific capability
    * @param {string} capability - Capability to check
    * @returns {boolean} True if capability is supported
@@ -266,23 +250,6 @@ class DeviceProfile {
       rendering: this.rendering,
       behavior: this.behavior,
       metadata: this.metadata
-    };
-  }
-
-  /**
-   * Get profile info for logging/display
-   * @returns {Object} Profile information
-   */
-  getInfo() {
-    return {
-      id: this.id,
-      name: this.name,
-      manufacturer: this.manufacturer,
-      version: this.version,
-      resolution: `${this.display.nativeResolution.width}x${this.display.nativeResolution.height}`,
-      aspectRatio: this.display.aspectRatio.toFixed(4),
-      capabilities: Array.from(this.capabilities),
-      usbDeviceCount: this.usbIdentifiers.length
     };
   }
 }
