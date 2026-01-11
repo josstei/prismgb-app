@@ -67,28 +67,6 @@ export function writeTempFile(sessionDir, filename, buffer) {
 }
 
 /**
- * Read a file from a session directory
- * @param {string} sessionDir - Session directory path
- * @param {string} filename - Name of the file to read
- * @returns {Buffer} File contents
- */
-export function readTempFile(sessionDir, filename) {
-  const filePath = path.join(sessionDir, filename);
-  return fs.readFileSync(filePath);
-}
-
-/**
- * Check if a file exists in a session directory
- * @param {string} sessionDir - Session directory path
- * @param {string} filename - Name of the file to check
- * @returns {boolean} True if file exists
- */
-export function tempFileExists(sessionDir, filename) {
-  const filePath = path.join(sessionDir, filename);
-  return fs.existsSync(filePath);
-}
-
-/**
  * Clean up a specific session directory
  * @param {string} sessionId - Session ID to clean up
  * @param {string} sessionDir - Session directory path
@@ -151,10 +129,3 @@ export function cleanupAllSessions() {
   }
 }
 
-/**
- * Get the number of active sessions
- * @returns {number} Number of active sessions
- */
-export function getActiveSessionCount() {
-  return activeSessions.size;
-}

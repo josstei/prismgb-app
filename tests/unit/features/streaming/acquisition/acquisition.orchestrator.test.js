@@ -1,12 +1,12 @@
 /**
- * StreamAcquisitionCoordinator Unit Tests
+ * StreamAcquisitionOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamAcquisitionCoordinator } from '@shared/streaming/acquisition/acquisition.class.js';
+import { StreamAcquisitionOrchestrator } from '@shared/streaming/acquisition/acquisition.class.js';
 import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.class.js';
 
-describe('StreamAcquisitionCoordinator', () => {
+describe('StreamAcquisitionOrchestrator', () => {
   let coordinator;
   let mockConstraintBuilder;
   let mockStreamLifecycle;
@@ -36,7 +36,7 @@ describe('StreamAcquisitionCoordinator', () => {
       getNext: vi.fn()
     };
 
-    coordinator = new StreamAcquisitionCoordinator({
+    coordinator = new StreamAcquisitionOrchestrator({
       constraintBuilder: mockConstraintBuilder,
       streamLifecycle: mockStreamLifecycle,
       logger: mockLogger,
@@ -60,7 +60,7 @@ describe('StreamAcquisitionCoordinator', () => {
     });
 
     it('should use default DeviceAwareFallbackStrategy if not provided', () => {
-      const coordWithDefaults = new StreamAcquisitionCoordinator({});
+      const coordWithDefaults = new StreamAcquisitionOrchestrator({});
       expect(coordWithDefaults.fallbackStrategy).toBeDefined();
     });
   });

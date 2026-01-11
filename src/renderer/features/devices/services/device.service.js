@@ -33,7 +33,7 @@ class DeviceService extends BaseService {
   }
 
   async updateDeviceStatus() {
-    const { status, changed } = await this.deviceConnectionService.refreshStatus();
+    const { status, changed } = await this.deviceConnectionService.updateConnectionStatus();
     if (changed) {
       this.deviceMediaService.invalidateEnumerationCache();
     }

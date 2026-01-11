@@ -49,7 +49,7 @@ class DeviceMediaService extends BaseService {
 
     this._enumerateInFlight = (async () => {
       try {
-        const { status } = await this.deviceConnectionService.refreshStatus();
+        const { status } = await this.deviceConnectionService.updateConnectionStatus();
         const connected = status.connected;
 
         this.logger.info(`Main process device status: ${connected ? 'CONNECTED' : 'NOT CONNECTED'}`);
@@ -116,7 +116,7 @@ class DeviceMediaService extends BaseService {
   }
 
   async discoverSupportedDevice() {
-    const { status } = await this.deviceConnectionService.refreshStatus();
+    const { status } = await this.deviceConnectionService.updateConnectionStatus();
     if (!status.connected) {
       return null;
     }
