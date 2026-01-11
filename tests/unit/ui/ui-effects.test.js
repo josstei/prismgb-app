@@ -102,8 +102,9 @@ describe('UIEffects', () => {
         vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
         expect(document.body.classList.add).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
 
-        // Trigger mouse move
+        // Trigger mouse move (RAF-throttled, advance one frame)
         document.dispatchEvent(new MouseEvent('mousemove'));
+        vi.advanceTimersByTime(16);
 
         expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
       });
@@ -114,8 +115,9 @@ describe('UIEffects', () => {
         // Advance partway through delay
         vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS - 500);
 
-        // Trigger mouse move (resets timer)
+        // Trigger mouse move (RAF-throttled, advance one frame to execute)
         document.dispatchEvent(new MouseEvent('mousemove'));
+        vi.advanceTimersByTime(16);
 
         // Advance past original timeout
         vi.advanceTimersByTime(500);
@@ -245,8 +247,9 @@ describe('UIEffects', () => {
         vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS);
         expect(mockControls.classList.add).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
 
-        // Trigger mouse move
+        // Trigger mouse move (RAF-throttled, so need to advance one frame)
         document.dispatchEvent(new MouseEvent('mousemove'));
+        vi.advanceTimersByTime(16); // Execute RAF callback
 
         expect(mockControls.classList.remove).toHaveBeenCalledWith(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
       });
@@ -257,8 +260,9 @@ describe('UIEffects', () => {
         // Advance partway through delay
         vi.advanceTimersByTime(TIMING.CURSOR_HIDE_DELAY_MS - 500);
 
-        // Trigger mouse move (resets timer)
+        // Trigger mouse move (RAF-throttled, so need to advance one frame to execute)
         document.dispatchEvent(new MouseEvent('mousemove'));
+        vi.advanceTimersByTime(16); // Execute RAF callback (resets timer)
 
         // Advance past original timeout
         vi.advanceTimersByTime(500);
@@ -432,7 +436,9 @@ describe('UIEffects', () => {
       document.body.classList.add.mockClear();
       mockToolbar.classList.remove.mockClear();
 
+      // Dispatch mousemove and advance one frame to execute RAF callback
       document.dispatchEvent(new MouseEvent('mousemove'));
+      vi.advanceTimersByTime(16);
 
       expect(document.body.classList.remove).toHaveBeenCalledWith(CSSClasses.CURSOR_HIDDEN);
       expect(mockToolbar.classList.remove).toHaveBeenCalledWith(CSSClasses.TOOLBAR_HIDDEN);

@@ -47,7 +47,8 @@ export const EventChannels = {
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
     CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed',
     MINIMALIST_FULLSCREEN_CHANGED: 'settings:minimalist-fullscreen-changed',
-    PREFERENCES_LOADED: 'settings:preferences-loaded'
+    PREFERENCES_LOADED: 'settings:preferences-loaded',
+    RECORDING_FORMAT_CHANGED: 'settings:recording-format-changed'
   },
 
   PERFORMANCE: {
@@ -81,6 +82,8 @@ export const EventChannels = {
     RECORD_BUTTON_PRESS: 'ui:record-button-press',
     BUTTON_FEEDBACK: 'ui:button-feedback',
     RECORDING_STATE: 'ui:recording-state',
+    RECORD_BUTTON_DISABLED: 'ui:record-button-disabled',
+    RECORD_BUTTON_ENABLED: 'ui:record-button-enabled',
     FULLSCREEN_STATE: 'ui:fullscreen-state',
     WINDOW_RESIZED: 'ui:window-resized',
     // UI command events (decoupled from orchestrators)
@@ -108,5 +111,14 @@ export const EventChannels = {
   NOTES: {
     NOTE_CREATED: 'notes:note-created',
     NOTE_DELETED: 'notes:note-deleted'
+  },
+
+  // Transcode events
+  TRANSCODE: {
+    STARTED: 'transcode:started',
+    PROGRESS: 'transcode:progress',
+    COMPLETED: 'transcode:completed',
+    ERROR: 'transcode:error',
+    CANCELLED: 'transcode:cancelled'
   }
 };

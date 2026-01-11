@@ -213,11 +213,14 @@
 }
 
 .btn:disabled,
-.btn:disabled:hover {
+.btn:disabled:hover,
+.btn.disabled,
+.btn.disabled:hover {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
   filter: grayscale(0.3);
+  pointer-events: none;
 }
 
 /* Ensure buttons have proper hover states when enabled */

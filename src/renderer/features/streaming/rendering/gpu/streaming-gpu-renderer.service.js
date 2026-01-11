@@ -799,6 +799,10 @@ export class StreamingGpuRendererService extends BaseService {
     this._resolvePendingCapture(null, new Error('GPU renderer cleanup'));
 
     if (this._worker) {
+      // Remove message handlers before termination to break reference chains
+      this._worker.onmessage = null;
+      this._worker.onerror = null;
+
       this._worker.postMessage(createWorkerMessage(WorkerMessageType.DESTROY));
       this._worker.terminate();
       this._worker = null;

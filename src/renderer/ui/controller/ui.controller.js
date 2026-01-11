@@ -77,6 +77,8 @@ class UIController {
       settingMinimalistFullscreen: document.getElementById(DOMSelectors.SETTING_MINIMALIST_FULLSCREEN),
       settingAnimationSaver: document.getElementById(DOMSelectors.SETTING_ANIMATION_SAVER),
       settingRenderPreset: document.getElementById(DOMSelectors.SETTING_RENDER_PRESET),
+      settingRecordingFormat: document.getElementById(DOMSelectors.SETTING_RECORDING_FORMAT),
+      recordingFormatMenu: document.getElementById(DOMSelectors.RECORDING_FORMAT_MENU),
       disclaimerBtn: document.getElementById(DOMSelectors.DISCLAIMER_BTN),
       disclaimerContent: document.getElementById(DOMSelectors.DISCLAIMER_CONTENT),
       footer: document.querySelector('.footer'),
@@ -87,6 +89,10 @@ class UIController {
 
       // Stream container
       streamContainer: document.getElementById(DOMSelectors.STREAM_CONTAINER),
+
+      // Transcode progress (on record button)
+      transcodeRing: document.getElementById(DOMSelectors.TRANSCODE_RING),
+      transcodePercentLabel: document.getElementById(DOMSelectors.TRANSCODE_PERCENT_LABEL),
 
       // Notes panel
       notesBtn: document.getElementById(DOMSelectors.NOTES_BTN),
@@ -309,6 +315,22 @@ class UIController {
     const recordBtn = this.elements.recordBtn;
     if (recordBtn) {
       this.effects?.setRecordingButtonState(recordBtn, isActive);
+    }
+  }
+
+  /**
+   * Set record button disabled state
+   * @param {boolean} disabled - Whether the button should be disabled
+   */
+  setRecordButtonDisabled(disabled) {
+    const recordBtn = this.elements.recordBtn;
+    if (recordBtn) {
+      recordBtn.disabled = disabled;
+      if (disabled) {
+        recordBtn.classList.add('disabled');
+      } else {
+        recordBtn.classList.remove('disabled');
+      }
     }
   }
 

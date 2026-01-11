@@ -166,6 +166,116 @@
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
+/* Settings Select Dropdown - Custom dropdown matching notes filter style */
+.settings-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: var(--space-md);
+}
+
+.settings-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 28px 7px 12px;
+  background: rgba(var(--color-primary-rgb), 0.12);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.settings-select-trigger:hover,
+.settings-select-trigger:focus-visible {
+  background: rgba(var(--color-primary-rgb), 0.18);
+  border-color: rgba(var(--color-primary-rgb), 0.4);
+}
+
+.settings-select-trigger:focus {
+  outline: none;
+}
+
+.settings-select-label {
+  pointer-events: none;
+}
+
+/* Dropdown arrow */
+.settings-select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+
+/* Dropdown menu */
+.settings-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.settings-select-menu.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.settings-select-option {
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.95);
+  font-family: var(--font-display);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.settings-select-option:hover,
+.settings-select-option:focus-visible {
+  background: rgba(var(--color-primary-rgb), 0.25);
+  color: #fff;
+  outline: none;
+}
+
+.settings-select-option.active {
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: #fff;
+}
+
 /* Settings Footer */
 .settings-footer {
   display: flex;

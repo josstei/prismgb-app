@@ -50,16 +50,47 @@ flowchart LR
     UIEventBridge[UIEventBridge]
     CaptureOrchestrator[CaptureOrchestrator]
     CaptureService[CaptureService]
+    CaptureSaveService[CaptureSaveService]
     GpuRecordingService[GpuRecordingService]
     CaptureState[CaptureState]
   end
 
   UIEventBridge --> CaptureOrchestrator
   CaptureOrchestrator --> CaptureService
+  CaptureOrchestrator --> CaptureSaveService
   CaptureOrchestrator --> GpuRecordingService
   CaptureOrchestrator --> CaptureState
 
   GpuRecordingService -. cleanup .-> CaptureState
+```
+
+## Recording Transcode Flow
+
+```mermaid
+flowchart LR
+  subgraph RENDERER[Renderer]
+    CaptureSaveService[CaptureSaveService]
+    TranscodeServiceRenderer["TranscodeService (Renderer)"]
+    TranscodeUIBridge[TranscodeUIBridge]
+    TranscodeToast[TranscodeToastComponent]
+    CaptureUIBridge[CaptureUIBridge]
+  end
+
+  subgraph MAIN[Main Process]
+    TranscodeIpcHandler[TranscodeIpcHandler]
+    TranscodeServiceMain["TranscodeService (Main)"]
+    FFmpeg[ffmpeg/ffprobe]
+  end
+
+  CaptureSaveService --> TranscodeServiceRenderer
+  TranscodeServiceRenderer -- IPC: transcode-start --> TranscodeIpcHandler
+  TranscodeIpcHandler --> TranscodeServiceMain
+  TranscodeServiceMain --> FFmpeg
+  TranscodeServiceMain -- IPC: transcode-progress --> TranscodeServiceRenderer
+  TranscodeServiceMain -- IPC: transcode-complete --> TranscodeServiceRenderer
+  TranscodeServiceRenderer --> TranscodeUIBridge
+  TranscodeUIBridge --> TranscodeToast
+  TranscodeUIBridge --> CaptureUIBridge
 ```
 
 ## Performance and Metrics
@@ -101,10 +132,12 @@ flowchart LR
     UpdateBridge[UpdateBridgeService]
     DeviceServiceMain[DeviceServiceMain]
     UpdateServiceMain[UpdateServiceMain]
+    TranscodeServiceMain[TranscodeServiceMain]
     UsbDetection[usb-detection]
     DeviceRegistry[DeviceRegistry]
     ProfileRegistry[ProfileRegistry]
     AutoUpdater[electron-updater]
+    FFmpeg[ffmpeg-static]
   end
 
   MainAppOrchestrator --> IpcHandlers
@@ -114,12 +147,14 @@ flowchart LR
 
   IpcHandlers --> DeviceServiceMain
   IpcHandlers --> UpdateServiceMain
+  IpcHandlers --> TranscodeServiceMain
   TrayManager --> DeviceServiceMain
 
   DeviceServiceMain --> UsbDetection
   DeviceServiceMain --> DeviceRegistry
   DeviceServiceMain --> ProfileRegistry
   UpdateServiceMain --> AutoUpdater
+  TranscodeServiceMain --> FFmpeg
 ```
 
 ## UI Event Flow
@@ -138,22 +173,26 @@ flowchart LR
   UIEventBridge --> CaptureOrchestrator
 ```
 
-## Cross-Process Device and Update Channels
+## Cross-Process Device, Update, and Transcode Channels
 
 ```mermaid
 flowchart LR
   subgraph MAIN[Main Process]
     DeviceBridge[DeviceBridgeService]
     UpdateBridge[UpdateBridgeService]
+    TranscodeService[TranscodeService]
   end
 
   subgraph RENDERER[Renderer]
     DeviceServiceRenderer["DeviceService (Renderer)"]
     UIService["UIService / UI Components"]
+    TranscodeServiceRenderer["TranscodeService (Renderer)"]
   end
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
   UpdateBridge -- IPC: update-status --> UIService
+  TranscodeServiceRenderer -- IPC: transcode-start --> TranscodeService
+  TranscodeService -- IPC: transcode-progress/complete --> TranscodeServiceRenderer
 ```
 
 ## Notes

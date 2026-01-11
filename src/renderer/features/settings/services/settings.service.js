@@ -27,8 +27,12 @@ class SettingsService extends BaseService {
       performanceMode: false,
       fullscreenOnStartup: false,
       minimalistFullscreen: false,
-      autoStreamOnConnect: false
+      autoStreamOnConnect: false,
+      recordingFormat: 'webm'
     };
+
+    // Valid recording formats
+    this.validRecordingFormats = ['webm', 'mp4', 'mov'];
 
     // Use centralized storage keys
     this.keys = SettingsStorageKeys;
@@ -221,6 +225,37 @@ class SettingsService extends BaseService {
     this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
 
     this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Get recording format preference
+   * @returns {string} Recording format (webm, mp4, or mov)
+   */
+  getRecordingFormat() {
+    const saved = this.storageService?.getItem(this.keys.RECORDING_FORMAT);
+    if (saved !== null && this.validRecordingFormats.includes(saved)) {
+      return saved;
+    }
+    return this.defaults.recordingFormat;
+  }
+
+  /**
+   * Set recording format preference
+   * @param {string} format - Recording format (webm, mp4, or mov)
+   * @returns {boolean} True if format was valid and saved
+   */
+  setRecordingFormat(format) {
+    if (!this.validRecordingFormats.includes(format)) {
+      this.logger.warn(`Invalid recording format: ${format}. Valid formats: ${this.validRecordingFormats.join(', ')}`);
+      return false;
+    }
+
+    this.storageService?.setItem(this.keys.RECORDING_FORMAT, format);
+    this.logger.debug(`Recording format set to ${format}`);
+
+    // Emit event
+    this.eventBus.publish(EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED, format);
+    return true;
   }
 }
 

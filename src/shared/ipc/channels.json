@@ -27,5 +27,14 @@
   },
   "PERFORMANCE": {
     "GET_METRICS": "performance:get-metrics"
+  },
+  "TRANSCODE": {
+    "START": "transcode:start",
+    "CANCEL": "transcode:cancel",
+    "GET_STATUS": "transcode:get-status",
+    "PROGRESS": "transcode:progress",
+    "COMPLETED": "transcode:completed",
+    "ERROR": "transcode:error",
+    "CANCELLED": "transcode:cancelled"
   }
 }

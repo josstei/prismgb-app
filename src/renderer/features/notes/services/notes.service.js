@@ -169,38 +169,60 @@ class NotesService extends BaseService {
 
   /**
    * Search notes with fuzzy matching
+   * Optimized to reduce intermediate array allocations
    * @param {string} query - Search query
    * @param {string} [gameFilter=''] - Optional game name to filter by
    * @returns {Array<Object>} Matching notes sorted by relevance
    */
   searchNotes(query, gameFilter = '') {
-    let notes = this.getAllNotes();
+    const allNotes = this.getAllNotes();
 
-    // Apply game filter if provided
-    if (gameFilter) {
-      notes = notes.filter(note => (note.gameName || '') === gameFilter);
-    }
-
+    // Early return for empty query
     if (!query || query.trim().length === 0) {
-      return notes;
+      // Filter by game if needed, otherwise return cached array directly
+      if (gameFilter) {
+        return allNotes.filter(note => (note.gameName || '') === gameFilter);
+      }
+      return allNotes;
     }
 
     const normalizedQuery = query.toLowerCase().trim();
 
-    return notes
-      .map(note => {
-        // Guard against corrupted notes with missing/non-string fields
-        const title = typeof note.title === 'string' ? note.title : '';
-        const content = typeof note.content === 'string' ? note.content : '';
-        const gameName = typeof note.gameName === 'string' ? note.gameName : '';
-        const titleScore = this._fuzzyScore(title.toLowerCase(), normalizedQuery);
-        const contentScore = this._fuzzyScore(content.toLowerCase(), normalizedQuery) * 0.5;
-        const gameScore = this._fuzzyScore(gameName.toLowerCase(), normalizedQuery) * 0.7;
-        return { note, score: Math.max(titleScore, contentScore, gameScore) };
-      })
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map(({ note }) => note);
+    // Single pass: filter, score, and collect results in one loop
+    // This reduces from 4 intermediate arrays to 1
+    const scoredResults = [];
+    for (const note of allNotes) {
+      // Skip if game filter doesn't match
+      if (gameFilter && (note.gameName || '') !== gameFilter) {
+        continue;
+      }
+
+      // Guard against corrupted notes with missing/non-string fields
+      const title = typeof note.title === 'string' ? note.title : '';
+      const content = typeof note.content === 'string' ? note.content : '';
+      const gameName = typeof note.gameName === 'string' ? note.gameName : '';
+
+      const titleScore = this._fuzzyScore(title.toLowerCase(), normalizedQuery);
+      const contentScore = this._fuzzyScore(content.toLowerCase(), normalizedQuery) * 0.5;
+      const gameScore = this._fuzzyScore(gameName.toLowerCase(), normalizedQuery) * 0.7;
+      const score = Math.max(titleScore, contentScore, gameScore);
+
+      // Only add if score > 0 (skip the filter step)
+      if (score > 0) {
+        scoredResults.push({ note, score });
+      }
+    }
+
+    // Sort and extract notes in single pass
+    scoredResults.sort((a, b) => b.score - a.score);
+
+    // Map to final array
+    const results = new Array(scoredResults.length);
+    for (let i = 0; i < scoredResults.length; i++) {
+      results[i] = scoredResults[i].note;
+    }
+
+    return results;
   }
 
   /**

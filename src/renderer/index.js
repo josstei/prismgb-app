@@ -82,13 +82,13 @@ async function cleanup() {
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', init, { once: true });
 } else {
   init();
 }
 
-// Cleanup on window unload
-window.addEventListener('beforeunload', cleanup);
+// Cleanup on window unload (once: true since it only fires once per page)
+window.addEventListener('beforeunload', cleanup, { once: true });
 
 // Expose app for debugging in development only
 if (import.meta.env.DEV) {
