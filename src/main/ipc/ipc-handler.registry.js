@@ -10,10 +10,11 @@ import { registerUpdateHandlers } from '@main/features/updates/ipc/update-ipc.ha
 import { registerShellHandlers } from '@main/features/shell/ipc/shell-ipc.handler.js';
 import { registerPerformanceHandlers } from '@main/features/performance/ipc/performance-ipc.handler.js';
 import { registerWindowHandlers } from '@main/features/window/ipc/window-ipc.handler.js';
+import { registerTranscodeHandlers } from '@main/features/transcode/ipc/transcode-ipc.handler.js';
 
 class IpcHandlerRegistry extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['deviceService', 'updateService', 'windowService', 'loggerFactory'], 'IpcHandlerRegistry');
+    super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loggerFactory'], 'IpcHandlerRegistry');
     this._registeredChannels = [];
   }
 
@@ -50,6 +51,12 @@ class IpcHandlerRegistry extends BaseService {
     registerWindowHandlers({
       registerHandler: this._registerHandler.bind(this),
       windowService: this.windowService,
+      logger: this.logger
+    });
+
+    registerTranscodeHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      transcodeService: this.transcodeService,
       logger: this.logger
     });
   }

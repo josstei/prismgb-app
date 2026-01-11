@@ -2,7 +2,7 @@ import { DeviceAwareFallbackStrategy } from './fallback-strategy.class.js';
 import { formatErrorLabel } from '@shared/lib/errors.utils.js';
 
 /**
- * StreamAcquisitionCoordinator
+ * StreamAcquisitionOrchestrator
  *
  * Coordinates stream acquisition with device-aware fallback handling.
  * Uses AcquisitionContext to preserve device identity throughout the
@@ -14,7 +14,7 @@ import { formatErrorLabel } from '@shared/lib/errors.utils.js';
  * - No conditional helper methods (_maybe*, _soften*)
  * - Deterministic behavior throughout
  */
-export class StreamAcquisitionCoordinator {
+export class StreamAcquisitionOrchestrator {
   constructor(dependencies = {}) {
     this.constraintBuilder = dependencies.constraintBuilder;
     this.streamLifecycle = dependencies.streamLifecycle;

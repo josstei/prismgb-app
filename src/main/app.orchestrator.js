@@ -34,6 +34,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._updateService = null;
     this._deviceBridgeService = null;
     this._updateBridgeService = null;
+    this._transcodeService = null;
   }
 
   /**
@@ -55,6 +56,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._updateService = this.container.resolve('updateService');
     this._deviceBridgeService = this.container.resolve('deviceBridgeService');
     this._updateBridgeService = this.container.resolve('updateBridgeService');
+    this._transcodeService = this.container.resolve('transcodeService');
 
     // Initialize device service (loads device profiles)
     await this._deviceService.initialize();
@@ -64,6 +66,9 @@ class AppOrchestrator extends BaseOrchestrator {
 
     // Initialize update bridge and start auto-check (1 hour interval)
     this._updateBridgeService.initialize();
+
+    // Initialize transcode service (validates ffmpeg binaries)
+    this._transcodeService.initialize();
 
     // Start USB monitoring for hot-plug detection
     this._deviceService.startUSBMonitoring();
@@ -138,6 +143,7 @@ class AppOrchestrator extends BaseOrchestrator {
       ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
       ['system tray', this._trayService, 'destroy'],
       ['update bridge service', this._updateBridgeService],
+      ['transcode service', this._transcodeService],
       ['DI container', this.container]
     ]);
 
@@ -151,6 +157,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._updateService = null;
     this._deviceBridgeService = null;
     this._updateBridgeService = null;
+    this._transcodeService = null;
 
     this.logger.info('PrismGB shutdown complete');
   }

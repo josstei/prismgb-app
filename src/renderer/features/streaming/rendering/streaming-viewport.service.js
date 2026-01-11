@@ -13,11 +13,12 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
+import { BaseService } from '@shared/base/service.base.js';
 import { TIMING } from '@shared/config/constants.config.js';
 
-export class StreamingViewportService {
-  constructor(logger) {
-    this.logger = logger;
+export class StreamingViewportService extends BaseService {
+  constructor(dependencies) {
+    super(dependencies, ['loggerFactory'], 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
@@ -206,5 +207,13 @@ export class StreamingViewportService {
     this._lastDimensions = null;
     this._forceResizePending = false;
     this._cachedStyles = null;
+  }
+
+  /**
+   * Dispose the service
+   */
+  dispose() {
+    this.cleanup();
+    this.logger.info('StreamingViewportService disposed');
   }
 }

@@ -8,7 +8,7 @@ This document maps user-facing features to the codebase for maintenance and onbo
 - Render presets: True Color, Vibrant, Hi-Def, Vintage, Pixel, Performance.
 - Brightness and volume controls with real-time preview.
 - Cinematic mode and fullscreen viewing (optional fullscreen-on-startup).
-- Screenshots (PNG) and recordings (WebM).
+- Screenshots (PNG) and recordings (WebM, MP4, or MOV with ffmpeg transcoding).
 - Notes panel with search, autosave, and local persistence.
 - Status strip with device state, resolution, and FPS.
 - Update checks, downloads, and install flow in Settings.
@@ -19,7 +19,8 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Feature | Primary directories | Notes |
 | --- | --- | --- |
 | Streaming and rendering | `src/renderer/features/streaming`, `src/shared/streaming` | GPU pipeline, render presets, health checks, audio warmup |
-| Capture (screenshots/recording) | `src/renderer/features/capture`, `src/shared/utils/filename-generator.utils.js` | PNG screenshots, WebM recordings |
+| Capture (screenshots/recording) | `src/renderer/features/capture`, `src/shared/utils/filename-generator.utils.js` | PNG screenshots, recordings with format selection |
+| Transcode | `src/main/features/transcode`, `src/renderer/features/transcode`, `src/shared/features/transcode` | FFmpeg-based transcoding for MP4/MOV output |
 | Devices and adapters | `src/renderer/features/devices`, `src/main/features/devices`, `src/shared/features/devices` | USB detection, device registry, adapters |
 | Settings and display modes | `src/renderer/features/settings`, `src/shared/config/storage-keys.config.js` | Cinematic, fullscreen, performance mode, status strip |
 | Notes | `src/renderer/features/notes`, `src/shared/config/storage-keys.config.js` | Notes CRUD and search |
@@ -36,10 +37,11 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Stream viewer + toolbar | `src/renderer/ui/templates/stream-viewer.template.js` | `StreamingControlsComponent`, `StreamingShaderSelectorComponent` | `UISetupOrchestrator`, `UIEventBridge` |
 | Notes panel | `src/renderer/ui/templates/notes-panel.template.js` | `NotesPanelComponent` | `UISetupOrchestrator` |
 | Status footer | `src/renderer/ui/templates/status-footer.template.js` | `StatusNotificationComponent`, `DeviceStatusComponent` | `UIEventBridge` |
+| Transcode toast | `src/renderer/ui/templates/stream-viewer.template.js` | `TranscodeToastComponent` | `TranscodeUIBridge` |
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/ui/orchestration/ui-setup.orchestrator.js`. UI updates are applied via `src/renderer/ui/orchestration/ui-event.bridge.js` or `src/renderer/ui/orchestration/capture-ui.bridge.js`.
+UI input is wired in `src/renderer/ui/orchestration/ui-setup.orchestrator.js`. UI updates are applied via `src/renderer/ui/orchestration/ui-event.bridge.js`, `src/renderer/ui/orchestration/capture-ui.bridge.js`, or `src/renderer/ui/orchestration/transcode-ui.bridge.js`.
 
 ### Start Streaming
 
@@ -68,7 +70,17 @@ UI input is wired in `src/renderer/ui/orchestration/ui-setup.orchestrator.js`. U
 1. User clicks the record button -> `ui:recording-toggle-requested`.
 2. `CaptureOrchestrator` starts/stops recording (GPU path via `GpuRecordingService` when active).
 3. `CaptureService` emits `capture:recording-started`, `capture:recording-stopped`, and `capture:recording-ready`.
-4. `CaptureUIBridge` updates the record button state and triggers download/status messages.
+4. `CaptureSaveService` checks the user's format preference:
+   - If WebM: direct download via `CaptureUIBridge`.
+   - If MP4/MOV: sends blob to `TranscodeService` (main process) for ffmpeg conversion.
+5. During transcoding, `TranscodeUIBridge` shows progress toast and updates the record button with percentage.
+6. On completion, `CaptureUIBridge` triggers the download and publishes `ui:status-message`.
+
+### Recording Format Selection
+
+1. User selects format in Settings dropdown -> `SettingsService.setRecordingFormat`.
+2. `settings:recording-format-changed` event updates UI.
+3. Format preference is persisted to localStorage and used when saving recordings.
 
 ### Shader Presets, Brightness, Volume
 
@@ -109,6 +121,7 @@ UI input is wired in `src/renderer/ui/orchestration/ui-setup.orchestrator.js`. U
 - Downloads location: screenshots and recordings go to the OS downloads folder.
 - Local storage keys: settings and notes live in localStorage, defined in `src/shared/config/storage-keys.config.js`.
 - Stored device IDs: `src/renderer/features/devices/services/device-storage.service.js`.
+- Transcode temp files: during MP4/MOV conversion, temporary files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 

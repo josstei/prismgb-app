@@ -53,13 +53,17 @@ flowchart LR
   UIEventBridge[UIEventBridge]
   CaptureOrchestrator[CaptureOrchestrator]
   CaptureService[CaptureService]
+  CaptureSaveService[CaptureSaveService]
   GpuRecordingService[GpuRecordingService]
 
   UIEventBridge --> CaptureOrchestrator
   CaptureOrchestrator --> CaptureService
+  CaptureOrchestrator --> CaptureSaveService
   CaptureOrchestrator --> GpuRecordingService
   GpuRecordingService -. cleanup .-> CaptureOrchestrator
 ```
+
+Note: `CaptureSaveService` handles format selection (WebM direct download, or MP4/MOV via ffmpeg transcode in main process). See `docs/architecture-diagrams.md` for the full transcode flow.
 
 ## 4) Performance and Metrics
 
@@ -91,8 +95,10 @@ flowchart LR
   UpdateBridge[UpdateBridgeService]
   DeviceServiceMain[DeviceServiceMain]
   UpdateServiceMain[UpdateServiceMain]
+  TranscodeServiceMain[TranscodeServiceMain]
   UsbDetection[usb-detection]
   AutoUpdater[electron-updater]
+  FFmpeg[ffmpeg-static]
 
   MainAppOrchestrator --> IpcHandlers
   MainAppOrchestrator --> TrayManager
@@ -101,9 +107,11 @@ flowchart LR
 
   IpcHandlers --> DeviceServiceMain
   IpcHandlers --> UpdateServiceMain
+  IpcHandlers --> TranscodeServiceMain
   TrayManager --> DeviceServiceMain
   DeviceServiceMain --> UsbDetection
   UpdateServiceMain --> AutoUpdater
+  TranscodeServiceMain --> FFmpeg
 ```
 
 ## 6) Cross-Process Channels
@@ -112,11 +120,14 @@ flowchart LR
 flowchart LR
   DeviceBridge[DeviceBridgeService]
   UpdateBridge[UpdateBridgeService]
+  TranscodeService[TranscodeService]
   DeviceServiceRenderer["DeviceService (Renderer)"]
   UIService["UIService / UI Components"]
+  TranscodeServiceRenderer["TranscodeService (Renderer)"]
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
   UpdateBridge -- IPC: update-status --> UIService
+  TranscodeServiceRenderer -- IPC: transcode --> TranscodeService
 ```
 
 ## What to Look for in Code

@@ -8,6 +8,7 @@ import { StreamingViewportService } from '@renderer/features/streaming/rendering
 describe('StreamingViewportService', () => {
   let service;
   let mockLogger;
+  let mockLoggerFactory;
   let mockCanvas;
   let mockContainer;
   let mockSection;
@@ -21,6 +22,10 @@ describe('StreamingViewportService', () => {
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn()
+    };
+
+    mockLoggerFactory = {
+      create: vi.fn(() => mockLogger)
     };
 
     mockContainer = {};
@@ -75,7 +80,7 @@ describe('StreamingViewportService', () => {
       this.callback = callback;
     });
 
-    service = new StreamingViewportService(mockLogger);
+    service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
   });
 
   afterEach(() => {

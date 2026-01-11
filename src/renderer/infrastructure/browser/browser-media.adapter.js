@@ -3,8 +3,14 @@
  *
  * Provides a testable interface for media device operations.
  * Allows mocking in tests without polluting the global navigator object.
+ * Tracks added listeners for cleanup.
  */
 export class BrowserMediaAdapter {
+  constructor() {
+    // Track added listeners for cleanup: Map<event, Set<handler>>
+    this._listeners = new Map();
+  }
+
   /**
    * Check if MediaDevices API is available
    * @returns {boolean} True if API is available
@@ -50,6 +56,12 @@ export class BrowserMediaAdapter {
   addEventListener(event, handler) {
     this._ensureAvailable();
     navigator.mediaDevices.addEventListener(event, handler);
+
+    // Track the listener for cleanup
+    if (!this._listeners.has(event)) {
+      this._listeners.set(event, new Set());
+    }
+    this._listeners.get(event).add(handler);
   }
 
   /**
@@ -60,5 +72,36 @@ export class BrowserMediaAdapter {
   removeEventListener(event, handler) {
     this._ensureAvailable();
     navigator.mediaDevices.removeEventListener(event, handler);
+
+    // Remove from tracking
+    const handlers = this._listeners.get(event);
+    if (handlers) {
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        this._listeners.delete(event);
+      }
+    }
+  }
+
+  /**
+   * Remove all tracked event listeners
+   * Call this during cleanup to prevent listener leaks
+   */
+  removeAllListeners() {
+    if (!this.isAvailable()) return;
+
+    for (const [event, handlers] of this._listeners) {
+      for (const handler of handlers) {
+        navigator.mediaDevices.removeEventListener(event, handler);
+      }
+    }
+    this._listeners.clear();
+  }
+
+  /**
+   * Dispose the adapter and cleanup all listeners
+   */
+  dispose() {
+    this.removeAllListeners();
   }
 }

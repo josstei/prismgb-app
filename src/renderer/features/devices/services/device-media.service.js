@@ -49,7 +49,7 @@ class DeviceMediaService extends BaseService {
 
     this._enumerateInFlight = (async () => {
       try {
-        const { status } = await this.deviceConnectionService.refreshStatus();
+        const { status } = await this.deviceConnectionService.updateConnectionStatus();
         const connected = status.connected;
 
         this.logger.info(`Main process device status: ${connected ? 'CONNECTED' : 'NOT CONNECTED'}`);
@@ -116,7 +116,7 @@ class DeviceMediaService extends BaseService {
   }
 
   async discoverSupportedDevice() {
-    const { status } = await this.deviceConnectionService.refreshStatus();
+    const { status } = await this.deviceConnectionService.updateConnectionStatus();
     if (!status.connected) {
       return null;
     }
@@ -171,13 +171,13 @@ class DeviceMediaService extends BaseService {
   }
 
   _cacheAndReturnDevice(device) {
-    if (!this.cacheSupportedDevice(device)) {
+    if (!this.registerSupportedDevice(device)) {
       return null;
     }
     return device;
   }
 
-  cacheSupportedDevice(device) {
+  registerSupportedDevice(device) {
     const deviceType = DeviceDetectionHelper.detectDeviceType(device);
     if (!deviceType || !device?.deviceId) {
       this.logger.warn('Could not cache device - unsupported or missing deviceId');

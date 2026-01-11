@@ -113,9 +113,9 @@ jobs:
           PLATFORMS="${{ inputs.platforms || 'all' }}"
 
           if [ "$PLATFORMS" == "all" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"},{"os":"windows-latest","build_script":"build:win"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "linux" ]; then
-            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"},{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64"}]' >> $GITHUB_OUTPUT
+            echo 'matrix=[{"os":"ubuntu-latest","build_script":"build:linux","arch":"x64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "macos" ]; then
             echo 'matrix=[{"os":"macos-15-intel","build_script":"build:mac","arch":"x64"},{"os":"macos-14","build_script":"build:mac","arch":"arm64"}]' >> $GITHUB_OUTPUT
           elif [ "$PLATFORMS" == "windows" ]; then
@@ -327,7 +327,7 @@ jobs:
             -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \) \
             -exec cp {} release-files/ \;
 
-          # Copy Linux YAML files directly (they have arch suffix for arm64)
+          # Copy Linux YAML files directly
           find artifacts -type f -name "latest-linux*.yml" -exec cp {} release-files/ \;
 
           # Copy Windows YAML file directly
@@ -434,7 +434,7 @@ jobs:
           echo "### Auto-Update YAML Files" >> $GITHUB_STEP_SUMMARY
           echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          for yml in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
+          for yml in latest-linux.yml latest-mac.yml latest.yml; do
             if [ -f "release-files/$yml" ]; then
               echo "| $yml | ✅ Present |" >> $GITHUB_STEP_SUMMARY
             else
