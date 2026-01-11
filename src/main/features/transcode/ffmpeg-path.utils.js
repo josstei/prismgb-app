@@ -22,6 +22,10 @@ export function getFfmpegPath() {
   const platform = process.platform;
   const executableName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 
+  if (platform === 'linux' && process.arch !== 'x64') {
+    throw new Error(`Unsupported Linux architecture: ${process.arch}`);
+  }
+
   if (isPackaged) {
     // In packaged app, binaries are unpacked to app.asar.unpacked
     const unpackedPath = path.join(
@@ -85,6 +89,10 @@ export function getFfprobePath() {
   const platform = process.platform;
   const executableName = platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
 
+  if (platform === 'linux' && process.arch !== 'x64') {
+    throw new Error(`Unsupported Linux architecture: ${process.arch}`);
+  }
+
   // Determine the correct subdirectory for the platform
   let platformDir;
   switch (platform) {
@@ -96,7 +104,7 @@ export function getFfprobePath() {
       break;
     case 'linux':
     default:
-      platformDir = process.arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
+      platformDir = 'linux-x64';
       break;
   }
 

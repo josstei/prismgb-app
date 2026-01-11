@@ -78,9 +78,6 @@ Download the latest release for your operating system from the [Releases](https:
 | Linux (x64) | `PrismGB-x.x.x-linux-x64.AppImage` | For Intel/AMD 64-bit systems |
 | Linux (x64) | `PrismGB-x.x.x-linux-x64.deb` | For Debian/Ubuntu (Intel/AMD) |
 | Linux (x64) | `PrismGB-x.x.x-linux-x64.tar.gz` | Compressed archive (Intel/AMD) |
-| Linux (ARM64) | `PrismGB-x.x.x-linux-arm64.AppImage` | For Raspberry Pi 4/5, ARM SBCs |
-| Linux (ARM64) | `PrismGB-x.x.x-linux-arm64.deb` | For Debian/Ubuntu (ARM64) |
-| Linux (ARM64) | `PrismGB-x.x.x-linux-arm64.tar.gz` | Compressed archive (ARM64) |
 
 > **Note:** Replace `x.x.x` with the actual version number (e.g., `1.1.1`).
 
@@ -111,13 +108,11 @@ Download the latest release for your operating system from the [Releases](https:
 
 **Option 1: AppImage (recommended for most users)**
 ```bash
-# Make the AppImage executable (use arm64 version for Raspberry Pi/ARM devices)
+# Make the AppImage executable
 chmod +x PrismGB-x.x.x-linux-x64.AppImage    # Intel/AMD
-chmod +x PrismGB-x.x.x-linux-arm64.AppImage  # ARM64 (Raspberry Pi 4/5, etc.)
 
 # Run the application
 ./PrismGB-x.x.x-linux-x64.AppImage    # Intel/AMD
-./PrismGB-x.x.x-linux-arm64.AppImage  # ARM64
 ```
 > AppImages are self-contained and work on most Linux distributions without installation.
 
@@ -125,7 +120,6 @@ chmod +x PrismGB-x.x.x-linux-arm64.AppImage  # ARM64 (Raspberry Pi 4/5, etc.)
 ```bash
 # Install the package (automatically installs libusb dependency)
 sudo dpkg -i PrismGB-x.x.x-linux-x64.deb    # Intel/AMD
-sudo dpkg -i PrismGB-x.x.x-linux-arm64.deb  # ARM64 (Raspberry Pi 4/5, etc.)
 
 # If there are dependency errors, run:
 sudo apt-get install -f

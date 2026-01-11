@@ -21,13 +21,11 @@ const Arch = {
   ia32: 0,
   x64: 1,
   armv7l: 2,
-  arm64: 3,
   universal: 4,
 };
 
 // Search paths for system libraries by architecture (keyed by Arch enum value)
 const LIB_SEARCH_PATHS = {
-  [Arch.arm64]: ['/usr/lib/aarch64-linux-gnu', '/lib/aarch64-linux-gnu', '/usr/lib', '/lib'],
   [Arch.x64]: ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib64', '/usr/lib', '/lib'],
   [Arch.armv7l]: ['/usr/lib/arm-linux-gnueabihf', '/lib/arm-linux-gnueabihf', '/usr/lib', '/lib'],
   [Arch.ia32]: ['/usr/lib/i386-linux-gnu', '/lib/i386-linux-gnu', '/usr/lib32', '/usr/lib', '/lib'],
