@@ -1,0 +1,10 @@
+name: Install Linux FUSE
+description: Install FUSE runtime for AppImage
+
+runs:
+  using: composite
+  steps:
+    - name: Install FUSE for AppImage (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y libfuse2

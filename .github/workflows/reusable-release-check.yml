@@ -1,0 +1,108 @@
+name: Reusable Release Check
+
+on:
+  workflow_call:
+    inputs:
+      platforms:
+        description: Platforms to build
+        required: false
+        default: all
+        type: string
+    outputs:
+      is_release:
+        description: Whether the commit should trigger a release
+        value: ${{ jobs.check-release.outputs.is_release }}
+      version:
+        description: Release version
+        value: ${{ jobs.check-release.outputs.version }}
+      tag:
+        description: Release tag
+        value: ${{ jobs.check-release.outputs.tag }}
+      matrix:
+        description: Build matrix JSON
+        value: ${{ jobs.check-release.outputs.matrix }}
+
+jobs:
+  check-release:
+    name: Check Release
+    runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if release commit
+        id: check
+        run: |
+          # Get the commit message
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Check if this is a release commit (from release-prepare workflow)
+          # Match anywhere in message to handle merge commits
+          if [[ "$COMMIT_MSG" =~ chore\(release\):\ bump\ to\ v([0-9]+\.[0-9]+\.[0-9]+) ]] || \
+             [[ "$COMMIT_MSG" =~ chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+            echo "Detected release version: $VERSION"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # For manual triggers, check package.json version and existing tag
+            VERSION=$(node -p "require('./package.json').version")
+            TAG="v$VERSION"
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "Manual trigger: found existing tag $TAG"
+              echo "is_release=true" >> $GITHUB_OUTPUT
+              echo "version=$VERSION" >> $GITHUB_OUTPUT
+              echo "tag=$TAG" >> $GITHUB_OUTPUT
+            else
+              echo "Manual trigger: no tag found for v$VERSION"
+              echo "is_release=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "Not a release commit, skipping"
+          fi
+
+      - name: Configure git
+        if: steps.check.outputs.is_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if tag exists
+        if: steps.check.outputs.is_release == 'true'
+        id: tag-check
+        run: |
+          if git rev-parse "${{ steps.check.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.check.outputs.tag }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check.outputs.is_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: |
+          git tag -a "${{ steps.check.outputs.tag }}" -m "Release ${{ steps.check.outputs.tag }}"
+          git push origin "${{ steps.check.outputs.tag }}"
+          echo "Created tag: ${{ steps.check.outputs.tag }}"
+
+      - name: Security audit
+        if: steps.check.outputs.is_release == 'true'
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Set build matrix
+        id: matrix
+        if: steps.check.outputs.is_release == 'true'
+        run: |
+          MATRIX=$(node scripts/ci/build-matrix.mjs --mode release --platforms "${{ inputs.platforms }}")
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT

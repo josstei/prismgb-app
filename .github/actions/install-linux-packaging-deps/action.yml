@@ -1,0 +1,29 @@
+name: Install Linux Packaging Dependencies
+description: Install Linux build tooling required for packaging
+
+inputs:
+  install-fpm:
+    description: Install fpm via gem
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux packaging dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libudev-dev \
+          libusb-1.0-0-dev \
+          patchelf \
+          ruby \
+          ruby-dev \
+          rubygems
+
+        if [ "${{ inputs.install-fpm }}" = "true" ]; then
+          sudo gem install fpm --no-document
+        fi

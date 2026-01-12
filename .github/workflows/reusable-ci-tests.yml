@@ -1,0 +1,64 @@
+name: Reusable CI Tests
+
+on:
+  workflow_call:
+    inputs:
+      full_matrix:
+        description: Run full OS matrix (macOS + Windows)
+        required: false
+        default: false
+        type: boolean
+      full_matrix_label:
+        description: PR label that triggers full matrix
+        required: false
+        default: full-ci
+        type: string
+
+jobs:
+  validate-linux:
+    name: Test (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests with coverage
+        run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  validate-matrix:
+    name: Test (${{ matrix.os }})
+    needs: validate-linux
+    runs-on: ${{ matrix.os }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, inputs.full_matrix_label)) || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run tests (no coverage)
+        run: npm run test:run
+
+      - name: Run integration tests
+        run: npm run test:integration

@@ -1,0 +1,26 @@
+name: Setup Electron Cache
+description: Cache Electron and electron-builder assets
+
+inputs:
+  key:
+    description: Cache key
+    required: true
+  restore-keys:
+    description: Cache restore keys
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Cache electron-builder
+      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          ~/Library/Caches/electron
+          ~/Library/Caches/electron-builder
+          ~/AppData/Local/electron/Cache
+          ~/AppData/Local/electron-builder/Cache
+        key: ${{ inputs.key }}
+        restore-keys: ${{ inputs.restore-keys }}
