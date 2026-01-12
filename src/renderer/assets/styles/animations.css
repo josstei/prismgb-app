@@ -428,14 +428,6 @@
   }
 }
 
-/* Legacy keyframe aliases for backwards compatibility */
-@keyframes particle-float-rainbow-1 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-2 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-3 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-4 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-5 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-6 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-
 /* =====================================================
    Chromatic Aberration Effect
    GPU-ACCELERATED: Uses filter only

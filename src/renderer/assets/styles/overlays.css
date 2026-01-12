@@ -266,7 +266,7 @@
 }
 
 .ready-ring-inner {
-  animation: ready-ring-pulse 2s ease-in-out infinite;
+  animation: prismatic-ring-pulse 2s ease-in-out infinite;
   animation-play-state: paused;
   will-change: transform, opacity;
 }
@@ -283,7 +283,7 @@
   );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
-  animation: ready-ring-expand 2s ease-out infinite;
+  animation: prismatic-ring-expand 2s ease-out infinite;
   animation-play-state: paused;
   will-change: transform, opacity;
 }
@@ -301,7 +301,7 @@
   );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
-  animation: ready-ring-ripple 2.5s ease-out infinite;
+  animation: prismatic-ring-ripple 2.5s ease-out infinite;
   animation-play-state: paused;
   will-change: transform, opacity;
 }
