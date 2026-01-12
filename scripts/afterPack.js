@@ -21,6 +21,7 @@ const Arch = {
   ia32: 0,
   x64: 1,
   armv7l: 2,
+  arm64: 3,
   universal: 4,
 };
 
@@ -28,6 +29,7 @@ const Arch = {
 const LIB_SEARCH_PATHS = {
   [Arch.x64]: ['/usr/lib/x86_64-linux-gnu', '/lib/x86_64-linux-gnu', '/usr/lib64', '/usr/lib', '/lib'],
   [Arch.armv7l]: ['/usr/lib/arm-linux-gnueabihf', '/lib/arm-linux-gnueabihf', '/usr/lib', '/lib'],
+  [Arch.arm64]: ['/usr/lib/aarch64-linux-gnu', '/lib/aarch64-linux-gnu', '/usr/lib64', '/usr/lib', '/lib'],
   [Arch.ia32]: ['/usr/lib/i386-linux-gnu', '/lib/i386-linux-gnu', '/usr/lib32', '/usr/lib', '/lib'],
 };
 
@@ -178,14 +180,9 @@ function getFfprobePlatformDirs(platform, arch) {
     [Arch.x64]: 'x64',
     [Arch.ia32]: 'ia32',
     [Arch.armv7l]: 'arm',
+    [Arch.arm64]: 'arm64',
     [Arch.universal]: 'x64', // Universal builds use x64 binary
   };
-
-  // For arm64 on macOS, electron-builder uses arch value 3
-  const ARM64 = 3;
-  if (arch === ARM64) {
-    return [platform, 'arm64'];
-  }
 
   const archStr = archMap[arch] || 'x64';
   return [platform, archStr];

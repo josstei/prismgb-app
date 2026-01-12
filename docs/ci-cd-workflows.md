@@ -45,7 +45,7 @@ Related docs:
 
 | Script | Purpose |
 | --- | --- |
-| `scripts/ci/build-matrix.mjs` | Generates the OS/arch build matrix for release and smoke builds. |
+| `scripts/ci/build-matrix.mjs` | Generates the OS/arch build matrix for release and smoke builds (Linux x64/ARM64, macOS x64/ARM64, Windows x64). |
 | `scripts/ci/merge-mac-yaml.sh` | Merges per-arch macOS update YAML files into one. |
 
 ## PR Validation Flow (`ci-pr.yml`)
