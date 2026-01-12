@@ -1,0 +1,20 @@
+name: Reusable CI Build Smoke
+
+on:
+  workflow_call:
+
+jobs:
+  build-smoke:
+    name: Build Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          skip-native-deps: 'true'
+
+      - name: Build Vite bundle
+        run: npm run build:vite
