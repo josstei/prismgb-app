@@ -27,13 +27,13 @@
 
 /* Transitioning state - soft fade with gentle rise */
 .stream-overlay.transitioning-to-stream {
-  animation: overlay-exit 500ms ease-out forwards !important;
+  animation: overlay-exit 1000ms ease-out forwards !important;
   pointer-events: none;
 }
 
 /* Icon wrapper - gentle rise and fade */
 .stream-overlay.transitioning-to-stream .icon-wrapper {
-  animation: icon-rise-fade 500ms ease-out forwards !important;
+  animation: icon-rise-fade 1000ms ease-out forwards !important;
 }
 
 /* Overlay icon inherits parent animation */
@@ -45,7 +45,7 @@
 .stream-overlay.transitioning-to-stream .ready-ring {
   opacity: 1 !important;
   visibility: visible !important;
-  animation: ring-fade 500ms ease-out forwards !important;
+  animation: ring-fade 1000ms ease-out forwards !important;
 }
 
 /* Particles fade out smoothly */

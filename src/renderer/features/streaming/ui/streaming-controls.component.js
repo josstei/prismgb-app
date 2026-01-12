@@ -7,7 +7,7 @@
 
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 
-const STREAM_TRANSITION_DURATION = 500; // Match CSS animation duration
+const STREAM_TRANSITION_DURATION = 1000; // Match CSS animation duration
 
 class StreamingControlsComponent {
   /**
@@ -54,14 +54,13 @@ class StreamingControlsComponent {
         if (this.elements.recordBtn) this.elements.recordBtn.disabled = false;
         this.elements.streamOverlay?.classList.add(CSSClasses.HIDDEN);
       } else {
-        // Start exit animation on overlay first (video stays hidden)
+        // Start exit animation on overlay and fade in video simultaneously (cross-fade)
         this.elements.streamOverlay?.classList.add(CSSClasses.TRANSITIONING_TO_STREAM);
+        document.body.classList.add(CSSClasses.STREAMING_MODE);
 
-        // After animation completes, show video and hide overlay
+        // After animation completes, enable controls and finalize overlay state
         this._streamTransitionTimeoutId = setTimeout(() => {
           this._streamTransitionTimeoutId = null;
-          // Now show the video
-          document.body.classList.add(CSSClasses.STREAMING_MODE);
           if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = false;
           if (this.elements.recordBtn) this.elements.recordBtn.disabled = false;
           // Hide the overlay

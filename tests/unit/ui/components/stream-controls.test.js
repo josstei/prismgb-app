@@ -63,21 +63,21 @@ describe('StreamingControlsComponent', () => {
   });
 
   describe('setStreamingMode', () => {
-    it('should animate overlay out then enable streaming', () => {
+    it('should animate overlay out with cross-fade then enable controls', () => {
       vi.useFakeTimers();
 
       component.setStreamingMode(true);
 
-      // Immediate: only transitioning class added, video still hidden
+      // Immediate: transitioning class added AND streaming-mode for cross-fade
       expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('transitioning-to-stream');
-      expect(document.body.classList.add).not.toHaveBeenCalledWith('streaming-mode');
+      expect(document.body.classList.add).toHaveBeenCalledWith('streaming-mode');
+      // Controls still disabled during animation
       expect(mockElements.screenshotBtn.disabled).toBe(true);
       expect(mockElements.recordBtn.disabled).toBe(true);
 
-      // After 450ms: animation complete, now show video and enable controls
-      vi.advanceTimersByTime(500);
+      // After 1000ms: animation complete, enable controls and finalize overlay
+      vi.advanceTimersByTime(1000);
 
-      expect(document.body.classList.add).toHaveBeenCalledWith('streaming-mode');
       expect(mockElements.screenshotBtn.disabled).toBe(false);
       expect(mockElements.recordBtn.disabled).toBe(false);
       expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('transitioning-to-stream');
@@ -99,7 +99,7 @@ describe('StreamingControlsComponent', () => {
       component.setStreamingMode(true); // Rapid toggle
 
       // Original timeout should be cleared, new one set
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(1000);
 
       // Should have completed the second transition
       expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('hidden');
