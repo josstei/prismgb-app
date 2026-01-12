@@ -25,6 +25,44 @@
   contain: layout style paint;
 }
 
+/* Transitioning state - soft fade with gentle rise */
+.stream-overlay.transitioning-to-stream {
+  animation: overlay-exit 500ms ease-out forwards !important;
+  pointer-events: none;
+}
+
+/* Icon wrapper - gentle rise and fade */
+.stream-overlay.transitioning-to-stream .icon-wrapper {
+  animation: icon-rise-fade 500ms ease-out forwards !important;
+}
+
+/* Overlay icon inherits parent animation */
+.stream-overlay.transitioning-to-stream .overlay-icon {
+  animation: none !important;
+}
+
+/* Force rings visible during transition */
+.stream-overlay.transitioning-to-stream .ready-ring {
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: ring-fade 500ms ease-out forwards !important;
+}
+
+/* Particles fade out smoothly */
+.stream-overlay.transitioning-to-stream .particle {
+  opacity: 0 !important;
+  transition: opacity 400ms ease-out !important;
+}
+
+/* Other effects fade out cleanly */
+.stream-overlay.transitioning-to-stream .gem-glow,
+.stream-overlay.transitioning-to-stream .ready-flash,
+.stream-overlay.transitioning-to-stream .scanlines {
+  animation: none !important;
+  opacity: 0 !important;
+  transition: opacity 300ms ease-out !important;
+}
+
 /* Vignette Effect */
 .stream-overlay::after {
   content: '';

@@ -32,6 +32,7 @@ export const CSSClasses = {
   MINIMALIST_FULLSCREEN: 'minimalist-fullscreen',
   MINIMALIST_TRANSITION: 'minimalist-transition',
   STREAMING_MODE: 'streaming-mode',
+  TRANSITIONING_TO_STREAM: 'transitioning-to-stream',
 
   // Settings menu
   STATUS_HIDDEN: 'status-hidden',

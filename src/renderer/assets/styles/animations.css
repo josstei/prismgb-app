@@ -503,3 +503,44 @@
   }
 }
 
+/* =====================================================
+   Soft Fade & Rise Exit Animation
+   Clean, elegant overlay exit - gem floats up while fading
+   GPU-optimized: transform/opacity only
+   ===================================================== */
+
+/* Overlay exit - soft rise and fade */
+@keyframes overlay-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+/* Icon gentle rise */
+@keyframes icon-rise-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.05);
+  }
+}
+
+/* Rings gentle expand and fade */
+@keyframes ring-fade {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+}

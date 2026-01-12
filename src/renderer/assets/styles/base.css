@@ -211,6 +211,18 @@ body.app-animations-off .status-indicator {
   animation: none;
 }
 
+/* Suppress stream transition animation when animations disabled */
+body.app-animations-off .stream-overlay.transitioning-to-stream,
+body.app-animations-off .stream-overlay.transitioning-to-stream .icon-wrapper,
+body.app-animations-off .stream-overlay.transitioning-to-stream .ready-ring,
+body.app-animations-off .stream-overlay.transitioning-to-stream .particle,
+body.app-animations-off .stream-overlay.transitioning-to-stream .gem-glow,
+body.app-animations-off .stream-overlay.transitioning-to-stream .scanlines {
+  animation: none !important;
+  opacity: 0;
+  transition: opacity 50ms ease !important;
+}
+
 /* Typography - Display Font for Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
