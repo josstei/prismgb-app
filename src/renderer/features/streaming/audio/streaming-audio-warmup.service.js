@@ -297,7 +297,21 @@ export class StreamingAudioWarmupService extends BaseService {
     const clamped = Math.max(0, Math.min(1, targetGain));
     this._gainNode.gain.cancelScheduledValues(now);
     this._gainNode.gain.setValueAtTime(this._gainNode.gain.value, now);
-    this._gainNode.gain.linearRampToValueAtTime(clamped, now + (fadeMs / 1000));
+
+    // Use ease-in curve for smooth perceived fade (human hearing is logarithmic)
+    const curve = this._createEaseInCurve(this._gainNode.gain.value, clamped, 64);
+    this._gainNode.gain.setValueCurveAtTime(curve, now, fadeMs / 1000);
+  }
+
+  _createEaseInCurve(startValue, endValue, steps) {
+    const curve = new Float32Array(steps);
+    for (let i = 0; i < steps; i++) {
+      // Ease-in cubic: t^3 - slow start, accelerates toward end
+      const t = i / (steps - 1);
+      const eased = t * t * t;
+      curve[i] = startValue + (endValue - startValue) * eased;
+    }
+    return curve;
   }
 
   _getWarmupTimings() {
@@ -306,7 +320,7 @@ export class StreamingAudioWarmupService extends BaseService {
       unmuteTimeoutMs: isLinux ? 1800 : 1200,
       energyTimeoutMs: isLinux ? 1000 : 600,
       stabilizeDelayMs: isLinux ? 300 : 150,
-      fadeMs: isLinux ? 200 : 120,
+      fadeMs: 650, // Slightly longer than overlay animation for gentler fade
       energyThreshold: isLinux ? 0.003 : 0.002
     };
   }
