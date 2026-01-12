@@ -32,6 +32,7 @@ class StreamingShaderSelectorComponent {
     this.volumeSlider = null;
     this.volumePercentage = null;
     this.streamVideo = null;
+    this.shaderUnavailableMessage = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -52,6 +53,7 @@ class StreamingShaderSelectorComponent {
     this.volumeSlider = elements.volumeSlider;
     this.volumePercentage = elements.volumePercentage;
     this.streamVideo = elements.streamVideo;
+    this.shaderUnavailableMessage = this.dropdown?.querySelector('#shaderUnavailableMessage');
 
     if (!this.button || !this.dropdown) {
       this.logger?.warn('Shader selector elements not found');
@@ -80,6 +82,7 @@ class StreamingShaderSelectorComponent {
   _loadPerformanceModeState() {
     this._performanceModeEnabled = this.settingsService.getPerformanceMode();
     this._updateBrightnessControlVisibility();
+    this._updateShaderListVisibility();
   }
 
   /**
@@ -93,6 +96,24 @@ class StreamingShaderSelectorComponent {
       this.brightnessControl.classList.add(CSSClasses.HIDDEN);
     } else {
       this.brightnessControl.classList.remove(CSSClasses.HIDDEN);
+    }
+  }
+
+  /**
+   * Update shader list visibility based on performance mode
+   * Shows unavailable message when performance mode is enabled
+   * @private
+   */
+  _updateShaderListVisibility() {
+    const shaderOptions = this.dropdown?.querySelector('.shader-options');
+    if (!shaderOptions || !this.shaderUnavailableMessage) return;
+
+    if (this._performanceModeEnabled) {
+      shaderOptions.classList.add(CSSClasses.HIDDEN);
+      this.shaderUnavailableMessage.classList.remove(CSSClasses.HIDDEN);
+    } else {
+      shaderOptions.classList.remove(CSSClasses.HIDDEN);
+      this.shaderUnavailableMessage.classList.add(CSSClasses.HIDDEN);
     }
   }
 
@@ -143,28 +164,16 @@ class StreamingShaderSelectorComponent {
     optionsContainer.innerHTML = '';
 
     presets.forEach((preset) => {
+      // Always skip Performance preset - it's only for automatic use in performance mode
+      if (preset.id === 'performance') return;
+
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'shader-option';
       option.dataset.presetId = preset.id;
 
-      // When performance mode is enabled, only Performance preset is visible
-      if (this._performanceModeEnabled) {
-        if (preset.id === 'performance') {
-          option.classList.add(CSSClasses.ACTIVE);
-        } else {
-          option.classList.add(CSSClasses.HIDDEN);
-          return;
-        }
-      } else {
-        // Normal mode - hide Performance preset, show user's selection
-        if (preset.id === 'performance') {
-          option.classList.add(CSSClasses.HIDDEN);
-          return;
-        }
-        if (preset.id === this.currentPresetId) {
-          option.classList.add(CSSClasses.ACTIVE);
-        }
+      if (preset.id === this.currentPresetId) {
+        option.classList.add(CSSClasses.ACTIVE);
       }
 
       option.innerHTML = `<span class="shader-option-name">${preset.name}</span>`;
@@ -243,6 +252,7 @@ class StreamingShaderSelectorComponent {
         this._performanceModeEnabled = enabled;
         this._renderPresetList();
         this._updateBrightnessControlVisibility();
+        this._updateShaderListVisibility();
         this.logger?.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'} - shader options updated`);
       }
     );
