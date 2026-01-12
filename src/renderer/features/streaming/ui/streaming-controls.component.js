@@ -21,35 +21,54 @@ class StreamingControlsComponent {
   }
 
   /**
+   * Check if animations are disabled (performance mode)
+   * @returns {boolean}
+   */
+  _areAnimationsDisabled() {
+    return document.body.classList.contains(CSSClasses.APP_ANIMATIONS_OFF);
+  }
+
+  /**
    * Set streaming mode
    * @param {boolean} isStreaming - Is streaming active
    */
   setStreamingMode(isStreaming) {
+    const skipAnimation = this._areAnimationsDisabled();
+
     if (isStreaming) {
       // Remove any lingering hiding class from previous cycle
       this.elements.screenshotBtn?.classList.remove(CSSClasses.HIDING);
       this.elements.recordBtn?.classList.remove(CSSClasses.HIDING);
       this.elements.shaderControls?.classList.remove(CSSClasses.HIDING);
 
-      // Start exit animation on overlay first (video stays hidden)
-      this.elements.streamOverlay?.classList.add(CSSClasses.TRANSITIONING_TO_STREAM);
-
       // Clear any pending transition timeout
       if (this._streamTransitionTimeoutId !== null) {
         clearTimeout(this._streamTransitionTimeoutId);
+        this._streamTransitionTimeoutId = null;
       }
 
-      // After animation completes, show video and hide overlay
-      this._streamTransitionTimeoutId = setTimeout(() => {
-        this._streamTransitionTimeoutId = null;
-        // Now show the video
+      if (skipAnimation) {
+        // Skip animation - show stream immediately
         document.body.classList.add(CSSClasses.STREAMING_MODE);
         if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = false;
         if (this.elements.recordBtn) this.elements.recordBtn.disabled = false;
-        // Hide the overlay
-        this.elements.streamOverlay?.classList.remove(CSSClasses.TRANSITIONING_TO_STREAM);
         this.elements.streamOverlay?.classList.add(CSSClasses.HIDDEN);
-      }, STREAM_TRANSITION_DURATION);
+      } else {
+        // Start exit animation on overlay first (video stays hidden)
+        this.elements.streamOverlay?.classList.add(CSSClasses.TRANSITIONING_TO_STREAM);
+
+        // After animation completes, show video and hide overlay
+        this._streamTransitionTimeoutId = setTimeout(() => {
+          this._streamTransitionTimeoutId = null;
+          // Now show the video
+          document.body.classList.add(CSSClasses.STREAMING_MODE);
+          if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = false;
+          if (this.elements.recordBtn) this.elements.recordBtn.disabled = false;
+          // Hide the overlay
+          this.elements.streamOverlay?.classList.remove(CSSClasses.TRANSITIONING_TO_STREAM);
+          this.elements.streamOverlay?.classList.add(CSSClasses.HIDDEN);
+        }, STREAM_TRANSITION_DURATION);
+      }
     } else {
       // Clear any pending stream transition timeout
       if (this._streamTransitionTimeoutId !== null) {
@@ -65,21 +84,31 @@ class StreamingControlsComponent {
         this._animationTimeoutId = null;
       }
 
-      // Trigger pop-out animation before hiding
-      this.elements.screenshotBtn?.classList.add(CSSClasses.HIDING);
-      this.elements.recordBtn?.classList.add(CSSClasses.HIDING);
-      this.elements.shaderControls?.classList.add(CSSClasses.HIDING);
-
-      // Wait for animation to complete before removing streaming-mode
-      this._animationTimeoutId = setTimeout(() => {
-        this._animationTimeoutId = null;
+      if (skipAnimation) {
+        // Skip animation - hide stream immediately
         this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
         document.body.classList.remove(CSSClasses.STREAMING_MODE);
         if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = true;
         if (this.elements.recordBtn) this.elements.recordBtn.disabled = true;
         if (this.elements.currentResolution) this.elements.currentResolution.textContent = '—';
         if (this.elements.currentFPS) this.elements.currentFPS.textContent = '—';
-      }, 150);
+      } else {
+        // Trigger pop-out animation before hiding
+        this.elements.screenshotBtn?.classList.add(CSSClasses.HIDING);
+        this.elements.recordBtn?.classList.add(CSSClasses.HIDING);
+        this.elements.shaderControls?.classList.add(CSSClasses.HIDING);
+
+        // Wait for animation to complete before removing streaming-mode
+        this._animationTimeoutId = setTimeout(() => {
+          this._animationTimeoutId = null;
+          this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
+          document.body.classList.remove(CSSClasses.STREAMING_MODE);
+          if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = true;
+          if (this.elements.recordBtn) this.elements.recordBtn.disabled = true;
+          if (this.elements.currentResolution) this.elements.currentResolution.textContent = '—';
+          if (this.elements.currentFPS) this.elements.currentFPS.textContent = '—';
+        }, 150);
+      }
     }
   }
 

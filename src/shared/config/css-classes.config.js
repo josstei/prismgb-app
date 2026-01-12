@@ -66,5 +66,8 @@ export const CSSClasses = {
 
   // Notes panel states
   LIST_COLLAPSED: 'list-collapsed',
-  GAME_GROUP_COLLAPSED: 'collapsed'
+  GAME_GROUP_COLLAPSED: 'collapsed',
+
+  // Performance mode
+  APP_ANIMATIONS_OFF: 'app-animations-off'
 };

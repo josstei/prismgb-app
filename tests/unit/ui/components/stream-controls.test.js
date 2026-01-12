@@ -13,7 +13,8 @@ describe('StreamingControlsComponent', () => {
     // Mock document.body classList with spies
     const mockBodyClassList = {
       add: vi.fn(),
-      remove: vi.fn()
+      remove: vi.fn(),
+      contains: vi.fn(() => false) // Default: animations enabled
     };
     Object.defineProperty(document.body, 'classList', {
       value: mockBodyClassList,
@@ -201,6 +202,45 @@ describe('StreamingControlsComponent', () => {
       component.updateStreamInfo(undefined);
 
       expect(mockElements.currentResolution.textContent).toBe('existing');
+    });
+  });
+
+  describe('Performance mode (animations off)', () => {
+    beforeEach(() => {
+      // Mock animations-off mode
+      document.body.classList.contains = vi.fn((className) => className === 'app-animations-off');
+    });
+
+    it('should enable streaming immediately without animation delay', () => {
+      component.setStreamingMode(true);
+
+      // Should show stream immediately, no timeout needed
+      expect(document.body.classList.add).toHaveBeenCalledWith('streaming-mode');
+      expect(mockElements.screenshotBtn.disabled).toBe(false);
+      expect(mockElements.recordBtn.disabled).toBe(false);
+      expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('hidden');
+
+      // Should NOT add transitioning class
+      expect(mockElements.streamOverlay.classList.add).not.toHaveBeenCalledWith('transitioning-to-stream');
+    });
+
+    it('should disable streaming immediately without animation delay', () => {
+      mockElements.screenshotBtn.disabled = false;
+      mockElements.recordBtn.disabled = false;
+
+      component.setStreamingMode(false);
+
+      // Should hide stream immediately, no timeout needed
+      expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden');
+      expect(document.body.classList.remove).toHaveBeenCalledWith('streaming-mode');
+      expect(mockElements.screenshotBtn.disabled).toBe(true);
+      expect(mockElements.recordBtn.disabled).toBe(true);
+      expect(mockElements.currentResolution.textContent).toBe('—');
+      expect(mockElements.currentFPS.textContent).toBe('—');
+
+      // Should NOT add hiding class (no animation)
+      expect(mockElements.screenshotBtn.classList.add).not.toHaveBeenCalledWith('hiding');
+      expect(mockElements.recordBtn.classList.add).not.toHaveBeenCalledWith('hiding');
     });
   });
 });
