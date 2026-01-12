@@ -58,6 +58,12 @@ export default function createStreamViewerTemplate() {
           <div class="shader-panel" id="shaderDropdown">
             <div class="panel-content">
               <div class="shader-controls-container">
+                <div class="shader-unavailable-message hidden" id="shaderUnavailableMessage">
+                  <svg class="perf-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                  <span>Performance Mode</span>
+                </div>
                 <div class="shader-options"></div>
                 <div class="brightness-control">
                   <div class="brightness-icon">
