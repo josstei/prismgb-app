@@ -1,0 +1,15 @@
+name: Run Smoke Tests
+description: Run the smoke test suite across platforms
+
+runs:
+  using: composite
+  steps:
+    - name: Run smoke test (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: xvfb-run --auto-servernum npm run test:smoke
+
+    - name: Run smoke test (macOS/Windows)
+      if: runner.os != 'Linux'
+      shell: bash
+      run: npm run test:smoke

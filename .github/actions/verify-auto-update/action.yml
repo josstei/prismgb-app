@@ -1,0 +1,25 @@
+name: Verify Auto-Update YAML
+description: List and print auto-update YAML files after build
+
+inputs:
+  release-dir:
+    description: Directory containing release artifacts
+    required: false
+    default: release
+
+runs:
+  using: composite
+  steps:
+    - name: Verify auto-update YAML files
+      if: runner.os == 'Linux' || runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "=== Auto-update YAML files ==="
+        ls -la "${{ inputs.release-dir }}/latest*.yml" 2>/dev/null || echo "Warning: No latest*.yml files found"
+        for yml in "${{ inputs.release-dir }}"/latest*.yml; do
+          if [ -f "$yml" ]; then
+            echo ""
+            echo "=== $(basename "$yml") ==="
+            cat "$yml"
+          fi
+        done
