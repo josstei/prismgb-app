@@ -92,7 +92,7 @@ flowchart TD
   Build[reusable-build-desktop.yml] --> Setup[setup-node-deps]
   Build --> Cache[electron-cache]
   Build --> LinuxDeps[install-linux-packaging-deps]
-  Build --> MacSign[macOS signing (optional)]
+  Build --> MacSign[macOS signing optional]
   Build --> Package[Platform build steps]
   Package --> Smoke[run-smoke-tests]
   Package --> Verify[verify-auto-update]
