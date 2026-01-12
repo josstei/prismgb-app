@@ -428,14 +428,6 @@
   }
 }
 
-/* Legacy keyframe aliases for backwards compatibility */
-@keyframes particle-float-rainbow-1 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-2 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-3 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-4 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-5 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-@keyframes particle-float-rainbow-6 { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 0.8; } 90% { opacity: 0.6; } }
-
 /* =====================================================
    Chromatic Aberration Effect
    GPU-ACCELERATED: Uses filter only
@@ -503,3 +495,44 @@
   }
 }
 
+/* =====================================================
+   Soft Fade & Rise Exit Animation
+   Clean, elegant overlay exit - gem floats up while fading
+   GPU-optimized: transform/opacity only
+   ===================================================== */
+
+/* Overlay exit - soft rise and fade */
+@keyframes overlay-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+/* Icon gentle rise */
+@keyframes icon-rise-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.05);
+  }
+}
+
+/* Rings gentle expand and fade */
+@keyframes ring-fade {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+}

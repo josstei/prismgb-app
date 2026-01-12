@@ -411,4 +411,19 @@ body.streaming-mode.cinematic-active .app-logo {
     visibility: visible;
     opacity: 0.1;
   }
+
+  /* Instant fade for reduced motion - stream transition */
+  .stream-overlay.transitioning-to-stream {
+    animation-duration: 100ms !important;
+  }
+
+  .stream-overlay.transitioning-to-stream .icon-wrapper,
+  .stream-overlay.transitioning-to-stream .ready-ring,
+  .stream-overlay.transitioning-to-stream .particle,
+  .stream-overlay.transitioning-to-stream .gem-glow,
+  .stream-overlay.transitioning-to-stream .scanlines {
+    animation: none !important;
+    opacity: 0;
+    transition: opacity 100ms ease !important;
+  }
 }
