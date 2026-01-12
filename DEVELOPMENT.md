@@ -29,6 +29,7 @@ npm run dev
 
 - Feature map: `docs/feature-map.md`
 - Naming conventions: `docs/naming-conventions.md`
+- CI/CD workflows: `docs/ci-cd-workflows.md`
 - Architecture diagrams: `docs/architecture-diagrams.md`
 - Architecture onboarding: `docs/architecture-diagrams-onboarding.md`
 

@@ -1,0 +1,75 @@
+name: Smoke Test Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux-x64
+          - macos-x64
+          - macos-arm64
+          - windows
+
+concurrency:
+  group: smoke-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Setup Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: '22'
+
+      - name: Generate build matrix
+        id: matrix
+        run: |
+          MATRIX=$(node scripts/ci/build-matrix.mjs --mode smoke --platform "${{ inputs.platform }}")
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+  build:
+    needs: [setup]
+    uses: ./.github/workflows/reusable-build-desktop.yml
+    with:
+      matrix: ${{ needs.setup.outputs.matrix }}
+      artifact_prefix: smoke-test
+      artifact_retention_days: 7
+      artifact_if_no_files: error
+      run_smoke_tests: true
+      verify_auto_update: true
+      generate_checksums: false
+      list_artifacts: true
+      enable_macos_signing: false
+      linux_use_system_fpm: 'false'
+      install_xvfb: true
+      install_linux_packaging_deps: false
+
+  summary:
+    name: Build Summary
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Smoke Test Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** ${{ inputs.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "Build artifacts are available for download for 7 days." >> $GITHUB_STEP_SUMMARY

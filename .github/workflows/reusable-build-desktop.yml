@@ -1,0 +1,241 @@
+name: Reusable Desktop Build
+
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: Build matrix JSON
+        required: true
+        type: string
+      artifact_prefix:
+        description: Artifact name prefix
+        required: false
+        default: build
+        type: string
+      artifact_retention_days:
+        description: Artifact retention in days
+        required: false
+        default: 7
+        type: number
+      artifact_if_no_files:
+        description: Behavior when artifacts are missing (warn|error)
+        required: false
+        default: warn
+        type: string
+      checkout_ref:
+        description: Git ref to checkout
+        required: false
+        default: ''
+        type: string
+      run_smoke_tests:
+        description: Run smoke tests after build
+        required: false
+        default: true
+        type: boolean
+      verify_auto_update:
+        description: Verify auto-update YAML files
+        required: false
+        default: true
+        type: boolean
+      generate_checksums:
+        description: Generate SHA256SUMS.txt for artifacts
+        required: false
+        default: false
+        type: boolean
+      list_artifacts:
+        description: List build artifacts after packaging
+        required: false
+        default: false
+        type: boolean
+      enable_macos_signing:
+        description: Enable macOS code signing
+        required: false
+        default: false
+        type: boolean
+      linux_use_system_fpm:
+        description: Use system fpm for Linux builds
+        required: false
+        default: 'false'
+        type: string
+      install_xvfb:
+        description: Install xvfb for Linux smoke tests
+        required: false
+        default: true
+        type: boolean
+      install_linux_packaging_deps:
+        description: Install Linux packaging dependencies
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CSC_LINK:
+        required: false
+      CSC_KEY_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.matrix) }}
+
+    steps:
+      - name: Checkout (ref)
+        if: inputs.checkout_ref != ''
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Checkout (default)
+        if: inputs.checkout_ref == ''
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: ${{ inputs.install_xvfb }}
+
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux' && inputs.install_linux_packaging_deps == true
+        uses: ./.github/actions/install-linux-packaging-deps
+        with:
+          install-fpm: ${{ inputs.linux_use_system_fpm }}
+
+      - name: Cache electron-builder
+        uses: ./.github/actions/electron-cache
+        with:
+          key: ${{ runner.os }}-${{ runner.arch }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-electron-builder-
+
+      - name: Import code signing certificate (macOS)
+        if: runner.os == 'macOS' && inputs.enable_macos_signing == true && secrets.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          # Decode the certificate
+          echo "$CSC_LINK" | base64 --decode > $RUNNER_TEMP/certificate.p12
+
+          # Create and configure keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          security import $RUNNER_TEMP/certificate.p12 -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH login.keychain-db
+
+          # Verify the certificate was imported
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+          # Clean up the .p12 file
+          rm -f $RUNNER_TEMP/certificate.p12
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ENABLE_MACOS_SIGNING: ${{ inputs.enable_macos_signing }}
+        run: |
+          if [ "$ENABLE_MACOS_SIGNING" = "true" ] && [ -n "$CSC_LINK" ]; then
+            npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
+          else
+            npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --config.mac.identity=null --publish never
+          fi
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npx vite build
+          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
+        env:
+          USE_SYSTEM_FPM: ${{ inputs.linux_use_system_fpm == 'true' && 'true' || '' }}
+          npm_config_arch: ${{ matrix.arch }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: npm run ${{ matrix.build_script }} -- --publish never
+
+      - name: Install FUSE for AppImage (Linux)
+        if: runner.os == 'Linux' && inputs.run_smoke_tests == true
+        uses: ./.github/actions/install-linux-fuse
+
+      - name: Run smoke tests
+        if: inputs.run_smoke_tests == true
+        uses: ./.github/actions/run-smoke-tests
+        timeout-minutes: 2
+
+      - name: List build artifacts
+        if: inputs.list_artifacts == true
+        run: ls -la release/
+        shell: bash
+
+      - name: Generate checksums (Linux/macOS)
+        if: inputs.generate_checksums == true && runner.os != 'Windows'
+        run: |
+          cd release
+          shopt -s nullglob
+          files=(*.AppImage *.deb *.tar.gz *.dmg *.zip)
+          if [ ${#files[@]} -gt 0 ]; then
+            for file in "${files[@]}"; do
+              if command -v sha256sum &> /dev/null; then
+                sha256sum "$file" >> SHA256SUMS.txt
+              else
+                shasum -a 256 "$file" >> SHA256SUMS.txt
+              fi
+            done
+            cat SHA256SUMS.txt
+          else
+            echo "No artifacts found"
+          fi
+        shell: bash
+
+      - name: Generate checksums (Windows)
+        if: inputs.generate_checksums == true && runner.os == 'Windows'
+        run: |
+          cd release
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -Append SHA256SUMS.txt -Encoding utf8
+          }
+          Get-Content SHA256SUMS.txt
+        shell: pwsh
+
+      - name: Verify auto-update YAML files
+        if: inputs.verify_auto_update == true
+        uses: ./.github/actions/verify-auto-update
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ matrix.label }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.tar.gz
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/latest*.yml
+            release/SHA256SUMS.txt
+          if-no-files-found: ${{ inputs.artifact_if_no_files }}
+          retention-days: ${{ inputs.artifact_retention_days }}

@@ -1,0 +1,110 @@
+name: Reusable Release Publish
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        type: string
+      version:
+        description: Release version
+        required: true
+        type: string
+      artifact_prefix:
+        description: Artifact name prefix
+        required: false
+        default: release
+        type: string
+
+jobs:
+  publish:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: artifacts
+          pattern: ${{ inputs.artifact_prefix }}-*
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          # Flatten all platform artifacts into one directory (excluding latest*.yml for now)
+          find artifacts -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" \
+            -o -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \) \
+            -exec cp {} release-files/ \;
+
+          # Copy Linux YAML files directly
+          find artifacts -type f -name "latest-linux*.yml" -exec cp {} release-files/ \;
+
+          # Copy Windows YAML file directly
+          find artifacts -type f -name "latest.yml" -exec cp {} release-files/ \; 2>/dev/null || true
+
+          ls -la release-files/
+
+      - name: Merge macOS auto-update YAML files
+        run: bash scripts/ci/merge-mac-yaml.sh artifacts release-files/latest-mac.yml
+
+      - name: Generate combined checksums
+        run: |
+          cd release-files
+          shopt -s nullglob
+          files=(*.AppImage *.deb *.tar.gz *.dmg *.zip *.exe)
+          if [ ${#files[@]} -gt 0 ]; then
+            for file in "${files[@]}"; do
+              sha256sum "$file" >> SHA256SUMS.txt
+            done
+            echo "=== SHA256SUMS.txt ==="
+            cat SHA256SUMS.txt
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.2.1
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: v${{ inputs.version }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            release-files/*.AppImage
+            release-files/*.deb
+            release-files/*.tar.gz
+            release-files/*.dmg
+            release-files/*.zip
+            release-files/*.exe
+            release-files/latest*.yml
+            release-files/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "## Release v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Published" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -la release-files/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Auto-Update YAML Files" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          for yml in latest-linux.yml latest-mac.yml latest.yml; do
+            if [ -f "release-files/$yml" ]; then
+              echo "| $yml | Present |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $yml | Missing |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the [draft release](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Edit release notes if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Click **Publish release** to make it public" >> $GITHUB_STEP_SUMMARY

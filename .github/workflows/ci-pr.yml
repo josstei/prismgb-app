@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - beta
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/labels.yml'
+  workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: Run full OS matrix (macOS + Windows)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    name: PR Lint
+    uses: ./.github/workflows/reusable-ci-lint.yml
+
+  tests:
+    name: Tests
+    needs: lint
+    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
+    uses: ./.github/workflows/reusable-ci-tests.yml
+    with:
+      full_matrix: ${{ inputs.full_matrix || false }}
+      full_matrix_label: full-ci
+
+  build-smoke:
+    name: Build Smoke Test
+    needs: lint
+    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
+    uses: ./.github/workflows/reusable-ci-build-smoke.yml

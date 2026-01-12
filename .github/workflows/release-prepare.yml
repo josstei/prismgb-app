@@ -93,7 +93,7 @@ jobs:
             The release will be created automatically when this PR is merged.
 
             ---
-            *Created by the [Prepare Release](../actions/workflows/prepare-release.yml) workflow.*`
+            *Created by the [Prepare Release](../actions/workflows/release-prepare.yml) workflow.*`
             });
 
             console.log(`Created PR #${pr.number}: ${pr.html_url}`);
