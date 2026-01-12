@@ -93,6 +93,9 @@ export default function createStreamViewerTemplate() {
           <span class="record-dot">${getIconSvg('toolbar-record')}</span>
           <!-- Recording state: static dot + spinning outer ring -->
           <span class="record-spinner">${getIconSvg('toolbar-record-active')}</span>
+          <!-- Transcode progress ring -->
+          <span class="transcode-ring" id="transcodeRing" aria-hidden="true"></span>
+          <span class="transcode-percent-label" id="transcodePercentLabel"></span>
         </button>
 
         <!-- Notes Button -->
@@ -107,6 +110,7 @@ export default function createStreamViewerTemplate() {
           ${getIconSvg('overlay-fullscreen-exit')}
         </button>
       </div>
+
     </div>
   `;
 }

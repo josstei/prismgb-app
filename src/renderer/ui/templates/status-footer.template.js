@@ -13,7 +13,7 @@ export default function createStatusFooterTemplate() {
     <footer class="footer status-hidden">
       <div class="footer-right">
         <div class="status-strip" aria-live="polite">
-          <div class="status-message sr-only" id="statusMessage" role="status">Checking device...</div>
+          <div class="status-message" id="statusMessage" role="status"></div>
           <div class="status-metrics" aria-label="Stream details">
             <div class="metric-chip" id="deviceStatusText">Disconnected</div>
             <div class="metric-chip">

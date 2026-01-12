@@ -74,6 +74,13 @@ async function createAppContainer(loggerFactory) {
     updateBridgeService: asClass(UpdateBridge).singleton()
   });
 
+  // Transcode components
+  const { TranscodeService } = await import('@main/features/transcode/transcode.service.js');
+
+  container.register({
+    transcodeService: asClass(TranscodeService).singleton()
+  });
+
   // Log registration count
   const count = Object.keys(container.registrations).length;
   containerLogger.info(`Registered ${count} dependencies`);

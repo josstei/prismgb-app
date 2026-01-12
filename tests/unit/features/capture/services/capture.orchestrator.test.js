@@ -13,6 +13,7 @@ describe('CaptureOrchestrator', () => {
   let mockGpuRendererService;
   let mockCaptureGpuRecordingService;
   let mockStreamingCanvasRenderer;
+  let mockTranscodeService;
   let mockEventBus;
   let mockLogger;
 
@@ -65,6 +66,10 @@ describe('CaptureOrchestrator', () => {
       isActive: vi.fn(() => false)
     };
 
+    mockTranscodeService = {
+      isTranscoding: vi.fn(() => false)
+    };
+
     mockEventBus = {
       publish: vi.fn(),
       subscribe: vi.fn(() => vi.fn())
@@ -102,6 +107,7 @@ describe('CaptureOrchestrator', () => {
       gpuRendererService: mockGpuRendererService,
       gpuRecordingService: mockCaptureGpuRecordingService,
       canvasRenderer: mockStreamingCanvasRenderer,
+      transcodeService: mockTranscodeService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });

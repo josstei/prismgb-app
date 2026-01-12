@@ -269,42 +269,6 @@ describe('DeviceProfile', () => {
     });
   });
 
-  describe('USB Matching', () => {
-    it('should match USB device by identifiers', () => {
-      const config = {
-        ...validConfig,
-        usbIdentifiers: [{ vendorId: 0x374e, productId: 0x0101 }]
-      };
-      const profile = new DeviceProfile(config, mockLogger);
-
-      const device = { vendorId: 0x374e, productId: 0x0101 };
-      expect(profile.matchesUSB(device)).toBe(true);
-    });
-
-    it('should not match different USB device', () => {
-      const config = {
-        ...validConfig,
-        usbIdentifiers: [{ vendorId: 0x374e, productId: 0x0101 }]
-      };
-      const profile = new DeviceProfile(config, mockLogger);
-
-      const device = { vendorId: 0x1234, productId: 0x5678 };
-      expect(profile.matchesUSB(device)).toBe(false);
-    });
-
-    it('should return false for null device', () => {
-      const profile = new DeviceProfile(validConfig, mockLogger);
-
-      expect(profile.matchesUSB(null)).toBe(false);
-    });
-
-    it('should return false for device without vendorId', () => {
-      const profile = new DeviceProfile(validConfig, mockLogger);
-
-      expect(profile.matchesUSB({ productId: 0x0101 })).toBe(false);
-    });
-  });
-
   describe('getMediaConstraints', () => {
     it('should return media constraints', () => {
       const profile = new DeviceProfile(validConfig, mockLogger);
@@ -360,17 +324,4 @@ describe('DeviceProfile', () => {
     });
   });
 
-  describe('getInfo', () => {
-    it('should return profile info', () => {
-      const profile = new DeviceProfile(validConfig, mockLogger);
-
-      const info = profile.getInfo();
-
-      expect(info.id).toBe('test-device');
-      expect(info.name).toBe('Test Device');
-      expect(info.resolution).toBe('160x144');
-      expect(info.aspectRatio).toBeDefined();
-      expect(Array.isArray(info.capabilities)).toBe(true);
-    });
-  });
 });

@@ -1,0 +1,200 @@
+/* =====================================================
+   Transcode Progress on Record Button
+   Circular progress ring around the record button
+   ===================================================== */
+
+/* Progress ring - positioned around the button */
+.toolbar-btn.toolbar-record .transcode-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+
+  /* Ring with gradient - will spin when transcoding */
+  background: conic-gradient(
+    from 0deg,
+    var(--color-primary) 0deg,
+    var(--color-primary) 90deg,
+    transparent 90deg,
+    transparent 360deg
+  );
+
+  /* Mask to create ring effect - 3px thick ring */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
+}
+
+/* Percentage label - small text inside button */
+.toolbar-btn.toolbar-record .transcode-percent-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* =====================================================
+   Transcoding State - Spinning Animation
+   ===================================================== */
+
+.toolbar-btn.toolbar-record.transcoding {
+  position: relative;
+  border-color: rgba(var(--color-primary-rgb), 0.4);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15) 0%, rgba(var(--color-primary-darker-rgb), 0.1) 100%);
+  box-shadow:
+    0 0 0 1px rgba(var(--color-primary-rgb), 0.2),
+    0 0 12px rgba(var(--color-primary-rgb), 0.2);
+  cursor: wait;
+}
+
+/* Show and spin the ring when transcoding */
+.toolbar-btn.toolbar-record.transcoding .transcode-ring {
+  opacity: 1;
+  visibility: visible;
+  animation: transcode-spin 1s linear infinite;
+}
+
+/* Show percentage label when transcoding */
+.toolbar-btn.toolbar-record.transcoding .transcode-percent-label {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Hide normal icons when transcoding */
+.toolbar-btn.toolbar-record.transcoding .record-dot,
+.toolbar-btn.toolbar-record.transcoding .record-spinner {
+  opacity: 0;
+}
+
+/* Spinning animation */
+@keyframes transcode-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =====================================================
+   Success State
+   ===================================================== */
+
+.toolbar-btn.toolbar-record.transcode-success {
+  border-color: rgba(var(--color-success-rgb), 0.5);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.2) 0%, rgba(var(--color-success-rgb), 0.1) 100%);
+  box-shadow: 0 0 16px rgba(var(--color-success-rgb), 0.35);
+  animation: success-pop 0.3s ease-out;
+}
+
+.toolbar-btn.toolbar-record.transcode-success .transcode-ring {
+  background: conic-gradient(
+    from -90deg,
+    rgba(var(--color-success-rgb), 0.9) 0deg,
+    rgba(var(--color-success-rgb), 0.9) 360deg
+  );
+  opacity: 1;
+  visibility: visible;
+  animation: success-glow 0.8s ease-out;
+}
+
+.toolbar-btn.toolbar-record.transcode-success .transcode-percent-label {
+  opacity: 1;
+  visibility: visible;
+  font-size: 12px;
+  color: rgb(var(--color-success-rgb));
+  animation: success-check 0.3s ease-out;
+}
+
+.toolbar-btn.toolbar-record.transcode-success .record-dot,
+.toolbar-btn.toolbar-record.transcode-success .record-spinner {
+  opacity: 0;
+}
+
+/* Success animations */
+@keyframes success-pop {
+  0% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes success-glow {
+  0% {
+    opacity: 0.5;
+    filter: drop-shadow(0 0 2px rgba(var(--color-success-rgb), 0.3));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(var(--color-success-rgb), 0.6));
+  }
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(var(--color-success-rgb), 0.4));
+  }
+}
+
+@keyframes success-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =====================================================
+   Error State
+   ===================================================== */
+
+.toolbar-btn.toolbar-record.transcode-error {
+  border-color: rgba(var(--color-danger-rgb), 0.5);
+  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.2) 0%, rgba(var(--color-danger-rgb), 0.1) 100%);
+  box-shadow: 0 0 16px rgba(var(--color-danger-rgb), 0.35);
+}
+
+.toolbar-btn.toolbar-record.transcode-error .transcode-ring {
+  background: conic-gradient(
+    from -90deg,
+    rgba(var(--color-danger-rgb), 0.9) 0deg,
+    rgba(var(--color-danger-rgb), 0.9) 360deg
+  );
+  opacity: 1;
+  visibility: visible;
+  animation: none;
+}
+
+.toolbar-btn.toolbar-record.transcode-error .transcode-percent-label {
+  opacity: 1;
+  visibility: visible;
+  font-size: 12px;
+  color: rgb(var(--color-danger-rgb));
+}
+
+.toolbar-btn.toolbar-record.transcode-error .record-dot,
+.toolbar-btn.toolbar-record.transcode-error .record-spinner {
+  opacity: 0;
+}

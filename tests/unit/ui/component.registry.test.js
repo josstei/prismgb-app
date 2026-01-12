@@ -46,6 +46,15 @@ describe('UIComponentRegistry', () => {
       dispose: vi.fn()
     };
 
+    mockComponents.transcodeToastComponent = {
+      show: vi.fn(),
+      updateProgress: vi.fn(),
+      showSuccess: vi.fn(),
+      showError: vi.fn(),
+      hide: vi.fn(),
+      dispose: vi.fn()
+    };
+
     // Create mock factory with factory methods
     mockFactory = {
       createStatusNotificationComponent: vi.fn().mockReturnValue(mockComponents.statusNotificationComponent),
@@ -53,7 +62,8 @@ describe('UIComponentRegistry', () => {
       createStreamingControlsComponent: vi.fn().mockReturnValue(mockComponents.streamControlsComponent),
       createSettingsMenuComponent: vi.fn().mockReturnValue(mockComponents.settingsMenuComponent),
       createStreamingShaderSelectorComponent: vi.fn().mockReturnValue(mockComponents.shaderSelectorComponent),
-      createNotesPanelComponent: vi.fn().mockReturnValue(mockComponents.notesPanelComponent)
+      createNotesPanelComponent: vi.fn().mockReturnValue(mockComponents.notesPanelComponent),
+      createTranscodeToastComponent: vi.fn().mockReturnValue(mockComponents.transcodeToastComponent)
     };
 
     // Create mock event bus
@@ -87,7 +97,11 @@ describe('UIComponentRegistry', () => {
       currentFPS: { textContent: '' },
       screenshotBtn: { disabled: false },
       recordBtn: { disabled: false },
-      shaderControls: {}
+      shaderControls: {},
+      transcodeToast: { classList: { add: vi.fn(), remove: vi.fn() } },
+      transcodeLabel: { textContent: '' },
+      transcodeProgressFill: { style: {} },
+      transcodePercent: { textContent: '' }
     };
 
     registry = new UIComponentRegistry({
@@ -180,12 +194,12 @@ describe('UIComponentRegistry', () => {
       expect(registry.components.get('streamControlsComponent')).toBe(mockComponents.streamControlsComponent);
     });
 
-    it('should create all 3 components', () => {
-      expect(registry.components.size).toBe(3);
+    it('should create all 4 components', () => {
+      expect(registry.components.size).toBe(4);
     });
 
     it('should log completion info message', () => {
-      expect(mockLogger.info).toHaveBeenCalledWith('Initialized 3 UI components');
+      expect(mockLogger.info).toHaveBeenCalledWith('Initialized 4 UI components');
     });
   });
 
@@ -472,7 +486,7 @@ describe('UIComponentRegistry', () => {
     });
 
     it('should clear components Map', () => {
-      expect(registry.components.size).toBe(3);
+      expect(registry.components.size).toBe(4);
 
       registry.dispose();
 

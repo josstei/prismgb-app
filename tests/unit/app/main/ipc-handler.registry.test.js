@@ -24,6 +24,7 @@ describe('IpcHandlerRegistry', () => {
   let mockDeviceService;
   let mockUpdateService;
   let mockWindowService;
+  let mockTranscodeService;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -57,10 +58,17 @@ describe('IpcHandlerRegistry', () => {
       setVolume: vi.fn()
     };
 
+    mockTranscodeService = {
+      start: vi.fn(),
+      cancel: vi.fn(),
+      isTranscoding: vi.fn(() => false)
+    };
+
     ipcHandlerRegistry = new IpcHandlerRegistry({
       deviceService: mockDeviceService,
       updateService: mockUpdateService,
       windowService: mockWindowService,
+      transcodeService: mockTranscodeService,
       loggerFactory: mockLoggerFactory
     });
   });

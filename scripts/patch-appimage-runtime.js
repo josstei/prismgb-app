@@ -45,9 +45,9 @@ export default async function patchAppImageRuntime(artifact) {
   }
 
   const fileName = path.basename(artifact.file);
-  const isArm64 = artifact.arch === Arch.arm64 || fileName.includes('arm64');
+  const isNonX64 = artifact.arch && artifact.arch !== Arch.x64;
 
-  if (!isArm64 || process.platform !== 'linux') {
+  if (!isNonX64 || process.platform !== 'linux') {
     return;
   }
 

@@ -58,6 +58,14 @@ export class UIComponentRegistry {
     });
     this.components.set('streamControlsComponent', streamControlsComponent);
 
+    // Create TranscodeToastComponent (progress on record button)
+    const transcodeToastComponent = this.factory.createTranscodeToastComponent({
+      recordBtn: elements.recordBtn,
+      transcodeRing: elements.transcodeRing,
+      transcodePercentLabel: elements.transcodePercentLabel
+    });
+    this.components.set('transcodeToastComponent', transcodeToastComponent);
+
     this.logger?.info(`Initialized ${this.components.size} UI components`);
   }
 

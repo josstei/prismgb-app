@@ -10,10 +10,10 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 class DeviceConnectionService extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'deviceStatusProvider'], 'DeviceConnectionService');
-    this.isConnected = false;
+    this.isConnected = null;  // null ensures first status check always publishes event
   }
 
-  async refreshStatus() {
+  async updateConnectionStatus() {
     try {
       const status = await this.deviceStatusProvider.getDeviceStatus();
       const connected = status.connected;
