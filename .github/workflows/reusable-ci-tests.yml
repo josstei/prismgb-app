@@ -37,6 +37,25 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
+  validate-linux-arm64:
+    name: Test (ubuntu-24.04-arm)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Run tests (no coverage)
+        run: npm run test:run
+
+      - name: Run integration tests
+        run: npm run test:integration
+
   validate-matrix:
     name: Test (${{ matrix.os }})
     needs: validate-linux
