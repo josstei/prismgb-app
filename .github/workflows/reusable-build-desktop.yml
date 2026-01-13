@@ -118,11 +118,17 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-electron-builder-
 
       - name: Import code signing certificate (macOS)
-        if: runner.os == 'macOS' && inputs.enable_macos_signing == true && secrets.CSC_LINK != ''
+        if: runner.os == 'macOS' && inputs.enable_macos_signing == true
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
+          # Skip if no certificate provided
+          if [ -z "$CSC_LINK" ]; then
+            echo "No CSC_LINK provided, skipping certificate import"
+            exit 0
+          fi
+
           # Create a temporary keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)

@@ -28,6 +28,13 @@ const entries = {
     name: 'Linux x64',
     label: 'linux-x64'
   },
+  linuxArm64: {
+    os: 'ubuntu-24.04-arm',
+    build_script: 'build:linux',
+    arch: 'arm64',
+    name: 'Linux ARM64',
+    label: 'linux-arm64'
+  },
   macosX64: {
     os: 'macos-15-intel',
     build_script: 'build:mac',
@@ -66,10 +73,10 @@ if (mode === 'release') {
   const platforms = (options.platforms || 'all').toLowerCase();
   switch (platforms) {
     case 'all':
-      matrix = [entries.linuxX64, entries.macosX64, entries.macosArm64, entries.windowsX64];
+      matrix = [entries.linuxX64, entries.linuxArm64, entries.macosX64, entries.macosArm64, entries.windowsX64];
       break;
     case 'linux':
-      matrix = [entries.linuxX64];
+      matrix = [entries.linuxX64, entries.linuxArm64];
       break;
     case 'macos':
       matrix = [entries.macosX64, entries.macosArm64];
@@ -84,10 +91,13 @@ if (mode === 'release') {
   const platform = (options.platform || 'all').toLowerCase();
   switch (platform) {
     case 'all':
-      matrix = [entries.linuxX64, entries.macosX64, entries.macosArm64, entries.windowsX64];
+      matrix = [entries.linuxX64, entries.linuxArm64, entries.macosX64, entries.macosArm64, entries.windowsX64];
       break;
     case 'linux-x64':
       matrix = [entries.linuxX64];
+      break;
+    case 'linux-arm64':
+      matrix = [entries.linuxArm64];
       break;
     case 'macos-x64':
       matrix = [entries.macosX64];
