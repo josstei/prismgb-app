@@ -48,6 +48,7 @@ jobs:
     needs: lint
     if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
     uses: ./.github/workflows/reusable-build-desktop.yml
+    secrets: inherit
     with:
       matrix: >-
         [{"os":"ubuntu-24.04-arm","build_script":"build:linux","arch":"arm64","name":"Linux ARM64","label":"linux-arm64"}]
