@@ -10,6 +10,15 @@ import './assets/styles/styles.css';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { renderAppTemplates } from './ui/templates/index.js';
 
+// Global error handlers for uncaught errors
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+});
+
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error:', event.error);
+});
+
 // Render templates into app container
 const appContainer = document.getElementById('appContainer');
 if (appContainer) {

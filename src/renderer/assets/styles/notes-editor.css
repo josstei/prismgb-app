@@ -1,0 +1,253 @@
+/* =====================================================
+   Editor
+   ===================================================== */
+
+.notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  min-width: 0;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Title row with game tag - wraps when needed */
+.notes-title-row {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color var(--transition-fast);
+}
+
+.notes-editor.has-note .notes-title-row {
+  display: flex;
+}
+
+.notes-title-row:focus-within {
+  border-bottom-color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.notes-title-input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  outline: none;
+}
+
+.notes-title-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 400;
+}
+
+/* Game tag pill - inline with title, wraps below if needed */
+.notes-game-tag {
+  display: none;
+  align-items: center;
+  padding: 2px 6px;
+  background: rgba(var(--color-info-rgb), 0.1);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: 8px;
+  color: rgba(var(--color-info-rgb), 0.85);
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.notes-game-tag:hover {
+  background: rgba(var(--color-info-rgb), 0.15);
+  border-color: rgba(var(--color-info-rgb), 0.3);
+}
+
+.notes-editor.has-game .notes-game-tag {
+  display: inline-flex;
+}
+
+/* Add game button */
+.notes-game-add-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.notes-game-add-btn:hover {
+  color: rgba(var(--color-info-rgb), 0.8);
+  background: rgba(var(--color-info-rgb), 0.08);
+  border-color: rgba(var(--color-info-rgb), 0.15);
+}
+
+.notes-game-add-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Hide add button when game is set */
+.notes-editor.has-game .notes-game-add-btn {
+  display: none;
+}
+
+/* Game input row - appears below title when editing */
+.notes-game-input-row {
+  display: none;
+  padding: 4px 0;
+  position: relative;
+}
+
+.notes-game-input-row.editing {
+  display: block;
+}
+
+/* Game input wrapper */
+.notes-game-input-wrapper {
+  position: relative;
+}
+
+.notes-game-input {
+  width: 100%;
+  padding: 3px 8px;
+  background: rgba(var(--color-info-rgb), 0.06);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 10px;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.notes-game-input:focus {
+  border-color: rgba(var(--color-info-rgb), 0.4);
+  background: rgba(var(--color-info-rgb), 0.08);
+  box-shadow: 0 0 0 2px rgba(var(--color-info-rgb), 0.08);
+}
+
+.notes-game-input::placeholder {
+  color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.notes-content-area {
+  flex: 1;
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  min-height: 120px;
+}
+
+.notes-content-area::selection {
+  background: rgba(var(--color-info-rgb), 0.3);
+}
+
+.notes-content-area::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+  font-style: italic;
+}
+
+/* Content area scrollbar - matches tag color */
+.notes-content-area {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
+}
+
+.notes-content-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-content-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notes-content-area::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-info-rgb), 0.25);
+  border-radius: var(--radius-full);
+}
+
+.notes-content-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-info-rgb), 0.4);
+}
+
+/* Empty state placeholder */
+.notes-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  padding: 16px;
+}
+
+.notes-empty-state svg {
+  opacity: 0.45;
+  filter: drop-shadow(0 0 6px rgba(var(--color-info-rgb), 0.2));
+}
+
+.notes-empty-state strong {
+  color: var(--color-info);
+  font-weight: 600;
+}
+
+/* Hide empty state when note selected (editor has-note class) */
+.notes-editor.has-note .notes-empty-state {
+  display: none;
+}
+
+/* Hide content area when no note selected */
+.notes-editor .notes-content-area {
+  display: none;
+}
+
+/* Show content area when note is selected */
+.notes-editor.has-note .notes-content-area {
+  display: block;
+}
+
+/* Note: .notes-title-row visibility is handled above */
+/* Keep this for backwards compatibility */
+.notes-editor.has-note .notes-title-input,
+.notes-editor.has-note .notes-content-area {
+  display: block;
+}

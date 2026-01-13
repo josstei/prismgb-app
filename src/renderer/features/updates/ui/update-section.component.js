@@ -291,6 +291,12 @@ class UpdateSectionComponent {
           await this.updateOrchestrator.installUpdate();
           break;
       }
+    } catch (error) {
+      this.logger.error('Update action failed:', error);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Update failed. Please try again.',
+        type: 'error'
+      });
     } finally {
       this._updateActionButton(this.updateOrchestrator.getStatus().state);
     }

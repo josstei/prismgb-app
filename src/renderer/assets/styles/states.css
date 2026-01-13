@@ -1,3 +1,25 @@
+/**
+ * STATE MANAGEMENT VIA :has() SELECTORS
+ *
+ * This file uses CSS :has() selectors to style parent elements based on
+ * child state. This creates implicit coupling but provides cleaner HTML
+ * (state classes only on the element that changes).
+ *
+ * OVERLAY STATES:
+ * - .stream-overlay:has(#overlayMessage.waiting) - Device disconnected
+ * - .stream-overlay:has(#overlayMessage.ready) - Device connected, ready to stream
+ *
+ * When modifying #overlayMessage classes, these selectors will update:
+ * - Icon wrapper animations (icon-float, retro-glow)
+ * - Ready rings visibility and animation
+ * - Gem glow and flash effects
+ * - Scanline shimmer
+ *
+ * PANEL STATES:
+ * - .stream-toolbar:has(.shader-panel.visible) - Shader panel open
+ * - .stream-container:has(.shader-panel.visible) - Elevates z-index
+ */
+
 /* =====================================================
    Application States
    Cinematic mode, streaming mode, and state-driven styles
@@ -171,18 +193,18 @@ body.cursor-hidden * {
    ===================================================== */
 
 /* Hide capture buttons when not streaming */
-#screenshotBtn,
-#recordBtn,
-#notesBtn {
+.toolbar-btn-screenshot,
+.toolbar-btn-record,
+.toolbar-notes {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
 }
 
 /* Show buttons when streaming - pop in */
-body.streaming-mode #screenshotBtn,
-body.streaming-mode #recordBtn,
-body.streaming-mode #notesBtn {
+body.streaming-mode .toolbar-btn-screenshot,
+body.streaming-mode .toolbar-btn-record,
+body.streaming-mode .toolbar-notes {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
@@ -190,9 +212,9 @@ body.streaming-mode #notesBtn {
 }
 
 /* Pop out animation when hiding */
-#screenshotBtn.hiding,
-#recordBtn.hiding,
-#notesBtn.hiding {
+.toolbar-btn-screenshot.hiding,
+.toolbar-btn-record.hiding,
+.toolbar-notes.hiding {
   animation: button-hide 0.15s cubic-bezier(0.55, 0, 1, 0.45) forwards;
   pointer-events: none;
 }

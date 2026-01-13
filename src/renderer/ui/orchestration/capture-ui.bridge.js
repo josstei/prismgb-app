@@ -66,13 +66,21 @@ class CaptureUIBridge extends BaseService {
   async _handleRecordingReady(data) {
     const { blob, filename } = data;
 
-    // Use captureSaveService to handle recording save (may transcode)
-    const result = await this.captureSaveService.saveRecording(blob, filename);
+    try {
+      // Use captureSaveService to handle recording save (may transcode)
+      const result = await this.captureSaveService.saveRecording(blob, filename);
 
-    // Only show status message for direct saves (webm)
-    // Transcoded saves show their own status messages
-    if (result.success && !result.transcoded) {
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
+      // Only show status message for direct saves (webm)
+      // Transcoded saves show their own status messages
+      if (result.success && !result.transcoded) {
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
+      }
+    } catch (error) {
+      this.logger.error('Failed to save recording:', error);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Failed to save recording. Please try again.',
+        type: 'error'
+      });
     }
   }
 

@@ -1,0 +1,135 @@
+/* =====================================================
+   Footer
+   ===================================================== */
+
+.notes-panel-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  position: relative;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 0 0 var(--side-panel-border-radius) var(--side-panel-border-radius);
+}
+
+/* Subtle gradient divider at top */
+.notes-panel-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--space-md);
+  right: var(--space-md);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.08) 80%,
+    transparent 100%
+  );
+}
+
+.notes-footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-display);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow var(--transition-fast);
+}
+
+.notes-footer-btn:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--color-info-rgb), 0.15) 0%,
+    rgba(var(--color-info-rgb), 0.08) 100%
+  );
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  color: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-info-rgb), 0.15);
+}
+
+.notes-footer-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.notes-footer-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.notes-delete-btn:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--color-danger-rgb), 0.15) 0%,
+    rgba(var(--color-danger-rgb), 0.08) 100%
+  );
+  border-color: rgba(var(--color-danger-rgb), 0.35);
+  color: var(--color-danger-light);
+  box-shadow: 0 4px 12px rgba(var(--color-danger-rgb), 0.15);
+}
+
+/* Hold-to-delete progress indicator */
+.notes-delete-btn {
+  position: relative;
+  overflow: hidden;
+  --hold-duration: 2000ms;
+}
+
+.notes-delete-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  clip-path: inset(100% 0 0 0);
+}
+
+.notes-delete-btn.holding::after {
+  animation: hold-progress var(--hold-duration) linear forwards;
+}
+
+.notes-delete-btn.holding {
+  border-color: rgba(var(--color-danger-rgb), 0.5);
+  color: var(--color-danger-light);
+}
+
+@keyframes hold-progress {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.notes-delete-btn .btn-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
