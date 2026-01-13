@@ -56,7 +56,7 @@ jobs:
       enable_macos_signing: false
       linux_use_system_fpm: 'false'
       install_xvfb: true
-      install_linux_packaging_deps: false
+      install_linux_packaging_deps: true
 
   summary:
     name: Build Summary
