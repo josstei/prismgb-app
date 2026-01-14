@@ -1,0 +1,31 @@
+/* =====================================================
+   Toolbar States
+   Toolbar button visibility during streaming mode
+   ===================================================== */
+
+/* Hide capture buttons when not streaming */
+.toolbar-btn-screenshot,
+.toolbar-btn-record,
+.toolbar-notes {
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+}
+
+/* Show buttons when streaming - pop in */
+body.streaming-mode .toolbar-btn-screenshot,
+body.streaming-mode .toolbar-btn-record,
+body.streaming-mode .toolbar-notes {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  animation: button-reveal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Pop out animation when hiding */
+.toolbar-btn-screenshot.hiding,
+.toolbar-btn-record.hiding,
+.toolbar-notes.hiding {
+  animation: button-hide 0.15s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
+}

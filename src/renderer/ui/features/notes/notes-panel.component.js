@@ -8,12 +8,12 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { NotesListViewComponent } from './notes-list-view.component.js';
-import { NotesEditorViewComponent } from './notes-editor-view.component.js';
-import { NotesSearchComponent } from './notes-search.component.js';
-import { GameFilterComponent } from './game-filter.component.js';
-import { GameAutocompleteComponent } from './game-autocomplete.component.js';
-import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
+import { NotesListViewComponent } from './components/notes-list-view.component.js';
+import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
+import { NotesSearchComponent } from './components/notes-search.component.js';
+import { GameFilterComponent } from './components/game-filter.component.js';
+import { GameAutocompleteComponent } from './components/game-autocomplete.component.js';
+import { NotesResizeHandlerComponent } from './components/notes-resize-handler.component.js';
 
 // Timing constant
 const RESIZE_DEBOUNCE_MS = 100;

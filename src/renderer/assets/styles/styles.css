@@ -12,6 +12,8 @@
 @import '../../ui/features/settings/settings.styles.css';
 @import '../../ui/features/updates/updates.styles.css';
 @import '../../ui/features/streaming/streaming.styles.css';
+@import '../../ui/features/toolbar/toolbar.styles.css';
+@import '../../ui/features/fullscreen/fullscreen.styles.css';
 @import '../../ui/features/notes/notes.styles.css';
 @import './states.css';
 @import './animations.css';

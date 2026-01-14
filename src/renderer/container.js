@@ -51,7 +51,7 @@ import { StreamingGpuRendererService } from '@renderer/features/streaming/render
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
-import { StreamingShaderSelectorComponent } from '@renderer/ui/features/streaming/streaming-shader-selector.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
