@@ -161,12 +161,18 @@ describe('UIController', () => {
       expect(mockRegistry.initSettingsMenu).toHaveBeenCalledWith(deps);
     });
 
-    it('should initialize settings menu component with elements', () => {
+    it('should initialize settings menu component with settings and updates elements', () => {
       const deps = { settingsService: {}, eventBus: {}, logger: {} };
 
       controller.initSettingsMenu(deps);
 
-      expect(mockSettingsMenu.initialize).toHaveBeenCalledWith(controller.elements);
+      // Settings menu receives merged settings + updates elements from dom
+      expect(mockSettingsMenu.initialize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...controller.dom?.settings,
+          ...controller.dom?.updates
+        })
+      );
     });
   });
 

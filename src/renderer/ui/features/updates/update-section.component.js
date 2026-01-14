@@ -6,10 +6,9 @@
  * Manages badge visibility and rainbow border animation.
  */
 
-import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '../services/update.service.js';
+import { UpdateState } from '@renderer/features/updates/services/update.service.js';
 
 class UpdateSectionComponent {
   constructor({ updateOrchestrator, eventBus, loggerFactory }) {
@@ -35,13 +34,13 @@ class UpdateSectionComponent {
     };
   }
 
-  initialize() {
+  initialize(elements) {
     if (this._initialized) {
       this.logger.warn('UpdateSectionComponent already initialized');
       return;
     }
 
-    this._cacheElements();
+    this._cacheElements(elements);
     this._bindEvents();
     this._subscribeToEvents();
     this._loadInitialState();
@@ -50,16 +49,18 @@ class UpdateSectionComponent {
     this.logger.info('UpdateSectionComponent initialized');
   }
 
-  _cacheElements() {
-    this.elements.section = document.getElementById(DOMSelectors.UPDATE_SECTION);
-    this.elements.currentVersion = document.getElementById(DOMSelectors.UPDATE_CURRENT_VERSION);
-    this.elements.statusIndicator = document.getElementById(DOMSelectors.UPDATE_STATUS_INDICATOR);
-    this.elements.statusText = document.getElementById(DOMSelectors.UPDATE_STATUS_TEXT);
-    this.elements.progressContainer = document.getElementById(DOMSelectors.UPDATE_PROGRESS_CONTAINER);
-    this.elements.progressFill = document.getElementById(DOMSelectors.UPDATE_PROGRESS_FILL);
-    this.elements.progressText = document.getElementById(DOMSelectors.UPDATE_PROGRESS_TEXT);
-    this.elements.actionBtn = document.getElementById(DOMSelectors.UPDATE_ACTION_BTN);
-    this.elements.badge = document.getElementById(DOMSelectors.UPDATE_BADGE);
+  _cacheElements(elements) {
+    if (!elements) return;
+
+    this.elements.section = elements.section || null;
+    this.elements.currentVersion = elements.currentVersion || null;
+    this.elements.statusIndicator = elements.statusIndicator || null;
+    this.elements.statusText = elements.statusText || null;
+    this.elements.progressContainer = elements.progressContainer || null;
+    this.elements.progressFill = elements.progressFill || null;
+    this.elements.progressText = elements.progressText || null;
+    this.elements.actionBtn = elements.actionBtn || null;
+    this.elements.badge = elements.badge || null;
   }
 
   _bindEvents() {

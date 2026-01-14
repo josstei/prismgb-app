@@ -7,7 +7,6 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { NotesListViewComponent } from './notes-list-view.component.js';
 import { NotesEditorViewComponent } from './notes-editor-view.component.js';
@@ -70,6 +69,8 @@ class NotesPanelComponent {
       notesGameAutocomplete: elements.notesGameAutocomplete,
       notesTitleInput: elements.notesTitleInput,
       notesContentArea: elements.notesContentArea,
+      streamContainer: elements.streamContainer,
+      streamToolbar: elements.streamToolbar,
       notesNewBtn: elements.notesNewBtn,
       notesDeleteBtn: elements.notesDeleteBtn
     };
@@ -440,7 +441,7 @@ class NotesPanelComponent {
       this._schedulePositionUpdate();
     });
 
-    const streamContainer = document.getElementById(DOMSelectors.STREAM_CONTAINER);
+    const streamContainer = this.elements.streamContainer;
     if (!streamContainer || typeof ResizeObserver === 'undefined') return;
 
     this._resizeObserver = new ResizeObserver(() => {
@@ -472,7 +473,7 @@ class NotesPanelComponent {
   _updatePanelPosition() {
     if (!this.elements.notesPanel) return;
 
-    const toolbar = document.getElementById(DOMSelectors.STREAM_TOOLBAR);
+    const toolbar = this.elements.streamToolbar;
     if (!toolbar) return;
 
     const toolbarRect = toolbar.getBoundingClientRect();

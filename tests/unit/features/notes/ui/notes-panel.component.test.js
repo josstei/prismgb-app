@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 

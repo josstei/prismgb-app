@@ -5,7 +5,7 @@
  */
 
 import { getIconSvg } from '@renderer/ui/icons/icon.utils.js';
-import { createSettingsMenuTemplate } from './settings-menu.template.js';
+import { createSettingsMenuTemplate } from '@renderer/ui/features/settings/settings-menu.template.js';
 import logoUrl from '/Logo.png?url';
 
 /**

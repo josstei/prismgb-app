@@ -10,6 +10,8 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
+import { renderListboxOptions, updateListboxActiveState } from '@renderer/ui/primitives/listbox.js';
 
 class GameFilterComponent {
   constructor({ notesService, logger }) {
@@ -19,6 +21,7 @@ class GameFilterComponent {
     // Filter state
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
+    this._menuDisclosure = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -83,16 +86,13 @@ class GameFilterComponent {
       this.currentGameFilter = '';
     }
 
-    this.filterMenu.innerHTML = '';
-
-    // Add "All Games" option
-    const allOption = this._createGameFilterOption('', 'All Games');
-    this.filterMenu.appendChild(allOption);
-
-    // Add individual game options
-    games.forEach((game) => {
-      const option = this._createGameFilterOption(game, game);
-      this.filterMenu.appendChild(option);
+    renderListboxOptions({
+      container: this.filterMenu,
+      options: [
+        { value: '', label: 'All Games' },
+        ...games.map((game) => ({ value: game, label: game }))
+      ],
+      createOption: (option) => this._createGameFilterOption(option.value, option.label)
     });
 
     this._updateGameFilterActiveState();
@@ -112,6 +112,8 @@ class GameFilterComponent {
    */
   _setupGameFilter() {
     if (!this.filterButton || !this.filterMenu) return;
+
+    this._setupFilterDisclosure();
 
     // Button click
     this._domListeners.add(this.filterButton, 'click', (event) => {
@@ -143,15 +145,31 @@ class GameFilterComponent {
       this._selectGameFilterOption(option.dataset.value, option.textContent || '');
     });
 
-    // Close on outside click
-    this._domListeners.add(document, 'pointerdown', (event) => {
-      if (!this.isGameFilterOpen) return;
+  }
 
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('.notes-filter-wrapper')) return;
+  /**
+   * Setup filter menu disclosure behavior
+   * @private
+   */
+  _setupFilterDisclosure() {
+    if (!this.filterButton || !this.filterMenu) return;
 
-      this._hideGameFilterMenu();
+    this._menuDisclosure = new DisclosureController({
+      toggleElement: this.filterButton,
+      panelElement: this.filterMenu,
+      visibleClass: CSSClasses.VISIBLE,
+      outsideEvent: 'pointerdown',
+      ignoreOutsideSelectors: ['.notes-filter-wrapper'],
+      onShow: () => {
+        this.isGameFilterOpen = true;
+      },
+      onHide: () => {
+        this.isGameFilterOpen = false;
+      },
+      logger: this.logger
     });
+
+    this._menuDisclosure.initialize();
   }
 
   /**
@@ -187,13 +205,10 @@ class GameFilterComponent {
    * @private
    */
   _updateGameFilterActiveState() {
-    if (!this.filterMenu) return;
-
-    const options = this.filterMenu.querySelectorAll('.notes-game-filter-option');
-    options.forEach((option) => {
-      const isActive = option.dataset.value === this.currentGameFilter;
-      option.classList.toggle(CSSClasses.ACTIVE, isActive);
-      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    updateListboxActiveState({
+      container: this.filterMenu,
+      optionSelector: '.notes-game-filter-option',
+      activeValue: this.currentGameFilter
     });
   }
 
@@ -225,10 +240,11 @@ class GameFilterComponent {
   _toggleGameFilterMenu() {
     if (this.isGameFilterOpen) {
       this._hideGameFilterMenu();
-    } else {
-      this._showGameFilterMenu();
-      this._focusCurrentGameFilterOption();
+      return;
     }
+
+    this._showGameFilterMenu();
+    this._focusCurrentGameFilterOption();
   }
 
   /**
@@ -236,11 +252,7 @@ class GameFilterComponent {
    * @private
    */
   _showGameFilterMenu() {
-    if (!this.filterMenu) return;
-
-    this.filterMenu.classList.add(CSSClasses.VISIBLE);
-    this.filterButton?.setAttribute('aria-expanded', 'true');
-    this.isGameFilterOpen = true;
+    this._menuDisclosure?.show();
   }
 
   /**
@@ -248,11 +260,7 @@ class GameFilterComponent {
    * @private
    */
   _hideGameFilterMenu() {
-    if (!this.filterMenu) return;
-
-    this.filterMenu.classList.remove(CSSClasses.VISIBLE);
-    this.filterButton?.setAttribute('aria-expanded', 'false');
-    this.isGameFilterOpen = false;
+    this._menuDisclosure?.hide();
   }
 
   /**
@@ -273,6 +281,8 @@ class GameFilterComponent {
   dispose() {
     // Remove DOM listeners
     this._domListeners.removeAll();
+    this._menuDisclosure?.dispose();
+    this._menuDisclosure = null;
 
     // Clear references
     this.filterButton = null;

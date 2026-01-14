@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 
 // Mock the component imports with proper class implementations
-vi.mock('@renderer/ui/components/status-notification.component.js', () => ({
+vi.mock('@renderer/ui/shared/status-notification.component.js', () => ({
   StatusNotificationComponent: class {
     constructor(config) {
       this.type = 'StatusNotification';
@@ -15,7 +15,7 @@ vi.mock('@renderer/ui/components/status-notification.component.js', () => ({
   }
 }));
 
-vi.mock('@renderer/ui/components/device-status.component.js', () => ({
+vi.mock('@renderer/ui/shared/device-status.component.js', () => ({
   DeviceStatusComponent: class {
     constructor(config) {
       this.type = 'DeviceStatus';

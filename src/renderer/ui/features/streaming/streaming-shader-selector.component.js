@@ -9,6 +9,7 @@ import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/streaming-render-presets.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { sliderToBrightness, brightnessToSlider } from '@shared/utils/brightness.utils.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
 
 class StreamingShaderSelectorComponent {
   constructor({ settingsService, appState, eventBus, logger }) {
@@ -23,6 +24,7 @@ class StreamingShaderSelectorComponent {
 
     // Performance mode state
     this._performanceModeEnabled = false;
+    this._panelDisclosure = null;
 
     // Toolbar elements
     this.cinematicToggle = null;
@@ -65,8 +67,7 @@ class StreamingShaderSelectorComponent {
     this._loadCurrentVolume();
     this._loadPerformanceModeState();
     this._renderPresetList();
-    this._setupClickOutside();
-    this._setupEscapeKey();
+    this._setupPanelDisclosure();
     this._setupCinematicToggle();
     this._setupBrightnessSlider();
     this._setupVolumeSlider();
@@ -263,68 +264,47 @@ class StreamingShaderSelectorComponent {
    * Toggle dropdown visibility
    */
   toggle() {
-    if (this.isVisible) {
-      this.hide();
-    } else {
-      this.show();
-    }
+    this._panelDisclosure?.toggle();
   }
 
   /**
    * Show panel
    */
   show() {
-    if (!this.dropdown) return;
-
-    this.dropdown.classList.add(CSSClasses.VISIBLE);
-    this.button?.classList.add(CSSClasses.PANEL_OPEN);
-    this.button?.setAttribute('aria-expanded', 'true');
-    this.isVisible = true;
-
-    this.logger?.debug('Shader panel shown');
+    this._panelDisclosure?.show();
   }
 
   /**
    * Hide panel
    */
   hide() {
-    if (!this.dropdown) return;
-
-    this.dropdown.classList.remove(CSSClasses.VISIBLE);
-    this.button?.classList.remove(CSSClasses.PANEL_OPEN);
-    this.button?.setAttribute('aria-expanded', 'false');
-    this.isVisible = false;
-
-    this.logger?.debug('Shader panel hidden');
+    this._panelDisclosure?.hide();
   }
 
   /**
-   * Setup click-outside-to-close behavior
+   * Setup panel disclosure behavior
    * @private
    */
-  _setupClickOutside() {
-    this._domListeners.add(document, 'click', (e) => {
-      if (!this.isVisible) return;
+  _setupPanelDisclosure() {
+    if (!this.button || !this.dropdown) return;
 
-      // Don't close if clicking inside the panel or on the toggle button
-      if (e.target.closest('.shader-panel') || e.target.closest('#shaderBtn')) {
-        return;
-      }
-
-      this.hide();
-    });
-  }
-
-  /**
-   * Setup escape key to close dropdown
-   * @private
-   */
-  _setupEscapeKey() {
-    this._domListeners.add(document, 'keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
-        this.hide();
+    this._panelDisclosure = new DisclosureController({
+      toggleElement: this.button,
+      panelElement: this.dropdown,
+      visibleClass: CSSClasses.VISIBLE,
+      toggleOpenClass: CSSClasses.PANEL_OPEN,
+      logger: this.logger,
+      onShow: () => {
+        this.isVisible = true;
+        this.logger?.debug('Shader panel shown');
+      },
+      onHide: () => {
+        this.isVisible = false;
+        this.logger?.debug('Shader panel hidden');
       }
     });
+
+    this._panelDisclosure.initialize();
   }
 
   /**
@@ -555,6 +535,8 @@ class StreamingShaderSelectorComponent {
     this._domListeners.removeAll();
     this._eventSubscriptions.forEach(unsubscribe => unsubscribe());
     this._eventSubscriptions = [];
+    this._panelDisclosure?.dispose();
+    this._panelDisclosure = null;
   }
 }
 

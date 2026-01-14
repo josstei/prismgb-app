@@ -50,8 +50,8 @@ import { StreamingHealthService } from '@renderer/features/streaming/rendering/s
 import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
-import { StreamingControlsComponent } from '@renderer/features/streaming/ui/streaming-controls.component.js';
-import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/ui/streaming-shader-selector.component.js';
+import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/ui/features/streaming/streaming-shader-selector.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
@@ -69,17 +69,17 @@ import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/ser
 import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
 import { SettingsFullscreenService } from '@renderer/features/settings/services/settings-fullscreen.service.js';
 import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
-import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
+import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
 
 // Features: Notes
 import { NotesService } from '@renderer/features/notes/services/notes.service.js';
-import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
 import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
-import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
+import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
 
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';

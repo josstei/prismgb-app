@@ -8,7 +8,7 @@
 
 import './assets/styles/styles.css';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { renderAppTemplates } from './ui/templates/index.js';
+import { renderAppShell } from './ui/shell/app-shell.renderer.js';
 
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {
@@ -22,7 +22,7 @@ window.addEventListener('error', (event) => {
 // Render templates into app container
 const appContainer = document.getElementById('appContainer');
 if (appContainer) {
-  renderAppTemplates(appContainer);
+  renderAppShell(appContainer);
 }
 
 // Mark body ready after CSS and templates are loaded (prevents FOUC)

@@ -8,9 +8,9 @@
  * compile-time coupling between UI infrastructure and feature layers.
  */
 
-import { StatusNotificationComponent } from '../components/status-notification.component.js';
-import { DeviceStatusComponent } from '../components/device-status.component.js';
-import { TranscodeToastComponent } from '../components/transcode-toast.component.js';
+import { StatusNotificationComponent } from '../shared/status-notification.component.js';
+import { DeviceStatusComponent } from '../shared/device-status.component.js';
+import { TranscodeToastComponent } from '../features/transcode/transcode-toast.component.js';
 
 export class UIComponentFactory {
   constructor(dependencies) {

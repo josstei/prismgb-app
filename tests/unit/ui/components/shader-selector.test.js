@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/ui/streaming-shader-selector.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/ui/features/streaming/streaming-shader-selector.component.js';
 
 // Mock the render presets module
 vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
@@ -275,11 +275,9 @@ describe('StreamingShaderSelectorComponent', () => {
     });
 
     it('should not hide when clicking inside dropdown', () => {
+      // Create an element that is inside the dropdown
       const insideElement = document.createElement('div');
-      insideElement.closest = vi.fn((selector) => {
-        if (selector === '.shader-panel') return mockElements.shaderDropdown;
-        return null;
-      });
+      mockElements.shaderDropdown.appendChild(insideElement);
 
       const clickEvent = new MouseEvent('click', { bubbles: true });
       Object.defineProperty(clickEvent, 'target', {

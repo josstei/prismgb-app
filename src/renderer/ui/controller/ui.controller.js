@@ -4,8 +4,8 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
+import { createDomBindings } from '@renderer/ui/primitives/dom-bindings.js';
 
 class UIController {
   /**
@@ -34,87 +34,9 @@ class UIController {
    * @returns {Object} Map of element keys to DOM elements
    */
   initializeElements() {
-    return {
-      // Status and header
-      statusIndicator: document.getElementById(DOMSelectors.STATUS_INDICATOR),
-      statusText: document.getElementById(DOMSelectors.STATUS_TEXT),
-      statusMessage: document.getElementById(DOMSelectors.STATUS_MESSAGE),
-
-      // Video elements
-      streamVideo: document.getElementById(DOMSelectors.STREAM_VIDEO),
-      streamCanvas: document.getElementById(DOMSelectors.STREAM_CANVAS),
-      streamOverlay: document.getElementById(DOMSelectors.STREAM_OVERLAY),
-      overlayMessage: document.getElementById(DOMSelectors.OVERLAY_MESSAGE),
-
-      // Control buttons
-      settingsBtn: document.getElementById(DOMSelectors.SETTINGS_BTN),
-      screenshotBtn: document.getElementById(DOMSelectors.SCREENSHOT_BTN),
-      recordBtn: document.getElementById(DOMSelectors.RECORD_BTN),
-      fullscreenBtn: document.getElementById(DOMSelectors.FULLSCREEN_BTN),
-      shaderBtn: document.getElementById(DOMSelectors.SHADER_BTN),
-
-      // Shader selector and toolbar
-      shaderControls: document.getElementById(DOMSelectors.SHADER_CONTROLS),
-      shaderDropdown: document.getElementById(DOMSelectors.SHADER_DROPDOWN),
-      streamToolbar: document.getElementById(DOMSelectors.STREAM_TOOLBAR),
-      cinematicToggle: document.getElementById(DOMSelectors.CINEMATIC_TOGGLE),
-      brightnessSlider: document.getElementById(DOMSelectors.BRIGHTNESS_SLIDER),
-      brightnessPercentage: document.getElementById(DOMSelectors.BRIGHTNESS_PERCENTAGE),
-      volumeSliderVertical: document.getElementById(DOMSelectors.VOLUME_SLIDER_VERTICAL),
-      volumePercentageVertical: document.getElementById(DOMSelectors.VOLUME_PERCENTAGE_VERTICAL),
-
-      // Device info
-      deviceName: document.getElementById(DOMSelectors.DEVICE_NAME),
-      deviceStatusText: document.getElementById(DOMSelectors.DEVICE_STATUS_TEXT),
-      currentResolution: document.getElementById(DOMSelectors.CURRENT_RESOLUTION),
-      currentFPS: document.getElementById(DOMSelectors.CURRENT_FPS),
-
-      // Settings menu
-      settingsMenuContainer: document.getElementById(DOMSelectors.SETTINGS_MENU_CONTAINER),
-      settingStatusStrip: document.getElementById(DOMSelectors.SETTING_STATUS_STRIP),
-      settingFullscreenOnStartup: document.getElementById(DOMSelectors.SETTING_FULLSCREEN_ON_STARTUP),
-      settingAutoStreamOnConnect: document.getElementById(DOMSelectors.SETTING_AUTO_STREAM_ON_CONNECT),
-      settingMinimalistFullscreen: document.getElementById(DOMSelectors.SETTING_MINIMALIST_FULLSCREEN),
-      settingAnimationSaver: document.getElementById(DOMSelectors.SETTING_ANIMATION_SAVER),
-      settingRenderPreset: document.getElementById(DOMSelectors.SETTING_RENDER_PRESET),
-      settingRecordingFormat: document.getElementById(DOMSelectors.SETTING_RECORDING_FORMAT),
-      recordingFormatMenu: document.getElementById(DOMSelectors.RECORDING_FORMAT_MENU),
-      disclaimerBtn: document.getElementById(DOMSelectors.DISCLAIMER_BTN),
-      disclaimerContent: document.getElementById(DOMSelectors.DISCLAIMER_CONTENT),
-      footer: document.querySelector('.footer'),
-
-      // Fullscreen controls
-      fullscreenControls: document.getElementById(DOMSelectors.FULLSCREEN_CONTROLS),
-      fsExitBtn: document.getElementById(DOMSelectors.FS_EXIT_BTN),
-
-      // Stream container
-      streamContainer: document.getElementById(DOMSelectors.STREAM_CONTAINER),
-
-      // Transcode progress (on record button)
-      transcodeRing: document.getElementById(DOMSelectors.TRANSCODE_RING),
-      transcodePercentLabel: document.getElementById(DOMSelectors.TRANSCODE_PERCENT_LABEL),
-
-      // Notes panel
-      notesBtn: document.getElementById(DOMSelectors.NOTES_BTN),
-      notesPanel: document.getElementById(DOMSelectors.NOTES_PANEL),
-      notesSearchInput: document.getElementById(DOMSelectors.NOTES_SEARCH_INPUT),
-      notesGameFilter: document.getElementById(DOMSelectors.NOTES_GAME_FILTER),
-      notesGameFilterLabel: document.getElementById(DOMSelectors.NOTES_GAME_FILTER_LABEL),
-      notesGameFilterMenu: document.getElementById(DOMSelectors.NOTES_GAME_FILTER_MENU),
-      notesListToggle: document.getElementById(DOMSelectors.NOTES_LIST_TOGGLE),
-      notesList: document.getElementById(DOMSelectors.NOTES_LIST),
-      notesEditor: document.getElementById(DOMSelectors.NOTES_EDITOR),
-      notesEmptyState: document.getElementById(DOMSelectors.NOTES_EMPTY_STATE),
-      notesGameAddBtn: document.getElementById(DOMSelectors.NOTES_GAME_ADD_BTN),
-      notesGameTagRow: document.getElementById(DOMSelectors.NOTES_GAME_TAG_ROW),
-      notesGameTag: document.getElementById(DOMSelectors.NOTES_GAME_TAG),
-      notesGameInput: document.getElementById(DOMSelectors.NOTES_GAME_INPUT),
-      notesGameAutocomplete: document.getElementById(DOMSelectors.NOTES_GAME_AUTOCOMPLETE),
-      notesTitleInput: document.getElementById(DOMSelectors.NOTES_TITLE_INPUT),
-      notesContentArea: document.getElementById(DOMSelectors.NOTES_CONTENT_AREA),
-      notesNewBtn: document.getElementById(DOMSelectors.NOTES_NEW_BTN),
-      notesDeleteBtn: document.getElementById(DOMSelectors.NOTES_DELETE_BTN)
-    };
+    const bindings = createDomBindings(document);
+    this.dom = bindings;
+    return bindings.flat;
   }
 
   /**
@@ -138,7 +60,11 @@ class UIController {
       this.registry.initSettingsMenu(dependencies);
       const settingsMenu = this.registry.get('settingsMenuComponent');
       if (settingsMenu) {
-        settingsMenu.initialize(this.elements);
+        const settingsElements = {
+          ...this.dom?.settings,
+          ...this.dom?.updates
+        };
+        settingsMenu.initialize(settingsElements);
       }
     }
   }

@@ -74,7 +74,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    * Initialize shader selector component
    */
   initializeShaderSelector() {
-    const elements = this.uiController.elements;
+    const elements = this.uiController.dom?.streaming;
     this.uiController.initShaderSelector(
       {
         settingsService: this.settingsService,
@@ -83,15 +83,15 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         logger: this.logger
       },
       {
-        shaderBtn: elements.shaderBtn,
-        shaderDropdown: elements.shaderDropdown,
-        cinematicToggle: elements.cinematicToggle,
-        streamToolbar: elements.streamToolbar,
-        brightnessSlider: elements.brightnessSlider,
-        brightnessPercentage: elements.brightnessPercentage,
-        volumeSlider: elements.volumeSliderVertical,
-        volumePercentage: elements.volumePercentageVertical,
-        streamVideo: elements.streamVideo
+        shaderBtn: elements?.shaderBtn,
+        shaderDropdown: elements?.shaderDropdown,
+        cinematicToggle: elements?.cinematicToggle,
+        streamToolbar: elements?.streamToolbar,
+        brightnessSlider: elements?.brightnessSlider,
+        brightnessPercentage: elements?.brightnessPercentage,
+        volumeSlider: elements?.volumeSliderVertical,
+        volumePercentage: elements?.volumePercentageVertical,
+        streamVideo: elements?.streamVideo
       }
     );
   }
@@ -100,34 +100,18 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    * Initialize notes panel component
    */
   initializeNotesPanel() {
-    const elements = this.uiController.elements;
+    const notesElements = {
+      ...this.uiController.dom?.notes,
+      streamContainer: this.uiController.dom?.streaming?.streamContainer,
+      streamToolbar: this.uiController.dom?.streaming?.streamToolbar
+    };
     this.uiController.initNotesPanel(
       {
         notesService: this.notesService,
         eventBus: this.eventBus,
         logger: this.logger
       },
-      {
-        notesBtn: elements.notesBtn,
-        notesPanel: elements.notesPanel,
-        notesSearchInput: elements.notesSearchInput,
-        notesGameFilter: elements.notesGameFilter,
-        notesGameFilterLabel: elements.notesGameFilterLabel,
-        notesGameFilterMenu: elements.notesGameFilterMenu,
-        notesListToggle: elements.notesListToggle,
-        notesList: elements.notesList,
-        notesEditor: elements.notesEditor,
-        notesEmptyState: elements.notesEmptyState,
-        notesGameAddBtn: elements.notesGameAddBtn,
-        notesGameTagRow: elements.notesGameTagRow,
-        notesGameTag: elements.notesGameTag,
-        notesGameInput: elements.notesGameInput,
-        notesGameAutocomplete: elements.notesGameAutocomplete,
-        notesTitleInput: elements.notesTitleInput,
-        notesContentArea: elements.notesContentArea,
-        notesNewBtn: elements.notesNewBtn,
-        notesDeleteBtn: elements.notesDeleteBtn
-      }
+      notesElements
     );
   }
 

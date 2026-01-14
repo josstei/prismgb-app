@@ -6,8 +6,9 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
+import { updateListboxActiveState } from '@renderer/ui/primitives/listbox.js';
 
 class SettingsMenuComponent {
   constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {
@@ -17,6 +18,7 @@ class SettingsMenuComponent {
     this.logger = logger;
     this.isVisible = false;
     this.disclaimerExpanded = false;
+    this._menuDisclosure = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -43,6 +45,23 @@ class SettingsMenuComponent {
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
     this.footer = elements.footer;
+    this.appVersion = elements.appVersion;
+    this.linkGithub = elements.linkGithub;
+    this.linkWebsite = elements.linkWebsite;
+    this.linkX = elements.linkX;
+    this.linkKofi = elements.linkKofi;
+    this.linkModRetro = elements.linkModRetro;
+    this.updateElements = {
+      section: elements.updateSection,
+      currentVersion: elements.updateCurrentVersion,
+      statusIndicator: elements.updateStatusIndicator,
+      statusText: elements.updateStatusText,
+      progressContainer: elements.updateProgressContainer,
+      progressFill: elements.updateProgressFill,
+      progressText: elements.updateProgressText,
+      actionBtn: elements.updateActionBtn,
+      badge: elements.updateBadge
+    };
 
     if (!this.container || !this.toggleButton) {
       this.logger?.warn('Settings menu elements not found');
@@ -51,8 +70,8 @@ class SettingsMenuComponent {
 
     this._bindEvents();
     this._loadCurrentSettings();
-    this._setupClickOutside();
-    this._setupEscapeKey();
+    this._setupMenuDisclosure();
+    this._setupRecordingFormatClickOutside();
     this._setAppVersion();
     this._initializeUpdateSection();
 
@@ -65,7 +84,7 @@ class SettingsMenuComponent {
       return;
     }
 
-    this._updateSection.initialize();
+    this._updateSection.initialize(this.updateElements);
 
     // Set current version
     if (typeof __APP_VERSION__ !== 'undefined') {
@@ -74,9 +93,8 @@ class SettingsMenuComponent {
   }
 
   _setAppVersion() {
-    const versionElement = document.getElementById(DOMSelectors.APP_VERSION);
-    if (versionElement && typeof __APP_VERSION__ !== 'undefined') {
-      versionElement.textContent = `v${__APP_VERSION__}`;
+    if (this.appVersion && typeof __APP_VERSION__ !== 'undefined') {
+      this.appVersion.textContent = `v${__APP_VERSION__}`;
     }
   }
 
@@ -183,17 +201,18 @@ class SettingsMenuComponent {
     }
 
     if (this.recordingFormatTrigger && this.recordingFormatMenu) {
-      // Update label and active state
       const label = this.recordingFormatTrigger.querySelector('.settings-select-label');
-      const options = this.recordingFormatMenu.querySelectorAll('.settings-select-option');
-      options.forEach(option => {
-        const isActive = option.dataset.value === recordingFormat;
-        option.classList.toggle('active', isActive);
-        option.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        if (isActive && label) {
-          label.textContent = option.textContent;
-        }
+      updateListboxActiveState({
+        container: this.recordingFormatMenu,
+        optionSelector: '.settings-select-option',
+        activeValue: recordingFormat
       });
+      if (label) {
+        const activeOption = this.recordingFormatMenu.querySelector('.settings-select-option.active');
+        if (activeOption) {
+          label.textContent = activeOption.textContent;
+        }
+      }
     }
 
     this._applyStatusStripVisibility(statusStripVisible);
@@ -218,45 +237,21 @@ class SettingsMenuComponent {
    * Toggle settings menu visibility
    */
   toggle() {
-    if (this.isVisible) {
-      this.hide();
-    } else {
-      this.show();
-    }
+    this._menuDisclosure?.toggle();
   }
 
   /**
    * Show settings menu
    */
   show() {
-    if (!this.container) return;
-
-    this.container.classList.add(CSSClasses.VISIBLE);
-    this.toggleButton?.setAttribute('aria-expanded', 'true');
-    this.isVisible = true;
-
-    this.logger?.debug('Settings menu shown');
+    this._menuDisclosure?.show();
   }
 
   /**
    * Hide settings menu
    */
   hide() {
-    if (!this.container) return;
-
-    this.container.classList.remove(CSSClasses.VISIBLE);
-    this.toggleButton?.setAttribute('aria-expanded', 'false');
-    this.isVisible = false;
-
-    // Close dropdowns when menu closes
-    this._hideRecordingFormatMenu();
-
-    // Collapse disclaimer when menu closes
-    if (this.disclaimerExpanded) {
-      this._collapseDisclaimer();
-    }
-
-    this.logger?.debug('Settings menu hidden');
+    this._menuDisclosure?.hide();
   }
 
   /**
@@ -307,11 +302,10 @@ class SettingsMenuComponent {
     }
 
     // Update active state
-    const options = this.recordingFormatMenu?.querySelectorAll('.settings-select-option');
-    options?.forEach(option => {
-      const isActive = option.dataset.value === value;
-      option.classList.toggle('active', isActive);
-      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    updateListboxActiveState({
+      container: this.recordingFormatMenu,
+      optionSelector: '.settings-select-option',
+      activeValue: value
     });
 
     // Save setting
@@ -322,35 +316,49 @@ class SettingsMenuComponent {
   }
 
   /**
-   * Setup click-outside-to-close behavior
+   * Setup disclosure controller for menu open/close
    * @private
    */
-  _setupClickOutside() {
-    this._domListeners.add(document, 'click', (e) => {
-      if (!this.isVisible) return;
+  _setupMenuDisclosure() {
+    if (!this.container || !this.toggleButton) return;
 
-      // Close recording format dropdown when clicking outside it
-      if (this.isRecordingFormatOpen && !e.target.closest('.settings-select-wrapper')) {
+    this._menuDisclosure = new DisclosureController({
+      toggleElement: this.toggleButton,
+      panelElement: this.container,
+      visibleClass: CSSClasses.VISIBLE,
+      logger: this.logger,
+      onShow: () => {
+        this.isVisible = true;
+        this.logger?.debug('Settings menu shown');
+      },
+      onHide: () => {
+        this.isVisible = false;
+
+        // Close dropdowns when menu closes
         this._hideRecordingFormatMenu();
-      }
 
-      // Don't close if clicking inside the menu or on the toggle button
-      if (e.target.closest('.settings-menu-container') || e.target.closest('#settingsBtn')) {
-        return;
-      }
+        // Collapse disclaimer when menu closes
+        if (this.disclaimerExpanded) {
+          this._collapseDisclaimer();
+        }
 
-      this.hide();
+        this.logger?.debug('Settings menu hidden');
+      }
     });
+
+    this._menuDisclosure.initialize();
   }
 
   /**
-   * Setup escape key to close menu
+   * Setup click-outside handler for recording format dropdown
    * @private
    */
-  _setupEscapeKey() {
-    this._domListeners.add(document, 'keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
-        this.hide();
+  _setupRecordingFormatClickOutside() {
+    this._domListeners.add(document, 'click', (e) => {
+      if (!this.isVisible) return;
+
+      if (this.isRecordingFormatOpen && !e.target.closest('.settings-select-wrapper')) {
+        this._hideRecordingFormatMenu();
       }
     });
   }
@@ -360,12 +368,6 @@ class SettingsMenuComponent {
    * @private
    */
   _setupExternalLinks() {
-    const linkGithub = document.getElementById(DOMSelectors.LINK_GITHUB);
-    const linkWebsite = document.getElementById(DOMSelectors.LINK_WEBSITE);
-    const linkX = document.getElementById(DOMSelectors.LINK_X);
-    const linkKofi = document.getElementById(DOMSelectors.LINK_KOFI);
-    const linkModRetro = document.getElementById(DOMSelectors.LINK_MOD_RETRO);
-
     const handleExternalLink = (e, url) => {
       e.preventDefault();
       // Use Electron's shell.openExternal if available via preload
@@ -376,32 +378,32 @@ class SettingsMenuComponent {
       }
     };
 
-    if (linkGithub) {
-      this._domListeners.add(linkGithub, 'click', (e) => {
+    if (this.linkGithub) {
+      this._domListeners.add(this.linkGithub, 'click', (e) => {
         handleExternalLink(e, 'https://github.com/josstei/prismgb-app');
       });
     }
 
-    if (linkWebsite) {
-      this._domListeners.add(linkWebsite, 'click', (e) => {
+    if (this.linkWebsite) {
+      this._domListeners.add(this.linkWebsite, 'click', (e) => {
         handleExternalLink(e, 'https://prismgb.com');
       });
     }
 
-    if (linkX) {
-      this._domListeners.add(linkX, 'click', (e) => {
+    if (this.linkX) {
+      this._domListeners.add(this.linkX, 'click', (e) => {
         handleExternalLink(e, 'https://x.com/prism_gb');
       });
     }
 
-    if (linkKofi) {
-      this._domListeners.add(linkKofi, 'click', (e) => {
+    if (this.linkKofi) {
+      this._domListeners.add(this.linkKofi, 'click', (e) => {
         handleExternalLink(e, 'https://ko-fi.com/josstei');
       });
     }
 
-    if (linkModRetro) {
-      this._domListeners.add(linkModRetro, 'click', (e) => {
+    if (this.linkModRetro) {
+      this._domListeners.add(this.linkModRetro, 'click', (e) => {
         handleExternalLink(e, 'https://modretro.com');
       });
     }
@@ -448,6 +450,8 @@ class SettingsMenuComponent {
    */
   dispose() {
     this._domListeners.removeAll();
+    this._menuDisclosure?.dispose();
+    this._menuDisclosure = null;
     this._updateSection?.dispose();
     this._updateSection = null;
   }

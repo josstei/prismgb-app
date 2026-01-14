@@ -70,16 +70,40 @@ describe('UISetupOrchestrator', () => {
     mockStreamVideo = createMockElement();
     mockStreamCanvas = createMockElement();
 
+    const mockShaderBtn = createMockElement();
+    const mockShaderDropdown = createMockElement();
+    const mockCinematicToggle = createMockElement();
+    const mockStreamToolbar = createMockElement();
+    const mockBrightnessSlider = createMockElement();
+    const mockBrightnessPercentage = createMockElement();
+    const mockVolumeSliderVertical = createMockElement();
+    const mockVolumePercentageVertical = createMockElement();
+
     mockUiController = {
       on: vi.fn(),
       elements: {
         streamOverlay: mockStreamOverlay,
         streamVideo: mockStreamVideo,
         streamCanvas: mockStreamCanvas,
-        shaderBtn: createMockElement(),
-        shaderDropdown: createMockElement(),
-        cinematicToggle: createMockElement(),
-        streamToolbar: createMockElement()
+        shaderBtn: mockShaderBtn,
+        shaderDropdown: mockShaderDropdown,
+        cinematicToggle: mockCinematicToggle,
+        streamToolbar: mockStreamToolbar
+      },
+      dom: {
+        streaming: {
+          shaderBtn: mockShaderBtn,
+          shaderDropdown: mockShaderDropdown,
+          cinematicToggle: mockCinematicToggle,
+          streamToolbar: mockStreamToolbar,
+          brightnessSlider: mockBrightnessSlider,
+          brightnessPercentage: mockBrightnessPercentage,
+          volumeSliderVertical: mockVolumeSliderVertical,
+          volumePercentageVertical: mockVolumePercentageVertical,
+          streamVideo: mockStreamVideo,
+          streamContainer: createMockElement()
+        },
+        notes: {}
       },
       initSettingsMenu: vi.fn(),
       initShaderSelector: vi.fn(),
@@ -139,10 +163,15 @@ describe('UISetupOrchestrator', () => {
           logger: mockLogger
         },
         expect.objectContaining({
-          shaderBtn: mockUiController.elements.shaderBtn,
-          shaderDropdown: mockUiController.elements.shaderDropdown,
-          cinematicToggle: mockUiController.elements.cinematicToggle,
-          streamToolbar: mockUiController.elements.streamToolbar
+          shaderBtn: mockUiController.dom.streaming.shaderBtn,
+          shaderDropdown: mockUiController.dom.streaming.shaderDropdown,
+          cinematicToggle: mockUiController.dom.streaming.cinematicToggle,
+          streamToolbar: mockUiController.dom.streaming.streamToolbar,
+          brightnessSlider: mockUiController.dom.streaming.brightnessSlider,
+          brightnessPercentage: mockUiController.dom.streaming.brightnessPercentage,
+          volumeSlider: mockUiController.dom.streaming.volumeSliderVertical,
+          volumePercentage: mockUiController.dom.streaming.volumePercentageVertical,
+          streamVideo: mockUiController.dom.streaming.streamVideo
         })
       );
     });
