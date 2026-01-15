@@ -176,13 +176,13 @@ export class ToolbarAutoHide {
    * @private
    */
   _bindPanelObserver() {
-    if (!this._element || typeof MutationObserver === 'undefined') return;
+    if (!this._element || typeof globalThis.MutationObserver === 'undefined') return;
 
     if (this._panelObserver) {
       this._panelObserver.disconnect();
     }
 
-    this._panelObserver = new MutationObserver((mutations) => {
+    this._panelObserver = new globalThis.MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') {
           continue;

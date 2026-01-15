@@ -19,6 +19,7 @@ export class CursorAutoHide {
     this._onHide = options.onHide || (() => {});
     this._boundHandleMouseMove = this._handleMouseMove.bind(this);
     this._mouseMoveFramePending = false;
+    this._rafId = null;
   }
 
   /**
@@ -48,6 +49,14 @@ export class CursorAutoHide {
 
     this._enabled = false;
     document.removeEventListener('mousemove', this._boundHandleMouseMove);
+
+    // Cancel any pending RAF
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+    this._mouseMoveFramePending = false;
+
     this.show();
   }
 
@@ -60,8 +69,9 @@ export class CursorAutoHide {
     if (this._mouseMoveFramePending) return;
 
     this._mouseMoveFramePending = true;
-    requestAnimationFrame(() => {
+    this._rafId = requestAnimationFrame(() => {
       this._mouseMoveFramePending = false;
+      this._rafId = null;
       this.show();
       this._onActivity();
     });

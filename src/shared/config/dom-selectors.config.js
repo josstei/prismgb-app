@@ -10,6 +10,7 @@ export const DOMSelectors = {
   STATUS_INDICATOR: 'statusIndicator',
   STATUS_TEXT: 'statusText',
   STATUS_MESSAGE: 'statusMessage',
+  STATUS_FOOTER: 'statusFooter',
 
   // Stream display
   STREAM_VIDEO: 'streamVideo',
@@ -27,14 +28,18 @@ export const DOMSelectors = {
   // Shader selector
   SHADER_CONTROLS: 'shaderControls',
   SHADER_DROPDOWN: 'shaderDropdown',
+  SHADER_OPTIONS: 'shaderOptions',
+  SHADER_UNAVAILABLE_MESSAGE: 'shaderUnavailableMessage',
   BRIGHTNESS_SLIDER: 'brightnessSlider',
   BRIGHTNESS_PERCENTAGE: 'brightnessPercentage',
+  BRIGHTNESS_CONTROL: 'brightnessControl',
   VOLUME_SLIDER_VERTICAL: 'volumeSliderVertical',
   VOLUME_PERCENTAGE_VERTICAL: 'volumePercentageVertical',
 
   // Toolbar
   STREAM_TOOLBAR: 'streamToolbar',
   CINEMATIC_TOGGLE: 'cinematicToggle',
+  CINEMATIC_PILL_TEXT: 'cinematicPillText',
 
   // Device info
   DEVICE_NAME: 'deviceName',
@@ -52,6 +57,7 @@ export const DOMSelectors = {
   SETTING_AUTO_STREAM_ON_CONNECT: 'settingAutoStreamOnConnect',
   SETTING_RECORDING_FORMAT: 'settingRecordingFormat',
   RECORDING_FORMAT_MENU: 'recordingFormatMenu',
+  RECORDING_FORMAT_LABEL: 'recordingFormatLabel',
   DISCLAIMER_BTN: 'disclaimerBtn',
   DISCLAIMER_CONTENT: 'disclaimerContent',
 
@@ -88,6 +94,8 @@ export const DOMSelectors = {
   // Notes panel
   NOTES_BTN: 'notesBtn',
   NOTES_PANEL: 'notesPanel',
+  NOTES_PANEL_CONTENT: 'notesPanelContent',
+  NOTES_LIST_WRAPPER: 'notesListWrapper',
   NOTES_SEARCH_INPUT: 'notesSearchInput',
   NOTES_GAME_FILTER: 'notesGameFilter',
   NOTES_GAME_FILTER_LABEL: 'notesGameFilterLabel',

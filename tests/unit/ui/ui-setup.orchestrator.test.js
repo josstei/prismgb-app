@@ -72,12 +72,18 @@ describe('UISetupOrchestrator', () => {
 
     const mockShaderBtn = createMockElement();
     const mockShaderDropdown = createMockElement();
+    const mockShaderOptions = createMockElement();
+    const mockShaderUnavailableMessage = createMockElement();
     const mockCinematicToggle = createMockElement();
+    const mockCinematicPillText = createMockElement();
     const mockStreamToolbar = createMockElement();
     const mockBrightnessSlider = createMockElement();
     const mockBrightnessPercentage = createMockElement();
+    const mockBrightnessControl = createMockElement();
     const mockVolumeSliderVertical = createMockElement();
     const mockVolumePercentageVertical = createMockElement();
+    const mockStreamContainer = createMockElement();
+    const mockNotesBtn = createMockElement();
 
     mockUiController = {
       on: vi.fn(),
@@ -94,19 +100,26 @@ describe('UISetupOrchestrator', () => {
         streaming: {
           shaderBtn: mockShaderBtn,
           shaderDropdown: mockShaderDropdown,
+          shaderOptions: mockShaderOptions,
+          shaderUnavailableMessage: mockShaderUnavailableMessage,
           cinematicToggle: mockCinematicToggle,
+          cinematicPillText: mockCinematicPillText,
           streamToolbar: mockStreamToolbar,
           brightnessSlider: mockBrightnessSlider,
           brightnessPercentage: mockBrightnessPercentage,
+          brightnessControl: mockBrightnessControl,
           volumeSliderVertical: mockVolumeSliderVertical,
           volumePercentageVertical: mockVolumePercentageVertical,
           streamVideo: mockStreamVideo,
-          streamContainer: createMockElement()
+          streamContainer: mockStreamContainer
         },
-        notes: {}
+        notes: {
+          notesBtn: mockNotesBtn
+        }
       },
       initSettingsMenu: vi.fn(),
       initShaderSelector: vi.fn(),
+      initNotesPanel: vi.fn(),
       toggleSettingsMenu: vi.fn(),
       toggleShaderSelector: vi.fn()
     };
@@ -165,13 +178,36 @@ describe('UISetupOrchestrator', () => {
         expect.objectContaining({
           shaderBtn: mockUiController.dom.streaming.shaderBtn,
           shaderDropdown: mockUiController.dom.streaming.shaderDropdown,
+          shaderOptions: mockUiController.dom.streaming.shaderOptions,
+          shaderUnavailableMessage: mockUiController.dom.streaming.shaderUnavailableMessage,
           cinematicToggle: mockUiController.dom.streaming.cinematicToggle,
+          cinematicPillText: mockUiController.dom.streaming.cinematicPillText,
           streamToolbar: mockUiController.dom.streaming.streamToolbar,
           brightnessSlider: mockUiController.dom.streaming.brightnessSlider,
           brightnessPercentage: mockUiController.dom.streaming.brightnessPercentage,
+          brightnessControl: mockUiController.dom.streaming.brightnessControl,
           volumeSlider: mockUiController.dom.streaming.volumeSliderVertical,
           volumePercentage: mockUiController.dom.streaming.volumePercentageVertical,
           streamVideo: mockUiController.dom.streaming.streamVideo
+        })
+      );
+    });
+  });
+
+  describe('initializeNotesPanel', () => {
+    it('should call uiController.initNotesPanel with dependencies and elements', () => {
+      orchestrator.initializeNotesPanel();
+
+      expect(mockUiController.initNotesPanel).toHaveBeenCalledWith(
+        {
+          notesService: mockNotesService,
+          eventBus: mockEventBus,
+          logger: mockLogger
+        },
+        expect.objectContaining({
+          notesBtn: mockUiController.dom.notes.notesBtn,
+          streamContainer: mockUiController.dom.streaming.streamContainer,
+          streamToolbar: mockUiController.dom.streaming.streamToolbar
         })
       );
     });

@@ -45,6 +45,8 @@ describe('NotesPanelComponent', () => {
     mockElements = {
       notesBtn: document.createElement('button'),
       notesPanel: document.createElement('div'),
+      notesPanelContent: document.createElement('div'),
+      notesListWrapper: document.createElement('div'),
       notesSearchInput: document.createElement('input'),
       notesGameFilter: document.createElement('button'),
       notesGameFilterLabel: document.createElement('span'),
@@ -60,7 +62,9 @@ describe('NotesPanelComponent', () => {
       notesTitleInput: document.createElement('input'),
       notesContentArea: document.createElement('textarea'),
       notesNewBtn: document.createElement('button'),
-      notesDeleteBtn: document.createElement('button')
+      notesDeleteBtn: document.createElement('button'),
+      streamContainer: document.createElement('div'),
+      streamToolbar: document.createElement('div')
     };
 
     // Set up element IDs for querySelector usage
@@ -178,6 +182,14 @@ describe('NotesPanelComponent', () => {
       component.show();
 
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    });
+
+    it('should update layout position when shown', () => {
+      const updateSpy = vi.spyOn(component.layout, 'updatePosition');
+
+      component.show();
+
+      expect(updateSpy).toHaveBeenCalled();
     });
 
     it('should not throw if panel element is missing', () => {
@@ -511,21 +523,16 @@ describe('NotesPanelComponent', () => {
       component.initialize(mockElements);
     });
 
-    it('should clear all timeouts', () => {
-      component._resizeTimeout = setTimeout(() => {}, 1000);
-
-      component.dispose();
-
-      expect(component._resizeTimeout).toBeNull();
-    });
-
     it('should nullify references', () => {
+      const layoutDisposeSpy = vi.spyOn(component.layout, 'dispose');
+
       component.dispose();
 
       expect(component.elements).toBeNull();
       expect(component.notesService).toBeNull();
       expect(component.eventBus).toBeNull();
       expect(component.logger).toBeNull();
+      expect(layoutDisposeSpy).toHaveBeenCalled();
     });
 
     it('should reset state', () => {
@@ -837,81 +844,15 @@ describe('NotesPanelComponent', () => {
 
   describe('Search handling', () => {
     beforeEach(() => {
-      vi.useFakeTimers();
       component.initialize(mockElements);
     });
 
-    // NOTE: Search handling with filters is now orchestrated through sub-components
+    it('should render list with search query', () => {
+      const renderSpy = vi.spyOn(component.listView, 'render');
 
-    it('should update game filter options after search', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-      mockNotesService.getUniqueGames.mockReturnValue(['Game Alpha']);
+      component._handleSearch('Alpha');
 
-      component._handleSearch();
-
-      expect(mockNotesService.getUniqueGames).toHaveBeenCalled();
-    });
-  });
-
-  describe('Panel position updates', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      component.initialize(mockElements);
-    });
-
-    it('should schedule position update with debounce', () => {
-      const updateSpy = vi.spyOn(component, '_updatePanelPosition');
-
-      component._schedulePositionUpdate();
-      component._schedulePositionUpdate();
-      component._schedulePositionUpdate();
-
-      vi.advanceTimersByTime(100);
-
-      expect(updateSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('should update panel CSS variables', () => {
-      // Mock getBoundingClientRect for toolbar
-      const mockToolbar = document.createElement('div');
-      mockToolbar.id = 'streamToolbar';
-      mockToolbar.getBoundingClientRect = () => ({
-        top: 100,
-        left: 200,
-        right: 260,
-        bottom: 400,
-        width: 60,
-        height: 300
-      });
-      document.body.appendChild(mockToolbar);
-
-      component._updatePanelPosition();
-
-      // Clean up
-      document.body.removeChild(mockToolbar);
-    });
-
-    it('should clear resize timeout on dispose', () => {
-      component._resizeTimeout = setTimeout(() => {}, 1000);
-
-      component.dispose();
-
-      expect(component._resizeTimeout).toBeNull();
-    });
-  });
-
-  describe('Resize observer', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should disconnect resize observer on dispose', () => {
-      const mockObserver = { disconnect: vi.fn() };
-      component._resizeObserver = mockObserver;
-
-      component.dispose();
-
-      expect(mockObserver.disconnect).toHaveBeenCalled();
+      expect(renderSpy).toHaveBeenCalledWith('Alpha');
     });
   });
 

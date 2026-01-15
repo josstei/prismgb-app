@@ -1,513 +1,125 @@
 /**
  * UIComponentRegistry Unit Tests
- * Tests component creation, lifecycle management, and lazy initialization
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 
 describe('UIComponentRegistry', () => {
-  let registry;
-  let mockFactory;
-  let mockEventBus;
-  let mockLoggerFactory;
   let mockLogger;
-  let mockElements;
-  let mockComponents;
+  let mockLoggerFactory;
 
   beforeEach(() => {
-    // Create mock components
-    mockComponents = {
-      statusNotificationComponent: {
-        show: vi.fn()
-      },
-      deviceStatusComponent: {
-        updateStatus: vi.fn(),
-        dispose: vi.fn()
-      },
-      streamControlsComponent: {
-        setCinematicMode: vi.fn(),
-        dispose: vi.fn()
-      },
-      settingsMenuComponent: {
-        toggle: vi.fn(),
-        dispose: vi.fn()
-      }
-    };
-
-    // Create mock shader selector and notes panel components
-    mockComponents.shaderSelectorComponent = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    };
-
-    mockComponents.notesPanelComponent = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    };
-
-    mockComponents.transcodeToastComponent = {
-      show: vi.fn(),
-      updateProgress: vi.fn(),
-      showSuccess: vi.fn(),
-      showError: vi.fn(),
-      hide: vi.fn(),
-      dispose: vi.fn()
-    };
-
-    // Create mock factory with factory methods
-    mockFactory = {
-      createStatusNotificationComponent: vi.fn().mockReturnValue(mockComponents.statusNotificationComponent),
-      createDeviceStatusComponent: vi.fn().mockReturnValue(mockComponents.deviceStatusComponent),
-      createStreamingControlsComponent: vi.fn().mockReturnValue(mockComponents.streamControlsComponent),
-      createSettingsMenuComponent: vi.fn().mockReturnValue(mockComponents.settingsMenuComponent),
-      createStreamingShaderSelectorComponent: vi.fn().mockReturnValue(mockComponents.shaderSelectorComponent),
-      createNotesPanelComponent: vi.fn().mockReturnValue(mockComponents.notesPanelComponent),
-      createTranscodeToastComponent: vi.fn().mockReturnValue(mockComponents.transcodeToastComponent)
-    };
-
-    // Create mock event bus
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
-
-    // Create mock logger
     mockLogger = {
-      debug: vi.fn(),
       info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
+      debug: vi.fn(),
+      warn: vi.fn()
     };
-
     mockLoggerFactory = {
-      create: vi.fn().mockReturnValue(mockLogger)
+      create: vi.fn(() => mockLogger)
     };
-
-    // Create mock DOM elements
-    mockElements = {
-      statusMessage: { textContent: '' },
-      statusIndicator: { className: '' },
-      statusText: { textContent: '' },
-      deviceName: { textContent: '' },
-      deviceStatusText: { textContent: '' },
-      streamOverlay: { style: {} },
-      overlayMessage: { textContent: '' },
-      currentResolution: { textContent: '' },
-      currentFPS: { textContent: '' },
-      screenshotBtn: { disabled: false },
-      recordBtn: { disabled: false },
-      shaderControls: {},
-      transcodeToast: { classList: { add: vi.fn(), remove: vi.fn() } },
-      transcodeLabel: { textContent: '' },
-      transcodeProgressFill: { style: {} },
-      transcodePercent: { textContent: '' }
-    };
-
-    registry = new UIComponentRegistry({
-      uiComponentFactory: mockFactory,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
   });
 
-  describe('Constructor', () => {
-    it('should store factory reference', () => {
-      expect(registry.factory).toBe(mockFactory);
-    });
+  it('registers valid definitions and ignores invalid ones', () => {
+    const registry = new UIComponentRegistry({ loggerFactory: mockLoggerFactory });
+    const create = vi.fn(() => ({ initialize: vi.fn() }));
 
-    it('should store eventBus reference', () => {
-      expect(registry.eventBus).toBe(mockEventBus);
-    });
+    registry.register({ id: 'valid', create });
+    registry.register({ id: '', create });
+    registry.register({ id: 'missingCreate' });
 
-    it('should store loggerFactory reference', () => {
-      expect(registry.loggerFactory).toBe(mockLoggerFactory);
-    });
-
-    it('should create logger with correct name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UIComponentRegistry');
-      expect(registry.logger).toBe(mockLogger);
-    });
-
-    it('should initialize empty components Map', () => {
-      expect(registry.components).toBeInstanceOf(Map);
-      expect(registry.components.size).toBe(0);
-    });
-
-    it('should handle missing loggerFactory gracefully', () => {
-      const registryWithoutLogger = new UIComponentRegistry({
-        uiComponentFactory: mockFactory,
-        eventBus: mockEventBus,
-        loggerFactory: null
-      });
-
-      expect(registryWithoutLogger.logger).toBeUndefined();
-    });
+    expect(mockLogger.warn).toHaveBeenCalledWith('Invalid component definition provided');
+    expect(registry.get('valid')).toBeUndefined();
+    expect(registry.definitions.has('valid')).toBe(true);
+    expect(registry.definitions.has('missingCreate')).toBe(false);
   });
 
-  describe('initialize', () => {
-    beforeEach(() => {
-      registry.initialize(mockElements);
+  it('initializes core components only', () => {
+    const coreComponent = { initialize: vi.fn(), dispose: vi.fn() };
+    const deferredComponent = { initialize: vi.fn(), dispose: vi.fn() };
+    const coreCreate = vi.fn(() => coreComponent);
+    const deferredCreate = vi.fn(() => deferredComponent);
+    const elements = { foo: 'bar' };
+    const dependencies = { dep: true };
+
+    const registry = new UIComponentRegistry({
+      loggerFactory: mockLoggerFactory,
+      componentDefinitions: [
+        { id: 'core', create: coreCreate },
+        { id: 'deferred', stage: 'deferred', create: deferredCreate }
+      ]
     });
 
-    it('should log initialization debug message', () => {
-      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing UI components');
-    });
+    registry.initialize(elements, dependencies);
 
-    it('should create StatusNotificationComponent with correct elements', () => {
-      expect(mockFactory.createStatusNotificationComponent).toHaveBeenCalledWith({
-        statusMessage: mockElements.statusMessage
-      });
-    });
-
-    it('should store StatusNotificationComponent in components Map', () => {
-      expect(registry.components.get('statusNotificationComponent')).toBe(mockComponents.statusNotificationComponent);
-    });
-
-    it('should create DeviceStatusComponent with correct elements', () => {
-      expect(mockFactory.createDeviceStatusComponent).toHaveBeenCalledWith({
-        statusIndicator: mockElements.statusIndicator,
-        statusText: mockElements.statusText,
-        deviceName: mockElements.deviceName,
-        deviceStatusText: mockElements.deviceStatusText,
-        streamOverlay: mockElements.streamOverlay,
-        overlayMessage: mockElements.overlayMessage
-      });
-    });
-
-    it('should store DeviceStatusComponent in components Map', () => {
-      expect(registry.components.get('deviceStatusComponent')).toBe(mockComponents.deviceStatusComponent);
-    });
-
-    it('should create StreamingControlsComponent with correct elements', () => {
-      expect(mockFactory.createStreamingControlsComponent).toHaveBeenCalledWith({
-        currentResolution: mockElements.currentResolution,
-        currentFPS: mockElements.currentFPS,
-        screenshotBtn: mockElements.screenshotBtn,
-        recordBtn: mockElements.recordBtn,
-        shaderControls: mockElements.shaderControls,
-        streamOverlay: mockElements.streamOverlay
-      });
-    });
-
-    it('should store StreamingControlsComponent in components Map', () => {
-      expect(registry.components.get('streamControlsComponent')).toBe(mockComponents.streamControlsComponent);
-    });
-
-    it('should create all 4 components', () => {
-      expect(registry.components.size).toBe(4);
-    });
-
-    it('should log completion info message', () => {
-      expect(mockLogger.info).toHaveBeenCalledWith('Initialized 4 UI components');
-    });
+    expect(coreCreate).toHaveBeenCalledWith({ elements, dependencies });
+    expect(coreComponent.initialize).toHaveBeenCalledWith(elements);
+    expect(deferredCreate).not.toHaveBeenCalled();
   });
 
-  describe('initSettingsMenu', () => {
-    it('should log initialization debug message', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
+  it('initializes a deferred component on demand', () => {
+    const deferredComponent = { initialize: vi.fn(), dispose: vi.fn() };
+    const deferredCreate = vi.fn(() => deferredComponent);
+    const elements = { alpha: true };
+    const dependencies = { beta: true };
 
-      registry.initSettingsMenu(dependencies);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing settings menu component');
+    const registry = new UIComponentRegistry({
+      loggerFactory: mockLoggerFactory,
+      componentDefinitions: [{ id: 'deferred', stage: 'deferred', create: deferredCreate }]
     });
 
-    it('should create SettingsMenuComponent with dependencies', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
+    const component = registry.initializeComponent('deferred', { elements, dependencies });
 
-      registry.initSettingsMenu(dependencies);
-
-      expect(mockFactory.createSettingsMenuComponent).toHaveBeenCalledWith(dependencies);
-    });
-
-    it('should store SettingsMenuComponent in components Map', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
-
-      registry.initSettingsMenu(dependencies);
-
-      expect(registry.components.get('settingsMenuComponent')).toBe(mockComponents.settingsMenuComponent);
-    });
-
-    it('should log completion info message', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
-
-      registry.initSettingsMenu(dependencies);
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Settings menu component initialized');
-    });
+    expect(component).toBe(deferredComponent);
+    expect(deferredCreate).toHaveBeenCalledWith({ elements, dependencies });
+    expect(deferredComponent.initialize).toHaveBeenCalledWith(elements);
   });
 
-  describe('initShaderSelector', () => {
-    it('should log initialization debug message', () => {
-      const dependencies = {
-        settingsService: {},
-        appState: {},
-        logger: mockLogger
-      };
-      const elements = {
-        shaderPanel: {},
-        shaderOptions: []
-      };
+  it('returns existing components without re-creating', () => {
+    const component = { initialize: vi.fn(), dispose: vi.fn() };
+    const create = vi.fn(() => component);
 
-      registry.initShaderSelector(dependencies, elements);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing shader selector component');
+    const registry = new UIComponentRegistry({
+      loggerFactory: mockLoggerFactory,
+      componentDefinitions: [{ id: 'once', create }]
     });
 
-    it('should create StreamingShaderSelectorComponent with dependencies', () => {
-      const dependencies = {
-        settingsService: {},
-        appState: {},
-        logger: mockLogger
-      };
-      const elements = {
-        shaderPanel: {},
-        shaderOptions: []
-      };
+    const first = registry.initializeComponent('once', { elements: {} });
+    const second = registry.initializeComponent('once', { elements: {} });
 
-      registry.initShaderSelector(dependencies, elements);
-
-      expect(mockFactory.createStreamingShaderSelectorComponent).toHaveBeenCalledWith(dependencies);
-    });
-
-    it('should initialize component with elements', () => {
-      const dependencies = {
-        settingsService: {},
-        appState: {},
-        logger: mockLogger
-      };
-      const elements = {
-        shaderPanel: {},
-        shaderOptions: []
-      };
-
-      registry.initShaderSelector(dependencies, elements);
-
-      expect(mockComponents.shaderSelectorComponent.initialize).toHaveBeenCalledWith(elements);
-    });
-
-    it('should store StreamingShaderSelectorComponent in components Map', () => {
-      const dependencies = {
-        settingsService: {},
-        appState: {},
-        logger: mockLogger
-      };
-      const elements = {};
-
-      registry.initShaderSelector(dependencies, elements);
-
-      expect(registry.components.get('shaderSelectorComponent')).toBe(mockComponents.shaderSelectorComponent);
-    });
-
-    it('should log completion info message', () => {
-      const dependencies = {};
-      const elements = {};
-
-      registry.initShaderSelector(dependencies, elements);
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Shader selector component initialized');
-    });
+    expect(first).toBe(component);
+    expect(second).toBe(component);
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
-  describe('initNotesPanel', () => {
-    it('should log initialization debug message', () => {
-      const dependencies = {
-        notesService: {},
-        logger: mockLogger
-      };
-      const elements = {
-        notesPanel: {},
-        notesList: {}
-      };
+  it('warns when initializing an unknown component', () => {
+    const registry = new UIComponentRegistry({ loggerFactory: mockLoggerFactory });
 
-      registry.initNotesPanel(dependencies, elements);
+    const result = registry.initializeComponent('missing');
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('Initializing notes panel component');
-    });
-
-    it('should create NotesPanelComponent with dependencies', () => {
-      const dependencies = {
-        notesService: {},
-        logger: mockLogger
-      };
-      const elements = {
-        notesPanel: {},
-        notesList: {}
-      };
-
-      registry.initNotesPanel(dependencies, elements);
-
-      expect(mockFactory.createNotesPanelComponent).toHaveBeenCalledWith(dependencies);
-    });
-
-    it('should initialize component with elements', () => {
-      const dependencies = {
-        notesService: {},
-        logger: mockLogger
-      };
-      const elements = {
-        notesPanel: {},
-        notesList: {}
-      };
-
-      registry.initNotesPanel(dependencies, elements);
-
-      expect(mockComponents.notesPanelComponent.initialize).toHaveBeenCalledWith(elements);
-    });
-
-    it('should store NotesPanelComponent in components Map', () => {
-      const dependencies = {
-        notesService: {},
-        logger: mockLogger
-      };
-      const elements = {};
-
-      registry.initNotesPanel(dependencies, elements);
-
-      expect(registry.components.get('notesPanelComponent')).toBe(mockComponents.notesPanelComponent);
-    });
-
-    it('should log completion info message', () => {
-      const dependencies = {};
-      const elements = {};
-
-      registry.initNotesPanel(dependencies, elements);
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Notes panel component initialized');
-    });
+    expect(result).toBeUndefined();
+    expect(mockLogger.warn).toHaveBeenCalledWith('Component definition not found: missing');
   });
 
-  describe('get', () => {
-    beforeEach(() => {
-      registry.initialize(mockElements);
+  it('disposes all created components', () => {
+    const componentA = { initialize: vi.fn(), dispose: vi.fn() };
+    const componentB = { initialize: vi.fn(), dispose: vi.fn() };
+
+    const registry = new UIComponentRegistry({
+      loggerFactory: mockLoggerFactory,
+      componentDefinitions: [
+        { id: 'a', create: vi.fn(() => componentA) },
+        { id: 'b', create: vi.fn(() => componentB) }
+      ]
     });
 
-    it('should return statusNotificationComponent by name', () => {
-      const component = registry.get('statusNotificationComponent');
+    registry.initializeComponent('a', { elements: {} });
+    registry.initializeComponent('b', { elements: {} });
+    registry.dispose();
 
-      expect(component).toBe(mockComponents.statusNotificationComponent);
-    });
-
-    it('should return deviceStatusComponent by name', () => {
-      const component = registry.get('deviceStatusComponent');
-
-      expect(component).toBe(mockComponents.deviceStatusComponent);
-    });
-
-    it('should return streamControlsComponent by name', () => {
-      const component = registry.get('streamControlsComponent');
-
-      expect(component).toBe(mockComponents.streamControlsComponent);
-    });
-
-    it('should return undefined for unknown component name', () => {
-      const component = registry.get('nonExistentComponent');
-
-      expect(component).toBeUndefined();
-    });
-
-    it('should return settingsMenuComponent after lazy initialization', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
-
-      registry.initSettingsMenu(dependencies);
-
-      const component = registry.get('settingsMenuComponent');
-
-      expect(component).toBe(mockComponents.settingsMenuComponent);
-    });
-  });
-
-  describe('dispose', () => {
-    beforeEach(() => {
-      registry.initialize(mockElements);
-    });
-
-    it('should log disposal debug message', () => {
-      registry.dispose();
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Disposing UI components');
-    });
-
-    it('should call dispose on deviceStatusComponent', () => {
-      registry.dispose();
-
-      expect(mockComponents.deviceStatusComponent.dispose).toHaveBeenCalled();
-    });
-
-    it('should call dispose on streamControlsComponent', () => {
-      registry.dispose();
-
-      expect(mockComponents.streamControlsComponent.dispose).toHaveBeenCalled();
-    });
-
-    it('should call dispose on settingsMenuComponent if initialized', () => {
-      const dependencies = {
-        settingsService: {},
-        eventBus: mockEventBus,
-        logger: mockLogger
-      };
-
-      registry.initSettingsMenu(dependencies);
-      registry.dispose();
-
-      expect(mockComponents.settingsMenuComponent.dispose).toHaveBeenCalled();
-    });
-
-    it('should skip dispose for components without dispose method', () => {
-      // statusNotificationManager doesn't have dispose method
-      expect(() => registry.dispose()).not.toThrow();
-    });
-
-    it('should log debug message for each component disposed', () => {
-      registry.dispose();
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Disposing component: deviceStatusComponent');
-      expect(mockLogger.debug).toHaveBeenCalledWith('Disposing component: streamControlsComponent');
-    });
-
-    it('should clear components Map', () => {
-      expect(registry.components.size).toBe(4);
-
-      registry.dispose();
-
-      expect(registry.components.size).toBe(0);
-    });
-
-    it('should log completion info message', () => {
-      registry.dispose();
-
-      expect(mockLogger.info).toHaveBeenCalledWith('All UI components disposed');
-    });
-
-    it('should handle disposal when components Map is empty', () => {
-      const emptyRegistry = new UIComponentRegistry({
-        uiComponentFactory: mockFactory,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
-
-      expect(() => emptyRegistry.dispose()).not.toThrow();
-      expect(emptyRegistry.components.size).toBe(0);
-    });
+    expect(componentA.dispose).toHaveBeenCalled();
+    expect(componentB.dispose).toHaveBeenCalled();
+    expect(registry.get('a')).toBeUndefined();
+    expect(registry.get('b')).toBeUndefined();
   });
 });

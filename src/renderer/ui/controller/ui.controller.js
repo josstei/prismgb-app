@@ -13,13 +13,15 @@ class UIController {
    * @param {UIComponentRegistry} dependencies.uiComponentRegistry - Manages UI components
    * @param {UIEffects} dependencies.uiEffects - Visual effects manager
    * @param {LoggerFactory} dependencies.loggerFactory - Creates logger instances
+   * @param {BodyClassManager} dependencies.bodyClassManager - Manages body class state
    */
   constructor(dependencies = {}) {
-    const { uiComponentRegistry, uiEffects, loggerFactory } = dependencies;
+    const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager } = dependencies;
 
     // Store references
     this.registry = uiComponentRegistry;
     this.effects = uiEffects;
+    this.bodyClassManager = bodyClassManager;
     this.logger = loggerFactory?.create('UIController') || null;
 
     // Initialize all DOM element references (centralized)
@@ -44,7 +46,7 @@ class UIController {
    */
   initializeComponents() {
     if (this.registry) {
-      this.registry.initialize(this.elements);
+      this.registry.initialize(this.elements, { bodyClassManager: this.bodyClassManager });
     }
   }
 
@@ -57,15 +59,14 @@ class UIController {
    */
   initSettingsMenu(dependencies) {
     if (this.registry) {
-      this.registry.initSettingsMenu(dependencies);
-      const settingsMenu = this.registry.get('settingsMenuComponent');
-      if (settingsMenu) {
-        const settingsElements = {
-          ...this.dom?.settings,
-          ...this.dom?.updates
-        };
-        settingsMenu.initialize(settingsElements);
-      }
+      const settingsElements = {
+        ...this.dom?.settings,
+        ...this.dom?.updates
+      };
+      this.registry.initializeComponent('settingsMenuComponent', {
+        elements: settingsElements,
+        dependencies
+      });
     }
   }
 
@@ -86,7 +87,7 @@ class UIController {
    */
   initShaderSelector(dependencies, elements) {
     if (this.registry) {
-      this.registry.initShaderSelector(dependencies, elements);
+      this.registry.initializeComponent('shaderSelectorComponent', { elements, dependencies });
     }
   }
 
@@ -107,7 +108,7 @@ class UIController {
    */
   initNotesPanel(dependencies, elements) {
     if (this.registry) {
-      this.registry.initNotesPanel(dependencies, elements);
+      this.registry.initializeComponent('notesPanelComponent', { elements, dependencies });
     }
   }
 

@@ -8,7 +8,7 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
-import { updateListboxActiveState } from '@renderer/ui/primitives/listbox.js';
+import { ListboxDropdownController } from '@renderer/ui/primitives/listbox-dropdown.js';
 
 class SettingsMenuComponent {
   constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {
@@ -19,6 +19,7 @@ class SettingsMenuComponent {
     this.isVisible = false;
     this.disclaimerExpanded = false;
     this._menuDisclosure = null;
+    this.recordingFormatDropdown = null;
 
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
@@ -40,8 +41,8 @@ class SettingsMenuComponent {
     this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.recordingFormatTrigger = elements.settingRecordingFormat;
+    this.recordingFormatLabel = elements.recordingFormatLabel;
     this.recordingFormatMenu = elements.recordingFormatMenu;
-    this.isRecordingFormatOpen = false;
     this.disclaimerBtn = elements.disclaimerBtn;
     this.disclaimerContent = elements.disclaimerContent;
     this.footer = elements.footer;
@@ -69,9 +70,9 @@ class SettingsMenuComponent {
     }
 
     this._bindEvents();
-    this._loadCurrentSettings();
     this._setupMenuDisclosure();
-    this._setupRecordingFormatClickOutside();
+    this._setupRecordingFormatDropdown();
+    this._loadCurrentSettings();
     this._setAppVersion();
     this._initializeUpdateSection();
 
@@ -143,20 +144,6 @@ class SettingsMenuComponent {
       });
     }
 
-    // Recording format dropdown
-    if (this.recordingFormatTrigger && this.recordingFormatMenu) {
-      this._domListeners.add(this.recordingFormatTrigger, 'click', (e) => {
-        e.stopPropagation();
-        this._toggleRecordingFormatMenu();
-      });
-
-      this._domListeners.add(this.recordingFormatMenu, 'click', (e) => {
-        const option = e.target.closest('.settings-select-option');
-        if (!option) return;
-        this._selectRecordingFormat(option.dataset.value, option.textContent);
-      });
-    }
-
     // Disclaimer expand/collapse
     if (this.disclaimerBtn && this.disclaimerContent) {
       this._domListeners.add(this.disclaimerBtn, 'click', () => {
@@ -200,19 +187,8 @@ class SettingsMenuComponent {
       this.animationSaverCheckbox.checked = performanceModeEnabled;
     }
 
-    if (this.recordingFormatTrigger && this.recordingFormatMenu) {
-      const label = this.recordingFormatTrigger.querySelector('.settings-select-label');
-      updateListboxActiveState({
-        container: this.recordingFormatMenu,
-        optionSelector: '.settings-select-option',
-        activeValue: recordingFormat
-      });
-      if (label) {
-        const activeOption = this.recordingFormatMenu.querySelector('.settings-select-option.active');
-        if (activeOption) {
-          label.textContent = activeOption.textContent;
-        }
-      }
+    if (this.recordingFormatDropdown) {
+      this.recordingFormatDropdown.setActive(recordingFormat);
     }
 
     this._applyStatusStripVisibility(statusStripVisible);
@@ -254,65 +230,22 @@ class SettingsMenuComponent {
     this._menuDisclosure?.hide();
   }
 
-  /**
-   * Toggle recording format dropdown
-   * @private
-   */
-  _toggleRecordingFormatMenu() {
-    if (this.isRecordingFormatOpen) {
-      this._hideRecordingFormatMenu();
-    } else {
-      this._showRecordingFormatMenu();
-    }
-  }
+  _setupRecordingFormatDropdown() {
+    if (!this.recordingFormatTrigger || !this.recordingFormatMenu) return;
 
-  /**
-   * Show recording format dropdown
-   * @private
-   */
-  _showRecordingFormatMenu() {
-    if (!this.recordingFormatMenu) return;
-    this.recordingFormatMenu.classList.add(CSSClasses.VISIBLE);
-    this.recordingFormatTrigger?.setAttribute('aria-expanded', 'true');
-    this.isRecordingFormatOpen = true;
-  }
-
-  /**
-   * Hide recording format dropdown
-   * @private
-   */
-  _hideRecordingFormatMenu() {
-    if (!this.recordingFormatMenu) return;
-    this.recordingFormatMenu.classList.remove(CSSClasses.VISIBLE);
-    this.recordingFormatTrigger?.setAttribute('aria-expanded', 'false');
-    this.isRecordingFormatOpen = false;
-  }
-
-  /**
-   * Select a recording format option
-   * @param {string} value - Format value
-   * @param {string} label - Display label
-   * @private
-   */
-  _selectRecordingFormat(value, label) {
-    // Update label
-    const labelEl = this.recordingFormatTrigger?.querySelector('.settings-select-label');
-    if (labelEl) {
-      labelEl.textContent = label;
-    }
-
-    // Update active state
-    updateListboxActiveState({
-      container: this.recordingFormatMenu,
+    this.recordingFormatDropdown = new ListboxDropdownController({
+      triggerElement: this.recordingFormatTrigger,
+      menuElement: this.recordingFormatMenu,
+      labelElement: this.recordingFormatLabel,
       optionSelector: '.settings-select-option',
-      activeValue: value
+      ignoreOutsideSelectors: ['.settings-select-wrapper'],
+      onChange: (value) => {
+        this.settingsService.setRecordingFormat(value);
+      },
+      logger: this.logger
     });
 
-    // Save setting
-    this.settingsService.setRecordingFormat(value);
-
-    // Close dropdown
-    this._hideRecordingFormatMenu();
+    this.recordingFormatDropdown.initialize();
   }
 
   /**
@@ -335,7 +268,7 @@ class SettingsMenuComponent {
         this.isVisible = false;
 
         // Close dropdowns when menu closes
-        this._hideRecordingFormatMenu();
+        this.recordingFormatDropdown?.hide();
 
         // Collapse disclaimer when menu closes
         if (this.disclaimerExpanded) {
@@ -347,20 +280,6 @@ class SettingsMenuComponent {
     });
 
     this._menuDisclosure.initialize();
-  }
-
-  /**
-   * Setup click-outside handler for recording format dropdown
-   * @private
-   */
-  _setupRecordingFormatClickOutside() {
-    this._domListeners.add(document, 'click', (e) => {
-      if (!this.isVisible) return;
-
-      if (this.isRecordingFormatOpen && !e.target.closest('.settings-select-wrapper')) {
-        this._hideRecordingFormatMenu();
-      }
-    });
   }
 
   /**
@@ -452,6 +371,8 @@ class SettingsMenuComponent {
     this._domListeners.removeAll();
     this._menuDisclosure?.dispose();
     this._menuDisclosure = null;
+    this.recordingFormatDropdown?.dispose();
+    this.recordingFormatDropdown = null;
     this._updateSection?.dispose();
     this._updateSection = null;
   }

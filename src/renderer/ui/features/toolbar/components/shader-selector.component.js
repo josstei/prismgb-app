@@ -4,12 +4,11 @@
  * Panel component for selecting shader presets and toggling cinematic mode.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/streaming-render-presets.config.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { sliderToBrightness, brightnessToSlider } from '@shared/utils/brightness.utils.js';
 import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
+import { CinematicToggleComponent } from './cinematic-toggle.component.js';
+import { ShaderPresetListComponent } from './shader-preset-list.component.js';
+import { ShaderSliderControlsComponent } from './shader-slider-controls.component.js';
 
 class StreamingShaderSelectorComponent {
   constructor({ settingsService, appState, eventBus, logger }) {
@@ -18,27 +17,14 @@ class StreamingShaderSelectorComponent {
     this.eventBus = eventBus;
     this.logger = logger;
     this.isVisible = false;
-    this.currentPresetId = null;
-    this.currentBrightness = 1.0;
-    this.currentVolume = 70;
 
-    // Performance mode state
-    this._performanceModeEnabled = false;
     this._panelDisclosure = null;
+    this._presetList = new ShaderPresetListComponent({ settingsService, eventBus, logger });
+    this._sliderControls = new ShaderSliderControlsComponent({ settingsService, eventBus, logger });
+    this._cinematicToggle = new CinematicToggleComponent({ eventBus, appState, logger });
 
-    // Toolbar elements
-    this.cinematicToggle = null;
-    this.brightnessSlider = null;
-    this.brightnessPercentage = null;
-    this.brightnessControl = null;
-    this.volumeSlider = null;
-    this.volumePercentage = null;
-    this.streamVideo = null;
-    this.shaderUnavailableMessage = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
-    this._eventSubscriptions = [];
+    this.button = null;
+    this.dropdown = null;
   }
 
   /**
@@ -48,216 +34,31 @@ class StreamingShaderSelectorComponent {
   initialize(elements) {
     this.button = elements.shaderBtn;
     this.dropdown = elements.shaderDropdown;
-    this.cinematicToggle = elements.cinematicToggle;
-    this.brightnessSlider = elements.brightnessSlider;
-    this.brightnessPercentage = elements.brightnessPercentage;
-    this.brightnessControl = this.brightnessSlider?.closest('.brightness-control');
-    this.volumeSlider = elements.volumeSlider;
-    this.volumePercentage = elements.volumePercentage;
-    this.streamVideo = elements.streamVideo;
-    this.shaderUnavailableMessage = this.dropdown?.querySelector('#shaderUnavailableMessage');
 
     if (!this.button || !this.dropdown) {
       this.logger?.warn('Shader selector elements not found');
       return;
     }
 
-    this._loadCurrentPreset();
-    this._loadCurrentBrightness();
-    this._loadCurrentVolume();
-    this._loadPerformanceModeState();
-    this._renderPresetList();
     this._setupPanelDisclosure();
-    this._setupCinematicToggle();
-    this._setupBrightnessSlider();
-    this._setupVolumeSlider();
-    this._subscribeToEvents();
+    this._cinematicToggle.initialize({
+      toggleElement: elements.cinematicToggle,
+      textElement: elements.cinematicPillText
+    });
+    this._presetList.initialize({
+      optionsContainer: elements.shaderOptions,
+      unavailableMessage: elements.shaderUnavailableMessage
+    });
+    this._sliderControls.initialize({
+      brightnessSlider: elements.brightnessSlider,
+      brightnessPercentage: elements.brightnessPercentage,
+      brightnessControl: elements.brightnessControl,
+      volumeSlider: elements.volumeSlider,
+      volumePercentage: elements.volumePercentage,
+      streamVideo: elements.streamVideo
+    });
 
     this.logger?.debug('StreamingShaderSelectorComponent initialized');
-  }
-
-  /**
-   * Load current performance mode state from settings
-   * @private
-   */
-  _loadPerformanceModeState() {
-    this._performanceModeEnabled = this.settingsService.getPerformanceMode();
-    this._updateBrightnessControlVisibility();
-    this._updateShaderListVisibility();
-  }
-
-  /**
-   * Update brightness control visibility based on performance mode
-   * @private
-   */
-  _updateBrightnessControlVisibility() {
-    if (!this.brightnessControl) return;
-
-    if (this._performanceModeEnabled) {
-      this.brightnessControl.classList.add(CSSClasses.HIDDEN);
-    } else {
-      this.brightnessControl.classList.remove(CSSClasses.HIDDEN);
-    }
-  }
-
-  /**
-   * Update shader list visibility based on performance mode
-   * Shows unavailable message when performance mode is enabled
-   * @private
-   */
-  _updateShaderListVisibility() {
-    const shaderOptions = this.dropdown?.querySelector('.shader-options');
-    if (!shaderOptions || !this.shaderUnavailableMessage) return;
-
-    if (this._performanceModeEnabled) {
-      shaderOptions.classList.add(CSSClasses.HIDDEN);
-      this.shaderUnavailableMessage.classList.remove(CSSClasses.HIDDEN);
-    } else {
-      shaderOptions.classList.remove(CSSClasses.HIDDEN);
-      this.shaderUnavailableMessage.classList.add(CSSClasses.HIDDEN);
-    }
-  }
-
-  /**
-   * Load current preset from settings
-   * @private
-   */
-  _loadCurrentPreset() {
-    this.currentPresetId = this.settingsService.getRenderPreset();
-  }
-
-  /**
-   * Load current brightness from settings
-   * @private
-   */
-  _loadCurrentBrightness() {
-    this.currentBrightness = this.settingsService.getGlobalBrightness();
-    if (this.brightnessSlider) {
-      this.brightnessSlider.value = brightnessToSlider(this.currentBrightness);
-    }
-    this._updateBrightnessDisplay();
-  }
-
-  /**
-   * Load current volume from settings
-   * @private
-   */
-  _loadCurrentVolume() {
-    this.currentVolume = this.settingsService.getVolume();
-    if (this.volumeSlider) {
-      this.volumeSlider.value = this.currentVolume;
-    }
-    this._updateVolumeDisplay();
-    this._applyVolumeToVideo();
-  }
-
-  /**
-   * Render preset list into panel
-   * @private
-   */
-  _renderPresetList() {
-    if (!this.dropdown) return;
-
-    const optionsContainer = this.dropdown.querySelector('.shader-options');
-    if (!optionsContainer) return;
-
-    const presets = getPresetsForUI();
-    optionsContainer.innerHTML = '';
-
-    presets.forEach((preset) => {
-      // Always skip Performance preset - it's only for automatic use in performance mode
-      if (preset.id === 'performance') return;
-
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = 'shader-option';
-      option.dataset.presetId = preset.id;
-
-      if (preset.id === this.currentPresetId) {
-        option.classList.add(CSSClasses.ACTIVE);
-      }
-
-      option.innerHTML = `<span class="shader-option-name">${preset.name}</span>`;
-
-      this._domListeners.add(option, 'click', () => {
-        if (!this._performanceModeEnabled) {
-          this._selectPreset(preset.id);
-        }
-      });
-
-      optionsContainer.appendChild(option);
-    });
-  }
-
-  /**
-   * Select a preset
-   * @param {string} presetId - Preset ID to select
-   * @private
-   */
-  _selectPreset(presetId) {
-    if (presetId === this.currentPresetId) {
-      return;
-    }
-
-    this.currentPresetId = presetId;
-    this.settingsService.setRenderPreset(presetId);
-    this._updateActiveState(true);
-
-    this.logger?.debug(`Shader preset selected: ${presetId}`);
-  }
-
-  /**
-   * Update active state on preset options
-   * @param {boolean} animate - Whether to animate the selection
-   * @private
-   */
-  _updateActiveState(animate = false) {
-    if (!this.dropdown) return;
-
-    const options = this.dropdown.querySelectorAll('.shader-option');
-    options.forEach(option => {
-      option.classList.remove(CSSClasses.JUST_SELECTED);
-
-      if (option.dataset.presetId === this.currentPresetId) {
-        option.classList.add(CSSClasses.ACTIVE);
-        if (animate) {
-          option.classList.add(CSSClasses.JUST_SELECTED);
-        }
-      } else {
-        option.classList.remove(CSSClasses.ACTIVE);
-      }
-    });
-  }
-
-  /**
-   * Subscribe to external events
-   * @private
-   */
-  _subscribeToEvents() {
-    // Listen for preset changes from other sources
-    const unsubscribePreset = this.eventBus.subscribe(
-      EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
-      (presetId) => {
-        if (presetId !== this.currentPresetId) {
-          this.currentPresetId = presetId;
-          this._updateActiveState();
-        }
-      }
-    );
-    this._eventSubscriptions.push(unsubscribePreset);
-
-    // Listen for performance mode changes
-    const unsubscribePerf = this.eventBus.subscribe(
-      EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
-      (enabled) => {
-        this._performanceModeEnabled = enabled;
-        this._renderPresetList();
-        this._updateBrightnessControlVisibility();
-        this._updateShaderListVisibility();
-        this.logger?.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'} - shader options updated`);
-      }
-    );
-    this._eventSubscriptions.push(unsubscribePerf);
   }
 
   /**
@@ -308,233 +109,12 @@ class StreamingShaderSelectorComponent {
   }
 
   /**
-   * Setup cinematic mode toggle (pill button)
-   * @private
-   */
-  _setupCinematicToggle() {
-    if (!this.cinematicToggle) return;
-
-    // Initialize button state from appState
-    const initialState = this.appState?.cinematicModeEnabled ?? true;
-    this._updateCinematicPill(initialState);
-
-    // Handle pill button click - publish event instead of direct orchestrator call
-    this._domListeners.add(this.cinematicToggle, 'click', () => {
-      this.eventBus.publish(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED);
-    });
-
-    // Sync toggle with external cinematic mode changes
-    const unsubscribe = this.eventBus.subscribe(
-      EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-      ({ enabled }) => {
-        const isActive = this.cinematicToggle.classList.contains(CSSClasses.ACTIVE);
-        if (isActive !== enabled) {
-          this._updateCinematicPill(enabled);
-        }
-      }
-    );
-    this._eventSubscriptions.push(unsubscribe);
-
-    this.logger?.debug('Cinematic toggle initialized');
-  }
-
-  /**
-   * Update cinematic pill button state
-   * @param {boolean} enabled - Whether cinematic mode is enabled
-   * @private
-   */
-  _updateCinematicPill(enabled) {
-    if (!this.cinematicToggle) return;
-
-    const textElement = this.cinematicToggle.querySelector('.cinematic-pill-text');
-    if (enabled) {
-      this.cinematicToggle.classList.add(CSSClasses.ACTIVE);
-      this.cinematicToggle.setAttribute('aria-pressed', 'true');
-      if (textElement) textElement.textContent = 'Cinematic On';
-    } else {
-      this.cinematicToggle.classList.remove(CSSClasses.ACTIVE);
-      this.cinematicToggle.setAttribute('aria-pressed', 'false');
-      if (textElement) textElement.textContent = 'Cinematic Off';
-    }
-  }
-
-  /**
-   * Setup brightness slider
-   * @private
-   */
-  _setupBrightnessSlider() {
-    if (!this.brightnessSlider) return;
-
-    // Handle slider input (real-time updates during drag)
-    this._domListeners.add(this.brightnessSlider, 'input', () => {
-      this._handleBrightnessChange(false);
-    });
-
-    // Handle slider change (save on release)
-    this._domListeners.add(this.brightnessSlider, 'change', () => {
-      this._handleBrightnessChange(true);
-    });
-
-    // Sync slider with external brightness changes
-    const unsubscribe = this.eventBus.subscribe(
-      EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
-      (brightness) => {
-        if (Math.abs(brightness - this.currentBrightness) > 0.01) {
-          this.currentBrightness = brightness;
-          if (this.brightnessSlider) {
-            this.brightnessSlider.value = brightnessToSlider(brightness);
-          }
-          this._updateBrightnessDisplay();
-        }
-      }
-    );
-    this._eventSubscriptions.push(unsubscribe);
-
-    this.logger?.debug('Brightness slider initialized');
-  }
-
-  /**
-   * Setup volume slider
-   * @private
-   */
-  _setupVolumeSlider() {
-    if (!this.volumeSlider) return;
-
-    // Handle slider input (real-time updates during drag)
-    this._domListeners.add(this.volumeSlider, 'input', () => {
-      this._handleVolumeChange(false);
-    });
-
-    // Handle slider change (save on release)
-    this._domListeners.add(this.volumeSlider, 'change', () => {
-      this._handleVolumeChange(true);
-    });
-
-    // Sync slider with external volume changes
-    const unsubscribe = this.eventBus.subscribe(
-      EventChannels.SETTINGS.VOLUME_CHANGED,
-      (volume) => {
-        if (Math.abs(volume - this.currentVolume) > 0.5) {
-          this.currentVolume = volume;
-          if (this.volumeSlider) {
-            this.volumeSlider.value = volume;
-          }
-          this._updateVolumeDisplay();
-          this._applyVolumeToVideo();
-        }
-      }
-    );
-    this._eventSubscriptions.push(unsubscribe);
-
-    this.logger?.debug('Volume slider initialized');
-  }
-
-  /**
-   * Handle brightness slider change
-   * @param {boolean} saveToSettings - Whether to persist to storage
-   * @private
-   */
-  _handleBrightnessChange(saveToSettings) {
-    const sliderValue = parseInt(this.brightnessSlider.value);
-    const brightness = sliderToBrightness(sliderValue);
-
-    this.currentBrightness = brightness;
-    this._updateBrightnessDisplay();
-
-    if (saveToSettings) {
-      // Save to localStorage - setGlobalBrightness publishes the event
-      this.settingsService.setGlobalBrightness(brightness);
-    } else {
-      // Real-time preview during drag - publish directly for immediate rendering
-      this.eventBus.publish(EventChannels.SETTINGS.BRIGHTNESS_CHANGED, brightness);
-    }
-  }
-
-  /**
-   * Update brightness percentage display
-   * @private
-   */
-  _updateBrightnessDisplay() {
-    if (!this.brightnessPercentage) return;
-
-    // Display shows 0-100% (slider value directly)
-    const sliderValue = this.brightnessSlider ? parseInt(this.brightnessSlider.value) : 50;
-    this.brightnessPercentage.textContent = `${sliderValue}%`;
-
-    // Update fill gradient (slider range is 0-100)
-    if (this.brightnessSlider) {
-      const normalizedValue = sliderValue / 100; // 0 to 1
-
-      // Calculate fill to match thumb center position
-      // Thumb travels from thumbRadius to (trackHeight - thumbRadius)
-      const thumbSize = 21;
-      const thumbRadius = thumbSize / 2;
-      const trackHeight = this.brightnessSlider.offsetHeight || 120;
-      const travelDistance = trackHeight - thumbSize;
-      const thumbCenter = thumbRadius + normalizedValue * travelDistance;
-      this.brightnessSlider.style.setProperty('--fill-percent', `${thumbCenter}px`);
-    }
-  }
-
-  /**
-   * Handle volume slider change
-   * @param {boolean} saveToSettings - Whether to persist to storage
-   * @private
-   */
-  _handleVolumeChange(saveToSettings) {
-    const sliderValue = parseInt(this.volumeSlider.value);
-    this.currentVolume = sliderValue;
-    this._updateVolumeDisplay();
-    this._applyVolumeToVideo();
-
-    if (saveToSettings) {
-      this.settingsService.setVolume(sliderValue);
-    } else {
-      this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, sliderValue);
-    }
-  }
-
-  /**
-   * Update volume percentage display
-   * @private
-   */
-  _updateVolumeDisplay() {
-    if (!this.volumePercentage) return;
-
-    const sliderValue = this.volumeSlider ? parseInt(this.volumeSlider.value) : 70;
-    this.volumePercentage.textContent = `${sliderValue}%`;
-
-    // Update fill gradient (slider range is 0-100)
-    if (this.volumeSlider) {
-      const normalizedValue = sliderValue / 100; // 0 to 1
-
-      // Calculate fill to match thumb center position
-      const thumbSize = 21;
-      const thumbRadius = thumbSize / 2;
-      const trackHeight = this.volumeSlider.offsetHeight || 120;
-      const travelDistance = trackHeight - thumbSize;
-      const thumbCenter = thumbRadius + normalizedValue * travelDistance;
-      this.volumeSlider.style.setProperty('--fill-percent', `${thumbCenter}px`);
-    }
-  }
-
-  /**
-   * Apply volume to video element
-   * @private
-   */
-  _applyVolumeToVideo() {
-    if (this.streamVideo) {
-      this.streamVideo.volume = this.currentVolume / 100;
-    }
-  }
-
-  /**
    * Dispose and cleanup event listeners
    */
   dispose() {
-    this._domListeners.removeAll();
-    this._eventSubscriptions.forEach(unsubscribe => unsubscribe());
-    this._eventSubscriptions = [];
+    this._presetList?.dispose();
+    this._sliderControls?.dispose();
+    this._cinematicToggle?.dispose();
     this._panelDisclosure?.dispose();
     this._panelDisclosure = null;
   }

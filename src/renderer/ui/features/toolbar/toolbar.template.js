@@ -22,8 +22,8 @@ export function createShaderPanelTemplate() {
             </svg>
             <span>Performance Mode</span>
           </div>
-          <div class="shader-options"></div>
-          <div class="brightness-control">
+          <div class="shader-options" id="shaderOptions"></div>
+          <div class="brightness-control" id="brightnessControl">
             <div class="brightness-icon">
               ${getIconSvg('shader-brightness')}
             </div>
@@ -40,7 +40,7 @@ export function createShaderPanelTemplate() {
         </div>
         <div class="panel-divider"></div>
         <button type="button" class="cinematic-pill" id="cinematicToggle" aria-pressed="false">
-          <span class="cinematic-pill-text">Cinematic Off</span>
+          <span class="cinematic-pill-text" id="cinematicPillText">Cinematic Off</span>
         </button>
       </div>
     </div>
@@ -85,5 +85,3 @@ export function createToolbarTemplate() {
     </div>
   `;
 }
-
-export default createToolbarTemplate;

@@ -14,8 +14,9 @@ class StreamingControlsComponent {
    * Create stream controls component
    * @param {Object} elements - DOM elements
    */
-  constructor(elements) {
+  constructor({ elements, bodyClassManager }) {
     this.elements = elements;
+    this.bodyClassManager = bodyClassManager || null;
     this._animationTimeoutId = null;
     this._streamTransitionTimeoutId = null;
   }
@@ -25,7 +26,7 @@ class StreamingControlsComponent {
    * @returns {boolean}
    */
   _areAnimationsDisabled() {
-    return document.body.classList.contains(CSSClasses.APP_ANIMATIONS_OFF);
+    return this.bodyClassManager?.areAnimationsOff?.() ?? document.body.classList.contains(CSSClasses.APP_ANIMATIONS_OFF);
   }
 
   /**
@@ -49,14 +50,14 @@ class StreamingControlsComponent {
 
       if (skipAnimation) {
         // Skip animation - show stream immediately
-        document.body.classList.add(CSSClasses.STREAMING_MODE);
+        this.bodyClassManager?.setStreamingMode(true);
         if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = false;
         if (this.elements.recordBtn) this.elements.recordBtn.disabled = false;
         this.elements.streamOverlay?.classList.add(CSSClasses.HIDDEN);
       } else {
         // Start exit animation on overlay and fade in video simultaneously (cross-fade)
         this.elements.streamOverlay?.classList.add(CSSClasses.TRANSITIONING_TO_STREAM);
-        document.body.classList.add(CSSClasses.STREAMING_MODE);
+        this.bodyClassManager?.setStreamingMode(true);
 
         // After animation completes, enable controls and finalize overlay state
         this._streamTransitionTimeoutId = setTimeout(() => {
@@ -86,7 +87,7 @@ class StreamingControlsComponent {
       if (skipAnimation) {
         // Skip animation - hide stream immediately
         this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
-        document.body.classList.remove(CSSClasses.STREAMING_MODE);
+        this.bodyClassManager?.setStreamingMode(false);
         if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = true;
         if (this.elements.recordBtn) this.elements.recordBtn.disabled = true;
         if (this.elements.currentResolution) this.elements.currentResolution.textContent = '—';
@@ -101,7 +102,7 @@ class StreamingControlsComponent {
         this._animationTimeoutId = setTimeout(() => {
           this._animationTimeoutId = null;
           this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
-          document.body.classList.remove(CSSClasses.STREAMING_MODE);
+          this.bodyClassManager?.setStreamingMode(false);
           if (this.elements.screenshotBtn) this.elements.screenshotBtn.disabled = true;
           if (this.elements.recordBtn) this.elements.recordBtn.disabled = true;
           if (this.elements.currentResolution) this.elements.currentResolution.textContent = '—';
@@ -135,6 +136,7 @@ class StreamingControlsComponent {
       this._streamTransitionTimeoutId = null;
     }
     this.elements = null;
+    this.bodyClassManager = null;
   }
 }
 

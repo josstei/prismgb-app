@@ -34,7 +34,7 @@ vi.mock('@renderer/container.js', () => ({
       if (name === 'uiComponentRegistry') {
         return {
           initialize: vi.fn(),
-          initSettingsMenu: vi.fn(),
+          initializeComponent: vi.fn(),
           get: vi.fn(),
           dispose: vi.fn()
         };

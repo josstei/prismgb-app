@@ -6,7 +6,6 @@
  * Maintains backwards-compatible public API.
  */
 
-import { BodyModes } from './body-modes.class.js';
 import { CursorAutoHide } from '@renderer/ui/features/streaming/effects/cursor-auto-hide.class.js';
 import { ToolbarAutoHide } from '@renderer/ui/features/toolbar/effects/toolbar-auto-hide.class.js';
 import { ButtonFeedback } from '@renderer/ui/features/toolbar/effects/button-feedback.class.js';
@@ -16,11 +15,11 @@ import { HideTimer } from '@renderer/ui/primitives/hide-timer.js';
 
 export class UIEffects {
   constructor(dependencies = {}) {
-    const { elements } = dependencies;
+    const { elements, bodyClassManager } = dependencies;
     this.elements = elements;
 
-    // Initialize body modes (global)
-    this._bodyModes = new BodyModes();
+    // Shared body class manager (global)
+    this._bodyClassManager = bodyClassManager || null;
 
     // Initialize button feedback
     this._buttonFeedback = new ButtonFeedback({ elements });
@@ -183,7 +182,7 @@ export class UIEffects {
    * @param {boolean} isActive - Whether cinematic mode should be visually active
    */
   setCinematicMode(isActive) {
-    this._bodyModes.setCinematicMode(isActive);
+    this._bodyClassManager?.setCinematicMode(isActive);
   }
 
   /**
@@ -191,7 +190,7 @@ export class UIEffects {
    * @param {boolean} isActive - Whether minimalist fullscreen should be active
    */
   setMinimalistFullscreen(isActive) {
-    this._bodyModes.setMinimalistFullscreen(isActive);
+    this._bodyClassManager?.setMinimalistFullscreen(isActive);
   }
 
   /**
@@ -199,7 +198,7 @@ export class UIEffects {
    * @param {boolean} isActive - Whether fullscreen mode is active
    */
   setFullscreenMode(isActive) {
-    this._bodyModes.setFullscreenMode(isActive);
+    this._bodyClassManager?.setFullscreenMode(isActive);
   }
 
   // =====================================================
@@ -307,7 +306,7 @@ export class UIEffects {
     this._controls.dispose();
     this._buttonFeedback.dispose();
     this._captureEffects.dispose();
-    this._bodyModes.dispose();
+    this._bodyClassManager?.dispose?.();
     this._unifiedTimer.dispose();
     this.elements = null;
   }

@@ -56,8 +56,8 @@ class TranscodeUIBridge extends BaseService {
     this.logger.info('Transcode started', data);
     this._currentFormat = data?.format?.toUpperCase() || 'MP4';
 
-    // Disable record button during transcode - call directly to avoid event indirection
-    this.uiController.setRecordButtonDisabled(true);
+    // Disable record button during transcode
+    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_DISABLED);
 
     // Show toast
     this._toast?.show(this._currentFormat);
@@ -80,8 +80,8 @@ class TranscodeUIBridge extends BaseService {
   _handleCompleted(data) {
     this.logger.info('Transcode completed', data);
 
-    // Re-enable record button - call directly to avoid event indirection
-    this.uiController.setRecordButtonDisabled(false);
+    // Re-enable record button
+    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
 
     // Show success state
     this._toast?.showSuccess();
@@ -97,8 +97,8 @@ class TranscodeUIBridge extends BaseService {
   _handleError(data) {
     this.logger.error('Transcode error', data);
 
-    // Re-enable record button - call directly to avoid event indirection
-    this.uiController.setRecordButtonDisabled(false);
+    // Re-enable record button
+    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
 
     const errorMessage = data?.message || data?.error || 'Conversion failed';
     this._toast?.showError(errorMessage);
@@ -113,8 +113,8 @@ class TranscodeUIBridge extends BaseService {
   _handleCancelled() {
     this.logger.info('Transcode cancelled');
 
-    // Re-enable record button - call directly to avoid event indirection
-    this.uiController.setRecordButtonDisabled(false);
+    // Re-enable record button
+    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
 
     // Hide toast
     this._toast?.hide();

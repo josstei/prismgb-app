@@ -85,10 +85,14 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       {
         shaderBtn: elements?.shaderBtn,
         shaderDropdown: elements?.shaderDropdown,
+        shaderOptions: elements?.shaderOptions,
+        shaderUnavailableMessage: elements?.shaderUnavailableMessage,
         cinematicToggle: elements?.cinematicToggle,
+        cinematicPillText: elements?.cinematicPillText,
         streamToolbar: elements?.streamToolbar,
         brightnessSlider: elements?.brightnessSlider,
         brightnessPercentage: elements?.brightnessPercentage,
+        brightnessControl: elements?.brightnessControl,
         volumeSlider: elements?.volumeSliderVertical,
         volumePercentage: elements?.volumePercentageVertical,
         streamVideo: elements?.streamVideo

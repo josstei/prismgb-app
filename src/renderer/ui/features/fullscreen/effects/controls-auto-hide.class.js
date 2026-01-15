@@ -21,6 +21,7 @@ export class ControlsAutoHide {
     this._element = null;
     this._hideTimer = null;
     this._mouseMoveFramePending = false;
+    this._rafId = null;
 
     this._onShowAll = options.onShowAll || (() => {});
     this._onHideAll = options.onHideAll || (() => {});
@@ -49,8 +50,8 @@ export class ControlsAutoHide {
   enable(element) {
     if (this._enabled) return;
 
-    this._element = element || document.getElementById('fullscreenControls');
-    if (!this._element) return;
+    if (!element) return;
+    this._element = element;
 
     this._enabled = true;
     this._onEnable();
@@ -90,6 +91,13 @@ export class ControlsAutoHide {
       this._element.removeEventListener('focusout', this._boundHandleFocusOut);
     }
 
+    // Cancel any pending RAF
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+    this._mouseMoveFramePending = false;
+
     this._clearHideTimer();
     this._show();
     this._element = null;
@@ -105,8 +113,9 @@ export class ControlsAutoHide {
     if (this._mouseMoveFramePending) return;
 
     this._mouseMoveFramePending = true;
-    requestAnimationFrame(() => {
+    this._rafId = requestAnimationFrame(() => {
       this._mouseMoveFramePending = false;
+      this._rafId = null;
       this._show();
       this._onShowAll();
       this._startHideTimer();

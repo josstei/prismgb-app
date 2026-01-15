@@ -10,7 +10,7 @@
  */
 export default function createStatusFooterTemplate() {
   return `
-    <footer class="footer status-hidden">
+    <footer class="footer status-hidden" id="statusFooter">
       <div class="footer-right">
         <div class="status-strip" aria-live="polite">
           <div class="status-message" id="statusMessage" role="status"></div>

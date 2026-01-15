@@ -31,12 +31,18 @@ class NotesResizeHandlerComponent {
     this._boundDragMove = null;
     this._boundDragEnd = null;
 
+    // RAF throttling for drag
+    this._dragFramePending = false;
+    this._rafId = null;
+
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
 
-    // Elements
-    this.listToggle = null;
-    this.panelElement = null;
+   // Elements (cached for performance)
+   this.listToggle = null;
+   this.panelElement = null;
+    this._contentElement = null;
+    this._listWrapperElement = null;
   }
 
   /**
@@ -45,8 +51,10 @@ class NotesResizeHandlerComponent {
    * @param {HTMLElement} options.listToggle - List toggle handle element
    * @param {HTMLElement} options.panelElement - Panel container element
    * @param {Function} options.onToggle - Callback when list is toggled
+   * @param {HTMLElement} options.panelContent - Panel content element
+   * @param {HTMLElement} options.listWrapper - List wrapper element
    */
-  initialize({ listToggle, panelElement, onToggle }) {
+  initialize({ listToggle, panelElement, panelContent, listWrapper, onToggle }) {
     this.listToggle = listToggle;
     this.panelElement = panelElement;
     this.onToggle = onToggle;
@@ -55,6 +63,10 @@ class NotesResizeHandlerComponent {
       this.logger?.warn('List toggle element not found');
       return;
     }
+
+    // Cache DOM elements for performance
+    this._contentElement = panelContent || null;
+    this._listWrapperElement = listWrapper || null;
 
     this._setupListToggle();
   }
@@ -124,16 +136,32 @@ class NotesResizeHandlerComponent {
 
       if (this._isDragging) {
         e.preventDefault();
+
+        // RAF throttle the width update to avoid layout thrashing
+        if (this._dragFramePending) return;
+        this._dragFramePending = true;
+
         const newWidth = Math.min(
           LIST_WIDTH_MAX,
           Math.max(LIST_WIDTH_MIN, this._dragStartWidth + delta)
         );
-        this._setListWidth(newWidth);
+
+        this._rafId = requestAnimationFrame(() => {
+          this._dragFramePending = false;
+          this._setListWidth(newWidth);
+        });
       }
     };
 
     const endDrag = () => {
       this._cleanupDragListeners();
+
+      // Cancel any pending RAF
+      if (this._rafId) {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
+      this._dragFramePending = false;
 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -161,15 +189,14 @@ class NotesResizeHandlerComponent {
   _toggleListVisibility() {
     this.isListVisible = !this.isListVisible;
 
-    const content = this.panelElement?.querySelector('.notes-panel-content');
-    if (!content) return;
+    if (!this._contentElement) return;
 
     if (this.isListVisible) {
-      content.classList.remove(CSSClasses.LIST_COLLAPSED);
+      this._contentElement.classList.remove(CSSClasses.LIST_COLLAPSED);
       this._setListWidth(this._customListWidth);
       this.listToggle?.setAttribute('aria-expanded', 'true');
     } else {
-      content.classList.add(CSSClasses.LIST_COLLAPSED);
+      this._contentElement.classList.add(CSSClasses.LIST_COLLAPSED);
       this.listToggle?.setAttribute('aria-expanded', 'false');
     }
 
@@ -182,9 +209,8 @@ class NotesResizeHandlerComponent {
    * @private
    */
   _getListWidth() {
-    const listWrapper = this.panelElement?.querySelector('.notes-list-wrapper');
-    if (!listWrapper) return LIST_WIDTH_DEFAULT;
-    return listWrapper.offsetWidth;
+    if (!this._listWrapperElement) return LIST_WIDTH_DEFAULT;
+    return this._listWrapperElement.offsetWidth;
   }
 
   /**
@@ -193,9 +219,8 @@ class NotesResizeHandlerComponent {
    * @private
    */
   _setListWidth(width) {
-    const content = this.panelElement?.querySelector('.notes-panel-content');
-    if (!content) return;
-    content.style.setProperty('--notes-list-width', `${width}px`);
+    if (!this._contentElement) return;
+    this._contentElement.style.setProperty('--notes-list-width', `${width}px`);
   }
 
   /**
@@ -224,12 +249,21 @@ class NotesResizeHandlerComponent {
     this._boundDragMove = null;
     this._boundDragEnd = null;
 
+    // Cancel any pending RAF
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+    this._dragFramePending = false;
+
     // Remove DOM listeners
     this._domListeners.removeAll();
 
     // Clear references
     this.listToggle = null;
     this.panelElement = null;
+    this._contentElement = null;
+    this._listWrapperElement = null;
     this.onToggle = null;
     this.logger = null;
     this.isListVisible = true;

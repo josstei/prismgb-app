@@ -20,5 +20,3 @@ export function createFullscreenControlsTemplate() {
     </div>
   `;
 }
-
-export default createFullscreenControlsTemplate;

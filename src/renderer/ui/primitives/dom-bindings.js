@@ -32,10 +32,14 @@ function createDomBindings(root = document) {
     shaderBtn: DOMSelectors.SHADER_BTN,
     shaderControls: DOMSelectors.SHADER_CONTROLS,
     shaderDropdown: DOMSelectors.SHADER_DROPDOWN,
+    shaderOptions: DOMSelectors.SHADER_OPTIONS,
+    shaderUnavailableMessage: DOMSelectors.SHADER_UNAVAILABLE_MESSAGE,
     streamToolbar: DOMSelectors.STREAM_TOOLBAR,
     cinematicToggle: DOMSelectors.CINEMATIC_TOGGLE,
+    cinematicPillText: DOMSelectors.CINEMATIC_PILL_TEXT,
     brightnessSlider: DOMSelectors.BRIGHTNESS_SLIDER,
     brightnessPercentage: DOMSelectors.BRIGHTNESS_PERCENTAGE,
+    brightnessControl: DOMSelectors.BRIGHTNESS_CONTROL,
     volumeSliderVertical: DOMSelectors.VOLUME_SLIDER_VERTICAL,
     volumePercentageVertical: DOMSelectors.VOLUME_PERCENTAGE_VERTICAL,
     deviceName: DOMSelectors.DEVICE_NAME,
@@ -59,6 +63,7 @@ function createDomBindings(root = document) {
     settingAnimationSaver: DOMSelectors.SETTING_ANIMATION_SAVER,
     settingRenderPreset: DOMSelectors.SETTING_RENDER_PRESET,
     settingRecordingFormat: DOMSelectors.SETTING_RECORDING_FORMAT,
+    recordingFormatLabel: DOMSelectors.RECORDING_FORMAT_LABEL,
     recordingFormatMenu: DOMSelectors.RECORDING_FORMAT_MENU,
     disclaimerBtn: DOMSelectors.DISCLAIMER_BTN,
     disclaimerContent: DOMSelectors.DISCLAIMER_CONTENT,
@@ -70,7 +75,7 @@ function createDomBindings(root = document) {
     linkModRetro: DOMSelectors.LINK_MOD_RETRO
   });
 
-  settings.footer = root.querySelector('.footer');
+  settings.footer = root.getElementById(DOMSelectors.STATUS_FOOTER);
 
   const updates = bindById(root, {
     updateSection: DOMSelectors.UPDATE_SECTION,
@@ -87,6 +92,8 @@ function createDomBindings(root = document) {
   const notes = bindById(root, {
     notesBtn: DOMSelectors.NOTES_BTN,
     notesPanel: DOMSelectors.NOTES_PANEL,
+    notesPanelContent: DOMSelectors.NOTES_PANEL_CONTENT,
+    notesListWrapper: DOMSelectors.NOTES_LIST_WRAPPER,
     notesSearchInput: DOMSelectors.NOTES_SEARCH_INPUT,
     notesGameFilter: DOMSelectors.NOTES_GAME_FILTER,
     notesGameFilterLabel: DOMSelectors.NOTES_GAME_FILTER_LABEL,

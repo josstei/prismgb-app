@@ -5,63 +5,52 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
   let mockUiController;
-  let mockAppState;
+  let mockPresentationModeCoordinator;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
 
   beforeEach(() => {
-    // Track subscribed handlers
     subscribedHandlers = {};
 
-    // Create mock EventBus
     mockEventBus = {
       subscribe: vi.fn((event, handlerFn) => {
         subscribedHandlers[event] = handlerFn;
-        return vi.fn(); // Return unsubscribe function
+        return vi.fn();
       }),
       publish: vi.fn()
     };
 
-    // Create mock UIController
     mockUiController = {
       updateStatusMessage: vi.fn(),
       updateDeviceStatus: vi.fn(),
       updateOverlayMessage: vi.fn(),
       showErrorOverlay: vi.fn(),
-      setStreamingMode: vi.fn(),
       updateStreamInfo: vi.fn(),
       triggerShutterFlash: vi.fn(),
       triggerRecordButtonPop: vi.fn(),
       triggerRecordButtonPress: vi.fn(),
       triggerButtonFeedback: vi.fn(),
-      setCinematicMode: vi.fn(),
-      updateFullscreenButton: vi.fn(),
-      updateFullscreenMode: vi.fn(),
       updateRecordingButtonState: vi.fn(),
-      updateCinematicMode: vi.fn(),
-      updateMinimalistFullscreen: vi.fn(),
-      enableControlsAutoHide: vi.fn(),
-      disableControlsAutoHide: vi.fn(),
-      elements: {
-        recordBtn: {
-          classList: {
-            add: vi.fn(),
-            remove: vi.fn()
-          }
-        }
-      },
+      setRecordButtonDisabled: vi.fn(),
       deviceStatus: {
         setOverlayVisible: vi.fn()
       }
     };
 
-    // Create mock logger
+    mockPresentationModeCoordinator = {
+      handleStreamingMode: vi.fn(),
+      handleCinematicModeChanged: vi.fn(),
+      handleMinimalistFullscreenChanged: vi.fn(),
+      handleFullscreenState: vi.fn()
+    };
+
     mockLogger = {
       info: vi.fn(),
       debug: vi.fn(),
@@ -73,16 +62,10 @@ describe('UIEventBridge', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    // Create mock AppState
-    mockAppState = {
-      cinematicModeEnabled: true,
-      isStreaming: false
-    };
-
     handler = new UIEventBridge({
       eventBus: mockEventBus,
       uiController: mockUiController,
-      appState: mockAppState,
+      presentationModeCoordinator: mockPresentationModeCoordinator,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -92,16 +75,10 @@ describe('UIEventBridge', () => {
   });
 
   describe('Constructor', () => {
-    it('should store event bus', () => {
+    it('should store dependencies', () => {
       expect(handler.eventBus).toBe(mockEventBus);
-    });
-
-    it('should store ui controller', () => {
       expect(handler.uiController).toBe(mockUiController);
-    });
-
-    it('should store app state', () => {
-      expect(handler.appState).toBe(mockAppState);
+      expect(handler.presentationModeCoordinator).toBe(mockPresentationModeCoordinator);
     });
 
     it('should create logger', () => {
@@ -119,21 +96,23 @@ describe('UIEventBridge', () => {
       handler.initialize();
 
       const expectedEvents = [
-        'ui:status-message',
-        'ui:device-status',
-        'ui:overlay-message',
-        'ui:overlay-visible',
-        'ui:overlay-error',
-        'ui:streaming-mode',
-        'ui:stream-info',
-        'ui:shutter-flash',
-        'ui:record-button-pop',
-        'ui:record-button-press',
-        'ui:button-feedback',
-        'ui:recording-state',
-        'settings:cinematic-mode-changed',
-        'settings:minimalist-fullscreen-changed',
-        'ui:fullscreen-state'
+        EventChannels.UI.STATUS_MESSAGE,
+        EventChannels.UI.DEVICE_STATUS,
+        EventChannels.UI.OVERLAY_MESSAGE,
+        EventChannels.UI.OVERLAY_VISIBLE,
+        EventChannels.UI.OVERLAY_ERROR,
+        EventChannels.UI.STREAMING_MODE,
+        EventChannels.UI.STREAM_INFO,
+        EventChannels.UI.SHUTTER_FLASH,
+        EventChannels.UI.RECORD_BUTTON_POP,
+        EventChannels.UI.RECORD_BUTTON_PRESS,
+        EventChannels.UI.BUTTON_FEEDBACK,
+        EventChannels.UI.RECORDING_STATE,
+        EventChannels.UI.RECORD_BUTTON_DISABLED,
+        EventChannels.UI.RECORD_BUTTON_ENABLED,
+        EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
+        EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
+        EventChannels.UI.FULLSCREEN_STATE
       ];
 
       expectedEvents.forEach(event => {
@@ -146,101 +125,75 @@ describe('UIEventBridge', () => {
 
       expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge initialized');
     });
-
-    it('should store unsubscribe functions', () => {
-      handler.initialize();
-
-      expect(handler._subscriptions.length).toBeGreaterThan(0);
-    });
   });
 
-  describe('Event Handlers - Status Messages', () => {
+  describe('Event Handlers', () => {
     beforeEach(() => {
       handler.initialize();
     });
 
-    it('should handle ui:status-message event', () => {
-      subscribedHandlers['ui:status-message']({ message: 'Test message', type: 'error' });
+    it('routes status messages to UIController', () => {
+      subscribedHandlers[EventChannels.UI.STATUS_MESSAGE]({ message: 'Test message', type: 'error' });
 
       expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Test message', 'error');
     });
 
-    it('should handle ui:status-message with default type', () => {
-      subscribedHandlers['ui:status-message']({ message: 'Test message' });
+    it('defaults status message type to info', () => {
+      subscribedHandlers[EventChannels.UI.STATUS_MESSAGE]({ message: 'Test message' });
 
       expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Test message', 'info');
     });
 
-    it('should handle ui:device-status event', () => {
+    it('routes device status updates', () => {
       const status = { connected: true };
-      subscribedHandlers['ui:device-status']({ status });
+      subscribedHandlers[EventChannels.UI.DEVICE_STATUS]({ status });
 
       expect(mockUiController.updateDeviceStatus).toHaveBeenCalledWith(status);
     });
 
-    it('should handle ui:overlay-message event', () => {
-      subscribedHandlers['ui:overlay-message']({ deviceConnected: true });
+    it('routes overlay message updates', () => {
+      subscribedHandlers[EventChannels.UI.OVERLAY_MESSAGE]({ deviceConnected: true });
 
       expect(mockUiController.updateOverlayMessage).toHaveBeenCalledWith(true);
     });
 
-    it('should handle ui:overlay-visible event', () => {
-      subscribedHandlers['ui:overlay-visible']({ visible: true });
+    it('routes overlay visibility updates', () => {
+      subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
 
       expect(mockUiController.deviceStatus.setOverlayVisible).toHaveBeenCalledWith(true);
     });
 
-    it('should handle ui:overlay-error event', () => {
-      subscribedHandlers['ui:overlay-error']({ message: 'Error occurred' });
+    it('routes overlay errors', () => {
+      subscribedHandlers[EventChannels.UI.OVERLAY_ERROR]({ message: 'Error occurred' });
 
       expect(mockUiController.showErrorOverlay).toHaveBeenCalledWith('Error occurred');
     });
-  });
 
-  describe('Event Handlers - Streaming', () => {
-    beforeEach(() => {
-      handler.initialize();
+    it('routes streaming mode changes to presentation coordinator', () => {
+      subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });
+
+      expect(mockPresentationModeCoordinator.handleStreamingMode).toHaveBeenCalledWith(true);
     });
 
-    it('should handle ui:streaming-mode event', () => {
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
-
-      expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should handle ui:stream-info event', () => {
+    it('routes stream info updates', () => {
       const settings = { width: 640, height: 480 };
-      subscribedHandlers['ui:stream-info']({ settings });
+      subscribedHandlers[EventChannels.UI.STREAM_INFO]({ settings });
 
       expect(mockUiController.updateStreamInfo).toHaveBeenCalledWith(settings);
     });
-  });
 
-  describe('Event Handlers - Visual Effects', () => {
-    beforeEach(() => {
-      handler.initialize();
-    });
-
-    it('should handle ui:shutter-flash event', () => {
-      subscribedHandlers['ui:shutter-flash']();
+    it('routes visual effects events', () => {
+      subscribedHandlers[EventChannels.UI.SHUTTER_FLASH]();
+      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_POP]();
+      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_PRESS]();
 
       expect(mockUiController.triggerShutterFlash).toHaveBeenCalled();
-    });
-
-    it('should handle ui:record-button-pop event', () => {
-      subscribedHandlers['ui:record-button-pop']();
-
       expect(mockUiController.triggerRecordButtonPop).toHaveBeenCalled();
-    });
-
-    it('should handle ui:record-button-press event', () => {
-      subscribedHandlers['ui:record-button-press']();
-
       expect(mockUiController.triggerRecordButtonPress).toHaveBeenCalled();
     });
 
-    it('should handle ui:button-feedback event', () => {
-      subscribedHandlers['ui:button-feedback']({
+    it('routes button feedback events', () => {
+      subscribedHandlers[EventChannels.UI.BUTTON_FEEDBACK]({
         elementKey: 'screenshotBtn',
         className: 'capturing',
         duration: 200
@@ -252,110 +205,38 @@ describe('UIEventBridge', () => {
         200
       );
     });
-  });
 
-  describe('Event Handlers - Recording State', () => {
-    beforeEach(() => {
-      handler.initialize();
-    });
-
-    it('should handle ui:recording-state active event', () => {
-      subscribedHandlers['ui:recording-state']({ active: true });
+    it('routes recording state updates', () => {
+      subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: true });
 
       expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(true);
     });
 
-    it('should handle ui:recording-state inactive event', () => {
-      subscribedHandlers['ui:recording-state']({ active: false });
+    it('disables and enables record button when requested', () => {
+      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_DISABLED]();
+      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_ENABLED]();
 
-      expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(false);
-    });
-  });
-
-  describe('Event Handlers - Cinematic Mode (Reads from AppState)', () => {
-    beforeEach(() => {
-      handler.initialize();
+      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(true);
+      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(false);
     });
 
-    it('should not apply cinematic mode when enabled but not streaming', () => {
-      // AppState has cinematicModeEnabled: true, isStreaming: false
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
+    it('routes cinematic mode changes to presentation coordinator', () => {
+      subscribedHandlers[EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]({ enabled: true });
 
-      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
+      expect(mockPresentationModeCoordinator.handleCinematicModeChanged).toHaveBeenCalledWith(true);
+      expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Cinematic mode enabled');
     });
 
-    it('should apply cinematic mode when enabled and streaming', () => {
-      // Set AppState to streaming
-      mockAppState.isStreaming = true;
-      mockUiController.updateCinematicMode.mockClear();
+    it('routes minimalist fullscreen changes to presentation coordinator', () => {
+      subscribedHandlers[EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED](true);
 
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: true });
-
-      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
+      expect(mockPresentationModeCoordinator.handleMinimalistFullscreenChanged).toHaveBeenCalledWith(true);
     });
 
-    it('should remove cinematic mode when streaming stops', () => {
-      // Start streaming with cinematic enabled
-      mockAppState.isStreaming = true;
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      mockUiController.updateCinematicMode.mockClear();
+    it('routes fullscreen state changes to presentation coordinator', () => {
+      subscribedHandlers[EventChannels.UI.FULLSCREEN_STATE]({ active: true });
 
-      // Stop streaming
-      mockAppState.isStreaming = false;
-      subscribedHandlers['ui:streaming-mode']({ enabled: false });
-
-      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
-    });
-
-    it('should apply cinematic mode when streaming starts with cinematic already enabled', () => {
-      // Enable streaming with cinematic already enabled
-      mockAppState.isStreaming = true;
-      mockUiController.updateCinematicMode.mockClear();
-
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
-
-      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should remove cinematic mode when disabling cinematic mode while streaming', () => {
-      // Stream with cinematic enabled
-      mockAppState.isStreaming = true;
-      subscribedHandlers['ui:streaming-mode']({ enabled: true });
-      mockUiController.updateCinematicMode.mockClear();
-
-      // Disable cinematic mode
-      mockAppState.cinematicModeEnabled = false;
-      subscribedHandlers['settings:cinematic-mode-changed']({ enabled: false });
-
-      expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
-    });
-  });
-
-  describe('Event Handlers - Fullscreen', () => {
-    beforeEach(() => {
-      // Add auto-hide methods to mock
-      mockUiController.enableControlsAutoHide = vi.fn();
-      mockUiController.disableControlsAutoHide = vi.fn();
-      handler.initialize();
-    });
-
-    it('should handle ui:fullscreen-state active event', () => {
-      subscribedHandlers['ui:fullscreen-state']({ active: true });
-
-      expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
-      expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should enable controls auto-hide when entering fullscreen', () => {
-      subscribedHandlers['ui:fullscreen-state']({ active: true });
-
-      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
-    });
-
-    it('should disable controls auto-hide when exiting fullscreen', () => {
-      subscribedHandlers['ui:fullscreen-state']({ active: false });
-
-      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
+      expect(mockPresentationModeCoordinator.handleFullscreenState).toHaveBeenCalledWith(true);
     });
   });
 
@@ -391,29 +272,13 @@ describe('UIEventBridge', () => {
       const handlerWithoutDeviceStatus = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: { ...mockUiController, deviceStatus: null },
-        appState: mockAppState,
+        presentationModeCoordinator: mockPresentationModeCoordinator,
         loggerFactory: mockLoggerFactory
       });
       handlerWithoutDeviceStatus.initialize();
 
-      // Should not throw
       expect(() => {
-        subscribedHandlers['ui:overlay-visible']({ visible: true });
-      }).not.toThrow();
-    });
-
-    it('should handle missing recordBtn gracefully', () => {
-      const handlerWithoutRecordBtn = new UIEventBridge({
-        eventBus: mockEventBus,
-        appState: mockAppState,
-        uiController: { ...mockUiController, elements: {} },
-        loggerFactory: mockLoggerFactory
-      });
-      handlerWithoutRecordBtn.initialize();
-
-      // Should not throw
-      expect(() => {
-        subscribedHandlers['ui:recording-state']({ active: true });
+        subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
       }).not.toThrow();
     });
 
@@ -421,20 +286,8 @@ describe('UIEventBridge', () => {
       expect(() => new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
-        appState: mockAppState
+        presentationModeCoordinator: mockPresentationModeCoordinator
       })).toThrow(/Missing required dependencies.*loggerFactory/);
-    });
-
-    it('should handle missing appState gracefully', () => {
-      const handlerWithoutAppState = new UIEventBridge({
-        eventBus: mockEventBus,
-        uiController: mockUiController,
-        appState: null,
-        loggerFactory: mockLoggerFactory
-      });
-
-      // Should not throw when initializing or handling events
-      expect(() => handlerWithoutAppState.initialize()).not.toThrow();
     });
   });
 });

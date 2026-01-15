@@ -27,8 +27,8 @@ export default function createNotesPanelTemplate() {
         </div>
       </div>
 
-      <div class="notes-panel-content">
-        <div class="notes-list-wrapper">
+      <div class="notes-panel-content" id="notesPanelContent">
+        <div class="notes-list-wrapper" id="notesListWrapper">
           <div class="notes-list" id="notesList">
             <!-- Notes list rendered dynamically -->
           </div>

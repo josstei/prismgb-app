@@ -5,14 +5,32 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 
-// Mock the render presets module
-vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
-  getPresetsForUI: vi.fn(() => [
-    { id: 'true-color', name: 'True Color', description: 'Accurate GBC colors' },
-    { id: 'vibrant', name: 'Vibrant', description: 'Boosted colors for modern displays' },
-    { id: 'hi-def', name: 'Hi-Def', description: 'Maximum clarity and sharpness' },
-    { id: 'performance', name: 'Performance', description: 'Minimal processing for weak GPUs' }
-  ])
+let mockCinematicToggle;
+let mockPresetList;
+let mockSliderControls;
+
+vi.mock('@renderer/ui/features/toolbar/components/cinematic-toggle.component.js', () => ({
+  CinematicToggleComponent: vi.fn().mockImplementation(function CinematicToggleComponentMock() {
+    this.initialize = vi.fn();
+    this.dispose = vi.fn();
+    mockCinematicToggle = this;
+  })
+}));
+
+vi.mock('@renderer/ui/features/toolbar/components/shader-preset-list.component.js', () => ({
+  ShaderPresetListComponent: vi.fn().mockImplementation(function ShaderPresetListComponentMock() {
+    this.initialize = vi.fn();
+    this.dispose = vi.fn();
+    mockPresetList = this;
+  })
+}));
+
+vi.mock('@renderer/ui/features/toolbar/components/shader-slider-controls.component.js', () => ({
+  ShaderSliderControlsComponent: vi.fn().mockImplementation(function ShaderSliderControlsComponentMock() {
+    this.initialize = vi.fn();
+    this.dispose = vi.fn();
+    mockSliderControls = this;
+  })
 }));
 
 describe('StreamingShaderSelectorComponent', () => {
@@ -23,53 +41,28 @@ describe('StreamingShaderSelectorComponent', () => {
   let mockElements;
 
   beforeEach(() => {
-    // Mock settings service
-    mockSettingsService = {
-      getRenderPreset: vi.fn(() => 'vibrant'),
-      setRenderPreset: vi.fn(),
-      getGlobalBrightness: vi.fn(() => 1.0),
-      setGlobalBrightness: vi.fn(),
-      getVolume: vi.fn(() => 70),
-      setVolume: vi.fn(),
-      getPerformanceMode: vi.fn(() => false)
-    };
-
-    // Mock event bus
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn()) // Returns unsubscribe function
-    };
-
-    // Mock logger
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    // Create mock DOM elements with required structure
-    const shaderDropdown = document.createElement('div');
-    const shaderOptions = document.createElement('div');
-    shaderOptions.className = 'shader-options';
-    shaderDropdown.appendChild(shaderOptions);
-
-    const brightnessSlider = document.createElement('input');
-    brightnessSlider.type = 'range';
-    brightnessSlider.value = '50';
-
-    const brightnessPercentage = document.createElement('span');
-    brightnessPercentage.textContent = '50%';
+    mockSettingsService = {};
+    mockEventBus = { publish: vi.fn(), subscribe: vi.fn(() => vi.fn()) };
+    mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
     mockElements = {
       shaderBtn: document.createElement('button'),
-      shaderDropdown: shaderDropdown,
-      brightnessSlider: brightnessSlider,
-      brightnessPercentage: brightnessPercentage
+      shaderDropdown: document.createElement('div'),
+      shaderOptions: document.createElement('div'),
+      shaderUnavailableMessage: document.createElement('div'),
+      cinematicToggle: document.createElement('button'),
+      cinematicPillText: document.createElement('span'),
+      brightnessSlider: document.createElement('input'),
+      brightnessPercentage: document.createElement('span'),
+      brightnessControl: document.createElement('div'),
+      volumeSlider: document.createElement('input'),
+      volumePercentage: document.createElement('span'),
+      streamVideo: document.createElement('video')
     };
 
     component = new StreamingShaderSelectorComponent({
       settingsService: mockSettingsService,
+      appState: { cinematicModeEnabled: true },
       eventBus: mockEventBus,
       logger: mockLogger
     });
@@ -80,54 +73,34 @@ describe('StreamingShaderSelectorComponent', () => {
     vi.clearAllMocks();
   });
 
-  describe('Constructor', () => {
-    it('should create component with default state', () => {
-      expect(component.isVisible).toBe(false);
-      expect(component.currentPresetId).toBeNull();
-    });
-  });
-
   describe('initialize', () => {
-    it('should initialize with DOM elements', () => {
-      component.initialize(mockElements);
-
-      expect(component.button).toBe(mockElements.shaderBtn);
-      expect(component.dropdown).toBe(mockElements.shaderDropdown);
-    });
-
     it('should warn if required elements are missing', () => {
       component.initialize({});
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Shader selector elements not found');
     });
 
-    it('should load current preset on initialize', () => {
+    it('should initialize subcomponents with expected elements', () => {
       component.initialize(mockElements);
 
-      expect(mockSettingsService.getRenderPreset).toHaveBeenCalled();
-      expect(component.currentPresetId).toBe('vibrant');
-    });
+      expect(mockCinematicToggle.initialize).toHaveBeenCalledWith({
+        toggleElement: mockElements.cinematicToggle,
+        textElement: mockElements.cinematicPillText
+      });
 
-    it('should render preset list on initialize', () => {
-      component.initialize(mockElements);
+      expect(mockPresetList.initialize).toHaveBeenCalledWith({
+        optionsContainer: mockElements.shaderOptions,
+        unavailableMessage: mockElements.shaderUnavailableMessage
+      });
 
-      const options = mockElements.shaderDropdown.querySelectorAll('.shader-option');
-      // 5 presets visible (performance preset is hidden when performance mode is off)
-      expect(options.length).toBe(5);
-    });
-
-    it('should mark current preset as active', () => {
-      component.initialize(mockElements);
-
-      const activeOption = mockElements.shaderDropdown.querySelector('.shader-option.active');
-      expect(activeOption).not.toBeNull();
-      expect(activeOption.dataset.presetId).toBe('vibrant');
-    });
-
-    it('should subscribe to render preset changed events', () => {
-      component.initialize(mockElements);
-
-      expect(mockEventBus.subscribe).toHaveBeenCalled();
+      expect(mockSliderControls.initialize).toHaveBeenCalledWith({
+        brightnessSlider: mockElements.brightnessSlider,
+        brightnessPercentage: mockElements.brightnessPercentage,
+        brightnessControl: mockElements.brightnessControl,
+        volumeSlider: mockElements.volumeSlider,
+        volumePercentage: mockElements.volumePercentage,
+        streamVideo: mockElements.streamVideo
+      });
     });
 
     it('should log initialization success', () => {
@@ -137,210 +110,51 @@ describe('StreamingShaderSelectorComponent', () => {
     });
   });
 
-  describe('toggle', () => {
+  describe('panel visibility', () => {
     beforeEach(() => {
       component.initialize(mockElements);
     });
 
-    it('should show dropdown when hidden', () => {
-      component.toggle();
-
-      expect(component.isVisible).toBe(true);
-      expect(mockElements.shaderDropdown.classList.contains('visible')).toBe(true);
-    });
-
-    it('should hide dropdown when visible', () => {
-      component.show();
-      component.toggle();
-
-      expect(component.isVisible).toBe(false);
-      expect(mockElements.shaderDropdown.classList.contains('visible')).toBe(false);
-    });
-  });
-
-  describe('show', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should display the dropdown', () => {
+    it('should show panel with visible class and panel-open button', () => {
       component.show();
 
       expect(mockElements.shaderDropdown.classList.contains('visible')).toBe(true);
+      expect(mockElements.shaderBtn.classList.contains('panel-open')).toBe(true);
       expect(component.isVisible).toBe(true);
-    });
-
-    it('should set aria-expanded on button', () => {
-      component.show();
-
       expect(mockElements.shaderBtn.getAttribute('aria-expanded')).toBe('true');
     });
 
-    it('should log when shown', () => {
+    it('should hide panel and reset state', () => {
       component.show();
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Shader panel shown');
-    });
-  });
-
-  describe('hide', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-      component.show();
-    });
-
-    it('should hide the dropdown', () => {
       component.hide();
 
       expect(mockElements.shaderDropdown.classList.contains('visible')).toBe(false);
+      expect(mockElements.shaderBtn.classList.contains('panel-open')).toBe(false);
       expect(component.isVisible).toBe(false);
-    });
-
-    it('should set aria-expanded to false', () => {
-      component.hide();
-
       expect(mockElements.shaderBtn.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('should log when hidden', () => {
-      component.hide();
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Shader panel hidden');
-    });
-  });
-
-  describe('Preset selection', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should call settings service when selecting preset', () => {
-      const option = mockElements.shaderDropdown.querySelector('[data-preset-id="hi-def"]');
-      option.click();
-
-      expect(mockSettingsService.setRenderPreset).toHaveBeenCalledWith('hi-def');
-    });
-
-    it('should update current preset id', () => {
-      const option = mockElements.shaderDropdown.querySelector('[data-preset-id="hi-def"]');
-      option.click();
-
-      expect(component.currentPresetId).toBe('hi-def');
-    });
-
-    it('should update active state on options', () => {
-      const option = mockElements.shaderDropdown.querySelector('[data-preset-id="hi-def"]');
-      option.click();
-
-      const activeOption = mockElements.shaderDropdown.querySelector('.shader-option.active');
-      expect(activeOption.dataset.presetId).toBe('hi-def');
-    });
-
-    it('should keep dropdown open after selection', () => {
-      component.show();
-      const option = mockElements.shaderDropdown.querySelector('[data-preset-id="hi-def"]');
-      option.click();
-
-      // Dropdown stays open - only closes on click outside or escape
+    it('should toggle panel visibility', () => {
+      component.toggle();
       expect(component.isVisible).toBe(true);
-    });
 
-    it('should not call settings service when selecting same preset', () => {
-      const option = mockElements.shaderDropdown.querySelector('[data-preset-id="vibrant"]');
-      option.click();
-
-      expect(mockSettingsService.setRenderPreset).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Click outside', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-      component.show();
-    });
-
-    it('should hide dropdown when clicking outside', () => {
-      const outsideElement = document.createElement('div');
-      outsideElement.closest = vi.fn(() => null);
-
-      const clickEvent = new MouseEvent('click', { bubbles: true });
-      Object.defineProperty(clickEvent, 'target', {
-        value: outsideElement,
-        enumerable: true
-      });
-
-      document.dispatchEvent(clickEvent);
-
+      component.toggle();
       expect(component.isVisible).toBe(false);
-    });
-
-    it('should not hide when clicking inside dropdown', () => {
-      // Create an element that is inside the dropdown
-      const insideElement = document.createElement('div');
-      mockElements.shaderDropdown.appendChild(insideElement);
-
-      const clickEvent = new MouseEvent('click', { bubbles: true });
-      Object.defineProperty(clickEvent, 'target', {
-        value: insideElement,
-        enumerable: true
-      });
-
-      document.dispatchEvent(clickEvent);
-
-      expect(component.isVisible).toBe(true);
-    });
-  });
-
-  describe('Escape key', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-      component.show();
-    });
-
-    it('should hide dropdown on Escape key', () => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-
-      expect(component.isVisible).toBe(false);
-    });
-
-    it('should not hide when not visible', () => {
-      component.hide();
-
-      const hideSpy = vi.spyOn(component, 'hide');
-
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-
-      expect(hideSpy).not.toHaveBeenCalled();
     });
   });
 
   describe('dispose', () => {
-    it('should remove all DOM listeners', () => {
+    it('should dispose subcomponents and disclosure', () => {
       component.initialize(mockElements);
-
-      const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+      const disclosure = component._panelDisclosure;
+      const disclosureSpy = vi.spyOn(disclosure, 'dispose');
 
       component.dispose();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('click', expect.any(Function), undefined);
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function), undefined);
-    });
-
-    it('should clear event subscriptions', () => {
-      component.initialize(mockElements);
-
-      component.dispose();
-
-      expect(component._eventSubscriptions.length).toBe(0);
-    });
-
-    it('should clear all listeners via manager', () => {
-      component.initialize(mockElements);
-      expect(component._domListeners.count()).toBeGreaterThan(0);
-
-      component.dispose();
-
-      expect(component._domListeners.count()).toBe(0);
+      expect(mockPresetList.dispose).toHaveBeenCalled();
+      expect(mockSliderControls.dispose).toHaveBeenCalled();
+      expect(mockCinematicToggle.dispose).toHaveBeenCalled();
+      expect(disclosureSpy).toHaveBeenCalled();
     });
   });
 });
