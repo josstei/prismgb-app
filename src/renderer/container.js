@@ -51,7 +51,7 @@ import { StreamingGpuRendererService } from '@renderer/features/streaming/render
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
-import { StreamingShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
+import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/ui/shared/status-notification.component.js';
 import { DeviceStatusComponent } from '@renderer/ui/shared/device-status.component.js';
 import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transcode-toast.component.js';
@@ -260,7 +260,6 @@ function createRendererContainer() {
 
   // Adapter Factory - Creates device adapters based on device type
   // Adapter classes are registered here via DI bootstrap for testability
-  // Note: Will be initialized asynchronously in RendererAppOrchestrator
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
@@ -268,7 +267,9 @@ function createRendererContainer() {
       const adapterClasses = new Map([
         ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
-      return new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
+      const adapterFactory = new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
+      adapterFactory.initialize();
+      return adapterFactory;
     },
     ['eventBus', 'loggerFactory', 'browserMediaService']
   );
@@ -490,7 +491,7 @@ function createRendererContainer() {
         {
           id: 'shaderSelectorComponent',
           stage: 'deferred',
-          create: ({ dependencies }) => new StreamingShaderSelectorComponent({
+          create: ({ dependencies }) => new ShaderSelectorComponent({
             settingsService: dependencies.settingsService,
             appState: dependencies.appState,
             eventBus: dependencies.eventBus,

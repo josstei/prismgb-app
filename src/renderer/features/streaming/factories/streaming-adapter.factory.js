@@ -11,7 +11,7 @@
  */
 
 import { ConstraintBuilder } from '@shared/streaming/acquisition/constraint-builder.class.js';
-import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream-lifecycle.class.js';
+import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream-lifecycle.base.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
@@ -52,7 +52,7 @@ export class StreamingAdapterFactory {
    * Initialize adapter registry
    * Registers adapters from DEVICE_REGISTRY using classes injected via DI
    */
-  async initialize() {
+  initialize() {
     if (this.initialized) {
       this.logger.warn('StreamingAdapterFactory already initialized');
       return;
@@ -64,7 +64,7 @@ export class StreamingAdapterFactory {
         DeviceRegistry.registerAdapterClass(deviceId, AdapterClass);
       }
 
-      const loadedCount = await this._registerBuiltInAdapters();
+      const loadedCount = this._registerBuiltInAdapters();
       this.initialized = true;
 
       this.logger.info(`Loaded ${loadedCount} adapter(s) from registry`);
@@ -78,9 +78,9 @@ export class StreamingAdapterFactory {
    * Register built-in adapters from DEVICE_REGISTRY
    * Uses shared iterator for consistent filtering
    * @private
-   * @returns {Promise<number>} Number of adapters registered
+   * @returns {number} Number of adapters registered
    */
-  async _registerBuiltInAdapters() {
+  _registerBuiltInAdapters() {
     let registeredCount = 0;
 
     // Collect all devices with adapter modules
@@ -177,10 +177,10 @@ export class StreamingAdapterFactory {
   }
 
   /**
-   * Detect device type from device info
+   * Detect device ID from device info
    * Uses unified detection to identify supported devices
    */
-  detectDeviceType(device) {
+  detectDeviceId(device) {
     if (!this.initialized) {
       throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
@@ -191,10 +191,10 @@ export class StreamingAdapterFactory {
     }
 
     // Use generic detection from DeviceDetectionHelper
-    const deviceType = DeviceDetectionHelper.detectDeviceType(device);
-    if (deviceType) {
+    const deviceId = DeviceDetectionHelper.detectDeviceId(device);
+    if (deviceId) {
       this.logger.debug(`Detected supported device: ${device.label}`);
-      return deviceType;
+      return deviceId;
     }
 
     // No matching device found
@@ -207,11 +207,11 @@ export class StreamingAdapterFactory {
    * Returns adapter for supported devices only
    */
   getAdapterForDevice(device, dependencies = {}) {
-    const deviceType = this.detectDeviceType(device);
-    if (!deviceType) {
+    const deviceId = this.detectDeviceId(device);
+    if (!deviceId) {
       throw new Error(`Unsupported device: ${device?.label || 'unknown'}`);
     }
-    return this.getAdapter(deviceType, dependencies);
+    return this.getAdapter(deviceId, dependencies);
   }
 
   /**

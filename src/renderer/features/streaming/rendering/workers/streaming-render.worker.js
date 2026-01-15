@@ -80,6 +80,7 @@ class WebGPURenderer {
     this.device = null;
     this.context = null;
     this.canvasFormat = null;
+    this.adapterInfo = null;
 
     // Shader modules
     this.shaderModules = {};
@@ -131,6 +132,8 @@ class WebGPURenderer {
       throw new Error('WebGPU adapter not available');
     }
 
+    this.adapterInfo = this._buildAdapterInfo(adapter);
+
     // Request device
     this.device = await adapter.requestDevice();
 
@@ -138,20 +141,14 @@ class WebGPURenderer {
     this.device.lost.then((info) => {
       this.hasError = true;
       this.errorMessage = `Device lost: ${info.reason} - ${info.message}`;
-      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-        message: this.errorMessage,
-        code: 'DEVICE_LOST'
-      }));
+      this._postError(this.errorMessage, 'DEVICE_LOST');
     });
 
     // Set up uncaptured error handler to catch shader/pipeline compilation errors
     this.device.onuncapturederror = (event) => {
       this.hasError = true;
       this.errorMessage = `GPU error: ${event.error.message}`;
-      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-        message: this.errorMessage,
-        code: 'GPU_ERROR'
-      }));
+      this._postError(this.errorMessage, 'GPU_ERROR');
     };
 
     // Configure canvas context
@@ -454,10 +451,33 @@ class WebGPURenderer {
       // GPU error occurred - stop rendering to prevent error spam
       this.hasError = true;
       this.errorMessage = `Render error: ${error.message}`;
-      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-        message: this.errorMessage,
-        code: 'RENDER_ERROR'
-      }));
+      this._postError(this.errorMessage, 'RENDER_ERROR');
+    }
+  }
+
+  _postError(message, code) {
+    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+      message,
+      code,
+      adapterInfo: this.adapterInfo
+    }));
+  }
+
+  _buildAdapterInfo(adapter) {
+    if (!adapter) return null;
+
+    try {
+      const info = adapter.info;
+      if (!info) return null;
+
+      return {
+        vendor: info.vendor,
+        architecture: info.architecture,
+        device: info.device,
+        description: info.description
+      };
+    } catch {
+      return null;
     }
   }
 
@@ -1013,7 +1033,8 @@ async function handleInit(payload) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
       message: error.message,
       stack: error.stack,
-      code: 'INIT_FAILED'
+      code: 'INIT_FAILED',
+      adapterInfo: renderer?.adapterInfo || null
     }));
   }
 }
@@ -1062,7 +1083,8 @@ async function handleFrame(payload) {
   } catch (error) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
       message: error.message,
-      code: 'RENDER_FAILED'
+      code: 'RENDER_FAILED',
+      adapterInfo: renderer?.adapterInfo || null
     }));
   } finally {
     // Always close ImageBitmap to release memory, even on error
@@ -1171,6 +1193,10 @@ function handleRelease() {
 
   // Destroy renderer (releases GPU device, textures, buffers)
   if (renderer) {
+    if (renderer.hasError) {
+      renderer.hasError = false;
+      renderer.errorMessage = null;
+    }
     renderer.destroy();
     renderer = null;
   }

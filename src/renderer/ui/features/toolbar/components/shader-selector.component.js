@@ -10,7 +10,7 @@ import { CinematicToggleComponent } from './cinematic-toggle.component.js';
 import { ShaderPresetListComponent } from './shader-preset-list.component.js';
 import { ShaderSliderControlsComponent } from './shader-slider-controls.component.js';
 
-class StreamingShaderSelectorComponent {
+class ShaderSelectorComponent {
   constructor({ settingsService, appState, eventBus, logger }) {
     this.settingsService = settingsService;
     this.appState = appState;
@@ -58,7 +58,7 @@ class StreamingShaderSelectorComponent {
       streamVideo: elements.streamVideo
     });
 
-    this.logger?.debug('StreamingShaderSelectorComponent initialized');
+    this.logger?.debug('ShaderSelectorComponent initialized');
   }
 
   /**
@@ -120,4 +120,4 @@ class StreamingShaderSelectorComponent {
   }
 }
 
-export { StreamingShaderSelectorComponent };
+export { ShaderSelectorComponent };

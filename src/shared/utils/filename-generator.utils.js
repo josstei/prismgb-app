@@ -38,16 +38,6 @@ class FilenameGenerator {
   static forRecording() {
     return `prismgb-recording-${this.timestamp()}.webm`;
   }
-
-  /**
-   * Generate recording filename with specified format
-   * @param {string} format - File format/extension (e.g., 'webm', 'mp4', 'mov')
-   * @returns {string} Recording filename with specified extension
-   * @example forRecordingWithFormat('mp4') => 'prismgb-recording-20250120-143022.mp4'
-   */
-  static forRecordingWithFormat(format = 'webm') {
-    return `prismgb-recording-${this.timestamp()}.${format}`;
-  }
 }
 
 export { FilenameGenerator };

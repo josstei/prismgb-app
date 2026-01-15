@@ -57,6 +57,7 @@ describe('StreamingCanvasLifecycleService', () => {
     mockViewportService = {
       calculateDimensions: vi.fn().mockReturnValue({ width: 640, height: 576 }),
       initialize: vi.fn(),
+      isInitialized: vi.fn().mockReturnValue(false),
       forceResize: vi.fn(),
       resetDimensions: vi.fn(),
       cleanup: vi.fn(),
@@ -295,7 +296,7 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should initialize viewportService resize observer if not present', () => {
-      mockViewportService._resizeObserver = null;
+      mockViewportService.isInitialized.mockReturnValue(false);
 
       service.setupCanvasSize({ width: 160, height: 144 });
 
@@ -306,7 +307,7 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should not reinitialize resize observer if already present', () => {
-      mockViewportService._resizeObserver = {};
+      mockViewportService.isInitialized.mockReturnValue(true);
 
       service.setupCanvasSize({ width: 160, height: 144 });
 

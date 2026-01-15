@@ -282,6 +282,133 @@ describe('ToolbarAutoHide', () => {
 
       expect(autoHide._panelObserver).toBeNull();
     });
+
+    it('should invalidate cache when panel-open class is added', async () => {
+      autoHide.enable(toolbarElement);
+      autoHide.isPanelOpen(); // Populate cache
+
+      const button = document.createElement('button');
+      toolbarElement.appendChild(button);
+
+      // Trigger mutation
+      button.classList.add('panel-open');
+
+      // MutationObserver runs async
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(autoHide._panelCacheDirty).toBe(true);
+    });
+
+    it('should invalidate cache when panel-open class is removed', async () => {
+      const button = document.createElement('button');
+      button.classList.add('panel-open');
+      toolbarElement.appendChild(button);
+
+      autoHide.enable(toolbarElement);
+      autoHide.isPanelOpen(); // Populate cache
+      expect(autoHide._panelCacheDirty).toBe(false);
+
+      button.classList.remove('panel-open');
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(autoHide._panelCacheDirty).toBe(true);
+    });
+
+    it('should invalidate cache when shader-panel visible class is added', async () => {
+      autoHide.enable(toolbarElement);
+      autoHide.isPanelOpen(); // Populate cache
+
+      const shaderPanel = document.createElement('div');
+      shaderPanel.className = 'shader-panel';
+      toolbarElement.appendChild(shaderPanel);
+
+      shaderPanel.classList.add('visible');
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(autoHide._panelCacheDirty).toBe(true);
+    });
+
+    it('should not invalidate cache for unrelated class changes', async () => {
+      autoHide.enable(toolbarElement);
+      autoHide.isPanelOpen(); // Populate cache
+
+      const button = document.createElement('button');
+      toolbarElement.appendChild(button);
+
+      button.classList.add('some-other-class');
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(autoHide._panelCacheDirty).toBe(false);
+    });
+
+    it('should disconnect previous observer when re-binding', () => {
+      autoHide.enable(toolbarElement);
+      const firstObserver = autoHide._panelObserver;
+      const disconnectSpy = vi.spyOn(firstObserver, 'disconnect');
+
+      // Manually call _bindPanelObserver again
+      autoHide._bindPanelObserver();
+
+      expect(disconnectSpy).toHaveBeenCalled();
+      expect(autoHide._panelObserver).not.toBe(firstObserver);
+    });
+
+    it('should handle MutationObserver not available', () => {
+      const originalMutationObserver = globalThis.MutationObserver;
+      delete globalThis.MutationObserver;
+
+      autoHide.enable(toolbarElement);
+
+      expect(autoHide._panelObserver).toBeNull();
+
+      globalThis.MutationObserver = originalMutationObserver;
+    });
+
+    it('should handle null element gracefully', () => {
+      autoHide._element = null;
+
+      expect(() => autoHide._bindPanelObserver()).not.toThrow();
+    });
+
+    it('should not call onHoverEnd when panel is open on mouseleave', () => {
+      autoHide.enable(toolbarElement);
+
+      // Add panel
+      const shaderPanel = document.createElement('div');
+      shaderPanel.className = 'shader-panel visible';
+      toolbarElement.appendChild(shaderPanel);
+      autoHide.invalidatePanelCache();
+
+      toolbarElement.dispatchEvent(new MouseEvent('mouseenter'));
+      toolbarElement.dispatchEvent(new MouseEvent('mouseleave'));
+
+      expect(callbacks.onHoverEnd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle show without element', () => {
+      autoHide = new ToolbarAutoHide(callbacks);
+
+      expect(() => autoHide.show()).not.toThrow();
+    });
+
+    it('should handle hide without element', () => {
+      autoHide = new ToolbarAutoHide(callbacks);
+
+      expect(() => autoHide.hide()).not.toThrow();
+    });
+
+    it('should use default callbacks when not provided', () => {
+      autoHide = new ToolbarAutoHide();
+      autoHide.enable(toolbarElement);
+
+      // Should not throw
+      expect(autoHide.isEnabled).toBe(true);
+    });
   });
 
   describe('dispose', () => {

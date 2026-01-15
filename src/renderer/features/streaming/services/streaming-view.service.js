@@ -13,10 +13,10 @@ class StreamingViewService extends BaseService {
   }
 
   /**
-   * Attaches a MediaStream to the video element.
+   * Attaches a MediaStream to the video element with mute enforced.
    * @param {MediaStream} stream - The media stream to attach
    */
-  attachStream(stream) {
+  attachMutedStream(stream) {
     const video = this.uiController.elements.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');

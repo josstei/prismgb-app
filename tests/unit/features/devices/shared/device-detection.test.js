@@ -60,5 +60,48 @@ describe('DeviceDetectionHelper', () => {
       };
       expect(DeviceDetectionHelper.matchesByUSB(device)).toBeNull();
     });
+
+    it('should return null for partial USB identifiers (missing productId)', () => {
+      const device = {
+        vendorId: 0x374e
+      };
+      expect(DeviceDetectionHelper.matchesByUSB(device)).toBeNull();
+    });
+
+    it('should return null for partial USB identifiers (missing vendorId)', () => {
+      const device = {
+        productId: 0x0101
+      };
+      expect(DeviceDetectionHelper.matchesByUSB(device)).toBeNull();
+    });
+  });
+
+  describe('detectDeviceId', () => {
+    it('should detect by label when both label and USB are provided', () => {
+      const device = {
+        label: 'Chromatic Device',
+        vendorId: 0x1234,
+        productId: 0x5678
+      };
+      expect(DeviceDetectionHelper.detectDeviceId(device)).toBe('chromatic-mod-retro');
+    });
+
+    it('should fall back to USB when label does not match', () => {
+      const device = {
+        label: 'Unknown Device',
+        vendorId: 0x374e,
+        productId: 0x0101
+      };
+      expect(DeviceDetectionHelper.detectDeviceId(device)).toBe('chromatic-mod-retro');
+    });
+
+    it('should return null when neither label nor USB match', () => {
+      const device = {
+        label: 'Unknown Device',
+        vendorId: 0x1234,
+        productId: 0x5678
+      };
+      expect(DeviceDetectionHelper.detectDeviceId(device)).toBeNull();
+    });
   });
 });

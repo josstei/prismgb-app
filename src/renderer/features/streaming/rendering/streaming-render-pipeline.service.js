@@ -331,7 +331,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Fallback to Canvas2D if GPU failed
-    this._fallbackToCanvas2D();
+    this._tryCanvas2DFallback(nativeRes);
   }
 
   /**
@@ -362,24 +362,21 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   /**
-   * Fallback to Canvas2D rendering when GPU is not available
-   * Handles the case where canvas control was transferred to GPU and cannot be recovered
+   * Attempt Canvas2D fallback when GPU is not available
+   * Recreates the canvas if control was transferred to the GPU worker.
    * @private
    */
-  _fallbackToCanvas2D() {
-    const canvas = this.streamViewService.getCanvas();
+  _tryCanvas2DFallback(nativeRes = { width: 160, height: 144 }) {
+    let canvas = this.streamViewService.getCanvas();
     const video = this.streamViewService.getVideo();
 
     if (this.gpuRendererService.isCanvasTransferred()) {
-      this.logger.error('Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.');
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-        message: 'Rendering unavailable - video playing without shader effects',
-        type: 'warning'
-      });
-      this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, {
-        message: 'GPU rendering failed and cannot recover. Video will play without visual effects.'
-      });
-      return;
+      this.logger.warn('Canvas control was transferred to GPU renderer. Recreating canvas for Canvas2D fallback.');
+      this.gpuRendererService.terminateAndReset(false);
+      this.canvasLifecycleService.recreateCanvas();
+      this._canvas2dContextCreated = false;
+      this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
+      canvas = this.streamViewService.getCanvas();
     }
 
     this.logger.info('Using Canvas2D renderer');

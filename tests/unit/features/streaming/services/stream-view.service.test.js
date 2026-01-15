@@ -69,11 +69,11 @@ describe('StreamingViewService', () => {
     });
   });
 
-  describe('attachStream', () => {
+  describe('attachMutedStream', () => {
     it('should attach stream to video element', () => {
       const mockStream = { id: 'test-stream' };
 
-      service.attachStream(mockStream);
+      service.attachMutedStream(mockStream);
 
       expect(mockVideoElement.srcObject).toBe(mockStream);
     });
@@ -82,7 +82,7 @@ describe('StreamingViewService', () => {
       const mockStream = { id: 'test-stream' };
       mockVideoElement.muted = false;
 
-      service.attachStream(mockStream);
+      service.attachMutedStream(mockStream);
 
       expect(mockVideoElement.muted).toBe(true);
     });
@@ -90,7 +90,7 @@ describe('StreamingViewService', () => {
     it('should log info when stream attached', () => {
       const mockStream = { id: 'test-stream' };
 
-      service.attachStream(mockStream);
+      service.attachMutedStream(mockStream);
 
       expect(mockLogger.info).toHaveBeenCalledWith('Stream assigned to video element');
     });
@@ -99,7 +99,7 @@ describe('StreamingViewService', () => {
       mockUIController.elements.streamVideo = null;
       const mockStream = { id: 'test-stream' };
 
-      service.attachStream(mockStream);
+      service.attachMutedStream(mockStream);
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Stream video element not found');
     });
@@ -108,14 +108,14 @@ describe('StreamingViewService', () => {
       mockUIController.elements.streamVideo = null;
       const mockStream = { id: 'test-stream' };
 
-      expect(() => service.attachStream(mockStream)).not.toThrow();
+      expect(() => service.attachMutedStream(mockStream)).not.toThrow();
     });
 
     it('should not throw if video element is undefined', () => {
       mockUIController.elements.streamVideo = undefined;
       const mockStream = { id: 'test-stream' };
 
-      expect(() => service.attachStream(mockStream)).not.toThrow();
+      expect(() => service.attachMutedStream(mockStream)).not.toThrow();
     });
   });
 
@@ -247,7 +247,7 @@ describe('StreamingViewService', () => {
       const mockStream = { id: 'test-stream' };
 
       // Attach stream
-      service.attachStream(mockStream);
+      service.attachMutedStream(mockStream);
       expect(mockVideoElement.srcObject).toBe(mockStream);
       expect(mockVideoElement.muted).toBe(true);
 
@@ -266,10 +266,10 @@ describe('StreamingViewService', () => {
       const stream1 = { id: 'stream-1' };
       const stream2 = { id: 'stream-2' };
 
-      service.attachStream(stream1);
+      service.attachMutedStream(stream1);
       expect(mockVideoElement.srcObject).toBe(stream1);
 
-      service.attachStream(stream2);
+      service.attachMutedStream(stream2);
       expect(mockVideoElement.srcObject).toBe(stream2);
     });
 

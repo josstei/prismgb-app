@@ -34,6 +34,7 @@ export class BrowserStorageAdapter {
    * @param {string} key - Storage key
    * @param {string} value - Value to store
    * @returns {boolean} True if successful, false if storage quota exceeded
+   * @note On quota exceeded, this will delete non-protected keys to make room.
    */
   setItem(key, value) {
     try {

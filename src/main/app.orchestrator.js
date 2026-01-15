@@ -58,9 +58,6 @@ class AppOrchestrator extends BaseOrchestrator {
     this._updateBridgeService = this.container.resolve('updateBridgeService');
     this._transcodeService = this.container.resolve('transcodeService');
 
-    // Initialize device service (loads device profiles)
-    await this._deviceService.initialize();
-
     // Initialize device lifecycle service (handles auto-launch)
     this._deviceLifecycleService.initialize();
 
@@ -98,7 +95,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._windowService.createWindow();
 
     // Check for already connected devices
-    const deviceFound = await this._deviceService.checkForDevice();
+    const deviceFound = await this._deviceService.refreshDeviceStatus();
     if (deviceFound) {
       this.logger.info('Device already connected');
     }

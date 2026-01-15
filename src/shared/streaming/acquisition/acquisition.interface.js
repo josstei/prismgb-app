@@ -47,6 +47,14 @@ export class IStreamLifecycle {
   getActiveStreams() {
     throw new Error('getActiveStreams() must be implemented');
   }
+
+  /**
+   * Release all active streams
+   * @returns {Promise<void>}
+   */
+  async releaseAll() {
+    throw new Error('releaseAll() must be implemented');
+  }
 }
 
 /**

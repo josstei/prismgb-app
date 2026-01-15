@@ -139,6 +139,7 @@ export function createWorkerResponse(type, payload = {}) {
  * @property {string} message - Error message
  * @property {string} [stack] - Error stack trace
  * @property {string} [code] - Error code for categorization
+ * @property {Object|null} [adapterInfo] - GPU adapter info when available
  */
 
 /**
