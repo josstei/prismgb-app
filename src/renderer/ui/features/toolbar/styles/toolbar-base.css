@@ -1,0 +1,170 @@
+/* =====================================================
+   Stream Toolbar - Base Styles
+   Container and base button styles
+   ===================================================== */
+
+/* =====================================================
+   Toolbar Container
+   Positioned at top right of stream-container
+   ===================================================== */
+.stream-toolbar {
+  position: absolute;
+  top: 0;
+  right: -76px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px;
+  z-index: var(--z-ui);
+  transition: opacity 0.4s ease;
+}
+
+/* Elevate toolbar when shader panel is open so it appears above notes panel */
+.stream-toolbar:has(.shader-panel.visible) {
+  z-index: var(--z-tooltip);
+}
+
+/* Hide toolbar when mouse inactive - needs high specificity to override cinematic mode */
+.stream-toolbar.toolbar-hidden,
+body.cinematic-active .stream-toolbar.toolbar-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* =====================================================
+   Toolbar Buttons - Circular
+   ===================================================== */
+.toolbar-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--color-primary-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15) 0%, rgba(var(--color-primary-darker-rgb), 0.1) 100%);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  backdrop-filter: blur(var(--blur-standard));
+  outline: none;
+  contain: layout style;
+}
+
+/* Rainbow ring on hover */
+.toolbar-btn::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 0, 128, 0.6),
+    rgba(255, 150, 0, 0.5),
+    rgba(0, 255, 100, 0.5),
+    rgba(0, 180, 255, 0.6),
+    rgba(130, 0, 255, 0.5),
+    rgba(255, 0, 128, 0.6)
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: -1;
+}
+
+.toolbar-btn:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-darker-rgb), 0.2) 100%);
+  transform: scale(1.08);
+  box-shadow: 0 0 20px rgba(255, 0, 128, 0.3), 0 0 40px rgba(0, 200, 255, 0.15);
+}
+
+.toolbar-btn:hover::before {
+  opacity: 1;
+  animation: toolbar-ring-spin 4s linear infinite;
+}
+
+@keyframes toolbar-ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.toolbar-btn:active {
+  transform: scale(0.95);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-btn:disabled:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15) 0%, rgba(var(--color-primary-darker-rgb), 0.1) 100%);
+  transform: none;
+  box-shadow: none;
+}
+
+.toolbar-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Active state for shader button when panel is open */
+.toolbar-btn.panel-open {
+  border-color: rgba(var(--color-primary-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-darker-rgb), 0.2) 100%);
+  box-shadow: var(--shadow-glow-prismatic);
+}
+
+/* Toolbar Item Container (for items with panels) */
+.toolbar-item {
+  position: relative;
+}
+
+/* Elevate toolbar-item when panel is open so panel appears above sibling buttons and notes panel */
+.toolbar-item:has(.shader-panel.visible) {
+  z-index: var(--z-tooltip);
+}
+
+/* =====================================================
+   Fullscreen Mode - Toolbar Behavior
+   ===================================================== */
+
+/* Fullscreen: Adjust position */
+html:fullscreen .stream-toolbar,
+html:-webkit-full-screen .stream-toolbar {
+  top: 20px;
+}
+
+/* =====================================================
+   Cinematic Mode - Toolbar Dimming
+   ===================================================== */
+body.cinematic-active .stream-toolbar {
+  opacity: 0.7;
+  filter: brightness(0.85);
+}
+
+body.cinematic-active .stream-toolbar:hover {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* Don't dim toolbar when shader panel is open */
+body.cinematic-active .stream-toolbar:has(.shader-panel.visible) {
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-btn {
+    transition: none !important;
+    animation: none !important;
+  }
+}

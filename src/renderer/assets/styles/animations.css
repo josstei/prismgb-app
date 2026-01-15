@@ -51,22 +51,6 @@
    Retro Standby Screen Animations
    ===================================================== */
 
-/* Icon floating wobble motion */
-@keyframes icon-wobble {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  25% {
-    transform: translateY(-4px) rotate(-1.5deg);
-  }
-  50% {
-    transform: translateY(-8px) rotate(0deg);
-  }
-  75% {
-    transform: translateY(-4px) rotate(1.5deg);
-  }
-}
-
 /* Slower icon float for waiting state */
 @keyframes icon-float {
   0%, 100% {
@@ -232,30 +216,6 @@
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(2);
-  }
-}
-
-/* Particle burst explosion outward */
-@keyframes particle-burst {
-  0% {
-    transform: translateY(0) translateX(0) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(var(--burst-y, -100px)) translateX(var(--burst-x, 50px)) scale(0);
-    opacity: 0;
-  }
-}
-
-/* Radial glow pulse behind gem */
-@keyframes gem-glow-pulse {
-  0%, 100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.15);
-    opacity: 0.9;
   }
 }
 
@@ -425,37 +385,6 @@
   100% {
     transform: translateY(-320px) translateX(0) scale(0);
     opacity: 0;
-  }
-}
-
-/* =====================================================
-   Chromatic Aberration Effect
-   GPU-ACCELERATED: Uses filter only
-   ===================================================== */
-@keyframes chromatic-shift {
-  0%, 100% {
-    text-shadow:
-      -1px 0 var(--chromatic-magenta),
-      1px 0 var(--chromatic-cyan);
-  }
-  50% {
-    text-shadow:
-      -2px 0 rgba(255, 0, 128, 0.6),
-      2px 0 rgba(0, 255, 255, 0.6);
-  }
-}
-
-/* Chromatic aberration for elements */
-@keyframes chromatic-element {
-  0%, 100% {
-    filter:
-      drop-shadow(-1px 0 var(--chromatic-magenta))
-      drop-shadow(1px 0 var(--chromatic-cyan));
-  }
-  50% {
-    filter:
-      drop-shadow(-2px 0 rgba(255, 0, 128, 0.6))
-      drop-shadow(2px 0 rgba(0, 255, 255, 0.6));
   }
 }
 

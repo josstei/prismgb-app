@@ -1,0 +1,179 @@
+/* =====================================================
+   Buttons
+   Button base styles and all variants
+   ===================================================== */
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.2s ease,
+              filter 0.2s ease;
+  outline: none;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  contain: layout style;
+}
+
+.btn svg {
+  vertical-align: middle;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  text-shadow:
+    -1px 0 var(--chromatic-magenta),
+    1px 0 var(--chromatic-cyan);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled,
+.btn:disabled:hover,
+.btn.disabled,
+.btn.disabled:hover {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(0.3);
+  pointer-events: none;
+}
+
+/* Ensure buttons have proper hover states when enabled */
+.btn:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+
+/* Button Variants */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(var(--color-primary-rgb), 0.4);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-primary-darker) 0%, var(--color-primary-darkest) 100%);
+  box-shadow: var(--shadow-glow-prismatic);
+}
+
+.btn-rainbow {
+  background: linear-gradient(
+    135deg,
+    #ff0080 0%,
+    #ff4000 20%,
+    #ff8000 35%,
+    #00cc66 50%,
+    #00aaff 70%,
+    #8000ff 90%,
+    #ff0080 100%
+  );
+  background-size: 200% 200%;
+  color: white;
+  box-shadow: var(--shadow-glow-prismatic);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: rainbow-shift 4s ease infinite;
+}
+
+@keyframes rainbow-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.btn-rainbow:hover {
+  filter: brightness(1.1) saturate(1.1);
+  box-shadow: 0 6px 24px rgba(255, 0, 128, 0.5), 0 0 50px rgba(0, 255, 255, 0.2);
+  animation-duration: 2s;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  color: var(--color-text-primary);
+  border: 2px solid rgba(var(--color-primary-rgb), 0.3);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border-color: rgba(var(--color-primary-rgb), 0.5);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--color-success) 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(var(--color-success-rgb), 0.4);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669 0%, var(--color-success-darker) 100%);
+  box-shadow: 0 6px 20px rgba(var(--color-success-rgb), 0.5);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(var(--color-danger-rgb), 0.4);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #e11d48 0%, var(--color-danger-darker) 100%);
+  box-shadow: 0 6px 20px rgba(var(--color-danger-rgb), 0.5);
+}
+
+/* Screenshot and record buttons (visibility controlled in states.css) */
+#screenshotBtn,
+#recordBtn {
+  display: inline-flex;
+}
+
+#recordBtn.recording {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 10px 24px rgba(var(--color-danger-rgb), 0.35);
+  animation: pulse var(--animation-pulse) ease-in-out infinite;
+}
+
+/* Record button icon states */
+#recordBtn .record-dot {
+  display: inline;
+}
+
+#recordBtn .record-spinner {
+  display: none;
+}
+
+/* When recording: hide dot, show spinner with rotating ring */
+#recordBtn.recording .record-dot {
+  display: none;
+}
+
+#recordBtn.recording .record-spinner {
+  display: inline;
+}
+
+#recordBtn.recording .spinner-ring {
+  transform-origin: center;
+  animation: spin 1s linear infinite;
+}

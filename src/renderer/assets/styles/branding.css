@@ -1,0 +1,30 @@
+/* =====================================================
+   App Icon & Logo
+   Branding elements with glow effects
+   ===================================================== */
+
+.app-icon {
+  filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.6));
+  animation: icon-glow 6s ease-in-out infinite;
+  animation-play-state: running;
+  contain: layout style;
+}
+
+.app-logo {
+  height: 30px;
+  width: 120px;
+  filter: drop-shadow(0 0 10px rgba(var(--color-primary-rgb), 0.7));
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25) 0%, transparent 70%);
+  contain: layout style;
+  transition: filter 0.2s ease;
+}
+
+.app-logo:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 0, 128, 0.6))
+          drop-shadow(0 0 16px rgba(0, 200, 255, 0.4));
+}
+
+/* Pause decorative animations when not visible to save GPU cycles */
+.header:not(:hover) .app-icon {
+  animation-play-state: paused;
+}

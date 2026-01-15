@@ -19,11 +19,11 @@ import { PerformanceStateService } from '@renderer/application/performance/perfo
 
 // UI layer
 import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
-import { UIComponentFactory } from '@renderer/ui/controller/component.factory.js';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
+import { PresentationModeCoordinator } from '@renderer/ui/orchestration/presentation-mode.coordinator.js';
 import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 
@@ -50,8 +50,11 @@ import { StreamingHealthService } from '@renderer/features/streaming/rendering/s
 import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
-import { StreamingControlsComponent } from '@renderer/features/streaming/ui/streaming-controls.component.js';
-import { StreamingShaderSelectorComponent } from '@renderer/features/streaming/ui/streaming-shader-selector.component.js';
+import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
+import { StreamingShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
+import { StatusNotificationComponent } from '@renderer/ui/shared/status-notification.component.js';
+import { DeviceStatusComponent } from '@renderer/ui/shared/device-status.component.js';
+import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transcode-toast.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
@@ -69,17 +72,17 @@ import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/ser
 import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
 import { SettingsFullscreenService } from '@renderer/features/settings/services/settings-fullscreen.service.js';
 import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
-import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
+import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
 
 // Features: Notes
 import { NotesService } from '@renderer/features/notes/services/notes.service.js';
-import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 
 // Features: Updates
 import { UpdateService } from '@renderer/features/updates/services/update.service.js';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
 import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
-import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
+import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
 
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
@@ -415,43 +418,109 @@ function createRendererContainer() {
   // These will be registered later:
   // - uiController
 
-  // UI Component Factory
-  // Component classes from features are imported statically and injected here
-  // to maintain proper layer boundaries (UI factory doesn't import from features)
-  container.registerSingleton(
-    'uiComponentFactory',
-    function (eventBus) {
-      return new UIComponentFactory({
-        eventBus,
-        // Inject feature component classes via DI container
-        // These imports are centralized here instead of in UIComponentFactory
-        settingsMenuComponent: SettingsMenuComponent,
-        streamControlsComponent: StreamingControlsComponent,
-        shaderSelectorComponent: StreamingShaderSelectorComponent,
-        updateSectionComponent: UpdateSectionComponent,
-        notesPanelComponent: NotesPanelComponent
-      });
-    },
-    ['eventBus']
-  );
-
   // UI Component Registry - manages component lifecycle
   container.registerSingleton(
     'uiComponentRegistry',
-    function (uiComponentFactory, eventBus, loggerFactory) {
-      return new UIComponentRegistry({ uiComponentFactory, eventBus, loggerFactory });
+    function (loggerFactory) {
+      const componentDefinitions = [
+        {
+          id: 'statusNotificationComponent',
+          stage: 'core',
+          create: ({ elements }) => new StatusNotificationComponent({
+            statusMessage: elements.statusMessage
+          })
+        },
+        {
+          id: 'deviceStatusComponent',
+          stage: 'core',
+          create: ({ elements }) => new DeviceStatusComponent({
+            statusIndicator: elements.statusIndicator,
+            statusText: elements.statusText,
+            deviceName: elements.deviceName,
+            deviceStatusText: elements.deviceStatusText,
+            streamOverlay: elements.streamOverlay,
+            overlayMessage: elements.overlayMessage
+          })
+        },
+        {
+          id: 'streamControlsComponent',
+          stage: 'core',
+          create: ({ elements, dependencies }) => new StreamingControlsComponent({
+            elements: {
+              currentResolution: elements.currentResolution,
+              currentFPS: elements.currentFPS,
+              screenshotBtn: elements.screenshotBtn,
+              recordBtn: elements.recordBtn,
+              shaderControls: elements.shaderControls,
+              streamOverlay: elements.streamOverlay
+            },
+            bodyClassManager: dependencies.bodyClassManager
+          })
+        },
+        {
+          id: 'transcodeToastComponent',
+          stage: 'core',
+          create: ({ elements }) => new TranscodeToastComponent({
+            recordBtn: elements.recordBtn,
+            transcodeRing: elements.transcodeRing,
+            transcodePercentLabel: elements.transcodePercentLabel
+          })
+        },
+        {
+          id: 'settingsMenuComponent',
+          stage: 'deferred',
+          create: ({ dependencies }) => {
+            const updateSectionComponent = dependencies.updateOrchestrator
+              ? new UpdateSectionComponent({
+                updateOrchestrator: dependencies.updateOrchestrator,
+                eventBus: dependencies.eventBus,
+                loggerFactory: dependencies.loggerFactory
+              })
+              : null;
+
+            return new SettingsMenuComponent({
+              settingsService: dependencies.settingsService,
+              updateSectionComponent,
+              eventBus: dependencies.eventBus,
+              loggerFactory: dependencies.loggerFactory,
+              logger: dependencies.logger
+            });
+          }
+        },
+        {
+          id: 'shaderSelectorComponent',
+          stage: 'deferred',
+          create: ({ dependencies }) => new StreamingShaderSelectorComponent({
+            settingsService: dependencies.settingsService,
+            appState: dependencies.appState,
+            eventBus: dependencies.eventBus,
+            logger: dependencies.logger
+          })
+        },
+        {
+          id: 'notesPanelComponent',
+          stage: 'deferred',
+          create: ({ dependencies }) => new NotesPanelComponent({
+            notesService: dependencies.notesService,
+            eventBus: dependencies.eventBus,
+            logger: dependencies.logger
+          })
+        }
+      ];
+
+      return new UIComponentRegistry({ componentDefinitions, loggerFactory });
     },
-    ['uiComponentFactory', 'eventBus', 'loggerFactory']
+    ['loggerFactory']
   );
 
   // UI Effects - visual feedback effects
   container.registerSingleton(
     'uiEffects',
-    function () {
+    function (bodyClassManager) {
       // Note: elements are set later when UIController is created
-      return new UIEffects({ elements: null });
+      return new UIEffects({ elements: null, bodyClassManager });
     },
-    []
+    ['bodyClassManager']
   );
 
   // Body Class Manager - manages body CSS classes for app state
@@ -467,10 +536,19 @@ function createRendererContainer() {
   // Initialized after uiController is registered
   container.registerSingleton(
     'uiEventBridge',
-    function (eventBus, uiController, appState, loggerFactory) {
-      return new UIEventBridge({ eventBus, uiController, appState, loggerFactory });
+    function (eventBus, uiController, presentationModeCoordinator, loggerFactory) {
+      return new UIEventBridge({ eventBus, uiController, presentationModeCoordinator, loggerFactory });
     },
-    ['eventBus', 'uiController', 'appState', 'loggerFactory']
+    ['eventBus', 'uiController', 'presentationModeCoordinator', 'loggerFactory']
+  );
+
+  // Presentation Mode Coordinator - derives combined UI display state
+  container.registerSingleton(
+    'presentationModeCoordinator',
+    function (uiController, appState, loggerFactory) {
+      return new PresentationModeCoordinator({ uiController, appState, loggerFactory });
+    },
+    ['uiController', 'appState', 'loggerFactory']
   );
 
   container.registerSingleton(

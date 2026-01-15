@@ -150,12 +150,14 @@ class RendererAppOrchestrator {
     // Get dependencies from DI
     const uiComponentRegistry = this.container.resolve('uiComponentRegistry');
     const uiEffects = this.container.resolve('uiEffects');
+    const bodyClassManager = this.container.resolve('bodyClassManager');
     const loggerFactory = this.container.resolve('loggerFactory');
 
     // Create UIController with new dependencies
     const uiController = new UIController({
       uiComponentRegistry,
       uiEffects,
+      bodyClassManager,
       loggerFactory
     });
 

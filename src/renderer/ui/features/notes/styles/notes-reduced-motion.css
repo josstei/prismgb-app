@@ -1,0 +1,29 @@
+/* =====================================================
+   Reduced motion
+   ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-panel {
+    transition: none !important;
+  }
+
+  .notes-panel:not(.visible) {
+    transform: translateX(100%) !important;
+  }
+
+  .notes-panel.visible {
+    transform: translateX(0) !important;
+  }
+
+  .notes-action-btn,
+  .notes-footer-btn,
+  .note-list-item,
+  .notes-list-wrapper,
+  .notes-list-toggle,
+  .notes-list-toggle .toggle-handle,
+  .notes-game-notes,
+  .notes-game-autocomplete,
+  .notes-game-header .game-chevron {
+    transition: none !important;
+  }
+}

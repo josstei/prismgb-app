@@ -1,0 +1,213 @@
+/* =====================================================
+   Content area (split list + editor)
+   ===================================================== */
+
+.notes-panel-content {
+  --notes-list-width: 130px;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* List wrapper - handles collapse animation */
+.notes-list-wrapper {
+  width: var(--notes-list-width, 130px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  will-change: width, opacity;
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+
+/* Collapsed state */
+.notes-panel-content.notes-list-collapsed .notes-list-wrapper {
+  width: 0;
+  opacity: 0;
+  border-right: none;
+}
+
+/* Notes list */
+.notes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
+}
+
+.notes-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-list::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.notes-list::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-info-rgb), 0.25);
+  border-radius: var(--radius-full);
+}
+
+.notes-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-info-rgb), 0.4);
+}
+
+.note-list-item {
+  padding: 8px 9px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.note-list-item:hover {
+  background: rgba(var(--color-info-rgb), 0.08);
+  border-color: rgba(var(--color-info-rgb), 0.12);
+}
+
+.note-list-item.active {
+  background: rgba(var(--color-info-rgb), 0.14);
+  border-color: rgba(var(--color-info-rgb), 0.25);
+  box-shadow: inset 0 0 0 1px rgba(var(--color-info-rgb), 0.08);
+}
+
+.note-list-item-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  transition: color 0.15s ease;
+}
+
+.note-list-item:hover .note-list-item-title,
+.note-list-item.active .note-list-item-title {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.note-list-item-date {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-list-empty {
+  padding: 16px 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}
+
+/* =====================================================
+   Game Groups
+   ===================================================== */
+
+.notes-game-group {
+  margin-bottom: 4px;
+}
+
+.notes-game-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 7px;
+  background: rgba(var(--color-info-rgb), 0.06);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.notes-game-header:hover {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.notes-game-header .game-name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(var(--color-info-rgb), 0.9);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.notes-game-header .game-count {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 5px;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-game-header .game-chevron {
+  width: 10px;
+  height: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.notes-game-group.collapsed .notes-game-header .game-chevron {
+  transform: rotate(-90deg);
+}
+
+.notes-game-notes {
+  overflow: hidden;
+  max-height: 500px;
+  opacity: 1;
+  transition:
+    max-height 0.2s ease-out,
+    opacity 0.15s ease;
+}
+
+.notes-game-group.collapsed .notes-game-notes {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Game tag on note items */
+.note-list-item-game-tag {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(var(--color-info-rgb), 0.7);
+  background: rgba(var(--color-info-rgb), 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-top: 2px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hide game tag when viewing a filtered game or in grouped view */
+.notes-game-notes .note-list-item-game-tag,
+.notes-list[data-filtered] .note-list-item-game-tag {
+  display: none;
+}

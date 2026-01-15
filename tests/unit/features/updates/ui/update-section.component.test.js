@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateSectionComponent } from '@renderer/features/updates/ui/update-section.component.js';
+import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
 import { UpdateState } from '@renderer/features/updates/services/update.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
@@ -90,7 +90,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('initialize', () => {
     it('should cache DOM elements', () => {
-      component.initialize();
+      component.initialize(mockElements);
 
       expect(component.elements.section).toBe(mockElements.section);
       expect(component.elements.actionBtn).toBe(mockElements.actionBtn);
@@ -98,7 +98,7 @@ describe('UpdateSectionComponent', () => {
     });
 
     it('should subscribe to events', () => {
-      component.initialize();
+      component.initialize(mockElements);
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(
         EventChannels.UPDATE.STATE_CHANGED,
@@ -124,7 +124,7 @@ describe('UpdateSectionComponent', () => {
         updateInfo: { version: '2.0.0' }
       });
 
-      component.initialize();
+      component.initialize(mockElements);
 
       expect(mockElements.statusText.textContent).toBe('v2.0.0 available');
     });
@@ -135,14 +135,14 @@ describe('UpdateSectionComponent', () => {
         updateInfo: { version: '2.0.0' }
       });
 
-      component.initialize();
+      component.initialize(mockElements);
 
       expect(mockElements.badge.classList.contains(CSSClasses.HIDDEN)).toBe(false);
     });
 
     it('should warn if already initialized', () => {
-      component.initialize();
-      component.initialize();
+      component.initialize(mockElements);
+      component.initialize(mockElements);
 
       expect(mockLogger.warn).toHaveBeenCalledWith('UpdateSectionComponent already initialized');
     });
@@ -150,7 +150,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('_updateUI', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should handle null status', () => {
@@ -208,7 +208,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('_updateProgress', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should update progress bar width', () => {
@@ -231,7 +231,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('_showBadge / _hideBadge', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should show badge by removing hidden class', () => {
@@ -250,7 +250,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('_handleActionClick', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should call checkForUpdates for IDLE state', async () => {
@@ -314,7 +314,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('setCurrentVersion', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should set version with v prefix', () => {
@@ -332,7 +332,7 @@ describe('UpdateSectionComponent', () => {
 
   describe('dispose', () => {
     beforeEach(() => {
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should call subscription cleanup functions', () => {
@@ -375,7 +375,7 @@ describe('UpdateSectionComponent', () => {
         return vi.fn();
       });
 
-      component.initialize();
+      component.initialize(mockElements);
     });
 
     it('should update UI on STATE_CHANGED event', () => {

@@ -1,0 +1,118 @@
+/* =====================================================
+   Capture Buttons (Screenshot, Record, Notes)
+   Toolbar action buttons with specific color themes
+   ===================================================== */
+
+/* Hide capture buttons by default - shown via streaming-mode class */
+.toolbar-capture {
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Show capture buttons when streaming */
+body.streaming-mode .stream-toolbar .toolbar-capture {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  animation: button-reveal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Pop out animation when hiding */
+.toolbar-capture.hiding {
+  animation: button-hide 0.15s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
+}
+
+/* Screenshot button - success green */
+.toolbar-btn.toolbar-screenshot {
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+}
+
+.toolbar-btn.toolbar-screenshot:hover:not(:disabled) {
+  border-color: rgba(var(--color-success-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.25) 0%, rgba(5, 150, 105, 0.2) 100%);
+  box-shadow: 0 0 12px rgba(var(--color-success-rgb), 0.4);
+}
+
+.toolbar-btn.toolbar-screenshot.capturing {
+  animation: capture-click 0.2s ease-out;
+}
+
+/* Record button - danger red */
+.toolbar-btn.toolbar-record {
+  border-color: rgba(var(--color-danger-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.15) 0%, rgba(200, 50, 50, 0.1) 100%);
+}
+
+.toolbar-btn.toolbar-record:hover:not(:disabled) {
+  border-color: rgba(var(--color-danger-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.25) 0%, rgba(200, 50, 50, 0.2) 100%);
+  box-shadow: 0 0 12px rgba(var(--color-danger-rgb), 0.4);
+}
+
+/* Recording state */
+.toolbar-btn.toolbar-record.recording {
+  border-color: rgba(var(--color-danger-rgb), 0.8);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.4) 0%, rgba(239, 68, 68, 0.35) 100%);
+  box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 0 20px rgba(var(--color-danger-rgb), 0.35);
+  animation: pulse var(--animation-pulse) ease-in-out infinite;
+}
+
+/* Record button icon states */
+.toolbar-btn.toolbar-record .record-dot {
+  display: inline;
+}
+
+.toolbar-btn.toolbar-record .record-spinner {
+  display: none;
+}
+
+.toolbar-btn.toolbar-record.recording .record-dot {
+  display: none;
+}
+
+.toolbar-btn.toolbar-record.recording .record-spinner {
+  display: inline;
+}
+
+.toolbar-btn.toolbar-record.recording .spinner-ring {
+  transform-origin: center;
+  animation: spin 1s linear infinite;
+}
+
+/* Notes button - info cyan */
+.toolbar-btn.toolbar-notes {
+  border-color: rgba(var(--color-info-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.15) 0%, rgba(0, 150, 180, 0.1) 100%);
+}
+
+.toolbar-btn.toolbar-notes:hover:not(:disabled) {
+  border-color: rgba(var(--color-info-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
+  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
+}
+
+.toolbar-btn.toolbar-notes.panel-open {
+  border-color: rgba(var(--color-info-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
+  box-shadow: var(--shadow-glow-prismatic);
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-capture {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  body.streaming-mode .stream-toolbar .toolbar-capture {
+    animation: none !important;
+    opacity: 1;
+    transform: scale(1);
+  }
+}
