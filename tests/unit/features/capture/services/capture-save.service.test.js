@@ -6,6 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/features/capture/services/capture-save.service.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { downloadFile } from '@renderer/lib/file-download.utils.js';
+
+vi.mock('@renderer/lib/file-download.utils.js', () => ({
+  downloadFile: vi.fn()
+}));
 
 describe('CaptureSaveService', () => {
   let service;
@@ -44,6 +49,8 @@ describe('CaptureSaveService', () => {
     mockLoggerFactory = {
       create: vi.fn(() => mockLogger)
     };
+
+    downloadFile.mockResolvedValue();
 
     // Mock DOM APIs
     global.URL = {
@@ -119,6 +126,7 @@ describe('CaptureSaveService', () => {
         const result = await service.saveRecording(mockBlob, 'recording.webm');
 
         expect(result).toEqual({ success: true, transcoded: false });
+        expect(downloadFile).toHaveBeenCalledWith(mockBlob, 'recording.webm');
         expect(mockTranscodeService.transcode).not.toHaveBeenCalled();
       });
 
@@ -141,6 +149,7 @@ describe('CaptureSaveService', () => {
         const result = await service.saveRecording(mockBlob, 'recording.webm');
 
         expect(result).toEqual({ success: true, transcoded: false });
+        expect(downloadFile).toHaveBeenCalledWith(mockBlob, 'recording.webm');
         expect(mockTranscodeService.transcode).not.toHaveBeenCalled();
       });
     });
@@ -243,6 +252,7 @@ describe('CaptureSaveService', () => {
       const result = await service.saveScreenshot(mockBlob, 'screenshot.png');
 
       expect(result).toEqual({ success: true, transcoded: false });
+      expect(downloadFile).toHaveBeenCalledWith(mockBlob, 'screenshot.png');
       expect(mockTranscodeService.transcode).not.toHaveBeenCalled();
     });
   });
@@ -257,48 +267,12 @@ describe('CaptureSaveService', () => {
       });
     });
 
-    it('should create download link with blob URL', async () => {
-      const mockBlob = new Blob(['test'], { type: 'video/webm' });
-      const mockLink = {
-        href: '',
-        download: '',
-        click: vi.fn()
-      };
-      global.document.createElement.mockReturnValue(mockLink);
-
-      await service.saveRecording(mockBlob, 'file.webm');
-
-      expect(global.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
-      expect(mockLink.href).toBe('blob:test-url');
-      expect(mockLink.download).toBe('file.webm');
-    });
-
-    it('should append link to body and click', async () => {
-      const mockBlob = new Blob(['test'], { type: 'video/webm' });
-      const mockLink = {
-        href: '',
-        download: '',
-        click: vi.fn()
-      };
-      global.document.createElement.mockReturnValue(mockLink);
-
-      await service.saveRecording(mockBlob, 'file.webm');
-
-      expect(global.document.body.appendChild).toHaveBeenCalledWith(mockLink);
-      expect(mockLink.click).toHaveBeenCalled();
-      expect(global.document.body.removeChild).toHaveBeenCalledWith(mockLink);
-    });
-
-    it('should revoke URL after delay', async () => {
+    it('should call downloadFile', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
 
       await service.saveRecording(mockBlob, 'file.webm');
 
-      expect(global.URL.revokeObjectURL).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(1000);
-
-      expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
+      expect(downloadFile).toHaveBeenCalledWith(mockBlob, 'file.webm');
     });
 
     it('should log success', async () => {
@@ -311,9 +285,7 @@ describe('CaptureSaveService', () => {
 
     it('should handle errors', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
-      global.URL.createObjectURL.mockImplementation(() => {
-        throw new Error('Blob too large');
-      });
+      downloadFile.mockRejectedValue(new Error('Blob too large'));
 
       const result = await service.saveRecording(mockBlob, 'file.webm');
 

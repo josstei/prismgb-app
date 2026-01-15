@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
-vi.mock('@shared/streaming/acquisition/constraint-builder.js', () => {
+vi.mock('@shared/streaming/acquisition/constraint-builder.class.js', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
@@ -14,7 +14,7 @@ vi.mock('@shared/streaming/acquisition/constraint-builder.js', () => {
   };
 });
 
-vi.mock('@shared/streaming/acquisition/stream-lifecycle.js', () => {
+vi.mock('@shared/streaming/acquisition/stream-lifecycle.base.js', () => {
   return {
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}
@@ -172,7 +172,7 @@ describe('StreamingAdapterFactory', () => {
     });
   });
 
-  describe('detectDeviceType', () => {
+  describe('detectDeviceId', () => {
     beforeEach(async () => {
       await factory.initialize();
     });
@@ -180,20 +180,20 @@ describe('StreamingAdapterFactory', () => {
     it('should throw if not initialized', () => {
       const uninitializedFactory = new StreamingAdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
 
-      expect(() => uninitializedFactory.detectDeviceType({ label: 'test' })).toThrow(
+      expect(() => uninitializedFactory.detectDeviceId({ label: 'test' })).toThrow(
         'StreamingAdapterFactory not initialized'
       );
     });
 
     it('should return null for null device', () => {
-      const result = factory.detectDeviceType(null);
+      const result = factory.detectDeviceId(null);
 
       expect(result).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid device info');
     });
 
     it('should return null for device without label', () => {
-      const result = factory.detectDeviceType({ deviceId: '123' });
+      const result = factory.detectDeviceId({ deviceId: '123' });
 
       expect(result).toBeNull();
     });
@@ -201,7 +201,7 @@ describe('StreamingAdapterFactory', () => {
     it('should detect Chromatic device by label', () => {
       const device = { label: 'ModRetro Chromatic' };
 
-      const result = factory.detectDeviceType(device);
+      const result = factory.detectDeviceId(device);
 
       expect(result).toBe('chromatic-mod-retro');
       expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -212,7 +212,7 @@ describe('StreamingAdapterFactory', () => {
     it('should return null for unsupported device', () => {
       const device = { label: 'Generic Webcam' };
 
-      const result = factory.detectDeviceType(device);
+      const result = factory.detectDeviceId(device);
 
       expect(result).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith(

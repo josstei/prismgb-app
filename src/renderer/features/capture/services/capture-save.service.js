@@ -10,6 +10,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { downloadFile } from '@renderer/lib/file-download.utils.js';
 
 class CaptureSaveService extends BaseService {
   constructor(dependencies) {
@@ -59,19 +60,9 @@ class CaptureSaveService extends BaseService {
    * @returns {{success: boolean}}
    * @private
    */
-  _directSave(blob, filename) {
+  async _directSave(blob, filename) {
     try {
-      // Create download link and trigger it
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Revoke the URL after a short delay to allow download to start
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await downloadFile(blob, filename);
 
       this.logger.info(`Direct save completed: ${filename}`);
       return { success: true, transcoded: false };

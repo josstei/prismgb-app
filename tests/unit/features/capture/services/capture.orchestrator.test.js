@@ -40,7 +40,7 @@ describe('CaptureOrchestrator', () => {
     mockStreamingViewService = {
       getCanvas: vi.fn(() => mockStreamCanvas),
       getVideo: vi.fn(() => mockStreamVideo),
-      attachStream: vi.fn(),
+      attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
     };

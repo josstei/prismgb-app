@@ -58,6 +58,14 @@ export class StreamingViewportService extends BaseService {
   }
 
   /**
+   * Check if ResizeObserver is set up
+   * @returns {boolean} True if initialized
+   */
+  isInitialized() {
+    return Boolean(this._resizeObserver);
+  }
+
+  /**
    * Calculate dimensions for canvas based on available space and native resolution
    * @param {HTMLCanvasElement} canvas - Canvas element
    * @param {Object} nativeResolution - Native resolution {width, height}

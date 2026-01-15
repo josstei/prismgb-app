@@ -175,7 +175,7 @@ vi.mock('@renderer/ui/features/streaming/streaming-controls.component.js', () =>
 }));
 
 vi.mock('@renderer/ui/features/toolbar/components/shader-selector.component.js', () => ({
-  StreamingShaderSelectorComponent: vi.fn()
+  ShaderSelectorComponent: vi.fn()
 }));
 
 vi.mock('@renderer/ui/shared/status-notification.component.js', () => ({

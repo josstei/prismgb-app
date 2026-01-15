@@ -57,7 +57,7 @@ class StreamingCanvasLifecycleService extends BaseService {
       this.canvasRenderer.resize(canvas, dimensions.width, dimensions.height);
     }
 
-    if (!this.viewportService._resizeObserver) {
+    if (!this.viewportService.isInitialized()) {
       this.viewportService.initialize(section, () =>
         this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer)
       );

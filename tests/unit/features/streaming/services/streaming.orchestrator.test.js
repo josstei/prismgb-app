@@ -31,7 +31,7 @@ describe('StreamingOrchestrator', () => {
     };
 
     mockStreamingViewService = {
-      attachStream: vi.fn(),
+      attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
     };
@@ -178,7 +178,7 @@ describe('StreamingOrchestrator', () => {
     it('should assign stream to video element', async () => {
       await orchestrator._handleStreamStarted(mockData);
 
-      expect(mockStreamingViewService.attachStream).toHaveBeenCalledWith(mockData.stream);
+      expect(mockStreamingViewService.attachMutedStream).toHaveBeenCalledWith(mockData.stream);
     });
 
     it('should update UI and start render pipeline', async () => {

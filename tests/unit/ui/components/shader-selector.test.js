@@ -1,9 +1,9 @@
 /**
- * StreamingShaderSelectorComponent Unit Tests
+ * ShaderSelectorComponent Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
+import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 
 let mockCinematicToggle;
 let mockPresetList;
@@ -33,7 +33,7 @@ vi.mock('@renderer/ui/features/toolbar/components/shader-slider-controls.compone
   })
 }));
 
-describe('StreamingShaderSelectorComponent', () => {
+describe('ShaderSelectorComponent', () => {
   let component;
   let mockSettingsService;
   let mockEventBus;
@@ -60,7 +60,7 @@ describe('StreamingShaderSelectorComponent', () => {
       streamVideo: document.createElement('video')
     };
 
-    component = new StreamingShaderSelectorComponent({
+    component = new ShaderSelectorComponent({
       settingsService: mockSettingsService,
       appState: { cinematicModeEnabled: true },
       eventBus: mockEventBus,
@@ -106,7 +106,7 @@ describe('StreamingShaderSelectorComponent', () => {
     it('should log initialization success', () => {
       component.initialize(mockElements);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('StreamingShaderSelectorComponent initialized');
+      expect(mockLogger.debug).toHaveBeenCalledWith('ShaderSelectorComponent initialized');
     });
   });
 

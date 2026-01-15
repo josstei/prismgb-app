@@ -90,6 +90,7 @@ export class TranscodeProcess extends EventEmitter {
     this._completed = false;
     this._startTime = null;
     this._lastProgressEmit = 0;
+    this._forceKillTimeoutId = null;
   }
 
   /**
@@ -136,6 +137,10 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('close', (code, signal) => {
         this._process = null;
+        if (this._forceKillTimeoutId) {
+          clearTimeout(this._forceKillTimeoutId);
+          this._forceKillTimeoutId = null;
+        }
 
         if (this._killed) {
           this.emit('cancelled');
@@ -159,6 +164,10 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('error', (error) => {
         this._process = null;
+        if (this._forceKillTimeoutId) {
+          clearTimeout(this._forceKillTimeoutId);
+          this._forceKillTimeoutId = null;
+        }
         this.emit('error', error);
         reject(error);
       });
@@ -239,10 +248,14 @@ export class TranscodeProcess extends EventEmitter {
       this._process.kill('SIGTERM');
 
       // Force kill after timeout
-      setTimeout(() => {
+      if (this._forceKillTimeoutId) {
+        clearTimeout(this._forceKillTimeoutId);
+      }
+      this._forceKillTimeoutId = setTimeout(() => {
         if (this._process) {
           this._process.kill('SIGKILL');
         }
+        this._forceKillTimeoutId = null;
       }, 2000);
     }
   }

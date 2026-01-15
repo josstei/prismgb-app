@@ -125,6 +125,23 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
     return Array.from(this.activeStreams);
   }
 
+  /**
+   * Release all active streams
+   * @returns {Promise<void>}
+   */
+  async releaseAll() {
+    const streams = Array.from(this.activeStreams);
+    if (streams.length === 0) return;
+
+    const results = await Promise.allSettled(
+      streams.map(stream => this.releaseStream(stream))
+    );
+
+    if (results.some(result => result.status === 'rejected')) {
+      this._log('warn', 'One or more streams failed to release');
+    }
+  }
+
   _log(level, message, ...args) {
     if (this.logger && this.logger[level]) {
       this.logger[level](message, ...args);

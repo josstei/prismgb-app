@@ -277,16 +277,18 @@ describe('StreamingRenderPipelineService', () => {
       expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
     });
 
-    it('Canvas transferred but GPU failed - logs error and does not start Canvas2D', async () => {
+    it('Canvas transferred but GPU failed - recreates canvas and starts Canvas2D', async () => {
       mockStreamingGpuRendererService.initialize.mockResolvedValue(false);
       mockStreamingGpuRendererService.isCanvasTransferred.mockReturnValue(true);
 
       await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Canvas control was transferred to GPU renderer and cannot be recovered for Canvas2D fallback. Video will play but without rendering pipeline.'
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Canvas control was transferred to GPU renderer. Recreating canvas for Canvas2D fallback.'
       );
-      expect(mockStreamingCanvasRenderer.startRendering).not.toHaveBeenCalled();
+      expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalledWith(false);
+      expect(mockStreamingCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
     });
   });
 

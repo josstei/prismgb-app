@@ -55,10 +55,28 @@ async function createAppContainer(loggerFactory) {
   const { DeviceService } = await import('@main/features/devices/device.service.js');
   const { DeviceProfileRegistry } = await import('@main/features/devices/device-profile.registry.js');
   const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
+  const { DeviceChromaticProfile } = await import('@shared/features/devices/profiles/chromatic/device-chromatic.profile.js');
 
   container.register({
-    deviceService: asClass(DeviceService).singleton(),
-    profileRegistry: asClass(DeviceProfileRegistry).singleton(),
+    profileRegistry: asClass(DeviceProfileRegistry).singleton()
+  });
+
+  // Profile classes injected via DI (same pattern as adapterClasses in renderer)
+  const profileClasses = new Map([
+    ['chromatic-mod-retro', DeviceChromaticProfile]
+  ]);
+
+  // Manual instantiation required because DeviceService.initialize() is async
+  // and must be awaited during container bootstrap (Awilix doesn't support async factories)
+  const deviceService = new DeviceService({
+    profileRegistry: container.resolve('profileRegistry'),
+    eventBus: container.resolve('eventBus'),
+    loggerFactory: container.resolve('loggerFactory')
+  }, profileClasses);
+  await deviceService.initialize();
+
+  container.register({
+    deviceService: asValue(deviceService),
     deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
   });
 
