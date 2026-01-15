@@ -41,6 +41,7 @@ import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chro
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
+import { StreamingRendererFactory } from '@renderer/features/streaming/factories/streaming-renderer.factory.js';
 import { StreamingCanvasRenderer } from '@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js';
 import { StreamingRenderPipelineService } from '@renderer/features/streaming/rendering/streaming-render-pipeline.service.js';
 import { StreamingCanvasLifecycleService } from '@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js';
@@ -48,6 +49,8 @@ import { StreamingGpuRenderLoopService } from '@renderer/features/streaming/rend
 import { StreamingViewportService } from '@renderer/features/streaming/rendering/streaming-viewport.service.js';
 import { StreamingHealthService } from '@renderer/features/streaming/rendering/streaming-health.service.js';
 import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
+import { StreamingGpuRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-gpu-renderer.adapter.js';
+import { StreamingCanvas2DRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-canvas2d-renderer.adapter.js';
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
@@ -218,23 +221,42 @@ function createRendererContainer() {
     ['eventBus', 'loggerFactory', 'settingsService']
   );
 
+  // Streaming Renderer Factory - Creates GPU and Canvas2D renderer adapters
+  // Renderer adapter classes are registered here via DI bootstrap for testability
+  container.registerSingleton(
+    'streamingRendererFactory',
+    function(eventBus, loggerFactory) {
+      // Register renderer adapter classes via DI (no hardcoded imports in factory)
+      const rendererClasses = new Map([
+        ['gpu', StreamingGpuRendererAdapter],
+        ['canvas2d', StreamingCanvas2DRendererAdapter]
+      ]);
+      const rendererFactory = new StreamingRendererFactory(eventBus, loggerFactory, rendererClasses);
+      rendererFactory.initialize();
+      return rendererFactory;
+    },
+    ['eventBus', 'loggerFactory']
+  );
+
   // Render Pipeline Service - GPU/Canvas2D switching and health checks
+  // Uses Strategy pattern via StreamingRendererFactory for renderer selection
   container.registerSingleton(
     'renderPipelineService',
-    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthService, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
+    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthService, streamingRendererFactory, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
       return new StreamingRenderPipelineService({
         appState,
         streamViewService,
         canvasRenderer,
         canvasLifecycleService,
         streamHealthService,
+        streamingRendererFactory,
         gpuRendererService,
         gpuRenderLoopService,
         eventBus,
         loggerFactory
       });
     },
-    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
   );
 
   // IPC client (window.deviceAPI exposed from preload)

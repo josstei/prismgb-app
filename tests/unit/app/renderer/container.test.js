@@ -442,13 +442,23 @@ describe('Renderer Container', () => {
       );
     });
 
+    it('should register streamingRendererFactory singleton', () => {
+      const container = containerModule.createRendererContainer();
+
+      expect(container.registerSingleton).toHaveBeenCalledWith(
+        'streamingRendererFactory',
+        expect.any(Function),
+        ['eventBus', 'loggerFactory']
+      );
+    });
+
     it('should register renderPipelineService singleton', () => {
       const container = containerModule.createRendererContainer();
 
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'renderPipelineService',
         expect.any(Function),
-        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
       );
     });
 
