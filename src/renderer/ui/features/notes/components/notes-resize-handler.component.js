@@ -38,9 +38,9 @@ class NotesResizeHandlerComponent {
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
 
-   // Elements (cached for performance)
-   this.listToggle = null;
-   this.panelElement = null;
+    // Elements (cached for performance)
+    this.listToggle = null;
+    this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
   }
