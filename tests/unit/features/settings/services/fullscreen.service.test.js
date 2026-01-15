@@ -424,4 +424,188 @@ describe('SettingsFullscreenService', () => {
       );
     });
   });
+
+  describe('enterFullscreen', () => {
+    it('should do nothing if already fullscreen', () => {
+      service._isFullscreenActive = true;
+
+      service.enterFullscreen();
+
+      expect(mockDocumentElement.requestFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should call _forceEnterFullscreen when not in fullscreen', () => {
+      service._isFullscreenActive = false;
+
+      service.enterFullscreen();
+
+      expect(mockDocumentElement.requestFullscreen).toHaveBeenCalled();
+    });
+  });
+
+  describe('exitFullscreen', () => {
+    it('should do nothing if not in fullscreen', () => {
+      service._isFullscreenActive = false;
+
+      service.exitFullscreen();
+
+      expect(mockDocument.exitFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should call _forceExitFullscreen when in fullscreen', () => {
+      service._isFullscreenActive = true;
+      mockDocument.fullscreenElement = mockDocumentElement;
+
+      service.exitFullscreen();
+
+      expect(mockDocument.exitFullscreen).toHaveBeenCalled();
+    });
+  });
+
+  describe('_syncFullscreenState', () => {
+    it('should use windowAPI.isFullScreen when available', async () => {
+      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue(true);
+
+      const result = await service._syncFullscreenState();
+
+      expect(mockWindowAPI.isFullScreen).toHaveBeenCalled();
+      expect(result).toBe(true);
+      expect(service._isFullscreenActive).toBe(true);
+    });
+
+    it('should handle isFullScreen error and return current state', async () => {
+      const error = new Error('Query failed');
+      mockWindowAPI.isFullScreen = vi.fn().mockRejectedValue(error);
+      service._isFullscreenActive = true;
+
+      const result = await service._syncFullscreenState();
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Error querying fullscreen state:', error);
+      expect(result).toBe(true);
+    });
+
+    it('should use document.fullscreenElement when windowAPI.isFullScreen unavailable', async () => {
+      delete mockWindowAPI.isFullScreen;
+      mockDocument.fullscreenElement = mockDocumentElement;
+
+      const result = await service._syncFullscreenState();
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('_forceEnterFullscreen with windowAPI', () => {
+    it('should use windowAPI.setFullScreen when available', () => {
+      mockWindowAPI.setFullScreen = vi.fn().mockResolvedValue(undefined);
+
+      service._forceEnterFullscreen();
+
+      expect(mockWindowAPI.setFullScreen).toHaveBeenCalledWith(true);
+      expect(mockDocumentElement.requestFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should handle windowAPI.setFullScreen error', async () => {
+      const error = new Error('Enter failed');
+      mockWindowAPI.setFullScreen = vi.fn().mockRejectedValue(error);
+
+      service._forceEnterFullscreen();
+
+      await vi.waitFor(() => {
+        expect(mockLogger.error).toHaveBeenCalledWith('Error entering fullscreen:', error);
+      });
+    });
+
+    it('should publish error message when windowAPI.setFullScreen fails', async () => {
+      const error = new Error('Enter failed');
+      mockWindowAPI.setFullScreen = vi.fn().mockRejectedValue(error);
+
+      service._forceEnterFullscreen();
+
+      await vi.waitFor(() => {
+        expect(mockEventBus.publish).toHaveBeenCalledWith(
+          EventChannels.UI.STATUS_MESSAGE,
+          { message: 'Could not enter fullscreen', type: 'error' }
+        );
+      });
+    });
+  });
+
+  describe('_forceExitFullscreen with windowAPI', () => {
+    it('should use windowAPI.setFullScreen when available', () => {
+      mockWindowAPI.setFullScreen = vi.fn().mockResolvedValue(undefined);
+
+      service._forceExitFullscreen();
+
+      expect(mockWindowAPI.setFullScreen).toHaveBeenCalledWith(false);
+      expect(mockDocument.exitFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should handle windowAPI.setFullScreen error on exit', async () => {
+      const error = new Error('Exit failed');
+      mockWindowAPI.setFullScreen = vi.fn().mockRejectedValue(error);
+
+      service._forceExitFullscreen();
+
+      await vi.waitFor(() => {
+        expect(mockLogger.error).toHaveBeenCalledWith('Error exiting fullscreen:', error);
+      });
+    });
+
+    it('should publish error message when windowAPI.setFullScreen fails on exit', async () => {
+      const error = new Error('Exit failed');
+      mockWindowAPI.setFullScreen = vi.fn().mockRejectedValue(error);
+
+      service._forceExitFullscreen();
+
+      await vi.waitFor(() => {
+        expect(mockEventBus.publish).toHaveBeenCalledWith(
+          EventChannels.UI.STATUS_MESSAGE,
+          { message: 'Could not exit fullscreen', type: 'error' }
+        );
+      });
+    });
+
+    it('should not call document.exitFullscreen when no fullscreenElement', () => {
+      delete mockWindowAPI.setFullScreen;
+      mockDocument.fullscreenElement = null;
+
+      service._forceExitFullscreen();
+
+      expect(mockDocument.exitFullscreen).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onResized callback', () => {
+    let resizedCallback;
+
+    beforeEach(() => {
+      mockWindowAPI.onResized = vi.fn((callback) => {
+        resizedCallback = callback;
+        return vi.fn();
+      });
+      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue(false);
+
+      service = new SettingsFullscreenService({
+        eventBus: mockEventBus,
+        loggerFactory: mockLoggerFactory
+      });
+      service.initialize();
+    });
+
+    it('should publish WINDOW_RESIZED event on resize', async () => {
+      resizedCallback();
+
+      await vi.waitFor(() => {
+        expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.WINDOW_RESIZED);
+      });
+    });
+
+    it('should sync fullscreen state on resize', async () => {
+      resizedCallback();
+
+      await vi.waitFor(() => {
+        expect(mockWindowAPI.isFullScreen).toHaveBeenCalled();
+      });
+    });
+  });
 });

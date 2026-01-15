@@ -69,8 +69,8 @@ class DeviceMediaService extends BaseService {
 
           if (videoDevices.length > 0) {
             this.hasMediaPermission = true;
-            const deviceType = DeviceDetectionHelper.detectDeviceType(videoDevices[0]);
-            this.deviceStorageService.storeDeviceId(videoDevices[0].deviceId, deviceType);
+            const deviceId = DeviceDetectionHelper.detectDeviceId(videoDevices[0]);
+            this.deviceStorageService.storeDeviceId(videoDevices[0].deviceId, deviceId);
           } else if (allVideos.length > 0 && allVideos.every(d => !d.label)) {
             this.logger.debug('Devices found but no labels - permission pending');
           }
@@ -178,13 +178,13 @@ class DeviceMediaService extends BaseService {
   }
 
   registerSupportedDevice(device) {
-    const deviceType = DeviceDetectionHelper.detectDeviceType(device);
-    if (!deviceType || !device?.deviceId) {
+    const deviceId = DeviceDetectionHelper.detectDeviceId(device);
+    if (!deviceId || !device?.deviceId) {
       this.logger.warn('Could not cache device - unsupported or missing deviceId');
       return false;
     }
 
-    this.deviceStorageService.storeDeviceId(device.deviceId, deviceType);
+    this.deviceStorageService.storeDeviceId(device.deviceId, deviceId);
     this.hasMediaPermission = true;
     this.videoDevices = [device];
     return true;

@@ -42,11 +42,11 @@ function matchesUSBConfig(device, usbConfig) {
 }
 
 /**
- * Detect device type from device info
+ * Detect device ID from device info
  * @param {Object} device - Device with label and/or vendorId/productId
  * @returns {string|null} Device ID or null if not matched
  */
-function detectDeviceType(device) {
+function detectDeviceId(device) {
   if (!device) return null;
 
   for (const entry of DeviceRegistry.getAll()) {
@@ -68,7 +68,7 @@ function detectDeviceType(device) {
 
 export const DeviceDetectionHelper = {
   /**
-   * Detect device type from MediaDeviceInfo or USB device info
+   * Detect device ID from MediaDeviceInfo or USB device info
    * Attempts to identify the device by checking label patterns and USB identifiers
    * against all registered devices in the DeviceRegistry
    * @param {Object} device - Device object containing identification properties
@@ -77,17 +77,17 @@ export const DeviceDetectionHelper = {
    * @param {number} [device.productId] - USB product ID
    * @returns {string|null} Device ID if matched, null if no match found
    */
-  detectDeviceType,
+  detectDeviceId,
 
   /**
-   * Find device type by matching label against all registered devices
+   * Find device ID by matching label against all registered devices
    * Searches through device registry and attempts to match the provided label
    * against registered label patterns for each device
    * @param {string} label - Device label from MediaDeviceInfo or device name
    * @returns {string|null} Device ID if matched, null if no match found
    */
   matchesByLabel(label) {
-    return detectDeviceType({ label });
+    return detectDeviceId({ label });
   },
 
   /**
@@ -96,6 +96,6 @@ export const DeviceDetectionHelper = {
    * @returns {string|null} Device ID or null
    */
   matchesByUSB(usbDevice) {
-    return detectDeviceType(usbDevice);
+    return detectDeviceId(usbDevice);
   }
 };

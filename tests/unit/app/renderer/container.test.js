@@ -175,7 +175,7 @@ vi.mock('@renderer/ui/features/streaming/streaming-controls.component.js', () =>
 }));
 
 vi.mock('@renderer/ui/features/toolbar/components/shader-selector.component.js', () => ({
-  StreamingShaderSelectorComponent: vi.fn()
+  ShaderSelectorComponent: vi.fn()
 }));
 
 vi.mock('@renderer/ui/shared/status-notification.component.js', () => ({
@@ -604,6 +604,213 @@ describe('Renderer Container', () => {
       const factoryFn = ipcClientCall[1];
 
       expect(factoryFn()).toBe(window.deviceAPI);
+    });
+  });
+
+  describe('factory function invocations', () => {
+    let container;
+
+    beforeEach(() => {
+      container = containerModule.createRendererContainer();
+    });
+
+    function getFactoryFn(name) {
+      const registerCalls = container.registerSingleton.mock.calls;
+      const call = registerCalls.find(c => c[0] === name);
+      return call ? call[1] : null;
+    }
+
+    it('should create loggerFactory', () => {
+      const factoryFn = getFactoryFn('loggerFactory');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create storageService', () => {
+      const factoryFn = getFactoryFn('storageService');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create browserMediaService', () => {
+      const factoryFn = getFactoryFn('browserMediaService');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create visibilityAdapter', () => {
+      const factoryFn = getFactoryFn('visibilityAdapter');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create userActivityAdapter', () => {
+      const factoryFn = getFactoryFn('userActivityAdapter');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create reducedMotionAdapter', () => {
+      const factoryFn = getFactoryFn('reducedMotionAdapter');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create metricsAdapter', () => {
+      const factoryFn = getFactoryFn('metricsAdapter');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create animationCache', () => {
+      const factoryFn = getFactoryFn('animationCache');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create bodyClassManager', () => {
+      const factoryFn = getFactoryFn('bodyClassManager');
+      const result = factoryFn();
+      expect(result).toBeDefined();
+    });
+
+    it('should create eventBus with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn() };
+      const factoryFn = getFactoryFn('eventBus');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create deviceIpcAdapter with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('deviceIpcAdapter');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create canvasRenderer with dependencies', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const mockAnimationCache = {};
+      const factoryFn = getFactoryFn('canvasRenderer');
+      const result = factoryFn(mockLoggerFactory, mockAnimationCache);
+      expect(result).toBeDefined();
+    });
+
+    it('should create viewportService with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('viewportService');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create gpuRenderLoopService with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('gpuRenderLoopService');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create streamHealthService with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('streamHealthService');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create deviceStatusProvider with ipcClient', () => {
+      const mockIpcClient = {};
+      const factoryFn = getFactoryFn('deviceStatusProvider');
+      const result = factoryFn(mockIpcClient);
+      expect(result).toBeDefined();
+    });
+
+    it('should create deviceStorageService with dependencies', () => {
+      const mockStorageService = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('deviceStorageService');
+      const result = factoryFn(mockStorageService, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create deviceConnectionService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const mockDeviceStatusProvider = {};
+      const factoryFn = getFactoryFn('deviceConnectionService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory, mockDeviceStatusProvider);
+      expect(result).toBeDefined();
+    });
+
+    it('should create captureService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('captureService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create transcodeService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('transcodeService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create settingsService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const mockStorageService = {};
+      const factoryFn = getFactoryFn('settingsService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory, mockStorageService);
+      expect(result).toBeDefined();
+    });
+
+    it('should create notesService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const mockStorageService = {};
+      const factoryFn = getFactoryFn('notesService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory, mockStorageService);
+      expect(result).toBeDefined();
+    });
+
+    it('should create updateService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('updateService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create updateUiService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('updateUiService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create fullscreenService with dependencies', () => {
+      const mockEventBus = {};
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('fullscreenService');
+      const result = factoryFn(mockEventBus, mockLoggerFactory);
+      expect(result).toBeDefined();
+    });
+
+    it('should create uiEffects with bodyClassManager', () => {
+      const mockBodyClassManager = {};
+      const factoryFn = getFactoryFn('uiEffects');
+      const result = factoryFn(mockBodyClassManager);
+      expect(result).toBeDefined();
+    });
+
+    it('should create animationPerformanceService with loggerFactory', () => {
+      const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const factoryFn = getFactoryFn('animationPerformanceService');
+      const result = factoryFn(mockLoggerFactory);
+      expect(result).toBeDefined();
     });
   });
 });

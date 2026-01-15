@@ -172,7 +172,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Note: App state automatically derives isStreaming from StreamingService
     // No need to manually update appState.setStreaming() anymore
 
-    this.streamViewService.attachStream(stream);
+    this.streamViewService.attachMutedStream(stream);
     this._startAudioWithFallback(stream);
 
     // Update UI for streaming mode via event
