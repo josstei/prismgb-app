@@ -111,20 +111,17 @@ class NotesListViewComponent {
    */
   updateItemDisplay(noteId, title, gameName) {
     const item = this.listElement?.querySelector(`[data-note-id="${noteId}"]`);
-    if (item) {
-      const titleEl = item.querySelector('.note-list-item-title');
-      if (titleEl) {
-        titleEl.textContent = title || 'Untitled Note';
-      }
-      const dateEl = item.querySelector('.note-list-item-date');
-      if (dateEl) {
-        dateEl.textContent = new Date().toLocaleDateString();
-      }
-      // Update game tag if present
-      const gameTagEl = item.querySelector('.note-list-item-game-tag');
-      if (gameTagEl && gameName !== undefined) {
-        gameTagEl.textContent = gameName || '';
-        gameTagEl.style.display = gameName ? '' : 'none';
+    if (!item) return;
+
+    // Iterate through direct children once instead of multiple querySelector calls
+    for (const child of item.children) {
+      if (child.classList.contains('note-list-item-title')) {
+        child.textContent = title || 'Untitled Note';
+      } else if (child.classList.contains('note-list-item-date')) {
+        child.textContent = new Date().toLocaleDateString();
+      } else if (child.classList.contains('note-list-item-game-tag') && gameName !== undefined) {
+        child.textContent = gameName || '';
+        child.style.display = gameName ? '' : 'none';
       }
     }
   }

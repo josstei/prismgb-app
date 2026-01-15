@@ -11,7 +11,7 @@ export class PresentationModeCoordinator extends BaseService {
     super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeCoordinator');
 
     this._minimalistEnabled = false;
-    this._cinematicEnabled = Boolean(this.appState?.cinematicModeEnabled);
+    this._cinematicEnabled = Boolean(this.appState?.isCinematicModeEnabled);
     this._isFullscreenActive = Boolean(document.fullscreenElement);
     this._isStreamingActive = Boolean(this.appState?.isStreaming);
   }

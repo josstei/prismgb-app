@@ -17,7 +17,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._recordingStream = null;
     this._recordingFrameId = null;
     this._isRecording = false;
-    this._capturePending = false;
+    this._isCapturePending = false;
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
@@ -26,7 +26,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._cachedScaleParams = null;
     this._cachedFrameWidth = 0;
     this._cachedFrameHeight = 0;
-    this._canvasCleared = false;
+    this._isCanvasCleared = false;
 
     // Draining state: track in-flight capture to await before cleanup
     this._isDraining = false;
@@ -202,8 +202,8 @@ class CaptureGpuRecordingService extends BaseService {
       // Don't start new captures if draining or stopped
       if (!this._isRecording || this._isDraining) return;
 
-      if (!this._capturePending) {
-        this._capturePending = true;
+      if (!this._isCapturePending) {
+        this._isCapturePending = true;
         let frame = null;
 
         // Track the capture promise for draining
@@ -221,10 +221,10 @@ class CaptureGpuRecordingService extends BaseService {
           const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
 
           // Performance: only clear canvas once when dimensions require it
-          if (needsClearing && !this._canvasCleared) {
+          if (needsClearing && !this._isCanvasCleared) {
             this._recordingCtx.fillStyle = '#000000';
             this._recordingCtx.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
-            this._canvasCleared = true;
+            this._isCanvasCleared = true;
           }
 
           this._recordingCtx.drawImage(
@@ -243,7 +243,7 @@ class CaptureGpuRecordingService extends BaseService {
           }
         } finally {
           frame?.close();
-          this._capturePending = false;
+          this._isCapturePending = false;
           this._lastCapturePromise = null;
         }
       }
@@ -268,7 +268,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._isRecording = false;
-    this._capturePending = false;
+    this._isCapturePending = false;
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
@@ -277,7 +277,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._cachedScaleParams = null;
     this._cachedFrameWidth = 0;
     this._cachedFrameHeight = 0;
-    this._canvasCleared = false;
+    this._isCanvasCleared = false;
 
     // Reset draining state
     this._isDraining = false;

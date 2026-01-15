@@ -32,7 +32,7 @@ describe('SettingsCinematicModeService', () => {
     };
 
     mockAppState = {
-      cinematicModeEnabled: false,
+      isCinematicModeEnabled: false,
       setCinematicMode: vi.fn()
     };
 
@@ -79,7 +79,7 @@ describe('SettingsCinematicModeService', () => {
   describe('toggleCinematicMode', () => {
     describe('when disabled', () => {
       beforeEach(() => {
-        mockAppState.cinematicModeEnabled = false;
+        mockAppState.isCinematicModeEnabled = false;
       });
 
       it('should enable cinematic mode', () => {
@@ -106,7 +106,7 @@ describe('SettingsCinematicModeService', () => {
 
     describe('when enabled', () => {
       beforeEach(() => {
-        mockAppState.cinematicModeEnabled = true;
+        mockAppState.isCinematicModeEnabled = true;
       });
 
       it('should disable cinematic mode', () => {
@@ -133,7 +133,7 @@ describe('SettingsCinematicModeService', () => {
 
     describe('state updates', () => {
       it('should update state before publishing events', () => {
-        mockAppState.cinematicModeEnabled = false;
+        mockAppState.isCinematicModeEnabled = false;
         let stateUpdated = false;
 
         mockAppState.setCinematicMode.mockImplementation(() => {
@@ -150,14 +150,14 @@ describe('SettingsCinematicModeService', () => {
 
     describe('multiple toggles', () => {
       it('should toggle between enabled and disabled states', () => {
-        mockAppState.cinematicModeEnabled = false;
+        mockAppState.isCinematicModeEnabled = false;
 
         // First toggle - enable
         service.toggleCinematicMode();
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(true);
 
         // Simulate state change
-        mockAppState.cinematicModeEnabled = true;
+        mockAppState.isCinematicModeEnabled = true;
         mockEventBus.publish.mockClear();
 
         // Second toggle - disable
@@ -166,7 +166,7 @@ describe('SettingsCinematicModeService', () => {
       });
 
       it('should publish correct domain events on each toggle', () => {
-        mockAppState.cinematicModeEnabled = false;
+        mockAppState.isCinematicModeEnabled = false;
 
         // Enable
         service.toggleCinematicMode();
@@ -176,7 +176,7 @@ describe('SettingsCinematicModeService', () => {
         );
 
         // Simulate state change and clear mocks
-        mockAppState.cinematicModeEnabled = true;
+        mockAppState.isCinematicModeEnabled = true;
         mockEventBus.publish.mockClear();
 
         // Disable

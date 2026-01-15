@@ -13,7 +13,7 @@ class SettingsCinematicModeService extends BaseService {
   }
 
   toggleCinematicMode() {
-    const newMode = !this.appState.cinematicModeEnabled;
+    const newMode = !this.appState.isCinematicModeEnabled;
     this.appState.setCinematicMode(newMode);
     this.eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: newMode });
   }

@@ -47,14 +47,14 @@ class TranscodeService extends BaseService {
     /** @type {Map<string, NodeJS.Timeout>} Track job cleanup timeouts */
     this._cleanupTimeouts = new Map();
 
-    this._initialized = false;
+    this._isInitialized = false;
   }
 
   /**
    * Initialize the transcode service
    */
   initialize() {
-    if (this._initialized) {
+    if (this._isInitialized) {
       this.logger.warn('TranscodeService already initialized');
       return;
     }
@@ -75,7 +75,7 @@ class TranscodeService extends BaseService {
       this._cleanupOnQuit();
     });
 
-    this._initialized = true;
+    this._isInitialized = true;
     this.logger.info('TranscodeService initialized');
   }
 
@@ -88,7 +88,7 @@ class TranscodeService extends BaseService {
    * @returns {Promise<{ success: boolean, jobId?: string, filePath?: string, error?: string }>}
    */
   async transcode({ inputBuffer, format, outputFilename }) {
-    if (!this._initialized) {
+    if (!this._isInitialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
 
@@ -365,7 +365,7 @@ class TranscodeService extends BaseService {
     this._processes.clear();
     this._sessions.clear();
 
-    this._initialized = false;
+    this._isInitialized = false;
     this.logger.info('TranscodeService disposed');
   }
 }

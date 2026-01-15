@@ -35,7 +35,7 @@ class CinematicToggleComponent {
       return;
     }
 
-    const initialState = this.appState?.cinematicModeEnabled ?? true;
+    const initialState = this.appState?.isCinematicModeEnabled ?? true;
     this._updateCinematicPill(initialState);
 
     this._domListeners.add(this.toggleElement, 'click', () => {

@@ -62,7 +62,7 @@ describe('ShaderSelectorComponent', () => {
 
     component = new ShaderSelectorComponent({
       settingsService: mockSettingsService,
-      appState: { cinematicModeEnabled: true },
+      appState: { isCinematicModeEnabled: true },
       eventBus: mockEventBus,
       logger: mockLogger
     });

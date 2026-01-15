@@ -23,7 +23,7 @@ describe('PresentationModeCoordinator', () => {
     };
 
     mockAppState = {
-      cinematicModeEnabled: true,
+      isCinematicModeEnabled: true,
       isStreaming: false
     };
 

@@ -80,7 +80,7 @@ describe('StreamingCanvasRenderer', () => {
     it('should initialize with default values', () => {
       expect(renderer._cachedContext).toBeNull();
       expect(renderer._cachedCanvas).toBeNull();
-      expect(renderer._renderLoopActive).toBe(false);
+      expect(renderer._isRenderLoopActive).toBe(false);
       expect(renderer._lastFrameTime).toBe(-1);
       expect(renderer._rvfcHandle).toBeNull();
     });
@@ -155,11 +155,11 @@ describe('StreamingCanvasRenderer', () => {
 
   describe('stopRendering', () => {
     it('should stop render loop', () => {
-      renderer._renderLoopActive = true;
+      renderer._isRenderLoopActive = true;
 
       renderer.stopRendering(mockVideo);
 
-      expect(renderer._renderLoopActive).toBe(false);
+      expect(renderer._isRenderLoopActive).toBe(false);
     });
 
     it('should cancel RVFC handle if active', () => {
@@ -298,11 +298,11 @@ describe('StreamingCanvasRenderer', () => {
 
   describe('cleanup', () => {
     it('should stop render loop', () => {
-      renderer._renderLoopActive = true;
+      renderer._isRenderLoopActive = true;
 
       renderer.cleanup();
 
-      expect(renderer._renderLoopActive).toBe(false);
+      expect(renderer._isRenderLoopActive).toBe(false);
     });
 
     it('should cancel all animations', () => {
@@ -362,13 +362,13 @@ describe('StreamingCanvasRenderer', () => {
 
   describe('isActive', () => {
     it('should return false when render loop is inactive', () => {
-      renderer._renderLoopActive = false;
+      renderer._isRenderLoopActive = false;
 
       expect(renderer.isActive()).toBe(false);
     });
 
     it('should return true when render loop is active', () => {
-      renderer._renderLoopActive = true;
+      renderer._isRenderLoopActive = true;
 
       expect(renderer.isActive()).toBe(true);
     });
@@ -443,7 +443,7 @@ describe('StreamingCanvasRenderer', () => {
       renderer._rvfcHandle = 123;
 
       expect(() => renderer.stopRendering(null)).not.toThrow();
-      expect(renderer._renderLoopActive).toBe(false);
+      expect(renderer._isRenderLoopActive).toBe(false);
     });
 
     it('should handle video element without cancelVideoFrameCallback', () => {
@@ -513,11 +513,11 @@ describe('StreamingCanvasRenderer', () => {
     it('should set render loop active flag', () => {
       const isStreamingFn = vi.fn(() => true);
       const isHiddenFn = vi.fn(() => false);
-      renderer._renderLoopActive = false;
+      renderer._isRenderLoopActive = false;
 
       renderer.startRendering(mockVideo, mockCanvas, isStreamingFn, isHiddenFn);
 
-      expect(renderer._renderLoopActive).toBe(true);
+      expect(renderer._isRenderLoopActive).toBe(true);
     });
 
     it('should clean up existing loadeddata listener before adding new one', () => {

@@ -25,7 +25,7 @@ class AppState {
     this.eventBus = eventBus;
 
     // UI state
-    this.cinematicModeEnabled = true; // Default enabled
+    this.isCinematicModeEnabled = true; // Default enabled
 
     // Internal state cache (updated via events)
     this._streamCache = null;
@@ -101,7 +101,7 @@ class AppState {
    * @param {boolean} enabled - Whether cinematic mode is enabled
    */
   setCinematicMode(enabled) {
-    this.cinematicModeEnabled = enabled;
+    this.isCinematicModeEnabled = enabled;
   }
 
   /**

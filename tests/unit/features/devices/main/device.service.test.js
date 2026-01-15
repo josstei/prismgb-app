@@ -176,8 +176,8 @@ describe('DeviceService (Main Process)', () => {
 
       expect(deviceService.isDeviceConnected).toBe(false);
       expect(deviceService.connectedDeviceInfo).toBeNull();
-      expect(deviceService.usbMonitoring).toBe(false);
-      expect(deviceService._profilesInitialized).toBe(false);
+      expect(deviceService.isUsbMonitoring).toBe(false);
+      expect(deviceService._areProfilesInitialized).toBe(false);
     });
   });
 
@@ -213,7 +213,7 @@ describe('DeviceService (Main Process)', () => {
     it('should set initialized flag after successful initialization', async () => {
       await deviceService.initialize();
 
-      expect(deviceService._profilesInitialized).toBe(true);
+      expect(deviceService._areProfilesInitialized).toBe(true);
     });
 
     it('should warn if already initialized', async () => {

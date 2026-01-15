@@ -32,7 +32,7 @@ export class StreamingCanvasRenderer {
     this._cachedCanvas = null;
 
     // Track render loop for cleanup
-    this._renderLoopActive = false;
+    this._isRenderLoopActive = false;
 
     // Frame skipping - track last rendered frame to avoid redundant draws
     this._lastFrameTime = -1;
@@ -60,7 +60,7 @@ export class StreamingCanvasRenderer {
    * @param {Function} isHiddenFn - Returns true if page is hidden (pause rendering)
    */
   startRendering(videoElement, canvasElement, isStreamingFn, isHiddenFn) {
-    this._renderLoopActive = true;
+    this._isRenderLoopActive = true;
     this._lastFrameTime = -1;
 
     // Cache canvas context to avoid repeated getContext calls
@@ -84,7 +84,7 @@ export class StreamingCanvasRenderer {
 
     // Use requestVideoFrameCallback for frame-synced rendering
     const renderVideoFrame = (now, metadata) => {
-      if (!this._renderLoopActive) return;
+      if (!this._isRenderLoopActive) return;
 
       // Skip identical frames - check mediaTime from video frame metadata
       const frameTime = metadata?.mediaTime ?? now;
@@ -151,7 +151,7 @@ export class StreamingCanvasRenderer {
    */
   stopRendering(videoElement) {
     // Stop render loop
-    this._renderLoopActive = false;
+    this._isRenderLoopActive = false;
 
     // Remove loadeddata listener if still attached
     this._removeLoadedDataListener();
@@ -247,7 +247,7 @@ export class StreamingCanvasRenderer {
    * @returns {boolean} True if render loop is running
    */
   isActive() {
-    return this._renderLoopActive;
+    return this._isRenderLoopActive;
   }
 
   /**
@@ -268,7 +268,7 @@ export class StreamingCanvasRenderer {
    */
   cleanup() {
     // Stop render loop
-    this._renderLoopActive = false;
+    this._isRenderLoopActive = false;
 
     // Remove loadeddata listener if still attached
     this._removeLoadedDataListener();

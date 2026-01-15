@@ -18,8 +18,8 @@ class PerformanceAnimationService extends BaseService {
     };
 
     this._isStreaming = false;
-    this._hidden = false;
-    this._idle = false;
+    this._isHidden = false;
+    this._isIdle = false;
   }
 
   /**
@@ -51,8 +51,8 @@ class PerformanceAnimationService extends BaseService {
     this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
     this._setAnimationsSuppressed('reducedMotion', reducedMotion);
 
-    this._hidden = Boolean(performanceState.hidden);
-    this._idle = Boolean(performanceState.idle);
+    this._isHidden = Boolean(performanceState.hidden);
+    this._isIdle = Boolean(performanceState.idle);
 
     if (performanceEnabled) {
       this.logger.info('Performance mode enabled - pausing decorative animations');
@@ -79,8 +79,8 @@ class PerformanceAnimationService extends BaseService {
   _getState() {
     return {
       streaming: this._isStreaming,
-      idle: this._idle,
-      hidden: this._hidden,
+      idle: this._isIdle,
+      hidden: this._isHidden,
       animationsOff: Object.values(this._animationSuppression).some(Boolean)
     };
   }
