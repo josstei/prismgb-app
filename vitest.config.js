@@ -89,10 +89,10 @@ export default defineConfig({
     // Test timeout
     testTimeout: 10000,
 
-    // Parallel test execution with thread isolation
-    pool: 'threads',
-    minThreads: 4,
-    maxThreads: 8,
+    // Limit CPU usage: 2 workers max
+    pool: 'forks',
+    maxWorkers: 2,
+    fileParallelism: true,
     isolate: true
   }
 });
