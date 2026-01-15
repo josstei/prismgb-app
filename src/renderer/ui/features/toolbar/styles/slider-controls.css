@@ -1,0 +1,158 @@
+/**
+ * Slider Controls
+ *
+ * Vertical slider styles for brightness and volume controls in the shader panel.
+ */
+
+/* =====================================================
+   Brightness Control - Vertical Slider
+   ===================================================== */
+.brightness-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 4px;
+  min-width: 48px;
+}
+
+.brightness-control.hidden {
+  display: none;
+}
+
+.brightness-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.brightness-slider {
+  --fill-percent: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 120px;
+  width: 18px;
+  background: linear-gradient(
+    to top,
+    var(--color-primary) 0%,
+    var(--color-primary) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  outline: none;
+  border-radius: 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Webkit vertical slider thumb (Electron uses Chromium) */
+.brightness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 21px;
+  height: 21px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+.brightness-slider::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.brightness-slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.brightness-percentage {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  min-width: 36px;
+}
+
+/* =====================================================
+   Volume Control - Vertical Slider
+   ===================================================== */
+.volume-control-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.volume-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.volume-slider-vertical {
+  --fill-percent: 50%;
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 120px;
+  width: 18px;
+  background: linear-gradient(
+    to top,
+    var(--color-primary) 0%,
+    var(--color-primary) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  outline: none;
+  border-radius: 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.volume-slider-vertical::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 21px;
+  height: 21px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+.volume-slider-vertical::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.volume-slider-vertical:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.volume-percentage-vertical {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  min-width: 36px;
+}

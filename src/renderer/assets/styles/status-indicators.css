@@ -1,0 +1,108 @@
+/* =====================================================
+   Status Indicators
+   Device status, status strip, and metric chips
+   ===================================================== */
+
+/* =====================================================
+   Device Status
+   ===================================================== */
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15) 0%, rgba(var(--color-primary-darker-rgb), 0.1) 100%);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--radius-xl);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-disabled);
+  animation: pulse var(--animation-pulse) ease-in-out infinite;
+  /* Simplified single box-shadow */
+  box-shadow: 0 0 8px currentColor;
+  will-change: opacity;
+}
+
+.status-indicator.connected {
+  background: var(--color-success);
+  box-shadow: 0 0 10px rgba(var(--color-success-rgb), 0.7);
+}
+
+.status-indicator.disconnected {
+  background: var(--color-danger);
+  box-shadow: 0 0 10px rgba(var(--color-danger-rgb), 0.5);
+  animation: none;
+}
+
+/* =====================================================
+   Status Strip
+   ===================================================== */
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--color-bg-overlay-dark);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  margin-left: 0;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.status-message {
+  flex: 1 1 120px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.status-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12) 0%, rgba(var(--color-primary-darker-rgb), 0.08) 100%);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.22);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--color-text-primary);
+}
+
+.metric-label {
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-chip.status-state.connected {
+  border-color: rgba(var(--color-success-rgb), 0.35);
+  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.16) 0%, rgba(5, 150, 105, 0.12) 100%);
+  color: var(--color-success-light);
+}
+
+.metric-chip.status-state.disconnected {
+  border-color: rgba(var(--color-danger-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.16) 0%, rgba(244, 63, 94, 0.12) 100%);
+  color: var(--color-danger-light);
+}

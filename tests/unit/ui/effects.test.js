@@ -145,7 +145,8 @@ describe('UIEffects', () => {
 
   describe('triggerRecordButtonPop', () => {
     it('should call triggerButtonFeedback with correct arguments', () => {
-      const spy = vi.spyOn(uiEffects, 'triggerButtonFeedback');
+      // Spy on the internal button feedback component
+      const spy = vi.spyOn(uiEffects._buttonFeedback, 'triggerButtonFeedback');
 
       uiEffects.triggerRecordButtonPop();
 
@@ -155,7 +156,8 @@ describe('UIEffects', () => {
 
   describe('triggerRecordButtonPress', () => {
     it('should call triggerButtonFeedback with correct arguments', () => {
-      const spy = vi.spyOn(uiEffects, 'triggerButtonFeedback');
+      // Spy on the internal button feedback component
+      const spy = vi.spyOn(uiEffects._buttonFeedback, 'triggerButtonFeedback');
 
       uiEffects.triggerRecordButtonPress();
 

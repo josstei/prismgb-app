@@ -1,0 +1,30 @@
+/* =====================================================
+   Capture Feedback Styles
+   Screenshot and recording feedback effects
+   ===================================================== */
+
+/* Screenshot button click feedback */
+#screenshotBtn.capturing {
+  animation: capture-click 0.2s ease-out;
+}
+
+/* Screen flash overlay for screenshot */
+.shutter-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(var(--color-info-rgb), 0.4) 0%, rgba(255, 255, 255, 0.6) 100%);
+  pointer-events: none;
+  z-index: var(--z-notification);
+  animation: shutter-flash 0.2s ease-out forwards;
+}
+
+/* Button animation classes for feedback effects */
+.btn-pop {
+  transform: scale(1.15) !important;
+  transition: transform 0.1s ease-out !important;
+}
+
+.btn-press {
+  transform: scale(0.85) !important;
+  transition: transform 0.1s ease-out !important;
+}

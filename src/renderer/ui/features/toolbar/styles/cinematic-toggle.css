@@ -1,0 +1,69 @@
+/* =====================================================
+   Cinematic Mode Toggle - Pill Button
+   Toggle button for enabling/disabling cinematic mode
+   ===================================================== */
+
+/* Cinematic Toggle Button - matches btn-secondary style when off */
+.cinematic-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid rgba(var(--color-primary-rgb), 0.3);
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease,
+    border-color 0.1s ease,
+    transform 0.1s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cinematic-pill:hover {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.5);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.cinematic-pill:active {
+  transform: scale(0.98);
+}
+
+/* Active/On state - primary purple */
+.cinematic-pill.active {
+  background: rgba(var(--color-primary-rgb), 0.35);
+  border-color: rgba(var(--color-primary-rgb), 0.6);
+  color: white;
+  font-weight: 600;
+}
+
+.cinematic-pill.active:hover {
+  background: rgba(var(--color-primary-rgb), 0.45);
+  border-color: rgba(var(--color-primary-rgb), 0.7);
+}
+
+.cinematic-pill-text {
+  pointer-events: none;
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-pill {
+    transition: none !important;
+  }
+
+  .cinematic-pill:active {
+    transform: none;
+  }
+}

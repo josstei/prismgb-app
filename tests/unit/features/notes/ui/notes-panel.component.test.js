@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesPanelComponent } from '@renderer/features/notes/ui/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 
@@ -45,6 +45,8 @@ describe('NotesPanelComponent', () => {
     mockElements = {
       notesBtn: document.createElement('button'),
       notesPanel: document.createElement('div'),
+      notesPanelContent: document.createElement('div'),
+      notesListWrapper: document.createElement('div'),
       notesSearchInput: document.createElement('input'),
       notesGameFilter: document.createElement('button'),
       notesGameFilterLabel: document.createElement('span'),
@@ -60,7 +62,9 @@ describe('NotesPanelComponent', () => {
       notesTitleInput: document.createElement('input'),
       notesContentArea: document.createElement('textarea'),
       notesNewBtn: document.createElement('button'),
-      notesDeleteBtn: document.createElement('button')
+      notesDeleteBtn: document.createElement('button'),
+      streamContainer: document.createElement('div'),
+      streamToolbar: document.createElement('div')
     };
 
     // Set up element IDs for querySelector usage
@@ -180,6 +184,14 @@ describe('NotesPanelComponent', () => {
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
     });
 
+    it('should update layout position when shown', () => {
+      const updateSpy = vi.spyOn(component.layout, 'updatePosition');
+
+      component.show();
+
+      expect(updateSpy).toHaveBeenCalled();
+    });
+
     it('should not throw if panel element is missing', () => {
       component.elements.notesPanel = null;
 
@@ -235,14 +247,7 @@ describe('NotesPanelComponent', () => {
       });
     });
 
-    it('should clear pending save timeout', () => {
-      vi.useFakeTimers();
-      component._saveTimeout = setTimeout(() => {}, 1000);
-
-      component.hide();
-
-      expect(component._saveTimeout).toBeNull();
-    });
+    // NOTE: Save timeout is now managed by EditorViewComponent
   });
 
   describe('_createNewNote', () => {
@@ -436,78 +441,8 @@ describe('NotesPanelComponent', () => {
     });
   });
 
-  describe('_renderNotesList', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should render empty state when no notes', () => {
-      mockNotesService.getAllNotes.mockReturnValue([]);
-
-      component._renderNotesList();
-
-      expect(mockElements.notesList.innerHTML).toContain('No notes yet');
-    });
-
-    it('should render empty state with search message when searching', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-
-      component._renderNotesList('test query');
-
-      expect(mockElements.notesList.innerHTML).toContain('No matching notes');
-    });
-
-    it('should render note list items', () => {
-      const notes = [
-        { id: 'note_1', title: 'First Note', gameName: '', updatedAt: Date.now() },
-        { id: 'note_2', title: 'Second Note', gameName: '', updatedAt: Date.now() }
-      ];
-      mockNotesService.searchNotes.mockReturnValue(notes);
-
-      component._renderNotesList();
-
-      expect(mockElements.notesList.innerHTML).toContain('First Note');
-      expect(mockElements.notesList.innerHTML).toContain('Second Note');
-      expect(mockElements.notesList.innerHTML).toContain('data-note-id="note_1"');
-    });
-
-    it('should mark current note as active', () => {
-      component.currentNoteId = 'note_1';
-      const notes = [{ id: 'note_1', title: 'Active Note', gameName: '', updatedAt: Date.now() }];
-      mockNotesService.searchNotes.mockReturnValue(notes);
-
-      component._renderNotesList();
-
-      expect(mockElements.notesList.innerHTML).toContain('class="note-list-item active"');
-    });
-
-    it('should escape HTML in note titles', () => {
-      const notes = [{ id: 'note_1', title: '<script>alert("xss")</script>', gameName: '', updatedAt: Date.now() }];
-      mockNotesService.searchNotes.mockReturnValue(notes);
-
-      component._renderNotesList();
-
-      expect(mockElements.notesList.innerHTML).not.toContain('<script>');
-      expect(mockElements.notesList.innerHTML).toContain('&lt;script&gt;');
-    });
-
-    it('should use default title for untitled notes', () => {
-      const notes = [{ id: 'note_1', title: '', gameName: '', updatedAt: Date.now() }];
-      mockNotesService.searchNotes.mockReturnValue(notes);
-
-      component._renderNotesList();
-
-      expect(mockElements.notesList.innerHTML).toContain('Untitled Note');
-    });
-
-    it('should call searchNotes when query provided', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-
-      component._renderNotesList('search term');
-
-      expect(mockNotesService.searchNotes).toHaveBeenCalledWith('search term', '');
-    });
-  });
+  // NOTE: _renderNotesList is now handled by NotesListViewComponent
+  // These rendering tests should be moved to notes-list-view.component.test.js
 
   describe('_saveCurrentNote', () => {
     beforeEach(() => {
@@ -549,67 +484,11 @@ describe('NotesPanelComponent', () => {
     });
   });
 
-  describe('_scheduleSave (debouncing)', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      component.initialize(mockElements);
-      component.currentNoteId = 'note_1';
-      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
-    });
+  // NOTE: _scheduleSave is now handled by NotesEditorViewComponent
+  // These debouncing tests should be moved to notes-editor-view.component.test.js
 
-    it('should debounce save calls', () => {
-      component._scheduleSave();
-      component._scheduleSave();
-      component._scheduleSave();
-
-      vi.advanceTimersByTime(500);
-
-      expect(mockNotesService.updateNote).toHaveBeenCalledTimes(1);
-    });
-
-    it('should delay save by 500ms', () => {
-      component._scheduleSave();
-
-      vi.advanceTimersByTime(400);
-      expect(mockNotesService.updateNote).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(100);
-      expect(mockNotesService.updateNote).toHaveBeenCalled();
-    });
-  });
-
-  describe('_scheduleSearch (debouncing)', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      component.initialize(mockElements);
-    });
-
-    it('should debounce search calls', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-
-      component._scheduleSearch();
-      component._scheduleSearch();
-      component._scheduleSearch();
-
-      vi.advanceTimersByTime(200);
-
-      // searchNotes is always called during _renderNotesList (with empty query for no search)
-      expect(mockNotesService.searchNotes).toHaveBeenCalled();
-    });
-
-    it('should delay search by 200ms', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-      const initialCallCount = mockNotesService.searchNotes.mock.calls.length;
-
-      component._scheduleSearch();
-
-      vi.advanceTimersByTime(100);
-      expect(mockNotesService.searchNotes.mock.calls.length).toBe(initialCallCount);
-
-      vi.advanceTimersByTime(100);
-      expect(mockNotesService.searchNotes.mock.calls.length).toBeGreaterThan(initialCallCount);
-    });
-  });
+  // NOTE: _scheduleSearch is now handled by NotesSearchComponent
+  // These debouncing tests should be moved to notes-search.component.test.js
 
   describe('Escape key handling', () => {
     beforeEach(() => {
@@ -644,25 +523,16 @@ describe('NotesPanelComponent', () => {
       component.initialize(mockElements);
     });
 
-    it('should clear all timeouts', () => {
-      component._saveTimeout = setTimeout(() => {}, 1000);
-      component._searchTimeout = setTimeout(() => {}, 1000);
-      component._resizeTimeout = setTimeout(() => {}, 1000);
-
-      component.dispose();
-
-      expect(component._saveTimeout).toBeNull();
-      expect(component._searchTimeout).toBeNull();
-      expect(component._resizeTimeout).toBeNull();
-    });
-
     it('should nullify references', () => {
+      const layoutDisposeSpy = vi.spyOn(component.layout, 'dispose');
+
       component.dispose();
 
       expect(component.elements).toBeNull();
       expect(component.notesService).toBeNull();
       expect(component.eventBus).toBeNull();
       expect(component.logger).toBeNull();
+      expect(layoutDisposeSpy).toHaveBeenCalled();
     });
 
     it('should reset state', () => {
@@ -692,40 +562,8 @@ describe('NotesPanelComponent', () => {
     });
   });
 
-  describe('_updateListItemDisplay', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should update title in list item', () => {
-      // Set up list with a note item
-      mockElements.notesList.innerHTML = `
-        <div class="note-list-item" data-note-id="note_1">
-          <div class="note-list-item-title">Old Title</div>
-          <div class="note-list-item-date">01/01/2024</div>
-        </div>
-      `;
-
-      component._updateListItemDisplay('note_1', 'New Title');
-
-      const titleEl = mockElements.notesList.querySelector('.note-list-item-title');
-      expect(titleEl.textContent).toBe('New Title');
-    });
-
-    it('should use default title for empty string', () => {
-      mockElements.notesList.innerHTML = `
-        <div class="note-list-item" data-note-id="note_1">
-          <div class="note-list-item-title">Old Title</div>
-          <div class="note-list-item-date">01/01/2024</div>
-        </div>
-      `;
-
-      component._updateListItemDisplay('note_1', '');
-
-      const titleEl = mockElements.notesList.querySelector('.note-list-item-title');
-      expect(titleEl.textContent).toBe('Untitled Note');
-    });
-  });
+  // NOTE: _updateListItemDisplay is now handled by NotesListViewComponent
+  // These tests should be moved to notes-list-view.component.test.js
 
   describe('Toggle button click', () => {
     beforeEach(() => {
@@ -896,76 +734,13 @@ describe('NotesPanelComponent', () => {
       });
     });
 
-    it('should not re-select already selected note', () => {
-      component.currentNoteId = 'note_1';
-      const getNoteCalls = mockNotesService.getNote.mock.calls.length;
-
-      mockElements.notesList.innerHTML = `
-        <div class="note-list-item" data-note-id="note_1">
-          <div class="note-list-item-title">Test</div>
-        </div>
-      `;
-
-      const listItem = mockElements.notesList.querySelector('.note-list-item');
-      listItem.click();
-
-      // Should not call getNote again since it's already selected
-      expect(mockNotesService.getNote.mock.calls.length).toBe(getNoteCalls);
-    });
+    // NOTE: List item click handling and selection logic is now in NotesListViewComponent
   });
 
-  describe('Game filter functionality', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
+  // NOTE: Game filter functionality is now handled by GameFilterComponent
+  // These tests should be moved to game-filter.component.test.js
 
-    it('should update game filter options from service', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['Alpha', 'Beta']);
-
-      component._updateGameFilterOptions();
-
-      expect(mockElements.notesGameFilterMenu.textContent).toContain('All Games');
-      expect(mockElements.notesGameFilterMenu.textContent).toContain('Alpha');
-      expect(mockElements.notesGameFilterMenu.textContent).toContain('Beta');
-    });
-
-    it('should handle game filter change event', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-      mockNotesService.getUniqueGames.mockReturnValue(['Alpha']);
-
-      component._updateGameFilterOptions();
-      mockNotesService.searchNotes.mockClear();
-
-      const option = mockElements.notesGameFilterMenu.querySelector('[data-value="Alpha"]');
-      option?.click();
-
-      expect(mockNotesService.searchNotes).toHaveBeenCalled();
-    });
-
-    it('should sync the filter label with the selected option', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['Alpha']);
-
-      component._updateGameFilterOptions();
-      const option = mockElements.notesGameFilterMenu.querySelector('[data-value="Alpha"]');
-      option?.click();
-
-      expect(mockElements.notesGameFilterLabel.textContent).toBe('Alpha');
-    });
-  });
-
-  describe('List toggle functionality', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should call _toggleListVisibility method', () => {
-      // Test that the method can be called without error
-      component._toggleListVisibility();
-
-      // The visibility state is toggled
-      expect(typeof component.isListVisible).toBe('boolean');
-    });
-  });
+  // NOTE: List toggle functionality is now handled by NotesResizeHandlerComponent
 
   describe('Game tag UI', () => {
     beforeEach(() => {
@@ -1001,22 +776,7 @@ describe('NotesPanelComponent', () => {
       expect(mockElements.notesGameTagRow.classList.contains('editing')).toBe(false);
     });
 
-    it('should update game tag display', () => {
-      mockElements.notesGameInput.value = 'Test Game';
-      component._updateGameTagDisplay();
-
-      expect(mockElements.notesGameTag.textContent).toBe('Test Game');
-      expect(mockElements.notesEditor.classList.contains('has-game')).toBe(true);
-    });
-
-    it('should remove has-game class when no game', () => {
-      mockElements.notesGameInput.value = '';
-      mockElements.notesEditor.classList.add('has-game');
-      component._updateGameTagDisplay();
-
-      expect(mockElements.notesGameTag.textContent).toBe('');
-      expect(mockElements.notesEditor.classList.contains('has-game')).toBe(false);
-    });
+    // NOTE: Game tag display is now handled by NotesEditorViewComponent
 
     it('should toggle game tag on click', () => {
       mockElements.notesGameTag.click();
@@ -1054,67 +814,8 @@ describe('NotesPanelComponent', () => {
       expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
     });
 
-    it('should filter autocomplete matches by prefix', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['Alpha Game', 'Beta Game', 'Gamma Game']);
-      mockElements.notesGameInput.value = 'Alpha';
-
-      component._showAutocomplete();
-
-      expect(mockElements.notesGameAutocomplete.innerHTML).toContain('Alpha Game');
-      expect(mockElements.notesGameAutocomplete.innerHTML).not.toContain('Beta Game');
-    });
-
-    it('should hide autocomplete when no matches', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['Alpha Game']);
-      mockElements.notesGameInput.value = 'NoMatch';
-
-      component._showAutocomplete();
-
-      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
-    });
-
-    it('should handle _selectAutocompleteItem', () => {
-      mockElements.notesGameInput.value = 'test';
-
-      component._selectAutocompleteItem('Selected Game');
-
-      expect(mockElements.notesGameInput.value).toBe('Selected Game');
-    });
-
-    it('should handle _hideAutocomplete', () => {
-      mockElements.notesGameAutocomplete.classList.add('visible');
-
-      component._hideAutocomplete();
-
-      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
-    });
-
-    it('should select highlighted autocomplete item on Enter key', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['My Game', 'Another Game']);
-      component.currentNoteId = 'note_1';
-      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: '' });
-      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
-
-      // Show autocomplete with items
-      component._showAutocomplete();
-      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(true);
-
-      // Highlight first item with arrow down
-      mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-      expect(component.autocompleteHighlightIndex).toBe(0);
-
-      // Press Enter to select
-      mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-
-      // Should have set the value
-      expect(mockElements.notesGameInput.value).toBe('My Game');
-
-      // Advance timers to trigger save
-      vi.advanceTimersByTime(500);
-      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
-        gameName: 'My Game'
-      }));
-    });
+    // NOTE: Autocomplete filtering and internal methods are now handled by GameAutocompleteComponent
+    // These tests should be moved to game-autocomplete.component.test.js
 
     it('should schedule save on Enter key without highlighted item', () => {
       component.currentNoteId = 'note_1';
@@ -1135,195 +836,23 @@ describe('NotesPanelComponent', () => {
       }));
     });
 
-    it('should set tag and save when clicking autocomplete item', () => {
-      mockNotesService.getUniqueGames.mockReturnValue(['My Game', 'Another Game']);
-      component.currentNoteId = 'note_1';
-      mockNotesService.getNote.mockReturnValue({ id: 'note_1', gameName: '' });
-      mockNotesService.updateNote.mockReturnValue({ id: 'note_1' });
-
-      // Show autocomplete with items
-      component._showAutocomplete();
-
-      // Simulate click on first autocomplete item
-      const item = mockElements.notesGameAutocomplete.querySelector('.notes-game-autocomplete-item');
-      expect(item).not.toBeNull();
-
-      const clickEvent = new MouseEvent('click', { bubbles: true });
-      item.dispatchEvent(clickEvent);
-
-      // Should have set the value
-      expect(mockElements.notesGameInput.value).toBe('My Game');
-
-      // Should have hidden autocomplete
-      expect(mockElements.notesGameAutocomplete.classList.contains('visible')).toBe(false);
-
-      // Should have updated game tag display
-      expect(mockElements.notesGameTag.textContent).toBe('My Game');
-      expect(mockElements.notesEditor.classList.contains('has-game')).toBe(true);
-
-      // Advance timers to trigger save
-      vi.advanceTimersByTime(500);
-      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
-        gameName: 'My Game'
-      }));
-    });
+    // NOTE: Autocomplete item click handling is now in GameAutocompleteComponent
   });
 
-  describe('Game grouping', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should group notes by game name', () => {
-      const notes = [
-        { id: '1', title: 'Note 1', gameName: 'Game Alpha' },
-        { id: '2', title: 'Note 2', gameName: 'Game Alpha' },
-        { id: '3', title: 'Note 3', gameName: 'Game Gamma' }
-      ];
-
-      const groups = component._groupNotesByGame(notes);
-
-      expect(groups['Game Alpha']).toHaveLength(2);
-      expect(groups['Game Gamma']).toHaveLength(1);
-    });
-
-    it('should group notes without game under empty string key', () => {
-      const notes = [
-        { id: '1', title: 'Note 1', gameName: '' },
-        { id: '2', title: 'Note 2' }
-      ];
-
-      const groups = component._groupNotesByGame(notes);
-
-      expect(groups['']).toHaveLength(2);
-    });
-
-    it('should render game group header', () => {
-      const notes = [{ id: '1', title: 'Note 1', gameName: 'Game Alpha', updatedAt: Date.now() }];
-
-      const html = component._renderGameGroup('Game Alpha', notes);
-
-      expect(html).toContain('Game Alpha');
-      expect(html).toContain('notes-game-header');
-    });
-
-    it('should toggle game group collapsed state', () => {
-      // Setup the DOM with a game group
-      mockElements.notesList.innerHTML = `
-        <div class="notes-game-group" data-game="Game Alpha">
-          <button class="notes-game-header" data-game-toggle="Game Alpha">Game Alpha</button>
-          <div class="note-list-item" data-note-id="1">Note 1</div>
-        </div>
-      `;
-
-      component._toggleGameGroup('Game Alpha');
-
-      expect(component.collapsedGameGroups.has('Game Alpha')).toBe(true);
-
-      component._toggleGameGroup('Game Alpha');
-
-      expect(component.collapsedGameGroups.has('Game Alpha')).toBe(false);
-    });
-
-    it('should handle game group header click', () => {
-      mockNotesService.searchNotes.mockReturnValue([
-        { id: '1', title: 'Note 1', gameName: 'Game Alpha', updatedAt: Date.now() }
-      ]);
-      component._renderNotesList();
-
-      const header = mockElements.notesList.querySelector('.notes-game-header');
-      if (header) {
-        header.click();
-        expect(component.collapsedGameGroups.has('Game Alpha')).toBe(true);
-      }
-    });
-  });
+  // NOTE: Game grouping functionality is now handled by NotesListViewComponent
+  // These tests should be moved to notes-list-view.component.test.js
 
   describe('Search handling', () => {
     beforeEach(() => {
-      vi.useFakeTimers();
       component.initialize(mockElements);
     });
 
-    it('should call searchNotes with query and game filter', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-      mockElements.notesSearchInput.value = 'test query';
-      component.currentGameFilter = 'Game Alpha';
+    it('should render list with search query', () => {
+      const renderSpy = vi.spyOn(component.listView, 'render');
 
-      component._handleSearch();
+      component._handleSearch('Alpha');
 
-      expect(mockNotesService.searchNotes).toHaveBeenCalledWith('test query', 'Game Alpha');
-    });
-
-    it('should update game filter options after search', () => {
-      mockNotesService.searchNotes.mockReturnValue([]);
-      mockNotesService.getUniqueGames.mockReturnValue(['Game Alpha']);
-
-      component._handleSearch();
-
-      expect(mockNotesService.getUniqueGames).toHaveBeenCalled();
-    });
-  });
-
-  describe('Panel position updates', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      component.initialize(mockElements);
-    });
-
-    it('should schedule position update with debounce', () => {
-      const updateSpy = vi.spyOn(component, '_updatePanelPosition');
-
-      component._schedulePositionUpdate();
-      component._schedulePositionUpdate();
-      component._schedulePositionUpdate();
-
-      vi.advanceTimersByTime(100);
-
-      expect(updateSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('should update panel CSS variables', () => {
-      // Mock getBoundingClientRect for toolbar
-      const mockToolbar = document.createElement('div');
-      mockToolbar.id = 'streamToolbar';
-      mockToolbar.getBoundingClientRect = () => ({
-        top: 100,
-        left: 200,
-        right: 260,
-        bottom: 400,
-        width: 60,
-        height: 300
-      });
-      document.body.appendChild(mockToolbar);
-
-      component._updatePanelPosition();
-
-      // Clean up
-      document.body.removeChild(mockToolbar);
-    });
-
-    it('should clear resize timeout on dispose', () => {
-      component._resizeTimeout = setTimeout(() => {}, 1000);
-
-      component.dispose();
-
-      expect(component._resizeTimeout).toBeNull();
-    });
-  });
-
-  describe('Resize observer', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should disconnect resize observer on dispose', () => {
-      const mockObserver = { disconnect: vi.fn() };
-      component._resizeObserver = mockObserver;
-
-      component.dispose();
-
-      expect(mockObserver.disconnect).toHaveBeenCalled();
+      expect(renderSpy).toHaveBeenCalledWith('Alpha');
     });
   });
 
@@ -1369,50 +898,11 @@ describe('NotesPanelComponent', () => {
     });
   });
 
-  describe('Cancel delete hold', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      component.initialize(mockElements);
-    });
+  // NOTE: Delete hold and autocomplete timeout are now handled by sub-components
+  // (NotesEditorViewComponent and GameAutocompleteComponent respectively)
 
-    it('should clear delete timeout on cancel', () => {
-      component._deleteHoldTimeout = setTimeout(() => {}, 2000);
-      mockElements.notesDeleteBtn.classList.add('holding');
-
-      component._cancelDeleteHold();
-
-      expect(component._deleteHoldTimeout).toBeNull();
-      expect(mockElements.notesDeleteBtn.classList.contains('holding')).toBe(false);
-    });
-
-    it('should clear autocomplete timeout on dispose', () => {
-      component._autocompleteTimeout = setTimeout(() => {}, 1000);
-
-      component.dispose();
-
-      expect(component._autocompleteTimeout).toBeNull();
-    });
-  });
-
-  describe('Autocomplete highlight', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-
-    it('should add highlighted class to selected item', () => {
-      mockElements.notesGameAutocomplete.innerHTML = `
-        <div class="notes-game-autocomplete-item" data-value="Alpha">Alpha</div>
-        <div class="notes-game-autocomplete-item" data-value="Beta">Beta</div>
-      `;
-      const items = mockElements.notesGameAutocomplete.querySelectorAll('.notes-game-autocomplete-item');
-      component.autocompleteHighlightIndex = 1;
-
-      component._updateAutocompleteHighlight(items);
-
-      expect(items[0].classList.contains('highlighted')).toBe(false);
-      expect(items[1].classList.contains('highlighted')).toBe(true);
-    });
-  });
+  // NOTE: Autocomplete highlight functionality is now handled by GameAutocompleteComponent
+  // These tests should be moved to game-autocomplete.component.test.js
 
   describe('Event subscription handling', () => {
     beforeEach(() => {

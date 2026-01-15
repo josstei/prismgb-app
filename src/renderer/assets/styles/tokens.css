@@ -85,6 +85,19 @@
   --color-info-rgb: 0, 206, 209;
   --color-disabled: #666;
 
+  /**
+   * COLOR TOKENS
+   *
+   * @property --color-primary - Brand primary color (purple)
+   * @property --color-primary-rgb - RGB values for alpha compositing
+   * @property --color-success - Success states (green)
+   * @property --color-warning - Warning states, brightness (amber)
+   * @property --color-danger - Error states, recording (red)
+   * @property --color-text-primary - Primary text color
+   * @property --color-text-secondary - Secondary/muted text
+   * @property --color-text-muted - Disabled/hint text
+   */
+
   /* Text Colors */
   --color-text-primary: #e0e0e0;
   --color-text-secondary: #b0b0b0;
@@ -119,7 +132,23 @@
   --transition-standard: 0.4s ease;
   --transition-slow: 0.5s ease;
 
-  /* Z-Index Scale */
+  /**
+   * Z-INDEX SCALE
+   *
+   * Layer stack from bottom to top:
+   *
+   * --z-base (1)         - Default layer for positioned elements
+   * --z-ui (10)          - Standard UI elements (buttons, inputs)
+   * --z-panels (100)     - Dropdown panels, menus (shader panel, filter dropdown)
+   * --z-elevated (200)   - Elements elevated by :has() state (toolbar with open panel)
+   * --z-overlay (500)    - Stream overlay, loading states
+   * --z-modal (900)      - Modal dialogs (future use)
+   * --z-tooltip (1001)   - Tooltips, popovers
+   * --z-notification (9999) - Status notifications, toasts
+   *
+   * DYNAMIC ELEVATION:
+   * Some elements elevate via :has() when panels are open. See states.css for details.
+   */
   --z-base: 1;
   --z-ui: 10;
   --z-overlay: 100;

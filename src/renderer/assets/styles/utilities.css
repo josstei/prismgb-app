@@ -1,0 +1,24 @@
+/* =====================================================
+   Utility Classes
+   General-purpose utility classes for common patterns
+   ===================================================== */
+
+/* Popup/Dropdown Animation Utility */
+.popup-animated {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.popup-animated.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Pixelated Utility - Crisp pixel rendering */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

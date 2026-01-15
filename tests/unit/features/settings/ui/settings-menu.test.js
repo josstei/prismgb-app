@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsMenuComponent } from '@renderer/features/settings/ui/settings-menu.component.js';
+import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
 
 describe('SettingsMenuComponent', () => {
   let component;
@@ -316,12 +316,9 @@ describe('SettingsMenuComponent', () => {
     });
 
     it('should not hide when clicking inside menu', () => {
-      // Create a target element inside the menu
+      // Create a target element that is actually inside the menu container
       const insideElement = document.createElement('div');
-      insideElement.closest = vi.fn((selector) => {
-        if (selector === '.settings-menu-container') return mockElements.settingsMenuContainer;
-        return null;
-      });
+      mockElements.settingsMenuContainer.appendChild(insideElement);
 
       const clickEvent = new MouseEvent('click', { bubbles: true });
       Object.defineProperty(clickEvent, 'target', {
