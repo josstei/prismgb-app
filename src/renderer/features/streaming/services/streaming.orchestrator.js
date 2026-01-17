@@ -173,7 +173,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // No need to manually update appState.setStreaming() anymore
 
     this.streamViewService.attachMutedStream(stream);
-    this._startAudioWithFallback(stream);
+    this._initializeAudioPipeline(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -209,11 +209,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Start audio warmup with fallback to video element audio
+   * Initialize audio pipeline with fallback to video element audio
    * @param {MediaStream} stream - The media stream
    * @private
    */
-  _startAudioWithFallback(stream) {
+  _initializeAudioPipeline(stream) {
     const hasAudio = stream?.getAudioTracks?.().length > 0;
 
     this.audioWarmupService.start(stream)

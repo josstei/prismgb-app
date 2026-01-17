@@ -701,10 +701,11 @@ export class StreamingGpuRendererService extends BaseService {
    * Release GPU resources while keeping worker alive
    * Allows re-initialization without needing a new canvas transfer.
    * Used for idle memory savings when streaming stops.
+   * Note: Only GPU resources are released; the worker stays alive.
    */
-  releaseResources() {
+  releaseGpuResources() {
     if (!this._worker || !this._isReady) {
-      this.logger.debug('releaseResources: Nothing to release (worker not ready)');
+      this.logger.debug('releaseGpuResources: Nothing to release (worker not ready)');
       return;
     }
 

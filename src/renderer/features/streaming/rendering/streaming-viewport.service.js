@@ -66,7 +66,10 @@ export class StreamingViewportService extends BaseService {
   }
 
   /**
-   * Calculate dimensions for canvas based on available space and native resolution
+   * Calculate dimensions for canvas based on available space and native resolution.
+   * This is a read-only method that batches all DOM reads to avoid layout thrashing.
+   * The caller is responsible for applying the returned dimensions to the canvas.
+   *
    * @param {HTMLCanvasElement} canvas - Canvas element
    * @param {Object} nativeResolution - Native resolution {width, height}
    * @returns {Object|null} Calculated dimensions {width, height, scale}, or null if unchanged
@@ -81,7 +84,7 @@ export class StreamingViewportService extends BaseService {
       return null;
     }
 
-    // Performance: cache computed styles (padding, border, gap don't change during session)
+    // === BATCH DOM READS: Cache computed styles (padding, border, gap don't change during session) ===
     if (!this._cachedStyles) {
       const sectionStyle = window.getComputedStyle(section);
       const containerStyle = window.getComputedStyle(container);
@@ -96,7 +99,7 @@ export class StreamingViewportService extends BaseService {
 
     const { paddingX, paddingY, borderX, borderY, gap } = this._cachedStyles;
 
-    // Account for sibling elements (e.g., controls) - must measure each time as they may show/hide
+    // === BATCH DOM READS: Measure sibling elements (may show/hide) ===
     let siblingsHeight = 0;
     for (const child of section.children) {
       if (child !== container) {
@@ -106,7 +109,7 @@ export class StreamingViewportService extends BaseService {
     const siblingCount = section.children.length - 1;
     const totalGap = siblingCount > 0 ? gap * siblingCount : 0;
 
-    // Use mainContent dimensions for stability (canvas doesn't affect its size)
+    // === BATCH DOM READS: Get container dimensions ===
     const availableWidth = mainContent.clientWidth - paddingX - borderX;
     const availableHeight = mainContent.clientHeight - paddingY - borderY - siblingsHeight - totalGap;
 

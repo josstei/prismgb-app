@@ -173,9 +173,10 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
 
   /**
    * Release GPU resources while keeping worker alive
+   * Note: Only GPU resources are released; the worker stays alive.
    */
-  releaseResources() {
-    this.gpuRendererService.releaseResources();
+  releaseGpuResources() {
+    this.gpuRendererService.releaseGpuResources();
   }
 
   /**

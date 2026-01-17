@@ -19,7 +19,7 @@ vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => {
 });
 
 // Application layer mocks
-vi.mock('@renderer/application/app.state.js', () => ({
+vi.mock('@renderer/application/app-state.class.js', () => ({
   AppState: vi.fn()
 }));
 
@@ -76,8 +76,8 @@ vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
   UIEventBridge: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/presentation-mode.coordinator.js', () => ({
-  PresentationModeCoordinator: vi.fn()
+vi.mock('@renderer/ui/orchestration/presentation-mode.service.js', () => ({
+  PresentationModeService: vi.fn()
 }));
 
 vi.mock('@renderer/ui/orchestration/capture-ui.bridge.js', () => ({
@@ -166,8 +166,8 @@ vi.mock('@renderer/features/streaming/services/streaming-view.service.js', () =>
   StreamingViewService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/audio/streaming-audio-warmup.service.js', () => ({
-  StreamingAudioWarmupService: vi.fn()
+vi.mock('@renderer/features/streaming/audio/streaming-audio-pipeline.service.js', () => ({
+  StreamingAudioPipelineService: vi.fn()
 }));
 
 vi.mock('@renderer/ui/features/streaming/streaming-controls.component.js', () => ({
@@ -412,11 +412,11 @@ describe('Renderer Container', () => {
       );
     });
 
-    it('should register presentationModeCoordinator singleton', () => {
+    it('should register presentationModeService singleton', () => {
       const container = containerModule.createRendererContainer();
 
       expect(container.registerSingleton).toHaveBeenCalledWith(
-        'presentationModeCoordinator',
+        'presentationModeService',
         expect.any(Function),
         ['uiController', 'appState', 'loggerFactory']
       );
@@ -508,7 +508,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'captureOrchestrator',
         expect.any(Function),
-        ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'eventBus', 'loggerFactory']
+        ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'captureSaveService', 'eventBus', 'loggerFactory']
       );
     });
 

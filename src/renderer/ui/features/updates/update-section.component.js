@@ -8,7 +8,7 @@
 
 import { CSSClasses } from '@shared/config/css-classes.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@renderer/features/updates/services/update.service.js';
+import { UpdateState } from '@shared/config/update-state.config.js';
 
 class UpdateSectionComponent {
   constructor({ updateOrchestrator, eventBus, loggerFactory }) {

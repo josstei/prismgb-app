@@ -10,7 +10,7 @@ import { TIMING } from '@shared/config/constants.config.js';
 
 class CaptureUIBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'captureSaveService', 'loggerFactory'], 'CaptureUIBridge');
+    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
     this._subscriptions = [];
   }
 
@@ -20,7 +20,6 @@ class CaptureUIBridge extends BaseService {
       this.eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_READY, (data) => this._handleScreenshotReady(data)),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted()),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped()),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_READY, (data) => this._handleRecordingReady(data)),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data) => this._handleRecordingError(data)),
       this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_DEGRADED, (data) => this._handleRecordingDegraded(data))
     );
@@ -61,27 +60,6 @@ class CaptureUIBridge extends BaseService {
   _handleRecordingStopped() {
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_PRESS);
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
-  }
-
-  async _handleRecordingReady(data) {
-    const { blob, filename } = data;
-
-    try {
-      // Use captureSaveService to handle recording save (may transcode)
-      const result = await this.captureSaveService.saveRecording(blob, filename);
-
-      // Only show status message for direct saves (webm)
-      // Transcoded saves show their own status messages
-      if (result.success && !result.transcoded) {
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
-      }
-    } catch (error) {
-      this.logger.error('Failed to save recording:', error);
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-        message: 'Failed to save recording. Please try again.',
-        type: 'error'
-      });
-    }
   }
 
   _handleRecordingError(data) {

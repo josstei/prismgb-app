@@ -26,6 +26,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         'gpuRecordingService',
         'canvasRenderer',
         'transcodeService',
+        'captureSaveService',
         'eventBus',
         'loggerFactory'
       ],
@@ -39,6 +40,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   async onInitialize() {
     this.subscribeWithCleanup({
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
+      [EventChannels.CAPTURE.RECORDING_READY]: (data) => this._handleRecordingReady(data),
       // Stop recording when stream stops to prevent orphaned recording loop
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       // UI command events - decoupled from UISetupOrchestrator
@@ -191,6 +193,31 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this.logger.error('Recording error:', error);
 
     this.gpuRecordingService.stop();
+  }
+
+  /**
+   * Handle recording ready - save the recording via captureSaveService
+   * @param {Object} data - Recording data { blob, filename }
+   * @private
+   */
+  async _handleRecordingReady(data) {
+    const { blob, filename } = data;
+
+    try {
+      const result = await this.captureSaveService.saveRecording(blob, filename);
+
+      // Only show status message for direct saves (webm)
+      // Transcoded saves show their own status messages
+      if (result.success && !result.transcoded) {
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
+      }
+    } catch (error) {
+      this.logger.error('Failed to save recording:', error);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Failed to save recording. Please try again.',
+        type: 'error'
+      });
+    }
   }
 
   /**

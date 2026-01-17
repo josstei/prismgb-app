@@ -8,7 +8,7 @@
 import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
 
 // Application layer
-import { AppState } from '@renderer/application/app.state.js';
+import { AppState } from '@renderer/application/app-state.class.js';
 import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/performance/performance-animation.orchestrator.js';
 import { PerformanceAnimationService } from '@renderer/application/performance/performance-animation.service.js';
@@ -23,7 +23,7 @@ import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
-import { PresentationModeCoordinator } from '@renderer/ui/orchestration/presentation-mode.coordinator.js';
+import { PresentationModeService } from '@renderer/ui/orchestration/presentation-mode.service.js';
 import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 
@@ -52,7 +52,7 @@ import { StreamingGpuRendererService } from '@renderer/features/streaming/render
 import { StreamingGpuRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-gpu-renderer.adapter.js';
 import { StreamingCanvas2DRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-canvas2d-renderer.adapter.js';
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
-import { StreamingAudioWarmupService } from '@renderer/features/streaming/audio/streaming-audio-warmup.service.js';
+import { StreamingAudioPipelineService } from '@renderer/features/streaming/audio/streaming-audio-pipeline.service.js';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
 import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/ui/shared/status-notification.component.js';
@@ -424,7 +424,7 @@ function createRendererContainer() {
   container.registerSingleton(
     'audioWarmupService',
     function (eventBus, loggerFactory, settingsService) {
-      return new StreamingAudioWarmupService({ eventBus, loggerFactory, settingsService });
+      return new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
     },
     ['eventBus', 'loggerFactory', 'settingsService']
   );
@@ -559,27 +559,27 @@ function createRendererContainer() {
   // Initialized after uiController is registered
   container.registerSingleton(
     'uiEventBridge',
-    function (eventBus, uiController, presentationModeCoordinator, loggerFactory) {
-      return new UIEventBridge({ eventBus, uiController, presentationModeCoordinator, loggerFactory });
+    function (eventBus, uiController, presentationModeService, loggerFactory) {
+      return new UIEventBridge({ eventBus, uiController, presentationModeService, loggerFactory });
     },
-    ['eventBus', 'uiController', 'presentationModeCoordinator', 'loggerFactory']
+    ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory']
   );
 
-  // Presentation Mode Coordinator - derives combined UI display state
+  // Presentation Mode Service - derives combined UI display state
   container.registerSingleton(
-    'presentationModeCoordinator',
+    'presentationModeService',
     function (uiController, appState, loggerFactory) {
-      return new PresentationModeCoordinator({ uiController, appState, loggerFactory });
+      return new PresentationModeService({ uiController, appState, loggerFactory });
     },
     ['uiController', 'appState', 'loggerFactory']
   );
 
   container.registerSingleton(
     'captureUiBridge',
-    function (eventBus, uiController, captureSaveService, loggerFactory) {
-      return new CaptureUIBridge({ eventBus, uiController, captureSaveService, loggerFactory });
+    function (eventBus, uiController, loggerFactory) {
+      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
     },
-    ['eventBus', 'uiController', 'captureSaveService', 'loggerFactory']
+    ['eventBus', 'uiController', 'loggerFactory']
   );
 
   // Transcode UI Bridge - shows transcode progress and manages record button state
@@ -636,9 +636,10 @@ function createRendererContainer() {
   // Uses streamViewService for DOM element access instead of direct uiController
   // Requires gpuRendererService and canvasRenderer for screenshot source selection
   // Requires transcodeService to check transcode status before allowing new recordings
+  // Requires captureSaveService to save recordings (with optional transcoding)
   container.registerSingleton(
     'captureOrchestrator',
-    function (captureService, appState, streamViewService, gpuRendererService, gpuRecordingService, canvasRenderer, transcodeService, eventBus, loggerFactory) {
+    function (captureService, appState, streamViewService, gpuRendererService, gpuRecordingService, canvasRenderer, transcodeService, captureSaveService, eventBus, loggerFactory) {
       return new CaptureOrchestrator({
         captureService,
         appState,
@@ -647,11 +648,12 @@ function createRendererContainer() {
         gpuRecordingService,
         canvasRenderer,
         transcodeService,
+        captureSaveService,
         eventBus,
         loggerFactory
       });
     },
-    ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'eventBus', 'loggerFactory']
+    ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'captureSaveService', 'eventBus', 'loggerFactory']
   );
 
   // ============================================

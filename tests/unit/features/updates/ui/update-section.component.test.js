@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
-import { UpdateState } from '@renderer/features/updates/services/update.service.js';
+import { UpdateState } from '@shared/config/update-state.config.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';

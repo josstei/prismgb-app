@@ -62,6 +62,14 @@ export class PerformanceMetricsService extends BaseService {
     this._pendingTimeouts.clear();
   }
 
+  /**
+   * Cleanup all resources and stop all timers
+   */
+  dispose() {
+    this.stopPeriodicSnapshots();
+    this.clearPendingRequests();
+  }
+
   _logSnapshot(label) {
     if (!this.metricsAdapter.isAvailable()) {
       this.logger.debug(`[Perf] ${label} - process metrics unavailable`);

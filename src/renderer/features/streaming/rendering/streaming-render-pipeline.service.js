@@ -220,7 +220,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
   _waitForHealthyStream(videoElement) {
     return new Promise((resolve, reject) => {
-      this.streamHealthService.startMonitoring(
+      this.streamHealthService.checkStreamHealth(
         videoElement,
         (frameData) => {
           this.logger.info('Stream verified healthy - first frame received');
@@ -337,9 +337,16 @@ export class StreamingRenderPipelineService extends BaseService {
 
     renderer.setHiddenStateFn(() => this._isHidden);
 
-    await renderer.initialize(canvas);
-    this._canvas2dContextCreated = true;
+    try {
+      await renderer.initialize(canvas);
+    } catch (error) {
+      // Don't set partial state if initialization fails
+      this.logger.error('Canvas2D renderer initialization failed:', error.message);
+      throw error;
+    }
 
+    // Only set state after successful initialization to avoid partial state
+    this._canvas2dContextCreated = true;
     this._activeRenderer = renderer;
     this._activeRendererType = 'canvas2d';
     this.logger.info('Using Canvas2D renderer');

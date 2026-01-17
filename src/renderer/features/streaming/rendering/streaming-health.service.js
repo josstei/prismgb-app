@@ -28,13 +28,14 @@ export class StreamingHealthService extends BaseService {
   }
 
   /**
-   * Start monitoring for frame delivery
+   * Perform a one-shot stream health check
+   * Verifies frames are being received within the timeout period.
    * @param {HTMLVideoElement} videoElement - Video element to monitor
    * @param {Function} onHealthy - Callback when first frame received
    * @param {Function} onUnhealthy - Callback when timeout expires without frames
    * @param {number} timeoutMs - Timeout in milliseconds (default 4000)
    */
-  startMonitoring(videoElement, onHealthy, onUnhealthy, timeoutMs = 4000) {
+  checkStreamHealth(videoElement, onHealthy, onUnhealthy, timeoutMs = 4000) {
     if (this._isMonitoring) {
       this.stopMonitoring();
     }

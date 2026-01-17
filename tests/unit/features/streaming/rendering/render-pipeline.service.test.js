@@ -68,7 +68,7 @@ describe('StreamingRenderPipelineService', () => {
     };
 
     mockStreamHealthService = {
-      startMonitoring: vi.fn((videoEl, onHealthy) => {
+      checkStreamHealth: vi.fn((videoEl, onHealthy) => {
         onHealthy({ frameTime: 100 });
       }),
       cleanup: vi.fn()
@@ -82,7 +82,7 @@ describe('StreamingRenderPipelineService', () => {
       isActive: vi.fn().mockReturnValue(false),
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       terminateAndReset: vi.fn(),
-      releaseResources: vi.fn(),
+      releaseGpuResources: vi.fn(),
       resize: vi.fn(),
       cleanup: vi.fn()
     };
@@ -107,7 +107,7 @@ describe('StreamingRenderPipelineService', () => {
       setHiddenStateFn: vi.fn(),
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       terminateAndReset: vi.fn(),
-      releaseResources: vi.fn()
+      releaseGpuResources: vi.fn()
     };
 
     mockCanvas2DRendererAdapter = {
@@ -181,7 +181,7 @@ describe('StreamingRenderPipelineService', () => {
 
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-      expect(mockStreamHealthService.startMonitoring).toHaveBeenCalled();
+      expect(mockStreamHealthService.checkStreamHealth).toHaveBeenCalled();
       expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalled();
     });
 
@@ -190,7 +190,7 @@ describe('StreamingRenderPipelineService', () => {
 
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-      expect(mockStreamHealthService.startMonitoring).toHaveBeenCalledWith(
+      expect(mockStreamHealthService.checkStreamHealth).toHaveBeenCalledWith(
         video,
         expect.any(Function),
         expect.any(Function),
@@ -533,7 +533,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('rejects when stream times out', async () => {
-      mockStreamHealthService.startMonitoring.mockImplementation((videoEl, onHealthy, onError) => {
+      mockStreamHealthService.checkStreamHealth.mockImplementation((videoEl, onHealthy, onError) => {
         onError({ reason: 'timeout' });
       });
 

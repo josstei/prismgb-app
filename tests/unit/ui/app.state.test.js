@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AppState } from '@renderer/application/app.state.js';
+import { AppState } from '@renderer/application/app-state.class.js';
 
 describe('AppState', () => {
   let state;

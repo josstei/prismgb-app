@@ -104,8 +104,9 @@ export class IStreamingRenderer {
   /**
    * Release GPU resources while keeping renderer alive
    * Used for memory savings when streaming stops
+   * Note: Only GPU resources are released; the worker stays alive.
    */
-  releaseResources() {
+  releaseGpuResources() {
     // no-op for renderers that don't have releasable resources
   }
 
