@@ -6,8 +6,8 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DisclosureController } from './disclosure.js';
-import { updateListboxActiveState } from './listbox.js';
+import { DisclosureController } from './disclosure.class.js';
+import { updateListboxActiveState } from './listbox.utils.js';
 
 class ListboxDropdownController {
   constructor({

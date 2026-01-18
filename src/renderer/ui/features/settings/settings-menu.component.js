@@ -7,8 +7,8 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
-import { ListboxDropdownController } from '@renderer/ui/primitives/listbox-dropdown.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.class.js';
+import { ListboxDropdownController } from '@renderer/ui/primitives/listbox-dropdown.class.js';
 
 class SettingsMenuComponent {
   constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {

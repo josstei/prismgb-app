@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -216,7 +216,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   _initializeAudioPipeline(stream) {
     const hasAudio = stream?.getAudioTracks?.().length > 0;
 
-    this.audioWarmupService.start(stream)
+    this.streamingAudioPipelineService.start(stream)
       .then((ready) => {
         if (!ready && hasAudio && this.appState.isStreaming) {
           this.logger.warn('Audio warm-up failed - falling back to video element audio');
@@ -247,7 +247,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
-    this.audioWarmupService.stop();
+    this.streamingAudioPipelineService.stop();
     this.streamViewService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
@@ -267,7 +267,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   _handleStreamError(error) {
     this.logger.error('Stream error:', error);
-    this.audioWarmupService.stop();
+    this.streamingAudioPipelineService.stop();
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
     this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
   }
@@ -310,7 +310,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   async onCleanup() {
     this.renderPipelineService.cleanup();
-    this.audioWarmupService.cleanup();
+    this.streamingAudioPipelineService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {

@@ -422,7 +422,7 @@ function createRendererContainer() {
   );
 
   container.registerSingleton(
-    'audioWarmupService',
+    'streamingAudioPipelineService',
     function (eventBus, loggerFactory, settingsService) {
       return new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
     },
@@ -615,12 +615,12 @@ function createRendererContainer() {
   // Requires settingsService for auto-stream on connect feature
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, streamViewService, audioWarmupService, renderPipelineService, gpuRecordingService, settingsService, eventBus, loggerFactory) {
+    function (streamingService, appState, streamViewService, streamingAudioPipelineService, renderPipelineService, gpuRecordingService, settingsService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
         streamViewService,
-        audioWarmupService,
+        streamingAudioPipelineService,
         renderPipelineService,
         gpuRecordingService,
         settingsService,
@@ -628,7 +628,7 @@ function createRendererContainer() {
         loggerFactory
       });
     },
-    ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
+    ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording
