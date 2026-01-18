@@ -561,7 +561,13 @@ const transcodeAPI = {
       return () => {};
     }
 
-    const listener = (event, data) => callback(data);
+    const listener = (event, data) => {
+      if (!data || typeof data !== 'object') {
+        console.warn('transcodeAPI.onCancelled: Invalid data received');
+        return;
+      }
+      callback(data);
+    };
     listenerRegistry.transcodeCancelled.add(listener);
     ipcRenderer.on(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
 

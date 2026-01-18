@@ -196,8 +196,12 @@ class GameAutocompleteComponent {
       }, NotesPanelConfig.BLUR_DELAY_MS);
     });
 
-    // Show autocomplete on focus
+    // Show autocomplete on focus (cancel any pending blur timer to prevent race condition)
     this._domListeners.add(this.gameInput, 'focus', () => {
+      if (this._blurTimerId) {
+        clearTimeout(this._blurTimerId);
+        this._blurTimerId = null;
+      }
       this._showAutocomplete();
       this.onFocus?.();
     });
