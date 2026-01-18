@@ -16,7 +16,8 @@ class DeviceMediaService extends BaseService {
       'loggerFactory',
       'browserMediaService',
       'deviceConnectionService',
-      'deviceStorageService'
+      'deviceStorageService',
+      'deviceChangeDebounceAdapter'
     ], 'DeviceMediaService');
 
     this.videoDevices = [];
@@ -25,7 +26,7 @@ class DeviceMediaService extends BaseService {
     this._lastEnumerateAt = 0;
     this._enumerateCooldownMs = TIMING.DEVICE_ENUMERATE_COOLDOWN_MS;
     this._lastEnumerateResult = null;
-    this._deviceChangeHandler = null;
+    this._unsubscribeDeviceChange = null;
     this._knownSupportedDeviceIds = new Set();
   }
 
@@ -191,17 +192,18 @@ class DeviceMediaService extends BaseService {
   }
 
   setupDeviceChangeListener(onChange) {
-    if (this._deviceChangeHandler) {
+    if (this._unsubscribeDeviceChange) {
       return;
     }
 
-    this._deviceChangeHandler = async () => {
+    // Subscribe via debounce adapter - handles rapid event bursts
+    this._unsubscribeDeviceChange = this.deviceChangeDebounceAdapter.subscribe(async () => {
       this.logger.info('Device change detected');
       this.invalidateEnumerationCache();
       await onChange();
       await this.enumerateDevices();
-    };
-    this.browserMediaService.addEventListener('devicechange', this._deviceChangeHandler);
+    });
+
     this.logger.info('Device change listener set up');
   }
 
@@ -219,9 +221,9 @@ class DeviceMediaService extends BaseService {
   }
 
   dispose() {
-    if (this._deviceChangeHandler) {
-      this.browserMediaService.removeEventListener('devicechange', this._deviceChangeHandler);
-      this._deviceChangeHandler = null;
+    if (this._unsubscribeDeviceChange) {
+      this._unsubscribeDeviceChange();
+      this._unsubscribeDeviceChange = null;
     }
   }
 

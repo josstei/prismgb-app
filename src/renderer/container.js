@@ -39,8 +39,10 @@ import { DeviceConnectionService } from '@renderer/features/devices/services/dev
 import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
 import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
+import { DeviceOperationSequencerService } from '@renderer/features/devices/services/device-operation-sequencer.service.js';
 import { DeviceIpcStatusAdapter } from '@renderer/features/devices/adapters/device-ipc-status.adapter.js';
 import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { DeviceChangeDebounceAdapter } from '@renderer/features/devices/adapters/device-change-debounce.adapter.js';
 import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js';
 
 // Features: Streaming
@@ -162,6 +164,18 @@ function createRendererContainer() {
   container.registerSingleton('deviceIpcAdapter', function(loggerFactory) {
     return new DeviceIpcAdapter({ logger: loggerFactory.create('DeviceIpcAdapter') });
   }, ['loggerFactory']);
+
+  // Device Change Debounce Adapter - prevents event burst races
+  container.registerSingleton(
+    'deviceChangeDebounceAdapter',
+    function(browserMediaService, loggerFactory) {
+      return new DeviceChangeDebounceAdapter({
+        browserMediaService,
+        logger: loggerFactory.create('DeviceChangeDebounceAdapter')
+      });
+    },
+    ['browserMediaService', 'loggerFactory']
+  );
 
   // Streaming infrastructure
   container.registerSingleton('animationCache', function() {
@@ -325,10 +339,10 @@ function createRendererContainer() {
 
   container.registerSingleton(
     'deviceMediaService',
-    function (eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService) {
-      return new DeviceMediaService({ eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService });
+    function (eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService, deviceChangeDebounceAdapter) {
+      return new DeviceMediaService({ eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService, deviceChangeDebounceAdapter });
     },
-    ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceConnectionService', 'deviceStorageService']
+    ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceConnectionService', 'deviceStorageService', 'deviceChangeDebounceAdapter']
   );
 
   // Device Service (facade coordinating device sub-services)
@@ -338,6 +352,19 @@ function createRendererContainer() {
       return new DeviceService({ eventBus, loggerFactory, deviceStatusProvider, deviceConnectionService, deviceStorageService, deviceMediaService });
     },
     ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'deviceConnectionService', 'deviceStorageService', 'deviceMediaService']
+  );
+
+  // Device Operation Sequencer - prevents race conditions from concurrent IPC events
+  container.registerSingleton(
+    'deviceOperationSequencer',
+    function(deviceService, eventBus, loggerFactory) {
+      return new DeviceOperationSequencerService({
+        deviceService,
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['deviceService', 'eventBus', 'loggerFactory']
   );
 
   // Streaming Service (coordinates stream acquisition)
@@ -602,17 +629,19 @@ function createRendererContainer() {
   // ============================================
 
   // Device Orchestrator - Coordinates device detection
+  // Uses deviceOperationSequencer to prevent race conditions from concurrent IPC events
   container.registerSingleton(
     'deviceOrchestrator',
-    function (deviceService, deviceIpcAdapter, eventBus, loggerFactory) {
+    function (deviceService, deviceIpcAdapter, deviceOperationSequencer, eventBus, loggerFactory) {
       return new DeviceOrchestrator({
         deviceService,
         deviceIpcAdapter,
+        deviceOperationSequencer,
         eventBus,
         loggerFactory
       });
     },
-    ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory']
+    ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
   );
 
   // Streaming Orchestrator - Coordinates stream lifecycle

@@ -18,7 +18,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory'],
+      ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
       'DeviceOrchestrator'
     );
     // Store unsubscribe function for IPC adapter
@@ -38,9 +38,8 @@ export class DeviceOrchestrator extends BaseOrchestrator {
       () => this._handleDeviceDisconnectedIPC()
     );
 
-    // Check initial device status and enumerate
-    await this.deviceService.updateDeviceStatus();
-    await this.deviceService.enumerateDevices();
+    // Queue initial status check through sequencer
+    await this.deviceOperationSequencer.queueRefresh();
   }
 
   /**
@@ -51,31 +50,24 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Refresh device information by updating status from main process
-   * @private
-   */
-  async _refreshDeviceInfo() {
-    await this.deviceService.updateDeviceStatus();
-  }
-
-  /**
    * Handle device connected IPC event
+   * Fire-and-forget: sequencer handles ordering
    * @private
    */
-  async _handleDeviceConnectedIPC() {
-    await this._refreshDeviceInfo();
-    await this.deviceService.enumerateDevices();
+  _handleDeviceConnectedIPC() {
+    this.deviceOperationSequencer.queueConnected();
   }
 
   /**
    * Handle device disconnected IPC event
+   * Fire-and-forget: sequencer handles ordering
+   * Event is published after status update completes
    * @private
    */
-  async _handleDeviceDisconnectedIPC() {
-    await this._refreshDeviceInfo();
-
-    // Publish high-level event for streaming orchestrator to handle
-    this.eventBus.publish(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
+  _handleDeviceDisconnectedIPC() {
+    this.deviceOperationSequencer.queueDisconnected(() => {
+      this.eventBus.publish(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
+    });
   }
 
   /**
@@ -88,6 +80,9 @@ export class DeviceOrchestrator extends BaseOrchestrator {
       this._unsubscribeIPC = null;
     }
     this.logger.info('IPC device listeners removed');
+
+    // Wait for pending operations before cleanup
+    await this.deviceOperationSequencer.flush();
 
     // Cleanup device service
     if (this.deviceService && typeof this.deviceService.dispose === 'function') {
