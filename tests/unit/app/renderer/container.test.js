@@ -488,7 +488,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'deviceOrchestrator',
         expect.any(Function),
-        ['deviceService', 'deviceIpcAdapter', 'eventBus', 'loggerFactory']
+        ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
       );
     });
 

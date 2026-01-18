@@ -13,6 +13,10 @@ export const TIMING = {
   // Device enumeration cooldown window (ms)
   DEVICE_ENUMERATE_COOLDOWN_MS: 300,
 
+  // Device change event debounce delay (ms)
+  // Prevents race conditions from rapid USB connect/disconnect sequences
+  DEVICE_CHANGE_DEBOUNCE_MS: 150,
+
   // UI operation timeout (ms)
   UI_TIMEOUT_MS: 150,
 

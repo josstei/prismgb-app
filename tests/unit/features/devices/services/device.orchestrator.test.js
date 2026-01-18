@@ -9,6 +9,7 @@ describe('DeviceOrchestrator', () => {
   let orchestrator;
   let mockDeviceService;
   let mockDeviceIpcAdapter;
+  let mockDeviceOperationSequencer;
   let mockEventBus;
   let mockLogger;
 
@@ -26,6 +27,19 @@ describe('DeviceOrchestrator', () => {
       dispose: vi.fn()
     };
 
+    mockDeviceOperationSequencer = {
+      queueConnected: vi.fn().mockResolvedValue(undefined),
+      queueDisconnected: vi.fn().mockImplementation((callback) => {
+        if (typeof callback === 'function') {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+      queueRefresh: vi.fn().mockResolvedValue(undefined),
+      flush: vi.fn().mockResolvedValue(undefined),
+      getQueueDepth: vi.fn().mockReturnValue(0)
+    };
+
     mockEventBus = {
       publish: vi.fn(),
       subscribe: vi.fn(() => vi.fn())
@@ -41,6 +55,7 @@ describe('DeviceOrchestrator', () => {
     orchestrator = new DeviceOrchestrator({
       deviceService: mockDeviceService,
       deviceIpcAdapter: mockDeviceIpcAdapter,
+      deviceOperationSequencer: mockDeviceOperationSequencer,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -54,6 +69,7 @@ describe('DeviceOrchestrator', () => {
     it('should store dependencies', () => {
       expect(orchestrator.deviceService).toBe(mockDeviceService);
       expect(orchestrator.deviceIpcAdapter).toBe(mockDeviceIpcAdapter);
+      expect(orchestrator.deviceOperationSequencer).toBe(mockDeviceOperationSequencer);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
   });
@@ -74,11 +90,10 @@ describe('DeviceOrchestrator', () => {
       );
     });
 
-    it('should check initial device status and enumerate', async () => {
+    it('should queue initial device refresh through sequencer', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
-      expect(mockDeviceService.enumerateDevices).toHaveBeenCalled();
+      expect(mockDeviceOperationSequencer.queueRefresh).toHaveBeenCalled();
     });
   });
 
@@ -97,7 +112,7 @@ describe('DeviceOrchestrator', () => {
   });
 
   describe('IPC event handling via adapter', () => {
-    it('should call connected handler when adapter triggers connected event', async () => {
+    it('should queue connected operation when adapter triggers connected event', async () => {
       let connectedCallback;
       mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
         connectedCallback = onConnected;
@@ -107,12 +122,12 @@ describe('DeviceOrchestrator', () => {
       await orchestrator.onInitialize();
 
       // Simulate IPC connected event
-      await connectedCallback();
+      connectedCallback();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalledTimes(2); // Once in init, once in handler
+      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
     });
 
-    it('should call disconnected handler when adapter triggers disconnected event', async () => {
+    it('should queue disconnected operation when adapter triggers disconnected event', async () => {
       let disconnectedCallback;
       mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
         disconnectedCallback = onDisconnected;
@@ -122,44 +137,55 @@ describe('DeviceOrchestrator', () => {
       await orchestrator.onInitialize();
 
       // Simulate IPC disconnected event
-      await disconnectedCallback();
+      disconnectedCallback();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalledTimes(2); // Once in init, once in handler
+      expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should publish disconnect event via callback when disconnected', async () => {
+      let disconnectedCallback;
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
+        disconnectedCallback = onDisconnected;
+        return vi.fn();
+      });
+
+      await orchestrator.onInitialize();
+
+      // Simulate IPC disconnected event
+      disconnectedCallback();
+
       expect(mockEventBus.publish).toHaveBeenCalledWith('device:disconnected-during-session');
     });
   });
 
   describe('_handleDeviceConnectedIPC', () => {
-    it('should update device status', async () => {
-      await orchestrator._handleDeviceConnectedIPC();
+    it('should queue connected operation', () => {
+      orchestrator._handleDeviceConnectedIPC();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
+      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
     });
 
-    it('should enumerate devices to detect new supported devices', async () => {
-      await orchestrator._handleDeviceConnectedIPC();
+    it('should be fire-and-forget (synchronous)', () => {
+      // The method should return immediately without awaiting
+      const result = orchestrator._handleDeviceConnectedIPC();
 
-      expect(mockDeviceService.enumerateDevices).toHaveBeenCalled();
+      // Should not return a promise that we need to await
+      // queueConnected is called but not awaited in the handler
+      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
     });
   });
 
   describe('_handleDeviceDisconnectedIPC', () => {
-    it('should update device status', async () => {
-      await orchestrator._handleDeviceDisconnectedIPC();
+    it('should queue disconnected operation with callback', () => {
+      orchestrator._handleDeviceDisconnectedIPC();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
+      expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should NOT enumerate devices (deferred to streaming start)', async () => {
-      // Camera enumeration is deferred to prevent macOS webcam flicker
-      await orchestrator._handleDeviceDisconnectedIPC();
+    it('should publish event:disconnected-during-session via callback', () => {
+      orchestrator._handleDeviceDisconnectedIPC();
 
-      expect(mockDeviceService.enumerateDevices).not.toHaveBeenCalled();
-    });
-
-    it('should publish device:disconnected-during-session event', async () => {
-      await orchestrator._handleDeviceDisconnectedIPC();
-
+      // The mock calls the callback immediately
       expect(mockEventBus.publish).toHaveBeenCalledWith('device:disconnected-during-session');
     });
   });
@@ -177,10 +203,25 @@ describe('DeviceOrchestrator', () => {
       expect(mockUnsubscribe).toHaveBeenCalled();
     });
 
-    it('should dispose device service', async () => {
+    it('should flush sequencer before cleanup', async () => {
       await orchestrator.onCleanup();
 
-      expect(mockDeviceService.dispose).toHaveBeenCalled();
+      expect(mockDeviceOperationSequencer.flush).toHaveBeenCalled();
+    });
+
+    it('should dispose device service after flushing', async () => {
+      const callOrder = [];
+      mockDeviceOperationSequencer.flush.mockImplementation(() => {
+        callOrder.push('flush');
+        return Promise.resolve();
+      });
+      mockDeviceService.dispose.mockImplementation(() => {
+        callOrder.push('dispose');
+      });
+
+      await orchestrator.onCleanup();
+
+      expect(callOrder).toEqual(['flush', 'dispose']);
     });
 
     it('should handle cleanup without prior initialization', async () => {
