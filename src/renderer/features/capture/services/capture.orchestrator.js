@@ -188,11 +188,11 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Handle recording error event
    * @private
    */
-  _handleRecordingError(data) {
+  async _handleRecordingError(data) {
     const { error } = data;
     this.logger.error('Recording error:', error);
 
-    this.gpuRecordingService.stop();
+    await this.gpuRecordingService.stop();
   }
 
   /**
