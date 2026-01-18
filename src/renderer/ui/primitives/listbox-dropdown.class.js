@@ -48,6 +48,10 @@ class ListboxDropdownController {
     });
     this._disclosure.initialize();
 
+    this._domListeners.add(this.triggerElement, 'click', () => {
+      this.toggle();
+    });
+
     this._domListeners.add(this.menuElement, 'click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const option = target?.closest(this.optionSelector);
