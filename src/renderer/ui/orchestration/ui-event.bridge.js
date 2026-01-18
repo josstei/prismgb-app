@@ -14,19 +14,10 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 
 export class UIEventBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'appState', 'loggerFactory'], 'UIEventBridge');
+    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
 
     // Track subscriptions for cleanup
     this._subscriptions = [];
-
-    // UI coordination state for minimalist fullscreen
-    // These track upstream state changes to compute the combined visual effect.
-    // Note: This is UI coordination logic, not domain business logic.
-    // The bridge needs to know all three states to determine when to apply
-    // the minimalist visual treatment (requires: setting enabled + fullscreen + streaming).
-    this._minimalistEnabled = false;
-    this._isFullscreenActive = Boolean(document.fullscreenElement);
-    this._isStreamingActive = Boolean(this.appState?.isStreaming);
   }
 
   /**
@@ -109,10 +100,7 @@ export class UIEventBridge extends BaseService {
 
   _handleStreamingMode(data) {
     const { enabled } = data;
-    this.uiController.setStreamingMode(enabled);
-    this._updateCinematicVisual(enabled);
-    this._isStreamingActive = Boolean(enabled);
-    this._updateMinimalistVisual();
+    this.presentationModeService.handleStreamingMode(enabled);
   }
 
   _handleStreamInfo(data) {
@@ -152,50 +140,18 @@ export class UIEventBridge extends BaseService {
 
   _handleCinematicMode(data) {
     const { enabled } = data;
-    this._updateCinematicVisual();
+    this.presentationModeService.handleCinematicModeChanged(enabled);
     // Show status message (moved from CinematicModeService for separation of concerns)
     this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   _handleMinimalistFullscreenChanged(enabled) {
-    this._minimalistEnabled = Boolean(enabled);
-    this._updateMinimalistVisual();
-  }
-
-  /**
-   * Update cinematic mode visual state
-   * @param {boolean} [isStreaming] - Override streaming state (for timing-sensitive calls)
-   * @private
-   */
-  _updateCinematicVisual(isStreaming) {
-    // Use provided streaming state or fall back to AppState
-    // This handles race condition where STREAMING_MODE event fires before isStreaming updates
-    const streamingActive = isStreaming !== undefined ? isStreaming : this.appState?.isStreaming;
-    const isActive = this.appState?.cinematicModeEnabled && streamingActive;
-    this.uiController.updateCinematicMode(isActive);
+    this.presentationModeService.handleMinimalistFullscreenChanged(enabled);
   }
 
   _handleFullscreenState(data) {
     const { active } = data;
-    this._isFullscreenActive = Boolean(active);
-    this.uiController.updateFullscreenButton(active);
-    this.uiController.updateFullscreenMode(active);
-    this._updateMinimalistVisual();
-
-    if (active) {
-      this.uiController.enableControlsAutoHide();
-    } else {
-      this.uiController.disableControlsAutoHide();
-    }
-  }
-
-  /**
-   * Update minimalist fullscreen visual state
-   * @private
-   */
-  _updateMinimalistVisual() {
-    const shouldEnable = this._minimalistEnabled && this._isFullscreenActive && this._isStreamingActive;
-    this.uiController.updateMinimalistFullscreen(shouldEnable);
+    this.presentationModeService.handleFullscreenState(active);
   }
 
   /**

@@ -86,10 +86,11 @@ export class TranscodeProcess extends EventEmitter {
     this._ffmpegArgs = ffmpegArgs;
     this._durationUs = durationUs;
     this._process = null;
-    this._killed = false;
-    this._completed = false;
+    this._wasKilled = false;
+    this._hasCompleted = false;
     this._startTime = null;
     this._lastProgressEmit = 0;
+    this._forceKillTimeoutId = null;
   }
 
   /**
@@ -136,15 +137,19 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('close', (code, signal) => {
         this._process = null;
+        if (this._forceKillTimeoutId) {
+          clearTimeout(this._forceKillTimeoutId);
+          this._forceKillTimeoutId = null;
+        }
 
-        if (this._killed) {
+        if (this._wasKilled) {
           this.emit('cancelled');
           reject(new Error('Transcode cancelled'));
           return;
         }
 
         if (code === 0) {
-          this._completed = true;
+          this._hasCompleted = true;
           this.emit('progress', { percent: 100, timeUs: this._durationUs });
           this.emit('completed', { outputPath: this._outputPath });
           resolve();
@@ -159,6 +164,10 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('error', (error) => {
         this._process = null;
+        if (this._forceKillTimeoutId) {
+          clearTimeout(this._forceKillTimeoutId);
+          this._forceKillTimeoutId = null;
+        }
         this.emit('error', error);
         reject(error);
       });
@@ -233,16 +242,20 @@ export class TranscodeProcess extends EventEmitter {
    * Cancel the transcode process
    */
   cancel() {
-    if (this._process && !this._killed) {
-      this._killed = true;
+    if (this._process && !this._wasKilled) {
+      this._wasKilled = true;
       // Send SIGTERM first for graceful shutdown
       this._process.kill('SIGTERM');
 
       // Force kill after timeout
-      setTimeout(() => {
+      if (this._forceKillTimeoutId) {
+        clearTimeout(this._forceKillTimeoutId);
+      }
+      this._forceKillTimeoutId = setTimeout(() => {
         if (this._process) {
           this._process.kill('SIGKILL');
         }
+        this._forceKillTimeoutId = null;
       }, 2000);
     }
   }
@@ -252,22 +265,22 @@ export class TranscodeProcess extends EventEmitter {
    * @returns {boolean} True if process is running
    */
   get isRunning() {
-    return this._process !== null && !this._killed && !this._completed;
+    return this._process !== null && !this._wasKilled && !this._hasCompleted;
   }
 
   /**
    * Check if process was cancelled
    * @returns {boolean} True if cancelled
    */
-  get isCancelled() {
-    return this._killed;
+  get wasCancelled() {
+    return this._wasKilled;
   }
 
   /**
    * Check if process completed successfully
    * @returns {boolean} True if completed
    */
-  get isCompleted() {
-    return this._completed;
+  get hasCompleted() {
+    return this._hasCompleted;
   }
 }

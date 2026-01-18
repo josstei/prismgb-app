@@ -72,16 +72,13 @@ class RendererAppOrchestrator {
       // 3. Register UI components in container
       await this._registerUIComponents();
 
-      // 4. Initialize adapter factory (async initialization)
-      await this._initializeStreamingAdapterFactory();
-
-      // 5. Initialize UI event bridge (bridges events to UIController)
+      // 4. Initialize UI event bridge (bridges events to UIController)
       await this._initializeUIEventBridge();
 
-      // 6. Resolve orchestrator (this will wire everything up)
+      // 5. Resolve orchestrator (this will wire everything up)
       this.orchestrator = this.container.resolve('appOrchestrator');
 
-      // 7. Initialize orchestrator
+      // 6. Initialize orchestrator
       await this.orchestrator.initialize();
 
       this.isInitialized = true;
@@ -150,12 +147,14 @@ class RendererAppOrchestrator {
     // Get dependencies from DI
     const uiComponentRegistry = this.container.resolve('uiComponentRegistry');
     const uiEffects = this.container.resolve('uiEffects');
+    const bodyClassManager = this.container.resolve('bodyClassManager');
     const loggerFactory = this.container.resolve('loggerFactory');
 
     // Create UIController with new dependencies
     const uiController = new UIController({
       uiComponentRegistry,
       uiEffects,
+      bodyClassManager,
       loggerFactory
     });
 
@@ -180,20 +179,6 @@ class RendererAppOrchestrator {
     this.container.register({
       uiController: asValue(this._uiController)
     });
-  }
-
-  /**
-   * Initialize adapter factory
-   * @private
-   */
-  async _initializeStreamingAdapterFactory() {
-    try {
-      const adapterFactory = this.container.resolve('adapterFactory');
-      await adapterFactory.initialize();
-    } catch (error) {
-      this.logger.error('Failed to initialize adapter factory:', error);
-      throw error;
-    }
   }
 
   /**

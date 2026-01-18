@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream-lifecycle.class.js';
+import { BaseStreamLifecycle } from '@shared/streaming/acquisition/stream-lifecycle.base.js';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;
@@ -189,15 +189,23 @@ describe('BaseStreamLifecycle', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith('Attempted to release null stream');
     });
 
-    it('should handle release errors', async () => {
+    it('should handle release errors per track', async () => {
+      const mockTracks = [
+        { stop: vi.fn(() => { throw new Error('Track 1 error'); }), kind: 'video', label: 'Video' },
+        { stop: vi.fn(), kind: 'audio', label: 'Audio' }
+      ];
       const mockStream = {
-        getTracks: vi.fn(() => {
-          throw new Error('Track error');
-        })
+        getTracks: vi.fn(() => mockTracks)
       };
 
-      await expect(lifecycle.releaseStream(mockStream)).rejects.toThrow('Track error');
-      expect(mockLogger.error).toHaveBeenCalled();
+      // Should not throw - continues with other tracks
+      await lifecycle.releaseStream(mockStream);
+
+      // Both tracks should have stop called (second track succeeds even if first fails)
+      expect(mockTracks[0].stop).toHaveBeenCalled();
+      expect(mockTracks[1].stop).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('Error stopping track video'), expect.any(Error));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Stream released with 1 track error(s)');
     });
 
     it('should release multiple tracks', async () => {

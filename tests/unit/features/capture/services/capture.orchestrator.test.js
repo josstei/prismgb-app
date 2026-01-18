@@ -14,6 +14,7 @@ describe('CaptureOrchestrator', () => {
   let mockCaptureGpuRecordingService;
   let mockStreamingCanvasRenderer;
   let mockTranscodeService;
+  let mockCaptureSaveService;
   let mockEventBus;
   let mockLogger;
 
@@ -40,7 +41,7 @@ describe('CaptureOrchestrator', () => {
     mockStreamingViewService = {
       getCanvas: vi.fn(() => mockStreamCanvas),
       getVideo: vi.fn(() => mockStreamVideo),
-      attachStream: vi.fn(),
+      attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
     };
@@ -68,6 +69,10 @@ describe('CaptureOrchestrator', () => {
 
     mockTranscodeService = {
       isTranscoding: vi.fn(() => false)
+    };
+
+    mockCaptureSaveService = {
+      saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false })
     };
 
     mockEventBus = {
@@ -108,6 +113,7 @@ describe('CaptureOrchestrator', () => {
       gpuRecordingService: mockCaptureGpuRecordingService,
       canvasRenderer: mockStreamingCanvasRenderer,
       transcodeService: mockTranscodeService,
+      captureSaveService: mockCaptureSaveService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -123,8 +129,9 @@ describe('CaptureOrchestrator', () => {
     it('should wire capture error events and UI command events', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(4);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-error', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-ready', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('ui:screenshot-requested', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('ui:recording-toggle-requested', expect.any(Function));
@@ -133,7 +140,7 @@ describe('CaptureOrchestrator', () => {
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.onInitialize();
 
-      expect(orchestrator._subscriptions).toHaveLength(4);
+      expect(orchestrator._subscriptions).toHaveLength(5);
     });
   });
 
@@ -400,6 +407,52 @@ describe('CaptureOrchestrator', () => {
       await orchestrator.onCleanup();
 
       expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
+    });
+  });
+
+  describe('_handleRecordingReady', () => {
+    it('should call captureSaveService.saveRecording with blob and filename', async () => {
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording-2025-01-15-10-30-45.webm';
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(mockBlob, filename);
+    });
+
+    it('should publish status message for direct save (non-transcoded)', async () => {
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording.webm';
+      mockCaptureSaveService.saveRecording.mockResolvedValue({ success: true, transcoded: false });
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Recording saved!' });
+    });
+
+    it('should not publish status message when transcoding (handled by captureSaveService)', async () => {
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording.webm';
+      mockCaptureSaveService.saveRecording.mockResolvedValue({ success: true, transcoded: true });
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:status-message', { message: 'Recording saved!' });
+    });
+
+    it('should log error and publish error status when save fails', async () => {
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording.webm';
+      const error = new Error('Save failed');
+      mockCaptureSaveService.saveRecording.mockRejectedValue(error);
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to save recording:', error);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+        message: 'Failed to save recording. Please try again.',
+        type: 'error'
+      });
     });
   });
 });

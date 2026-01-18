@@ -2,114 +2,83 @@
  * UIComponentRegistry
  *
  * Manages UI component creation and lifecycle.
- * Extracts component management from UIController for better separation of concerns.
+ * Uses component definitions to avoid hard-coded wiring.
  */
 
 export class UIComponentRegistry {
   /**
-   * Create a new component registry
-   * @param {Object} dependencies - { uiComponentFactory, eventBus, loggerFactory }
+   * @param {Object} dependencies
+   * @param {Array} dependencies.componentDefinitions - Component definitions list
+   * @param {LoggerFactory} dependencies.loggerFactory - Logger factory
    */
-  constructor(dependencies) {
-    this.factory = dependencies.uiComponentFactory;
-    this.eventBus = dependencies.eventBus;
-    this.loggerFactory = dependencies.loggerFactory;
-
-    // Create logger
-    this.logger = this.loggerFactory?.create('UIComponentRegistry');
-
-    // Component storage
+  constructor({ componentDefinitions = [], loggerFactory } = {}) {
+    this.definitions = new Map();
     this.components = new Map();
+    this.logger = loggerFactory?.create('UIComponentRegistry');
+
+    componentDefinitions.forEach((definition) => {
+      this.register(definition);
+    });
   }
 
   /**
-   * Initialize all UI components with their DOM elements
-   * Creates instances of DeviceStatus, StatusNotification, and StreamControls.
-   * @param {Object} elements - DOM element references
+   * Register a component definition
+   * @param {Object} definition
+   * @param {string} definition.id
+   * @param {string} [definition.stage='core']
+   * @param {Function} definition.create
    */
-  initialize(elements) {
+  register(definition) {
+    if (!definition?.id || typeof definition.create !== 'function') {
+      this.logger?.warn('Invalid component definition provided');
+      return;
+    }
+
+    const stage = definition.stage || 'core';
+    this.definitions.set(definition.id, { ...definition, stage });
+  }
+
+  /**
+   * Initialize all core UI components with their DOM elements
+   * @param {Object} elements - DOM element references
+   * @param {Object} dependencies - Shared dependencies for components
+   */
+  initialize(elements, dependencies = {}) {
     this.logger?.debug('Initializing UI components');
 
-    // Create StatusNotificationComponent
-    const statusNotificationComponent = this.factory.createStatusNotificationComponent({
-      statusMessage: elements.statusMessage
-    });
-    this.components.set('statusNotificationComponent', statusNotificationComponent);
+    const coreDefinitions = Array.from(this.definitions.values())
+      .filter(definition => definition.stage === 'core');
 
-    // Create DeviceStatusComponent
-    const deviceStatusComponent = this.factory.createDeviceStatusComponent({
-      statusIndicator: elements.statusIndicator,
-      statusText: elements.statusText,
-      deviceName: elements.deviceName,
-      deviceStatusText: elements.deviceStatusText,
-      streamOverlay: elements.streamOverlay,
-      overlayMessage: elements.overlayMessage
+    coreDefinitions.forEach((definition) => {
+      this._createComponent(definition, { elements, dependencies });
     });
-    this.components.set('deviceStatusComponent', deviceStatusComponent);
-
-    // Create StreamingControlsComponent
-    const streamControlsComponent = this.factory.createStreamingControlsComponent({
-      currentResolution: elements.currentResolution,
-      currentFPS: elements.currentFPS,
-      screenshotBtn: elements.screenshotBtn,
-      recordBtn: elements.recordBtn,
-      shaderControls: elements.shaderControls,
-      streamOverlay: elements.streamOverlay
-    });
-    this.components.set('streamControlsComponent', streamControlsComponent);
-
-    // Create TranscodeToastComponent (progress on record button)
-    const transcodeToastComponent = this.factory.createTranscodeToastComponent({
-      recordBtn: elements.recordBtn,
-      transcodeRing: elements.transcodeRing,
-      transcodePercentLabel: elements.transcodePercentLabel
-    });
-    this.components.set('transcodeToastComponent', transcodeToastComponent);
 
     this.logger?.info(`Initialized ${this.components.size} UI components`);
   }
 
   /**
-   * Initialize settings menu component
-   * @param {Object} dependencies - Settings menu dependencies
+   * Initialize a specific component by ID
+   * @param {string} id
+   * @param {Object} options
+   * @param {Object} options.elements
+   * @param {Object} options.dependencies
+   * @returns {Object|undefined}
    */
-  initSettingsMenu(dependencies) {
-    this.logger?.debug('Initializing settings menu component');
+  initializeComponent(id, { elements, dependencies } = {}) {
+    if (this.components.has(id)) {
+      return this.components.get(id);
+    }
 
-    const settingsMenuComponent = this.factory.createSettingsMenuComponent(dependencies);
-    this.components.set('settingsMenuComponent', settingsMenuComponent);
+    const definition = this.definitions.get(id);
+    if (!definition) {
+      this.logger?.warn(`Component definition not found: ${id}`);
+      return undefined;
+    }
 
-    this.logger?.info('Settings menu component initialized');
-  }
-
-  /**
-   * Initialize shader selector component
-   * @param {Object} dependencies - Shader selector dependencies
-   * @param {Object} elements - DOM element references for the shader panel
-   */
-  initShaderSelector(dependencies, elements) {
-    this.logger?.debug('Initializing shader selector component');
-
-    const shaderSelectorComponent = this.factory.createStreamingShaderSelectorComponent(dependencies);
-    shaderSelectorComponent.initialize(elements);
-    this.components.set('shaderSelectorComponent', shaderSelectorComponent);
-
-    this.logger?.info('Shader selector component initialized');
-  }
-
-  /**
-   * Initialize notes panel component
-   * @param {Object} dependencies - Notes panel dependencies
-   * @param {Object} elements - DOM element references for the notes panel
-   */
-  initNotesPanel(dependencies, elements) {
-    this.logger?.debug('Initializing notes panel component');
-
-    const notesPanelComponent = this.factory.createNotesPanelComponent(dependencies);
-    notesPanelComponent.initialize(elements);
-    this.components.set('notesPanelComponent', notesPanelComponent);
-
-    this.logger?.info('Notes panel component initialized');
+    this.logger?.debug(`Initializing component: ${id}`);
+    const component = this._createComponent(definition, { elements, dependencies });
+    this.logger?.info(`${id} component initialized`);
+    return component;
   }
 
   /**
@@ -136,5 +105,20 @@ export class UIComponentRegistry {
 
     this.components.clear();
     this.logger?.info('All UI components disposed');
+  }
+
+  _createComponent(definition, { elements, dependencies }) {
+    const component = definition.create({ elements, dependencies });
+    if (!component) {
+      this.logger?.warn(`Component creation failed: ${definition.id}`);
+      return undefined;
+    }
+
+    if (elements && typeof component.initialize === 'function') {
+      component.initialize(elements);
+    }
+
+    this.components.set(definition.id, component);
+    return component;
   }
 }

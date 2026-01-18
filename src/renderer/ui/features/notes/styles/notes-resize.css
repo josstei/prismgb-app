@@ -1,0 +1,59 @@
+/* =====================================================
+   List Toggle Divider
+   ===================================================== */
+
+.notes-list-toggle {
+  width: 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: col-resize;
+  position: relative;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.notes-list-toggle:hover {
+  background: rgba(var(--color-info-rgb), 0.05);
+}
+
+.notes-list-toggle .toggle-handle {
+  width: 2px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 1px;
+  transition:
+    background 0.2s ease,
+    height 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.notes-list-toggle:hover .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.5);
+  height: 36px;
+  box-shadow: 0 0 8px rgba(var(--color-info-rgb), 0.3);
+}
+
+/* Dragging state */
+.notes-list-toggle.dragging {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.notes-list-toggle.dragging .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.7);
+  height: 44px;
+  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
+}
+
+/* Disable transition during drag for responsive feedback */
+.notes-panel-content:has(.notes-list-toggle.dragging) .notes-list-wrapper {
+  transition: none;
+}
+
+/* Visual indicator when collapsed */
+.notes-panel-content.notes-list-collapsed .notes-list-toggle .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.4);
+}

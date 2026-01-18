@@ -10,21 +10,27 @@ import { appConfig } from '@shared/config/config-loader.utils.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
-import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
 const { USB_SCAN_DELAY } = appConfig;
 
 class DeviceService extends BaseService {
-  constructor(dependencies) {
+  /**
+   * @param {Object} dependencies - Service dependencies
+   * @param {Map<string, class>} profileClasses - Map of device type IDs to profile classes (injected via DI)
+   */
+  constructor(dependencies, profileClasses = new Map()) {
     super(dependencies, ['profileRegistry', 'eventBus', 'loggerFactory'], 'DeviceService');
     this.isDeviceConnected = false;
     this.connectedDeviceInfo = null;
-    this.usbMonitoring = false;
+    this.isUsbMonitoring = false;
     this._scanTimeoutId = null;
-    this._profilesInitialized = false;
+    this._areProfilesInitialized = false;
     this._initializationLock = null;
     this._checkDeviceLock = null;
+
+    // Profile classes registered via DI bootstrap
+    this._profileClasses = profileClasses;
   }
 
   /**
@@ -39,7 +45,7 @@ class DeviceService extends BaseService {
       return this._initializationLock;
     }
 
-    if (this._profilesInitialized) {
+    if (this._areProfilesInitialized) {
       this.logger.warn('DeviceService already initialized');
       return;
     }
@@ -60,7 +66,7 @@ class DeviceService extends BaseService {
    */
   async _performInitialization() {
     await this._initializeProfiles();
-    this._profilesInitialized = true;
+    this._areProfilesInitialized = true;
   }
 
   /**
@@ -74,8 +80,10 @@ class DeviceService extends BaseService {
       let firstProfileId = null;
       const failedProfiles = [];
 
-      // Register ProfileClasses with DeviceRegistry (main process responsibility)
-      DeviceRegistry.registerProfileClass('chromatic-mod-retro', DeviceChromaticProfile);
+      // Register profile classes with DeviceRegistry (injected via DI bootstrap)
+      for (const [deviceId, ProfileClass] of this._profileClasses) {
+        DeviceRegistry.registerProfileClass(deviceId, ProfileClass);
+      }
 
       // Load profiles from registry using shared iterator
       const devices = [];
@@ -149,7 +157,7 @@ class DeviceService extends BaseService {
    * @returns {boolean} True if monitoring started successfully, false otherwise
    */
   startUSBMonitoring() {
-    if (this.usbMonitoring) {
+    if (this.isUsbMonitoring) {
       this.logger.warn('USB monitoring already started');
       return true;
     }
@@ -161,7 +169,7 @@ class DeviceService extends BaseService {
 
       // Start monitoring
       usbDetection.startMonitoring();
-      this.usbMonitoring = true;
+      this.isUsbMonitoring = true;
 
       // Set up event listeners - store references for cleanup
       // Note: Handler reassignment is intentional. If startUSBMonitoring() is called
@@ -229,12 +237,13 @@ class DeviceService extends BaseService {
 
       this.logger.debug(`Found ${devices.length} device(s) in initial scan`);
 
-      // Manually trigger connection events for matching devices
+      // Trigger connection events for matching devices
+      // Note: matchDevice and onDeviceConnected are synchronous, no await needed
       for (const device of devices) {
         const match = this.matchDevice(device);
         if (match.matched) {
           this.logger.info('Triggering connection event for already-connected device');
-          await this.onDeviceConnected(device);
+          this.onDeviceConnected(device);
         }
       }
     } catch (error) {
@@ -261,7 +270,7 @@ class DeviceService extends BaseService {
    * Stop USB monitoring
    */
   stopUSBMonitoring() {
-    if (!this.usbMonitoring) {
+    if (!this.isUsbMonitoring) {
       return;
     }
 
@@ -276,7 +285,7 @@ class DeviceService extends BaseService {
       this._cleanupUSBListeners();
 
       usbDetection.stopMonitoring();
-      this.usbMonitoring = false;
+      this.isUsbMonitoring = false;
       this.logger.info('USB monitoring stopped');
     } catch (error) {
       this.logger.error('Failed to stop USB monitoring', error);
@@ -308,10 +317,10 @@ class DeviceService extends BaseService {
   }
 
   /**
-   * Check if a supported device is currently connected
+   * Refresh device connection status
    * Uses mutex to prevent concurrent device checks
    */
-  async checkForDevice() {
+  async refreshDeviceStatus() {
     // Return existing check if in progress
     if (this._checkDeviceLock) {
       return this._checkDeviceLock;

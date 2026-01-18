@@ -71,8 +71,9 @@ export async function writeTempFile(sessionDir, filename, buffer) {
  * Clean up a specific session directory
  * @param {string} sessionId - Session ID to clean up
  * @param {string} sessionDir - Session directory path
+ * @param {Object} [logger] - Optional logger for structured logging
  */
-export function cleanupSession(sessionId, sessionDir) {
+export function cleanupSession(sessionId, sessionDir, logger = null) {
   try {
     if (fs.existsSync(sessionDir)) {
       fs.rmSync(sessionDir, { recursive: true, force: true });
@@ -80,15 +81,21 @@ export function cleanupSession(sessionId, sessionDir) {
     activeSessions.delete(sessionId);
   } catch (error) {
     // Log but don't throw - cleanup should be best-effort
-    console.error(`Failed to cleanup session ${sessionId}:`, error.message);
+    const message = `Failed to cleanup session ${sessionId}: ${error.message}`;
+    if (logger?.error) {
+      logger.error(message);
+    } else {
+      console.error(message);
+    }
   }
 }
 
 /**
  * Clean up all active sessions
  * Call this on app quit to ensure no temp files are left behind
+ * @param {Object} [logger] - Optional logger for structured logging
  */
-export function cleanupAllSessions() {
+export function cleanupAllSessions(logger = null) {
   const baseDir = getTempBaseDir();
 
   // Clean up tracked sessions
@@ -99,7 +106,12 @@ export function cleanupAllSessions() {
         fs.rmSync(sessionDir, { recursive: true, force: true });
       }
     } catch (error) {
-      console.error(`Failed to cleanup session ${sessionId}:`, error.message);
+      const message = `Failed to cleanup session ${sessionId}: ${error.message}`;
+      if (logger?.error) {
+        logger.error(message);
+      } else {
+        console.error(message);
+      }
     }
   }
   activeSessions.clear();

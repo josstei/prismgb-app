@@ -61,7 +61,7 @@ describe('TrayService', () => {
 
     mockDeviceService = {
       isConnected: vi.fn(),
-      checkForDevice: vi.fn()
+      refreshDeviceStatus: vi.fn()
     };
 
     trayService = new TrayService({

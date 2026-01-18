@@ -111,7 +111,7 @@ export function createMockAppState(initialState = {}) {
   const state = {
     isStreaming: false,
     selectedDeviceId: null,
-    cinematicModeEnabled: true,
+    isCinematicModeEnabled: true,
     isRecording: false,
     recordingBlob: null,
     deviceConnected: false,
@@ -122,7 +122,7 @@ export function createMockAppState(initialState = {}) {
     // State getters
     get isStreaming() { return state.isStreaming; },
     get selectedDeviceId() { return state.selectedDeviceId; },
-    get cinematicModeEnabled() { return state.cinematicModeEnabled; },
+    get isCinematicModeEnabled() { return state.isCinematicModeEnabled; },
     get isRecording() { return state.isRecording; },
     get recordingBlob() { return state.recordingBlob; },
     get deviceConnected() { return state.deviceConnected; },
@@ -130,18 +130,18 @@ export function createMockAppState(initialState = {}) {
     // State setters
     setStreaming: vi.fn((value) => { state.isStreaming = value; }),
     setSelectedDeviceId: vi.fn((value) => { state.selectedDeviceId = value; }),
-    setCinematicModeEnabled: vi.fn((value) => { state.cinematicModeEnabled = value; }),
+    setCinematicModeEnabled: vi.fn((value) => { state.isCinematicModeEnabled = value; }),
     setRecording: vi.fn((value) => { state.isRecording = value; }),
     setRecordingBlob: vi.fn((value) => { state.recordingBlob = value; }),
     setDeviceConnected: vi.fn((value) => { state.deviceConnected = value; }),
-    setCinematicMode: vi.fn((value) => { state.cinematicModeEnabled = value; }),
+    setCinematicMode: vi.fn((value) => { state.isCinematicModeEnabled = value; }),
 
     // Test helpers
     _state: state,
     _reset: () => {
       state.isStreaming = false;
       state.selectedDeviceId = null;
-      state.cinematicModeEnabled = true;
+      state.isCinematicModeEnabled = true;
       state.isRecording = false;
       state.recordingBlob = null;
       state.deviceConnected = false;

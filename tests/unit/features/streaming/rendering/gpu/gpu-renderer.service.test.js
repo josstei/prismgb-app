@@ -111,15 +111,15 @@ describe('StreamingGpuRendererService', () => {
     it('should initialize with default values', () => {
       expect(service._worker).toBeNull();
       expect(service._isReady).toBe(false);
-      expect(service._canvasTransferred).toBe(false);
-      expect(service._usingFallback).toBe(false);
+      expect(service._wasCanvasTransferred).toBe(false);
+      expect(service._isUsingFallback).toBe(false);
     });
   });
 
   describe('_cleanup', () => {
     it('should emit CANVAS_EXPIRED when canvas was transferred', () => {
       // Simulate canvas was transferred
-      service._canvasTransferred = true;
+      service._wasCanvasTransferred = true;
       service._worker = {
         postMessage: vi.fn(),
         terminate: vi.fn()
@@ -128,11 +128,11 @@ describe('StreamingGpuRendererService', () => {
       service._cleanup();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      expect(service._canvasTransferred).toBe(false);
+      expect(service._wasCanvasTransferred).toBe(false);
     });
 
     it('should NOT emit CANVAS_EXPIRED when canvas was not transferred', () => {
-      service._canvasTransferred = false;
+      service._wasCanvasTransferred = false;
       service._worker = null;
 
       service._cleanup();
@@ -141,7 +141,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should NOT emit CANVAS_EXPIRED when emitCanvasExpired is false', () => {
-      service._canvasTransferred = true;
+      service._wasCanvasTransferred = true;
       service._worker = {
         postMessage: vi.fn(),
         terminate: vi.fn()
@@ -150,8 +150,8 @@ describe('StreamingGpuRendererService', () => {
       service._cleanup(false);
 
       expect(mockEventBus.publish).not.toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      // Note: _canvasTransferred is NOT reset when emitCanvasExpired is false
-      expect(service._canvasTransferred).toBe(true);
+      // Note: _wasCanvasTransferred is NOT reset when emitCanvasExpired is false
+      expect(service._wasCanvasTransferred).toBe(true);
     });
 
     it('should terminate worker and clear references', () => {
@@ -191,7 +191,7 @@ describe('StreamingGpuRendererService', () => {
 
   describe('terminateAndReset', () => {
     it('should emit CANVAS_EXPIRED after cleanup', () => {
-      service._canvasTransferred = true;
+      service._wasCanvasTransferred = true;
       service._worker = {
         postMessage: vi.fn(),
         terminate: vi.fn()
@@ -200,12 +200,12 @@ describe('StreamingGpuRendererService', () => {
       service.terminateAndReset();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      expect(service._canvasTransferred).toBe(false);
+      expect(service._wasCanvasTransferred).toBe(false);
     });
 
     it('should do nothing if no worker and canvas not transferred', () => {
       service._worker = null;
-      service._canvasTransferred = false;
+      service._wasCanvasTransferred = false;
 
       service.terminateAndReset();
 
@@ -248,10 +248,10 @@ describe('StreamingGpuRendererService', () => {
 
   describe('isCanvasTransferred', () => {
     it('should return current canvas transfer state', () => {
-      service._canvasTransferred = false;
+      service._wasCanvasTransferred = false;
       expect(service.isCanvasTransferred()).toBe(false);
 
-      service._canvasTransferred = true;
+      service._wasCanvasTransferred = true;
       expect(service.isCanvasTransferred()).toBe(true);
     });
   });
@@ -265,7 +265,7 @@ describe('StreamingGpuRendererService', () => {
       // 4. Orchestrator can now recreate canvas and try again
 
       // Simulate successful canvas transfer
-      service._canvasTransferred = true;
+      service._wasCanvasTransferred = true;
       service._worker = {
         postMessage: vi.fn(),
         terminate: vi.fn()
@@ -278,7 +278,7 @@ describe('StreamingGpuRendererService', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
 
       // Verify service state is reset for fresh init
-      expect(service._canvasTransferred).toBe(false);
+      expect(service._wasCanvasTransferred).toBe(false);
       expect(service._worker).toBeNull();
       expect(service._canvas).toBeNull();
 

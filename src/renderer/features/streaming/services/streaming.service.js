@@ -374,13 +374,17 @@ export class StreamingService extends BaseService {
     this.logger.info('Auto-selecting device');
 
     const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
-    for (const deviceId of storedIds) {
+    if (storedIds.length > 0) {
+      // Try all stored device IDs in parallel for faster restoration when first IDs are stale
       try {
-        const device = await this._getDeviceById(deviceId);
+        const device = await Promise.any(
+          storedIds.map(deviceId => this._getDeviceById(deviceId))
+        );
         this.logger.info('Using stored device ID:', device.label);
         return device;
-      } catch (error) {
-        this.logger.warn('Stored device ID not found in enumeration:', error.message || error);
+      } catch {
+        // AggregateError - all stored IDs failed, fall through to label matching
+        this.logger.warn('All stored device IDs not found in enumeration');
       }
     }
 

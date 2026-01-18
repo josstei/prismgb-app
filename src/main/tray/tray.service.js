@@ -17,7 +17,7 @@ const MENU_CONFIG = [
   {
     label: 'Refresh Devices',
     service: 'deviceService',
-    method: 'checkForDevice'
+    method: 'refreshDeviceStatus'
   }
 ];
 

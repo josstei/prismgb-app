@@ -16,6 +16,7 @@ describe('UIController', () => {
   let mockStreamControls;
   let mockSettingsMenu;
   let mockShaderSelector;
+  let mockBodyClassManager;
   let mockLoggerFactory;
   let mockLogger;
 
@@ -66,10 +67,18 @@ describe('UIController', () => {
       hide: vi.fn()
     };
 
+    mockBodyClassManager = {
+      setStreamingMode: vi.fn(),
+      setCinematicMode: vi.fn(),
+      setMinimalistFullscreen: vi.fn(),
+      setFullscreenMode: vi.fn(),
+      areAnimationsOff: vi.fn()
+    };
+
     // Create mock registry
     mockRegistry = {
       initialize: vi.fn(),
-      initSettingsMenu: vi.fn(),
+      initializeComponent: vi.fn(),
       get: vi.fn((name) => {
         switch (name) {
           case 'statusNotificationComponent': return mockStatusManager;
@@ -110,6 +119,7 @@ describe('UIController', () => {
     controller = new UIController({
       uiComponentRegistry: mockRegistry,
       uiEffects: mockEffects,
+      bodyClassManager: mockBodyClassManager,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -148,25 +158,39 @@ describe('UIController', () => {
     it('should call registry.initialize with elements', () => {
       controller.initializeComponents();
 
-      expect(mockRegistry.initialize).toHaveBeenCalledWith(controller.elements);
+      expect(mockRegistry.initialize).toHaveBeenCalledWith(controller.elements, {
+        bodyClassManager: mockBodyClassManager
+      });
     });
   });
 
   describe('initSettingsMenu', () => {
-    it('should call registry.initSettingsMenu with dependencies', () => {
+    it('should call registry.initializeComponent with dependencies', () => {
       const deps = { settingsService: {}, eventBus: {}, logger: {} };
 
       controller.initSettingsMenu(deps);
 
-      expect(mockRegistry.initSettingsMenu).toHaveBeenCalledWith(deps);
+      expect(mockRegistry.initializeComponent).toHaveBeenCalledWith(
+        'settingsMenuComponent',
+        expect.objectContaining({
+          dependencies: deps
+        })
+      );
     });
 
-    it('should initialize settings menu component with elements', () => {
+    it('should initialize settings menu component with settings and updates elements', () => {
       const deps = { settingsService: {}, eventBus: {}, logger: {} };
 
       controller.initSettingsMenu(deps);
 
-      expect(mockSettingsMenu.initialize).toHaveBeenCalledWith(controller.elements);
+      // Settings menu receives merged settings + updates elements from dom
+      const call = mockRegistry.initializeComponent.mock.calls.find(
+        ([id]) => id === 'settingsMenuComponent'
+      );
+      expect(call?.[1]?.elements).toEqual({
+        ...controller.dom?.settings,
+        ...controller.dom?.updates
+      });
     });
   });
 

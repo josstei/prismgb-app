@@ -197,4 +197,253 @@ describe('CaptureGpuRecordingService', () => {
     expect(mockTrack.stop).toHaveBeenCalled();
     expect(service.isActive()).toBe(false);
   });
+
+  it('should throw error when starting without stream', async () => {
+    await expect(service.start({ stream: null, frameRate: 60 })).rejects.toThrow('No stream provided');
+    expect(mockLogger.warn).toHaveBeenCalledWith('Cannot start GPU recording - no stream provided');
+  });
+
+  it('should throw error when starting while already recording', async () => {
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+    global.requestAnimationFrame = vi.fn(() => 123);
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    await service.start({ stream: mockStream, frameRate: 60 });
+
+    await expect(service.start({ stream: mockStream, frameRate: 60 })).rejects.toThrow('GPU recording already active');
+    expect(mockLogger.warn).toHaveBeenCalledWith('GPU recording already active');
+  });
+
+  it('should use default frame rate when not provided', async () => {
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+    global.requestAnimationFrame = vi.fn();
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+
+    await service.start({ stream: mockStream });
+
+    expect(mockCanvas.captureStream).toHaveBeenCalledWith(60);
+  });
+
+  it('should add audio tracks from source stream', async () => {
+    const mockAudioTrack = { clone: vi.fn(() => ({ id: 'cloned-track' })) };
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+    global.requestAnimationFrame = vi.fn();
+
+    const mockStream = { getAudioTracks: vi.fn(() => [mockAudioTrack]) };
+
+    await service.start({ stream: mockStream, frameRate: 60 });
+
+    expect(mockAudioTrack.clone).toHaveBeenCalled();
+    expect(mockRecordingStream.addTrack).toHaveBeenCalledWith({ id: 'cloned-track' });
+  });
+
+  it('should return 1:1 scale when frame matches canvas dimensions', () => {
+    service._recordingWidth = 640;
+    service._recordingHeight = 576;
+
+    const result = service._calculateRecordingScale(640, 576);
+
+    expect(result.scale).toBe(1);
+    expect(result.needsClearing).toBe(false);
+    expect(result.offsetX).toBe(0);
+    expect(result.offsetY).toBe(0);
+  });
+
+  it('should calculate fractional downscaling for larger frames', () => {
+    service._recordingWidth = 640;
+    service._recordingHeight = 480;
+
+    const result = service._calculateRecordingScale(1920, 1080);
+
+    expect(result.scale).toBeLessThan(1);
+  });
+
+  it('should return cached scale params when frame dimensions unchanged', () => {
+    service._recordingWidth = 640;
+    service._recordingHeight = 576;
+
+    const result1 = service._calculateRecordingScale(320, 288);
+    const result2 = service._calculateRecordingScale(320, 288);
+
+    expect(result1).toBe(result2);
+  });
+
+  it('should recalculate when frame dimensions change', () => {
+    service._recordingWidth = 640;
+    service._recordingHeight = 576;
+
+    const result1 = service._calculateRecordingScale(320, 288);
+    const result2 = service._calculateRecordingScale(640, 576);
+
+    expect(result1).not.toBe(result2);
+    expect(result1.scale).toBe(2);
+    expect(result2.scale).toBe(1);
+  });
+
+  it('should do nothing when stopping while not recording', async () => {
+    global.cancelAnimationFrame = vi.fn();
+
+    await service.stop();
+
+    expect(global.cancelAnimationFrame).not.toHaveBeenCalled();
+  });
+
+  it('should dispose and cleanup resources', () => {
+    global.cancelAnimationFrame = vi.fn();
+
+    service.dispose();
+
+    expect(mockLogger.info).toHaveBeenCalledWith('CaptureGpuRecordingService disposed');
+  });
+
+  it('should return recording stream via getter', async () => {
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+    global.requestAnimationFrame = vi.fn();
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    await service.start({ stream: mockStream, frameRate: 60 });
+
+    expect(service.getRecordingStream()).toBe(mockRecordingStream);
+  });
+
+  it('should clear canvas only once when offsets are needed', async () => {
+    const mockFrame = { width: 320, height: 200, close: vi.fn() };
+    mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
+    mockGpuRendererService.getTargetDimensions.mockReturnValue({ width: 640, height: 576 });
+
+    const mockFillRect = vi.fn();
+    const mockDrawImage = vi.fn();
+    const mockCtx = {
+      drawImage: mockDrawImage,
+      fillRect: mockFillRect,
+      fillStyle: '',
+      imageSmoothingEnabled: true
+    };
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => mockCtx),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+
+    let rafCallback;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      rafCallback = cb;
+      return 123;
+    });
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    await service.start({ stream: mockStream, frameRate: 60 });
+
+    // First frame - should clear canvas
+    await rafCallback();
+    expect(mockFillRect).toHaveBeenCalledTimes(1);
+
+    // Reset pending flag and call again
+    mockGpuRendererService.captureFrame.mockResolvedValue({ width: 320, height: 200, close: vi.fn() });
+    await rafCallback();
+    // Should not clear again
+    expect(mockFillRect).toHaveBeenCalledTimes(1);
+  });
+
+  it('should wait for in-flight capture on stop with draining', async () => {
+    let captureResolve;
+    const capturePromise = new Promise(resolve => {
+      captureResolve = resolve;
+    });
+    mockGpuRendererService.captureFrame.mockReturnValue(capturePromise);
+
+    const mockCtx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: '',
+      imageSmoothingEnabled: true
+    };
+    const mockRecordingStream = {
+      addTrack: vi.fn(),
+      getTracks: vi.fn(() => [{ stop: vi.fn() }])
+    };
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => mockCtx),
+      captureStream: vi.fn(() => mockRecordingStream)
+    };
+
+    global.document = { createElement: vi.fn(() => mockCanvas) };
+
+    let rafCallback;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      rafCallback = cb;
+      return 123;
+    });
+    global.cancelAnimationFrame = vi.fn();
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    await service.start({ stream: mockStream, frameRate: 60 });
+
+    // Start a capture
+    rafCallback();
+
+    // Start stopping (should wait for capture)
+    const stopPromise = service.stop();
+
+    // Resolve the capture
+    captureResolve({ width: 640, height: 576, close: vi.fn() });
+
+    await stopPromise;
+
+    expect(mockLogger.debug).toHaveBeenCalledWith('Waiting for in-flight capture to complete...');
+  });
 });

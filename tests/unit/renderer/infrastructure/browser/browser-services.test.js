@@ -69,6 +69,151 @@ describe('BrowserMediaAdapter', () => {
 
       expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler);
     });
+
+    it('should remove handler from tracking map', () => {
+      const handler = vi.fn();
+      service.addEventListener('devicechange', handler);
+
+      service.removeEventListener('devicechange', handler);
+
+      expect(service._listeners.get('devicechange')).toBeUndefined();
+    });
+
+    it('should handle removing non-existent handler gracefully', () => {
+      const handler = vi.fn();
+
+      expect(() => service.removeEventListener('devicechange', handler)).not.toThrow();
+    });
+
+    it('should remove only the specific handler from tracking', () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      service.addEventListener('devicechange', handler1);
+      service.addEventListener('devicechange', handler2);
+
+      service.removeEventListener('devicechange', handler1);
+
+      expect(service._listeners.get('devicechange').size).toBe(1);
+      expect(service._listeners.get('devicechange').has(handler2)).toBe(true);
+    });
+  });
+
+  describe('isAvailable', () => {
+    it('should return true when mediaDevices is available', () => {
+      expect(service.isAvailable()).toBe(true);
+    });
+
+    it('should return false when navigator is undefined', () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+
+      expect(newService.isAvailable()).toBe(false);
+    });
+
+    it('should return false when mediaDevices is undefined', () => {
+      global.navigator = {};
+      const newService = new BrowserMediaAdapter();
+
+      expect(newService.isAvailable()).toBe(false);
+    });
+  });
+
+  describe('_ensureAvailable', () => {
+    it('should throw when MediaDevices API is not available', () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+
+      expect(() => newService._ensureAvailable()).toThrow('MediaDevices API not available');
+    });
+
+    it('should not throw when MediaDevices API is available', () => {
+      expect(() => service._ensureAvailable()).not.toThrow();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should throw when enumerateDevices is called without API', async () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+
+      await expect(newService.enumerateDevices()).rejects.toThrow('MediaDevices API not available');
+    });
+
+    it('should throw when getUserMedia is called without API', async () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+
+      await expect(newService.getUserMedia({ video: true })).rejects.toThrow('MediaDevices API not available');
+    });
+
+    it('should throw when addEventListener is called without API', () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+      const handler = vi.fn();
+
+      expect(() => newService.addEventListener('devicechange', handler)).toThrow('MediaDevices API not available');
+    });
+
+    it('should throw when removeEventListener is called without API', () => {
+      global.navigator = undefined;
+      const newService = new BrowserMediaAdapter();
+      const handler = vi.fn();
+
+      expect(() => newService.removeEventListener('devicechange', handler)).toThrow('MediaDevices API not available');
+    });
+  });
+
+  describe('removeAllListeners', () => {
+    it('should remove all tracked event listeners', () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      service.addEventListener('devicechange', handler1);
+      service.addEventListener('devicechange', handler2);
+
+      service.removeAllListeners();
+
+      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
+      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler2);
+      expect(service._listeners.size).toBe(0);
+    });
+
+    it('should handle multiple event types', () => {
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      service.addEventListener('devicechange', handler1);
+      service.addEventListener('someevent', handler2);
+
+      service.removeAllListeners();
+
+      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
+      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('someevent', handler2);
+      expect(service._listeners.size).toBe(0);
+    });
+
+    it('should do nothing when API is not available', () => {
+      const handler = vi.fn();
+      service.addEventListener('devicechange', handler);
+      global.navigator = undefined;
+
+      expect(() => service.removeAllListeners()).not.toThrow();
+    });
+
+    it('should do nothing when no listeners registered', () => {
+      expect(() => service.removeAllListeners()).not.toThrow();
+      expect(service._listeners.size).toBe(0);
+    });
+  });
+
+  describe('dispose', () => {
+    it('should call removeAllListeners', () => {
+      const handler = vi.fn();
+      service.addEventListener('devicechange', handler);
+
+      service.dispose();
+
+      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler);
+      expect(service._listeners.size).toBe(0);
+    });
   });
 });
 

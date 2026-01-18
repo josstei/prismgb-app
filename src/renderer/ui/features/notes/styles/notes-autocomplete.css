@@ -1,0 +1,55 @@
+/* =====================================================
+   Autocomplete
+   ===================================================== */
+
+/* Autocomplete dropdown */
+.notes-game-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-top: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.notes-game-autocomplete.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.notes-game-autocomplete-item {
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.notes-game-autocomplete-item:hover,
+.notes-game-autocomplete-item.highlighted {
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.notes-game-autocomplete-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.notes-game-autocomplete-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}

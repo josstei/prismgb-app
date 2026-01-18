@@ -20,7 +20,7 @@ describe('StreamingGpuRenderLoopService', () => {
       error: vi.fn()
     };
 
-    mockRenderFrame = vi.fn().mockResolvedValue(undefined);
+    mockRenderFrame = vi.fn();
     mockShouldContinue = vi.fn(() => true);
 
     mockVideoElement = {
@@ -124,7 +124,7 @@ describe('StreamingGpuRenderLoopService', () => {
       });
     });
 
-    it('should call renderFrame when frame time changes and video ready', async () => {
+    it('should call renderFrame when frame time changes and video ready', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -134,12 +134,12 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
 
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
     });
 
-    it('should use metadata.mediaTime as frameTime when available', async () => {
+    it('should use metadata.mediaTime as frameTime when available', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -149,19 +149,19 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
 
       // Same mediaTime should not trigger another render
-      await capturedRenderLoop(2000, { mediaTime: 16.67 });
+      capturedRenderLoop(2000, { mediaTime: 16.67 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
 
       // Different mediaTime should trigger render
-      await capturedRenderLoop(3000, { mediaTime: 33.34 });
+      capturedRenderLoop(3000, { mediaTime: 33.34 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(2);
     });
 
-    it('should fallback to now when metadata.mediaTime not available', async () => {
+    it('should fallback to now when metadata.mediaTime not available', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -171,14 +171,14 @@ describe('StreamingGpuRenderLoopService', () => {
       const now1 = 1000;
       const now2 = 2000;
 
-      await capturedRenderLoop(now1, {});
+      capturedRenderLoop(now1, {});
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
 
-      await capturedRenderLoop(now2, {});
+      capturedRenderLoop(now2, {});
       expect(mockRenderFrame).toHaveBeenCalledTimes(2);
     });
 
-    it('should fallback to now when metadata is null', async () => {
+    it('should fallback to now when metadata is null', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -187,11 +187,11 @@ describe('StreamingGpuRenderLoopService', () => {
 
       const now = 1000;
 
-      await capturedRenderLoop(now, null);
+      capturedRenderLoop(now, null);
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
     });
 
-    it('should skip rendering when frame time unchanged', async () => {
+    it('should skip rendering when frame time unchanged', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -201,15 +201,15 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
 
       // Same frame time
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
     });
 
-    it('should skip rendering when readyState < HAVE_CURRENT_DATA', async () => {
+    it('should skip rendering when readyState < HAVE_CURRENT_DATA', () => {
       mockVideoElement.readyState = 1; // Less than HAVE_CURRENT_DATA (2)
 
       service.start({
@@ -221,12 +221,12 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
 
       expect(mockRenderFrame).not.toHaveBeenCalled();
     });
 
-    it('should render when readyState equals HAVE_CURRENT_DATA', async () => {
+    it('should render when readyState equals HAVE_CURRENT_DATA', () => {
       mockVideoElement.readyState = 2; // HAVE_CURRENT_DATA
 
       service.start({
@@ -238,12 +238,12 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
 
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
     });
 
-    it('should render when readyState > HAVE_CURRENT_DATA', async () => {
+    it('should render when readyState > HAVE_CURRENT_DATA', () => {
       mockVideoElement.readyState = 4; // HAVE_ENOUGH_DATA
 
       service.start({
@@ -255,12 +255,12 @@ describe('StreamingGpuRenderLoopService', () => {
       const now = 1000;
       const metadata = { mediaTime: 16.67 };
 
-      await capturedRenderLoop(now, metadata);
+      capturedRenderLoop(now, metadata);
 
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
     });
 
-    it('should continue loop when shouldContinue returns true', async () => {
+    it('should continue loop when shouldContinue returns true', () => {
       mockShouldContinue.mockReturnValue(true);
       const handle1 = 1;
       const handle2 = 2;
@@ -280,14 +280,14 @@ describe('StreamingGpuRenderLoopService', () => {
       expect(service._rvfcHandle).toBe(handle1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
 
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
 
       expect(mockShouldContinue).toHaveBeenCalledTimes(1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
       expect(service._rvfcHandle).toBe(handle2);
     });
 
-    it('should stop loop when shouldContinue returns false', async () => {
+    it('should stop loop when shouldContinue returns false', () => {
       mockShouldContinue.mockReturnValue(false);
 
       service.start({
@@ -298,13 +298,13 @@ describe('StreamingGpuRenderLoopService', () => {
 
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
 
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
 
       expect(mockShouldContinue).toHaveBeenCalledTimes(1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
     });
 
-    it('should not render when active flag is false', async () => {
+    it('should not render when active flag is false', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -313,13 +313,13 @@ describe('StreamingGpuRenderLoopService', () => {
 
       service._active = false;
 
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
 
       expect(mockRenderFrame).not.toHaveBeenCalled();
       expect(mockShouldContinue).not.toHaveBeenCalled();
     });
 
-    it('should not continue loop when active flag is false', async () => {
+    it('should not continue loop when active flag is false', () => {
       service.start({
         videoElement: mockVideoElement,
         renderFrame: mockRenderFrame,
@@ -328,33 +328,24 @@ describe('StreamingGpuRenderLoopService', () => {
 
       service._active = false;
 
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
 
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(1); // Only initial call
     });
 
-    it('should handle async renderFrame correctly', async () => {
-      let resolveRender;
-      const delayedRenderFrame = vi.fn(() => new Promise((resolve) => {
-        resolveRender = resolve;
-      }));
-
+    it('should call shouldContinue immediately after renderFrame (fire-and-forget pattern)', () => {
+      // renderFrame is now fire-and-forget - backpressure handled by triple buffering
+      // shouldContinue should be called synchronously after renderFrame
       service.start({
         videoElement: mockVideoElement,
-        renderFrame: delayedRenderFrame,
+        renderFrame: mockRenderFrame,
         shouldContinue: mockShouldContinue
       });
 
-      const renderPromise = capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
 
-      // renderFrame is called immediately
-      expect(delayedRenderFrame).toHaveBeenCalledTimes(1);
-
-      // But loop hasn't continued yet (awaiting renderFrame)
-      resolveRender();
-      await renderPromise;
-
-      // Now shouldContinue should be checked
+      // Both should be called in same tick (synchronously)
+      expect(mockRenderFrame).toHaveBeenCalledTimes(1);
       expect(mockShouldContinue).toHaveBeenCalledTimes(1);
     });
   });
@@ -472,7 +463,7 @@ describe('StreamingGpuRenderLoopService', () => {
   });
 
   describe('integration scenarios', () => {
-    it('should handle complete start-render-stop lifecycle', async () => {
+    it('should handle complete start-render-stop lifecycle', () => {
       let capturedRenderLoop;
       mockVideoElement.requestVideoFrameCallback.mockImplementation((callback) => {
         capturedRenderLoop = callback;
@@ -490,9 +481,9 @@ describe('StreamingGpuRenderLoopService', () => {
       expect(service._rvfcHandle).toBe(1);
 
       // Render a few frames
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
-      await capturedRenderLoop(2000, { mediaTime: 33.34 });
-      await capturedRenderLoop(3000, { mediaTime: 50.01 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(2000, { mediaTime: 33.34 });
+      capturedRenderLoop(3000, { mediaTime: 50.01 });
 
       expect(mockRenderFrame).toHaveBeenCalledTimes(3);
 
@@ -503,11 +494,11 @@ describe('StreamingGpuRenderLoopService', () => {
       expect(service._rvfcHandle).toBeNull();
 
       // Attempting to render after stop should be ignored
-      await capturedRenderLoop(4000, { mediaTime: 66.68 });
+      capturedRenderLoop(4000, { mediaTime: 66.68 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(3); // Still 3
     });
 
-    it('should stop rendering when shouldContinue changes to false mid-stream', async () => {
+    it('should stop rendering when shouldContinue changes to false mid-stream', () => {
       let capturedRenderLoop;
       mockVideoElement.requestVideoFrameCallback.mockImplementation((callback) => {
         capturedRenderLoop = callback;
@@ -524,7 +515,7 @@ describe('StreamingGpuRenderLoopService', () => {
       });
 
       // First frame renders and continues
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
 
@@ -532,12 +523,12 @@ describe('StreamingGpuRenderLoopService', () => {
       continueFlag = false;
 
       // Next frame renders but doesn't continue
-      await capturedRenderLoop(2000, { mediaTime: 33.34 });
+      capturedRenderLoop(2000, { mediaTime: 33.34 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(2);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(2); // No new call
     });
 
-    it('should handle video readyState transitions', async () => {
+    it('should handle video readyState transitions', () => {
       let capturedRenderLoop;
       mockVideoElement.requestVideoFrameCallback.mockImplementation((callback) => {
         capturedRenderLoop = callback;
@@ -552,17 +543,17 @@ describe('StreamingGpuRenderLoopService', () => {
 
       // Video starts with enough data
       mockVideoElement.readyState = 4;
-      await capturedRenderLoop(1000, { mediaTime: 16.67 });
+      capturedRenderLoop(1000, { mediaTime: 16.67 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(1);
 
       // Video stalls (buffering)
       mockVideoElement.readyState = 1;
-      await capturedRenderLoop(2000, { mediaTime: 33.34 });
+      capturedRenderLoop(2000, { mediaTime: 33.34 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(1); // No new render
 
       // Video recovers
       mockVideoElement.readyState = 4;
-      await capturedRenderLoop(3000, { mediaTime: 50.01 });
+      capturedRenderLoop(3000, { mediaTime: 50.01 });
       expect(mockRenderFrame).toHaveBeenCalledTimes(2); // Renders again
     });
   });

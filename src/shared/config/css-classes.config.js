@@ -65,7 +65,7 @@ export const CSSClasses = {
   TOOLBAR_HIDDEN: 'toolbar-hidden',
 
   // Notes panel states
-  LIST_COLLAPSED: 'list-collapsed',
+  LIST_COLLAPSED: 'notes-list-collapsed',
   GAME_GROUP_COLLAPSED: 'collapsed',
 
   // Performance mode

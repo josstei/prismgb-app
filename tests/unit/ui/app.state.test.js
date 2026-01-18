@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { AppState } from '@renderer/application/app.state.js';
+import { AppState } from '@renderer/application/app-state.class.js';
 
 describe('AppState', () => {
   let state;
@@ -43,7 +43,7 @@ describe('AppState', () => {
     it('should initialize with default state', () => {
       expect(state.isStreaming).toBe(false);
       expect(state.deviceConnected).toBe(false);
-      expect(state.cinematicModeEnabled).toBe(true);
+      expect(state.isCinematicModeEnabled).toBe(true);
     });
 
     it('should work without dependencies (graceful degradation)', () => {
@@ -85,14 +85,14 @@ describe('AppState', () => {
 
   describe('setCinematicMode', () => {
     it('should enable cinematic mode', () => {
-      state.cinematicModeEnabled = false;
+      state.isCinematicModeEnabled = false;
       state.setCinematicMode(true);
-      expect(state.cinematicModeEnabled).toBe(true);
+      expect(state.isCinematicModeEnabled).toBe(true);
     });
 
     it('should disable cinematic mode', () => {
       state.setCinematicMode(false);
-      expect(state.cinematicModeEnabled).toBe(false);
+      expect(state.isCinematicModeEnabled).toBe(false);
     });
   });
 
@@ -105,7 +105,7 @@ describe('AppState', () => {
 
       expect(state.isStreaming).toBe(true);
       expect(state.deviceConnected).toBe(true);
-      expect(state.cinematicModeEnabled).toBe(false);
+      expect(state.isCinematicModeEnabled).toBe(false);
     });
 
     it('should reflect service state changes', () => {
@@ -360,10 +360,10 @@ describe('AppState', () => {
       state.deviceService = null;
 
       state.setCinematicMode(false);
-      expect(state.cinematicModeEnabled).toBe(false);
+      expect(state.isCinematicModeEnabled).toBe(false);
 
       state.setCinematicMode(true);
-      expect(state.cinematicModeEnabled).toBe(true);
+      expect(state.isCinematicModeEnabled).toBe(true);
     });
   });
 

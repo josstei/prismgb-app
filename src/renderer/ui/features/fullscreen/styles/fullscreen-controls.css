@@ -1,0 +1,82 @@
+/* =====================================================
+   Fullscreen Controls Styles
+   Minimal pill-shaped control bar for fullscreen mode
+   ===================================================== */
+
+/* Hidden by default, only visible in fullscreen */
+.fullscreen-controls {
+  display: none;
+}
+
+/* Show floating controls in fullscreen mode */
+body.fullscreen-active .fullscreen-controls {
+  display: flex;
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: var(--z-overlay);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 24px;
+  background: rgba(15, 15, 30, 0.85);
+  backdrop-filter: blur(var(--blur-intense));
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(var(--color-primary-rgb), 0.1);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  contain: layout style;
+}
+
+/* Hidden state for auto-hide */
+body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+/* Control item wrapper (for volume with popup) */
+.fs-control-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Individual control buttons */
+.fs-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  contain: layout style;
+}
+
+.fs-control-btn:hover {
+  background: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary-light);
+}
+
+.fs-control-btn:active {
+  transform: scale(0.95);
+}
+
+.fs-control-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Prevent macOS cursor caching - fullscreen buttons use default cursor */
+#fullscreenBtn,
+#fsExitBtn {
+  cursor: default;
+}
