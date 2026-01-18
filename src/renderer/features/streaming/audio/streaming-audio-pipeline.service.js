@@ -1,16 +1,19 @@
 /**
- * Audio Warmup Service
+ * Streaming Audio Pipeline Service
  *
- * Routes stream audio through Web Audio and gates output until the
- * audio track stabilizes, preventing startup distortion.
+ * Owns the complete audio pipeline for streaming:
+ * - Routes stream audio through Web Audio API
+ * - Gates output until the audio track stabilizes (warmup phase)
+ * - Manages volume control and audio context lifecycle
+ * - Prevents startup distortion through gradual fade-in
  */
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-export class StreamingAudioWarmupService extends BaseService {
+export class StreamingAudioPipelineService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioWarmupService');
+    super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
 
     this._audioContext = null;
     this._sourceNode = null;

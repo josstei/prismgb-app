@@ -308,18 +308,19 @@ class NotesPanelComponent {
 
     const { title, content, gameName } = this.editorView.getValues();
 
-    const oldNote = this.notesService.getNote(this.currentNoteId);
-    const oldGameName = oldNote?.gameName || '';
-    const gameChanged = oldGameName !== gameName;
+    // Use service method that encapsulates change detection logic
+    const result = this.notesService.updateNoteWithChangeDetection(
+      this.currentNoteId,
+      { title, content, gameName }
+    );
 
-    const result = this.notesService.updateNote(this.currentNoteId, { title, content, gameName });
     if (!result) {
       this.logger?.warn('Failed to save note - may have been deleted');
       return;
     }
 
     // If game changed, update filter options and re-render list for proper grouping
-    if (gameChanged) {
+    if (result.gameChanged) {
       this.gameFilter.updateOptions();
       this.listView.render(this.searchComponent.getQuery());
     } else {

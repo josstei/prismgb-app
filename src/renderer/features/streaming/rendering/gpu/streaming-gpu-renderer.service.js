@@ -95,16 +95,16 @@ export class StreamingGpuRendererService extends BaseService {
     this._lastStats = null;
 
     // Fallback flag
-    this._usingFallback = false;
+    this._isUsingFallback = false;
 
     // Track if canvas control was transferred (irreversible operation)
-    this._canvasTransferred = false;
+    this._wasCanvasTransferred = false;
 
     // Pending capture request (Promise resolvers and timeout)
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
     this._captureTimeoutId = null;
-    this._waitingForCapturedFrame = false;
+    this._isWaitingForCapturedFrame = false;
 
     // Brightness event subscription (for cleanup)
     this._brightnessUnsubscribe = null;
@@ -154,7 +154,7 @@ export class StreamingGpuRendererService extends BaseService {
     // Check if GPU rendering is possible
     if (!CapabilityDetector.isGPURenderingAvailable(this._capabilities)) {
       this.logger.warn('GPU rendering not available, will use Canvas2D fallback');
-      this._usingFallback = true;
+      this._isUsingFallback = true;
       return false;
     }
 
@@ -162,13 +162,13 @@ export class StreamingGpuRendererService extends BaseService {
     if (!CapabilityDetector.isWorkerRenderingAvailable(this._capabilities)) {
       this.logger.warn('Worker rendering not available, will use main-thread GPU rendering');
       // TODO: Implement main-thread GPU rendering
-      this._usingFallback = true;
+      this._isUsingFallback = true;
       return false;
     }
 
     try {
       // Check if this is the same canvas that was already transferred
-      if (this._canvas === canvasElement && this._canvasTransferred) {
+      if (this._canvas === canvasElement && this._wasCanvasTransferred) {
         // Canvas was already transferred
         if (this._worker) {
           // Worker exists - check if we can reuse or need to re-init
@@ -223,7 +223,7 @@ export class StreamingGpuRendererService extends BaseService {
         } else {
           // Canvas was transferred but worker is gone - we can't recover
           this.logger.error('Canvas control was previously transferred but worker terminated. Cannot reinitialize.');
-          this._usingFallback = true;
+          this._isUsingFallback = true;
           return false;
         }
       }
@@ -234,7 +234,7 @@ export class StreamingGpuRendererService extends BaseService {
       // Transfer canvas control to offscreen
       // WARNING: This is irreversible - canvas can never be used with 2D context after this
       this._offscreenCanvas = canvasElement.transferControlToOffscreen();
-      this._canvasTransferred = true;
+      this._wasCanvasTransferred = true;
 
       // Create the render worker
       this._worker = new Worker(
@@ -287,7 +287,7 @@ export class StreamingGpuRendererService extends BaseService {
     } catch (error) {
       this.logger.error('Failed to initialize GPU renderer:', error);
       this._cleanup();
-      this._usingFallback = true;
+      this._isUsingFallback = true;
       return false;
     }
   }
@@ -353,8 +353,8 @@ export class StreamingGpuRendererService extends BaseService {
       case WorkerResponseType.FRAME_RENDERED:
         this._pendingFrames = Math.max(0, this._pendingFrames - 1);
         // If we're waiting for a frame to be captured, send CAPTURE now
-        if (this._waitingForCapturedFrame) {
-          this._waitingForCapturedFrame = false;
+        if (this._isWaitingForCapturedFrame) {
+          this._isWaitingForCapturedFrame = false;
           const captureMessage = createWorkerMessage(WorkerMessageType.CAPTURE);
           this._worker.postMessage(captureMessage);
         }
@@ -616,7 +616,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if ready and not using fallback
    */
   isActive() {
-    return this._isReady && !this._usingFallback;
+    return this._isReady && !this._isUsingFallback;
   }
 
   /**
@@ -624,7 +624,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if GPU unavailable and using fallback
    */
   isFallback() {
-    return this._usingFallback;
+    return this._isUsingFallback;
   }
 
   /**
@@ -633,7 +633,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if canvas was transferred (irreversible)
    */
   isCanvasTransferred() {
-    return this._canvasTransferred;
+    return this._wasCanvasTransferred;
   }
 
   /**
@@ -687,11 +687,11 @@ export class StreamingGpuRendererService extends BaseService {
 
       // Step 2: Set flag to send CAPTURE when next FRAME_RENDERED arrives
       // This ensures we capture a fully rendered frame with all shader effects
-      this._waitingForCapturedFrame = true;
+      this._isWaitingForCapturedFrame = true;
 
       // Timeout after 1 second (should complete within 1-2 frames at 60fps)
       this._captureTimeoutId = setTimeout(() => {
-        this._waitingForCapturedFrame = false;
+        this._isWaitingForCapturedFrame = false;
         this._resolvePendingCapture(null, new Error('Capture request timed out'));
       }, 1000);
     });
@@ -701,10 +701,11 @@ export class StreamingGpuRendererService extends BaseService {
    * Release GPU resources while keeping worker alive
    * Allows re-initialization without needing a new canvas transfer.
    * Used for idle memory savings when streaming stops.
+   * Note: Only GPU resources are released; the worker stays alive.
    */
-  releaseResources() {
+  releaseGpuResources() {
     if (!this._worker || !this._isReady) {
-      this.logger.debug('releaseResources: Nothing to release (worker not ready)');
+      this.logger.debug('releaseGpuResources: Nothing to release (worker not ready)');
       return;
     }
 
@@ -728,14 +729,14 @@ export class StreamingGpuRendererService extends BaseService {
    * Emits CANVAS_EXPIRED event so UI can provide fresh canvas on next init.
    */
   terminateAndReset(emitCanvasExpired = true) {
-    if (!this._worker && !this._canvasTransferred) {
+    if (!this._worker && !this._wasCanvasTransferred) {
       this.logger.debug('terminateAndReset: Nothing to terminate');
       return;
     }
 
     // Pass false to avoid duplicate CANVAS_EXPIRED emission - we handle it explicitly below
     this._cleanup(false);
-    this._canvasTransferred = false;
+    this._wasCanvasTransferred = false;
 
     if (emitCanvasExpired) {
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
@@ -817,8 +818,8 @@ export class StreamingGpuRendererService extends BaseService {
 
     // If canvas was transferred but cleanup is happening (init failure, error, etc.),
     // emit CANVAS_EXPIRED so orchestrator can provide fresh canvas on next init
-    if (emitCanvasExpired && this._canvasTransferred) {
-      this._canvasTransferred = false;
+    if (emitCanvasExpired && this._wasCanvasTransferred) {
+      this._wasCanvasTransferred = false;
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
       this.logger.info('Canvas expired - orchestrator will recreate for next session');
     }

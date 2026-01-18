@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.class.js';
 import { createMockLogger } from '../../../mocks/index.js';
 
 describe('DisclosureController', () => {

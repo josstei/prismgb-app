@@ -11,7 +11,7 @@ describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
   let mockUiController;
-  let mockPresentationModeCoordinator;
+  let mockPresentationModeService;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
@@ -44,7 +44,7 @@ describe('UIEventBridge', () => {
       }
     };
 
-    mockPresentationModeCoordinator = {
+    mockPresentationModeService = {
       handleStreamingMode: vi.fn(),
       handleCinematicModeChanged: vi.fn(),
       handleMinimalistFullscreenChanged: vi.fn(),
@@ -65,7 +65,7 @@ describe('UIEventBridge', () => {
     handler = new UIEventBridge({
       eventBus: mockEventBus,
       uiController: mockUiController,
-      presentationModeCoordinator: mockPresentationModeCoordinator,
+      presentationModeService: mockPresentationModeService,
       loggerFactory: mockLoggerFactory
     });
   });
@@ -78,7 +78,7 @@ describe('UIEventBridge', () => {
     it('should store dependencies', () => {
       expect(handler.eventBus).toBe(mockEventBus);
       expect(handler.uiController).toBe(mockUiController);
-      expect(handler.presentationModeCoordinator).toBe(mockPresentationModeCoordinator);
+      expect(handler.presentationModeService).toBe(mockPresentationModeService);
     });
 
     it('should create logger', () => {
@@ -169,10 +169,10 @@ describe('UIEventBridge', () => {
       expect(mockUiController.showErrorOverlay).toHaveBeenCalledWith('Error occurred');
     });
 
-    it('routes streaming mode changes to presentation coordinator', () => {
+    it('routes streaming mode changes to presentation service', () => {
       subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });
 
-      expect(mockPresentationModeCoordinator.handleStreamingMode).toHaveBeenCalledWith(true);
+      expect(mockPresentationModeService.handleStreamingMode).toHaveBeenCalledWith(true);
     });
 
     it('routes stream info updates', () => {
@@ -220,23 +220,23 @@ describe('UIEventBridge', () => {
       expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(false);
     });
 
-    it('routes cinematic mode changes to presentation coordinator', () => {
+    it('routes cinematic mode changes to presentation service', () => {
       subscribedHandlers[EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]({ enabled: true });
 
-      expect(mockPresentationModeCoordinator.handleCinematicModeChanged).toHaveBeenCalledWith(true);
+      expect(mockPresentationModeService.handleCinematicModeChanged).toHaveBeenCalledWith(true);
       expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Cinematic mode enabled');
     });
 
-    it('routes minimalist fullscreen changes to presentation coordinator', () => {
+    it('routes minimalist fullscreen changes to presentation service', () => {
       subscribedHandlers[EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED](true);
 
-      expect(mockPresentationModeCoordinator.handleMinimalistFullscreenChanged).toHaveBeenCalledWith(true);
+      expect(mockPresentationModeService.handleMinimalistFullscreenChanged).toHaveBeenCalledWith(true);
     });
 
-    it('routes fullscreen state changes to presentation coordinator', () => {
+    it('routes fullscreen state changes to presentation service', () => {
       subscribedHandlers[EventChannels.UI.FULLSCREEN_STATE]({ active: true });
 
-      expect(mockPresentationModeCoordinator.handleFullscreenState).toHaveBeenCalledWith(true);
+      expect(mockPresentationModeService.handleFullscreenState).toHaveBeenCalledWith(true);
     });
   });
 
@@ -272,7 +272,7 @@ describe('UIEventBridge', () => {
       const handlerWithoutDeviceStatus = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: { ...mockUiController, deviceStatus: null },
-        presentationModeCoordinator: mockPresentationModeCoordinator,
+        presentationModeService: mockPresentationModeService,
         loggerFactory: mockLoggerFactory
       });
       handlerWithoutDeviceStatus.initialize();
@@ -286,7 +286,7 @@ describe('UIEventBridge', () => {
       expect(() => new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
-        presentationModeCoordinator: mockPresentationModeCoordinator
+        presentationModeService: mockPresentationModeService
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
   });

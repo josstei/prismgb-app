@@ -10,8 +10,8 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
-import { renderListboxOptions, updateListboxActiveState } from '@renderer/ui/primitives/listbox.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.class.js';
+import { renderListboxOptions, updateListboxActiveState } from '@renderer/ui/primitives/listbox.utils.js';
 
 class GameFilterComponent {
   constructor({ notesService, logger }) {

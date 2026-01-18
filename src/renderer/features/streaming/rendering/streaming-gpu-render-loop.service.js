@@ -22,12 +22,14 @@ class StreamingGpuRenderLoopService extends BaseService {
     this._active = true;
     let lastFrameTime = -1;
 
-    const renderLoop = async (now, metadata) => {
+    const renderLoop = (now, metadata) => {
       if (!this._active) return;
 
       const frameTime = metadata?.mediaTime ?? now;
       if (frameTime !== lastFrameTime && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) {
-        await renderFrame();
+        // Fire-and-forget: backpressure handled by triple buffering in GPU renderer
+        // Error handling is internal to renderFrame (try/catch in StreamingGpuRendererService.renderFrame)
+        renderFrame();
         lastFrameTime = frameTime;
       }
 

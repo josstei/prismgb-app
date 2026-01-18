@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'audioWarmupService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -173,7 +173,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // No need to manually update appState.setStreaming() anymore
 
     this.streamViewService.attachMutedStream(stream);
-    this._startAudioWithFallback(stream);
+    this._initializeAudioPipeline(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -209,14 +209,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Start audio warmup with fallback to video element audio
+   * Initialize audio pipeline with fallback to video element audio
    * @param {MediaStream} stream - The media stream
    * @private
    */
-  _startAudioWithFallback(stream) {
+  _initializeAudioPipeline(stream) {
     const hasAudio = stream?.getAudioTracks?.().length > 0;
 
-    this.audioWarmupService.start(stream)
+    this.streamingAudioPipelineService.start(stream)
       .then((ready) => {
         if (!ready && hasAudio && this.appState.isStreaming) {
           this.logger.warn('Audio warm-up failed - falling back to video element audio');
@@ -247,7 +247,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
-    this.audioWarmupService.stop();
+    this.streamingAudioPipelineService.stop();
     this.streamViewService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
@@ -267,7 +267,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   _handleStreamError(error) {
     this.logger.error('Stream error:', error);
-    this.audioWarmupService.stop();
+    this.streamingAudioPipelineService.stop();
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
     this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
   }
@@ -310,7 +310,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   async onCleanup() {
     this.renderPipelineService.cleanup();
-    this.audioWarmupService.cleanup();
+    this.streamingAudioPipelineService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {

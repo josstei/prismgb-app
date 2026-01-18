@@ -1,12 +1,12 @@
 /**
- * PresentationModeCoordinator Unit Tests
+ * PresentationModeService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PresentationModeCoordinator } from '@renderer/ui/orchestration/presentation-mode.coordinator.js';
+import { PresentationModeService } from '@renderer/features/settings/services/presentation-mode.service.js';
 
-describe('PresentationModeCoordinator', () => {
-  let coordinator;
+describe('PresentationModeService', () => {
+  let service;
   let mockUiController;
   let mockAppState;
   let mockLoggerFactory;
@@ -23,7 +23,7 @@ describe('PresentationModeCoordinator', () => {
     };
 
     mockAppState = {
-      cinematicModeEnabled: true,
+      isCinematicModeEnabled: true,
       isStreaming: false
     };
 
@@ -42,7 +42,7 @@ describe('PresentationModeCoordinator', () => {
       value: null
     });
 
-    coordinator = new PresentationModeCoordinator({
+    service = new PresentationModeService({
       uiController: mockUiController,
       appState: mockAppState,
       loggerFactory: mockLoggerFactory
@@ -54,25 +54,25 @@ describe('PresentationModeCoordinator', () => {
   });
 
   it('enables cinematic visuals only when streaming is active', () => {
-    coordinator.handleStreamingMode(true);
+    service.handleStreamingMode(true);
 
     expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(true);
     expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
 
-    coordinator.handleStreamingMode(false);
+    service.handleStreamingMode(false);
 
     expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(false);
     expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
   });
 
   it('updates fullscreen UI and controls auto-hide state', () => {
-    coordinator.handleFullscreenState(true);
+    service.handleFullscreenState(true);
 
     expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
     expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(true);
     expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
 
-    coordinator.handleFullscreenState(false);
+    service.handleFullscreenState(false);
 
     expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(false);
     expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(false);
@@ -80,32 +80,32 @@ describe('PresentationModeCoordinator', () => {
   });
 
   it('applies minimalist fullscreen only when all conditions are met', () => {
-    coordinator.handleStreamingMode(true);
-    coordinator.handleFullscreenState(true);
+    service.handleStreamingMode(true);
+    service.handleFullscreenState(true);
     mockUiController.updateMinimalistFullscreen.mockClear();
 
-    coordinator.handleMinimalistFullscreenChanged(true);
+    service.handleMinimalistFullscreenChanged(true);
 
     expect(mockUiController.updateMinimalistFullscreen).toHaveBeenCalledWith(true);
   });
 
   it('removes minimalist fullscreen when any condition becomes false', () => {
-    coordinator.handleStreamingMode(true);
-    coordinator.handleFullscreenState(true);
-    coordinator.handleMinimalistFullscreenChanged(true);
+    service.handleStreamingMode(true);
+    service.handleFullscreenState(true);
+    service.handleMinimalistFullscreenChanged(true);
 
     mockUiController.updateMinimalistFullscreen.mockClear();
 
-    coordinator.handleFullscreenState(false);
+    service.handleFullscreenState(false);
 
     expect(mockUiController.updateMinimalistFullscreen).toHaveBeenCalledWith(false);
   });
 
   it('respects cinematic mode toggles while streaming', () => {
-    coordinator.handleStreamingMode(true);
+    service.handleStreamingMode(true);
     mockUiController.updateCinematicMode.mockClear();
 
-    coordinator.handleCinematicModeChanged(false);
+    service.handleCinematicModeChanged(false);
 
     expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
   });

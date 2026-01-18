@@ -40,6 +40,7 @@ Thumbs.db
 .env.local
 .claude/
 CLAUDE.md
+GEMINI.md
 
 # Recordings and screenshots
 recordings/

@@ -5,7 +5,7 @@
  */
 
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DisclosureController } from '@renderer/ui/primitives/disclosure.js';
+import { DisclosureController } from '@renderer/ui/primitives/disclosure.class.js';
 import { CinematicToggleComponent } from './cinematic-toggle.component.js';
 import { ShaderPresetListComponent } from './shader-preset-list.component.js';
 import { ShaderSliderControlsComponent } from './shader-slider-controls.component.js';

@@ -6,8 +6,8 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { DisclosureController } from './disclosure.js';
-import { updateListboxActiveState } from './listbox.js';
+import { DisclosureController } from './disclosure.class.js';
+import { updateListboxActiveState } from './listbox.utils.js';
 
 class ListboxDropdownController {
   constructor({
@@ -47,6 +47,10 @@ class ListboxDropdownController {
       logger: this.logger
     });
     this._disclosure.initialize();
+
+    this._domListeners.add(this.triggerElement, 'click', () => {
+      this.toggle();
+    });
 
     this._domListeners.add(this.menuElement, 'click', (event) => {
       const target = event.target instanceof Element ? event.target : null;

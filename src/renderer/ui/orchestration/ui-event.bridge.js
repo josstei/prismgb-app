@@ -14,7 +14,7 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 
 export class UIEventBridge extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'presentationModeCoordinator', 'loggerFactory'], 'UIEventBridge');
+    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
 
     // Track subscriptions for cleanup
     this._subscriptions = [];
@@ -100,7 +100,7 @@ export class UIEventBridge extends BaseService {
 
   _handleStreamingMode(data) {
     const { enabled } = data;
-    this.presentationModeCoordinator.handleStreamingMode(enabled);
+    this.presentationModeService.handleStreamingMode(enabled);
   }
 
   _handleStreamInfo(data) {
@@ -140,18 +140,18 @@ export class UIEventBridge extends BaseService {
 
   _handleCinematicMode(data) {
     const { enabled } = data;
-    this.presentationModeCoordinator.handleCinematicModeChanged(enabled);
+    this.presentationModeService.handleCinematicModeChanged(enabled);
     // Show status message (moved from CinematicModeService for separation of concerns)
     this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   _handleMinimalistFullscreenChanged(enabled) {
-    this.presentationModeCoordinator.handleMinimalistFullscreenChanged(enabled);
+    this.presentationModeService.handleMinimalistFullscreenChanged(enabled);
   }
 
   _handleFullscreenState(data) {
     const { active } = data;
-    this.presentationModeCoordinator.handleFullscreenState(active);
+    this.presentationModeService.handleFullscreenState(active);
   }
 
   /**

@@ -1,5 +1,8 @@
 /**
  * StreamingRenderPipelineService Unit Tests
+ *
+ * Tests the render pipeline service which uses Strategy pattern
+ * for GPU/Canvas2D renderer selection via StreamingRendererFactory.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -8,14 +11,17 @@ import { StreamingRenderPipelineService } from '@renderer/features/streaming/ren
 describe('StreamingRenderPipelineService', () => {
   let service;
   let mockAppState;
-  let mockStreamingViewService;
-  let mockStreamingCanvasRenderer;
-  let mockStreamingCanvasLifecycleService;
-  let mockStreamingHealthService;
-  let mockStreamingGpuRendererService;
-  let mockStreamingGpuRenderLoopService;
+  let mockStreamViewService;
+  let mockCanvasRenderer;
+  let mockCanvasLifecycleService;
+  let mockStreamHealthService;
+  let mockGpuRendererService;
+  let mockGpuRenderLoopService;
+  let mockStreamingRendererFactory;
   let mockEventBus;
   let mockLogger;
+  let mockGpuRendererAdapter;
+  let mockCanvas2DRendererAdapter;
   let canvas;
   let video;
 
@@ -35,7 +41,7 @@ describe('StreamingRenderPipelineService', () => {
       isStreaming: false
     };
 
-    mockStreamingViewService = {
+    mockStreamViewService = {
       getCanvas: vi.fn(() => canvas),
       getVideo: vi.fn(() => video),
       getCanvasContainer: vi.fn(() => container),
@@ -43,31 +49,33 @@ describe('StreamingRenderPipelineService', () => {
       setCanvas: vi.fn()
     };
 
-    mockStreamingCanvasRenderer = {
+    mockCanvasRenderer = {
       startRendering: vi.fn(),
       stopRendering: vi.fn(),
       clearCanvas: vi.fn(),
       resize: vi.fn(),
       resetCanvasState: vi.fn(),
-      cleanup: vi.fn()
+      cleanup: vi.fn(),
+      hasContextFor: vi.fn().mockReturnValue(false)
     };
 
-    mockStreamingCanvasLifecycleService = {
+    mockCanvasLifecycleService = {
       initialize: vi.fn(),
       handleCanvasExpired: vi.fn(),
+      handleFullscreenChange: vi.fn(),
       setupCanvasSize: vi.fn(),
       recreateCanvas: vi.fn(),
       cleanup: vi.fn()
     };
 
-    mockStreamingHealthService = {
-      startMonitoring: vi.fn((videoEl, onHealthy) => {
+    mockStreamHealthService = {
+      checkStreamHealth: vi.fn((videoEl, onHealthy) => {
         onHealthy({ frameTime: 100 });
       }),
       cleanup: vi.fn()
     };
 
-    mockStreamingGpuRendererService = {
+    mockGpuRendererService = {
       initialize: vi.fn().mockResolvedValue(false),
       renderFrame: vi.fn().mockResolvedValue(undefined),
       setPreset: vi.fn(),
@@ -75,14 +83,61 @@ describe('StreamingRenderPipelineService', () => {
       isActive: vi.fn().mockReturnValue(false),
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       terminateAndReset: vi.fn(),
-      releaseResources: vi.fn(),
+      releaseGpuResources: vi.fn(),
       resize: vi.fn(),
       cleanup: vi.fn()
     };
 
-    mockStreamingGpuRenderLoopService = {
+    mockGpuRenderLoopService = {
       start: vi.fn(),
       stop: vi.fn()
+    };
+
+    // Create mock renderer adapters
+    mockGpuRendererAdapter = {
+      initialize: vi.fn().mockResolvedValue(true),
+      renderFrame: vi.fn().mockResolvedValue(undefined),
+      resize: vi.fn(),
+      isActive: vi.fn().mockReturnValue(true),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      cleanup: vi.fn(),
+      supportsPresets: vi.fn().mockReturnValue(true),
+      getPresetId: vi.fn(() => 'vibrant'),
+      setPreset: vi.fn(),
+      setHiddenStateFn: vi.fn(),
+      isCanvasTransferred: vi.fn().mockReturnValue(false),
+      terminateAndReset: vi.fn(),
+      releaseGpuResources: vi.fn(),
+      handlePipelineStop: vi.fn()
+    };
+
+    mockCanvas2DRendererAdapter = {
+      initialize: vi.fn().mockResolvedValue(true),
+      renderFrame: vi.fn().mockResolvedValue(undefined),
+      resize: vi.fn(),
+      isActive: vi.fn().mockReturnValue(true),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      cleanup: vi.fn(),
+      supportsPresets: vi.fn().mockReturnValue(false),
+      getPresetId: vi.fn(() => null),
+      setPreset: vi.fn(),
+      setHiddenStateFn: vi.fn(),
+      clearCanvas: vi.fn(),
+      resetCanvasState: vi.fn(),
+      handlePipelineStop: vi.fn()
+    };
+
+    // Mock the factory
+    mockStreamingRendererFactory = {
+      selectRendererType: vi.fn(() => 'canvas2d'),
+      createRenderer: vi.fn((type) => {
+        if (type === 'gpu') return mockGpuRendererAdapter;
+        return mockCanvas2DRendererAdapter;
+      }),
+      hasRenderer: vi.fn().mockReturnValue(true),
+      getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d'])
     };
 
     mockEventBus = {
@@ -98,12 +153,13 @@ describe('StreamingRenderPipelineService', () => {
 
     service = new StreamingRenderPipelineService({
       appState: mockAppState,
-      streamViewService: mockStreamingViewService,
-      canvasRenderer: mockStreamingCanvasRenderer,
-      canvasLifecycleService: mockStreamingCanvasLifecycleService,
-      streamHealthService: mockStreamingHealthService,
-      gpuRendererService: mockStreamingGpuRendererService,
-      gpuRenderLoopService: mockStreamingGpuRenderLoopService,
+      streamViewService: mockStreamViewService,
+      canvasRenderer: mockCanvasRenderer,
+      canvasLifecycleService: mockCanvasLifecycleService,
+      streamHealthService: mockStreamHealthService,
+      streamingRendererFactory: mockStreamingRendererFactory,
+      gpuRendererService: mockGpuRendererService,
+      gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -115,256 +171,372 @@ describe('StreamingRenderPipelineService', () => {
     vi.useRealTimers();
   });
 
-  it('starts pipeline after stream health check', async () => {
-    mockAppState.isStreaming = true;
-
-    await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
-
-    expect(mockStreamingHealthService.startMonitoring).toHaveBeenCalled();
-    expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-  });
-
-  it('pauses and resumes rendering on visibility changes', async () => {
-    mockAppState.isStreaming = true;
-    service._currentCapabilities = { nativeResolution: { width: 160, height: 144 } };
-
-    service.handlePerformanceStateChanged({ hidden: true });
-    expect(mockStreamingCanvasRenderer.stopRendering).toHaveBeenCalled();
-
-    service.handlePerformanceStateChanged({ hidden: false });
-    await Promise.resolve();
-    expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-  });
-
-  it('switches to Canvas2D when performance mode enabled mid-stream', () => {
-    mockAppState.isStreaming = true;
-    service._useGPURenderer = true;
-    mockStreamingGpuRendererService.isActive.mockReturnValue(true);
-    service._currentCapabilities = { nativeResolution: { width: 160, height: 144 } };
-
-    service.handlePerformanceModeChanged(true);
-
-    expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalledWith(false);
-    expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-  });
-
-  it('terminates GPU and clears canvas on stop when GPU renderer active', () => {
-    mockAppState.isStreaming = false;
-    service._useGPURenderer = true;
-
-    service.stopPipeline();
-
-    expect(mockEventBus.publish).toHaveBeenCalledWith('performance:memory-snapshot-requested', {
-      label: 'before gpu release'
+  describe('initialization', () => {
+    it('initializes canvas lifecycle service', () => {
+      service.initialize();
+      expect(mockCanvasLifecycleService.initialize).toHaveBeenCalled();
     });
-    expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalled();
-    expect(mockStreamingCanvasRenderer.clearCanvas).toHaveBeenCalled();
   });
 
-  it('terminates GPU immediately on stop (no idle delay)', () => {
-    mockAppState.isStreaming = false;
-    service._useGPURenderer = true;
+  describe('startPipeline', () => {
+    it('starts pipeline after stream health check', async () => {
+      mockAppState.isStreaming = true;
 
-    service.stopPipeline();
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-    expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalled();
-    expect(service._useGPURenderer).toBe(false);
+      expect(mockStreamHealthService.checkStreamHealth).toHaveBeenCalled();
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalled();
+    });
+
+    it('waits for healthy stream before starting rendering', async () => {
+      mockAppState.isStreaming = true;
+
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      expect(mockStreamHealthService.checkStreamHealth).toHaveBeenCalledWith(
+        video,
+        expect.any(Function),
+        expect.any(Function),
+        4000
+      );
+    });
+  });
+
+  describe('stopPipeline', () => {
+    it('pauses active renderer and clears canvas', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      service.stopPipeline();
+
+      expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
+    });
+
+    it('terminates GPU renderer with memory snapshot events', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      service.stopPipeline();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('performance:memory-snapshot-requested', {
+        label: 'before gpu release'
+      });
+      expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalled();
+    });
+
+    it('calls handlePipelineStop on Canvas2D renderer', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('canvas2d');
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      service.stopPipeline();
+
+      expect(mockCanvas2DRendererAdapter.handlePipelineStop).toHaveBeenCalled();
+    });
+
+    it('calls handlePipelineStop on GPU renderer (no-op)', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      service.stopPipeline();
+
+      expect(mockGpuRendererAdapter.handlePipelineStop).toHaveBeenCalled();
+    });
   });
 
   describe('handleCanvasExpired', () => {
     it('delegates to canvasLifecycleService', () => {
       service.handleCanvasExpired();
+      expect(mockCanvasLifecycleService.handleCanvasExpired).toHaveBeenCalled();
+    });
+  });
 
-      expect(mockStreamingCanvasLifecycleService.handleCanvasExpired).toHaveBeenCalled();
+  describe('handleFullscreenChange', () => {
+    it('delegates to canvasLifecycleService', () => {
+      service.handleFullscreenChange();
+      expect(mockCanvasLifecycleService.handleFullscreenChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('handlePerformanceStateChanged', () => {
+    it('ignores invalid state', () => {
+      service.handlePerformanceStateChanged(null);
+      service.handlePerformanceStateChanged({});
+      service.handlePerformanceStateChanged({ hidden: 'invalid' });
+
+      expect(mockCanvas2DRendererAdapter.pause).not.toHaveBeenCalled();
+      expect(mockCanvas2DRendererAdapter.resume).not.toHaveBeenCalled();
+    });
+
+    it('ignores duplicate state', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+      service._isHidden = true;
+
+      service.handlePerformanceStateChanged({ hidden: true });
+
+      expect(mockCanvas2DRendererAdapter.pause).not.toHaveBeenCalled();
+    });
+
+    it('pauses rendering when hidden', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+      service.handlePerformanceStateChanged({ hidden: true });
+
+      expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
+    });
+
+    it('resumes rendering when visible', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+      service._isHidden = true;
+
+      service.handlePerformanceStateChanged({ hidden: false });
+
+      expect(mockCanvas2DRendererAdapter.resume).toHaveBeenCalled();
     });
   });
 
   describe('handleRenderPresetChanged', () => {
-    it('when performance mode disabled and GPU active - sets GPU preset', () => {
-      service._performanceModeEnabled = false;
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isActive.mockReturnValue(true);
-
-      service.handleRenderPresetChanged('vibrant');
-
-      expect(mockStreamingGpuRendererService.setPreset).toHaveBeenCalledWith('vibrant');
-    });
-
-    it('when performance mode enabled - caches preset without applying', () => {
+    it('caches preset when performance mode enabled', () => {
       service._performanceModeEnabled = true;
 
       service.handleRenderPresetChanged('sharp');
 
       expect(service._userPresetId).toBe('sharp');
-      expect(mockStreamingGpuRendererService.setPreset).not.toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'User selected sharp preset - cached (performance mode active)'
       );
     });
+
+    it('sets preset on active renderer when supports presets', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+      service._performanceModeEnabled = false;
+
+      service.handleRenderPresetChanged('vibrant');
+
+      expect(mockGpuRendererAdapter.setPreset).toHaveBeenCalledWith('vibrant');
+    });
+
+    it('does nothing when renderer does not support presets', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+      service._performanceModeEnabled = false;
+
+      service.handleRenderPresetChanged('vibrant');
+
+      expect(mockCanvas2DRendererAdapter.setPreset).not.toHaveBeenCalled();
+    });
   });
 
   describe('handlePerformanceModeChanged', () => {
-    it('when disabled (false) - restores user preset if GPU active', () => {
-      service._performanceModeEnabled = true;
-      service._useGPURenderer = true;
-      service._userPresetId = 'vibrant';
-      mockStreamingGpuRendererService.isActive.mockReturnValue(true);
+    describe('when enabled (true)', () => {
+      it('caches preset and switches to Canvas2D mid-stream', async () => {
+        mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-      service.handlePerformanceModeChanged(false);
+        service.handlePerformanceModeChanged(true);
 
-      expect(mockStreamingGpuRendererService.setPreset).toHaveBeenCalledWith('vibrant');
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Performance mode disabled - restored vibrant preset'
-      );
-      expect(service._userPresetId).toBe(null);
+        expect(service._userPresetId).toBe('vibrant');
+        expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalledWith(false);
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          'Performance mode enabled mid-stream - switched to Canvas2D renderer'
+        );
+      });
+
+      it('does not cache performance preset', async () => {
+        mockGpuRendererAdapter.getPresetId.mockReturnValue('performance');
+        mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+
+        service.handlePerformanceModeChanged(true);
+
+        expect(service._userPresetId).toBe(null);
+      });
+
+      it('terminates GPU when not streaming', async () => {
+        mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+        mockAppState.isStreaming = false;
+
+        service.handlePerformanceModeChanged(true);
+
+        expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalled();
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          'Performance mode enabled - terminating GPU worker for Canvas2D on next stream'
+        );
+      });
     });
 
-    it('when disabled (false) - calls _switchToGPUMidStream when Canvas2D active during streaming', async () => {
-      service._performanceModeEnabled = true;
-      service._canvas2dContextCreated = true;
-      service._useGPURenderer = false;
-      mockAppState.isStreaming = true;
+    describe('when disabled (false)', () => {
+      it('restores user preset if GPU active', async () => {
+        mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+        service._performanceModeEnabled = true;
+        service._userPresetId = 'vibrant';
 
-      const switchSpy = vi.spyOn(service, '_switchToGPUMidStream').mockResolvedValue(undefined);
+        service.handlePerformanceModeChanged(false);
 
-      service.handlePerformanceModeChanged(false);
+        expect(mockGpuRendererAdapter.setPreset).toHaveBeenCalledWith('vibrant');
+        expect(mockLogger.info).toHaveBeenCalledWith(
+          'Performance mode disabled - restored vibrant preset'
+        );
+        expect(service._userPresetId).toBe(null);
+      });
 
-      expect(switchSpy).toHaveBeenCalled();
-    });
+      it('switches to GPU mid-stream when Canvas2D active', async () => {
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+        service._performanceModeEnabled = true;
 
-    it('when disabled (false) - recreates canvas when Canvas2D was active but not streaming', () => {
-      service._performanceModeEnabled = true;
-      service._canvas2dContextCreated = true;
-      service._useGPURenderer = false;
-      mockAppState.isStreaming = false;
+        const switchSpy = vi.spyOn(service, '_switchToGPUMidStream').mockResolvedValue(undefined);
 
-      service.handlePerformanceModeChanged(false);
+        service.handlePerformanceModeChanged(false);
 
-      expect(mockStreamingCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
-      expect(mockStreamingCanvasLifecycleService.setupCanvasSize).toHaveBeenCalled();
-      expect(service._canvas2dContextCreated).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Performance mode disabled - recreating canvas for GPU (Canvas2D context was active)'
-      );
+        expect(switchSpy).toHaveBeenCalled();
+      });
+
+      it('recreates canvas when Canvas2D was active but not streaming', async () => {
+        mockAppState.isStreaming = true;
+        await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+        service._performanceModeEnabled = true;
+        mockAppState.isStreaming = false;
+
+        service.handlePerformanceModeChanged(false);
+
+        expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+        expect(mockCanvasLifecycleService.setupCanvasSize).toHaveBeenCalled();
+      });
     });
   });
 
-  describe('_startCanvasRendering', () => {
-    it('GPU renderer success path - initializes and starts GPU rendering', async () => {
-      mockStreamingGpuRendererService.initialize.mockResolvedValue(true);
+  describe('_startRendering', () => {
+    it('selects renderer type via factory', async () => {
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
 
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
-
-      expect(mockStreamingGpuRendererService.initialize).toHaveBeenCalledWith(
-        canvas,
-        { width: 160, height: 144 }
-      );
-      expect(service._useGPURenderer).toBe(true);
-      expect(mockStreamingGpuRenderLoopService.start).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('Using GPU renderer for HD rendering');
+      expect(mockStreamingRendererFactory.selectRendererType).toHaveBeenCalled();
     });
 
-    it('GPU renderer error path - catches initialization error and falls back to Canvas2D', async () => {
-      mockStreamingGpuRendererService.initialize.mockRejectedValue(new Error('GPU init failed'));
+    it('creates Canvas2D renderer when selected', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('canvas2d');
 
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
+
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('canvas2d', expect.any(Object));
+      expect(service._activeRendererType).toBe('canvas2d');
+    });
+
+    it('creates GPU renderer when selected', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
+
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('gpu', expect.any(Object));
+      expect(service._activeRendererType).toBe('gpu');
+    });
+
+    it('falls back to Canvas2D when GPU initialization fails', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      mockGpuRendererAdapter.initialize.mockResolvedValue(false);
+
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('GPU renderer not available, falling back to Canvas2D');
+      expect(service._activeRendererType).toBe('canvas2d');
+    });
+
+    it('falls back to Canvas2D when GPU throws error', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      mockGpuRendererAdapter.initialize.mockRejectedValue(new Error('GPU init failed'));
+
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'GPU renderer initialization failed, falling back to Canvas2D:',
         'GPU init failed'
       );
-      expect(service._useGPURenderer).toBe(false);
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
+      expect(service._activeRendererType).toBe('canvas2d');
     });
 
-    it('Canvas transferred but GPU failed - recreates canvas and starts Canvas2D', async () => {
-      mockStreamingGpuRendererService.initialize.mockResolvedValue(false);
-      mockStreamingGpuRendererService.isCanvasTransferred.mockReturnValue(true);
+    it('uses default resolution when not provided', async () => {
+      await service._startRendering({});
 
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
+      expect(mockCanvasLifecycleService.setupCanvasSize).toHaveBeenCalledWith(
+        { width: 160, height: 144 },
+        false
+      );
+    });
+
+    it('recreates canvas when switching from Canvas2D to GPU', async () => {
+      // First start with Canvas2D
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
+      expect(service._activeRendererType).toBe('canvas2d');
+
+      // Now try GPU
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
+      await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
+
+      expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+    });
+  });
+
+  describe('_switchToGPUMidStream', () => {
+    beforeEach(async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+    });
+
+    it('pauses current renderer and recreates canvas', async () => {
+      await service._switchToGPUMidStream();
+
+      expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
+      expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+    });
+
+    it('switches to GPU successfully', async () => {
+      await service._switchToGPUMidStream();
+
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('gpu', expect.any(Object));
+      expect(mockGpuRendererAdapter.resume).toHaveBeenCalled();
+    });
+
+    it('restores cached preset after switching', async () => {
+      service._userPresetId = 'vibrant';
+
+      await service._switchToGPUMidStream();
+
+      expect(mockGpuRendererAdapter.setPreset).toHaveBeenCalledWith('vibrant');
+      expect(service._userPresetId).toBe(null);
+    });
+
+    it('falls back to Canvas2D if GPU fails', async () => {
+      mockGpuRendererAdapter.initialize.mockRejectedValue(new Error('GPU init failed'));
+
+      await service._switchToGPUMidStream();
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Canvas control was transferred to GPU renderer. Recreating canvas for Canvas2D fallback.'
+        'GPU initialization failed mid-stream, staying on Canvas2D:',
+        'GPU init failed'
       );
-      expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalledWith(false);
-      expect(mockStreamingCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-    });
-  });
-
-  describe('cleanup', () => {
-    it('resets state and calls all cleanup methods', () => {
-      service._performanceModeEnabled = true;
-      service._userPresetId = 'vibrant';
-      service._canvas2dContextCreated = true;
-      service._useGPURenderer = true;
-
-      service.cleanup();
-
-      expect(service._performanceModeEnabled).toBe(false);
-      expect(service._userPresetId).toBe(null);
-      expect(service._canvas2dContextCreated).toBe(false);
-      expect(service._useGPURenderer).toBe(false);
-
-      expect(mockStreamingGpuRenderLoopService.stop).toHaveBeenCalled();
-      expect(mockStreamingGpuRendererService.cleanup).toHaveBeenCalled();
-      expect(mockStreamingCanvasRenderer.cleanup).toHaveBeenCalled();
-      expect(mockStreamingCanvasLifecycleService.cleanup).toHaveBeenCalled();
-      expect(mockStreamingHealthService.cleanup).toHaveBeenCalled();
-    });
-  });
-
-  describe('_handleVisible', () => {
-    it('with GPU renderer - starts GPU render loop', () => {
-      mockAppState.isStreaming = true;
-      service._useGPURenderer = true;
-      service._isHidden = true;
-
-      service._handleVisible();
-
-      expect(mockStreamingGpuRenderLoopService.start).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith('GPU rendering resumed (window visible)');
-    });
-
-    it('with Canvas2D renderer - starts canvas rendering', async () => {
-      mockAppState.isStreaming = true;
-      service._useGPURenderer = false;
-      service._isHidden = true;
-      service._currentCapabilities = { nativeResolution: { width: 160, height: 144 } };
-
-      service._handleVisible();
-      await Promise.resolve();
-
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Canvas rendering resumed (window visible)');
-    });
-  });
-
-  describe('_handleHidden', () => {
-    it('with GPU renderer - stops GPU render loop', () => {
-      mockAppState.isStreaming = true;
-      service._useGPURenderer = true;
-
-      service._handleHidden();
-
-      expect(mockStreamingGpuRenderLoopService.stop).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith('GPU rendering paused (window hidden)');
-    });
-
-    it('with Canvas2D renderer - stops canvas rendering', () => {
-      mockAppState.isStreaming = true;
-      service._useGPURenderer = false;
-
-      service._handleHidden();
-
-      expect(mockStreamingCanvasRenderer.stopRendering).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Canvas rendering paused (window hidden)');
+      expect(service._activeRendererType).toBe('canvas2d');
     });
   });
 
   describe('_waitForHealthyStream', () => {
-    it('rejection path - stream timeout or error', async () => {
-      mockStreamingHealthService.startMonitoring.mockImplementation((videoEl, onHealthy, onError) => {
+    it('resolves when stream is healthy', async () => {
+      await expect(service._waitForHealthyStream(video)).resolves.toBeUndefined();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:health-ok', { frameTime: 100 });
+    });
+
+    it('rejects when stream times out', async () => {
+      mockStreamHealthService.checkStreamHealth.mockImplementation((videoEl, onHealthy, onError) => {
         onError({ reason: 'timeout' });
       });
 
@@ -376,214 +548,86 @@ describe('StreamingRenderPipelineService', () => {
     });
   });
 
-
-  describe('_switchToGPUMidStream', () => {
-    it('success path - switches to GPU renderer mid-stream', async () => {
-      mockStreamingGpuRendererService.initialize.mockResolvedValue(true);
-      service._canvas2dContextCreated = true;
-
-      await service._switchToGPUMidStream();
-
-      expect(mockStreamingCanvasRenderer.stopRendering).toHaveBeenCalled();
-      expect(mockStreamingCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
-      expect(service._canvas2dContextCreated).toBe(false);
-      expect(mockStreamingGpuRendererService.initialize).toHaveBeenCalled();
-      expect(service._useGPURenderer).toBe(true);
-      expect(mockStreamingGpuRenderLoopService.start).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('Performance mode disabled mid-stream - switched to GPU renderer');
-    });
-
-    it('success path with user preset - restores cached preset', async () => {
-      mockStreamingGpuRendererService.initialize.mockResolvedValue(true);
+  describe('cleanup', () => {
+    it('resets state and calls all cleanup methods', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+      service._performanceModeEnabled = true;
       service._userPresetId = 'vibrant';
-      service._canvas2dContextCreated = true;
 
-      await service._switchToGPUMidStream();
+      service.cleanup();
 
-      expect(mockStreamingGpuRendererService.setPreset).toHaveBeenCalledWith('vibrant');
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Performance mode disabled mid-stream - switched to GPU with vibrant preset'
-      );
+      expect(service._performanceModeEnabled).toBe(false);
       expect(service._userPresetId).toBe(null);
+      expect(service._activeRenderer).toBe(null);
+      expect(service._activeRendererType).toBe(null);
+
+      expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
+      expect(mockCanvas2DRendererAdapter.cleanup).toHaveBeenCalled();
+      expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
+      expect(mockCanvasLifecycleService.cleanup).toHaveBeenCalled();
+      expect(mockStreamHealthService.cleanup).toHaveBeenCalled();
     });
 
-    it('failure path - falls back to Canvas2D if GPU fails', async () => {
-      mockStreamingGpuRendererService.initialize.mockRejectedValue(new Error('GPU init failed'));
-      service._canvas2dContextCreated = false;
-
-      await service._switchToGPUMidStream();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'GPU initialization failed mid-stream, staying on Canvas2D:',
-        'GPU init failed'
-      );
-      expect(service._canvas2dContextCreated).toBe(true);
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Could not switch to GPU mid-stream, continuing with Canvas2D'
-      );
-    });
-
-    it('failure path - GPU returns false instead of throwing', async () => {
-      mockStreamingGpuRendererService.initialize.mockResolvedValue(false);
-      service._canvas2dContextCreated = false;
-
-      await service._switchToGPUMidStream();
-
-      expect(service._canvas2dContextCreated).toBe(true);
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Could not switch to GPU mid-stream, continuing with Canvas2D'
-      );
+    it('does not fail when no active renderer', () => {
+      expect(() => service.cleanup()).not.toThrow();
+      expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
     });
   });
 
-  describe('additional edge cases', () => {
-    it('handlePerformanceStateChanged - ignores invalid state', () => {
-      service.handlePerformanceStateChanged(null);
-      service.handlePerformanceStateChanged({});
-      service.handlePerformanceStateChanged({ hidden: 'invalid' });
-
-      expect(mockStreamingCanvasRenderer.stopRendering).not.toHaveBeenCalled();
-      expect(mockStreamingCanvasRenderer.startRendering).not.toHaveBeenCalled();
-    });
-
-    it('handlePerformanceStateChanged - ignores duplicate state', () => {
-      service._isHidden = true;
-
-      service.handlePerformanceStateChanged({ hidden: true });
-
-      expect(mockStreamingCanvasRenderer.stopRendering).not.toHaveBeenCalled();
-    });
-
-    it('handleRenderPresetChanged - does nothing when GPU not active', () => {
-      service._performanceModeEnabled = false;
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isActive.mockReturnValue(false);
-
-      service.handleRenderPresetChanged('vibrant');
-
-      expect(mockStreamingGpuRendererService.setPreset).not.toHaveBeenCalled();
-    });
-
-    it('handlePerformanceModeChanged(true) - terminates GPU when not streaming', () => {
-      mockAppState.isStreaming = false;
-      service._useGPURenderer = true;
-
-      service.handlePerformanceModeChanged(true);
-
-      expect(mockStreamingGpuRendererService.terminateAndReset).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Performance mode enabled - terminating GPU worker for Canvas2D on next stream'
-      );
-      expect(service._useGPURenderer).toBe(false);
-    });
-
-    it('handlePerformanceModeChanged(true) mid-stream - caches current preset if not performance', () => {
+  describe('_handleVisible', () => {
+    it('resumes active renderer when streaming', async () => {
       mockAppState.isStreaming = true;
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isActive.mockReturnValue(true);
-      mockStreamingGpuRendererService.getPresetId.mockReturnValue('vibrant');
-
-      service.handlePerformanceModeChanged(true);
-
-      expect(service._userPresetId).toBe('vibrant');
-    });
-
-    it('handlePerformanceModeChanged(true) mid-stream - does not cache performance preset', () => {
-      mockAppState.isStreaming = true;
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isActive.mockReturnValue(true);
-      mockStreamingGpuRendererService.getPresetId.mockReturnValue('performance');
-
-      service.handlePerformanceModeChanged(true);
-
-      expect(service._userPresetId).toBe(null);
-    });
-
-    it('handlePerformanceModeChanged(false) - does nothing if GPU not active', () => {
-      service._performanceModeEnabled = true;
-      service._useGPURenderer = true;
-      service._userPresetId = 'vibrant';
-      mockStreamingGpuRendererService.isActive.mockReturnValue(false);
-
-      service.handlePerformanceModeChanged(false);
-
-      expect(mockStreamingGpuRendererService.setPreset).not.toHaveBeenCalled();
-    });
-
-    it('_startCanvasRendering - performance mode with Canvas2D', async () => {
-      service._performanceModeEnabled = true;
-      mockStreamingGpuRendererService.isCanvasTransferred.mockReturnValue(false);
-
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
-
-      expect(service._useGPURenderer).toBe(false);
-      expect(service._canvas2dContextCreated).toBe(true);
-      expect(mockStreamingCanvasRenderer.startRendering).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('Performance mode active - using Canvas2D renderer');
-    });
-
-    it('_startCanvasRendering - resumes already active GPU renderer', async () => {
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isActive.mockReturnValue(true);
-
-      await service._startCanvasRendering({ nativeResolution: { width: 160, height: 144 } });
-
-      expect(mockStreamingGpuRenderLoopService.start).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('Resuming GPU renderer (already initialized)');
-    });
-
-    it('_startCanvasRendering - uses default resolution when not provided', async () => {
-      await service._startCanvasRendering({});
-
-      expect(mockStreamingCanvasLifecycleService.setupCanvasSize).toHaveBeenCalledWith(
-        { width: 160, height: 144 },
-        false
-      );
-    });
-
-    it('stopPipeline - with Canvas2D renderer', () => {
-      service._useGPURenderer = false;
-
-      service.stopPipeline();
-
-      expect(mockStreamingCanvasRenderer.stopRendering).toHaveBeenCalled();
-      expect(mockStreamingCanvasRenderer.clearCanvas).toHaveBeenCalled();
-    });
-
-    it('stopPipeline - does not clear canvas when transferred to GPU', () => {
-      service._useGPURenderer = true;
-      mockStreamingGpuRendererService.isCanvasTransferred.mockReturnValue(true);
-
-      service.stopPipeline();
-
-      expect(mockStreamingCanvasRenderer.clearCanvas).not.toHaveBeenCalled();
-    });
-
-    it('_handleVisible - does nothing when not streaming', () => {
-      mockAppState.isStreaming = false;
-      service._useGPURenderer = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service._handleVisible();
 
-      expect(mockStreamingGpuRenderLoopService.start).not.toHaveBeenCalled();
+      expect(mockCanvas2DRendererAdapter.resume).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith('canvas2d rendering resumed (window visible)');
     });
 
-    it('_handleHidden - does nothing when not streaming', () => {
+    it('does nothing when not streaming', () => {
       mockAppState.isStreaming = false;
-      service._useGPURenderer = true;
+
+      service._handleVisible();
+
+      expect(mockCanvas2DRendererAdapter.resume).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when no active renderer', () => {
+      mockAppState.isStreaming = true;
+
+      service._handleVisible();
+
+      expect(mockCanvas2DRendererAdapter.resume).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_handleHidden', () => {
+    it('pauses active renderer when streaming', async () => {
+      mockAppState.isStreaming = true;
+      await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service._handleHidden();
 
-      expect(mockStreamingGpuRenderLoopService.stop).not.toHaveBeenCalled();
+      expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith('canvas2d rendering paused (window hidden)');
     });
 
-    it('cleanup - does not fail when GPU not active', () => {
-      service._useGPURenderer = false;
+    it('does nothing when not streaming', () => {
+      mockAppState.isStreaming = false;
 
-      expect(() => service.cleanup()).not.toThrow();
-      expect(mockStreamingCanvasRenderer.cleanup).toHaveBeenCalled();
+      service._handleHidden();
+
+      expect(mockCanvas2DRendererAdapter.pause).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when no active renderer', () => {
+      mockAppState.isStreaming = true;
+
+      service._handleHidden();
+
+      expect(mockCanvas2DRendererAdapter.pause).not.toHaveBeenCalled();
     });
   });
 });

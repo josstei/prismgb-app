@@ -60,6 +60,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
 
   /**
    * Release a stream and stop all tracks
+   * Uses per-track try-catch to ensure all tracks are attempted even if one fails
    */
   async releaseStream(stream) {
     if (!stream) {
@@ -67,17 +68,25 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
       return;
     }
 
-    try {
-      stream.getTracks().forEach(track => {
+    const tracks = stream.getTracks();
+    const errors = [];
+
+    for (const track of tracks) {
+      try {
         track.stop();
         this._log('debug', 'Stopped track:', track.kind, track.label);
-      });
+      } catch (error) {
+        this._log('error', `Error stopping track ${track.kind}:`, error);
+        errors.push({ track: track.kind, error });
+      }
+    }
 
-      this.activeStreams.delete(stream);
+    this.activeStreams.delete(stream);
+
+    if (errors.length > 0) {
+      this._log('warn', `Stream released with ${errors.length} track error(s)`);
+    } else {
       this._log('info', 'Stream released successfully');
-    } catch (error) {
-      this._log('error', 'Error releasing stream:', error);
-      throw error;
     }
   }
 

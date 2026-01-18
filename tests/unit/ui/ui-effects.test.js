@@ -51,7 +51,7 @@ vi.mock('@renderer/ui/features/fullscreen/effects/controls-auto-hide.class.js', 
   })
 }));
 
-vi.mock('@renderer/ui/primitives/hide-timer.js', () => ({
+vi.mock('@renderer/ui/primitives/hide-timer.class.js', () => ({
   HideTimer: vi.fn().mockImplementation(function HideTimerMock(options) {
     hideTimerOptions = options;
     this.start = vi.fn();

@@ -17,7 +17,7 @@ describe('CinematicToggleComponent', () => {
 
   beforeEach(() => {
     mockEventBus = createMockEventBus();
-    mockAppState = createMockAppState({ cinematicModeEnabled: true });
+    mockAppState = createMockAppState({ isCinematicModeEnabled: true });
     mockLogger = createMockLogger();
 
     toggleElement = document.createElement('button');
@@ -59,7 +59,7 @@ describe('CinematicToggleComponent', () => {
     });
 
     it('should set initial state from appState', () => {
-      mockAppState._state.cinematicModeEnabled = true;
+      mockAppState._state.isCinematicModeEnabled = true;
       component.initialize({ toggleElement, textElement });
 
       expect(toggleElement.classList.contains('active')).toBe(true);

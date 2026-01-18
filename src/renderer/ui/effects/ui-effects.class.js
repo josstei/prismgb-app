@@ -11,7 +11,7 @@ import { ToolbarAutoHide } from '@renderer/ui/features/toolbar/effects/toolbar-a
 import { ButtonFeedback } from '@renderer/ui/features/toolbar/effects/button-feedback.class.js';
 import { CaptureEffects } from '@renderer/ui/features/toolbar/effects/capture-effects.class.js';
 import { ControlsAutoHide } from '@renderer/ui/features/fullscreen/effects/controls-auto-hide.class.js';
-import { HideTimer } from '@renderer/ui/primitives/hide-timer.js';
+import { HideTimer } from '@renderer/ui/primitives/hide-timer.class.js';
 
 export class UIEffects {
   constructor(dependencies = {}) {

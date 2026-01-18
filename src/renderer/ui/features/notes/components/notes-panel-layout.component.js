@@ -42,10 +42,13 @@ class NotesPanelLayoutComponent {
 
   /**
    * Update panel position based on toolbar location
+   * Note: All DOM reads are batched first, then all writes are batched at the end
+   * to avoid layout thrashing.
    */
   updatePosition() {
     if (!this.panelElement || !this.toolbarElement) return;
 
+    // === BATCH ALL DOM READS FIRST ===
     const toolbarRect = this.toolbarElement.getBoundingClientRect();
     const panelStyles = window.getComputedStyle(this.panelElement);
     const viewportWidth = window.innerWidth;
@@ -61,6 +64,7 @@ class NotesPanelLayoutComponent {
       maxHeight: 600
     };
 
+    // === PERFORM ALL CALCULATIONS (no DOM access) ===
     const desiredLeft = Math.round(toolbarRect.right + gap);
     const availableWidth = viewportWidth - rightOffset - safeEdge - desiredLeft;
     let minWidth = defaults.minWidth;
@@ -75,9 +79,6 @@ class NotesPanelLayoutComponent {
       maxWidth = Math.min(maxWidth, fallbackWidth);
       minWidth = Math.min(minWidth, maxWidth);
     }
-
-    this.panelElement.style.setProperty('--notes-panel-min-width', `${Math.round(minWidth)}px`);
-    this.panelElement.style.setProperty('--notes-panel-max-width', `${Math.round(maxWidth)}px`);
 
     const maxFittableHeight = Math.max(200, viewportHeight - safeEdge * 2);
     let minHeight = Math.min(defaults.minHeight, maxFittableHeight);
@@ -98,11 +99,14 @@ class NotesPanelLayoutComponent {
       minHeight = Math.min(minHeight, maxHeight);
     }
 
-    this.panelElement.style.setProperty('--notes-panel-min-height', `${Math.round(minHeight)}px`);
-    this.panelElement.style.setProperty('--notes-panel-max-height', `${Math.round(maxHeight)}px`);
     const maxTop = Math.max(safeEdge, viewportHeight - minHeight - safeEdge);
     const topPos = Math.min(Math.max(desiredTop, safeEdge), maxTop);
 
+    // === BATCH ALL DOM WRITES AT THE END ===
+    this.panelElement.style.setProperty('--notes-panel-min-width', `${Math.round(minWidth)}px`);
+    this.panelElement.style.setProperty('--notes-panel-max-width', `${Math.round(maxWidth)}px`);
+    this.panelElement.style.setProperty('--notes-panel-min-height', `${Math.round(minHeight)}px`);
+    this.panelElement.style.setProperty('--notes-panel-max-height', `${Math.round(maxHeight)}px`);
     this.panelElement.style.setProperty('--notes-panel-left', `${leftPos}px`);
     this.panelElement.style.setProperty('--notes-panel-top', `${topPos}px`);
   }

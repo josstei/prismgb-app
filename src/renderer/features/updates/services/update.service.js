@@ -15,16 +15,10 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { UpdateState } from '@shared/config/update-state.config.js';
 
-export const UpdateState = {
-  IDLE: 'idle',
-  CHECKING: 'checking',
-  AVAILABLE: 'available',
-  NOT_AVAILABLE: 'not-available',
-  DOWNLOADING: 'downloading',
-  DOWNLOADED: 'downloaded',
-  ERROR: 'error'
-};
+// Re-export for backward compatibility
+export { UpdateState };
 
 class UpdateService extends BaseService {
   constructor(dependencies) {

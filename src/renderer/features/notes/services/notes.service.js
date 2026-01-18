@@ -141,6 +141,35 @@ class NotesService extends BaseService {
   }
 
   /**
+   * Update note and detect if game association changed
+   * Encapsulates business logic for detecting game changes during save
+   * @param {string} id - Note ID
+   * @param {Object} updates - Fields to update (title, content, gameName)
+   * @returns {Object|null} Result object with note and gameChanged flag, or null if failed
+   */
+  updateNoteWithChangeDetection(id, updates) {
+    const oldNote = this.getNote(id);
+    if (!oldNote) {
+      this.logger.warn(`Note not found for change detection: ${id}`);
+      return null;
+    }
+
+    const oldGameName = oldNote.gameName || '';
+    const newGameName = updates.gameName ?? oldGameName;
+    const gameChanged = oldGameName !== newGameName;
+
+    const updatedNote = this.updateNote(id, updates);
+    if (!updatedNote) {
+      return null;
+    }
+
+    return {
+      note: updatedNote,
+      gameChanged
+    };
+  }
+
+  /**
    * Delete a note
    * @param {string} id - Note ID
    * @returns {boolean} True if deleted, false if not found or save failed
