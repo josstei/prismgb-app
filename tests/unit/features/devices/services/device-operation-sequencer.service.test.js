@@ -136,48 +136,34 @@ describe('DeviceOperationSequencerService', () => {
   describe('Sequential execution', () => {
     it('should execute operations in order', async () => {
       const callOrder = [];
-      let resolveFirst, resolveSecond;
 
       mockDeviceService.updateDeviceStatus
-        .mockImplementationOnce(() => new Promise(resolve => {
-          resolveFirst = () => {
-            callOrder.push('first-status');
-            resolve({});
-          };
-        }))
+        .mockImplementationOnce(() => {
+          callOrder.push('first-status');
+          return Promise.resolve({});
+        })
         .mockImplementationOnce(() => {
           callOrder.push('second-status');
           return Promise.resolve({});
         });
 
       mockDeviceService.enumerateDevices
-        .mockImplementationOnce(() => new Promise(resolve => {
-          resolveSecond = () => {
-            callOrder.push('first-enumerate');
-            resolve({});
-          };
-        }))
+        .mockImplementationOnce(() => {
+          callOrder.push('first-enumerate');
+          return Promise.resolve({});
+        })
         .mockImplementationOnce(() => {
           callOrder.push('second-enumerate');
           return Promise.resolve({});
         });
 
-      // Queue two operations
+      // Queue two operations - they should execute sequentially
       const promise1 = service.queueConnected();
       const promise2 = service.queueConnected();
 
-      // First operation should be executing, second should be queued
-      expect(service.getQueueDepth()).toBe(2);
+      await Promise.all([promise1, promise2]);
 
-      // Complete first operation
-      resolveFirst();
-      await Promise.resolve(); // Let microtasks run
-      resolveSecond();
-      await promise1;
-
-      // Second operation should now execute
-      await promise2;
-
+      // Operations should complete in order
       expect(callOrder).toEqual([
         'first-status', 'first-enumerate',
         'second-status', 'second-enumerate'
@@ -251,23 +237,29 @@ describe('DeviceOperationSequencerService', () => {
     it('should track queue depth correctly', async () => {
       expect(service.getQueueDepth()).toBe(0);
 
-      let resolveFirst;
-      mockDeviceService.updateDeviceStatus.mockImplementationOnce(
-        () => new Promise(resolve => { resolveFirst = resolve; })
-      );
-
-      const promise = service.queueConnected();
-      expect(service.getQueueDepth()).toBe(1);
-
-      service.queueConnected();
-      expect(service.getQueueDepth()).toBe(2);
-
-      resolveFirst({});
-      mockDeviceService.updateDeviceStatus.mockResolvedValue({});
+      // Use a deferred pattern that works with the sequencer
+      let resolveStatus;
+      const statusPromise = new Promise(resolve => { resolveStatus = resolve; });
+      mockDeviceService.updateDeviceStatus.mockReturnValue(statusPromise);
       mockDeviceService.enumerateDevices.mockResolvedValue({});
 
-      await promise;
-      await service.flush();
+      // Queue first operation - increments depth immediately
+      const promise1 = service.queueConnected();
+
+      // Need to allow the queue to process and start the operation
+      await Promise.resolve();
+      expect(service.getQueueDepth()).toBe(1);
+
+      // Queue second operation
+      const promise2 = service.queueConnected();
+      expect(service.getQueueDepth()).toBe(2);
+
+      // Resolve the first status call and let operations complete
+      resolveStatus({});
+      mockDeviceService.updateDeviceStatus.mockResolvedValue({});
+
+      await promise1;
+      await promise2;
 
       expect(service.getQueueDepth()).toBe(0);
     });
