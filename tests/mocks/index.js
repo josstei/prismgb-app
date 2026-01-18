@@ -9,6 +9,21 @@ import { vi } from 'vitest';
 // Re-export device mocks
 export * from './MockDevice.js';
 
+// Re-export enhanced MockDevice with state machine
+export {
+  MockDeviceStateMachine,
+  DeviceState,
+  createChromaticWithFSM,
+} from './MockDeviceStateMachine.js';
+
+// Re-export WebGL mock
+export {
+  GL,
+  createWebGLContext,
+  createWebGL2Context,
+  installWebGLMock,
+} from './webgl-context.mock.js';
+
 /**
  * Creates a mock EventBus
  */
