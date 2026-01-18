@@ -287,11 +287,11 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {Object} nativeRes
    */
   async _startGPURendering(canvas, video, nativeRes) {
-    // Try GPU init, with one retry if canvas has stale context (handles HMR edge cases)
+    // Try GPU init with at most one retry for canvas context errors (handles HMR edge cases)
+    const MAX_RETRIES = 1;
     let currentCanvas = canvas;
-    let retried = false;
 
-    while (true) {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       const renderer = this.streamingRendererFactory.createRenderer('gpu', {
         gpuRendererService: this.gpuRendererService,
         gpuRenderLoopService: this.gpuRenderLoopService,
@@ -328,13 +328,13 @@ export class StreamingRenderPipelineService extends BaseService {
       } catch (error) {
         // Check if failure is due to canvas having a rendering context (e.g., from HMR)
         const isContextError = error.message?.includes('rendering context');
+        const canRetry = attempt < MAX_RETRIES;
 
-        if (isContextError && !retried) {
+        if (isContextError && canRetry) {
           this.logger.warn('GPU init failed due to existing canvas context, recreating canvas and retrying');
           this.canvasLifecycleService.recreateCanvas();
           this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
           currentCanvas = this.streamViewService.getCanvas();
-          retried = true;
           continue; // Retry with fresh canvas
         }
 

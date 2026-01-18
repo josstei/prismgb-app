@@ -2,10 +2,25 @@
  * DOM bindings
  *
  * Centralizes DOM element lookups and groups them by UI domain.
+ *
+ * Assumptions:
+ * - All element IDs defined in DOMSelectors are expected to exist in the DOM
+ * - If an element is not found, the binding will be null (no error thrown)
+ * - Components should handle null elements gracefully if they are optional
+ * - Required elements should be validated by the consuming component at initialization
+ *
+ * This design allows the template and bindings to evolve independently,
+ * with components responsible for enforcing their own requirements.
  */
 
 import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
 
+/**
+ * Bind DOM elements by ID from a selector map
+ * @param {Document|Element} root - Root element to query from
+ * @param {Object<string, string>} selectors - Map of key names to element IDs
+ * @returns {Object<string, Element|null>} Map of key names to DOM elements (or null if not found)
+ */
 const bindById = (root, selectors) => {
   const elements = {};
   Object.entries(selectors).forEach(([key, id]) => {

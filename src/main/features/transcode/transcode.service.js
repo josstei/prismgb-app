@@ -312,7 +312,8 @@ class TranscodeService extends BaseService {
   _cleanupOnQuit() {
     this.logger.info('Cleaning up transcode resources on quit');
 
-    // Cancel any running processes
+    // Cancel all running processes - process.cancel() is synchronous (sends SIGTERM),
+    // so signals are sent in quick succession without blocking
     for (const [jobId, process] of this._processes) {
       if (process.isRunning) {
         this.logger.info('Cancelling running transcode on quit', { jobId });

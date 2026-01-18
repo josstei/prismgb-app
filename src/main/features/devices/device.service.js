@@ -237,12 +237,13 @@ class DeviceService extends BaseService {
 
       this.logger.debug(`Found ${devices.length} device(s) in initial scan`);
 
-      // Manually trigger connection events for matching devices
+      // Trigger connection events for matching devices
+      // Note: matchDevice and onDeviceConnected are synchronous, no await needed
       for (const device of devices) {
         const match = this.matchDevice(device);
         if (match.matched) {
           this.logger.info('Triggering connection event for already-connected device');
-          await this.onDeviceConnected(device);
+          this.onDeviceConnected(device);
         }
       }
     } catch (error) {

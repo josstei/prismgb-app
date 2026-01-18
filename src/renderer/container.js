@@ -3,6 +3,12 @@
  *
  * Browser-compatible dependency injection container for renderer process
  * Wires domain services and orchestrators with proper dependency injection
+ *
+ * Naming Convention:
+ * - Registration names use camelCase matching the class name
+ *   e.g., SettingsMenuComponent → 'settingsMenuComponent'
+ *        StreamingService → 'streamingService'
+ * - This convention enables consistent dependency injection and IDE autocomplete
  */
 
 import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
@@ -23,7 +29,7 @@ import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
-import { PresentationModeService } from '@renderer/ui/orchestration/presentation-mode.service.js';
+import { PresentationModeService } from '@renderer/features/settings/services/presentation-mode.service.js';
 import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 

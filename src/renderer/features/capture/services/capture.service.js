@@ -85,6 +85,9 @@ class CaptureService extends BaseService {
         height = source.height;
       }
 
+      // Note: Canvas is created here for image processing (pixel extraction and PNG encoding),
+      // not for UI rendering. This is a legitimate DOM operation in a service layer for
+      // converting video frames/bitmaps to exportable image blobs.
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
