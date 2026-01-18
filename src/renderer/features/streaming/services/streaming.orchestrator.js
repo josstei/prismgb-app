@@ -202,7 +202,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       });
 
       // Stop the unhealthy stream
-      this.streamingService.stop().catch(error => {
+      await this.streamingService.stop().catch(error => {
         this.logger.error('Error stopping unhealthy stream:', error);
       });
     }
@@ -276,10 +276,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle device disconnected during active stream
    * @private
    */
-  _handleDeviceDisconnectedDuringStream() {
+  async _handleDeviceDisconnectedDuringStream() {
     if (this.appState.isStreaming) {
       this.logger.warn('Device disconnected during stream - stopping');
-      this.streamingService.stop().catch(error => {
+      await this.streamingService.stop().catch(error => {
         this.logger.error('Error stopping stream after device disconnect:', error);
       });
     }

@@ -584,6 +584,16 @@ const transcodeAPI = {
 };
 
 /**
+ * Cleanup IPC listeners on window reload to prevent listener accumulation during HMR
+ */
+window.addEventListener('beforeunload', () => {
+  deviceAPI.removeListeners();
+  windowAPI.removeListeners();
+  updateAPI.removeListeners();
+  transcodeAPI.removeListeners();
+});
+
+/**
  * Expose APIs to renderer process
  */
 contextBridge.exposeInMainWorld('deviceAPI', {

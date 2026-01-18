@@ -27,6 +27,9 @@ class GameAutocompleteComponent {
     // Debounce timer
     this._autocompleteTimeout = null;
 
+    // Blur timer (tracked for cleanup)
+    this._blurTimerId = null;
+
     // Track DOM listeners for cleanup
     this._domListeners = createDomListenerManager({ logger });
 
@@ -186,7 +189,8 @@ class GameAutocompleteComponent {
     // interactions while still feeling responsive.
     // See: https://stackoverflow.com/questions/17769005/onclick-and-onblur-ordering-issue
     this._domListeners.add(this.gameInput, 'blur', () => {
-      setTimeout(() => {
+      this._blurTimerId = setTimeout(() => {
+        this._blurTimerId = null;
         this._hideAutocomplete();
         this.onBlur?.();
       }, NotesPanelConfig.BLUR_DELAY_MS);
@@ -350,10 +354,14 @@ class GameAutocompleteComponent {
    * Cleanup resources
    */
   dispose() {
-    // Clear timer
+    // Clear timers
     if (this._autocompleteTimeout) {
       clearTimeout(this._autocompleteTimeout);
       this._autocompleteTimeout = null;
+    }
+    if (this._blurTimerId) {
+      clearTimeout(this._blurTimerId);
+      this._blurTimerId = null;
     }
 
     // Remove DOM listeners
