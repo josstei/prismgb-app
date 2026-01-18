@@ -55,7 +55,8 @@ describe('StreamingRenderPipelineService', () => {
       clearCanvas: vi.fn(),
       resize: vi.fn(),
       resetCanvasState: vi.fn(),
-      cleanup: vi.fn()
+      cleanup: vi.fn(),
+      hasContextFor: vi.fn().mockReturnValue(false)
     };
 
     mockCanvasLifecycleService = {
@@ -107,7 +108,8 @@ describe('StreamingRenderPipelineService', () => {
       setHiddenStateFn: vi.fn(),
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       terminateAndReset: vi.fn(),
-      releaseGpuResources: vi.fn()
+      releaseGpuResources: vi.fn(),
+      handlePipelineStop: vi.fn()
     };
 
     mockCanvas2DRendererAdapter = {
@@ -123,7 +125,8 @@ describe('StreamingRenderPipelineService', () => {
       setPreset: vi.fn(),
       setHiddenStateFn: vi.fn(),
       clearCanvas: vi.fn(),
-      resetCanvasState: vi.fn()
+      resetCanvasState: vi.fn(),
+      handlePipelineStop: vi.fn()
     };
 
     // Mock the factory
@@ -222,22 +225,22 @@ describe('StreamingRenderPipelineService', () => {
       expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalled();
     });
 
-    it('clears canvas when not transferred to GPU', async () => {
-      mockGpuRendererService.isCanvasTransferred.mockReturnValue(false);
+    it('calls handlePipelineStop on Canvas2D renderer', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('canvas2d');
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service.stopPipeline();
 
-      expect(mockCanvasRenderer.clearCanvas).toHaveBeenCalled();
+      expect(mockCanvas2DRendererAdapter.handlePipelineStop).toHaveBeenCalled();
     });
 
-    it('does not clear canvas when transferred to GPU', async () => {
-      mockGpuRendererService.isCanvasTransferred.mockReturnValue(true);
+    it('calls handlePipelineStop on GPU renderer (no-op)', async () => {
+      mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service.stopPipeline();
 
-      expect(mockCanvasRenderer.clearCanvas).not.toHaveBeenCalled();
+      expect(mockGpuRendererAdapter.handlePipelineStop).toHaveBeenCalled();
     });
   });
 

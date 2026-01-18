@@ -118,6 +118,14 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   }
 
   /**
+   * Handle pipeline stop - clear canvas to black for idle state
+   * @override
+   */
+  handlePipelineStop() {
+    this.clearCanvas();
+  }
+
+  /**
    * Cleanup Canvas2D renderer resources
    */
   cleanup() {

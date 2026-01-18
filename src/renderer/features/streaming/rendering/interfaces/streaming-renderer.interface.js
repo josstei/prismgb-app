@@ -65,6 +65,16 @@ export class IStreamingRenderer {
     throw new Error('cleanup() must be implemented');
   }
 
+  /**
+   * Handle pipeline stop - renderer-specific cleanup when stream stops
+   * Called before renderer is deactivated but after pause().
+   * GPU: No-op (canvas recreation handled via CANVAS_EXPIRED event)
+   * Canvas2D: Clear canvas to black to show idle state
+   */
+  handlePipelineStop() {
+    // Default: no-op - renderers that need special stop handling override this
+  }
+
   // ============================
   // Optional methods with defaults (GPU-specific)
   // ============================

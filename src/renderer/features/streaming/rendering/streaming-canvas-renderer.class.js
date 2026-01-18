@@ -263,6 +263,16 @@ export class StreamingCanvasRenderer {
   }
 
   /**
+   * Check if a canvas element has a cached 2D context from this renderer
+   * Used to detect when canvas needs recreation before GPU init
+   * @param {HTMLCanvasElement} canvasElement - Canvas to check
+   * @returns {boolean} True if this canvas has a cached 2D context
+   */
+  hasContextFor(canvasElement) {
+    return this._cachedCanvas === canvasElement && this._cachedContext !== null;
+  }
+
+  /**
    * Cleanup all resources and stop rendering
    * Cancels animations, clears cached context, and removes event listeners.
    */

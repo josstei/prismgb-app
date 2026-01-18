@@ -110,7 +110,10 @@ export class StreamingRenderPipelineService extends BaseService {
     if (this._activeRenderer) {
       this._activeRenderer.pause(video);
 
-      // GPU-specific cleanup
+      // Renderer-specific stop handling (Canvas2D clears, GPU is no-op)
+      this._activeRenderer.handlePipelineStop();
+
+      // GPU-specific cleanup - terminates worker and recreates canvas
       if (this._activeRendererType === 'gpu') {
         this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
           label: 'before gpu release'
@@ -121,12 +124,6 @@ export class StreamingRenderPipelineService extends BaseService {
           delayMs: 1000
         });
       }
-    }
-
-    // Clear canvas if not transferred to GPU
-    if (!this.gpuRendererService.isCanvasTransferred()) {
-      const canvas = this.streamViewService.getCanvas();
-      this.canvasRenderer.clearCanvas(canvas);
     }
 
     this._activeRenderer = null;
@@ -246,7 +243,6 @@ export class StreamingRenderPipelineService extends BaseService {
   async _startRendering(capabilities) {
     this._currentCapabilities = capabilities;
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
-    const canvas = this.streamViewService.getCanvas();
     const video = this.streamViewService.getVideo();
 
     // Determine renderer type
@@ -260,13 +256,21 @@ export class StreamingRenderPipelineService extends BaseService {
     // Setup canvas size
     this.canvasLifecycleService.setupCanvasSize(nativeRes, rendererType === 'gpu');
 
-    // Prepare canvas for GPU if Canvas2D context exists
-    if (rendererType === 'gpu' && this._canvas2dContextCreated) {
-      this.logger.info('Recreating canvas before GPU init (Canvas2D context was active)');
+    // Check if canvas needs recreation before GPU init
+    // This handles both: 1) explicit Canvas2D usage, 2) HMR scenarios where canvas persists with context
+    const currentCanvas = this.streamViewService.getCanvas();
+    const canvasHasContext = this._canvas2dContextCreated ||
+      this.canvasRenderer.hasContextFor(currentCanvas);
+
+    if (rendererType === 'gpu' && canvasHasContext) {
+      this.logger.info('Recreating canvas before GPU init (canvas has 2D context)');
       this.canvasLifecycleService.recreateCanvas();
       this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
       this._canvas2dContextCreated = false;
     }
+
+    // Get canvas AFTER potential recreation to avoid stale reference
+    const canvas = this.streamViewService.getCanvas();
 
     // Create renderer if needed
     if (rendererType === 'gpu') {
@@ -283,45 +287,64 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {Object} nativeRes
    */
   async _startGPURendering(canvas, video, nativeRes) {
-    // Create GPU renderer adapter
-    const renderer = this.streamingRendererFactory.createRenderer('gpu', {
-      gpuRendererService: this.gpuRendererService,
-      gpuRenderLoopService: this.gpuRenderLoopService,
-      appState: this.appState
-    });
+    // Try GPU init, with one retry if canvas has stale context (handles HMR edge cases)
+    let currentCanvas = canvas;
+    let retried = false;
 
-    renderer.setHiddenStateFn(() => this._isHidden);
+    while (true) {
+      const renderer = this.streamingRendererFactory.createRenderer('gpu', {
+        gpuRendererService: this.gpuRendererService,
+        gpuRenderLoopService: this.gpuRenderLoopService,
+        appState: this.appState
+      });
 
-    try {
-      const gpuAvailable = await renderer.initialize(canvas, nativeRes);
+      renderer.setHiddenStateFn(() => this._isHidden);
 
-      if (gpuAvailable) {
-        this._activeRenderer = renderer;
-        this._activeRendererType = 'gpu';
-        this.logger.info('Using GPU renderer for HD rendering');
+      try {
+        const gpuAvailable = await renderer.initialize(currentCanvas, nativeRes);
 
-        renderer.resume(video);
+        if (gpuAvailable) {
+          this._activeRenderer = renderer;
+          this._activeRendererType = 'gpu';
+          this.logger.info('Using GPU renderer for HD rendering');
 
-        // Apply performance preset if needed
-        if (this._performanceModeEnabled) {
-          if (!this._userPresetId) {
-            const currentPresetId = renderer.getPresetId();
-            if (currentPresetId && currentPresetId !== 'performance') {
-              this._userPresetId = currentPresetId;
+          renderer.resume(video);
+
+          // Apply performance preset if needed
+          if (this._performanceModeEnabled) {
+            if (!this._userPresetId) {
+              const currentPresetId = renderer.getPresetId();
+              if (currentPresetId && currentPresetId !== 'performance') {
+                this._userPresetId = currentPresetId;
+              }
             }
+            renderer.setPreset('performance');
           }
-          renderer.setPreset('performance');
+          return;
         }
-        return;
-      }
 
-      this.logger.warn('GPU renderer not available, falling back to Canvas2D');
-    } catch (error) {
-      this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', error.message);
+        this.logger.warn('GPU renderer not available, falling back to Canvas2D');
+        break;
+      } catch (error) {
+        // Check if failure is due to canvas having a rendering context (e.g., from HMR)
+        const isContextError = error.message?.includes('rendering context');
+
+        if (isContextError && !retried) {
+          this.logger.warn('GPU init failed due to existing canvas context, recreating canvas and retrying');
+          this.canvasLifecycleService.recreateCanvas();
+          this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
+          currentCanvas = this.streamViewService.getCanvas();
+          retried = true;
+          continue; // Retry with fresh canvas
+        }
+
+        this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', error.message);
+        break;
+      }
     }
 
     // Fallback to Canvas2D
-    await this._startCanvas2DFallback(canvas, video, nativeRes);
+    await this._startCanvas2DFallback(currentCanvas, video, nativeRes);
   }
 
   /**
