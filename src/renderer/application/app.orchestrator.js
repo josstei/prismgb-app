@@ -17,6 +17,7 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {Object} dependencies - Injected dependencies
    * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management
    * @param {StreamingOrchestrator} dependencies.streamingOrchestrator - Stream management
+   * @param {StreamingAudioOrchestrator} dependencies.streamingAudioOrchestrator - Audio stream lifecycle
    * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
    * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
    * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
@@ -34,6 +35,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       [
         'deviceOrchestrator',
         'streamingOrchestrator',
+        'streamingAudioOrchestrator',
         'captureOrchestrator',
         'preferencesOrchestrator',
         'displayModeOrchestrator',
@@ -59,6 +61,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     this._wireHighLevelEvents();
 
     // Initialize domain orchestrators
+    await this.streamingAudioOrchestrator.initialize();
     await this.streamingOrchestrator.initialize();
     await this.deviceOrchestrator.initialize();
     await this.captureOrchestrator.initialize();
@@ -150,6 +153,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
       ['preferencesOrchestrator', this.preferencesOrchestrator],
+      ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],
       ['deviceOrchestrator', this.deviceOrchestrator]

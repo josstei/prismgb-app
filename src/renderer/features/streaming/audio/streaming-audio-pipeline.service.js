@@ -31,6 +31,7 @@ export class StreamingAudioPipelineService extends BaseService {
     this._unmuteTimeout = null;
     this._energyTimer = null;
     this._trackUnmuteHandler = null;
+    this._startPromise = null;
 
     this._unsubscribeVolume = this.eventBus.subscribe(
       EventChannels.SETTINGS.VOLUME_CHANGED,
@@ -39,6 +40,27 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   async start(stream) {
+    if (this._startPromise && this._stream === stream) {
+      return this._startPromise;
+    }
+
+    if (this._stream === stream && this._audioContext && this._audioContext.state !== 'closed') {
+      return this._isReady;
+    }
+
+    const startPromise = this._startInternal(stream);
+    this._startPromise = startPromise;
+
+    try {
+      return await startPromise;
+    } finally {
+      if (this._startPromise === startPromise) {
+        this._startPromise = null;
+      }
+    }
+  }
+
+  async _startInternal(stream) {
     this.stop();
 
     if (!stream) {
@@ -129,6 +151,7 @@ export class StreamingAudioPipelineService extends BaseService {
 
   stop() {
     this._warmupToken += 1;
+    this._startPromise = null;
     this._isReady = false;
 
     this._clearTimers();
