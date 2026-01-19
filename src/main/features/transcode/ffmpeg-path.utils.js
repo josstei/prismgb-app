@@ -9,6 +9,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { execSync } from 'node:child_process';
 
 // Create require for CommonJS module resolution
 const require = createRequire(import.meta.url);
@@ -22,8 +23,9 @@ export function getFfmpegPath() {
   const platform = process.platform;
   const executableName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 
-  if (platform === 'linux' && process.arch !== 'x64') {
-    throw new Error(`Unsupported Linux architecture: ${process.arch}`);
+  const envPath = process.env.FFMPEG_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
   }
 
   if (isPackaged) {
@@ -77,6 +79,11 @@ export function getFfmpegPath() {
     return manualPath;
   }
 
+  const systemPath = resolveSystemBinary('ffmpeg');
+  if (systemPath) {
+    return systemPath;
+  }
+
   throw new Error(`FFmpeg binary not found. Platform: ${platform}, Packaged: ${isPackaged}`);
 }
 
@@ -89,8 +96,9 @@ export function getFfprobePath() {
   const platform = process.platform;
   const executableName = platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
 
-  if (platform === 'linux' && process.arch !== 'x64') {
-    throw new Error(`Unsupported Linux architecture: ${process.arch}`);
+  const envPath = process.env.FFPROBE_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
   }
 
   // Determine the correct subdirectories for the platform
@@ -156,7 +164,24 @@ export function getFfprobePath() {
     return manualPath;
   }
 
+  const systemPath = resolveSystemBinary('ffprobe');
+  if (systemPath) {
+    return systemPath;
+  }
+
   throw new Error(`FFprobe binary not found. Platform: ${platform}, Packaged: ${isPackaged}`);
+}
+
+/**
+ * Get the path to the ffprobe binary if available
+ * @returns {string|null} Absolute path to ffprobe executable or null
+ */
+export function getOptionalFfprobePath() {
+  try {
+    return getFfprobePath();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -166,16 +191,39 @@ export function getFfprobePath() {
  */
 export function validateFfmpegBinaries() {
   const ffmpegPath = getFfmpegPath();
-  const ffprobePath = getFfprobePath();
+  const ffprobePath = getOptionalFfprobePath();
 
   // Check if files exist (already done in get functions, but double-check)
   if (!fs.existsSync(ffmpegPath)) {
     throw new Error(`FFmpeg binary not found at: ${ffmpegPath}`);
   }
 
-  if (!fs.existsSync(ffprobePath)) {
-    throw new Error(`FFprobe binary not found at: ${ffprobePath}`);
-  }
-
   return { ffmpegPath, ffprobePath };
+}
+
+function normalizeArchDir(arch) {
+  if (arch === 'arm64') {
+    return 'arm64';
+  }
+  if (arch === 'arm') {
+    return 'arm';
+  }
+  if (arch === 'ia32') {
+    return 'ia32';
+  }
+  return 'x64';
+}
+
+function resolveSystemBinary(binaryName) {
+  try {
+    const resolved = execSync(`command -v ${binaryName}`, { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+    if (resolved && fs.existsSync(resolved)) {
+      return resolved;
+    }
+  } catch {
+    // Ignore missing system binaries
+  }
+  return null;
 }

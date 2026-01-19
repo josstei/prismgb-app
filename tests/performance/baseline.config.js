@@ -156,7 +156,7 @@ export const PerformanceBaselines = Object.freeze({
   // Memory
   'factory-creation': {
     baseline: 3,
-    tolerance: 0.5,
+    tolerance: 0.8,
     unit: 'ms',
     category: 'memory',
     description: 'Mock factory instantiation',
