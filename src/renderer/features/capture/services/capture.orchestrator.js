@@ -32,6 +32,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       ],
       'CaptureOrchestrator'
     );
+
+    this._recordingInterrupted = false;
   }
 
   /**
@@ -132,6 +134,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       } else {
         await this.captureService.startRecording(stream);
       }
+      this._recordingInterrupted = false;
     } catch (error) {
       this.logger.error('Failed to start recording:', error);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Error with recording', type: 'error' });
@@ -180,6 +183,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     const isRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
     if (isRecording) {
       this.logger.info('Stream stopped - stopping active recording');
+      this._recordingInterrupted = true;
       await this._stopRecording();
     }
   }
@@ -193,6 +197,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this.logger.error('Recording error:', error);
 
     await this.gpuRecordingService.stop();
+    this._recordingInterrupted = false;
   }
 
   /**
@@ -204,7 +209,10 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     const { blob, filename } = data;
 
     try {
-      const result = await this.captureSaveService.saveRecording(blob, filename);
+      const result = await this.captureSaveService.saveRecording(blob, filename, {
+        interrupted: this._recordingInterrupted
+      });
+      this._recordingInterrupted = false;
 
       // Only show status message for direct saves (webm)
       // Transcoded saves show their own status messages

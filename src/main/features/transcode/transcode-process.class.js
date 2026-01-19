@@ -78,13 +78,15 @@ export class TranscodeProcess extends EventEmitter {
    * @param {string} outputPath - Path to output file
    * @param {string[]} ffmpegArgs - FFmpeg codec/format arguments
    * @param {number} durationUs - Expected duration in microseconds (for progress)
+   * @param {string[]} [inputArgs] - Optional input arguments (applied before -i)
    */
-  constructor(inputPath, outputPath, ffmpegArgs, durationUs) {
+  constructor(inputPath, outputPath, ffmpegArgs, durationUs, inputArgs = []) {
     super();
     this._inputPath = inputPath;
     this._outputPath = outputPath;
     this._ffmpegArgs = ffmpegArgs;
     this._durationUs = durationUs;
+    this._inputArgs = inputArgs;
     this._process = null;
     this._wasKilled = false;
     this._hasCompleted = false;
@@ -107,8 +109,10 @@ export class TranscodeProcess extends EventEmitter {
       this._startTime = Date.now();
 
       const ffmpegPath = getFfmpegPath();
+      const inputArgs = Array.isArray(this._inputArgs) ? this._inputArgs : [];
       const args = [
         '-y', // Overwrite output file
+        ...inputArgs,
         '-i', this._inputPath,
         '-progress', 'pipe:1', // Progress output to stdout
         '-nostats', // Don't output stats to stderr (use -progress instead)

@@ -164,7 +164,8 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mp4',
-          'recording'
+          'recording',
+          expect.objectContaining({ interrupted: false })
         );
       });
 
@@ -177,7 +178,8 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mov',
-          'recording'
+          'recording',
+          expect.objectContaining({ interrupted: false })
         );
       });
 
@@ -230,7 +232,8 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mp4',
-          'my-recording-2024-01-15'
+          'my-recording-2024-01-15',
+          expect.objectContaining({ interrupted: false })
         );
       });
     });

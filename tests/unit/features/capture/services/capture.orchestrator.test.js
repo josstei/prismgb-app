@@ -417,7 +417,11 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
 
-      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(mockBlob, filename);
+      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(
+        mockBlob,
+        filename,
+        expect.objectContaining({ interrupted: false })
+      );
     });
 
     it('should publish status message for direct save (non-transcoded)', async () => {

@@ -163,7 +163,8 @@ describe('TranscodeService', () => {
       expect(mockTranscodeAPI.start).toHaveBeenCalledWith(
         expect.any(ArrayBuffer),
         'mp4',
-        'output-name'
+        'output-name',
+        expect.objectContaining({ interrupted: false })
       );
     });
 
