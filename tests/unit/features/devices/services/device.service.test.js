@@ -444,6 +444,38 @@ describe('DeviceService', () => {
     });
   });
 
+  describe('_warmUpPermissions', () => {
+    it('should deduplicate concurrent warm-up calls', async () => {
+      mockBrowserMediaService.enumerateDevices
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: '' }
+        ])
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' }
+        ]);
+
+      const stop = vi.fn();
+      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
+
+      const promise1 = deviceMediaService._warmUpPermissions();
+      const promise2 = deviceMediaService._warmUpPermissions();
+
+      await Promise.all([promise1, promise2]);
+
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle warm-up failure gracefully', async () => {
+      mockBrowserMediaService.getUserMedia.mockRejectedValue(new Error('Permission denied'));
+
+      await deviceMediaService._warmUpPermissions();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Permission warm-up failed:', 'Permission denied');
+      expect(deviceMediaService.hasMediaPermission).toBe(false);
+    });
+  });
+
   describe('dispose', () => {
     it('should call unsubscribe function', () => {
       const mockUnsubscribe = vi.fn();

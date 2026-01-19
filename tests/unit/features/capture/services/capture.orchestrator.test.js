@@ -424,6 +424,27 @@ describe('CaptureOrchestrator', () => {
       );
     });
 
+    it('should pass interrupted: true when recording was stopped due to stream interruption', async () => {
+      await orchestrator.onInitialize();
+      mockCaptureService.isRecording = true;
+
+      const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === 'stream:stopped'
+      )[1];
+      await streamStoppedHandler();
+
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording.webm';
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockCaptureSaveService.saveRecording).toHaveBeenCalledWith(
+        mockBlob,
+        filename,
+        { interrupted: true }
+      );
+    });
+
     it('should publish status message for direct save (non-transcoded)', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording.webm';
