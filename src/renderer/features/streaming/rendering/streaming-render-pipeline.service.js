@@ -402,7 +402,7 @@ export class StreamingRenderPipelineService extends BaseService {
   /**
    * Switch from GPU to Canvas2D mid-stream
    */
-  _switchToCanvas2DMidStream() {
+  async _switchToCanvas2DMidStream() {
     const video = this.streamViewService.getVideo();
 
     // Stop GPU renderer
@@ -421,7 +421,7 @@ export class StreamingRenderPipelineService extends BaseService {
     const canvas = this.streamViewService.getCanvas();
 
     // Start Canvas2D
-    this._startCanvas2DRendering(canvas, video);
+    await this._startCanvas2DRendering(canvas, video);
   }
 
   /**

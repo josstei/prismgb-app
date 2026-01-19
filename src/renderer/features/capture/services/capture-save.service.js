@@ -25,10 +25,13 @@ class CaptureSaveService extends BaseService {
    * Save a recording, transcoding if the user's format preference differs from webm
    * @param {Blob} blob - The recording blob (webm format)
    * @param {string} filename - The original filename (used as base for transcoded file)
+   * @param {Object} [options]
+   * @param {boolean} [options.interrupted=false] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    */
-  async saveRecording(blob, filename) {
+  async saveRecording(blob, filename, options = {}) {
     const format = this.settingsService.getRecordingFormat();
+    const interrupted = Boolean(options.interrupted);
 
     this.logger.info(`Saving recording with format preference: ${format}`);
 
@@ -40,7 +43,7 @@ class CaptureSaveService extends BaseService {
     // Transcoding needed - the main process will save the file
     // Extract base name (without extension) for consistent naming
     const baseName = filename.replace(/\.[^.]+$/, '');
-    return this._transcodeAndSave(blob, format, baseName);
+    return this._transcodeAndSave(blob, format, baseName, { interrupted });
   }
 
   /**
@@ -77,16 +80,23 @@ class CaptureSaveService extends BaseService {
    * @param {Blob} blob - The source blob
    * @param {string} format - Target format (mp4, mov)
    * @param {string} outputBaseName - Base name for output file (without extension)
+   * @param {Object} [options]
+   * @param {boolean} [options.interrupted=false] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    * @private
    */
-  async _transcodeAndSave(blob, format, outputBaseName) {
+  async _transcodeAndSave(blob, format, outputBaseName, options = {}) {
     try {
       this.logger.info(`Starting transcode to ${format}`);
+      const interrupted = Boolean(options.interrupted);
+      const inputArgs = interrupted ? ['-fflags', '+genpts', '-err_detect', 'ignore_err'] : undefined;
 
       // Start transcode - main process handles file saving
       // UI status is handled by TranscodeUIBridge listening to TRANSCODE events
-      const result = await this.transcodeService.transcode(blob, format, outputBaseName);
+      const result = await this.transcodeService.transcode(blob, format, outputBaseName, {
+        inputArgs,
+        interrupted
+      });
 
       if (!result.success) {
         this.logger.error('Transcode failed', result.error);

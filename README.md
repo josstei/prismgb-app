@@ -12,12 +12,15 @@
   <a href="https://github.com/josstei/prismgb-app/releases/latest"><img src="https://img.shields.io/github/v/release/josstei/prismgb-app?label=version" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
+  <img src="https://img.shields.io/badge/electron-v28-blue" alt="Electron">
+  <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node.js">
 </p>
 
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#usage">Usage</a> •
+  <a href="#architecture">Architecture</a> •
   <a href="#troubleshooting">Troubleshooting</a> •
   <a href="#license">License</a>
 </p>
@@ -35,23 +38,63 @@
 
 ---
 
-PrismGB is a free, open-source desktop application that lets you stream and capture video from your [Mod Retro Chromatic](https://modretro.com) handheld gaming device. Connect your Chromatic via USB and enjoy your gameplay on a larger screen, take screenshots, or record your gaming sessions.
+PrismGB is a free, open-source desktop application that lets you stream and capture video from your [Mod Retro Chromatic](https://modretro.com) handheld gaming device. Connect your Chromatic via USB and enjoy your gameplay on a larger screen, take screenshots, or record your gaming sessions with GPU-accelerated rendering and professional-grade video output.
 
 ## Features
 
-- **Live Video Streaming** - Stream your Chromatic's display to your desktop in real-time
-- **Render Presets** - True Color, Vibrant, Hi-Def, Vintage (CRT), Pixel, Performance
-- **Brightness + Volume Controls** - Adjust display brightness and audio levels with real-time preview
-- **Cinematic Mode** - Distraction-free viewing with auto-fading controls
-- **Fullscreen + Fullscreen-on-Startup** - Immersive viewing with optional auto-enter
-- **Performance Mode** - Reduce effects for weaker GPUs
-- **Screenshot Capture** - Take instant screenshots of your gameplay
-- **Video Recording** - Record your gaming sessions with format selection (WebM, MP4, MOV)
-- **Notes Panel** - Take notes with search and autosave
-- **Status Strip** - Device state, resolution, and FPS (toggle in settings)
-- **Update Checks** - In-app check, download, and install flow
-- **System Tray Integration** - Runs quietly in your system tray
-- **Cross-Platform** - Available for Windows, macOS, and Linux
+### Video Streaming & Display
+
+| Feature | Description |
+|---------|-------------|
+| **Live Video Streaming** | Stream your Chromatic's 160x144 display to your desktop in real-time |
+| **GPU-Accelerated Rendering** | WebGL2 primary with WebGPU and Canvas2D fallback for broad compatibility |
+| **4-Pass Shader Pipeline** | Upscale, Unsharp Mask, Color Elevation, and CRT/LCD effects |
+| **Multiple Output Resolutions** | 160x144 (native), 320x288, 640x576, 1280x1152, 1280x720 (HD) |
+| **Performance Mode** | Reduced rendering effects for weaker GPUs (Canvas2D fallback) |
+
+### Render Presets
+
+PrismGB includes 6 carefully tuned render presets:
+
+| Preset | Description |
+|--------|-------------|
+| **True Color** | Accurate GBC color reproduction with no effects |
+| **Vibrant** | Enhanced saturation, brightness, and sharpening |
+| **Hi-Def** | Maximum clarity with strong sharpening |
+| **Vintage** | CRT scanlines, bloom, barrel distortion, and vignette |
+| **Pixel** | Visible LCD pixel grid overlay |
+| **Performance** | Minimal processing, upscale only |
+
+### Capture & Recording
+
+| Feature | Description |
+|---------|-------------|
+| **Screenshot Capture** | Instant PNG screenshots with flash effect |
+| **Video Recording** | Record gameplay with format selection |
+| **WebM Format** | VP9 video + Opus audio (native, no transcoding) |
+| **MP4 Format** | H.264 video + AAC audio (FFmpeg transcoding) |
+| **MOV Format** | ProRes video + PCM audio (professional/archival quality) |
+
+### User Interface
+
+| Feature | Description |
+|---------|-------------|
+| **Brightness Control** | Real-time brightness adjustment (0.5x - 1.5x) |
+| **Volume Control** | Real-time audio level control (0-100%) |
+| **Cinematic Mode** | Distraction-free viewing with auto-fading toolbar |
+| **Fullscreen Mode** | Immersive viewing with optional auto-enter on startup |
+| **Status Strip** | Device state, resolution, and FPS display (toggleable) |
+| **Notes Panel** | Create, edit, delete notes with search and autosave |
+| **System Tray** | Background operation with USB monitoring |
+| **Auto-Update** | In-app check, download, and install flow |
+
+### Device Support
+
+| Feature | Description |
+|---------|-------------|
+| **USB Hot-Plug** | Automatic device detection and reconnection |
+| **Auto-Stream** | Optionally start streaming when device connects |
+| **Device Profiles** | Extensible device profile system |
 
 ## Requirements
 
@@ -61,7 +104,9 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 
 ## Supported Devices
 
-- Mod Retro Chromatic (USB)
+| Device | USB Vendor ID | USB Product ID | Native Resolution |
+|--------|---------------|----------------|-------------------|
+| Mod Retro Chromatic | `0x374e` | `0x0101` | 160x144 (10:9) |
 
 ## Installation
 
@@ -82,7 +127,7 @@ Download the latest release for your operating system from the [Releases](https:
 | Linux (ARM64) | `PrismGB-x.x.x-linux-arm64.deb` | For Debian/Ubuntu (ARM64) |
 | Linux (ARM64) | `PrismGB-x.x.x-linux-arm64.tar.gz` | Compressed archive (ARM64) |
 
-> **Note:** Replace `x.x.x` with the actual version number (e.g., `1.1.1`).
+> **Note:** Replace `x.x.x` with the actual version number (e.g., `1.2.1`).
 
 ### Windows Installation
 
@@ -157,6 +202,23 @@ sudo dnf install libusb
 sudo pacman -S libusb
 ```
 
+**Building from Source**
+
+If you're building from source (or if prebuilt binaries aren't available for your Node.js version), you'll need additional build tools:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential python3 libusb-1.0-0-dev libudev-dev
+
+# Fedora
+sudo dnf install gcc gcc-c++ make python3 libusb-devel systemd-devel
+
+# Arch Linux
+sudo pacman -S base-devel python libusb
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for full build instructions.
+
 ## Usage
 
 1. **Connect your Chromatic** to your computer via USB
@@ -174,6 +236,7 @@ sudo pacman -S libusb
    - **Status strip** visibility
    - **Performance mode**
    - **Fullscreen on startup**
+   - **Recording format** (WebM, MP4, MOV)
    - **Update** checks and installs
 
 ### File Locations
@@ -189,20 +252,109 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 - Screenshots: `prismgb-screenshot-YYYYMMDD-HHMMSS.png`
 - Recordings: `prismgb-recording-YYYYMMDD-HHMMSS.<format>` (WebM, MP4, or MOV based on settings)
 
+### Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Volume | 100% | Audio playback volume |
+| Brightness | 1.0x | Display brightness multiplier |
+| Render Preset | Vibrant | Active shader preset |
+| Status Strip | Visible | Show device/FPS footer |
+| Performance Mode | Off | Use Canvas2D instead of GPU |
+| Fullscreen on Startup | Off | Auto-enter fullscreen |
+| Cinematic Mode | Off | Auto-hide toolbar |
+| Auto-Stream | On | Start streaming on device connect |
+| Recording Format | MP4 | Output format for recordings |
+
 ### Local Data
 
-- Settings and notes are stored locally (clear app data to reset).
-- Device IDs are stored locally to speed up reconnects.
+- Settings and notes are stored locally in browser localStorage
+- Device IDs are cached locally to speed up reconnects
+- Clear app data to reset all settings
 
-## Documentation
+## Architecture
 
-- Development guide: `DEVELOPMENT.md`
-- Contributing guide: `CONTRIBUTING.md`
-- Feature map: `docs/feature-map.md`
-- Naming conventions: `docs/naming-conventions.md`
-- CI/CD workflows: `docs/ci-cd-workflows.md`
-- Architecture diagrams: `docs/architecture-diagrams.md`
-- Architecture onboarding: `docs/architecture-diagrams-onboarding.md`
+PrismGB uses a modern **three-process Electron architecture** with clean separation of concerns:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              Main Process                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
+│  │   Window    │ │    Tray     │ │   Device    │ │     Transcode       ││
+│  │  Service    │ │   Service   │ │   Service   │ │      Service        ││
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────────┘│
+│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────────────────┐  │
+│  │   Update    │ │ Performance │ │         IPC Handler Registry      │  │
+│  │   Service   │ │   Metrics   │ │                                   │  │
+│  └─────────────┘ └─────────────┘ └───────────────────────────────────┘  │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ IPC (contextBridge)
+┌────────────────────────────────┴────────────────────────────────────────┐
+│                            Preload Script                                │
+│                     (Secure IPC bridge, no Node.js)                      │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+┌────────────────────────────────┴────────────────────────────────────────┐
+│                           Renderer Process                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                      Streaming Orchestrator                          ││
+│  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
+│  │  │   Streaming   │ │  Render Pipeline  │ │    GPU Render Loop    │  ││
+│  │  │    Service    │ │  (4-pass shader)  │ │   (WebGL2/WebGPU)     │  ││
+│  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                       Capture Orchestrator                           ││
+│  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
+│  │  │   Capture     │ │   GPU Recording   │ │    Save Service       │  ││
+│  │  │   Service     │ │     Service       │ │  (format routing)     │  ││
+│  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐│
+│  │   Device     │ │   Settings   │ │    Notes     │ │      Update      ││
+│  │   Service    │ │   Service    │ │   Service    │ │     Service      ││
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                          UI Layer                                    ││
+│  │   Shell • Toolbar • Settings Menu • Notes Panel • Status Strip      ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Patterns
+
+| Pattern | Description |
+|---------|-------------|
+| **Orchestrator** | Coordinates services and manages state machines |
+| **Service** | Single-responsibility business logic with event emission |
+| **DI Container** | Awilix-based dependency injection (main process) |
+| **Event Bus** | EventEmitter3 for cross-service communication |
+| **IPC Bridges** | Translate between main/renderer process boundaries |
+
+### GPU Rendering Pipeline
+
+The 4-pass shader pipeline processes each frame:
+
+1. **Pass 1: Upscale** - Bilinear/nearest-neighbor scaling to output resolution
+2. **Pass 2: Unsharp Mask** - Edge sharpening (configurable strength 0.0-0.8)
+3. **Pass 3: Color Elevation** - Gamma, saturation, brightness, contrast, green bias
+4. **Pass 4: CRT/LCD** - Scanlines, pixel mask, bloom, curvature, vignette
+
+### Technology Stack
+
+| Category | Technology |
+|----------|------------|
+| **Framework** | Electron v28 |
+| **Build Tool** | Vite v7.3 |
+| **Runtime** | Node.js v22 LTS |
+| **GPU Rendering** | WebGL2, WebGPU, Canvas2D |
+| **Audio** | Web Audio API |
+| **Recording** | MediaRecorder API |
+| **Transcoding** | FFmpeg/FFprobe (static binaries) |
+| **USB** | usb-detection, libusb |
+| **DI** | Awilix |
+| **Logging** | Winston |
+| **Testing** | Vitest, Playwright |
 
 ## Troubleshooting
 
@@ -253,6 +405,49 @@ sudo udevadm trigger
 ```
 
 Reconnect your Chromatic after applying the rule.
+
+### Recording Format Issues
+
+| Format | Notes |
+|--------|-------|
+| **WebM** | Native browser recording, fastest, smallest file size |
+| **MP4** | Requires FFmpeg transcoding, universal compatibility |
+| **MOV** | Requires FFmpeg transcoding, largest file size, professional quality |
+
+If transcoding fails, ensure FFmpeg binaries are included in the application package.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Build instructions and development setup |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| [docs/feature-map.md](docs/feature-map.md) | Complete feature-to-code mapping |
+| [docs/architecture-diagrams.md](docs/architecture-diagrams.md) | Mermaid diagrams of service flows |
+| [docs/architecture-diagrams-onboarding.md](docs/architecture-diagrams-onboarding.md) | Architectural onboarding guide |
+| [docs/naming-conventions.md](docs/naming-conventions.md) | Code naming standards |
+| [docs/ci-cd-workflows.md](docs/ci-cd-workflows.md) | GitHub Actions workflows |
+
+## Testing
+
+PrismGB includes comprehensive test coverage:
+
+| Test Type | Framework | Description |
+|-----------|-----------|-------------|
+| **Unit Tests** | Vitest | 115+ tests for business logic |
+| **Integration Tests** | Vitest | Multi-service workflow testing |
+| **E2E Tests** | Playwright | Full application workflows |
+| **Smoke Tests** | Custom | Post-build validation |
+
+Run tests:
+```bash
+npm test              # Watch mode
+npm run test:run      # Single run
+npm run test:coverage # Coverage report
+npm run test:e2e      # E2E tests
+```
+
+Coverage thresholds: 80% line/function/statement, 75% branches.
 
 ## Contributing
 

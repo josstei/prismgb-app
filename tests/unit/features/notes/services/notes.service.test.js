@@ -526,4 +526,51 @@ describe('NotesService', () => {
       expect(result).toBe(true);
     });
   });
+
+  describe('getUniqueGames', () => {
+    it('should return empty array when no notes exist', () => {
+      const games = service.getUniqueGames();
+      expect(games).toEqual([]);
+    });
+
+    it('should return sorted unique game names', () => {
+      const storedNotes = [
+        { id: 'note_1', gameName: 'Zelda', updatedAt: 1000 },
+        { id: 'note_2', gameName: 'Pokemon', updatedAt: 2000 },
+        { id: 'note_3', gameName: 'Zelda', updatedAt: 3000 },
+        { id: 'note_4', gameName: '', updatedAt: 4000 }
+      ];
+      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+
+      const games = service.getUniqueGames();
+
+      expect(games).toEqual(['Pokemon', 'Zelda']);
+    });
+  });
+
+  describe('getNotesGroupedByGame', () => {
+    it('should return empty object when no notes exist', () => {
+      const groups = service.getNotesGroupedByGame();
+      expect(groups).toEqual({});
+    });
+
+    it('should group notes by game name', () => {
+      const storedNotes = [
+        { id: 'note_1', gameName: 'Zelda', title: 'Note 1', updatedAt: 1000 },
+        { id: 'note_2', gameName: 'Pokemon', title: 'Note 2', updatedAt: 2000 },
+        { id: 'note_3', gameName: 'Zelda', title: 'Note 3', updatedAt: 3000 },
+        { id: 'note_4', gameName: '', title: 'General Note', updatedAt: 4000 }
+      ];
+      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+
+      const groups = service.getNotesGroupedByGame();
+
+      expect(Object.keys(groups)).toContain('Zelda');
+      expect(Object.keys(groups)).toContain('Pokemon');
+      expect(Object.keys(groups)).toContain('');
+      expect(groups['Zelda']).toHaveLength(2);
+      expect(groups['Pokemon']).toHaveLength(1);
+      expect(groups['']).toHaveLength(1);
+    });
+  });
 });

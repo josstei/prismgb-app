@@ -80,6 +80,7 @@ export default defineConfig({
     // Exclude E2E tests (run with Playwright instead)
     exclude: [
       'tests/e2e/**',
+      'tests/workflows/index.js', // Index files not tests
       'node_modules/**'
     ],
 

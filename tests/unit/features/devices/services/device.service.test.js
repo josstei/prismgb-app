@@ -15,6 +15,7 @@ describe('DeviceService', () => {
   let mockLogger;
   let mockStorageService;
   let mockBrowserMediaService;
+  let mockDeviceChangeDebounceAdapter;
   let deviceConnectionService;
   let deviceStorageService;
   let deviceMediaService;
@@ -54,6 +55,18 @@ describe('DeviceService', () => {
       removeEventListener: vi.fn()
     };
 
+    // Mock device change debounce adapter
+    mockDeviceChangeDebounceAdapter = {
+      subscribe: vi.fn((callback) => {
+        // Store callback for tests to trigger
+        mockDeviceChangeDebounceAdapter._callback = callback;
+        return vi.fn(); // unsubscribe function
+      }),
+      unsubscribe: vi.fn(),
+      isSubscribed: vi.fn().mockReturnValue(false),
+      getSuppressedCount: vi.fn().mockReturnValue(0)
+    };
+
     // Mock console
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -75,7 +88,8 @@ describe('DeviceService', () => {
       loggerFactory: mockLoggerFactory,
       browserMediaService: mockBrowserMediaService,
       deviceConnectionService,
-      deviceStorageService
+      deviceStorageService,
+      deviceChangeDebounceAdapter: mockDeviceChangeDebounceAdapter
     });
 
     service = new DeviceService({
@@ -306,34 +320,33 @@ describe('DeviceService', () => {
   });
 
   describe('setupDeviceChangeListener', () => {
-    it('should add devicechange event listener', () => {
+    it('should subscribe via debounce adapter', () => {
       service.setupDeviceChangeListener();
 
-      expect(mockBrowserMediaService.addEventListener).toHaveBeenCalledWith(
-        'devicechange',
+      expect(mockDeviceChangeDebounceAdapter.subscribe).toHaveBeenCalledWith(
         expect.any(Function)
       );
     });
 
-    it('should store handler reference for cleanup', () => {
+    it('should store unsubscribe reference for cleanup', () => {
       service.setupDeviceChangeListener();
 
-      expect(service.deviceMediaService._deviceChangeHandler).toBeInstanceOf(Function);
+      expect(service.deviceMediaService._unsubscribeDeviceChange).toBeInstanceOf(Function);
     });
 
-    it('should update status but NOT enumerate devices on devicechange', async () => {
-      // Camera enumeration is deferred to prevent macOS webcam flicker
+    it('should update status and enumerate on devicechange callback', async () => {
       mockDeviceStatusProvider.getDeviceStatus.mockResolvedValue({ connected: true });
+      mockBrowserMediaService.enumerateDevices.mockResolvedValue([]);
 
       service.setupDeviceChangeListener();
 
-      // Trigger the handler
-      await service.deviceMediaService._deviceChangeHandler();
+      // Trigger the callback stored by debounce adapter mock
+      await mockDeviceChangeDebounceAdapter._callback();
 
       // Should update status from provider
       expect(mockDeviceStatusProvider.getDeviceStatus).toHaveBeenCalled();
-      // Should NOT enumerate cameras (no getUserMedia, no enumerateDevices camera probe)
-      expect(mockBrowserMediaService.getUserMedia).not.toHaveBeenCalled();
+      // Should enumerate devices
+      expect(mockBrowserMediaService.enumerateDevices).toHaveBeenCalled();
     });
   });
 
@@ -347,15 +360,25 @@ describe('DeviceService', () => {
     });
 
     it('should not probe random devices when no stored ID', async () => {
-      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
-        { deviceId: 'dev-1', kind: 'videoinput', label: '' },
-        { deviceId: 'dev-2', kind: 'videoinput', label: '' }
-      ]);
+      mockBrowserMediaService.enumerateDevices
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: '' },
+          { deviceId: 'dev-2', kind: 'videoinput', label: '' }
+        ])
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' },
+          { deviceId: 'dev-2', kind: 'videoinput', label: 'Another Camera' }
+        ]);
+
+      const stop = vi.fn();
+      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
 
       const result = await service.discoverSupportedDevice();
 
       expect(result).toBeNull();
-      expect(mockBrowserMediaService.getUserMedia).not.toHaveBeenCalled();
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({ video: true });
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(1);
     });
 
     it('should request permission only for stored device ID', async () => {
@@ -366,7 +389,7 @@ describe('DeviceService', () => {
         .mockResolvedValueOnce([
           { deviceId: 'stored-dev', kind: 'videoinput', label: '' }
         ])
-        // Second enumerate (after permission) - labels revealed
+        // Second enumerate (after warm-up permission) - labels revealed with matching device
         .mockResolvedValueOnce([
           { deviceId: 'stored-dev', kind: 'videoinput', label: 'Chromatic (374e:0101)' }
         ]);
@@ -377,9 +400,7 @@ describe('DeviceService', () => {
 
       const result = await service.discoverSupportedDevice();
 
-      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({
-        video: { deviceId: { exact: 'stored-dev' } }
-      });
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({ video: true });
       expect(stop).toHaveBeenCalled();
       expect(result?.deviceId).toBe('stored-dev');
     });
@@ -387,16 +408,25 @@ describe('DeviceService', () => {
     it('should stop after stored ID probe fails without probing others', async () => {
       mockStorageService.setItem('chromatic-mod-retro_id', 'old-stale-id');
 
-      mockBrowserMediaService.enumerateDevices.mockResolvedValue([
-        { deviceId: 'new-dev-1', kind: 'videoinput', label: '' }
-      ]);
+      mockBrowserMediaService.enumerateDevices
+        .mockResolvedValueOnce([
+          { deviceId: 'new-dev-1', kind: 'videoinput', label: '' }
+        ])
+        .mockResolvedValueOnce([
+          { deviceId: 'new-dev-1', kind: 'videoinput', label: 'Random Webcam' }
+        ]);
 
-      mockBrowserMediaService.getUserMedia.mockRejectedValueOnce(new Error('Device not found'));
+      const stop = vi.fn();
+      const warmUpStream = { getTracks: vi.fn(() => [{ stop }]) };
+      mockBrowserMediaService.getUserMedia
+        .mockResolvedValueOnce(warmUpStream)
+        .mockRejectedValueOnce(new Error('Device not found'));
 
       const result = await service.discoverSupportedDevice();
 
-      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(1);
-      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledWith({
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(2);
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenNthCalledWith(1, { video: true });
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenNthCalledWith(2, {
         video: { deviceId: { exact: 'old-stale-id' } }
       });
       expect(result).toBeNull();
@@ -414,29 +444,58 @@ describe('DeviceService', () => {
     });
   });
 
+  describe('_warmUpPermissions', () => {
+    it('should deduplicate concurrent warm-up calls', async () => {
+      mockBrowserMediaService.enumerateDevices
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: '' }
+        ])
+        .mockResolvedValueOnce([
+          { deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' }
+        ]);
+
+      const stop = vi.fn();
+      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
+
+      const promise1 = deviceMediaService._warmUpPermissions();
+      const promise2 = deviceMediaService._warmUpPermissions();
+
+      await Promise.all([promise1, promise2]);
+
+      expect(mockBrowserMediaService.getUserMedia).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle warm-up failure gracefully', async () => {
+      mockBrowserMediaService.getUserMedia.mockRejectedValue(new Error('Permission denied'));
+
+      await deviceMediaService._warmUpPermissions();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Permission warm-up failed:', 'Permission denied');
+      expect(deviceMediaService.hasMediaPermission).toBe(false);
+    });
+  });
+
   describe('dispose', () => {
-    it('should remove devicechange listener', () => {
-      const handler = vi.fn();
-      service.deviceMediaService._deviceChangeHandler = handler;
+    it('should call unsubscribe function', () => {
+      const mockUnsubscribe = vi.fn();
+      service.deviceMediaService._unsubscribeDeviceChange = mockUnsubscribe;
 
       service.dispose();
 
-      expect(mockBrowserMediaService.removeEventListener).toHaveBeenCalledWith(
-        'devicechange',
-        handler
-      );
+      expect(mockUnsubscribe).toHaveBeenCalled();
     });
 
-    it('should clear handler reference', () => {
-      service.deviceMediaService._deviceChangeHandler = vi.fn();
+    it('should clear unsubscribe reference', () => {
+      service.deviceMediaService._unsubscribeDeviceChange = vi.fn();
 
       service.dispose();
 
-      expect(service.deviceMediaService._deviceChangeHandler).toBeNull();
+      expect(service.deviceMediaService._unsubscribeDeviceChange).toBeNull();
     });
 
-    it('should handle no handler set', () => {
-      service.deviceMediaService._deviceChangeHandler = null;
+    it('should handle no unsubscribe set', () => {
+      service.deviceMediaService._unsubscribeDeviceChange = null;
 
       expect(() => service.dispose()).not.toThrow();
     });

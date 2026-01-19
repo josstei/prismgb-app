@@ -118,6 +118,11 @@ function isValidTranscodeParams(buffer, format) {
   return true;
 }
 
+function isValidFfmpegArgs(args) {
+  if (!Array.isArray(args)) return false;
+  return args.every(arg => typeof arg === 'string' && arg.length > 0);
+}
+
 /**
  * Device API
  * Handles communication with connected device
@@ -447,15 +452,21 @@ const metricsAPI = {
  * Handles video transcoding operations via FFmpeg
  */
 const transcodeAPI = {
-  start: (arrayBuffer, format, outputFilename) => {
+  start: (arrayBuffer, format, outputFilename, options = {}) => {
     if (!isValidTranscodeParams(arrayBuffer, format)) {
       console.warn('transcodeAPI.start: Invalid parameters provided');
       return Promise.resolve({ success: false, error: 'Invalid parameters' });
     }
+    if (options?.inputArgs && !isValidFfmpegArgs(options.inputArgs)) {
+      console.warn('transcodeAPI.start: Invalid input arguments provided');
+      return Promise.resolve({ success: false, error: 'Invalid input arguments' });
+    }
     return ipcRenderer.invoke(IPC_CHANNELS.TRANSCODE.START, {
       inputBuffer: arrayBuffer,
       format,
-      outputFilename: typeof outputFilename === 'string' ? outputFilename : undefined
+      outputFilename: typeof outputFilename === 'string' ? outputFilename : undefined,
+      inputArgs: options?.inputArgs,
+      interrupted: Boolean(options?.interrupted)
     });
   },
 
@@ -561,7 +572,13 @@ const transcodeAPI = {
       return () => {};
     }
 
-    const listener = (event, data) => callback(data);
+    const listener = (event, data) => {
+      if (!data || typeof data !== 'object') {
+        console.warn('transcodeAPI.onCancelled: Invalid data received');
+        return;
+      }
+      callback(data);
+    };
     listenerRegistry.transcodeCancelled.add(listener);
     ipcRenderer.on(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
 
@@ -582,6 +599,16 @@ const transcodeAPI = {
     listenerRegistry.transcodeCancelled.clear();
   }
 };
+
+/**
+ * Cleanup IPC listeners on window reload to prevent listener accumulation during HMR
+ */
+window.addEventListener('beforeunload', () => {
+  deviceAPI.removeListeners();
+  windowAPI.removeListeners();
+  updateAPI.removeListeners();
+  transcodeAPI.removeListeners();
+});
 
 /**
  * Expose APIs to renderer process

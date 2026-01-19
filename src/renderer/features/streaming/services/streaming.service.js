@@ -388,6 +388,12 @@ export class StreamingService extends BaseService {
       }
     }
 
+    const discoveredDevice = await this.deviceService.discoverSupportedDevice();
+    if (discoveredDevice) {
+      this.logger.info('Discovered supported device:', discoveredDevice.label);
+      return discoveredDevice;
+    }
+
     const { devices } = await this.deviceService.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     const matchedDevice = videoDevices.find(device =>

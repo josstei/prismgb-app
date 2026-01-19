@@ -60,9 +60,12 @@ class TranscodeService extends BaseService {
    * @param {Blob} blob - The source video blob
    * @param {string} format - Target format (e.g., 'mp4', 'mov')
    * @param {string} [outputBaseName] - Base name for output file (without extension)
+   * @param {Object} [options]
+   * @param {string[]} [options.inputArgs] - FFmpeg input args (applied before -i)
+   * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
    */
-  async transcode(blob, format, outputBaseName) {
+  async transcode(blob, format, outputBaseName, options = {}) {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -80,7 +83,15 @@ class TranscodeService extends BaseService {
       const arrayBuffer = await blob.arrayBuffer();
 
       // Call the main process transcode API
-      const result = await window.transcodeAPI.start(arrayBuffer, format, outputBaseName);
+      const result = await window.transcodeAPI.start(
+        arrayBuffer,
+        format,
+        outputBaseName,
+        {
+          inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
+          interrupted: Boolean(options.interrupted)
+        }
+      );
 
       if (result.success && result.jobId) {
         // Track state locally since main process doesn't emit STARTED event

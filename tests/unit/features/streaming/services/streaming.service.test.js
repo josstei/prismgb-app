@@ -290,8 +290,24 @@ describe('StreamingService', () => {
         devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
         connected: true
       });
+      mockDeviceService.discoverSupportedDevice.mockResolvedValue(null);
 
       await expect(service._autoSelectDevice()).rejects.toThrow('Chromatic camera not authorized');
+    });
+
+    it('should use discoverSupportedDevice when stored IDs not in enumerated devices', async () => {
+      const discoveredDevice = { deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' };
+      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
+      mockDeviceService.enumerateDevices.mockResolvedValue({
+        devices: [{ deviceId: 'other-dev', kind: 'videoinput', label: '' }],
+        connected: true
+      });
+      mockDeviceService.discoverSupportedDevice.mockResolvedValue(discoveredDevice);
+
+      const result = await service._autoSelectDevice();
+
+      expect(mockDeviceService.discoverSupportedDevice).toHaveBeenCalled();
+      expect(result).toBe(discoveredDevice);
     });
 
   });

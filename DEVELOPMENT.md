@@ -6,9 +6,9 @@ This guide covers building PrismGB from source and local development setup.
 
 - [Node.js](https://nodejs.org/) v22 LTS or higher
 - npm (included with Node.js)
-- Platform-specific USB libraries:
-  - **Linux:** `sudo apt-get install libusb-1.0-0-dev libudev-dev`
-  - **macOS:** `brew install libusb`
+- Platform-specific build tools and USB libraries:
+  - **Linux:** `sudo apt-get install build-essential python3 libusb-1.0-0-dev libudev-dev`
+  - **macOS:** `brew install libusb` (Xcode Command Line Tools required)
   - **Windows:** No additional dependencies required
 
 ## Getting Started

@@ -16,7 +16,8 @@ class DeviceMediaService extends BaseService {
       'loggerFactory',
       'browserMediaService',
       'deviceConnectionService',
-      'deviceStorageService'
+      'deviceStorageService',
+      'deviceChangeDebounceAdapter'
     ], 'DeviceMediaService');
 
     this.videoDevices = [];
@@ -25,8 +26,9 @@ class DeviceMediaService extends BaseService {
     this._lastEnumerateAt = 0;
     this._enumerateCooldownMs = TIMING.DEVICE_ENUMERATE_COOLDOWN_MS;
     this._lastEnumerateResult = null;
-    this._deviceChangeHandler = null;
+    this._unsubscribeDeviceChange = null;
     this._knownSupportedDeviceIds = new Set();
+    this._permissionProbeInFlight = null;
   }
 
   invalidateEnumerationCache() {
@@ -136,6 +138,18 @@ class DeviceMediaService extends BaseService {
       }
     }
 
+    const labelsHidden = videoDevices.length > 0 && videoDevices.every(d => !d.label);
+    if (labelsHidden) {
+      await this._warmUpPermissions();
+      const devicesWithLabels = await this.browserMediaService.enumerateDevices();
+      const labeledVideos = devicesWithLabels.filter(d => d.kind === 'videoinput');
+      for (const device of labeledVideos) {
+        if (device.label && this._isMatchingDevice(device.label)) {
+          return this._cacheAndReturnDevice(device);
+        }
+      }
+    }
+
     for (const deviceId of storedIds) {
       const matchedDevice = await this._tryGetPermissionForDevice(deviceId);
       if (matchedDevice) return matchedDevice;
@@ -177,6 +191,27 @@ class DeviceMediaService extends BaseService {
     return device;
   }
 
+  async _warmUpPermissions() {
+    if (this._permissionProbeInFlight) {
+      return this._permissionProbeInFlight;
+    }
+
+    this._permissionProbeInFlight = (async () => {
+      let tempStream = null;
+      try {
+        tempStream = await this.browserMediaService.getUserMedia({ video: true });
+        this.hasMediaPermission = true;
+      } catch (error) {
+        this.logger.debug('Permission warm-up failed:', error?.message || error);
+      } finally {
+        tempStream?.getTracks().forEach(track => track.stop());
+        this._permissionProbeInFlight = null;
+      }
+    })();
+
+    return this._permissionProbeInFlight;
+  }
+
   registerSupportedDevice(device) {
     const deviceId = DeviceDetectionHelper.detectDeviceId(device);
     if (!deviceId || !device?.deviceId) {
@@ -191,17 +226,18 @@ class DeviceMediaService extends BaseService {
   }
 
   setupDeviceChangeListener(onChange) {
-    if (this._deviceChangeHandler) {
+    if (this._unsubscribeDeviceChange) {
       return;
     }
 
-    this._deviceChangeHandler = async () => {
+    // Subscribe via debounce adapter - handles rapid event bursts
+    this._unsubscribeDeviceChange = this.deviceChangeDebounceAdapter.subscribe(async () => {
       this.logger.info('Device change detected');
       this.invalidateEnumerationCache();
       await onChange();
       await this.enumerateDevices();
-    };
-    this.browserMediaService.addEventListener('devicechange', this._deviceChangeHandler);
+    });
+
     this.logger.info('Device change listener set up');
   }
 
@@ -219,9 +255,9 @@ class DeviceMediaService extends BaseService {
   }
 
   dispose() {
-    if (this._deviceChangeHandler) {
-      this.browserMediaService.removeEventListener('devicechange', this._deviceChangeHandler);
-      this._deviceChangeHandler = null;
+    if (this._unsubscribeDeviceChange) {
+      this._unsubscribeDeviceChange();
+      this._unsubscribeDeviceChange = null;
     }
   }
 

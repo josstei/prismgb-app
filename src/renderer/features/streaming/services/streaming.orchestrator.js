@@ -22,7 +22,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
+      ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
   }
@@ -173,7 +173,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // No need to manually update appState.setStreaming() anymore
 
     this.streamViewService.attachMutedStream(stream);
-    this._initializeAudioPipeline(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -202,33 +201,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       });
 
       // Stop the unhealthy stream
-      this.streamingService.stop().catch(error => {
+      await this.streamingService.stop().catch(error => {
         this.logger.error('Error stopping unhealthy stream:', error);
       });
     }
-  }
-
-  /**
-   * Initialize audio pipeline with fallback to video element audio
-   * @param {MediaStream} stream - The media stream
-   * @private
-   */
-  _initializeAudioPipeline(stream) {
-    const hasAudio = stream?.getAudioTracks?.().length > 0;
-
-    this.streamingAudioPipelineService.start(stream)
-      .then((ready) => {
-        if (!ready && hasAudio && this.appState.isStreaming) {
-          this.logger.warn('Audio warm-up failed - falling back to video element audio');
-          this.streamViewService.setMuted(false);
-        }
-      })
-      .catch((error) => {
-        if (hasAudio && this.appState.isStreaming) {
-          this.logger.warn('Audio warm-up error - falling back to video element audio', error);
-          this.streamViewService.setMuted(false);
-        }
-      });
   }
 
   /**
@@ -247,7 +223,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
-    this.streamingAudioPipelineService.stop();
     this.streamViewService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
@@ -267,7 +242,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   _handleStreamError(error) {
     this.logger.error('Stream error:', error);
-    this.streamingAudioPipelineService.stop();
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
     this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
   }
@@ -276,10 +250,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle device disconnected during active stream
    * @private
    */
-  _handleDeviceDisconnectedDuringStream() {
+  async _handleDeviceDisconnectedDuringStream() {
     if (this.appState.isStreaming) {
       this.logger.warn('Device disconnected during stream - stopping');
-      this.streamingService.stop().catch(error => {
+      await this.streamingService.stop().catch(error => {
         this.logger.error('Error stopping stream after device disconnect:', error);
       });
     }
@@ -310,7 +284,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    */
   async onCleanup() {
     this.renderPipelineService.cleanup();
-    this.streamingAudioPipelineService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {

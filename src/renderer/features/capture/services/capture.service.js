@@ -261,6 +261,10 @@ class CaptureService extends BaseService {
    * @private
    */
   _handleRecordingError(event) {
+    if (this._isDisposing) {
+      return;
+    }
+
     const error = event.error || new Error('Recording failed');
     this.logger.error('Recording error:', error);
 

@@ -10,6 +10,7 @@ describe('AppOrchestrator', () => {
   let orchestrator;
   let mockDeviceOrchestrator;
   let mockStreamingOrchestrator;
+  let mockStreamingAudioOrchestrator;
   let mockCaptureOrchestrator;
   let mockSettingsPreferencesOrchestrator;
   let mockSettingsDisplayModeOrchestrator;
@@ -31,6 +32,11 @@ describe('AppOrchestrator', () => {
       initialize: vi.fn().mockResolvedValue(),
       start: vi.fn(),
       stop: vi.fn(),
+      cleanup: vi.fn().mockResolvedValue()
+    };
+
+    mockStreamingAudioOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(),
       cleanup: vi.fn().mockResolvedValue()
     };
 
@@ -99,6 +105,7 @@ describe('AppOrchestrator', () => {
     orchestrator = new AppOrchestrator({
       deviceOrchestrator: mockDeviceOrchestrator,
       streamingOrchestrator: mockStreamingOrchestrator,
+      streamingAudioOrchestrator: mockStreamingAudioOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
       preferencesOrchestrator: mockSettingsPreferencesOrchestrator,
       displayModeOrchestrator: mockSettingsDisplayModeOrchestrator,
@@ -235,6 +242,7 @@ describe('AppOrchestrator', () => {
       expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockSettingsPreferencesOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockStreamingAudioOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();

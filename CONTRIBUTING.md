@@ -39,15 +39,17 @@ Please be respectful and constructive in all interactions. We aim to foster a we
 
 ### Linux Dependencies
 
+Native modules (like `usb-detection`) require build tools and development libraries:
+
 ```bash
 # Debian/Ubuntu
-sudo apt-get install libusb-1.0-0-dev libudev-dev
+sudo apt-get install build-essential python3 libusb-1.0-0-dev libudev-dev
 
 # Fedora
-sudo dnf install libusb-devel systemd-devel
+sudo dnf install gcc gcc-c++ make python3 libusb-devel systemd-devel
 
 # Arch
-sudo pacman -S libusb
+sudo pacman -S base-devel python libusb
 ```
 
 ### macOS Dependencies
