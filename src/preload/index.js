@@ -561,7 +561,13 @@ const transcodeAPI = {
       return () => {};
     }
 
-    const listener = (event, data) => callback(data);
+    const listener = (event, data) => {
+      if (!data || typeof data !== 'object') {
+        console.warn('transcodeAPI.onCancelled: Invalid data received');
+        return;
+      }
+      callback(data);
+    };
     listenerRegistry.transcodeCancelled.add(listener);
     ipcRenderer.on(IPC_CHANNELS.TRANSCODE.CANCELLED, listener);
 
@@ -582,6 +588,16 @@ const transcodeAPI = {
     listenerRegistry.transcodeCancelled.clear();
   }
 };
+
+/**
+ * Cleanup IPC listeners on window reload to prevent listener accumulation during HMR
+ */
+window.addEventListener('beforeunload', () => {
+  deviceAPI.removeListeners();
+  windowAPI.removeListeners();
+  updateAPI.removeListeners();
+  transcodeAPI.removeListeners();
+});
 
 /**
  * Expose APIs to renderer process
