@@ -492,13 +492,23 @@ describe('Renderer Container', () => {
       );
     });
 
+    it('should register streamingAudioOrchestrator singleton', () => {
+      const container = containerModule.createRendererContainer();
+
+      expect(container.registerSingleton).toHaveBeenCalledWith(
+        'streamingAudioOrchestrator',
+        expect.any(Function),
+        ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory']
+      );
+    });
+
     it('should register streamingOrchestrator singleton', () => {
       const container = containerModule.createRendererContainer();
 
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingOrchestrator',
         expect.any(Function),
-        ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
+        ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -518,7 +528,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'appOrchestrator',
         expect.any(Function),
-        expect.arrayContaining(['deviceOrchestrator', 'streamingOrchestrator', 'captureOrchestrator'])
+        expect.arrayContaining(['deviceOrchestrator', 'streamingOrchestrator', 'streamingAudioOrchestrator', 'captureOrchestrator'])
       );
     });
   });

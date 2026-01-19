@@ -10,7 +10,6 @@ describe('StreamingOrchestrator', () => {
   let mockStreamingService;
   let mockAppState;
   let mockStreamingViewService;
-  let mockStreamingAudioWarmupService;
   let mockEventBus;
   let mockLogger;
   let mockStreamingRenderPipelineService;
@@ -34,12 +33,6 @@ describe('StreamingOrchestrator', () => {
       attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
-    };
-
-    mockStreamingAudioWarmupService = {
-      start: vi.fn().mockResolvedValue(true),
-      stop: vi.fn(),
-      cleanup: vi.fn()
     };
 
     mockEventBus = {
@@ -79,7 +72,6 @@ describe('StreamingOrchestrator', () => {
       streamingService: mockStreamingService,
       appState: mockAppState,
       streamViewService: mockStreamingViewService,
-      streamingAudioPipelineService: mockStreamingAudioWarmupService,
       renderPipelineService: mockStreamingRenderPipelineService,
       gpuRecordingService: mockCaptureGpuRecordingService,
       settingsService: mockSettingsService,
@@ -207,77 +199,11 @@ describe('StreamingOrchestrator', () => {
     });
   });
 
-  describe('_initializeAudioPipeline', () => {
-    it('should start audio warmup with stream', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
-
-      orchestrator._initializeAudioPipeline(mockStream);
-
-      expect(mockStreamingAudioWarmupService.start).toHaveBeenCalledWith(mockStream);
-    });
-
-    it('should fallback to video audio when warmup fails', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
-      mockStreamingAudioWarmupService.start.mockResolvedValue(false);
-      mockAppState.isStreaming = true;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockLogger.warn).toHaveBeenCalledWith('Audio warm-up failed - falling back to video element audio');
-      });
-
-      expect(mockStreamingViewService.setMuted).toHaveBeenCalledWith(false);
-    });
-
-    it('should fallback to video audio when warmup throws', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
-      mockStreamingAudioWarmupService.start.mockRejectedValue(new Error('Warmup error'));
-      mockAppState.isStreaming = true;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          'Audio warm-up error - falling back to video element audio',
-          expect.any(Error)
-        );
-      });
-
-      expect(mockStreamingViewService.setMuted).toHaveBeenCalledWith(false);
-    });
-
-    it('should not fallback when stream has no audio', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => []) };
-      mockStreamingAudioWarmupService.start.mockResolvedValue(false);
-      mockAppState.isStreaming = true;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockStreamingAudioWarmupService.start).toHaveBeenCalled();
-      });
-
-      expect(mockStreamingViewService.setMuted).not.toHaveBeenCalled();
-    });
-
-    it('should not fallback when no longer streaming', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
-      mockStreamingAudioWarmupService.start.mockResolvedValue(false);
-      mockAppState.isStreaming = false;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockStreamingAudioWarmupService.start).toHaveBeenCalled();
-      });
-
-      expect(mockStreamingViewService.setMuted).not.toHaveBeenCalled();
-    });
-  });
-
   describe('_handleStreamStopped', () => {
     it('should stop render pipeline and clear video', () => {
       orchestrator._handleStreamStopped();
 
       expect(mockStreamingRenderPipelineService.stopPipeline).toHaveBeenCalled();
-      expect(mockStreamingAudioWarmupService.stop).toHaveBeenCalled();
       expect(mockStreamingViewService.clearStream).toHaveBeenCalled();
     });
 
@@ -298,7 +224,6 @@ describe('StreamingOrchestrator', () => {
       orchestrator._handleStreamError(error);
 
       expect(mockLogger.error).toHaveBeenCalledWith('Stream error:', error);
-      expect(mockStreamingAudioWarmupService.stop).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error: Stream error', type: 'error' });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-error', { message: 'Stream error' });
     });
@@ -418,7 +343,6 @@ describe('StreamingOrchestrator', () => {
       await orchestrator.onCleanup();
 
       expect(mockStreamingRenderPipelineService.cleanup).toHaveBeenCalled();
-      expect(mockStreamingAudioWarmupService.cleanup).toHaveBeenCalled();
       expect(mockStreamingService.stop).toHaveBeenCalled();
     });
   });
