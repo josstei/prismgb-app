@@ -143,6 +143,22 @@ describe('UpdateService', () => {
 
       expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
     });
+
+    it('should suppress platform-not-found errors in autoUpdater logger', () => {
+      service.initialize();
+
+      autoUpdater.logger.error('Cannot find latest-linux-arm64.yml in the latest release artifacts');
+
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it('should log other errors in autoUpdater logger', () => {
+      service.initialize();
+
+      autoUpdater.logger.error('Network connection failed');
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Network connection failed');
+    });
   });
 
   describe('event handlers', () => {
@@ -204,6 +220,33 @@ describe('UpdateService', () => {
       expect(service.state).toBe(UpdateState.ERROR);
       expect(service.error).toBe(error);
       expect(mockWindowService.send).toHaveBeenCalledWith('update:error', { message: 'Network error' });
+    });
+
+    it('should handle platform manifest not found as not-available', () => {
+      const error = new Error('Cannot find latest-linux-arm64.yml in the latest release artifacts');
+      eventHandlers['error'](error);
+
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+      expect(service.error).toBeNull();
+      expect(mockWindowService.send).toHaveBeenCalledWith('update:not-available', {
+        version: '1.0.0',
+        reason: 'platform-not-supported'
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith('No updates available for this platform');
+    });
+
+    it('should handle any platform yml manifest not found', () => {
+      const error = new Error('Cannot find latest-mac.yml in the release');
+      eventHandlers['error'](error);
+
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+    });
+
+    it('should handle missing latest.yml manifest as not-available', () => {
+      const error = new Error('Cannot find latest.yml in the release');
+      eventHandlers['error'](error);
+
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
     });
   });
 
@@ -280,6 +323,25 @@ describe('UpdateService', () => {
       autoUpdater.checkForUpdates.mockRejectedValue(error);
 
       await expect(service.checkForUpdates()).rejects.toThrow('Network error');
+    });
+
+    it('should handle platform manifest not found as not-available without throwing', async () => {
+      const error = new Error('Cannot find latest-linux-arm64.yml in the latest release artifacts');
+      autoUpdater.checkForUpdates.mockRejectedValue(error);
+
+      const result = await service.checkForUpdates();
+
+      expect(result).toEqual({ updateAvailable: false, reason: 'platform-not-supported' });
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it('should handle any platform yml manifest not found without throwing', async () => {
+      const error = new Error('Cannot find latest-mac.yml in the release');
+      autoUpdater.checkForUpdates.mockRejectedValue(error);
+
+      const result = await service.checkForUpdates();
+
+      expect(result).toEqual({ updateAvailable: false, reason: 'platform-not-supported' });
     });
   });
 
@@ -487,6 +549,29 @@ describe('UpdateService', () => {
           newState: UpdateState.CHECKING
         }
       );
+    });
+  });
+
+  describe('_isPlatformNotFoundMessage', () => {
+    it('should return true for latest-linux-arm64.yml message', () => {
+      expect(service._isPlatformNotFoundMessage('Cannot find latest-linux-arm64.yml in the latest release artifacts')).toBe(true);
+    });
+
+    it('should return true for latest-mac.yml message', () => {
+      expect(service._isPlatformNotFoundMessage('Cannot find latest-mac.yml in the release')).toBe(true);
+    });
+
+    it('should return true for latest.yml message', () => {
+      expect(service._isPlatformNotFoundMessage('Cannot find latest.yml in the release')).toBe(true);
+    });
+
+    it('should return false for other error messages', () => {
+      expect(service._isPlatformNotFoundMessage('Network connection failed')).toBe(false);
+    });
+
+    it('should handle null/undefined message', () => {
+      expect(service._isPlatformNotFoundMessage(null)).toBe(false);
+      expect(service._isPlatformNotFoundMessage(undefined)).toBe(false);
     });
   });
 

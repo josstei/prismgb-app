@@ -7,7 +7,7 @@
 
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { getFfmpegPath, getFfprobePath } from './ffmpeg-path.utils.js';
+import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 
 /**
@@ -17,7 +17,11 @@ import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js
  */
 export async function probeDuration(inputPath) {
   return new Promise((resolve, reject) => {
-    const ffprobePath = getFfprobePath();
+    const ffprobePath = getOptionalFfprobePath();
+    if (!ffprobePath) {
+      resolve(0);
+      return;
+    }
     const args = [
       '-v', 'error',
       '-show_entries', 'format=duration',
