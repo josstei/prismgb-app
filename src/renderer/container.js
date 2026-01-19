@@ -48,6 +48,7 @@ import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chro
 // Features: Streaming
 import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
+import { StreamingAudioOrchestrator } from '@renderer/features/streaming/services/streaming-audio.orchestrator.js';
 import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
 import { StreamingRendererFactory } from '@renderer/features/streaming/factories/streaming-renderer.factory.js';
 import { StreamingCanvasRenderer } from '@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js';
@@ -644,18 +645,32 @@ function createRendererContainer() {
     ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
   );
 
+  // Streaming Audio Orchestrator - Coordinates audio warm-up and fallback
+  container.registerSingleton(
+    'streamingAudioOrchestrator',
+    function (streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory) {
+      return new StreamingAudioOrchestrator({
+        streamingAudioPipelineService,
+        streamViewService,
+        appState,
+        eventBus,
+        loggerFactory
+      });
+    },
+    ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory']
+  );
+
   // Streaming Orchestrator - Coordinates stream lifecycle
   // Uses appState instead of deviceOrchestrator for decoupling
   // Requires gpuRecordingService to stop recording before GPU cleanup (avoids Skia race)
   // Requires settingsService for auto-stream on connect feature
   container.registerSingleton(
     'streamingOrchestrator',
-    function (streamingService, appState, streamViewService, streamingAudioPipelineService, renderPipelineService, gpuRecordingService, settingsService, eventBus, loggerFactory) {
+    function (streamingService, appState, streamViewService, renderPipelineService, gpuRecordingService, settingsService, eventBus, loggerFactory) {
       return new StreamingOrchestrator({
         streamingService,
         appState,
         streamViewService,
-        streamingAudioPipelineService,
         renderPipelineService,
         gpuRecordingService,
         settingsService,
@@ -663,7 +678,7 @@ function createRendererContainer() {
         loggerFactory
       });
     },
-    ['streamingService', 'appState', 'streamViewService', 'streamingAudioPipelineService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
+    ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
   );
 
   // Capture Orchestrator - Coordinates screenshot and recording
@@ -863,6 +878,7 @@ function createRendererContainer() {
     function (
       deviceOrchestrator,
       streamingOrchestrator,
+      streamingAudioOrchestrator,
       captureOrchestrator,
       preferencesOrchestrator,
       displayModeOrchestrator,
@@ -877,6 +893,7 @@ function createRendererContainer() {
       return new AppOrchestrator({
         deviceOrchestrator,
         streamingOrchestrator,
+        streamingAudioOrchestrator,
         captureOrchestrator,
         preferencesOrchestrator,
         displayModeOrchestrator,
@@ -892,6 +909,7 @@ function createRendererContainer() {
     [
       'deviceOrchestrator',
       'streamingOrchestrator',
+      'streamingAudioOrchestrator',
       'captureOrchestrator',
       'preferencesOrchestrator',
       'displayModeOrchestrator',

@@ -164,7 +164,8 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mp4',
-          'recording'
+          'recording',
+          expect.objectContaining({ interrupted: false })
         );
       });
 
@@ -177,7 +178,8 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mov',
-          'recording'
+          'recording',
+          expect.objectContaining({ interrupted: false })
         );
       });
 
@@ -230,7 +232,25 @@ describe('CaptureSaveService', () => {
         expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
           mockBlob,
           'mp4',
-          'my-recording-2024-01-15'
+          'my-recording-2024-01-15',
+          expect.objectContaining({ interrupted: false })
+        );
+      });
+
+      it('should pass interrupted flag and inputArgs when recording was interrupted', async () => {
+        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        const mockBlob = new Blob(['test data'], { type: 'video/webm' });
+
+        await service.saveRecording(mockBlob, 'recording.webm', { interrupted: true });
+
+        expect(mockTranscodeService.transcode).toHaveBeenCalledWith(
+          mockBlob,
+          'mp4',
+          'recording',
+          {
+            inputArgs: ['-fflags', '+genpts', '-err_detect', 'ignore_err'],
+            interrupted: true
+          }
         );
       });
     });

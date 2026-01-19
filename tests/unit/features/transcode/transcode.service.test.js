@@ -163,7 +163,22 @@ describe('TranscodeService', () => {
       expect(mockTranscodeAPI.start).toHaveBeenCalledWith(
         expect.any(ArrayBuffer),
         'mp4',
-        'output-name'
+        'output-name',
+        expect.objectContaining({ interrupted: false })
+      );
+    });
+
+    it('should pass inputArgs and interrupted flag when provided', async () => {
+      const mockBlob = new Blob(['test data'], { type: 'video/webm' });
+      const inputArgs = ['-fflags', '+genpts', '-err_detect', 'ignore_err'];
+
+      await service.transcode(mockBlob, 'mp4', 'output-name', { inputArgs, interrupted: true });
+
+      expect(mockTranscodeAPI.start).toHaveBeenCalledWith(
+        expect.any(ArrayBuffer),
+        'mp4',
+        'output-name',
+        { inputArgs, interrupted: true }
       );
     });
 

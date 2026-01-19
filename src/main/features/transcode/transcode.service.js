@@ -85,9 +85,11 @@ class TranscodeService extends BaseService {
    * @param {Buffer} options.inputBuffer - Input video buffer (WebM)
    * @param {string} options.format - Output format (webm, mp4, mov)
    * @param {string} options.outputFilename - Output filename (without extension)
-   * @returns {Promise<{ success: boolean, jobId?: string, filePath?: string, error?: string }>}
+   * @param {string[]} [options.inputArgs] - FFmpeg input args (applied before -i)
+   * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
+  * @returns {Promise<{ success: boolean, jobId?: string, filePath?: string, error?: string }>}
    */
-  async transcode({ inputBuffer, format, outputFilename }) {
+  async transcode({ inputBuffer, format, outputFilename, inputArgs }) {
     if (!this._isInitialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
@@ -144,7 +146,8 @@ class TranscodeService extends BaseService {
         inputPath,
         outputPath,
         formatConfig.ffmpegArgs,
-        durationUs
+        durationUs,
+        Array.isArray(inputArgs) ? inputArgs : []
       );
       this._processes.set(sessionId, process);
 

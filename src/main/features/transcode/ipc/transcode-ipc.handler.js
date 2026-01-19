@@ -16,7 +16,7 @@ import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 export function registerTranscodeHandlers({ registerHandler, transcodeService, logger }) {
   /**
    * Start a transcode operation
-   * Expects: { inputBuffer: ArrayBuffer, format: string, outputFilename?: string }
+   * Expects: { inputBuffer: ArrayBuffer, format: string, outputFilename?: string, inputArgs?: string[] }
    * Returns: { success: boolean, jobId?: string, error?: string }
    */
   registerHandler(IPC_CHANNELS.TRANSCODE.START, async (_event, options) => {
@@ -32,7 +32,9 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       const result = await transcodeService.transcode({
         inputBuffer,
         format: options.format,
-        outputFilename: options.outputFilename
+        outputFilename: options.outputFilename,
+        inputArgs: options.inputArgs,
+        interrupted: Boolean(options.interrupted)
       });
 
       return result;

@@ -202,6 +202,23 @@ sudo dnf install libusb
 sudo pacman -S libusb
 ```
 
+**Building from Source**
+
+If you're building from source (or if prebuilt binaries aren't available for your Node.js version), you'll need additional build tools:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential python3 libusb-1.0-0-dev libudev-dev
+
+# Fedora
+sudo dnf install gcc gcc-c++ make python3 libusb-devel systemd-devel
+
+# Arch Linux
+sudo pacman -S base-devel python libusb
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for full build instructions.
+
 ## Usage
 
 1. **Connect your Chromatic** to your computer via USB
