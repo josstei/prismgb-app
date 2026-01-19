@@ -53,7 +53,12 @@ class UpdateService extends BaseService {
     autoUpdater.logger = {
       info: (msg) => this.logger.info(msg),
       warn: (msg) => this.logger.warn(msg),
-      error: (msg) => this.logger.error(msg),
+      error: (msg) => {
+        if (this._isPlatformNotFoundMessage(msg)) {
+          return;
+        }
+        this.logger.error(msg);
+      },
       debug: (msg) => this.logger.debug(msg)
     };
 
@@ -117,11 +122,43 @@ class UpdateService extends BaseService {
     });
 
     autoUpdater.on('error', (error) => {
+      if (this._isPlatformNotFoundError(error)) {
+        this.logger.info('No updates available for this platform');
+        this._setState(UpdateState.NOT_AVAILABLE);
+        this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
+          version: this.config?.version,
+          reason: 'platform-not-supported'
+        });
+        return;
+      }
+
       this.logger.error('Update error', error);
       this.error = error;
       this._setState(UpdateState.ERROR);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
     });
+  }
+
+  /**
+   * Check if error is a platform manifest not found (404)
+   * This happens when running on a platform that wasn't published in a release
+   * @param {Error} error - The error from autoUpdater
+   * @returns {boolean} True if this is a platform-not-found error
+   * @private
+   */
+  _isPlatformNotFoundError(error) {
+    const message = error?.message || '';
+    return this._isPlatformNotFoundMessage(message);
+  }
+
+  /**
+   * Check if a message indicates platform manifest not found
+   * @param {string} message - The message to check
+   * @returns {boolean} True if this is a platform-not-found message
+   * @private
+   */
+  _isPlatformNotFoundMessage(message) {
+    return /Cannot find latest(?:-[^/\s]+)?\.yml/.test(message || '');
   }
 
   /**
@@ -182,6 +219,9 @@ class UpdateService extends BaseService {
         updateInfo: result?.updateInfo
       };
     } catch (error) {
+      if (this._isPlatformNotFoundError(error)) {
+        return { updateAvailable: false, reason: 'platform-not-supported' };
+      }
       this.logger.error('Failed to check for updates', error);
       throw error;
     }
