@@ -64,9 +64,9 @@ class TranscodeService extends BaseService {
     // Validate ffmpeg binaries are available
     try {
       const { ffmpegPath, ffprobePath } = validateFfmpegBinaries();
-      this.logger.info('FFmpeg binaries validated', { ffmpegPath, ffprobePath });
+      this.logger.info('FFmpeg binaries validated', { ffmpegPath, ffprobePath: ffprobePath || 'optional-missing' });
     } catch (error) {
-      this.logger.error('FFmpeg binaries not found', { error: error.message });
+      this.logger.error('FFmpeg binary not found', { error: error.message });
       // Don't throw - service can still be initialized, but transcode will fail
     }
 
