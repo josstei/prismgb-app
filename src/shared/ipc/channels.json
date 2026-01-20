@@ -4,6 +4,9 @@
     "CONNECTED": "device:connected",
     "DISCONNECTED": "device:disconnected"
   },
+  "GPU": {
+    "GET_POLICY": "gpu:get-policy"
+  },
   "SHELL": {
     "OPEN_EXTERNAL": "shell:open-external"
   },

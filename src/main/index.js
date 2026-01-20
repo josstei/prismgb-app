@@ -5,6 +5,7 @@
 
 import { app, BrowserWindow, Menu } from 'electron';
 import { AppOrchestrator } from './app.orchestrator.js';
+import { getGpuPolicy, applyChromiumFlags } from './platform/gpu-policy.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -90,6 +91,14 @@ if (process.argv.includes('--smoke-test')) {
   //   PRISMGB_DISABLE_GPU=1 prismgb
   if (process.env.PRISMGB_DISABLE_GPU === '1') {
     app.disableHardwareAcceleration();
+  }
+
+  // Apply platform-aware GPU flags (must be before app.whenReady)
+  // Addresses ARM64 Linux Vulkan driver issues by disabling WebGPU probing
+  const gpuPolicy = getGpuPolicy();
+  applyChromiumFlags(app, gpuPolicy);
+  if (gpuPolicy.reason) {
+    console.log(`[GPU Policy] WebGPU disabled: ${gpuPolicy.reason}`);
   }
 
   // Limit main process V8 heap size for memory efficiency

@@ -11,6 +11,7 @@ import { registerShellHandlers } from '@main/features/shell/ipc/shell-ipc.handle
 import { registerPerformanceHandlers } from '@main/features/performance/ipc/performance-ipc.handler.js';
 import { registerWindowHandlers } from '@main/features/window/ipc/window-ipc.handler.js';
 import { registerTranscodeHandlers } from '@main/features/transcode/ipc/transcode-ipc.handler.js';
+import { registerGpuHandlers } from '@main/features/gpu/ipc/gpu-ipc.handler.js';
 
 class IpcHandlerRegistry extends BaseService {
   constructor(dependencies) {
@@ -57,6 +58,11 @@ class IpcHandlerRegistry extends BaseService {
     registerTranscodeHandlers({
       registerHandler: this._registerHandler.bind(this),
       transcodeService: this.transcodeService,
+      logger: this.logger
+    });
+
+    registerGpuHandlers({
+      registerHandler: this._registerHandler.bind(this),
       logger: this.logger
     });
   }

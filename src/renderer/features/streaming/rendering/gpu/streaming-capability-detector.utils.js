@@ -8,6 +8,8 @@
  * 1. WebGPU (preferred) - Modern API with compute shaders
  * 2. WebGL2 - Fallback with wide support
  * 3. Canvas2D - Final fallback (existing StreamingCanvasRenderer)
+ *
+ * Platform-aware: Skips WebGPU detection on ARM Linux to avoid Vulkan driver errors.
  */
 
 /**
@@ -21,13 +23,44 @@
  * @property {'webgpu'|'webgl2'|'canvas2d'} preferredAPI - Recommended API to use
  * @property {Object|null} webgpuLimits - WebGPU device limits (if available)
  * @property {Object|null} webgl2Info - WebGL2 context info (if available)
+ * @property {boolean} gpuPolicyApplied - Whether GPU policy skipped WebGPU
+ * @property {string|null} gpuPolicyReason - Reason for policy application
  */
+
+/**
+ * Get GPU policy from main process, with userAgent fallback
+ * @returns {Promise<{skipWebGPU: boolean, reason: string|null}>}
+ */
+async function getGpuPolicyWithFallback() {
+  try {
+    if (window.gpuAPI?.getPolicy) {
+      return await window.gpuAPI.getPolicy();
+    }
+  } catch {
+    // IPC not available, fall through to userAgent detection
+  }
+
+  // Fallback: detect from userAgent (less reliable but works without IPC)
+  const ua = navigator.userAgent;
+  const isLinuxArm = ua.includes('Linux') &&
+    (ua.includes('aarch64') || ua.includes('arm'));
+  if (isLinuxArm) {
+    return {
+      skipWebGPU: true,
+      reason: 'ARM Linux detected via userAgent'
+    };
+  }
+
+  return { skipWebGPU: false, reason: null };
+}
 
 /**
  * Detect GPU rendering capabilities
  * @returns {Promise<GPUCapabilities>} Detected capabilities
  */
 async function detectCapabilities() {
+  const gpuPolicy = await getGpuPolicyWithFallback();
+
   const capabilities = {
     webgpu: false,
     webgl2: false,
@@ -36,7 +69,9 @@ async function detectCapabilities() {
     maxTextureSize: 0,
     preferredAPI: 'canvas2d',
     webgpuLimits: null,
-    webgl2Info: null
+    webgl2Info: null,
+    gpuPolicyApplied: gpuPolicy.skipWebGPU,
+    gpuPolicyReason: gpuPolicy.reason
   };
 
   // Check OffscreenCanvas support
@@ -47,35 +82,37 @@ async function detectCapabilities() {
     typeof HTMLCanvasElement !== 'undefined' &&
     typeof HTMLCanvasElement.prototype.transferControlToOffscreen === 'function';
 
-  // Check WebGPU support
-  try {
-    if (navigator.gpu) {
-      const adapter = await navigator.gpu.requestAdapter({
-        powerPreference: 'low-power'
-      }) || await navigator.gpu.requestAdapter({
-        powerPreference: 'high-performance'
-      });
+  // Check WebGPU support (skip if policy says so)
+  if (!gpuPolicy.skipWebGPU) {
+    try {
+      if (navigator.gpu) {
+        const adapter = await navigator.gpu.requestAdapter({
+          powerPreference: 'low-power'
+        }) || await navigator.gpu.requestAdapter({
+          powerPreference: 'high-performance'
+        });
 
-      if (adapter) {
-        const device = await adapter.requestDevice();
+        if (adapter) {
+          const device = await adapter.requestDevice();
 
-        if (device) {
-          capabilities.webgpu = true;
-          capabilities.maxTextureSize = device.limits.maxTextureDimension2D;
-          capabilities.webgpuLimits = {
-            maxTextureDimension2D: device.limits.maxTextureDimension2D,
-            maxBindGroups: device.limits.maxBindGroups,
-            maxUniformBufferBindingSize: device.limits.maxUniformBufferBindingSize
-          };
+          if (device) {
+            capabilities.webgpu = true;
+            capabilities.maxTextureSize = device.limits.maxTextureDimension2D;
+            capabilities.webgpuLimits = {
+              maxTextureDimension2D: device.limits.maxTextureDimension2D,
+              maxBindGroups: device.limits.maxBindGroups,
+              maxUniformBufferBindingSize: device.limits.maxUniformBufferBindingSize
+            };
 
-          // Clean up - destroy the test device
-          device.destroy();
+            // Clean up - destroy the test device
+            device.destroy();
+          }
         }
       }
+    } catch {
+      // WebGPU not available or failed to initialize
+      capabilities.webgpu = false;
     }
-  } catch {
-    // WebGPU not available or failed to initialize
-    capabilities.webgpu = false;
   }
 
   // Check WebGL2 support
@@ -163,7 +200,9 @@ function isWorkerRenderingAvailable(capabilities) {
 function describeCapabilities(capabilities) {
   const parts = [];
 
-  if (capabilities.webgpu) {
+  if (capabilities.gpuPolicyApplied) {
+    parts.push(`WebGPU skipped (${capabilities.gpuPolicyReason})`);
+  } else if (capabilities.webgpu) {
     parts.push(`WebGPU (max texture: ${capabilities.webgpuLimits?.maxTextureDimension2D}px)`);
   }
 
