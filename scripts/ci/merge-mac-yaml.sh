@@ -8,12 +8,19 @@ YQ_VERSION="v4.44.1"
 YQ_SHA256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
 YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
 
-if ! command -v yq >/dev/null 2>&1; then
-  echo "Installing yq ${YQ_VERSION}..."
+install_yq() {
+  echo "Installing mikefarah/yq ${YQ_VERSION}..."
   wget -qO /tmp/yq "$YQ_URL"
   echo "${YQ_SHA256}  /tmp/yq" | sha256sum -c - || { echo "yq checksum verification failed"; exit 1; }
   sudo mv /tmp/yq /usr/local/bin/yq
   sudo chmod +x /usr/local/bin/yq
+}
+
+if ! command -v yq >/dev/null 2>&1; then
+  install_yq
+elif ! yq --version 2>&1 | grep -q "mikefarah"; then
+  echo "Found incompatible yq version, installing mikefarah/yq..."
+  install_yq
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
