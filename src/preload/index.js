@@ -123,6 +123,13 @@ function isValidFfmpegArgs(args) {
   return args.every(arg => typeof arg === 'string' && arg.length > 0);
 }
 
+function isValidGpuPolicy(policy) {
+  if (!policy || typeof policy !== 'object') return false;
+  if (typeof policy.skipWebGPU !== 'boolean') return false;
+  if (policy.reason !== null && typeof policy.reason !== 'string') return false;
+  return true;
+}
+
 /**
  * Device API
  * Handles communication with connected device
@@ -448,6 +455,30 @@ const metricsAPI = {
 };
 
 /**
+ * GPU API
+ * Handles GPU policy queries for platform-aware rendering
+ */
+const gpuAPI = {
+  getPolicy: async () => {
+    try {
+      const result = await ipcRenderer.invoke(IPC_CHANNELS.GPU.GET_POLICY);
+      if (!result.success) {
+        console.warn('gpuAPI.getPolicy: Failed to get policy:', result.error);
+        return { skipWebGPU: false, reason: null };
+      }
+      if (!isValidGpuPolicy(result)) {
+        console.warn('gpuAPI.getPolicy: Invalid policy received');
+        return { skipWebGPU: false, reason: null };
+      }
+      return { skipWebGPU: result.skipWebGPU, reason: result.reason };
+    } catch (error) {
+      console.warn('gpuAPI.getPolicy: IPC error:', error);
+      return { skipWebGPU: false, reason: null };
+    }
+  }
+};
+
+/**
  * Transcode API
  * Handles video transcoding operations via FFmpeg
  */
@@ -648,6 +679,10 @@ contextBridge.exposeInMainWorld('updateAPI', {
 
 contextBridge.exposeInMainWorld('metricsAPI', {
   getProcessMetrics: metricsAPI.getProcessMetrics
+});
+
+contextBridge.exposeInMainWorld('gpuAPI', {
+  getPolicy: gpuAPI.getPolicy
 });
 
 contextBridge.exposeInMainWorld('transcodeAPI', {

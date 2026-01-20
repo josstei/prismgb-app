@@ -43,7 +43,7 @@ const entries = {
     label: 'macos-x64'
   },
   macosArm64: {
-    os: 'macos-14',
+    os: 'macos-15',
     build_script: 'build:mac',
     arch: 'arm64',
     name: 'macOS ARM64',

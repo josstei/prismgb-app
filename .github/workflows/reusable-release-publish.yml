@@ -52,6 +52,42 @@ jobs:
       - name: Merge macOS auto-update YAML files
         run: bash scripts/ci/merge-mac-yaml.sh artifacts release-files/latest-mac.yml
 
+      - name: Validate macOS auto-update architectures
+        run: |
+          if [ ! -f "release-files/latest-mac.yml" ]; then
+            echo "::error::latest-mac.yml is missing after merge"
+            exit 1
+          fi
+
+          ARM64_COUNT=$(yq '.files[] | select(.arch == "arm64") | .url' release-files/latest-mac.yml | wc -l)
+          X64_COUNT=$(yq '.files[] | select(.arch == "x64") | .url' release-files/latest-mac.yml | wc -l)
+
+          echo "Found $ARM64_COUNT arm64 entries, $X64_COUNT x64 entries"
+
+          if [ "$ARM64_COUNT" -lt 1 ]; then
+            echo "::error::latest-mac.yml has no arm64 entries"
+            exit 1
+          fi
+          if [ "$X64_COUNT" -lt 1 ]; then
+            echo "::error::latest-mac.yml has no x64 entries"
+            exit 1
+          fi
+
+          ABSOLUTE_URLS=$(yq '.files[].url | select(test("^https?://"))' release-files/latest-mac.yml || true)
+          if [ -n "$ABSOLUTE_URLS" ]; then
+            echo "::error::Detected absolute URLs in latest-mac.yml - potential redirect attack"
+            echo "$ABSOLUTE_URLS"
+            exit 1
+          fi
+
+          INVALID_HASHES=$(yq '.files[].sha512 | select(test("^[A-Za-z0-9+/]{86}==$") | not)' release-files/latest-mac.yml || true)
+          if [ -n "$INVALID_HASHES" ]; then
+            echo "::error::Invalid sha512 format detected"
+            exit 1
+          fi
+
+          echo "Validation passed: $ARM64_COUNT arm64 + $X64_COUNT x64 entries, all URLs relative, all hashes valid"
+
       - name: Generate combined checksums
         run: |
           cd release-files
