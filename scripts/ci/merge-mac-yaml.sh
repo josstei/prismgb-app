@@ -60,7 +60,7 @@ for yml in "${MAC_YAMLS[@]}"; do
   fi
   echo "  Detected arch: $ARCH (from URL: $FIRST_URL)"
 
-  yq -o=json '.files[] | {url, sha512, size, blockMapSize}' "$yml" \
+  yq -o=json '.files[] | {"url": .url, "sha512": .sha512, "size": .size, "blockMapSize": .blockMapSize}' "$yml" \
     | jq -s --arg arch "$ARCH" 'map(. + {arch: $arch})' > "$TMP_DIR/arch-files.json"
   jq -s 'add' "$TMP_DIR/all-files.json" "$TMP_DIR/arch-files.json" > "$TMP_DIR/merged.json"
   mv "$TMP_DIR/merged.json" "$TMP_DIR/all-files.json"
