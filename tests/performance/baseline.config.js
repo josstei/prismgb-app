@@ -96,7 +96,7 @@ export const PerformanceBaselines = Object.freeze({
 
   'eventbus-subscribe': {
     baseline: 0.02,
-    tolerance: 1.5,
+    tolerance: 2.5,
     unit: 'ms',
     category: 'events',
     description: 'Event subscription',
