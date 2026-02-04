@@ -257,10 +257,16 @@ function createRendererContainer() {
   // GPU Renderer Service - HD rendering pipeline
   container.registerSingleton(
     'gpuRendererService',
-    function(eventBus, loggerFactory, settingsService) {
-      return new StreamingGpuRendererService({ eventBus, loggerFactory, settingsService });
+    function(eventBus, loggerFactory, settingsService, gpuFrameBuffer, gpuWorkerManager) {
+      return new StreamingGpuRendererService({
+        eventBus,
+        loggerFactory,
+        settingsService,
+        gpuFrameBuffer,
+        gpuWorkerManager
+      });
     },
-    ['eventBus', 'loggerFactory', 'settingsService']
+    ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager']
   );
 
   // Streaming Renderer Factory - Creates GPU and Canvas2D renderer adapters
