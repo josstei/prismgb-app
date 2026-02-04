@@ -54,13 +54,19 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {EventBus} dependencies.eventBus - Event publisher for render events
    * @param {Function} dependencies.loggerFactory - Logger factory
    * @param {SettingsService} dependencies.settingsService - Settings for brightness/preset
+   * @param {GpuFrameBuffer} dependencies.gpuFrameBuffer - Frame buffer manager
+   * @param {GpuWorkerManager} dependencies.gpuWorkerManager - Worker lifecycle manager
    */
   constructor(dependencies) {
     super(
       dependencies,
-      ['eventBus', 'loggerFactory', 'settingsService'],
+      ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager'],
       'StreamingGpuRendererService'
     );
+
+    // Store manager references
+    this._frameBuffer = dependencies.gpuFrameBuffer;
+    this._workerManager = dependencies.gpuWorkerManager;
 
     // Worker state
     this._worker = null;
