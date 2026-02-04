@@ -94,4 +94,29 @@ export class GpuFrameBuffer {
     this._queue = [];
     this._logger?.debug('Frame buffer flushed');
   }
+
+  /**
+   * Get buffer metrics for performance monitoring
+   * @returns {{ queued: number, dropped: number, avgLatency: number }}
+   */
+  getMetrics() {
+    const avgLatency = this._enqueueTimes.length > 0
+      ? this._enqueueTimes.reduce((a, b) => a + b, 0) / this._enqueueTimes.length
+      : 0;
+
+    return {
+      queued: this._queue.length,
+      dropped: this._totalDropped,
+      avgLatency: Math.round(avgLatency * 100) / 100
+    };
+  }
+
+  /**
+   * Reset metrics counters (useful for diagnostics reset)
+   */
+  resetMetrics() {
+    this._totalDropped = 0;
+    this._enqueueTimes = [];
+    this._logger?.debug('Frame buffer metrics reset');
+  }
 }
