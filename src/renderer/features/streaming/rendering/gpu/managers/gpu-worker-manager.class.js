@@ -183,12 +183,13 @@ export class GpuWorkerManager {
         }
         break;
 
-      default:
+      default: {
         // Forward to registered handlers
         const handler = this._messageHandlers.get(type);
         if (handler) {
           handler(payload);
         }
+      }
     }
   }
 
@@ -226,5 +227,39 @@ export class GpuWorkerManager {
       this._readyResolve = null;
       this._readyReject = null;
     }
+  }
+
+  /**
+   * Send a command to the worker
+   * @param {string} type - Message type from WorkerMessageType
+   * @param {Object} payload - Message payload
+   * @param {Transferable[]} [transferables] - Objects to transfer ownership
+   */
+  sendCommand(type, payload = {}, transferables = []) {
+    if (!this._isReady || !this._worker) {
+      throw new Error('Worker not ready');
+    }
+
+    const message = createWorkerMessage(type, payload);
+
+    if (transferables.length > 0) {
+      this._worker.postMessage(message, transferables);
+    } else {
+      this._worker.postMessage(message);
+    }
+  }
+
+  /**
+   * Register a handler for a specific message type
+   * @param {string} type - Message type to handle
+   * @param {Function} handler - Handler function receiving payload
+   * @returns {Function} Unsubscribe function
+   */
+  onMessage(type, handler) {
+    this._messageHandlers.set(type, handler);
+
+    return () => {
+      this._messageHandlers.delete(type);
+    };
   }
 }

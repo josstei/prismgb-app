@@ -126,4 +126,65 @@ describe('GpuFrameBuffer', () => {
       expect(buffer.isFull()).toBe(false);
     });
   });
+
+  describe('getMetrics', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should return zero metrics for empty buffer', () => {
+      const metrics = buffer.getMetrics();
+
+      expect(metrics).toEqual({
+        queued: 0,
+        dropped: 0,
+        avgLatency: 0
+      });
+    });
+
+    it('should track dropped frames', () => {
+      // Fill buffer
+      buffer.enqueue({ id: 1 });
+      buffer.enqueue({ id: 2 });
+      buffer.enqueue({ id: 3 });
+
+      // Try to add more (should be dropped)
+      buffer.enqueue({ id: 4 });
+      buffer.enqueue({ id: 5 });
+
+      const metrics = buffer.getMetrics();
+
+      expect(metrics.queued).toBe(3);
+      expect(metrics.dropped).toBe(2);
+    });
+
+    it('should calculate average latency after dequeue', () => {
+      buffer.enqueue({ id: 1 });
+      buffer.dequeue();
+
+      const metrics = buffer.getMetrics();
+
+      expect(metrics.avgLatency).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('resetMetrics', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should reset all counters', () => {
+      buffer.enqueue({ id: 1 });
+      buffer.enqueue({ id: 2 });
+      buffer.enqueue({ id: 3 });
+      buffer.enqueue({ id: 4 }); // dropped
+      buffer.dequeue();
+
+      buffer.resetMetrics();
+
+      const metrics = buffer.getMetrics();
+      expect(metrics.dropped).toBe(0);
+      expect(metrics.avgLatency).toBe(0);
+    });
+  });
 });

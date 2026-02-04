@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GpuWorkerManager } from '@renderer/features/streaming/rendering/gpu/managers/gpu-worker-manager.class.js';
+import { WorkerMessageType } from '@renderer/features/streaming/rendering/workers/streaming-worker-protocol.config.js';
 
 // Mock worker protocol
 vi.mock('@renderer/features/streaming/rendering/workers/streaming-worker-protocol.config.js', () => ({
@@ -194,6 +195,107 @@ describe('GpuWorkerManager', () => {
       await manager.initialize(mockCanvas, { api: 'webgl2' });
 
       expect(manager.isCanvasTransferred()).toBe(true);
+    });
+  });
+
+  describe('sendCommand', () => {
+    beforeEach(async () => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+    });
+
+    it('should send message to worker', () => {
+      manager.sendCommand(WorkerMessageType.FRAME, { data: 'test' });
+
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: WorkerMessageType.FRAME,
+          payload: { data: 'test' }
+        })
+      );
+    });
+
+    it('should send message with transferables', () => {
+      const bitmap = { id: 'bitmap' };
+
+      manager.sendCommand(WorkerMessageType.FRAME, { imageBitmap: bitmap }, [bitmap]);
+
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: WorkerMessageType.FRAME
+        }),
+        [bitmap]
+      );
+    });
+
+    it('should throw if not ready', () => {
+      manager._isReady = false;
+
+      expect(() => {
+        manager.sendCommand(WorkerMessageType.FRAME, {});
+      }).toThrow('Worker not ready');
+    });
+  });
+
+  describe('onMessage', () => {
+    beforeEach(async () => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+    });
+
+    it('should register handler for message type', () => {
+      const handler = vi.fn();
+
+      manager.onMessage('frameRendered', handler);
+
+      // Simulate message from worker
+      mockWorker.onmessage({
+        data: { type: 'frameRendered', payload: { frameId: 1 } }
+      });
+
+      expect(handler).toHaveBeenCalledWith({ frameId: 1 });
+    });
+
+    it('should return unsubscribe function', () => {
+      const handler = vi.fn();
+
+      const unsubscribe = manager.onMessage('frameRendered', handler);
+      unsubscribe();
+
+      // Simulate message from worker
+      mockWorker.onmessage({
+        data: { type: 'frameRendered', payload: { frameId: 1 } }
+      });
+
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 });
