@@ -298,4 +298,88 @@ describe('GpuWorkerManager', () => {
       expect(handler).not.toHaveBeenCalled();
     });
   });
+
+  describe('releaseResources', () => {
+    beforeEach(async () => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+    });
+
+    it('should send release message and mark as not ready', () => {
+      manager.releaseResources();
+
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'release' })
+      );
+      expect(manager.isReady()).toBe(false);
+    });
+
+    it('should preserve worker for reinit', () => {
+      manager.releaseResources();
+
+      expect(mockWorker.terminate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('terminate', () => {
+    beforeEach(async () => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+    });
+
+    it('should send destroy message and terminate worker', () => {
+      manager.terminate();
+
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'destroy' })
+      );
+      expect(mockWorker.terminate).toHaveBeenCalled();
+    });
+
+    it('should clear all state', () => {
+      manager.terminate();
+
+      expect(manager.isReady()).toBe(false);
+      expect(manager.isCanvasTransferred()).toBe(false);
+    });
+
+    it('should clear message handlers', () => {
+      manager.terminate();
+
+      // Simulate message - should not throw or call handlers
+      expect(() => {
+        if (mockWorker.onmessage) {
+          mockWorker.onmessage({ data: { type: 'test' } });
+        }
+      }).not.toThrow();
+    });
+  });
 });
