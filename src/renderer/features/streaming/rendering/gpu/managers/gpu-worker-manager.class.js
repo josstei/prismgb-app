@@ -56,4 +56,175 @@ export class GpuWorkerManager {
   getCapabilities() {
     return this._capabilities;
   }
+
+  /**
+   * Check if canvas control was transferred (irreversible)
+   * @returns {boolean}
+   */
+  isCanvasTransferred() {
+    return this._wasCanvasTransferred;
+  }
+
+  /**
+   * Initialize the worker with a canvas
+   * @param {HTMLCanvasElement} canvasElement - Canvas to render to
+   * @param {Object} config - Renderer configuration
+   * @param {number} [timeout=5000] - Initialization timeout in ms
+   * @returns {Promise<boolean>} True if initialization successful
+   */
+  async initialize(canvasElement, config, timeout = 5000) {
+    // Check if we can reuse existing setup
+    if (this._canvas === canvasElement && this._wasCanvasTransferred) {
+      if (this._worker && this._isReady) {
+        this._logger?.info('Reusing existing worker setup');
+        return true;
+      }
+
+      if (this._worker && !this._isReady) {
+        // Worker exists but not ready - send reinit
+        return this._reinitialize(config, timeout);
+      }
+
+      // Canvas transferred but worker gone - unrecoverable
+      this._logger?.error('Canvas was transferred but worker terminated');
+      return false;
+    }
+
+    // Store canvas reference
+    this._canvas = canvasElement;
+
+    // Transfer canvas control to offscreen (irreversible)
+    this._offscreenCanvas = canvasElement.transferControlToOffscreen();
+    this._wasCanvasTransferred = true;
+
+    // Create the render worker
+    this._worker = new Worker(
+      new URL('../../workers/streaming-render.worker.js', import.meta.url),
+      { type: 'module' }
+    );
+
+    // Set up message handlers
+    this._worker.onmessage = (event) => this._handleMessage(event);
+    this._worker.onerror = (error) => this._handleError(error);
+
+    // Send init message
+    const message = createWorkerMessage(WorkerMessageType.INIT, {
+      canvas: this._offscreenCanvas,
+      config
+    });
+    this._worker.postMessage(message, [this._offscreenCanvas]);
+
+    // Wait for ready
+    await this._waitForReady(timeout);
+
+    this._logger?.info(`Worker initialized with ${config.api}`);
+    return true;
+  }
+
+  /**
+   * Reinitialize GPU resources without canvas transfer
+   * @private
+   */
+  async _reinitialize(config, timeout) {
+    const message = createWorkerMessage(WorkerMessageType.INIT, { config });
+    this._worker.postMessage(message);
+    await this._waitForReady(timeout);
+    return true;
+  }
+
+  /**
+   * Wait for worker to report ready
+   * @private
+   */
+  _waitForReady(timeout) {
+    if (this._isReady) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      this._readyResolve = resolve;
+      this._readyReject = reject;
+
+      this._readyTimeoutId = setTimeout(() => {
+        this._readyResolve = null;
+        this._readyReject = null;
+        this._readyTimeoutId = null;
+        reject(new Error('Worker initialization timed out'));
+      }, timeout);
+    });
+  }
+
+  /**
+   * Handle incoming worker messages
+   * @private
+   */
+  _handleMessage(event) {
+    const { type, payload } = event.data;
+
+    switch (type) {
+      case WorkerResponseType.READY:
+        this._isReady = true;
+        this._capabilities = payload;
+        this._resolveReady();
+        this._logger?.info(`Worker ready (API: ${payload.api})`);
+        break;
+
+      case WorkerResponseType.ERROR:
+        this._logger?.error('Worker error:', payload.message);
+        this._isReady = false;
+        if (this._readyReject) {
+          this._readyReject(new Error(payload.message));
+          this._readyResolve = null;
+          this._readyReject = null;
+          if (this._readyTimeoutId !== null) {
+            clearTimeout(this._readyTimeoutId);
+            this._readyTimeoutId = null;
+          }
+        }
+        break;
+
+      default:
+        // Forward to registered handlers
+        const handler = this._messageHandlers.get(type);
+        if (handler) {
+          handler(payload);
+        }
+    }
+  }
+
+  /**
+   * Handle worker errors
+   * @private
+   */
+  _handleError(error) {
+    this._logger?.error('Worker error:', error.message);
+    this._isReady = false;
+
+    if (this._readyReject) {
+      this._readyReject(new Error(error.message));
+      this._readyResolve = null;
+      this._readyReject = null;
+      if (this._readyTimeoutId !== null) {
+        clearTimeout(this._readyTimeoutId);
+        this._readyTimeoutId = null;
+      }
+    }
+  }
+
+  /**
+   * Resolve pending ready promise
+   * @private
+   */
+  _resolveReady() {
+    if (this._readyTimeoutId !== null) {
+      clearTimeout(this._readyTimeoutId);
+      this._readyTimeoutId = null;
+    }
+
+    if (this._readyResolve) {
+      this._readyResolve();
+      this._readyResolve = null;
+      this._readyReject = null;
+    }
+  }
 }

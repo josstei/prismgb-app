@@ -55,7 +55,9 @@ describe('GpuWorkerManager', () => {
       onmessage: null,
       onerror: null
     };
-    global.Worker = vi.fn().mockImplementation(() => mockWorker);
+    global.Worker = vi.fn(function Worker() {
+      return mockWorker;
+    });
   });
 
   afterEach(() => {
@@ -71,6 +73,127 @@ describe('GpuWorkerManager', () => {
 
       expect(manager.isReady()).toBe(false);
       expect(manager.getCapabilities()).toBeNull();
+    });
+  });
+
+  describe('initialize', () => {
+    beforeEach(() => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+    });
+
+    it('should create worker and transfer canvas', async () => {
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
+        clientWidth: 640,
+        clientHeight: 576
+      };
+      const config = {
+        nativeWidth: 160,
+        nativeHeight: 144,
+        api: 'webgl2',
+        presetId: 'default'
+      };
+
+      // Simulate worker ready response
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, config);
+
+      expect(mockCanvas.transferControlToOffscreen).toHaveBeenCalled();
+      expect(global.Worker).toHaveBeenCalled();
+      expect(mockWorker.postMessage).toHaveBeenCalled();
+      expect(manager.isReady()).toBe(true);
+    });
+
+    it('should reject if worker fails to initialize', async () => {
+      vi.useFakeTimers();
+
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
+        clientWidth: 640,
+        clientHeight: 576
+      };
+      const config = {
+        nativeWidth: 160,
+        nativeHeight: 144,
+        api: 'webgl2',
+        presetId: 'default'
+      };
+
+      const initPromise = manager.initialize(mockCanvas, config, 100);
+
+      // Advance timer past timeout
+      vi.advanceTimersByTime(150);
+
+      await expect(initPromise).rejects.toThrow('Worker initialization timed out');
+
+      vi.useRealTimers();
+    });
+
+    it('should reuse existing worker if canvas already transferred', async () => {
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
+        clientWidth: 640,
+        clientHeight: 576
+      };
+      const config = {
+        nativeWidth: 160,
+        nativeHeight: 144,
+        api: 'webgl2',
+        presetId: 'default'
+      };
+
+      // First init
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+      await manager.initialize(mockCanvas, config);
+
+      // Second init with same canvas should reuse worker
+      const result = await manager.initialize(mockCanvas, config);
+
+      expect(result).toBe(true);
+      expect(mockCanvas.transferControlToOffscreen).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('isCanvasTransferred', () => {
+    beforeEach(() => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+    });
+
+    it('should return false before initialization', () => {
+      expect(manager.isCanvasTransferred()).toBe(false);
+    });
+
+    it('should return true after canvas transfer', async () => {
+      const mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
+        clientWidth: 640,
+        clientHeight: 576
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+
+      expect(manager.isCanvasTransferred()).toBe(true);
     });
   });
 });
