@@ -262,4 +262,58 @@ export class GpuWorkerManager {
       this._messageHandlers.delete(type);
     };
   }
+
+  /**
+   * Release GPU resources while keeping worker alive
+   * Allows reinit without canvas transfer
+   */
+  releaseResources() {
+    if (!this._worker) {
+      this._logger?.debug('releaseResources: No worker to release');
+      return;
+    }
+
+    this._worker.postMessage(createWorkerMessage(WorkerMessageType.RELEASE));
+    this._isReady = false;
+
+    this._logger?.info('GPU resources released (worker kept alive)');
+  }
+
+  /**
+   * Fully terminate the worker and reset all state
+   * @param {boolean} [resetCanvasFlag=true] - Whether to reset canvas transfer flag
+   */
+  terminate(resetCanvasFlag = true) {
+    // Clear ready timeout if pending
+    if (this._readyTimeoutId !== null) {
+      clearTimeout(this._readyTimeoutId);
+      this._readyTimeoutId = null;
+    }
+
+    // Clear pending promises
+    this._readyResolve = null;
+    this._readyReject = null;
+
+    if (this._worker) {
+      // Remove handlers before termination
+      this._worker.onmessage = null;
+      this._worker.onerror = null;
+
+      this._worker.postMessage(createWorkerMessage(WorkerMessageType.DESTROY));
+      this._worker.terminate();
+      this._worker = null;
+    }
+
+    // Clear all state
+    this._isReady = false;
+    this._messageHandlers.clear();
+    this._canvas = null;
+    this._offscreenCanvas = null;
+
+    if (resetCanvasFlag) {
+      this._wasCanvasTransferred = false;
+    }
+
+    this._logger?.info('Worker terminated');
+  }
 }
