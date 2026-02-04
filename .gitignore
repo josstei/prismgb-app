@@ -42,6 +42,9 @@ Thumbs.db
 CLAUDE.md
 GEMINI.md
 
+# Git worktrees
+.worktrees/
+
 # Recordings and screenshots
 recordings/
 screenshots/
