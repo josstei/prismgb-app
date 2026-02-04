@@ -35,4 +35,95 @@ describe('GpuFrameBuffer', () => {
       expect(buffer.getCapacity()).toBe(5);
     });
   });
+
+  describe('enqueue', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should add frame to queue and return true', () => {
+      const frame = { imageBitmap: {}, uniforms: {} };
+
+      const result = buffer.enqueue(frame);
+
+      expect(result).toBe(true);
+      expect(buffer.getSize()).toBe(1);
+    });
+
+    it('should reject frame when queue is full and return false', () => {
+      const frame = { imageBitmap: {}, uniforms: {} };
+
+      // Fill the buffer (default capacity = 3)
+      buffer.enqueue(frame);
+      buffer.enqueue(frame);
+      buffer.enqueue(frame);
+
+      // This should be rejected
+      const result = buffer.enqueue(frame);
+
+      expect(result).toBe(false);
+      expect(buffer.getSize()).toBe(3);
+    });
+  });
+
+  describe('dequeue', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should return oldest frame (FIFO order)', () => {
+      const frame1 = { id: 1 };
+      const frame2 = { id: 2 };
+
+      buffer.enqueue(frame1);
+      buffer.enqueue(frame2);
+
+      const result = buffer.dequeue();
+
+      expect(result).toEqual(frame1);
+      expect(buffer.getSize()).toBe(1);
+    });
+
+    it('should return null when queue is empty', () => {
+      const result = buffer.dequeue();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('isFull', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should return false when queue has space', () => {
+      buffer.enqueue({ id: 1 });
+
+      expect(buffer.isFull()).toBe(false);
+    });
+
+    it('should return true when queue is at capacity', () => {
+      buffer.enqueue({ id: 1 });
+      buffer.enqueue({ id: 2 });
+      buffer.enqueue({ id: 3 });
+
+      expect(buffer.isFull()).toBe(true);
+    });
+  });
+
+  describe('flush', () => {
+    beforeEach(() => {
+      buffer = new GpuFrameBuffer({ loggerFactory: mockLoggerFactory });
+    });
+
+    it('should clear all frames from queue', () => {
+      buffer.enqueue({ id: 1 });
+      buffer.enqueue({ id: 2 });
+
+      buffer.flush();
+
+      expect(buffer.getSize()).toBe(0);
+      expect(buffer.isFull()).toBe(false);
+    });
+  });
 });

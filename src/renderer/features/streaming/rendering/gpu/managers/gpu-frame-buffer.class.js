@@ -37,4 +37,61 @@ export class GpuFrameBuffer {
   getSize() {
     return this._queue.length;
   }
+
+  /**
+   * Add a frame to the queue
+   * @param {Object} frame - Frame data { imageBitmap, uniforms }
+   * @returns {boolean} True if enqueued, false if dropped due to full buffer
+   */
+  enqueue(frame) {
+    if (this._queue.length >= this._capacity) {
+      this._totalDropped++;
+      return false;
+    }
+
+    this._queue.push({
+      frame,
+      enqueueTime: performance.now()
+    });
+    this._totalEnqueued++;
+    return true;
+  }
+
+  /**
+   * Remove and return the oldest frame from the queue
+   * @returns {Object|null} Frame data or null if empty
+   */
+  dequeue() {
+    const entry = this._queue.shift();
+    if (!entry) {
+      return null;
+    }
+
+    // Track latency for metrics
+    const latency = performance.now() - entry.enqueueTime;
+    this._enqueueTimes.push(latency);
+
+    // Keep only last 60 samples for rolling average
+    if (this._enqueueTimes.length > 60) {
+      this._enqueueTimes.shift();
+    }
+
+    return entry.frame;
+  }
+
+  /**
+   * Check if the buffer is full
+   * @returns {boolean} True if at capacity
+   */
+  isFull() {
+    return this._queue.length >= this._capacity;
+  }
+
+  /**
+   * Clear all pending frames
+   */
+  flush() {
+    this._queue = [];
+    this._logger?.debug('Frame buffer flushed');
+  }
 }
