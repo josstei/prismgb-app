@@ -60,6 +60,10 @@ import { StreamingHealthService } from '@renderer/features/streaming/rendering/s
 import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
 import { StreamingGpuRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-gpu-renderer.adapter.js';
 import { StreamingCanvas2DRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-canvas2d-renderer.adapter.js';
+
+// GPU Managers
+import { GpuFrameBuffer } from '@renderer/features/streaming/rendering/gpu/managers/gpu-frame-buffer.class.js';
+import { GpuWorkerManager } from '@renderer/features/streaming/rendering/gpu/managers/gpu-worker-manager.class.js';
 import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
 import { StreamingAudioPipelineService } from '@renderer/features/streaming/audio/streaming-audio-pipeline.service.js';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
@@ -233,13 +237,36 @@ function createRendererContainer() {
     ['loggerFactory']
   );
 
+  // GPU Managers (new architecture)
+  container.registerSingleton(
+    'gpuFrameBuffer',
+    function(loggerFactory) {
+      return new GpuFrameBuffer({ loggerFactory });
+    },
+    ['loggerFactory']
+  );
+
+  container.registerSingleton(
+    'gpuWorkerManager',
+    function(loggerFactory, eventBus) {
+      return new GpuWorkerManager({ loggerFactory, eventBus });
+    },
+    ['loggerFactory', 'eventBus']
+  );
+
   // GPU Renderer Service - HD rendering pipeline
   container.registerSingleton(
     'gpuRendererService',
-    function(eventBus, loggerFactory, settingsService) {
-      return new StreamingGpuRendererService({ eventBus, loggerFactory, settingsService });
+    function(eventBus, loggerFactory, settingsService, gpuFrameBuffer, gpuWorkerManager) {
+      return new StreamingGpuRendererService({
+        eventBus,
+        loggerFactory,
+        settingsService,
+        gpuFrameBuffer,
+        gpuWorkerManager
+      });
     },
-    ['eventBus', 'loggerFactory', 'settingsService']
+    ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager']
   );
 
   // Streaming Renderer Factory - Creates GPU and Canvas2D renderer adapters

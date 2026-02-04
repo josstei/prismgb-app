@@ -62,6 +62,8 @@ describe('StreamingGpuRendererService', () => {
   let mockLogger;
   let mockLoggerFactory;
   let mockSettingsService;
+  let mockGpuFrameBuffer;
+  let mockGpuWorkerManager;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -87,6 +89,28 @@ describe('StreamingGpuRendererService', () => {
       getRenderPreset: vi.fn(() => 'default')
     };
 
+    mockGpuFrameBuffer = {
+      enqueue: vi.fn(() => true),
+      dequeue: vi.fn(() => null),
+      isFull: vi.fn(() => false),
+      flush: vi.fn(),
+      getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
+      resetMetrics: vi.fn(),
+      getCapacity: vi.fn(() => 3),
+      getSize: vi.fn(() => 0)
+    };
+
+    mockGpuWorkerManager = {
+      isReady: vi.fn(() => false),
+      isCanvasTransferred: vi.fn(() => false),
+      getCapabilities: vi.fn(() => null),
+      initialize: vi.fn().mockResolvedValue(true),
+      sendCommand: vi.fn(),
+      onMessage: vi.fn(() => vi.fn()),
+      releaseResources: vi.fn(),
+      terminate: vi.fn()
+    };
+
     // Mock Worker constructor
     global.Worker = vi.fn().mockImplementation(() => ({
       postMessage: vi.fn(),
@@ -98,7 +122,9 @@ describe('StreamingGpuRendererService', () => {
     service = new StreamingGpuRendererService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
-      settingsService: mockSettingsService
+      settingsService: mockSettingsService,
+      gpuFrameBuffer: mockGpuFrameBuffer,
+      gpuWorkerManager: mockGpuWorkerManager
     });
   });
 
@@ -113,6 +139,11 @@ describe('StreamingGpuRendererService', () => {
       expect(service._isReady).toBe(false);
       expect(service._wasCanvasTransferred).toBe(false);
       expect(service._isUsingFallback).toBe(false);
+    });
+
+    it('should store manager references', () => {
+      expect(service._frameBuffer).toBe(mockGpuFrameBuffer);
+      expect(service._workerManager).toBe(mockGpuWorkerManager);
     });
   });
 
