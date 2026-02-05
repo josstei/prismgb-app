@@ -16,7 +16,7 @@ vi.mock('@renderer/ui/controller/ui.controller.js', () => ({
   UIController: MockUIController
 }));
 
-vi.mock('@renderer/container.js', () => ({
+vi.mock('@renderer/application/container.ts', () => ({
   initializeContainer: vi.fn(() => ({
     resolve: vi.fn((name) => {
       if (name === 'appOrchestrator') {

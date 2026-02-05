@@ -14,17 +14,17 @@
 import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
 
 // Application layer
-import { AppState } from '@renderer/application/app-state.class.js';
-import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
-import { PerformanceAnimationOrchestrator } from '@renderer/application/performance/performance-animation.orchestrator.js';
+import { AppState } from '@renderer/application/state/app-state.ts';
+import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator.ts';
+import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator.ts';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service.ts';
-import { PerformanceMetricsOrchestrator } from '@renderer/application/performance/performance-metrics.orchestrator.js';
+import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance-metrics.orchestrator.ts';
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service.ts';
-import { PerformanceStateOrchestrator } from '@renderer/application/performance/performance-state.orchestrator.js';
+import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance-state.orchestrator.ts';
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service.ts';
 
 // UI layer
-import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
+import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
 import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
@@ -38,7 +38,7 @@ import { DeviceService } from '@renderer/infrastructure/services/devices/device.
 import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
 import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
-import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
+import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts';
 import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts';
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts';
@@ -47,8 +47,8 @@ import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/device
 
 // Features: Streaming
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
-import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
-import { StreamingAudioOrchestrator } from '@renderer/features/streaming/services/streaming-audio.orchestrator.js';
+import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
+import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator.ts';
 import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
 import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory.ts';
 import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer.ts';
@@ -74,7 +74,7 @@ import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transco
 
 // Features: Capture
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
-import { CaptureOrchestrator } from '@renderer/features/capture/services/capture.orchestrator.js';
+import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator.ts';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
 
@@ -84,8 +84,8 @@ import { TranscodeService } from '@renderer/infrastructure/services/transcode/tr
 // Features: Settings
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
-import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/services/settings-preferences.orchestrator.js';
-import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
+import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
+import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator.ts';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
 import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/cinematic-mode.service.ts';
 import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
@@ -96,7 +96,7 @@ import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.com
 
 // Features: Updates
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
-import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
+import { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator.ts';
 import { UpdateUiService } from '@renderer/infrastructure/services/updates/update-ui.service.ts';
 import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
 

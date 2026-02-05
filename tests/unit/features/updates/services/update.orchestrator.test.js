@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
+import { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator.ts';
 import { UpdateState } from '@renderer/infrastructure/services/updates/update.service.ts';
 
 describe('UpdateOrchestrator', () => {

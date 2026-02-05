@@ -29,7 +29,7 @@ if (appContainer) {
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
-import { createApplication } from './renderer-app.orchestrator.js';
+import { createApplication } from './renderer-app.orchestrator.ts';
 
 // Global application instance
 let app = null;

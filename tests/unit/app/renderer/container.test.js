@@ -19,15 +19,15 @@ vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => {
 });
 
 // Application layer mocks
-vi.mock('@renderer/application/app-state.class.js', () => ({
+vi.mock('@renderer/application/state/app-state.ts', () => ({
   AppState: vi.fn()
 }));
 
-vi.mock('@renderer/application/app.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/app.orchestrator.ts', () => ({
   AppOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-animation.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-animation.orchestrator.ts', () => ({
   PerformanceAnimationOrchestrator: vi.fn()
 }));
 
@@ -35,7 +35,7 @@ vi.mock('@renderer/infrastructure/services/performance/performance-animation.ser
   PerformanceAnimationService: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-state.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-state.orchestrator.ts', () => ({
   PerformanceStateOrchestrator: vi.fn()
 }));
 
@@ -43,7 +43,7 @@ vi.mock('@renderer/infrastructure/services/performance/performance-state.service
   PerformanceStateService: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-metrics.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-metrics.orchestrator.ts', () => ({
   PerformanceMetricsOrchestrator: vi.fn()
 }));
 
@@ -56,7 +56,7 @@ vi.mock('@renderer/infrastructure/adapters/platform/metrics.adapter.ts', () => (
 }));
 
 // UI layer mocks
-vi.mock('@renderer/ui/orchestration/ui-setup.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/ui-setup.orchestrator.ts', () => ({
   UISetupOrchestrator: vi.fn()
 }));
 
@@ -105,7 +105,7 @@ vi.mock('@renderer/infrastructure/services/devices/device-media.service.ts', () 
   DeviceMediaService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/device.orchestrator.ts', () => ({
   DeviceOrchestrator: vi.fn()
 }));
 
@@ -126,8 +126,12 @@ vi.mock('@renderer/infrastructure/services/streaming/streaming.service.ts', () =
   StreamingService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/services/streaming.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/streaming.orchestrator.ts', () => ({
   StreamingOrchestrator: vi.fn()
+}));
+
+vi.mock('@renderer/application/orchestrators/streaming-audio.orchestrator.ts', () => ({
+  StreamingAudioOrchestrator: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/factories/streaming-adapter.factory.ts', () => ({
@@ -195,7 +199,7 @@ vi.mock('@renderer/infrastructure/services/capture/capture.service.ts', () => ({
   CaptureService: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/capture.orchestrator.ts', () => ({
   CaptureOrchestrator: vi.fn()
 }));
 
@@ -217,11 +221,11 @@ vi.mock('@renderer/infrastructure/services/settings/settings.service.ts', () => 
   SettingsService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-preferences.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/preferences.orchestrator.ts', () => ({
   SettingsPreferencesOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-display-mode.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/display-mode.orchestrator.ts', () => ({
   SettingsDisplayModeOrchestrator: vi.fn()
 }));
 
@@ -246,7 +250,7 @@ vi.mock('@renderer/infrastructure/services/updates/update.service.ts', () => ({
   UpdateService: vi.fn()
 }));
 
-vi.mock('@renderer/features/updates/services/update.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/update.orchestrator.ts', () => ({
   UpdateOrchestrator: vi.fn()
 }));
 
@@ -293,7 +297,7 @@ vi.mock('@shared/utils/performance-cache.utils.js', () => ({
 }));
 
 // Import the container module
-import * as containerModuleImport from '@renderer/container.js';
+import * as containerModuleImport from '@renderer/application/container.ts';
 
 describe('Renderer Container', () => {
   let containerModule;
