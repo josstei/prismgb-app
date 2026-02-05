@@ -1,13 +1,8 @@
 import { BaseService, BaseServiceDependencies } from './service.base';
 import type { IDisposable } from './disposable.interface';
+import type { IEventBus } from '../interfaces/infrastructure/event-bus.interface';
 
-/**
- * EventBus interface expected by BaseOrchestrator.
- */
-export interface IEventBus {
-  subscribe(event: string, handler: (...args: unknown[]) => void): () => void;
-  publish(event: string, ...args: unknown[]): void;
-}
+export type { IEventBus };
 
 /**
  * Dependencies required by BaseOrchestrator.

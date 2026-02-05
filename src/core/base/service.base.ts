@@ -1,21 +1,7 @@
 import { validateDependencies } from './validate-deps.utils';
+import type { ILogger, ILoggerFactory } from '../interfaces/infrastructure/logger.interface';
 
-/**
- * Logger interface expected by BaseService.
- */
-export interface ILogger {
-  info(message: string, ...args: unknown[]): void;
-  warn(message: string, ...args: unknown[]): void;
-  error(message: string, ...args: unknown[]): void;
-  debug(message: string, ...args: unknown[]): void;
-}
-
-/**
- * LoggerFactory interface expected by BaseService.
- */
-export interface ILoggerFactory {
-  create(name: string): ILogger;
-}
+export type { ILogger, ILoggerFactory };
 
 /**
  * Dependencies object type for BaseService.
