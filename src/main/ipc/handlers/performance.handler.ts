@@ -3,9 +3,21 @@
  * Registers performance-related IPC routes.
  */
 
+import type { App, IpcMainInvokeEvent } from 'electron';
+import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 
-export function registerPerformanceHandlers({ registerHandler, app, logger }) {
+interface RegisterHandler {
+  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
+}
+
+export interface PerformanceHandlerDependencies {
+  registerHandler: RegisterHandler;
+  app: App;
+  logger: Logger;
+}
+
+export function registerPerformanceHandlers({ registerHandler, app, logger }: PerformanceHandlerDependencies): void {
   registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {
     try {
       const metrics = app.getAppMetrics();
@@ -29,7 +41,7 @@ export function registerPerformanceHandlers({ registerHandler, app, logger }) {
       };
     } catch (error) {
       logger.error('Failed to get process metrics:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error).message };
     }
   });
 }

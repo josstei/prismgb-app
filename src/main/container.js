@@ -43,7 +43,7 @@ async function createAppContainer(loggerFactory) {
   // Services
   const { WindowService } = await import('./infrastructure/window/index.js');
   const { TrayService } = await import('./infrastructure/tray/tray.service.js');
-  const { IpcHandlerRegistry } = await import('./ipc/ipc-handler.registry.js');
+  const { IpcHandlerRegistry } = await import('./ipc/ipc-handler.registry.ts');
 
   container.register({
     windowService: asClass(WindowService).singleton(),
