@@ -93,7 +93,7 @@ async function createAppContainer(loggerFactory) {
   });
 
   // Transcode components
-  const { TranscodeService } = await import('@main/features/transcode/transcode.service.js');
+  const { TranscodeService } = await import('@main/infrastructure/transcode/index.js');
 
   container.register({
     transcodeService: asClass(TranscodeService).singleton()
