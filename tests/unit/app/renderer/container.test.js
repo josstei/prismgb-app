@@ -76,7 +76,7 @@ vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
   UIEventBridge: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/presentation-mode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/presentation-mode.service.ts', () => ({
   PresentationModeService: vi.fn()
 }));
 
@@ -191,7 +191,7 @@ vi.mock('@renderer/ui/features/transcode/transcode-toast.component.js', () => ({
 }));
 
 // Features: Capture mocks
-vi.mock('@renderer/features/capture/services/capture.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/capture.service.ts', () => ({
   CaptureService: vi.fn()
 }));
 
@@ -199,11 +199,11 @@ vi.mock('@renderer/features/capture/services/capture.orchestrator.js', () => ({
   CaptureOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture-gpu-recording.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/gpu-recording.service.ts', () => ({
   CaptureGpuRecordingService: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture-save.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/capture-save.service.ts', () => ({
   CaptureSaveService: vi.fn()
 }));
 
@@ -213,7 +213,7 @@ vi.mock('@renderer/infrastructure/services/transcode/transcode.service.ts', () =
 }));
 
 // Features: Settings mocks
-vi.mock('@renderer/features/settings/services/settings.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/settings.service.ts', () => ({
   SettingsService: vi.fn()
 }));
 
@@ -225,11 +225,11 @@ vi.mock('@renderer/features/settings/services/settings-display-mode.orchestrator
   SettingsDisplayModeOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-fullscreen.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/fullscreen.service.ts', () => ({
   SettingsFullscreenService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-cinematic-mode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/cinematic-mode.service.ts', () => ({
   SettingsCinematicModeService: vi.fn()
 }));
 
@@ -242,7 +242,7 @@ vi.mock('@renderer/ui/features/notes/notes-panel.component.js', () => ({
 }));
 
 // Features: Updates mocks
-vi.mock('@renderer/features/updates/services/update.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/updates/update.service.ts', () => ({
   UpdateService: vi.fn()
 }));
 
@@ -250,7 +250,7 @@ vi.mock('@renderer/features/updates/services/update.orchestrator.js', () => ({
   UpdateOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/updates/ui/update-ui.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/updates/update-ui.service.ts', () => ({
   UpdateUiService: vi.fn()
 }));
 

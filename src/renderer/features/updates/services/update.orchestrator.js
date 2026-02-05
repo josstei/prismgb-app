@@ -9,7 +9,7 @@
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { UpdateState } from './update.service.js';
+import { UpdateState } from '@renderer/infrastructure/services/updates/update.service.ts';
 
 class UpdateOrchestrator extends BaseOrchestrator {
   constructor(dependencies) {

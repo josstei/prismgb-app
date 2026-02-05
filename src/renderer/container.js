@@ -29,7 +29,7 @@ import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.
 import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
 import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
 import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
-import { PresentationModeService } from '@renderer/features/settings/services/presentation-mode.service.js';
+import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
 import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
 import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 
@@ -73,21 +73,21 @@ import { DeviceStatusComponent } from '@renderer/ui/shared/device-status.compone
 import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transcode-toast.component.js';
 
 // Features: Capture
-import { CaptureService } from '@renderer/features/capture/services/capture.service.js';
+import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
 import { CaptureOrchestrator } from '@renderer/features/capture/services/capture.orchestrator.js';
-import { CaptureGpuRecordingService } from '@renderer/features/capture/services/capture-gpu-recording.service.js';
-import { CaptureSaveService } from '@renderer/features/capture/services/capture-save.service.js';
+import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
+import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
 
 // Features: Transcode
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 
 // Features: Settings
-import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
+import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
 import { SettingsPreferencesOrchestrator } from '@renderer/features/settings/services/settings-preferences.orchestrator.js';
 import { SettingsDisplayModeOrchestrator } from '@renderer/features/settings/services/settings-display-mode.orchestrator.js';
-import { SettingsFullscreenService } from '@renderer/features/settings/services/settings-fullscreen.service.js';
-import { SettingsCinematicModeService } from '@renderer/features/settings/services/settings-cinematic-mode.service.js';
+import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
+import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/cinematic-mode.service.ts';
 import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
 
 // Features: Notes
@@ -95,9 +95,9 @@ import { NotesService } from '@renderer/infrastructure/services/notes/notes.serv
 import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 
 // Features: Updates
-import { UpdateService } from '@renderer/features/updates/services/update.service.js';
+import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
 import { UpdateOrchestrator } from '@renderer/features/updates/services/update.orchestrator.js';
-import { UpdateUiService } from '@renderer/features/updates/services/update-ui.service.js';
+import { UpdateUiService } from '@renderer/infrastructure/services/updates/update-ui.service.ts';
 import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
 
 // Infrastructure
