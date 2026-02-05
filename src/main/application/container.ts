@@ -4,17 +4,60 @@
  */
 
 import * as awilix from 'awilix';
+import type { AwilixContainer } from 'awilix';
 const { createContainer, asClass, asValue, InjectionMode } = awilix;
 import pkg from '../../package.json' assert { type: 'json' };
-import { EventBus } from './infrastructure/events/event-bus.class.js';
+import { EventBus } from '@main/infrastructure/events/index.js';
+import { WindowService } from '@main/infrastructure/window/index.js';
+import { TrayService } from '@main/infrastructure/tray/index.js';
+import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import {
+  DeviceService,
+  DeviceProfileRegistry,
+  DeviceLifecycleService,
+  DeviceBridgeService,
+  type ProfileClass
+} from '@main/infrastructure/devices/index.js';
+import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
+import { TranscodeService } from '@main/infrastructure/transcode/index.js';
+import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
+import type { MainLogger } from '@main/infrastructure/logging/index.js';
+
+/**
+ * Application configuration interface
+ */
+interface AppConfig {
+  isDevelopment: boolean;
+  appName: string;
+  version: string;
+}
+
+/**
+ * Container dependencies interface
+ */
+export interface ContainerDependencies {
+  config: AppConfig;
+  loggerFactory: MainLogger;
+  eventBus: EventBus;
+  windowService: WindowService;
+  trayService: TrayService;
+  ipcHandlerRegistry: IpcHandlerRegistry;
+  deviceService: DeviceService;
+  profileRegistry: DeviceProfileRegistry;
+  deviceLifecycleService: DeviceLifecycleService;
+  deviceBridgeService: DeviceBridgeService;
+  updateService: UpdateService;
+  updateBridgeService: UpdateBridge;
+  transcodeService: TranscodeService;
+}
 
 /**
  * Create and configure the DI container
- * @param {Object} loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
- * @returns {Promise<AwilixContainer>} Configured container
+ * @param loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
+ * @returns Configured container
  */
-async function createAppContainer(loggerFactory) {
-  const container = createContainer({
+async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixContainer<ContainerDependencies>> {
+  const container = createContainer<ContainerDependencies>({
     injectionMode: InjectionMode.PROXY
   });
 
@@ -25,7 +68,7 @@ async function createAppContainer(loggerFactory) {
   // Register configuration and utilities
   container.register({
     // Config - simple value
-    config: asValue({
+    config: asValue<AppConfig>({
       isDevelopment: process.env.NODE_ENV === 'development',
       appName: 'PrismGB',
       version: pkg.version
@@ -38,31 +81,20 @@ async function createAppContainer(loggerFactory) {
     eventBus: asClass(EventBus).singleton()
   });
 
-  // Manual registration for ESM compatibility (Awilix loadModules uses require)
-
-  // Services
-  const { WindowService } = await import('./infrastructure/window/index.js');
-  const { TrayService } = await import('./infrastructure/tray/tray.service.js');
-  const { IpcHandlerRegistry } = await import('./ipc/ipc-handler.registry.ts');
-
+  // Register core services
   container.register({
     windowService: asClass(WindowService).singleton(),
     trayService: asClass(TrayService).singleton(),
     ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton()
   });
 
-  // Device components
-  const { DeviceService } = await import('@main/infrastructure/devices/device.service.js');
-  const { DeviceProfileRegistry } = await import('@main/infrastructure/devices/device-profile.registry.js');
-  const { DeviceLifecycleService } = await import('@main/infrastructure/devices/device-lifecycle.service.js');
-  const { DeviceChromaticProfile } = await import('@shared/features/devices/profiles/chromatic/device-chromatic.profile.js');
-
+  // Register device components
   container.register({
     profileRegistry: asClass(DeviceProfileRegistry).singleton()
   });
 
   // Profile classes injected via DI (same pattern as adapterClasses in renderer)
-  const profileClasses = new Map([
+  const profileClasses = new Map<string, ProfileClass>([
     ['chromatic-mod-retro', DeviceChromaticProfile]
   ]);
 
@@ -80,21 +112,14 @@ async function createAppContainer(loggerFactory) {
     deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
   });
 
-  // Update components
-  const { UpdateService } = await import('@main/features/updates/update.service.js');
-
-  const { DeviceBridgeService } = await import('@main/infrastructure/devices/device-bridge.service.js');
-  const { UpdateBridge } = await import('./features/updates/update.bridge.js');
-
+  // Register update components
   container.register({
     updateService: asClass(UpdateService).singleton(),
     deviceBridgeService: asClass(DeviceBridgeService).singleton(),
     updateBridgeService: asClass(UpdateBridge).singleton()
   });
 
-  // Transcode components
-  const { TranscodeService } = await import('@main/infrastructure/transcode/index.js');
-
+  // Register transcode components
   container.register({
     transcodeService: asClass(TranscodeService).singleton()
   });

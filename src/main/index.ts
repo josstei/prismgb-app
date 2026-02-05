@@ -3,8 +3,8 @@
  * Initializes the application using dependency injection
  */
 
-import { app, BrowserWindow, Menu } from 'electron';
-import { AppOrchestrator } from './app.orchestrator.js';
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
+import { AppOrchestrator } from './application/index.js';
 import { getGpuPolicy, applyChromiumFlags } from './infrastructure/platform/index.js';
 
 const APP_NAME = 'PrismGB';
@@ -13,7 +13,7 @@ const APP_NAME = 'PrismGB';
  * Build a lightweight macOS application menu so the system uses the correct app name.
  * Keeping Edit/Window menus preserves common shortcuts (copy/paste, minimize, etc.).
  */
-const createMacAppMenu = (appName) => [
+const createMacAppMenu = (appName: string): MenuItemConstructorOptions[] => [
   {
     label: appName,
     submenu: [
@@ -147,7 +147,7 @@ if (process.argv.includes('--smoke-test')) {
         const { dialog } = require('electron');
         dialog.showErrorBox(
           'Initialization Error',
-          `${APP_NAME} failed to start: ${error.message}`
+          `${APP_NAME} failed to start: ${error instanceof Error ? error.message : String(error)}`
         );
         app.quit();
         return;
@@ -172,8 +172,8 @@ if (process.argv.includes('--smoke-test')) {
     });
 
     app.on('before-quit', (event) => {
-      const wasAlreadyQuitting = app.isQuitting;
-      app.isQuitting = true;
+      const wasAlreadyQuitting = (app as any).isQuitting;
+      (app as any).isQuitting = true;
 
       application.cleanup();
 

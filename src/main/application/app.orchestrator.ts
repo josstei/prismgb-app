@@ -9,43 +9,57 @@
 
 import { app } from 'electron';
 import path from 'path';
+import type { AwilixContainer } from 'awilix';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
-import { createAppContainer } from './container.js';
-import { MainLogger } from './infrastructure/logging/index.js';
+import { createAppContainer, type ContainerDependencies } from './container.js';
+import { MainLogger } from '@main/infrastructure/logging/index.js';
+import type { WindowService } from '@main/infrastructure/window/index.js';
+import type { DeviceService } from '@main/infrastructure/devices/index.js';
+import type { DeviceLifecycleService } from '@main/infrastructure/devices/index.js';
+import type { TrayService } from '@main/infrastructure/tray/index.js';
+import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import type { UpdateService } from '@main/infrastructure/updates/index.js';
+import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
+import type { UpdateBridge } from '@main/infrastructure/updates/index.js';
+import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
+
+/**
+ * Dependencies required by AppOrchestrator
+ */
+interface AppOrchestratorDependencies {
+  loggerFactory: MainLogger;
+}
 
 class AppOrchestrator extends BaseOrchestrator {
+  private container: AwilixContainer<ContainerDependencies> | null = null;
+  private _windowService: WindowService | null = null;
+  private _deviceService: DeviceService | null = null;
+  private _deviceLifecycleService: DeviceLifecycleService | null = null;
+  private _trayService: TrayService | null = null;
+  private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
+  private _updateService: UpdateService | null = null;
+  private _deviceBridgeService: DeviceBridgeService | null = null;
+  private _updateBridgeService: UpdateBridge | null = null;
+  private _transcodeService: TranscodeService | null = null;
+
   constructor() {
     // Create logger factory before calling super (bootstrap pattern)
     const loggerFactory = new MainLogger();
 
     // Call base constructor with pre-created loggerFactory
-    super({ loggerFactory }, ['loggerFactory'], 'AppOrchestrator');
-
-    // Container will be created during onInitialize()
-    this.container = null;
-
-    // Service references - populated during onInitialize()
-    this._windowService = null;
-    this._deviceService = null;
-    this._deviceLifecycleService = null;
-    this._trayService = null;
-    this._ipcHandlerRegistry = null;
-    this._updateService = null;
-    this._deviceBridgeService = null;
-    this._updateBridgeService = null;
-    this._transcodeService = null;
+    super({ loggerFactory } as AppOrchestratorDependencies, ['loggerFactory'], 'AppOrchestrator');
   }
 
   /**
    * Initialize the application and DI container
    * Called by BaseOrchestrator.initialize()
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.logger.info('Starting PrismGB...');
 
     // Create DI container with shared logger factory (eliminates duplicate instance)
-    this.container = await createAppContainer(this.loggerFactory);
+    this.container = await createAppContainer(this.loggerFactory as MainLogger);
 
     // Resolve and cache core services
     this._windowService = this.container.resolve('windowService');
@@ -107,7 +121,7 @@ class AppOrchestrator extends BaseOrchestrator {
    * Cleanup on app quit
    * Called by BaseOrchestrator.cleanup()
    */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.logger.info('Shutting down PrismGB...');
 
     if (!this.container) {
@@ -161,9 +175,9 @@ class AppOrchestrator extends BaseOrchestrator {
 
   /**
    * Get the DI container
-   * @returns {AwilixContainer}
+   * @returns The DI container
    */
-  getContainer() {
+  getContainer(): AwilixContainer<ContainerDependencies> | null {
     return this.container;
   }
 }
