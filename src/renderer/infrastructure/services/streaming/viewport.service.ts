@@ -14,7 +14,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { TIMING } from '@shared/config/constants.config.js';
+import { TIMING } from '@renderer/presentation/config/constants.config.ts';
 
 export class StreamingViewportService extends BaseService {
   constructor(dependencies) {

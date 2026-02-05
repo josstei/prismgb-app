@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ControlsAutoHide } from '@renderer/ui/features/fullscreen/effects/controls-auto-hide.class.js';
+import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect.ts';
 
 describe('ControlsAutoHide', () => {
   let autoHide;

@@ -6,9 +6,9 @@
  * is handled by RendererAppOrchestrator
  */
 
-import './assets/styles/styles.css';
-import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { renderAppShell } from './ui/shell/app-shell.renderer.js';
+import './presentation/styles/styles.css';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {

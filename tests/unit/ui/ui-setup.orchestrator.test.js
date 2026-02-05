@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
-import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;

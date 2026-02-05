@@ -60,19 +60,19 @@ vi.mock('@renderer/application/orchestrators/ui-setup.orchestrator.ts', () => ({
   UISetupOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/ui/controller/component.registry.js', () => ({
+vi.mock('@renderer/presentation/controller/component.registry.js', () => ({
   UIComponentRegistry: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/ui-effects.class.js', () => ({
+vi.mock('@renderer/presentation/effects/ui-effects.class.ts', () => ({
   UIEffects: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/body-class.class.js', () => ({
+vi.mock('@renderer/presentation/effects/body-class.class.ts', () => ({
   BodyClassManager: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/ui-event.bridge.ts', () => ({
   UIEventBridge: vi.fn()
 }));
 
@@ -80,11 +80,11 @@ vi.mock('@renderer/infrastructure/services/settings/presentation-mode.service.ts
   PresentationModeService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/capture-ui.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/capture-ui.bridge.ts', () => ({
   CaptureUIBridge: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/transcode-ui.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/transcode-ui.bridge.ts', () => ({
   TranscodeUIBridge: vi.fn()
 }));
 
@@ -174,23 +174,23 @@ vi.mock('@renderer/infrastructure/services/streaming/audio-pipeline.service.ts',
   StreamingAudioPipelineService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/streaming/streaming-controls.component.js', () => ({
+vi.mock('@renderer/presentation/features/streaming/streaming-controls.component.js', () => ({
   StreamingControlsComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/toolbar/components/shader-selector.component.js', () => ({
+vi.mock('@renderer/presentation/features/toolbar/components/shader-selector.component.js', () => ({
   ShaderSelectorComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/shared/status-notification.component.js', () => ({
+vi.mock('@renderer/presentation/shared/status-notification.component.js', () => ({
   StatusNotificationComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/shared/device-status.component.js', () => ({
+vi.mock('@renderer/presentation/shared/device-status.component.js', () => ({
   DeviceStatusComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/transcode/transcode-toast.component.js', () => ({
+vi.mock('@renderer/presentation/features/transcode/transcode-toast.component.js', () => ({
   TranscodeToastComponent: vi.fn()
 }));
 
@@ -237,11 +237,11 @@ vi.mock('@renderer/infrastructure/services/settings/cinematic-mode.service.ts', 
   SettingsCinematicModeService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/settings/settings-menu.component.js', () => ({
+vi.mock('@renderer/presentation/features/settings/settings-menu.component.js', () => ({
   SettingsMenuComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/notes/notes-panel.component.js', () => ({
+vi.mock('@renderer/presentation/features/notes/notes-panel.component.js', () => ({
   NotesPanelComponent: vi.fn()
 }));
 
@@ -258,7 +258,7 @@ vi.mock('@renderer/infrastructure/services/updates/update-ui.service.ts', () => 
   UpdateUiService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/updates/update-section.component.js', () => ({
+vi.mock('@renderer/presentation/features/updates/update-section.component.js', () => ({
   UpdateSectionComponent: vi.fn()
 }));
 

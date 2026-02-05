@@ -7,7 +7,7 @@
  * Follows the adapter pattern established by VisibilityAdapter, UserActivityAdapter.
  */
 
-import { TIMING } from '@shared/config/constants.config.js';
+import { TIMING } from '@renderer/presentation/config/constants.config.ts';
 
 /**
  * Default debounce delay in milliseconds

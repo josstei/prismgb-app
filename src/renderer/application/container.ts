@@ -25,13 +25,13 @@ import { PerformanceStateService } from '@renderer/infrastructure/services/perfo
 
 // UI layer
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
-import { UIComponentRegistry } from '@renderer/ui/controller/component.registry.js';
-import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
-import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
-import { UIEventBridge } from '@renderer/ui/orchestration/ui-event.bridge.js';
+import { UIComponentRegistry } from '@renderer/presentation/controller/component.registry.js';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
+import { BodyClassManager } from '@renderer/presentation/effects/body-class.class.ts';
+import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.ts';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
-import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js';
-import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
+import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge.ts';
+import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge.ts';
 
 // Features: Devices
 import { DeviceService } from '@renderer/infrastructure/services/devices/device.service.ts';
@@ -66,11 +66,11 @@ import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
 import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service.ts';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service.ts';
-import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
-import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
-import { StatusNotificationComponent } from '@renderer/ui/shared/status-notification.component.js';
-import { DeviceStatusComponent } from '@renderer/ui/shared/device-status.component.js';
-import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transcode-toast.component.js';
+import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
+import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
+import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
+import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
+import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 
 // Features: Capture
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
@@ -83,22 +83,22 @@ import { TranscodeService } from '@renderer/infrastructure/services/transcode/tr
 
 // Features: Settings
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
-import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config.js';
+import { PROTECTED_STORAGE_KEYS } from '@renderer/presentation/config/storage-keys.config.ts';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator.ts';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
 import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/cinematic-mode.service.ts';
-import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
+import { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
 
 // Features: Notes
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
-import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 
 // Features: Updates
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
 import { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator.ts';
 import { UpdateUiService } from '@renderer/infrastructure/services/updates/update-ui.service.ts';
-import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
+import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
 
 // Infrastructure
 import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';

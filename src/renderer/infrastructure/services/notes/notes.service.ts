@@ -13,7 +13,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
-import { NotesStorageKeys } from '@shared/config/storage-keys.config.js';
+import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config.ts';
 
 class NotesService extends BaseService {
   constructor(dependencies) {

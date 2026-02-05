@@ -9,7 +9,7 @@
  */
 
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
-import { UIController } from '@renderer/ui/controller/ui.controller.js';
+import { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { safeDispose, safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
 
 /**

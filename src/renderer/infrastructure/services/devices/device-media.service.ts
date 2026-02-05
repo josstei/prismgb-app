@@ -6,7 +6,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { TIMING } from '@shared/config/constants.config.js';
+import { TIMING } from '@renderer/presentation/config/constants.config.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {

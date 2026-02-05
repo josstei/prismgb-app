@@ -10,7 +10,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/lib/file-download.utils.js';
+import { downloadFile } from '@renderer/presentation/lib/file-download.utils.ts';
 
 class CaptureSaveService extends BaseService {
   constructor(dependencies) {

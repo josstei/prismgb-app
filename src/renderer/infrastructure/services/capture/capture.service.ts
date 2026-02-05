@@ -13,7 +13,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { FilenameGenerator } from '@shared/utils/filename-generator.utils.js';
+import { FilenameGenerator } from '@renderer/presentation/lib/filename-generator.utils.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {

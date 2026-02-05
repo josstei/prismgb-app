@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CinematicToggleComponent } from '@renderer/ui/features/toolbar/components/cinematic-toggle.component.js';
+import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/components/cinematic-toggle.component.js';
 import { createMockEventBus, createMockAppState, createMockLogger } from '../../../../mocks/index.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 

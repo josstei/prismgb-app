@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
+import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
 
 let mockCinematicToggle;
 let mockPresetList;
 let mockSliderControls;
 
-vi.mock('@renderer/ui/features/toolbar/components/cinematic-toggle.component.js', () => ({
+vi.mock('@renderer/presentation/features/toolbar/components/cinematic-toggle.component.js', () => ({
   CinematicToggleComponent: vi.fn().mockImplementation(function CinematicToggleComponentMock() {
     this.initialize = vi.fn();
     this.dispose = vi.fn();
@@ -17,7 +17,7 @@ vi.mock('@renderer/ui/features/toolbar/components/cinematic-toggle.component.js'
   })
 }));
 
-vi.mock('@renderer/ui/features/toolbar/components/shader-preset-list.component.js', () => ({
+vi.mock('@renderer/presentation/features/toolbar/components/shader-preset-list.component.js', () => ({
   ShaderPresetListComponent: vi.fn().mockImplementation(function ShaderPresetListComponentMock() {
     this.initialize = vi.fn();
     this.dispose = vi.fn();
@@ -25,7 +25,7 @@ vi.mock('@renderer/ui/features/toolbar/components/shader-preset-list.component.j
   })
 }));
 
-vi.mock('@renderer/ui/features/toolbar/components/shader-slider-controls.component.js', () => ({
+vi.mock('@renderer/presentation/features/toolbar/components/shader-slider-controls.component.js', () => ({
   ShaderSliderControlsComponent: vi.fn().mockImplementation(function ShaderSliderControlsComponentMock() {
     this.initialize = vi.fn();
     this.dispose = vi.fn();

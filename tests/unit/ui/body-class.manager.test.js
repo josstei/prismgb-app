@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BodyClassManager } from '@renderer/ui/effects/body-class.class.js';
+import { BodyClassManager } from '@renderer/presentation/effects/body-class.class.ts';
 
 describe('BodyClassManager', () => {
   let manager;

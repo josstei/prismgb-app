@@ -14,7 +14,7 @@ let toolbarOptions;
 let controlsOptions;
 let hideTimerOptions;
 
-vi.mock('@renderer/ui/features/streaming/effects/cursor-auto-hide.class.js', () => ({
+vi.mock('@renderer/presentation/effects/cursor-auto-hide.effect.ts', () => ({
   CursorAutoHide: vi.fn().mockImplementation(function CursorAutoHideMock(options) {
     cursorOptions = options;
     this.enable = vi.fn();
@@ -26,7 +26,7 @@ vi.mock('@renderer/ui/features/streaming/effects/cursor-auto-hide.class.js', () 
   })
 }));
 
-vi.mock('@renderer/ui/features/toolbar/effects/toolbar-auto-hide.class.js', () => ({
+vi.mock('@renderer/presentation/effects/toolbar-auto-hide.effect.ts', () => ({
   ToolbarAutoHide: vi.fn().mockImplementation(function ToolbarAutoHideMock(options) {
     toolbarOptions = options;
     this.enable = vi.fn();
@@ -41,7 +41,7 @@ vi.mock('@renderer/ui/features/toolbar/effects/toolbar-auto-hide.class.js', () =
   })
 }));
 
-vi.mock('@renderer/ui/features/fullscreen/effects/controls-auto-hide.class.js', () => ({
+vi.mock('@renderer/presentation/effects/controls-auto-hide.effect.ts', () => ({
   ControlsAutoHide: vi.fn().mockImplementation(function ControlsAutoHideMock(options) {
     controlsOptions = options;
     this.enable = vi.fn();
@@ -51,7 +51,7 @@ vi.mock('@renderer/ui/features/fullscreen/effects/controls-auto-hide.class.js', 
   })
 }));
 
-vi.mock('@renderer/ui/primitives/hide-timer.class.js', () => ({
+vi.mock('@renderer/presentation/primitives/hide-timer.class.js', () => ({
   HideTimer: vi.fn().mockImplementation(function HideTimerMock(options) {
     hideTimerOptions = options;
     this.start = vi.fn();
@@ -61,7 +61,7 @@ vi.mock('@renderer/ui/primitives/hide-timer.class.js', () => ({
   })
 }));
 
-import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
 
 describe('UIEffects', () => {
   let effects;

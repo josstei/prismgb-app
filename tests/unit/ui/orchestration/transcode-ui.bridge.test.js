@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
+import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('TranscodeUIBridge', () => {

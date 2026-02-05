@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ListboxDropdownController } from '@renderer/ui/primitives/listbox-dropdown.class.js';
+import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import { createMockLogger } from '../../../mocks/index.js';
 
 describe('ListboxDropdownController', () => {

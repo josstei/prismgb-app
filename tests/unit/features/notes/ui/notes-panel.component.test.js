@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
+import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 
 describe('NotesPanelComponent', () => {
   let component;
