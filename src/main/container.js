@@ -52,9 +52,9 @@ async function createAppContainer(loggerFactory) {
   });
 
   // Device components
-  const { DeviceService } = await import('@main/features/devices/device.service.js');
-  const { DeviceProfileRegistry } = await import('@main/features/devices/device-profile.registry.js');
-  const { DeviceLifecycleService } = await import('@main/features/devices/device-lifecycle.service.js');
+  const { DeviceService } = await import('@main/infrastructure/devices/device.service.js');
+  const { DeviceProfileRegistry } = await import('@main/infrastructure/devices/device-profile.registry.js');
+  const { DeviceLifecycleService } = await import('@main/infrastructure/devices/device-lifecycle.service.js');
   const { DeviceChromaticProfile } = await import('@shared/features/devices/profiles/chromatic/device-chromatic.profile.js');
 
   container.register({
@@ -83,7 +83,7 @@ async function createAppContainer(loggerFactory) {
   // Update components
   const { UpdateService } = await import('@main/features/updates/update.service.js');
 
-  const { DeviceBridgeService } = await import('./features/devices/device-bridge.service.js');
+  const { DeviceBridgeService } = await import('@main/infrastructure/devices/device-bridge.service.js');
   const { UpdateBridge } = await import('./features/updates/update.bridge.js');
 
   container.register({
