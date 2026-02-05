@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  root: __dirname,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -85,7 +86,10 @@ export default defineConfig({
     ],
 
     // Setup files
-    setupFiles: ['./tests/setup.js', './tests/testing-library.setup.js'],
+    setupFiles: [
+      path.resolve(__dirname, 'tests/setup.js'),
+      path.resolve(__dirname, 'tests/testing-library.setup.js')
+    ],
 
     // Test timeout
     testTimeout: 10000,
