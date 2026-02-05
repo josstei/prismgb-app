@@ -1,0 +1,74 @@
+import { describe, it, expect, beforeAll } from 'vitest';
+import { buildUniforms, calculateScaleFactor } from '@/application/uniform-builder';
+import { PresetRegistry } from '@/domain/presets';
+
+// Import presets to register them
+import '@/domain/presets/presets/true-color.preset';
+import '@/domain/presets/presets/performance.preset';
+
+describe('calculateScaleFactor', () => {
+  it('should calculate integer scale factor', () => {
+    expect(calculateScaleFactor(160, 144, 640, 576)).toBe(4);
+    expect(calculateScaleFactor(160, 144, 480, 432)).toBe(3);
+    expect(calculateScaleFactor(160, 144, 320, 288)).toBe(2);
+  });
+
+  it('should use minimum of x and y scales', () => {
+    expect(calculateScaleFactor(160, 144, 800, 432)).toBe(3);
+  });
+
+  it('should return at least 1', () => {
+    expect(calculateScaleFactor(160, 144, 100, 100)).toBe(1);
+  });
+});
+
+describe('buildUniforms', () => {
+  it('should build uniforms from preset and dimensions', () => {
+    const preset = PresetRegistry.get('true-color')!;
+
+    const uniforms = buildUniforms({
+      preset,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      outputWidth: 640,
+      outputHeight: 576,
+      brightness: 1.0
+    });
+
+    expect(uniforms.upscale.scaleFactor).toBe(4);
+    expect(uniforms.upscale.inputSize).toEqual([160, 144]);
+    expect(uniforms.upscale.outputSize).toEqual([640, 576]);
+    expect(uniforms.color.greenBias).toBe(0.04);
+  });
+
+  it('should apply brightness multiplier', () => {
+    const preset = PresetRegistry.get('true-color')!;
+
+    const uniforms = buildUniforms({
+      preset,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      outputWidth: 640,
+      outputHeight: 576,
+      brightness: 1.5
+    });
+
+    expect(uniforms.color.brightness).toBe(1.5);
+  });
+
+  it('should disable effects when preset has them disabled', () => {
+    const preset = PresetRegistry.get('performance')!;
+
+    const uniforms = buildUniforms({
+      preset,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      outputWidth: 640,
+      outputHeight: 576,
+      brightness: 1.0
+    });
+
+    expect(uniforms.unsharp.strength).toBe(0);
+    expect(uniforms.crt.scanlineStrength).toBe(0);
+  });
+});
