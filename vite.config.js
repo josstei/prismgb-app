@@ -29,7 +29,7 @@ export default defineConfig({
     electron([
       {
         // Main process entry
-        entry: 'src/main/index.js',
+        entry: 'src/main/index.ts',
         onstart(args) {
           // Start Electron after main and preload are built
           args.startup();

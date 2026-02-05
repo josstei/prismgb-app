@@ -6,7 +6,7 @@
 import * as awilix from 'awilix';
 import type { AwilixContainer } from 'awilix';
 const { createContainer, asClass, asValue, InjectionMode } = awilix;
-import pkg from '../../package.json' assert { type: 'json' };
+import pkg from '../../../package.json' assert { type: 'json' };
 import { EventBus } from '@main/infrastructure/events/index.js';
 import { WindowService } from '@main/infrastructure/window/index.js';
 import { TrayService } from '@main/infrastructure/tray/index.js';
