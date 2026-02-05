@@ -4,6 +4,9 @@
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "node scripts/patch-mac-app-name.js && vite",
     "build": "vite build && electron-builder",
