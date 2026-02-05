@@ -1,21 +1,28 @@
-/**
- * GPU Policy
- * Platform-aware GPU configuration for Chromium flags and WebGPU policy.
- *
- * Addresses ARM64 Linux Vulkan driver issues by:
- * 1. Detecting platform at startup
- * 2. Applying Chromium flags before app.whenReady()
- * 3. Exposing policy to renderer via IPC for capability detection
- */
+import type { App } from 'electron';
 
-const GPU_ENV_VARS = {
+export interface PlatformInfo {
+  isLinux: boolean;
+  isMac: boolean;
+  isWindows: boolean;
+  isArm64: boolean;
+  isArm: boolean;
+  isLinuxArm: boolean;
+}
+
+export interface GpuPolicy {
+  skipWebGPU: boolean;
+  reason: string | null;
+  chromiumFlags: Array<[string, string]>;
+}
+
+export const GPU_ENV_VARS = {
   DISABLE_GPU: 'PRISMGB_DISABLE_GPU',
   FORCE_WEBGL: 'PRISMGB_FORCE_WEBGL',
   FORCE_WEBGPU: 'PRISMGB_FORCE_WEBGPU',
   FORCE_SOFTWARE: 'PRISMGB_FORCE_SOFTWARE'
-};
+} as const;
 
-function detectPlatform() {
+export function detectPlatform(): PlatformInfo {
   return {
     isLinux: process.platform === 'linux',
     isMac: process.platform === 'darwin',
@@ -27,7 +34,7 @@ function detectPlatform() {
   };
 }
 
-function getGpuPolicy() {
+export function getGpuPolicy(): GpuPolicy {
   const platform = detectPlatform();
   const forceWebGPU = process.env[GPU_ENV_VARS.FORCE_WEBGPU] === '1';
   const forceWebGL = process.env[GPU_ENV_VARS.FORCE_WEBGL] === '1';
@@ -52,10 +59,8 @@ function getGpuPolicy() {
   return { skipWebGPU: false, reason: null, chromiumFlags: [] };
 }
 
-function applyChromiumFlags(app, policy) {
+export function applyChromiumFlags(app: App, policy: GpuPolicy): void {
   for (const [flag, value] of policy.chromiumFlags) {
     app.commandLine.appendSwitch(flag, value);
   }
 }
-
-export { detectPlatform, getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS };

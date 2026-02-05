@@ -4,7 +4,7 @@
  */
 
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
-import { getGpuPolicy } from '@main/platform/gpu-policy.js';
+import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
 
 export function registerGpuHandlers({ registerHandler, logger }) {
   registerHandler(IPC_CHANNELS.GPU.GET_POLICY, async () => {

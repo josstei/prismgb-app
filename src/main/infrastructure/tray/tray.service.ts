@@ -3,12 +3,42 @@
  * Handles system tray icon and menu
  */
 
-import { Tray, Menu, app } from 'electron';
+import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { BaseService } from '@shared/base/service.base.js';
 
+/**
+ * Menu configuration item
+ */
+interface MenuConfigItem {
+  label: string;
+  service: 'windowService' | 'deviceService';
+  method: string;
+}
+
+/**
+ * TrayService dependencies
+ */
+interface TrayServiceDependencies {
+  windowService: {
+    showWindow: () => void;
+  };
+  deviceService: {
+    refreshDeviceStatus: () => void;
+    isConnected: () => boolean;
+  };
+  loggerFactory: {
+    create: (name: string) => {
+      info: (message: string) => void;
+      error: (message: string) => void;
+      warn: (message: string) => void;
+      debug: (message: string) => void;
+    };
+  };
+}
+
 // Declarative menu configuration
-const MENU_CONFIG = [
+const MENU_CONFIG: MenuConfigItem[] = [
   {
     label: 'Show Window',
     service: 'windowService',
@@ -22,15 +52,20 @@ const MENU_CONFIG = [
 ];
 
 class TrayService extends BaseService {
-  constructor(dependencies) {
+  private tray: Tray | null = null;
+  private readonly windowService: TrayServiceDependencies['windowService'];
+  private readonly deviceService: TrayServiceDependencies['deviceService'];
+
+  constructor(dependencies: TrayServiceDependencies) {
     super(dependencies, ['windowService', 'deviceService', 'loggerFactory'], 'TrayService');
-    this.tray = null;
+    this.windowService = dependencies.windowService;
+    this.deviceService = dependencies.deviceService;
   }
 
   /**
    * Create system tray icon
    */
-  createTray() {
+  createTray(): Tray | null {
     // Skip tray creation in test mode
     if (process.env.DISABLE_TRAY === 'true') {
       this.logger.info('Tray disabled via DISABLE_TRAY environment variable');
@@ -61,15 +96,20 @@ class TrayService extends BaseService {
   /**
    * Update tray menu with current device status
    */
-  updateTrayMenu() {
+  updateTrayMenu(): void {
     if (!this.tray) return;
 
     const isDeviceConnected = this.deviceService ? this.deviceService.isConnected() : false;
 
     // Build dynamic menu items from config
-    const menuItems = MENU_CONFIG.map(({ label, service, method }) => ({
+    const menuItems: MenuItemConstructorOptions[] = MENU_CONFIG.map(({ label, service, method }) => ({
       label,
-      click: () => this[service]?.[method]?.()
+      click: () => {
+        const serviceInstance = this[service];
+        if (serviceInstance && typeof serviceInstance[method] === 'function') {
+          serviceInstance[method]();
+        }
+      }
     }));
 
     const contextMenu = Menu.buildFromTemplate([
@@ -99,7 +139,7 @@ class TrayService extends BaseService {
   /**
    * Destroy the tray icon
    */
-  destroy() {
+  destroy(): void {
     if (this.tray) {
       this.tray.destroy();
       this.tray = null;

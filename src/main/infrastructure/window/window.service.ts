@@ -3,7 +3,7 @@
  * Handles main application window creation and lifecycle
  */
 
-import { BrowserWindow, app } from 'electron';
+import { BrowserWindow, app, DownloadItem, Event, WebContents } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -14,20 +14,45 @@ import { BaseService } from '@shared/base/service.base.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
 
+interface WindowServiceDependencies {
+  loggerFactory: {
+    create: (name: string) => {
+      info: (message: string) => void;
+      debug: (message: string) => void;
+      warn: (message: string) => void;
+      error: (message: string) => void;
+    };
+  };
+}
+
+type ConsoleMessageListener = (
+  event: Event,
+  level: number,
+  message: string,
+  line: number,
+  sourceId: string
+) => void;
+
+type DownloadHandler = (event: Event, item: DownloadItem) => void;
+
+type FullscreenListener = () => void;
+
 class WindowService extends BaseService {
-  constructor(dependencies) {
+  private mainWindow: BrowserWindow | null = null;
+  private _consoleMessageListener: ConsoleMessageListener | null = null;
+  private _downloadHandler: DownloadHandler | null = null;
+  private _enterFullscreenListener: FullscreenListener | null = null;
+  private _leaveFullscreenListener: FullscreenListener | null = null;
+  private _resizedListener: (() => void) | null = null;
+
+  constructor(dependencies: WindowServiceDependencies) {
     super(dependencies, ['loggerFactory'], 'WindowService');
-    this.mainWindow = null;
-    this._consoleMessageListener = null;
-    this._downloadHandler = null;
-    this._enterFullscreenListener = null;
-    this._leaveFullscreenListener = null;
   }
 
   /**
    * Create the main application window
    */
-  createWindow() {
+  createWindow(): BrowserWindow {
     if (this.mainWindow) {
       this._forceWindowToForeground();
       return this.mainWindow;
@@ -66,7 +91,7 @@ class WindowService extends BaseService {
       show: false // Don't show until ready
     });
 
-    this._downloadHandler = (event, item) => {
+    this._downloadHandler = (event: Event, item: DownloadItem) => {
       const downloadsPath = app.getPath('downloads');
       const rawFilename = item.getFilename();
 
@@ -87,7 +112,7 @@ class WindowService extends BaseService {
       this.logger.info(`Auto-saving download: ${filename} to ${downloadsPath}`);
       item.setSavePath(savePath);
 
-      item.once('done', (event, state) => {
+      item.once('done', (event: Event, state: string) => {
         if (state === 'completed') {
           this.logger.info(`Download completed: ${savePath}`);
         } else {
@@ -107,7 +132,13 @@ class WindowService extends BaseService {
 
     // Log renderer console to terminal (dev only) - store reference for cleanup
     if (isDev) {
-      this._consoleMessageListener = (event, level, message, line, sourceId) => {
+      this._consoleMessageListener = (
+        event: Event,
+        level: number,
+        message: string,
+        line: number,
+        sourceId: string
+      ) => {
         const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
         console.log(`[Renderer ${levels[level] || level}] ${message}`);
       };
@@ -132,16 +163,16 @@ class WindowService extends BaseService {
     this.mainWindow.on('resized', this._resizedListener);
 
     // Handle window close - clean up listeners before window is destroyed
-    this.mainWindow.on('close', (event) => {
+    this.mainWindow.on('close', (event: Event) => {
       if (!app.isQuitting) {
         event.preventDefault();
-        this.mainWindow.hide();
+        this.mainWindow!.hide();
         return;
       }
 
       // Clean up console message listener
-      if (this._consoleMessageListener && this.mainWindow.webContents) {
-        this.mainWindow.webContents.off('console-message', this._consoleMessageListener);
+      if (this._consoleMessageListener && this.mainWindow!.webContents) {
+        this.mainWindow!.webContents.off('console-message', this._consoleMessageListener);
       }
       this._consoleMessageListener = null;
 
@@ -174,7 +205,7 @@ class WindowService extends BaseService {
    * Force window to foreground with platform-specific methods
    * Simplified to avoid Chromium compositor crashes on Linux
    */
-  _forceWindowToForeground() {
+  private _forceWindowToForeground(): void {
     if (!this.mainWindow) return;
 
     // Restore if minimized
@@ -200,7 +231,7 @@ class WindowService extends BaseService {
   /**
    * Show the window if it exists
    */
-  showWindow() {
+  showWindow(): void {
     if (this.mainWindow) {
       this._forceWindowToForeground();
     } else {
@@ -211,15 +242,15 @@ class WindowService extends BaseService {
   /**
    * Check if window exists
    */
-  hasWindow() {
+  hasWindow(): boolean {
     return this.mainWindow !== null;
   }
 
   /**
    * Set fullscreen state
-   * @param {boolean} enabled - Whether to enter or exit fullscreen
+   * @param enabled - Whether to enter or exit fullscreen
    */
-  setFullScreen(enabled) {
+  setFullScreen(enabled: boolean): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.setFullScreen(enabled);
     }
@@ -227,9 +258,9 @@ class WindowService extends BaseService {
 
   /**
    * Check if window is in fullscreen
-   * @returns {boolean} True if fullscreen
+   * @returns True if fullscreen
    */
-  isFullScreen() {
+  isFullScreen(): boolean {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       return this.mainWindow.isSimpleFullScreen() || this.mainWindow.isFullScreen();
     }
@@ -239,7 +270,7 @@ class WindowService extends BaseService {
   /**
    * Send message to renderer process
    */
-  send(channel, ...args) {
+  send(channel: string, ...args: unknown[]): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, ...args);
     }
@@ -247,3 +278,4 @@ class WindowService extends BaseService {
 }
 
 export { WindowService };
+export type { WindowServiceDependencies };
