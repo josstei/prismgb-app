@@ -1,4 +1,5 @@
 import type { IDisposable } from '../../base/disposable.interface';
+import type { IDeviceProfile } from '../../domain/devices/device-profile.interface';
 
 /**
  * Device information passed to adapter initialization.
@@ -17,18 +18,6 @@ export interface DeviceCapabilities {
   maxHeight: number;
   maxFrameRate: number;
   supportedFormats?: string[];
-}
-
-/**
- * Device profile containing device-specific configuration.
- */
-export interface IDeviceProfile {
-  readonly name: string;
-  readonly vendorId: number;
-  readonly productId: number;
-  readonly nativeWidth: number;
-  readonly nativeHeight: number;
-  readonly frameRate: number;
 }
 
 /**

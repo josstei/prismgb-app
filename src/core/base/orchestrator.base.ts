@@ -31,7 +31,7 @@ export abstract class BaseOrchestrator extends BaseService implements IDisposabl
   private _isCleanedUp = false;
   private readonly _subscriptions: Array<() => void> = [];
 
-  protected eventBus?: IEventBus;
+  protected eventBus: IEventBus | undefined;
 
   constructor(
     dependencies: BaseOrchestratorDependencies,

@@ -5,7 +5,7 @@ import { ErrorCode } from './error-codes.enum';
  */
 export class AppError extends Error {
   readonly code: ErrorCode;
-  readonly cause?: Error;
+  readonly cause: Error | undefined;
 
   constructor(code: ErrorCode, message: string, cause?: Error) {
     super(message);

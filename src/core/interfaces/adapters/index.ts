@@ -2,7 +2,6 @@ export type {
   IDeviceAdapter,
   DeviceInfo,
   DeviceCapabilities,
-  IDeviceProfile,
   StreamOptions
 } from './device-adapter.interface';
 
