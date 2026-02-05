@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { IConstraintBuilder, IStreamLifecycle } from '@shared/streaming/acquisition/acquisition.interface.js';
+import { IConstraintBuilder, IStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/acquisition.interface.ts';
 import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
 
 describe('IConstraintBuilder', () => {

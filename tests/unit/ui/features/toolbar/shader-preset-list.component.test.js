@@ -8,7 +8,7 @@ import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Mock the presets module
-vi.mock('@renderer/features/streaming/rendering/presets/streaming-render-presets.config.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/presets/render-presets.config.ts', () => ({
   getPresetsForUI: () => [
     { id: 'sharp', name: 'Sharp' },
     { id: 'soft', name: 'Soft' },

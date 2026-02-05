@@ -1,4 +1,4 @@
-import { IStreamLifecycle } from './acquisition.interface.js';
+import { IStreamLifecycle } from './acquisition.interface.ts';
 
 /**
  * Base implementation of stream lifecycle management
