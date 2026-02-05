@@ -27,7 +27,9 @@
       "@main/*": ["src/main/*"],
       "@renderer/*": ["src/renderer/*"],
       "@preload/*": ["src/preload/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@prismgb/gpu": ["packages/prismgb-gpu/src"],
+      "@prismgb/gpu/*": ["packages/prismgb-gpu/src/*"]
     },
     "types": ["node", "vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
