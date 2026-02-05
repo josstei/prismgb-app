@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService, UpdateState } from '@main/features/updates/update.service.js';
+import { UpdateService, UpdateState } from '@main/infrastructure/updates/update.service.js';
 
 vi.mock('electron', () => ({
   app: {

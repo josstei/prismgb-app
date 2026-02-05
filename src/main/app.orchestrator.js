@@ -12,7 +12,7 @@ import path from 'path';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
 import { createAppContainer } from './container.js';
-import { MainLogger } from './infrastructure/logging/main-logger.factory.js';
+import { MainLogger } from './infrastructure/logging/index.js';
 
 class AppOrchestrator extends BaseOrchestrator {
   constructor() {

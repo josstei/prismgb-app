@@ -6,11 +6,23 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
+import type { ILogger, ILoggerFactory, LogLevel } from '@core/interfaces/infrastructure';
+
+/**
+ * Extended logger interface with Winston-specific features.
+ * Used by MainLogger to provide access to underlying Winston logger.
+ */
+export interface IMainLogger extends ILogger {
+  /**
+   * Get the underlying Winston logger instance.
+   * @returns The Winston logger
+   */
+  getWinstonLogger(): winston.Logger;
+}
 
 // Import Electron app for log path resolution
 // Falls back gracefully in test environment
-/** @type {import('electron').App | null} */
-let electronApp = null;
+let electronApp: Electron.App | null = null;
 try {
   const electron = await import('electron');
   electronApp = electron.app;
@@ -29,18 +41,19 @@ try {
  *     this.logger = mainLogger.create('ServiceName');
  *   }
  */
-class MainLogger {
+export class MainLogger implements ILoggerFactory {
+  private rootLogger: winston.Logger;
+
   constructor() {
     this.rootLogger = this._createRootLogger();
   }
 
   /**
    * Creates the root Winston logger instance
-   * @private
    */
-  _createRootLogger() {
+  private _createRootLogger(): winston.Logger {
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const logLevel = process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info');
+    const logLevel = (process.env.LOG_LEVEL as LogLevel) || (isDevelopment ? 'debug' : 'info');
 
     // Custom format for console output
     const consoleFormat = winston.format.combine(
@@ -61,7 +74,7 @@ class MainLogger {
       winston.format.json()
     );
 
-    const transports = [
+    const transports: winston.transport[] = [
       // Console transport with colorized output
       new winston.transports.Console({
         format: consoleFormat,
@@ -99,7 +112,8 @@ class MainLogger {
         );
       } catch (error) {
         // Graceful fallback: continue with console-only logging
-        console.warn(`Failed to create log directory ${logDir}: ${error.message}. File logging disabled.`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`Failed to create log directory ${logDir}: ${errorMessage}. File logging disabled.`);
       }
     }
 
@@ -113,75 +127,77 @@ class MainLogger {
 
   /**
    * Creates a child logger with a specific context
-   * @param {string} context - The context name (e.g., 'DeviceServiceMain', 'WebcamService')
-   * @returns {Object} Logger instance with context-aware methods
+   * @param context - The context name (e.g., 'DeviceServiceMain', 'WebcamService')
+   * @returns Logger instance with context-aware methods
    */
-  create(context) {
+  create(context: string): IMainLogger {
     const childLogger = this.rootLogger.child({ context });
 
     return {
       /**
        * Log debug-level message
-       * @param {string} message - Log message
-       * @param {Object} meta - Additional metadata
+       * @param message - Log message
+       * @param args - Additional metadata
        */
-      debug: (message, meta = {}) => {
+      debug: (message: string, ...args: unknown[]): void => {
+        const meta = args.length > 0 ? args[0] : {};
         childLogger.debug(message, meta);
       },
 
       /**
        * Log info-level message
-       * @param {string} message - Log message
-       * @param {Object} meta - Additional metadata
+       * @param message - Log message
+       * @param args - Additional metadata
        */
-      info: (message, meta = {}) => {
+      info: (message: string, ...args: unknown[]): void => {
+        const meta = args.length > 0 ? args[0] : {};
         childLogger.info(message, meta);
       },
 
       /**
        * Log warning-level message
-       * @param {string} message - Log message
-       * @param {Object} meta - Additional metadata
+       * @param message - Log message
+       * @param args - Additional metadata
        */
-      warn: (message, meta = {}) => {
+      warn: (message: string, ...args: unknown[]): void => {
+        const meta = args.length > 0 ? args[0] : {};
         childLogger.warn(message, meta);
       },
 
       /**
        * Log error-level message
-       * @param {string} message - Log message
-       * @param {Error|Object} error - Error object or metadata
+       * @param message - Log message
+       * @param args - Error object or metadata
        */
-      error: (message, error = {}) => {
-        const meta = error instanceof Error
-          ? { error: error.message, stack: error.stack }
-          : error;
+      error: (message: string, ...args: unknown[]): void => {
+        const firstArg = args.length > 0 ? args[0] : {};
+        const meta = firstArg instanceof Error
+          ? { error: firstArg.message, stack: firstArg.stack }
+          : firstArg;
         childLogger.error(message, meta);
       },
 
       /**
        * Get the underlying Winston logger instance
-       * @returns {winston.Logger} The Winston logger
+       * @returns The Winston logger
        */
-      getWinstonLogger: () => childLogger
+      getWinstonLogger: (): winston.Logger => childLogger
     };
   }
 
   /**
    * Get the root logger instance (for advanced use cases)
-   * @returns {winston.Logger} The root Winston logger
+   * @returns The root Winston logger
    */
-  getRootLogger() {
+  getRootLogger(): winston.Logger {
     return this.rootLogger;
   }
 
   /**
    * Set the log level dynamically
-   * @param {string} level - The log level (error, warn, info, debug)
+   * @param level - The log level (error, warn, info, debug)
    */
-  setLevel(level) {
+  setLevel(level: LogLevel): void {
     this.rootLogger.level = level;
   }
 }
-
-export { MainLogger };
