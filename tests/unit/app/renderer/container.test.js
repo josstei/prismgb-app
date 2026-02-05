@@ -89,19 +89,19 @@ vi.mock('@renderer/ui/orchestration/transcode-ui.bridge.js', () => ({
 }));
 
 // Features: Devices mocks
-vi.mock('@renderer/features/devices/services/device.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device.service.ts', () => ({
   DeviceService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-connection.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-connection.service.ts', () => ({
   DeviceConnectionService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-storage.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-storage.service.ts', () => ({
   DeviceStorageService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-media.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-media.service.ts', () => ({
   DeviceMediaService: vi.fn()
 }));
 
@@ -208,7 +208,7 @@ vi.mock('@renderer/features/capture/services/capture-save.service.js', () => ({
 }));
 
 // Features: Transcode mocks
-vi.mock('@renderer/features/transcode/services/transcode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/transcode/transcode.service.ts', () => ({
   TranscodeService: vi.fn()
 }));
 

@@ -34,12 +34,12 @@ import { CaptureUIBridge } from '@renderer/ui/orchestration/capture-ui.bridge.js
 import { TranscodeUIBridge } from '@renderer/ui/orchestration/transcode-ui.bridge.js';
 
 // Features: Devices
-import { DeviceService } from '@renderer/features/devices/services/device.service.js';
-import { DeviceConnectionService } from '@renderer/features/devices/services/device-connection.service.js';
-import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
-import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
+import { DeviceService } from '@renderer/infrastructure/services/devices/device.service.ts';
+import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
+import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
+import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
-import { DeviceOperationSequencerService } from '@renderer/features/devices/services/device-operation-sequencer.service.js';
+import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts';
 import { DeviceIpcStatusAdapter } from '@renderer/features/devices/adapters/device-ipc-status.adapter.js';
 import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
 import { DeviceChangeDebounceAdapter } from '@renderer/features/devices/adapters/device-change-debounce.adapter.js';
@@ -79,7 +79,7 @@ import { CaptureGpuRecordingService } from '@renderer/features/capture/services/
 import { CaptureSaveService } from '@renderer/features/capture/services/capture-save.service.js';
 
 // Features: Transcode
-import { TranscodeService } from '@renderer/features/transcode/services/transcode.service.js';
+import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 
 // Features: Settings
 import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
@@ -91,7 +91,7 @@ import { SettingsCinematicModeService } from '@renderer/features/settings/servic
 import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
 
 // Features: Notes
-import { NotesService } from '@renderer/features/notes/services/notes.service.js';
+import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
 import { NotesPanelComponent } from '@renderer/ui/features/notes/notes-panel.component.js';
 
 // Features: Updates

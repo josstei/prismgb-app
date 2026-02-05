@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceService } from '@renderer/features/devices/services/device.service.js';
-import { DeviceConnectionService } from '@renderer/features/devices/services/device-connection.service.js';
-import { DeviceStorageService } from '@renderer/features/devices/services/device-storage.service.js';
-import { DeviceMediaService } from '@renderer/features/devices/services/device-media.service.js';
+import { DeviceService } from '@renderer/infrastructure/services/devices/device.service.ts';
+import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
+import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
+import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
 
 describe('DeviceService', () => {
   let service;

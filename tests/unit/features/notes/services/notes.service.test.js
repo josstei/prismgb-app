@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesService } from '@renderer/features/notes/services/notes.service.js';
+import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { NotesStorageKeys } from '@shared/config/storage-keys.config.js';
 
