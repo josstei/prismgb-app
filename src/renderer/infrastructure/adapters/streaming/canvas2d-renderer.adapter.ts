@@ -10,7 +10,7 @@
  * - Handle canvas context state
  */
 
-import { IStreamingRenderer } from '../interfaces/streaming-renderer.interface.js';
+import { IStreamingRenderer } from './streaming-renderer.interface.ts';
 
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   /**

@@ -11,7 +11,7 @@
  * - Track active state
  */
 
-import { IStreamingRenderer } from '../interfaces/streaming-renderer.interface.js';
+import { IStreamingRenderer } from './streaming-renderer.interface.ts';
 
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   /**

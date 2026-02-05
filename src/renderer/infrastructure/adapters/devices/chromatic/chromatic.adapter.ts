@@ -3,10 +3,10 @@
  * Domain-based architecture with clean dependencies
  */
 
-import { BaseDeviceAdapter } from '../device-base.adapter.js';
-import { StreamAcquisitionOrchestrator } from '@shared/streaming/acquisition/acquisition.class.js';
-import { DeviceAwareFallbackStrategy } from '@shared/streaming/acquisition/fallback-strategy.class.js';
-import { AcquisitionContext } from '@shared/streaming/acquisition/acquisition-context.class.js';
+import { BaseDeviceAdapter } from '../device-base.adapter.ts';
+import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
+import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy.ts';
+import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
