@@ -15,17 +15,17 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CapabilityDetector } from './streaming-capability-detector.utils.js';
+import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils.ts';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../workers/streaming-worker-protocol.config.js';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
 import {
   DEFAULT_PRESET_ID,
   getPresetById,
   buildUniformsFromPreset
-} from '../presets/streaming-render-presets.config.js';
+} from '@renderer/infrastructure/rendering/presets/render-presets.config.ts';
 
 /**
  * Maximum number of frames that can be pending render

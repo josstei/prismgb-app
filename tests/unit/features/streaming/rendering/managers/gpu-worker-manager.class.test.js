@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GpuWorkerManager } from '@renderer/features/streaming/rendering/gpu/managers/gpu-worker-manager.class.js';
-import { WorkerMessageType } from '@renderer/features/streaming/rendering/workers/streaming-worker-protocol.config.js';
+import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
+import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
 
 // Mock worker protocol
-vi.mock('@renderer/features/streaming/rendering/workers/streaming-worker-protocol.config.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', () => ({
   WorkerMessageType: {
     INIT: 'init',
     FRAME: 'frame',

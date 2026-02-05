@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceAnimationService } from '@renderer/application/performance/performance-animation.service.js';
+import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service.ts';
 
 describe('PerformanceAnimationService', () => {
   let service;

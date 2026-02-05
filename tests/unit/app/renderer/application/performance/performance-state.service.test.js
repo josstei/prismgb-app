@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PerformanceStateService } from '@renderer/application/performance/performance-state.service.js';
+import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service.ts';
 
 describe('PerformanceStateService', () => {
   let service;

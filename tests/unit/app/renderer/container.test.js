@@ -31,7 +31,7 @@ vi.mock('@renderer/application/performance/performance-animation.orchestrator.js
   PerformanceAnimationOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-animation.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-animation.service.ts', () => ({
   PerformanceAnimationService: vi.fn()
 }));
 
@@ -39,7 +39,7 @@ vi.mock('@renderer/application/performance/performance-state.orchestrator.js', (
   PerformanceStateOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-state.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-state.service.ts', () => ({
   PerformanceStateService: vi.fn()
 }));
 
@@ -47,11 +47,11 @@ vi.mock('@renderer/application/performance/performance-metrics.orchestrator.js',
   PerformanceMetricsOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-metrics.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-metrics.service.ts', () => ({
   PerformanceMetricsService: vi.fn()
 }));
 
-vi.mock('@renderer/application/adapters/metrics.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/platform/metrics.adapter.ts', () => ({
   MetricsAdapter: vi.fn()
 }));
 
@@ -109,20 +109,20 @@ vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
   DeviceOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/device-ipc-status.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts', () => ({
   DeviceIpcStatusAdapter: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/device-ipc.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', () => ({
   DeviceIpcAdapter: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts', () => ({
   DeviceChromaticAdapter: vi.fn()
 }));
 
 // Features: Streaming mocks
-vi.mock('@renderer/features/streaming/services/streaming.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/streaming.service.ts', () => ({
   StreamingService: vi.fn()
 }));
 
@@ -130,43 +130,43 @@ vi.mock('@renderer/features/streaming/services/streaming.orchestrator.js', () =>
   StreamingOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/factories/streaming-adapter.factory.js', () => ({
+vi.mock('@renderer/infrastructure/factories/streaming-adapter.factory.ts', () => ({
   StreamingAdapterFactory: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/canvas-renderer.ts', () => ({
   StreamingCanvasRenderer: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-render-pipeline.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/render-pipeline.service.ts', () => ({
   StreamingRenderPipelineService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts', () => ({
   StreamingCanvasLifecycleService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/gpu-render-loop.service.ts', () => ({
   StreamingGpuRenderLoopService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-viewport.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/viewport.service.ts', () => ({
   StreamingViewportService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-health.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/health.service.ts', () => ({
   StreamingHealthService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/gpu-renderer.service.ts', () => ({
   StreamingGpuRendererService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/services/streaming-view.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/streaming-view.service.ts', () => ({
   StreamingViewService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/audio/streaming-audio-pipeline.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/audio-pipeline.service.ts', () => ({
   StreamingAudioPipelineService: vi.fn()
 }));
 

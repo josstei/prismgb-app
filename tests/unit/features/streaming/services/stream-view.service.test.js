@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
+import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service.ts';
 
 describe('StreamingViewService', () => {
   let service;

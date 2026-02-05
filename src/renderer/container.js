@@ -17,11 +17,11 @@ import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-c
 import { AppState } from '@renderer/application/app-state.class.js';
 import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/performance/performance-animation.orchestrator.js';
-import { PerformanceAnimationService } from '@renderer/application/performance/performance-animation.service.js';
+import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service.ts';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/performance/performance-metrics.orchestrator.js';
-import { PerformanceMetricsService } from '@renderer/application/performance/performance-metrics.service.js';
+import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service.ts';
 import { PerformanceStateOrchestrator } from '@renderer/application/performance/performance-state.orchestrator.js';
-import { PerformanceStateService } from '@renderer/application/performance/performance-state.service.js';
+import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service.ts';
 
 // UI layer
 import { UISetupOrchestrator } from '@renderer/ui/orchestration/ui-setup.orchestrator.js';
@@ -40,32 +40,32 @@ import { DeviceStorageService } from '@renderer/infrastructure/services/devices/
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
 import { DeviceOrchestrator } from '@renderer/features/devices/services/device.orchestrator.js';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts';
-import { DeviceIpcStatusAdapter } from '@renderer/features/devices/adapters/device-ipc-status.adapter.js';
-import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
-import { DeviceChangeDebounceAdapter } from '@renderer/features/devices/adapters/device-change-debounce.adapter.js';
-import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js';
+import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts';
+import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts';
+import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts';
+import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
 
 // Features: Streaming
-import { StreamingService } from '@renderer/features/streaming/services/streaming.service.js';
+import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
 import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
 import { StreamingAudioOrchestrator } from '@renderer/features/streaming/services/streaming-audio.orchestrator.js';
-import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
-import { StreamingRendererFactory } from '@renderer/features/streaming/factories/streaming-renderer.factory.js';
-import { StreamingCanvasRenderer } from '@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js';
-import { StreamingRenderPipelineService } from '@renderer/features/streaming/rendering/streaming-render-pipeline.service.js';
-import { StreamingCanvasLifecycleService } from '@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js';
-import { StreamingGpuRenderLoopService } from '@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js';
-import { StreamingViewportService } from '@renderer/features/streaming/rendering/streaming-viewport.service.js';
-import { StreamingHealthService } from '@renderer/features/streaming/rendering/streaming-health.service.js';
-import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
-import { StreamingGpuRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-gpu-renderer.adapter.js';
-import { StreamingCanvas2DRendererAdapter } from '@renderer/features/streaming/rendering/adapters/streaming-canvas2d-renderer.adapter.js';
+import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
+import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory.ts';
+import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer.ts';
+import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service.ts';
+import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts';
+import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service.ts';
+import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service.ts';
+import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service.ts';
+import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
+import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts';
+import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts';
 
 // GPU Managers
-import { GpuFrameBuffer } from '@renderer/features/streaming/rendering/gpu/managers/gpu-frame-buffer.class.js';
-import { GpuWorkerManager } from '@renderer/features/streaming/rendering/gpu/managers/gpu-worker-manager.class.js';
-import { StreamingViewService } from '@renderer/features/streaming/services/streaming-view.service.js';
-import { StreamingAudioPipelineService } from '@renderer/features/streaming/audio/streaming-audio-pipeline.service.js';
+import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer.ts';
+import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
+import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service.ts';
+import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service.ts';
 import { StreamingControlsComponent } from '@renderer/ui/features/streaming/streaming-controls.component.js';
 import { ShaderSelectorComponent } from '@renderer/ui/features/toolbar/components/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/ui/shared/status-notification.component.js';
@@ -108,7 +108,7 @@ import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-me
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
-import { MetricsAdapter } from '@renderer/application/adapters/metrics.adapter.js';
+import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter.ts';
 // Shared
 import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
+import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Mock the capability detector

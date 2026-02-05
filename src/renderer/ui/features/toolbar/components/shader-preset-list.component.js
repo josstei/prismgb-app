@@ -6,7 +6,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@shared/config/css-classes.config.js';
-import { getPresetsForUI } from '@renderer/features/streaming/rendering/presets/streaming-render-presets.config.js';
+import { getPresetsForUI } from '@renderer/infrastructure/rendering/presets/render-presets.config.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class ShaderPresetListComponent {

@@ -10,7 +10,7 @@ import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '../../workers/streaming-worker-protocol.config.js';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
 
 export class GpuWorkerManager {
   /**

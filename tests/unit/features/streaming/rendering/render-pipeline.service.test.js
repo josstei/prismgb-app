@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StreamingRenderPipelineService } from '@renderer/features/streaming/rendering/streaming-render-pipeline.service.js';
+import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service.ts';
 
 describe('StreamingRenderPipelineService', () => {
   let service;

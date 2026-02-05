@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GpuFrameBuffer } from '@renderer/features/streaming/rendering/gpu/managers/gpu-frame-buffer.class.js';
+import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer.ts';
 
 describe('GpuFrameBuffer', () => {
   let buffer;
