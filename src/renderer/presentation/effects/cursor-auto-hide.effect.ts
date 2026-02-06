@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CursorAutoHide - Manages cursor auto-hiding during streaming
  *
@@ -9,12 +8,14 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class CursorAutoHide {
+  [key: string]: any;
+
   /**
    * @param {Object} options
    * @param {Function} [options.onActivity] - Callback when mouse activity detected
    * @param {Function} [options.onHide] - Callback when cursor is hidden
    */
-  constructor(options = {}) {
+  constructor(options: any = {}) {
     this._enabled = false;
     this._onActivity = options.onActivity || (() => {});
     this._onHide = options.onHide || (() => {});

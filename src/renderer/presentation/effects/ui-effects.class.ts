@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * UIEffects - Facade for visual feedback effects
  *
@@ -15,7 +14,9 @@ import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-h
 import { HideTimer } from '@renderer/presentation/primitives/hide-timer.class.js';
 
 export class UIEffects {
-  constructor(dependencies = {}) {
+  [key: string]: any;
+
+  constructor(dependencies: any = {}) {
     const { elements, bodyClassManager } = dependencies;
     this.elements = elements;
 

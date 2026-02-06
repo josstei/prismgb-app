@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ControlsAutoHide - Manages fullscreen controls auto-hiding
  *
@@ -10,6 +9,8 @@ import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class ControlsAutoHide {
+  [key: string]: any;
+
   /**
    * @param {Object} options
    * @param {Function} [options.onShowAll] - Callback to show cursor and toolbar
@@ -17,7 +18,7 @@ export class ControlsAutoHide {
    * @param {Function} [options.onEnable] - Callback when controls auto-hide is enabled
    * @param {Function} [options.onDisable] - Callback when controls auto-hide is disabled
    */
-  constructor(options = {}) {
+  constructor(options: any = {}) {
     this._enabled = false;
     this._element = null;
     this._hideTimer = null;

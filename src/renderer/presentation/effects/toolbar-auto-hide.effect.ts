@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ToolbarAutoHide - Manages toolbar auto-hiding during streaming
  *
@@ -10,6 +9,8 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class ToolbarAutoHide {
+  [key: string]: any;
+
   /**
    * @param {Object} options
    * @param {Function} [options.onActivity] - Callback when toolbar activity detected
@@ -17,7 +18,7 @@ export class ToolbarAutoHide {
    * @param {Function} [options.onHoverStart] - Callback when hovering starts
    * @param {Function} [options.onHoverEnd] - Callback when hovering ends
    */
-  constructor(options = {}) {
+  constructor(options: any = {}) {
     this._enabled = false;
     this._element = null;
     this._hovering = false;

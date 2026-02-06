@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Body Class Manager
  *
@@ -17,6 +16,8 @@ const APP_CSS_CLASSES = Object.freeze({
 });
 
 export class BodyClassManager {
+  [key: string]: any;
+
   constructor() {
     this._minimalistTransitionTimer = null;
   }

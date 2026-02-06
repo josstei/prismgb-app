@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Application State Manager
  * Centralized state management with EventBus integration
@@ -10,6 +9,8 @@
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class AppState {
+  [key: string]: any;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {StreamingService} dependencies.streamingService - Streaming service for state derivation
@@ -17,7 +18,7 @@ class AppState {
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
-  constructor(dependencies = {}) {
+  constructor(dependencies: any = {}) {
     const { streamingService, deviceService, eventBus } = dependencies;
 
     // Service references for derived state

@@ -11,6 +11,7 @@ Reduce runtime type-safety risk by removing `@ts-nocheck` from low-churn modules
 This implementation covers:
 - Creating an execution plan for staged `@ts-nocheck` removal.
 - Executing **Batch 1** (low-churn modules).
+- Executing **Batch 2** (medium-churn renderer interaction modules).
 - Running a structured post-batch review.
 
 Out of scope for this document execution cycle:
@@ -58,8 +59,30 @@ Acceptance criteria:
 - `npm run test:integration` passes.
 
 ### Batch 2 (Medium Churn)
-Deferred for next cycle.
-Representative scope: UI bridges/effects and tightly-coupled services.
+Target files:
+1. `src/renderer/presentation/effects/body-class.class.ts`
+2. `src/renderer/presentation/effects/button-feedback.effect.ts`
+3. `src/renderer/presentation/effects/controls-auto-hide.effect.ts`
+4. `src/renderer/presentation/effects/cursor-auto-hide.effect.ts`
+5. `src/renderer/presentation/effects/toolbar-auto-hide.effect.ts`
+6. `src/renderer/presentation/effects/ui-effects.class.ts`
+7. `src/renderer/presentation/bridges/capture-ui.bridge.ts`
+8. `src/renderer/presentation/bridges/transcode-ui.bridge.ts`
+9. `src/renderer/presentation/bridges/ui-event.bridge.ts`
+10. `src/renderer/application/state/app-state.ts`
+11. `src/renderer/infrastructure/services/updates/update-ui.service.ts`
+
+Execution rules:
+- Remove `@ts-nocheck`.
+- Add minimal typing only where required for passing checks.
+- Keep changes scoped to selected modules.
+
+Acceptance criteria:
+- All Batch 2 files compile without `@ts-nocheck`.
+- `npm run typecheck:app` passes.
+- `npm run lint` passes (warnings allowed if unchanged in nature).
+- `npm run test:unit` passes.
+- `npm run test:integration` passes.
 
 ### Batch 3 (High Churn)
 Deferred for next cycle.
@@ -99,6 +122,29 @@ Representative scope: large streaming/main-process services and bootstrap paths.
 #### Batch 1 Review Results
 - Diff scope:
   - Exactly the 16 Batch 1 target files were changed, plus this implementation document.
+- Static validation:
+  - `npm run typecheck:app` ✅ pass
+  - `npm run lint` ✅ pass (6 pre-existing warnings, no errors)
+- Behavioral validation:
+  - `npm run test:unit` ✅ pass (126 files, 2748 tests)
+  - `npm run test:integration` ✅ pass (1 file, 21 tests)
+- Architecture sanity:
+  - `node scripts/check-layer-boundaries.js` ✅ pass
+
+### Batch 2
+- Status: Completed
+- Start: 2026-02-06
+- End: 2026-02-06
+- Notes:
+  - Removed `@ts-nocheck` from all 11 Batch 2 target files.
+  - `@ts-nocheck` count reduced from **42** to **31**.
+  - Addressed typecheck blockers with minimal scoped fixes:
+    - Added minimal index signatures (`[key: string]: any`) for dynamic class properties.
+    - Added constructor parameter typing for destructured `options`/`dependencies`.
+
+#### Batch 2 Review Results
+- Diff scope:
+  - Exactly the 11 Batch 2 target files were changed during execution.
 - Static validation:
   - `npm run typecheck:app` ✅ pass
   - `npm run lint` ✅ pass (6 pre-existing warnings, no errors)

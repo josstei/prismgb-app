@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ButtonFeedback - Handles button animation feedback
  *
@@ -9,7 +8,9 @@ import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class ButtonFeedback {
-  constructor(dependencies = {}) {
+  [key: string]: any;
+
+  constructor(dependencies: any = {}) {
     const { elements } = dependencies;
     this.elements = elements;
     this._activeTimeouts = new Set();
