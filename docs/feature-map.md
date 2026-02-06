@@ -138,9 +138,10 @@ Screenshots will not be added to this repository.
 
 ### Add a Render Preset
 
-1. Update `src/renderer/infrastructure/rendering/presets/streaming-render-presets.config.js`.
-2. Ensure UI labels and descriptions read well.
-3. Consider performance mode interactions.
+1. Add a new preset file in `packages/prismgb-gpu/src/domain/presets/presets/` implementing the `IPreset` interface.
+2. Register it with `PresetRegistry.register()` and import it in `packages/prismgb-gpu/src/index.ts`.
+3. Ensure UI labels and descriptions read well (`PresetRegistry.getForUI()` provides the list).
+4. Consider performance mode interactions.
 
 ### Add a New Setting
 
