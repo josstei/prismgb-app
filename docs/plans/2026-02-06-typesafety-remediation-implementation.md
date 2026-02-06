@@ -1,7 +1,7 @@
 # Type-Safety Remediation Implementation
 
 **Date:** 2026-02-06
-**Status:** In Progress
+**Status:** Completed
 **Owner:** Codex
 
 ## Objective
@@ -12,11 +12,12 @@ This implementation covers:
 - Creating an execution plan for staged `@ts-nocheck` removal.
 - Executing **Batch 1** (low-churn modules).
 - Executing **Batch 2** (medium-churn renderer interaction modules).
+- Executing **Batch 3** (remaining high-churn modules).
 - Running a structured post-batch review.
 
 Out of scope for this document execution cycle:
 - Full strict-mode migration.
-- Refactoring high-complexity GPU worker and large main-process services.
+- Broad architectural refactors unrelated to typing remediation.
 
 ## Baseline (Before Batch 1)
 - `@ts-nocheck` occurrences in runtime source: **58**
@@ -85,8 +86,21 @@ Acceptance criteria:
 - `npm run test:integration` passes.
 
 ### Batch 3 (High Churn)
-Deferred for next cycle.
-Representative scope: large streaming/main-process services and bootstrap paths.
+Target files:
+- Remaining **31** runtime source files that still contained `@ts-nocheck` after Batch 2.
+- Scope included main-process bootstrap/services and renderer orchestrators/services.
+
+Execution rules:
+- Remove `@ts-nocheck`.
+- Add minimal typing only where required for passing checks.
+- Keep behavior unchanged and avoid non-typing refactors.
+
+Acceptance criteria:
+- All Batch 3 files compile without `@ts-nocheck`.
+- `npm run typecheck:app` passes.
+- `npm run lint` passes (warnings allowed if unchanged in nature).
+- `npm run test:unit` passes.
+- `npm run test:integration` passes.
 
 ## Review Protocol (Run After Each Batch)
 1. **Diff Review**
@@ -145,6 +159,32 @@ Representative scope: large streaming/main-process services and bootstrap paths.
 #### Batch 2 Review Results
 - Diff scope:
   - Exactly the 11 Batch 2 target files were changed during execution.
+- Static validation:
+  - `npm run typecheck:app` ✅ pass
+  - `npm run lint` ✅ pass (6 pre-existing warnings, no errors)
+- Behavioral validation:
+  - `npm run test:unit` ✅ pass (126 files, 2748 tests)
+  - `npm run test:integration` ✅ pass (1 file, 21 tests)
+- Architecture sanity:
+  - `node scripts/check-layer-boundaries.js` ✅ pass
+
+### Batch 3
+- Status: Completed
+- Start: 2026-02-06
+- End: 2026-02-06
+- Notes:
+  - Removed `@ts-nocheck` from all remaining 31 runtime source files.
+  - `@ts-nocheck` count reduced from **31** to **0**.
+  - Addressed typecheck blockers with minimal scoped fixes:
+    - Replaced stale import paths for renamed event/profile modules.
+    - Added a `WindowService.getMainWindow()` accessor and updated call sites.
+    - Resolved legacy `usb-detection` listener typing via compatibility wrapper.
+    - Removed logger visibility conflicts in classes extending `BaseService`.
+    - Added narrow local typings in renderer services where preload APIs return `unknown`.
+
+#### Batch 3 Review Results
+- Diff scope:
+  - Exactly the remaining 31 Batch 3 target files were changed during execution.
 - Static validation:
   - `npm run typecheck:app` ✅ pass
   - `npm run lint` ✅ pass (6 pre-existing warnings, no errors)

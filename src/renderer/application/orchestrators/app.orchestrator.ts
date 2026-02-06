@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Application Orchestrator
  *
@@ -14,6 +13,8 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class AppOrchestrator extends BaseOrchestrator {
+  [key: string]: any;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management

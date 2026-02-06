@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device Bridge
  *
@@ -11,7 +10,7 @@ import { MainEventChannels } from '@main/infrastructure/events/event-channels.co
 import type { DeviceService } from './device.service.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
-import type { EventBus } from '@main/infrastructure/events/event-bus.class.js';
+import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 
 interface DeviceStatus {
@@ -28,6 +27,8 @@ interface DeviceBridgeServiceDependencies {
 }
 
 class DeviceBridgeService extends BaseService {
+  [key: string]: any;
+
   private readonly deviceService: DeviceService;
   private readonly trayService: TrayService;
   private readonly windowService: WindowService;

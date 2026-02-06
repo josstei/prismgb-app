@@ -1,6 +1,12 @@
-// @ts-nocheck
 import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+
+interface BaseDeviceAdapterDependencies {
+  eventBus?: unknown;
+  logger?: Record<string, (...args: unknown[]) => void>;
+  constraintBuilder?: any;
+  streamLifecycle?: any;
+}
 
 /**
  * Base device adapter with common functionality for media stream acquisition
@@ -8,6 +14,8 @@ import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisiti
  * @extends IDeviceAdapter
  */
 export class BaseDeviceAdapter extends IDeviceAdapter {
+  [key: string]: any;
+
   /**
    * @param {Object} [dependencies={}] - Injected dependencies
    * @param {EventBus} [dependencies.eventBus] - Event publisher
@@ -15,7 +23,7 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
    * @param {ConstraintBuilder} [dependencies.constraintBuilder] - Builds media constraints
    * @param {BaseStreamLifecycle} [dependencies.streamLifecycle] - Stream lifecycle manager
    */
-  constructor(dependencies = {}) {
+  constructor(dependencies: BaseDeviceAdapterDependencies = {}) {
     super();
 
     this.eventBus = dependencies.eventBus;

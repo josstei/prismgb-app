@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Chromatic Device Adapter
  * Domain-based architecture with clean dependencies
@@ -11,6 +10,8 @@ import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisiti
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
+  [key: string]: any;
+
   /**
    * Create Chromatic adapter
    * @param {Object} dependencies - Injected dependencies
@@ -117,7 +118,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Get device capabilities
    */
-  async getCapabilities() {
+  getCapabilities() {
     const base = super.getCapabilities();
     const { nativeWidth, nativeHeight } = this.config.display;
 

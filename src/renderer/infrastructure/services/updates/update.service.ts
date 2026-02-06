@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Update Service (Renderer)
  *
@@ -21,7 +20,22 @@ import { UpdateState } from '@renderer/presentation/config/update-state.config';
 // Re-export for backward compatibility
 export { UpdateState };
 
+interface UpdateStatusSnapshot {
+  state?: string;
+  updateInfo?: unknown;
+  downloadProgress?: unknown;
+  error?: unknown;
+}
+
+interface UpdateActionResult {
+  success: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
+
 class UpdateService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
 
@@ -62,7 +76,7 @@ class UpdateService extends BaseService {
 
   async _loadInitialStatus() {
     try {
-      const result = await window.updateAPI.getStatus();
+      const result = await window.updateAPI.getStatus() as UpdateStatusSnapshot | null;
       if (result) {
         this._state = result.state || UpdateState.IDLE;
         this._updateInfo = result.updateInfo;
@@ -135,7 +149,7 @@ class UpdateService extends BaseService {
     return this._updateInfo;
   }
 
-  async checkForUpdates() {
+  async checkForUpdates(): Promise<UpdateActionResult> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -144,16 +158,17 @@ class UpdateService extends BaseService {
     this._setState(UpdateState.CHECKING);
 
     try {
-      const result = await window.updateAPI.checkForUpdates();
+      const result = await window.updateAPI.checkForUpdates() as UpdateActionResult;
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Check for updates failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 
-  async downloadUpdate() {
+  async downloadUpdate(): Promise<UpdateActionResult> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -167,16 +182,17 @@ class UpdateService extends BaseService {
     this._setState(UpdateState.DOWNLOADING);
 
     try {
-      const result = await window.updateAPI.downloadUpdate();
+      const result = await window.updateAPI.downloadUpdate() as UpdateActionResult;
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Download update failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 
-  async installUpdate() {
+  async installUpdate(): Promise<UpdateActionResult> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -190,12 +206,13 @@ class UpdateService extends BaseService {
     this.logger.info('Installing update and restarting...');
 
     try {
-      const result = await window.updateAPI.installUpdate();
+      const result = await window.updateAPI.installUpdate() as UpdateActionResult;
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Install update failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 

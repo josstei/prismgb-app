@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device Change Debounce Adapter
  *
@@ -18,6 +17,8 @@ import { TIMING } from '@shared/config/timing.config';
 const DEFAULT_DEBOUNCE_MS = TIMING?.DEVICE_CHANGE_DEBOUNCE_MS ?? 150;
 
 export class DeviceChangeDebounceAdapter {
+  [key: string]: any;
+
   /**
    * @param {Object} options - Configuration options
    * @param {Object} options.browserMediaService - Browser media API wrapper

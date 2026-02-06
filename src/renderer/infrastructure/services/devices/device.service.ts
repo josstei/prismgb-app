@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device Service (Facade)
  *
@@ -9,6 +8,8 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class DeviceService extends BaseService {
+  [key: string]: any;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher

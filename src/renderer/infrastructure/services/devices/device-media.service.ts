@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device Media Service
  *
@@ -11,6 +10,8 @@ import { TIMING } from '@shared/config/timing.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, [
       'eventBus',

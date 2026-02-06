@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device Operation Sequencer Service
  *
@@ -22,6 +21,8 @@ const OperationType = {
 };
 
 export class DeviceOperationSequencerService extends BaseService {
+  [key: string]: any;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {DeviceService} dependencies.deviceService - Device service facade

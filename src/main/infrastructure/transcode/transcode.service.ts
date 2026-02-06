@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Transcode Service
  *
@@ -92,8 +91,9 @@ interface TranscodeServiceDependencies {
 }
 
 class TranscodeService extends BaseService {
+  [key: string]: any;
+
   private windowService: TranscodeServiceDependencies['windowService'];
-  private logger: ReturnType<TranscodeServiceDependencies['loggerFactory']['create']>;
   private _jobs: Map<string, TranscodeJob> = new Map();
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
@@ -103,7 +103,6 @@ class TranscodeService extends BaseService {
   constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory'], 'TranscodeService');
     this.windowService = dependencies.windowService;
-    this.logger = dependencies.loggerFactory.create('TranscodeService');
   }
 
   /**

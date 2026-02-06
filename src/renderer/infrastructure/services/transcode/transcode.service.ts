@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Transcode Service (Renderer)
  *
@@ -16,7 +15,20 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
+interface RendererTranscodeOptions {
+  inputArgs?: string[];
+  interrupted?: boolean;
+}
+
+interface RendererTranscodeResult {
+  success: boolean;
+  jobId?: string;
+  error?: string;
+}
+
 class TranscodeService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
 
@@ -66,7 +78,12 @@ class TranscodeService extends BaseService {
    * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
    */
-  async transcode(blob, format, outputBaseName, options = {}) {
+  async transcode(
+    blob: Blob,
+    format: string,
+    outputBaseName?: string,
+    options: RendererTranscodeOptions = {}
+  ): Promise<RendererTranscodeResult> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -92,7 +109,7 @@ class TranscodeService extends BaseService {
           inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
           interrupted: Boolean(options.interrupted)
         }
-      );
+      ) as RendererTranscodeResult;
 
       if (result.success && result.jobId) {
         // Track state locally since main process doesn't emit STARTED event
@@ -105,7 +122,10 @@ class TranscodeService extends BaseService {
       return result;
     } catch (error) {
       this.logger.error('Transcode failed', error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   }
 
@@ -113,7 +133,7 @@ class TranscodeService extends BaseService {
    * Cancel the current transcoding operation
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async cancel() {
+  async cancel(): Promise<{ success: boolean; error?: string }> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -125,7 +145,7 @@ class TranscodeService extends BaseService {
     }
 
     this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    return window.transcodeAPI.cancel(this._activeJobId);
+    return window.transcodeAPI.cancel(this._activeJobId) as Promise<{ success: boolean; error?: string }>;
   }
 
   /**

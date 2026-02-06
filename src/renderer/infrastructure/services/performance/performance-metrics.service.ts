@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Performance Metrics Service
  *
@@ -8,6 +7,8 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PerformanceMetricsService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 

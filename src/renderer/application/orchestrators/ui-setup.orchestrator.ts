@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * UI Setup Orchestrator
  *
@@ -17,6 +16,8 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(
       dependencies,

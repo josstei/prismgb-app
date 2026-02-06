@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Capture Save Service
  *
@@ -13,7 +12,19 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
 
+interface RecordingSaveOptions {
+  interrupted?: boolean;
+}
+
+interface SaveResult {
+  success: boolean;
+  transcoded?: boolean;
+  error?: string;
+}
+
 class CaptureSaveService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(
       dependencies,
@@ -30,7 +41,7 @@ class CaptureSaveService extends BaseService {
    * @param {boolean} [options.interrupted=false] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    */
-  async saveRecording(blob, filename, options = {}) {
+  async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {
     const format = this.settingsService.getRecordingFormat();
     const interrupted = Boolean(options.interrupted);
 
@@ -53,7 +64,7 @@ class CaptureSaveService extends BaseService {
    * @param {string} filename - The filename
    * @returns {Promise<{success: boolean}>}
    */
-  async saveScreenshot(blob, filename) {
+  async saveScreenshot(blob: Blob, filename: string): Promise<SaveResult> {
     return this._directSave(blob, filename);
   }
 
@@ -64,7 +75,7 @@ class CaptureSaveService extends BaseService {
    * @returns {{success: boolean}}
    * @private
    */
-  async _directSave(blob, filename) {
+  async _directSave(blob: Blob, filename: string): Promise<SaveResult> {
     try {
       await downloadFile(blob, filename);
 
@@ -86,7 +97,12 @@ class CaptureSaveService extends BaseService {
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    * @private
    */
-  async _transcodeAndSave(blob, format, outputBaseName, options = {}) {
+  async _transcodeAndSave(
+    blob: Blob,
+    format: string,
+    outputBaseName: string,
+    options: RecordingSaveOptions = {}
+  ): Promise<SaveResult> {
     try {
       this.logger.info(`Starting transcode to ${format}`);
       const interrupted = Boolean(options.interrupted);

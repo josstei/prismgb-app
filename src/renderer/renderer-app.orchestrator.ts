@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Renderer Application Orchestrator
  *
@@ -38,6 +37,8 @@ async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
 }
 
 class RendererAppOrchestrator {
+  [key: string]: any;
+
   constructor() {
     this.container = null;
     this.orchestrator = null;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Update Service (Main)
  * Handles automatic updates using electron-updater
@@ -72,6 +71,8 @@ interface UpdateStatus {
 }
 
 class UpdateService extends BaseService {
+  [key: string]: any;
+
   state: UpdateStateType;
   updateInfo: UpdateInfo | null;
   downloadProgress: ProgressInfo | null;

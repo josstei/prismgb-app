@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Window Service
  * Handles main application window creation and lifecycle
@@ -38,7 +37,13 @@ type DownloadHandler = (event: Event, item: DownloadItem) => void;
 
 type FullscreenListener = () => void;
 
+type AppWithQuitFlag = typeof app & {
+  isQuitting?: boolean;
+};
+
 class WindowService extends BaseService {
+  [key: string]: any;
+
   private mainWindow: BrowserWindow | null = null;
   private _consoleMessageListener: ConsoleMessageListener | null = null;
   private _downloadHandler: DownloadHandler | null = null;
@@ -165,7 +170,7 @@ class WindowService extends BaseService {
 
     // Handle window close - clean up listeners before window is destroyed
     this.mainWindow.on('close', (event: Event) => {
-      if (!app.isQuitting) {
+      if (!(app as AppWithQuitFlag).isQuitting) {
         event.preventDefault();
         this.mainWindow!.hide();
         return;
@@ -245,6 +250,13 @@ class WindowService extends BaseService {
    */
   hasWindow(): boolean {
     return this.mainWindow !== null;
+  }
+
+  /**
+   * Get main window reference
+   */
+  getMainWindow(): BrowserWindow | null {
+    return this.mainWindow;
   }
 
   /**

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Main Entry Point
  * Initializes the application using dependency injection
@@ -124,7 +123,7 @@ if (process.argv.includes('--smoke-test')) {
       const container = application.getContainer();
       if (container) {
         const windowService = container.resolve('windowService');
-        const win = windowService?.mainWindow;
+        const win = windowService?.getMainWindow();
         if (win) {
           if (win.isMinimized()) win.restore();
           win.show();

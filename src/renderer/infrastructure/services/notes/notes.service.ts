@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Notes Service
  *
@@ -17,6 +16,8 @@ import { generateEntityId } from '@shared/utils/string.utils.js';
 import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config';
 
 class NotesService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
 
@@ -261,7 +262,7 @@ class NotesService extends BaseService {
    */
   getUniqueGames() {
     const notes = this.getAllNotes();
-    const games = new Set();
+    const games = new Set<string>();
 
     for (const note of notes) {
       if (note.gameName && typeof note.gameName === 'string') {

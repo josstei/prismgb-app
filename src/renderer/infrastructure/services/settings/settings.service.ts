@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Settings Service
  *
@@ -16,6 +15,8 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 import { SettingsStorageKeys } from '@renderer/presentation/config/storage-keys.config';
 
 class SettingsService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
 

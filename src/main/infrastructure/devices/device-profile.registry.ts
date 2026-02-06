@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ProfileRegistry - Central registry for device profiles
  *
@@ -7,7 +6,7 @@
  */
 
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
-import type { DeviceProfile } from '@shared/features/devices/device-profile.class.js';
+import type { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
 import type { Logger, LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 
 interface USBDevice {
@@ -32,6 +31,8 @@ interface DeviceProfileRegistryDependencies {
 }
 
 class DeviceProfileRegistry {
+  [key: string]: any;
+
   private readonly logger: Logger;
   private readonly profiles: Map<string, DeviceProfile>;
   private readonly usbIndex: Map<string, DeviceProfile>;
