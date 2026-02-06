@@ -1,205 +1,211 @@
-import { BasePipeline, type BasePipelineConfig } from '../base-pipeline';
-import { loadShaders, type WebGL2Shaders } from './webgl2-shader-loader';
+import { BasePipeline } from '../base-pipeline';
+import { loadShaders } from './webgl2-shader-loader';
+import { ShaderProgram } from './shader-program';
 
+interface ShaderPrograms {
+  pixelUpscale: ShaderProgram;
+  unsharpMask: ShaderProgram;
+  colorElevation: ShaderProgram;
+  crtLcd: ShaderProgram;
+}
+
+/**
+ * WebGL2 4-pass rendering pipeline.
+ *
+ * Renders Game Boy frames through a configurable shader chain:
+ * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
+ * Uses ping-pong intermediate textures for multi-pass rendering.
+ */
 export class WebGL2Pipeline extends BasePipeline {
   private gl: WebGL2RenderingContext | null = null;
-  private programs: WebGLProgram[] = [];
-  private framebuffers: WebGLFramebuffer[] = [];
-  private textures: WebGLTexture[] = [];
+  private programs: ShaderPrograms | null = null;
   private sourceTexture: WebGLTexture | null = null;
+  private intermediateTextures: WebGLTexture[] = [];
+  private framebuffers: WebGLFramebuffer[] = [];
   private vao: WebGLVertexArrayObject | null = null;
-  private shaders: WebGL2Shaders | null = null;
 
   async initialize(): Promise<void> {
     if (this._isInitialized) return;
 
-    this.gl = (this.canvas as HTMLCanvasElement).getContext('webgl2', {
+    const baseAttributes: WebGLContextAttributes = {
       alpha: false,
-      desynchronized: true,
-      powerPreference: 'high-performance',
-      preserveDrawingBuffer: true
-    });
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false,
+      powerPreference: 'low-power'
+    };
+
+    this.gl = (this.canvas as HTMLCanvasElement).getContext('webgl2', baseAttributes)
+      ?? (this.canvas as HTMLCanvasElement).getContext('webgl2', {
+        ...baseAttributes,
+        powerPreference: 'high-performance'
+      });
 
     if (!this.gl) {
       throw new Error('WebGL2 context not available');
     }
 
-    this.shaders = loadShaders();
     this.createPrograms();
-    this.createGeometry();
-    this.createTextures();
-    this.createFramebuffers();
+    this.createVAO();
+    this.createResources();
 
     this._isInitialized = true;
     this._isActive = true;
   }
 
   private createPrograms(): void {
-    if (!this.gl || !this.shaders) return;
+    const gl = this.gl!;
+    const shaders = loadShaders();
 
-    const fragmentShaders = [
-      this.shaders.pixelUpscale,
-      this.shaders.unsharpMask,
-      this.shaders.colorElevation,
-      this.shaders.crtLcd
-    ];
-
-    for (const fragSrc of fragmentShaders) {
-      const program = this.createProgram(this.shaders.vertex, fragSrc);
-      if (program) {
-        this.programs.push(program);
-      }
-    }
+    this.programs = {
+      pixelUpscale: new ShaderProgram(gl, shaders.vertex, shaders.pixelUpscale, 'PixelUpscale'),
+      unsharpMask: new ShaderProgram(gl, shaders.vertex, shaders.unsharpMask, 'UnsharpMask'),
+      colorElevation: new ShaderProgram(gl, shaders.vertex, shaders.colorElevation, 'ColorElevation'),
+      crtLcd: new ShaderProgram(gl, shaders.vertex, shaders.crtLcd, 'CrtLcd')
+    };
   }
 
-  private createProgram(vertSrc: string, fragSrc: string): WebGLProgram | null {
-    if (!this.gl) return null;
-
-    const vert = this.compileShader(this.gl.VERTEX_SHADER, vertSrc);
-    const frag = this.compileShader(this.gl.FRAGMENT_SHADER, fragSrc);
-    if (!vert || !frag) return null;
-
-    const program = this.gl.createProgram();
-    if (!program) return null;
-
-    this.gl.attachShader(program, vert);
-    this.gl.attachShader(program, frag);
-    this.gl.linkProgram(program);
-
-    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-      console.error('Program link error:', this.gl.getProgramInfoLog(program));
-      return null;
-    }
-
-    this.gl.deleteShader(vert);
-    this.gl.deleteShader(frag);
-    return program;
+  private createVAO(): void {
+    const gl = this.gl!;
+    this.vao = gl.createVertexArray();
   }
 
-  private compileShader(type: number, source: string): WebGLShader | null {
-    if (!this.gl) return null;
+  private createResources(): void {
+    const gl = this.gl!;
+    const { upscale } = this.uniforms;
+    const [targetWidth, targetHeight] = upscale.outputSize;
 
-    const shader = this.gl.createShader(type);
-    if (!shader) return null;
+    this.sourceTexture = this.createTexture(this.nativeWidth, this.nativeHeight, gl.NEAREST);
 
-    this.gl.shaderSource(shader, source);
-    this.gl.compileShader(shader);
+    this.intermediateTextures = [];
+    this.framebuffers = [];
 
-    if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', this.gl.getShaderInfoLog(shader));
-      this.gl.deleteShader(shader);
-      return null;
+    for (let i = 0; i < 2; i++) {
+      const texture = this.createTexture(targetWidth, targetHeight, gl.LINEAR)!;
+      this.intermediateTextures.push(texture);
+
+      const framebuffer = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      this.framebuffers.push(framebuffer);
     }
 
-    return shader;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  private createGeometry(): void {
-    if (!this.gl) return;
+  private createTexture(width: number, height: number, filter: number): WebGLTexture | null {
+    const gl = this.gl!;
 
-    this.vao = this.gl.createVertexArray();
-    this.gl.bindVertexArray(this.vao);
-
-    const positions = new Float32Array([
-      -1, -1, 0, 0,
-       1, -1, 1, 0,
-      -1,  1, 0, 1,
-       1,  1, 1, 1
-    ]);
-
-    const buffer = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
-
-    this.gl.enableVertexAttribArray(0);
-    this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 16, 0);
-    this.gl.enableVertexAttribArray(1);
-    this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 16, 8);
-
-    this.gl.bindVertexArray(null);
-  }
-
-  private createTextures(): void {
-    if (!this.gl) return;
-
-    // Source texture for video frame
-    this.sourceTexture = this.createTexture(this.nativeWidth, this.nativeHeight);
-
-    // Intermediate textures for multi-pass
-    const scaleFactor = this.uniforms.upscale.scaleFactor;
-    const scaledWidth = this.nativeWidth * scaleFactor;
-    const scaledHeight = this.nativeHeight * scaleFactor;
-
-    this.textures = [
-      this.createTexture(scaledWidth, scaledHeight)!,
-      this.createTexture(scaledWidth, scaledHeight)!,
-      this.createTexture(this.outputWidth, this.outputHeight)!
-    ];
-  }
-
-  private createTexture(width: number, height: number): WebGLTexture | null {
-    if (!this.gl) return null;
-
-    const texture = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D, 0, this.gl.RGBA,
-      width, height, 0,
-      this.gl.RGBA, this.gl.UNSIGNED_BYTE, null
-    );
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
     return texture;
   }
 
-  private createFramebuffers(): void {
-    if (!this.gl) return;
-
-    this.framebuffers = this.textures.map(texture => {
-      const fb = this.gl!.createFramebuffer()!;
-      this.gl!.bindFramebuffer(this.gl!.FRAMEBUFFER, fb);
-      this.gl!.framebufferTexture2D(
-        this.gl!.FRAMEBUFFER, this.gl!.COLOR_ATTACHMENT0,
-        this.gl!.TEXTURE_2D, texture, 0
-      );
-      return fb;
-    });
-
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-  }
-
   renderFrame(source: TexImageSource): void {
-    if (!this._isActive || !this.gl || !this.sourceTexture) return;
+    if (!this._isActive || !this.gl || !this.sourceTexture || !this.programs) return;
 
     const startTime = performance.now();
+    const gl = this.gl;
+    const { upscale, unsharp, color, crt } = this.uniforms;
+    const [targetWidth, targetHeight] = upscale.outputSize;
 
-    // Upload source texture
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.sourceTexture);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D, 0, this.gl.RGBA,
-      this.gl.RGBA, this.gl.UNSIGNED_BYTE, source
-    );
+    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.bindTexture(gl.TEXTURE_2D, null);
 
-    this.gl.bindVertexArray(this.vao);
+    gl.bindVertexArray(this.vao);
 
-    // Execute 4-pass pipeline
-    // Pass 1: Upscale
-    // Pass 2: Unsharp (if enabled)
-    // Pass 3: Color
-    // Pass 4: CRT/LCD to screen
+    let currentTexture = 0;
 
-    // Simplified: just render to screen for now
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.viewport(0, 0, this.outputWidth, this.outputHeight);
-    this.gl.useProgram(this.programs[0]);
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.sourceTexture);
-    this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
+    gl.viewport(0, 0, targetWidth, targetHeight);
+    this.programs.pixelUpscale.use();
 
-    this.gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
+    this.programs.pixelUpscale.setUniform1i('uSourceTex', 0);
+    this.programs.pixelUpscale.setUniform2f('uSourceSize', this.nativeWidth, this.nativeHeight);
+    this.programs.pixelUpscale.setUniform2f('uTargetSize', targetWidth, targetHeight);
+    this.programs.pixelUpscale.setUniform1f('uScaleFactor', upscale.scaleFactor);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    currentTexture = 0;
+
+    if (this.preset.unsharp.enabled && unsharp.strength > 0) {
+      const nextTexture = (currentTexture + 1) % 2;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
+      this.programs.unsharpMask.use();
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
+      this.programs.unsharpMask.setUniform1i('uInputTex', 0);
+      this.programs.unsharpMask.setUniform2f('uTexelSize', unsharp.texelSize[0], unsharp.texelSize[1]);
+      this.programs.unsharpMask.setUniform1f('uStrength', unsharp.strength);
+      this.programs.unsharpMask.setUniform1f('uScaleFactor', unsharp.scaleFactor);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      currentTexture = nextTexture;
+    }
+
+    if (this.preset.color.enabled) {
+      const nextTexture = (currentTexture + 1) % 2;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
+      this.programs.colorElevation.use();
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
+      this.programs.colorElevation.setUniform1i('uInputTex', 0);
+      this.programs.colorElevation.setUniform1f('uGamma', color.gamma);
+      this.programs.colorElevation.setUniform1f('uSaturation', color.saturation);
+      this.programs.colorElevation.setUniform1f('uGreenBias', color.greenBias);
+      this.programs.colorElevation.setUniform1f('uBrightness', color.brightness);
+      this.programs.colorElevation.setUniform1f('uContrast', color.contrast);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      currentTexture = nextTexture;
+    }
+
+    const crtEnabled = crt.scanlineStrength > 0 || crt.pixelMaskStrength > 0 ||
+      crt.bloomStrength > 0 || crt.curvature > 0 || crt.vignetteStrength > 0;
+
+    if (crtEnabled) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      this.programs.crtLcd.use();
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
+      this.programs.crtLcd.setUniform1i('uInputTex', 0);
+      this.programs.crtLcd.setUniform2f('uResolution', crt.resolution[0], crt.resolution[1]);
+      this.programs.crtLcd.setUniform1f('uScaleFactor', crt.scaleFactor);
+      this.programs.crtLcd.setUniform1f('uScanlineStrength', crt.scanlineStrength);
+      this.programs.crtLcd.setUniform1f('uPixelMaskStrength', crt.pixelMaskStrength);
+      this.programs.crtLcd.setUniform1f('uBloomStrength', crt.bloomStrength);
+      this.programs.crtLcd.setUniform1f('uCurvature', crt.curvature);
+      this.programs.crtLcd.setUniform1f('uVignetteStrength', crt.vignetteStrength);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    } else {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[currentTexture]);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(
+        0, 0, targetWidth, targetHeight,
+        0, 0, this.canvas.width, this.canvas.height,
+        gl.COLOR_BUFFER_BIT,
+        gl.NEAREST
+      );
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    }
+
+    gl.bindVertexArray(null);
     this.updateStats(performance.now() - startTime);
   }
 
@@ -208,40 +214,45 @@ export class WebGL2Pipeline extends BasePipeline {
   }
 
   protected onUniformsChanged(): void {
-    // Update uniform values in programs
+    // WebGL2 uniforms are set per-frame in renderFrame() via setUniform calls.
   }
 
   protected onResize(): void {
-    this.releaseTextures();
-    this.createTextures();
-    this.createFramebuffers();
-  }
-
-  private releaseTextures(): void {
-    if (!this.gl) return;
-    this.textures.forEach(t => this.gl!.deleteTexture(t));
-    this.framebuffers.forEach(f => this.gl!.deleteFramebuffer(f));
-    this.textures = [];
-    this.framebuffers = [];
+    this.releaseResources();
+    this.createResources();
   }
 
   releaseResources(): void {
-    this.releaseTextures();
-    if (this.gl && this.sourceTexture) {
-      this.gl.deleteTexture(this.sourceTexture);
+    if (!this.gl) return;
+
+    const gl = this.gl;
+    if (this.sourceTexture) {
+      gl.deleteTexture(this.sourceTexture);
       this.sourceTexture = null;
     }
+    this.intermediateTextures.forEach(t => gl.deleteTexture(t));
+    this.intermediateTextures = [];
+    this.framebuffers.forEach(f => gl.deleteFramebuffer(f));
+    this.framebuffers = [];
     this._isActive = false;
   }
 
   async dispose(): Promise<void> {
     this.releaseResources();
-    this.programs.forEach(p => this.gl?.deleteProgram(p));
-    this.programs = [];
+
+    if (this.programs) {
+      this.programs.pixelUpscale.destroy();
+      this.programs.unsharpMask.destroy();
+      this.programs.colorElevation.destroy();
+      this.programs.crtLcd.destroy();
+      this.programs = null;
+    }
+
     if (this.gl && this.vao) {
       this.gl.deleteVertexArray(this.vao);
       this.vao = null;
     }
+
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.gl = null;
     this._isInitialized = false;
