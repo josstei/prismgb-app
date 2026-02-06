@@ -174,6 +174,38 @@ vi.mock('@renderer/infrastructure/services/streaming/audio-pipeline.service.ts',
   StreamingAudioPipelineService: vi.fn()
 }));
 
+vi.mock('@renderer/infrastructure/services/streaming/gpu-frame-buffer.ts', () => ({
+  GpuFrameBuffer: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/streaming/gpu-worker-manager.ts', () => ({
+  GpuWorkerManager: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/factories/streaming-renderer.factory.ts', () => ({
+  StreamingRendererFactory: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts', () => ({
+  StreamingGpuRendererAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts', () => ({
+  StreamingCanvas2DRendererAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts', () => ({
+  DeviceChangeDebounceAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts', () => ({
+  DeviceOperationSequencerService: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/notes/notes.service.ts', () => ({
+  NotesService: vi.fn()
+}));
+
 vi.mock('@renderer/presentation/features/streaming/streaming-controls.component.js', () => ({
   StreamingControlsComponent: vi.fn()
 }));
@@ -219,6 +251,10 @@ vi.mock('@renderer/infrastructure/services/transcode/transcode.service.ts', () =
 // Features: Settings mocks
 vi.mock('@renderer/infrastructure/services/settings/settings.service.ts', () => ({
   SettingsService: vi.fn()
+}));
+
+vi.mock('@renderer/presentation/config/storage-keys.config.ts', () => ({
+  PROTECTED_STORAGE_KEYS: []
 }));
 
 vi.mock('@renderer/application/orchestrators/preferences.orchestrator.ts', () => ({
@@ -294,6 +330,18 @@ vi.mock('@renderer/infrastructure/adapters/reduced-motion.adapter.js', () => ({
 // Shared mocks
 vi.mock('@shared/utils/performance-cache.utils.js', () => ({
   AnimationCache: vi.fn()
+}));
+
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    setDefault: vi.fn(),
+    get: vi.fn(),
+    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test' })),
+    getForUI: vi.fn(() => []),
+    getAll: vi.fn(() => [])
+  },
+  buildUniforms: vi.fn(),
+  detectCapabilities: vi.fn()
 }));
 
 // Import the container module

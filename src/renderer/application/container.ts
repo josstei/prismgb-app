@@ -112,6 +112,11 @@ import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metri
 // Shared
 import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 
+// GPU Rendering Package
+import { PresetRegistry } from '@prismgb/gpu';
+
+PresetRegistry.setDefault('vibrant');
+
 /**
  * Create and configure the renderer DI container
  * @returns {ServiceContainer} Configured container
