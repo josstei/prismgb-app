@@ -60,6 +60,7 @@ export default defineConfig({
         // UI templates use Vite ?raw imports for SVGs not available in vitest
         'src/renderer/presentation/shell/*.js',
         'src/renderer/presentation/icons/*.js',
+        'src/renderer/presentation/features/**/*.template.js',
         // Interface files are abstract base classes (throw stubs) not meant to be tested
         'src/shared/interfaces/*.interface.js',
         // JSON configuration files
