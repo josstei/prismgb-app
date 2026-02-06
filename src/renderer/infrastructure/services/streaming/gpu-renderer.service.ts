@@ -21,11 +21,7 @@ import {
   WorkerResponseType,
   createWorkerMessage
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
-import {
-  DEFAULT_PRESET_ID,
-  getPresetById,
-  buildUniformsFromPreset
-} from '@renderer/infrastructure/rendering/presets/render-presets.config.ts';
+import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
 
 /**
  * Maximum number of frames that can be pending render
@@ -203,9 +199,9 @@ export class StreamingGpuRendererService extends BaseService {
             this._targetHeight = nativeResolution.height * this._scaleFactor;
 
             // Load saved preset or use default
-            const savedPresetId = this.settingsService.getRenderPreset?.() || DEFAULT_PRESET_ID;
+            const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
             this._currentPresetId = savedPresetId;
-            this._currentPreset = getPresetById(savedPresetId) || getPresetById(DEFAULT_PRESET_ID);
+            this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
 
             // Build config for re-init (no canvas - worker already has it)
             const config = {
@@ -261,9 +257,9 @@ export class StreamingGpuRendererService extends BaseService {
       this._targetHeight = nativeResolution.height * this._scaleFactor;
 
       // Load saved preset or use default
-      const savedPresetId = this.settingsService.getRenderPreset?.() || DEFAULT_PRESET_ID;
+      const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
-      this._currentPreset = getPresetById(savedPresetId) || getPresetById(DEFAULT_PRESET_ID);
+      this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
 
       // Build initialization config
       const config = {
@@ -524,20 +520,15 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     // Cache miss: rebuild uniforms and update tracking values
-    const baseUniforms = buildUniformsFromPreset(
-      this._currentPreset,
-      this._scaleFactor,
-      this._targetWidth,
-      this._targetHeight
-    );
-    // Apply global brightness to cached uniforms to avoid per-frame object allocation
-    this._cachedUniforms = {
-      ...baseUniforms,
-      color: {
-        ...baseUniforms.color,
-        brightness: this._currentPreset.color.brightness * this._globalBrightness
-      }
-    };
+    const baseUniforms = buildUniforms({
+      preset: this._currentPreset,
+      nativeWidth: NATIVE_WIDTH,
+      nativeHeight: NATIVE_HEIGHT,
+      outputWidth: this._targetWidth,
+      outputHeight: this._targetHeight,
+      brightness: this._globalBrightness
+    });
+    this._cachedUniforms = baseUniforms;
 
     // Update tracked values
     this._cachedPresetId = this._currentPresetId;
@@ -554,7 +545,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {string} presetId - Preset ID (e.g., 'authentic', 'vivid', 'sharp')
    */
   setPreset(presetId) {
-    const preset = getPresetById(presetId);
+    const preset = PresetRegistry.get(presetId);
     if (!preset) {
       this.logger.warn(`Unknown preset: ${presetId}`);
       return;

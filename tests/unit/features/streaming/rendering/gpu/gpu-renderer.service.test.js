@@ -48,11 +48,16 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
 }));
 
 // Mock render presets
-vi.mock('@renderer/infrastructure/rendering/presets/render-presets.config.ts', () => ({
-  DEFAULT_PRESET_ID: 'default',
-  getPresetById: vi.fn(() => ({ id: 'default', name: 'Default' })),
-  buildUniformsFromPreset: vi.fn(() => ({
-    color: { brightness: 1.0 }
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+  },
+  buildUniforms: vi.fn(() => ({
+    upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
+    unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
+    color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
+    crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
   }))
 }));
 
