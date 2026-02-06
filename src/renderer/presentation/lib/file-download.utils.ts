@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Download a blob as a file
  *
@@ -10,7 +9,7 @@
  * @returns {Promise<void>} Resolves after download is initiated
  */
 export function downloadFile(blob, filename) {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     try {
       if (!blob || !(blob instanceof Blob)) {
         throw new Error('Invalid blob provided');

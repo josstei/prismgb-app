@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Update Bridge
  *
@@ -30,6 +29,8 @@ interface UpdateBridgeDependencies {
 }
 
 class UpdateBridge extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies: UpdateBridgeDependencies) {
     super(
       dependencies,

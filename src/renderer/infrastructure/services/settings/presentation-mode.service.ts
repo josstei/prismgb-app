@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Presentation Mode Service
  *
@@ -8,6 +7,8 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PresentationModeService extends BaseService {
+  [key: string]: any;
+
   constructor(dependencies) {
     super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeService');
 
@@ -47,7 +48,7 @@ export class PresentationModeService extends BaseService {
     this._updateMinimalistVisual();
   }
 
-  _updateCinematicVisual(streamingOverride) {
+  _updateCinematicVisual(streamingOverride?) {
     const streamingActive = streamingOverride !== undefined ? streamingOverride : this._isStreamingActive;
     const isActive = this._cinematicEnabled && streamingActive;
     this.uiController.updateCinematicMode(isActive);

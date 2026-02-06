@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Metrics Adapter
  *
@@ -7,6 +6,8 @@
  */
 
 export class MetricsAdapter {
+  [key: string]: any;
+
   constructor() {
     this._metricsAPI = globalThis.metricsAPI || window.metricsAPI;
   }

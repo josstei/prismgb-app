@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Device IPC Adapter
  *
@@ -11,7 +10,9 @@
  */
 
 export class DeviceIpcAdapter {
-  constructor({ logger } = {}) {
+  [key: string]: any;
+
+  constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
     this._logger = logger;
     this._unsubscribeConnected = null;
     this._unsubscribeDisconnected = null;
