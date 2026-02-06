@@ -24,11 +24,18 @@ export interface UpdateHandlerDependencies {
   logger: Logger;
 }
 
+function toObjectPayload(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object') {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
 export function registerUpdateHandlers({ registerHandler, updateService, logger }: UpdateHandlerDependencies): void {
   registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
     try {
       const result = await updateService.checkForUpdates();
-      return { success: true, ...result };
+      return { success: true, ...toObjectPayload(result) };
     } catch (error) {
       logger.error('Failed to check for updates:', error);
       return { success: false, error: (error as Error).message };
@@ -58,7 +65,7 @@ export function registerUpdateHandlers({ registerHandler, updateService, logger 
   registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
     try {
       const status = updateService.getStatus();
-      return { success: true, ...status };
+      return { success: true, ...toObjectPayload(status) };
     } catch (error) {
       logger.error('Failed to get update status:', error);
       return { success: false, error: (error as Error).message };

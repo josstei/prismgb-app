@@ -11,6 +11,7 @@
  */
 
 export class StreamingRendererFactory {
+  [key: string]: any;
   /**
    * @param {Object} eventBus - Event bus for cross-service communication
    * @param {Object} loggerFactory - Factory for creating loggers

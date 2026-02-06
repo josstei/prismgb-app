@@ -5,7 +5,7 @@
 
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json' with { type: 'json' };
+import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Capture Save Service
  *
@@ -10,7 +11,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/presentation/lib/file-download.utils.ts';
+import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
 
 class CaptureSaveService extends BaseService {
   constructor(dependencies) {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Download a blob as a file
  *

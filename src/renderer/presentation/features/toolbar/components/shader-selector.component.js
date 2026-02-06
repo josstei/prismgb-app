@@ -4,7 +4,7 @@
  * Panel component for selecting shader presets and toggling cinematic mode.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
 import { CinematicToggleComponent } from './cinematic-toggle.component.js';
 import { ShaderPresetListComponent } from './shader-preset-list.component.js';

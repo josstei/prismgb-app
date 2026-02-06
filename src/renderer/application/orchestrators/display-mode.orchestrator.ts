@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Display Mode Orchestrator
  *

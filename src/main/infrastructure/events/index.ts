@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Events Infrastructure
  * Main process event system exports

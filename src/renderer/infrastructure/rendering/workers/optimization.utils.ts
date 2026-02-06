@@ -14,6 +14,7 @@
  * cache and reuse them.
  */
 export class BindGroupCache {
+  [key: string]: any;
   constructor() {
     this._cache = new Map();
     this._version = 0;
@@ -100,6 +101,7 @@ export class BindGroupCache {
  * Includes a safety limit on pool types to prevent unbounded memory growth.
  */
 export class TypedArrayPool {
+  [key: string]: any;
   /**
    * Maximum number of unique array sizes to pool (safety limit)
    * Pre-warmed sizes don't count toward this limit
@@ -210,6 +212,7 @@ export class TypedArrayPool {
  * Uses FNV-1a hashing for fast change detection.
  */
 export class UniformTracker {
+  [key: string]: any;
   constructor() {
     this._hashes = new Map();
     this._checks = 0;
@@ -316,6 +319,7 @@ export class UniformTracker {
  * ~0.5-1ms per frame to only when screenshots are needed.
  */
 export class CaptureBufferManager {
+  [key: string]: any;
   constructor() {
     this._captureRequested = false;
     this._capturedFrame = null;
@@ -397,6 +401,7 @@ export class CaptureBufferManager {
  * Eliminates per-frame getUniformLocation string lookups.
  */
 export class ShaderProgram {
+  [key: string]: any;
   constructor(gl, vertexSource, fragmentSource, label = 'ShaderProgram') {
     this.gl = gl;
     this.label = label;

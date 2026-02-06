@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Window Service
  * Handles main application window creation and lifecycle

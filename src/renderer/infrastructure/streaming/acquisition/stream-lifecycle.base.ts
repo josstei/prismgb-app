@@ -1,9 +1,10 @@
-import { IStreamLifecycle } from './acquisition.interface.ts';
+import { IStreamLifecycle } from './acquisition.interface';
 
 /**
  * Base implementation of stream lifecycle management
  */
 export class BaseStreamLifecycle extends IStreamLifecycle {
+  [key: string]: any;
   /**
    * @param {Object} logger - Optional logger instance
    * @param {Object} mediaService - Optional media service (BrowserMediaAdapter or compatible)

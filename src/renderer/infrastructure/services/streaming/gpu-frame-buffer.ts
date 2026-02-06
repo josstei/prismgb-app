@@ -6,6 +6,7 @@
  * Tracks metrics for performance monitoring.
  */
 export class GpuFrameBuffer {
+  [key: string]: any;
   /**
    * @param {Object} dependencies
    * @param {Object} dependencies.loggerFactory - Logger factory

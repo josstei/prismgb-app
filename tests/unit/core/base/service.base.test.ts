@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BaseService } from '@core/base/service.base';
+import { BaseService } from '../../../../src/core/base/service.base';
 
 describe('BaseService', () => {
   describe('constructor', () => {

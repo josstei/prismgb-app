@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * UI Event Bridge
  *

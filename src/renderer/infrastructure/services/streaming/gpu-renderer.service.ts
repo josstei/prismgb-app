@@ -15,12 +15,12 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils.ts';
+import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
 
 /**
@@ -45,6 +45,7 @@ const BITMAP_OPTIONS = Object.freeze({
 });
 
 export class StreamingGpuRendererService extends BaseService {
+  [key: string]: any;
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for render events

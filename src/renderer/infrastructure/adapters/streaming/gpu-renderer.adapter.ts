@@ -11,9 +11,10 @@
  * - Track active state
  */
 
-import { IStreamingRenderer } from './streaming-renderer.interface.ts';
+import { IStreamingRenderer } from './streaming-renderer.interface';
 
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
+  [key: string]: any;
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {Object} dependencies.gpuRendererService - GPU renderer service

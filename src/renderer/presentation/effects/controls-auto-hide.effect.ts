@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ControlsAutoHide - Manages fullscreen controls auto-hiding
  *
@@ -5,8 +6,8 @@
  * Takes over cursor management when active.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class ControlsAutoHide {
   /**

@@ -32,9 +32,10 @@ export function registerDeviceHandlers({ registerHandler, deviceService, logger 
   registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
     try {
       // In test mode, check for mock status first
-      if (isTestMode() && (global as { __testMockDeviceStatus?: unknown }).__testMockDeviceStatus) {
+      const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: unknown };
+      if (isTestMode() && testGlobal.__testMockDeviceStatus) {
         logger.debug('Using mock device status for testing');
-        return (global as { __testMockDeviceStatus: unknown }).__testMockDeviceStatus;
+        return testGlobal.__testMockDeviceStatus;
       }
 
       const status = deviceService.getStatus();

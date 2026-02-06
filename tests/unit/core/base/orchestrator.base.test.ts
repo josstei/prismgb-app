@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BaseOrchestrator } from '@core/base/orchestrator.base';
+import { BaseOrchestrator } from '../../../../src/core/base/orchestrator.base';
 
 describe('BaseOrchestrator', () => {
   let mockEventBus: any;

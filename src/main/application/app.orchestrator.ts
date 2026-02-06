@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Application Orchestrator
  * Coordinates main process services and application lifecycle

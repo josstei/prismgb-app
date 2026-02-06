@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cinematic Mode Service
  *

@@ -31,6 +31,12 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run build smoke
+        run: npm run build:vite
+
       - name: Run tests with coverage
         run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
 
@@ -49,6 +55,12 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run build smoke
+        run: npm run build:vite
 
       - name: Run tests (no coverage)
         run: npm run test:run

@@ -22,11 +22,11 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Capture (screenshots/recording) | `src/renderer/infrastructure/services/capture` | PNG screenshots, recordings with format selection |
 | Transcode | `src/main/infrastructure/transcode`, `src/renderer/infrastructure/services/transcode`, `src/shared/features/transcode` | FFmpeg-based transcoding for MP4/MOV output |
 | Devices and adapters | `src/renderer/infrastructure/services/devices`, `src/renderer/infrastructure/adapters/devices`, `src/main/infrastructure/devices`, `src/shared/features/devices` | USB detection, device registry, adapters |
-| Settings and display modes | `src/renderer/infrastructure/services/settings`, `src/renderer/presentation/config/storage-keys.config.js` | Cinematic, fullscreen, performance mode, status strip |
-| Notes | `src/renderer/infrastructure/services/notes`, `src/renderer/presentation/config/storage-keys.config.js` | Notes CRUD and search |
+| Settings and display modes | `src/renderer/infrastructure/services/settings`, `src/renderer/presentation/config/storage-keys.config.ts` | Cinematic, fullscreen, performance mode, status strip |
+| Notes | `src/renderer/infrastructure/services/notes`, `src/renderer/presentation/config/storage-keys.config.ts` | Notes CRUD and search |
 | Updates | `src/main/infrastructure/updates`, `src/renderer/infrastructure/services/updates`, `src/preload/index.js` | electron-updater + renderer UI |
 | UI shell | `src/renderer/presentation`, `src/renderer/assets` | Templates, components, effects |
-| App lifecycle and performance | `src/renderer/application`, `src/main/application` | Orchestrators and performance state |
+| App lifecycle and performance | `src/renderer/application`, `src/renderer/application/di`, `src/main/application` | Orchestrators, DI registration modules, performance state |
 | IPC and preload bridge | `src/shared/ipc`, `src/preload/index.js` | Shared channel definitions |
 
 ## UI Surface Map (Renderer)
@@ -119,7 +119,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 ## Data and Storage
 
 - Downloads location: screenshots and recordings go to the OS downloads folder.
-- Local storage keys: settings and notes live in localStorage, defined in `src/renderer/presentation/config/storage-keys.config.js`.
+- Local storage keys: settings and notes live in localStorage, defined in `src/renderer/presentation/config/storage-keys.config.ts`.
 - Stored device IDs: `src/renderer/infrastructure/services/devices/device-storage.service.ts`.
 - Transcode temp files: during MP4/MOV conversion, temporary files are created in the system temp directory and cleaned up after completion or cancellation.
 
@@ -145,6 +145,12 @@ Screenshots will not be added to this repository.
 
 ### Add a New Setting
 
-1. Add a storage key in `src/renderer/presentation/config/storage-keys.config.js`.
+1. Add a storage key in `src/renderer/presentation/config/storage-keys.config.ts`.
 2. Update `src/renderer/infrastructure/services/settings/settings.service.ts`.
 3. Wire UI in `src/renderer/presentation/features/settings`.
+
+## Architecture Guardrails
+
+- Renderer infrastructure timing values come from `src/shared/config/timing.config.ts`.
+- IPC handlers import channels through `src/shared/ipc/channels.config.js`.
+- Active runtime paths do not use `@core` imports.

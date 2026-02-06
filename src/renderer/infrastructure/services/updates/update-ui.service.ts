@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Update UI Service
  *

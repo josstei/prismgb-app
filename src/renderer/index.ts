@@ -7,7 +7,7 @@
  */
 
 import './presentation/styles/styles.css';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 
 // Global error handlers for uncaught errors
@@ -29,7 +29,7 @@ if (appContainer) {
 document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
-import { createApplication } from './renderer-app.orchestrator.ts';
+import { createApplication } from './renderer-app.orchestrator';
 
 // Global application instance
 let app = null;

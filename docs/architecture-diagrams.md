@@ -12,6 +12,26 @@ Legend
 - Nodes labeled "State" are the primary owners of state transitions.
 - IPC edges are labeled explicitly.
 
+## Renderer DI Composition
+
+```mermaid
+flowchart LR
+  Container["container.ts (composition shell)"]
+  Infra["register-infrastructure.ts"]
+  Devices["register-devices.ts"]
+  Streaming["register-streaming.ts"]
+  Capture["register-capture.ts"]
+  UI["register-ui.ts"]
+  Orchestrators["register-orchestrators.ts"]
+
+  Container --> Infra
+  Container --> Devices
+  Container --> Streaming
+  Container --> Capture
+  Container --> UI
+  Container --> Orchestrators
+```
+
 ## Streaming and Device Selection
 
 ```mermaid
@@ -201,3 +221,5 @@ flowchart LR
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
+- Shared timing constants live in `src/shared/config/timing.config.ts`; infrastructure code should not pull timing values from presentation config.
+- Runtime code no longer depends on `@core` aliases; `src/core` is not part of the active runtime path.

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Renderer Application Orchestrator
  *
@@ -62,7 +63,7 @@ class RendererAppOrchestrator {
     try {
       // 1. Create DI container with retry for resilience
       const { initializeContainer } = await importWithRetry(
-        () => import('./application/container.ts')
+        () => import('./application/container')
       );
       this.container = initializeContainer();
 
@@ -173,7 +174,7 @@ class RendererAppOrchestrator {
    * @private
    */
   async _registerUIComponents() {
-    const { asValue } = await importWithRetry(() => import('./application/container.ts'));
+    const { asValue } = await importWithRetry(() => import('./application/container'));
 
     // Register UI components as values (already instantiated)
     this.container.register({

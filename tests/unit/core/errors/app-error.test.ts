@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AppError, ErrorCode } from '@core/errors';
+import { AppError, ErrorCode } from '../../../../src/core/errors';
 
 describe('AppError', () => {
   it('should create error with code and message', () => {

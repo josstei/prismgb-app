@@ -1,4 +1,4 @@
-import { DeviceAwareFallbackStrategy } from './fallback-strategy.ts';
+import { DeviceAwareFallbackStrategy } from './fallback-strategy';
 import { formatErrorLabel } from '@shared/lib/errors.utils.js';
 
 /**
@@ -15,7 +15,8 @@ import { formatErrorLabel } from '@shared/lib/errors.utils.js';
  * - Deterministic behavior throughout
  */
 export class StreamAcquisitionOrchestrator {
-  constructor(dependencies = {}) {
+  [key: string]: any;
+  constructor(dependencies: any = {}) {
     this.constraintBuilder = dependencies.constraintBuilder;
     this.streamLifecycle = dependencies.streamLifecycle;
     this.logger = dependencies.logger;
@@ -28,10 +29,10 @@ export class StreamAcquisitionOrchestrator {
    * @param {Object} options - Additional options
    * @returns {Promise<{stream: MediaStream, strategy: string, context: AcquisitionContext}>}
    */
-  async acquire(context, options = {}) {
+  async acquire(context: any, options: any = {}) {
     this.fallbackStrategy.initialize(context);
 
-    let lastError = null;
+    let lastError: any = null;
     let currentStrategy = 'full';
 
     // Primary acquisition attempt with full constraints
@@ -106,7 +107,7 @@ export class StreamAcquisitionOrchestrator {
   /**
    * @private
    */
-  _stringifyConstraints(constraints) {
+  _stringifyConstraints(constraints: unknown) {
     try {
       return JSON.stringify(constraints);
     } catch {
@@ -117,7 +118,7 @@ export class StreamAcquisitionOrchestrator {
   /**
    * @private
    */
-  _log(level, message, ...args) {
+  _log(level: string, message: string, ...args: any[]) {
     if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }

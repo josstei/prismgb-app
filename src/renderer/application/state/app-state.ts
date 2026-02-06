@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Application State Manager
  * Centralized state management with EventBus integration

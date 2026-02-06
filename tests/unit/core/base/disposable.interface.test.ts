@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { IDisposable } from '@core/base/disposable.interface';
+import type { IDisposable } from '../../../../src/core/base/disposable.interface';
 
 describe('IDisposable', () => {
   it('should define dispose method signature', () => {

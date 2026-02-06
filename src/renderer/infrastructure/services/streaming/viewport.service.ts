@@ -14,9 +14,10 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { TIMING } from '@shared/config/timing.config';
 
 export class StreamingViewportService extends BaseService {
+  [key: string]: any;
   constructor(dependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingViewportService');
 

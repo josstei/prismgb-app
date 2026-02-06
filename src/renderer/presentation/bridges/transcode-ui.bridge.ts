@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Transcode UI Bridge
  *

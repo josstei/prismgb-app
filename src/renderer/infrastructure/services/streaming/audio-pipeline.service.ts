@@ -11,7 +11,23 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
+type AudioWarmupResult = {
+  ready: boolean;
+  reason?: string;
+  elapsedMs: number;
+};
+
+type AudioEnergyResult = {
+  ready: boolean;
+  reason?: string;
+  rms: number;
+  elapsedMs: number;
+};
+
+type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
+
 export class StreamingAudioPipelineService extends BaseService {
+  [key: string]: any;
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
 
@@ -205,7 +221,7 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   _createAudioContext(trackSampleRate) {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    const AudioContextCtor = (window.AudioContext || (window as any).webkitAudioContext) as AudioContextCtor | undefined;
     if (!AudioContextCtor) {
       return null;
     }
@@ -226,8 +242,8 @@ export class StreamingAudioPipelineService extends BaseService {
     }
   }
 
-  _waitForTrackUnmute(track, timeoutMs, token) {
-    return new Promise((resolve) => {
+  _waitForTrackUnmute(track, timeoutMs, token): Promise<AudioWarmupResult> {
+    return new Promise<AudioWarmupResult>((resolve) => {
       if (!track) {
         resolve({ ready: false, reason: 'no-track', elapsedMs: 0 });
         return;
@@ -240,7 +256,7 @@ export class StreamingAudioPipelineService extends BaseService {
 
       const start = performance.now();
       let settled = false;
-      const finish = (result) => {
+      const finish = (result: Omit<AudioWarmupResult, 'elapsedMs'>) => {
         if (settled) return;
         settled = true;
         clearTimeout(this._unmuteTimeout);
@@ -263,8 +279,8 @@ export class StreamingAudioPipelineService extends BaseService {
     });
   }
 
-  _waitForAudioEnergy({ timeoutMs, threshold, token }) {
-    return new Promise((resolve) => {
+  _waitForAudioEnergy({ timeoutMs, threshold, token }): Promise<AudioEnergyResult> {
+    return new Promise<AudioEnergyResult>((resolve) => {
       if (!this._analyserNode) {
         resolve({ ready: false, reason: 'no-analyser', rms: 0, elapsedMs: 0 });
         return;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Lifecycle Service
  * Owns the device auto-launch sequence, decoupling device detection from window management

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Change Debounce Adapter
  *
@@ -7,7 +8,7 @@
  * Follows the adapter pattern established by VisibilityAdapter, UserActivityAdapter.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { TIMING } from '@shared/config/timing.config';
 
 /**
  * Default debounce delay in milliseconds

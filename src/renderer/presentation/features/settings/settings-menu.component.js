@@ -6,7 +6,7 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
 import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 

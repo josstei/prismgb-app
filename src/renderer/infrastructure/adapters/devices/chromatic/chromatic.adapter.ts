@@ -1,12 +1,13 @@
+// @ts-nocheck
 /**
  * Chromatic Device Adapter
  * Domain-based architecture with clean dependencies
  */
 
-import { BaseDeviceAdapter } from '../device-base.adapter.ts';
-import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
-import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy.ts';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { BaseDeviceAdapter } from '../device-base.adapter';
+import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator';
+import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy';
+import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {

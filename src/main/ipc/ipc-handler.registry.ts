@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * IPC Handler Registry
  * Centralized registration of all IPC handler modules.

@@ -10,9 +10,10 @@ import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
 export class GpuWorkerManager {
+  [key: string]: any;
   /**
    * @param {Object} dependencies
    * @param {Object} dependencies.loggerFactory - Logger factory

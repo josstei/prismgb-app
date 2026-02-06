@@ -63,6 +63,9 @@ let renderer = null;
 let canvas = null;
 let isInitialized = false;
 
+const WebGPUTextureUsage = (globalThis as any).GPUTextureUsage;
+const WebGPUBufferUsage = (globalThis as any).GPUBufferUsage;
+
 // Performance tracking
 let frameCount = 0;
 let lastStatsTime = performance.now();
@@ -76,6 +79,7 @@ let captureManager = null;
 // ============================================================================
 
 class WebGPURenderer {
+  [key: string]: any;
   constructor() {
     this.device = null;
     this.context = null;
@@ -121,10 +125,15 @@ class WebGPURenderer {
     this.config = config;
     canvas = offscreenCanvas;
 
+    const gpu = (navigator as any).gpu;
+    if (!gpu) {
+      throw new Error('WebGPU not available');
+    }
+
     // Request GPU adapter
-    const adapter = await navigator.gpu.requestAdapter({
+    const adapter = await gpu.requestAdapter({
       powerPreference: 'low-power'
-    }) || await navigator.gpu.requestAdapter({
+    }) || await gpu.requestAdapter({
       powerPreference: 'high-performance'
     });
 
@@ -153,7 +162,7 @@ class WebGPURenderer {
 
     // Configure canvas context
     this.context = offscreenCanvas.getContext('webgpu');
-    this.canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    this.canvasFormat = gpu.getPreferredCanvasFormat();
 
     this.context.configure({
       device: this.device,
@@ -229,9 +238,9 @@ class WebGPURenderer {
       size: [nativeWidth, nativeHeight],
       format: 'rgba8unorm',
       usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT
+        WebGPUTextureUsage.TEXTURE_BINDING |
+        WebGPUTextureUsage.COPY_DST |
+        WebGPUTextureUsage.RENDER_ATTACHMENT
     });
 
     // Intermediate textures for multi-pass rendering
@@ -244,8 +253,8 @@ class WebGPURenderer {
         size: [targetWidth, targetHeight],
         format: 'rgba8unorm',
         usage:
-          GPUTextureUsage.TEXTURE_BINDING |
-          GPUTextureUsage.RENDER_ATTACHMENT
+          WebGPUTextureUsage.TEXTURE_BINDING |
+          WebGPUTextureUsage.RENDER_ATTACHMENT
       });
 
       this.intermediateTextures.push(texture);
@@ -257,22 +266,22 @@ class WebGPURenderer {
       upscale: this.device.createBuffer({
         label: 'Upscale Uniforms',
         size: 32, // 2×vec2 + 2×f32 = 24, aligned to 32
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
       }),
       unsharp: this.device.createBuffer({
         label: 'Unsharp Uniforms',
         size: 16, // vec2 + 2×f32 = 16
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
       }),
       color: this.device.createBuffer({
         label: 'Color Uniforms',
         size: 32, // 5×f32 + padding = 32
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
       }),
       crt: this.device.createBuffer({
         label: 'CRT Uniforms',
         size: 32, // vec2 + 6×f32 = 32
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
       })
     };
   }
@@ -651,8 +660,8 @@ class WebGPURenderer {
           size: [width, height],
           format: 'rgba8unorm',
           usage:
-            GPUTextureUsage.TEXTURE_BINDING |
-            GPUTextureUsage.RENDER_ATTACHMENT
+            WebGPUTextureUsage.TEXTURE_BINDING |
+            WebGPUTextureUsage.RENDER_ATTACHMENT
         })
       );
     }
@@ -676,7 +685,7 @@ class WebGPURenderer {
     this.intermediateTextureViews = [];
 
     // Destroy buffers
-    Object.values(this.uniformBuffers).forEach(buf => buf?.destroy());
+    (Object.values(this.uniformBuffers) as any[]).forEach((buf) => buf?.destroy?.());
 
     // Destroy device
     this.device?.destroy();
@@ -691,6 +700,7 @@ class WebGPURenderer {
 // ============================================================================
 
 class WebGL2Renderer {
+  [key: string]: any;
   constructor() {
     this.gl = null;
 
@@ -915,7 +925,7 @@ class WebGL2Renderer {
     this.framebuffers.forEach(fb => gl.deleteFramebuffer(fb));
 
     // Delete shader programs (using ShaderProgram.destroy())
-    Object.values(this.programs).forEach(prog => prog.destroy());
+    (Object.values(this.programs) as any[]).forEach((prog) => prog?.destroy?.());
 
     // Delete VAO
     if (this.vao) gl.deleteVertexArray(this.vao);
@@ -1157,7 +1167,7 @@ async function handleCapture() {
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: frameToSend
       }),
-      [frameToSend] // Transfer ownership for zero-copy
+      { transfer: [frameToSend] } // Transfer ownership for zero-copy
     );
     return;
   }
@@ -1169,7 +1179,7 @@ async function handleCapture() {
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: capturedFrame
       }),
-      [capturedFrame] // Transfer ownership for zero-copy
+      { transfer: [capturedFrame] } // Transfer ownership for zero-copy
     );
   } catch (error) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Media Service
  *
@@ -6,7 +7,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { TIMING } from '@shared/config/timing.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {

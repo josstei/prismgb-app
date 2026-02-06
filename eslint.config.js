@@ -1,8 +1,11 @@
 import js from '@eslint/js';
+import tsParser from '@typescript-eslint/parser';
+import tsEslintPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   js.configs.recommended,
   {
+    files: ['src/**/*.js'],
     languageOptions: {
       ecmaVersion: 2025,
       sourceType: 'module',
@@ -61,14 +64,50 @@ export default [
     }
   },
   {
+    files: ['src/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      ecmaVersion: 2025,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: { jsx: false }
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tsEslintPlugin
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off'
+    }
+  },
+  {
+    files: ['src/renderer/infrastructure/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          '@renderer/presentation/config/constants.config',
+          '@renderer/presentation/config/constants.config.ts'
+        ]
+      }]
+    }
+  },
+  {
+    files: ['src/renderer/presentation/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: ['@main/*']
+      }]
+    }
+  },
+  {
     ignores: [
       'node_modules/**',
       'dist/**',
       'out/**',
       'coverage/**',
       '**/*.test.js',
-      // Main process files use import assertions which require special parser
-      'src/main/**'
     ]
   }
 ];

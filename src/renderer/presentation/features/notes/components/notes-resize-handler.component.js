@@ -9,8 +9,8 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // List resize constraints
 const DRAG_THRESHOLD = NotesPanelConfig.DRAG_THRESHOLD;

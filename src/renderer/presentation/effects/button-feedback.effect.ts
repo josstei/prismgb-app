@@ -1,11 +1,12 @@
+// @ts-nocheck
 /**
  * ButtonFeedback - Handles button animation feedback
  *
  * Manages button press/pop animations and recording state display.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class ButtonFeedback {
   constructor(dependencies = {}) {

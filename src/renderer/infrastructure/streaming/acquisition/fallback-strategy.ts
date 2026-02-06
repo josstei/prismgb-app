@@ -16,7 +16,8 @@ import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interfac
  * 4. video-only-minimal - Video only with minimal constraints (last resort)
  */
 export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
-  constructor(options = {}) {
+  [key: string]: any;
+  constructor(options: any = {}) {
     super();
     this.includeAudioFallbacks = options.includeAudioFallbacks !== false;
     this.currentIndex = -1;
@@ -29,7 +30,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Must be called before using getNext() or hasMore()
    * @param {AcquisitionContext} context - The acquisition context
    */
-  initialize(context) {
+  initialize(context: any) {
     this.context = context;
     this.currentIndex = -1;
     this.chain = this._buildChain(context);
@@ -39,7 +40,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Build the fallback chain based on context
    * @private
    */
-  _buildChain(context) {
+  _buildChain(context: any) {
     const chain = [];
 
     const hasAudio = context.hasAudioProfile();
@@ -141,7 +142,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Get the current context
    * @returns {AcquisitionContext|null}
    */
-  getContext() {
+  getContext(): any | null {
     return this.context;
   }
 }

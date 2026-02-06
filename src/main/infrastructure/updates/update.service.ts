@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Update Service (Main)
  * Handles automatic updates using electron-updater

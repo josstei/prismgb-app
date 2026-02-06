@@ -13,7 +13,7 @@
  * with components responsible for enforcing their own requirements.
  */
 
-import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config.ts';
+import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config';
 
 /**
  * Bind DOM elements by ID from a selector map

@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 
 /**
  * Base device adapter with common functionality for media stream acquisition

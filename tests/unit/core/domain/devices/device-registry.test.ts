@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceRegistry, deviceRegistry } from '@core/domain/devices/device-registry';
+import { DeviceRegistry, deviceRegistry } from '../../../../../src/core/domain/devices/device-registry';
 
 describe('DeviceRegistry', () => {
   describe('singleton', () => {

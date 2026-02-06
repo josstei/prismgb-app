@@ -6,9 +6,9 @@
  * Manages badge visibility and rainbow border animation.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@renderer/presentation/config/update-state.config.ts';
+import { UpdateState } from '@renderer/presentation/config/update-state.config';
 
 class UpdateSectionComponent {
   constructor({ updateOrchestrator, eventBus, loggerFactory }) {

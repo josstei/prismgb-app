@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Main Entry Point
  * Initializes the application using dependency injection

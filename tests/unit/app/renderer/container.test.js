@@ -345,7 +345,7 @@ vi.mock('@prismgb/gpu', () => ({
 }));
 
 // Import the container module
-import * as containerModuleImport from '@renderer/application/container.ts';
+import * as containerModuleImport from '@renderer/application/container';
 
 describe('Renderer Container', () => {
   let containerModule;
@@ -582,6 +582,89 @@ describe('Renderer Container', () => {
         expect.any(Function),
         expect.arrayContaining(['deviceOrchestrator', 'streamingOrchestrator', 'streamingAudioOrchestrator', 'captureOrchestrator'])
       );
+    });
+
+    it('should preserve container registration key set', () => {
+      const container = containerModule.createRendererContainer();
+
+      const keys = new Set(container.registerSingleton.mock.calls.map(([name]) => name));
+      const expectedKeys = new Set([
+        'eventBus',
+        'loggerFactory',
+        'storageService',
+        'browserMediaService',
+        'visibilityAdapter',
+        'userActivityAdapter',
+        'reducedMotionAdapter',
+        'metricsAdapter',
+        'deviceIpcAdapter',
+        'deviceChangeDebounceAdapter',
+        'animationCache',
+        'canvasRenderer',
+        'viewportService',
+        'canvasLifecycleService',
+        'gpuRenderLoopService',
+        'streamHealthService',
+        'gpuFrameBuffer',
+        'gpuWorkerManager',
+        'gpuRendererService',
+        'streamingRendererFactory',
+        'renderPipelineService',
+        'ipcClient',
+        'deviceStatusProvider',
+        'adapterFactory',
+        'deviceStorageService',
+        'deviceConnectionService',
+        'deviceMediaService',
+        'deviceService',
+        'deviceOperationSequencer',
+        'streamingService',
+        'captureService',
+        'gpuRecordingService',
+        'transcodeService',
+        'captureSaveService',
+        'settingsService',
+        'notesService',
+        'updateService',
+        'updateUiService',
+        'streamViewService',
+        'streamingAudioPipelineService',
+        'appState',
+        'uiComponentRegistry',
+        'uiEffects',
+        'bodyClassManager',
+        'uiEventBridge',
+        'presentationModeService',
+        'captureUiBridge',
+        'transcodeUiBridge',
+        'deviceOrchestrator',
+        'streamingAudioOrchestrator',
+        'streamingOrchestrator',
+        'captureOrchestrator',
+        'preferencesOrchestrator',
+        'fullscreenService',
+        'cinematicModeService',
+        'displayModeOrchestrator',
+        'updateOrchestrator',
+        'performanceStateOrchestrator',
+        'animationPerformanceOrchestrator',
+        'performanceMetricsService',
+        'performanceStateService',
+        'animationPerformanceService',
+        'performanceMetricsOrchestrator',
+        'uiSetupOrchestrator',
+        'appOrchestrator'
+      ]);
+
+      expect(keys).toEqual(expectedKeys);
+    });
+
+    it('should support resolve smoke checks', () => {
+      const container = containerModule.createRendererContainer();
+
+      expect(() => container.resolve('appOrchestrator')).not.toThrow();
+      expect(() => container.resolve('deviceService')).not.toThrow();
+      expect(() => container.resolve('streamingService')).not.toThrow();
     });
   });
 

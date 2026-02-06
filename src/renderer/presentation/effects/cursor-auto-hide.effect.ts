@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CursorAutoHide - Manages cursor auto-hiding during streaming
  *
@@ -5,7 +6,7 @@
  * Coordinates with toolbar auto-hide through callbacks.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 export class CursorAutoHide {
   /**

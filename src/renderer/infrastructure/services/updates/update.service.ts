@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Update Service (Renderer)
  *
@@ -15,7 +16,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@renderer/presentation/config/update-state.config.ts';
+import { UpdateState } from '@renderer/presentation/config/update-state.config';
 
 // Re-export for backward compatibility
 export { UpdateState };

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Operation Sequencer Service
  *

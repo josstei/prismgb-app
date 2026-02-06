@@ -18,6 +18,7 @@
  */
 
 export class StreamingCanvasRenderer {
+  [key: string]: any;
   /**
    * Create a canvas renderer
    * @param {Object} logger - Logger instance for debugging

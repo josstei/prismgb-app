@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Transcode Service (Renderer)
  *

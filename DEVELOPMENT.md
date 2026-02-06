@@ -45,8 +45,11 @@ npm run dev
 | `npm run build:win` | Build for Windows |
 | `npm run build:mac` | Build for macOS |
 | `npm run build:linux` | Build for Linux |
-| `npm run lint` | Check for linting errors |
-| `npm run lint:fix` | Auto-fix linting issues |
+| `npm run lint` | ESLint + architecture boundary checks (JS/TS import boundaries) |
+| `npm run lint:fix` | Auto-fix linting issues + boundary checks |
+| `npm run typecheck:app` | Typecheck app sources using `tsconfig.app.json` |
+| `npm run typecheck:gpu` | Typecheck `@prismgb/gpu` workspace |
+| `npm run typecheck` | Run app + GPU typecheck gates |
 | `npm test` | Run tests in watch mode |
 | `npm run test:ui` | Run Vitest UI |
 | `npm run test:run` | Run all tests once |

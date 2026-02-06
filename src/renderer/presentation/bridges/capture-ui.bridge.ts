@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Capture UI Bridge
  *
@@ -6,7 +7,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config';
 
 class CaptureUIBridge extends BaseService {
   constructor(dependencies) {

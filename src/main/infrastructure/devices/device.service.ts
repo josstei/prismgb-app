@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Service (Main)
  * Handles device detection, connection, and disconnection

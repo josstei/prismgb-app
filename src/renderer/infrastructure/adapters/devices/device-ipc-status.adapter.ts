@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
 
 export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {

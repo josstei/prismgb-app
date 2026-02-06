@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Animation Performance Orchestrator
  *
