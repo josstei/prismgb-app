@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsService } from '@renderer/features/settings/services/settings.service.js';
+import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 
 describe('SettingsService', () => {
   let service;

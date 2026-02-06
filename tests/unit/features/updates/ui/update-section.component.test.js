@@ -3,11 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateSectionComponent } from '@renderer/ui/features/updates/update-section.component.js';
-import { UpdateState } from '@shared/config/update-state.config.js';
+import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
+import { UpdateState } from '@renderer/presentation/config/update-state.config.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { DOMSelectors } from '@shared/config/dom-selectors.config.js';
-import { CSSClasses } from '@shared/config/css-classes.config.js';
+import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 
 describe('UpdateSectionComponent', () => {
   let component;

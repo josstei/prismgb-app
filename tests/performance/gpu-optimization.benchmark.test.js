@@ -12,7 +12,7 @@ import {
   BindGroupCache,
   TypedArrayPool,
   UniformTracker
-} from '../../src/renderer/features/streaming/rendering/workers/streaming-optimization.utils.js';
+} from '../../src/renderer/infrastructure/rendering/workers/optimization.utils.ts';
 import { performanceUtils } from '../mocks/index.js';
 
 // Performance thresholds (in milliseconds)

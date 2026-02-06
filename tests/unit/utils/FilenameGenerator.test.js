@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { FilenameGenerator } from '../../../src/shared/utils/filename-generator.utils.js';
+import { FilenameGenerator } from '../../../src/renderer/presentation/lib/filename-generator.utils.ts';
 
 describe('FilenameGenerator', () => {
   beforeEach(() => {

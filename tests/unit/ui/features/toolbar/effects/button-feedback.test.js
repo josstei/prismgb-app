@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ButtonFeedback } from '@renderer/ui/features/toolbar/effects/button-feedback.class.js';
+import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect.ts';
 
 describe('ButtonFeedback', () => {
   let buttonFeedback;

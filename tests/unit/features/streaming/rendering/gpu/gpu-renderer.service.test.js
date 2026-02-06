@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingGpuRendererService } from '@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js';
+import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Mock the capability detector
-vi.mock('@renderer/features/streaming/rendering/gpu/capability-detector.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
   CapabilityDetector: {
     detect: vi.fn().mockResolvedValue({
       preferredAPI: 'webgl2',
@@ -25,7 +25,7 @@ vi.mock('@renderer/features/streaming/rendering/gpu/capability-detector.js', () 
 }));
 
 // Mock worker protocol
-vi.mock('@renderer/features/streaming/rendering/workers/worker-protocol.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', () => ({
   WorkerMessageType: {
     INIT: 'INIT',
     FRAME: 'FRAME',
@@ -48,11 +48,16 @@ vi.mock('@renderer/features/streaming/rendering/workers/worker-protocol.js', () 
 }));
 
 // Mock render presets
-vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
-  DEFAULT_PRESET_ID: 'default',
-  getPresetById: vi.fn(() => ({ id: 'default', name: 'Default' })),
-  buildUniformsFromPreset: vi.fn(() => ({
-    color: { brightness: 1.0 }
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+  },
+  buildUniforms: vi.fn(() => ({
+    upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
+    unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
+    color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
+    crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
   }))
 }));
 
@@ -62,6 +67,8 @@ describe('StreamingGpuRendererService', () => {
   let mockLogger;
   let mockLoggerFactory;
   let mockSettingsService;
+  let mockGpuFrameBuffer;
+  let mockGpuWorkerManager;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -87,6 +94,28 @@ describe('StreamingGpuRendererService', () => {
       getRenderPreset: vi.fn(() => 'default')
     };
 
+    mockGpuFrameBuffer = {
+      enqueue: vi.fn(() => true),
+      dequeue: vi.fn(() => null),
+      isFull: vi.fn(() => false),
+      flush: vi.fn(),
+      getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
+      resetMetrics: vi.fn(),
+      getCapacity: vi.fn(() => 3),
+      getSize: vi.fn(() => 0)
+    };
+
+    mockGpuWorkerManager = {
+      isReady: vi.fn(() => false),
+      isCanvasTransferred: vi.fn(() => false),
+      getCapabilities: vi.fn(() => null),
+      initialize: vi.fn().mockResolvedValue(true),
+      sendCommand: vi.fn(),
+      onMessage: vi.fn(() => vi.fn()),
+      releaseResources: vi.fn(),
+      terminate: vi.fn()
+    };
+
     // Mock Worker constructor
     global.Worker = vi.fn().mockImplementation(() => ({
       postMessage: vi.fn(),
@@ -98,7 +127,9 @@ describe('StreamingGpuRendererService', () => {
     service = new StreamingGpuRendererService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
-      settingsService: mockSettingsService
+      settingsService: mockSettingsService,
+      gpuFrameBuffer: mockGpuFrameBuffer,
+      gpuWorkerManager: mockGpuWorkerManager
     });
   });
 
@@ -113,6 +144,11 @@ describe('StreamingGpuRendererService', () => {
       expect(service._isReady).toBe(false);
       expect(service._wasCanvasTransferred).toBe(false);
       expect(service._isUsingFallback).toBe(false);
+    });
+
+    it('should store manager references', () => {
+      expect(service._frameBuffer).toBe(mockGpuFrameBuffer);
+      expect(service._workerManager).toBe(mockGpuWorkerManager);
     });
   });
 

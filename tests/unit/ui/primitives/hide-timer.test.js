@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { HideTimer } from '@renderer/ui/primitives/hide-timer.class.js';
+import { HideTimer } from '@renderer/presentation/primitives/hide-timer.class.js';
 
 describe('HideTimer', () => {
   let timer;

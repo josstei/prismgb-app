@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UIEffects } from '@renderer/ui/effects/ui-effects.class.js';
-import { TIMING } from '@shared/config/constants.config.js';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config.ts';
 
 describe('UIEffects', () => {
   let uiEffects;

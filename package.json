@@ -4,6 +4,9 @@
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "node scripts/patch-mac-app-name.js && vite",
     "build": "vite build && electron-builder",
@@ -15,6 +18,7 @@
     "start": "electron dist/main/index.js",
     "lint": "eslint \"src/**/*.js\"",
     "lint:fix": "eslint \"src/**/*.js\" --fix",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -44,6 +48,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@prismgb/gpu": "*",
     "awilix": "^12.0.5",
     "electron-updater": "^6.7.3",
     "eventemitter3": "^5.0.4",
@@ -60,6 +65,7 @@
     "@playwright/test": "^1.58.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.2.0",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.14",
     "electron": "^28.0.0",
@@ -69,6 +75,7 @@
     "husky": "^9.1.7",
     "png2icons": "^2.0.1",
     "sharp": "^0.34.5",
+    "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",

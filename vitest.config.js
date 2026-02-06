@@ -10,13 +10,16 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  root: __dirname,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@main': path.resolve(__dirname, 'src/main'),
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@preload': path.resolve(__dirname, 'src/preload'),
-      '@shared': path.resolve(__dirname, 'src/shared')
+      '@shared': path.resolve(__dirname, 'src/shared'),
+      '@core': path.resolve(__dirname, 'src/core'),
+      '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
     }
   },
   test: {
@@ -45,7 +48,7 @@ export default defineConfig({
         // Main process files require Electron APIs that can't be tested with vitest/happy-dom
         'src/main/**',
         // Auto-update feature requires Electron autoUpdater API
-        'src/renderer/features/updates/**',
+        'src/renderer/infrastructure/services/updates/**',
         // Web Worker files run in Worker context, not testable in vitest
         'src/**/workers/*.js',
         // GPU rendering requires WebGPU/WebGL APIs not available in vitest
@@ -55,8 +58,9 @@ export default defineConfig({
         // Canvas lifecycle requires complex DOM/Canvas API interactions
         'src/**/canvas-lifecycle.service.js',
         // UI templates use Vite ?raw imports for SVGs not available in vitest
-        'src/renderer/ui/templates/*.js',
-        'src/renderer/ui/icons/*.js',
+        'src/renderer/presentation/shell/*.js',
+        'src/renderer/presentation/icons/*.js',
+        'src/renderer/presentation/features/**/*.template.js',
         // Interface files are abstract base classes (throw stubs) not meant to be tested
         'src/shared/interfaces/*.interface.js',
         // JSON configuration files
@@ -85,7 +89,10 @@ export default defineConfig({
     ],
 
     // Setup files
-    setupFiles: ['./tests/setup.js', './tests/testing-library.setup.js'],
+    setupFiles: [
+      path.resolve(__dirname, 'tests/setup.js'),
+      path.resolve(__dirname, 'tests/testing-library.setup.js')
+    ],
 
     // Test timeout
     testTimeout: 10000,

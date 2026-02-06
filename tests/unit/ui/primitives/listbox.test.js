@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderListboxOptions, updateListboxActiveState } from '@renderer/ui/primitives/listbox.utils.js';
+import { renderListboxOptions, updateListboxActiveState } from '@renderer/presentation/primitives/listbox.utils.js';
 
 describe('listbox helpers', () => {
   let container;

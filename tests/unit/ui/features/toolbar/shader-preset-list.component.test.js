@@ -3,18 +3,19 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ShaderPresetListComponent } from '@renderer/ui/features/toolbar/components/shader-preset-list.component.js';
+import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-// Mock the presets module
-vi.mock('@renderer/features/streaming/rendering/presets/streaming-render-presets.config.js', () => ({
-  getPresetsForUI: () => [
-    { id: 'sharp', name: 'Sharp' },
-    { id: 'soft', name: 'Soft' },
-    { id: 'crt', name: 'CRT' },
-    { id: 'performance', name: 'Performance' }
-  ]
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    getForUI: () => [
+      { id: 'sharp', name: 'Sharp' },
+      { id: 'soft', name: 'Soft' },
+      { id: 'crt', name: 'CRT' },
+      { id: 'performance', name: 'Performance' }
+    ]
+  }
 }));
 
 function createMockSettingsService(overrides = {}) {

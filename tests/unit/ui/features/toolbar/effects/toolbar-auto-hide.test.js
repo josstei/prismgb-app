@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ToolbarAutoHide } from '@renderer/ui/features/toolbar/effects/toolbar-auto-hide.class.js';
+import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect.ts';
 
 describe('ToolbarAutoHide', () => {
   let autoHide;

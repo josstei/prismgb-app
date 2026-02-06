@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DeviceRegistry, DEVICE_REGISTRY } from '@shared/features/devices/device.registry.js';
 import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
-import { DeviceChromaticAdapter } from '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js';
+import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
 
 describe('DeviceRegistry', () => {
   let initialDeviceCount;
@@ -172,7 +172,7 @@ describe('DeviceRegistry', () => {
         usb: { vendorId: 0x374e, productId: 0x0101 },
         labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101'],
         profileModule: '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js',
-        adapterModule: '@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js',
+        adapterModule: '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts',
         ProfileClass: DeviceChromaticProfile,
         AdapterClass: DeviceChromaticAdapter
       };

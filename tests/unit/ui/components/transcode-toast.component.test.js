@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { TranscodeToastComponent } from '@renderer/ui/features/transcode/transcode-toast.component.js';
+import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 
 describe('TranscodeToastComponent', () => {
   let component;

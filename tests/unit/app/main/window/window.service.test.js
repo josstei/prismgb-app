@@ -74,7 +74,7 @@ vi.mock('path', () => ({
   dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
 }));
 
-import { WindowService } from '@main/window/window.service.js';
+import { WindowService } from '@main/infrastructure/window/index.js';
 import { BrowserWindow, app } from 'electron';
 
 describe('WindowService', () => {

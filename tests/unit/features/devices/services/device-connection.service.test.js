@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceConnectionService } from '@renderer/features/devices/services/device-connection.service.js';
+import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
 import { createMockEventBus, createMockLoggerFactory } from '../../../../mocks/index.js';
 
 function createMockDeviceStatusProvider(overrides = {}) {

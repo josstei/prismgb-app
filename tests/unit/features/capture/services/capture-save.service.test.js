@@ -4,11 +4,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureSaveService } from '@renderer/features/capture/services/capture-save.service.js';
+import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/lib/file-download.utils.js';
+import { downloadFile } from '@renderer/presentation/lib/file-download.utils.ts';
 
-vi.mock('@renderer/lib/file-download.utils.js', () => ({
+vi.mock('@renderer/presentation/lib/file-download.utils.ts', () => ({
   downloadFile: vi.fn()
 }));
 

@@ -19,242 +19,282 @@ vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => {
 });
 
 // Application layer mocks
-vi.mock('@renderer/application/app-state.class.js', () => ({
+vi.mock('@renderer/application/state/app-state.ts', () => ({
   AppState: vi.fn()
 }));
 
-vi.mock('@renderer/application/app.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/app.orchestrator.ts', () => ({
   AppOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-animation.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-animation.orchestrator.ts', () => ({
   PerformanceAnimationOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-animation.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-animation.service.ts', () => ({
   PerformanceAnimationService: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-state.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-state.orchestrator.ts', () => ({
   PerformanceStateOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-state.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-state.service.ts', () => ({
   PerformanceStateService: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-metrics.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/performance-metrics.orchestrator.ts', () => ({
   PerformanceMetricsOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/performance/performance-metrics.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/performance/performance-metrics.service.ts', () => ({
   PerformanceMetricsService: vi.fn()
 }));
 
-vi.mock('@renderer/application/adapters/metrics.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/platform/metrics.adapter.ts', () => ({
   MetricsAdapter: vi.fn()
 }));
 
 // UI layer mocks
-vi.mock('@renderer/ui/orchestration/ui-setup.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/ui-setup.orchestrator.ts', () => ({
   UISetupOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/ui/controller/component.registry.js', () => ({
+vi.mock('@renderer/presentation/controller/component.registry.js', () => ({
   UIComponentRegistry: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/ui-effects.class.js', () => ({
+vi.mock('@renderer/presentation/effects/ui-effects.class.ts', () => ({
   UIEffects: vi.fn()
 }));
 
-vi.mock('@renderer/ui/effects/body-class.class.js', () => ({
+vi.mock('@renderer/presentation/effects/body-class.class.ts', () => ({
   BodyClassManager: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/ui-event.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/ui-event.bridge.ts', () => ({
   UIEventBridge: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/presentation-mode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/presentation-mode.service.ts', () => ({
   PresentationModeService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/capture-ui.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/capture-ui.bridge.ts', () => ({
   CaptureUIBridge: vi.fn()
 }));
 
-vi.mock('@renderer/ui/orchestration/transcode-ui.bridge.js', () => ({
+vi.mock('@renderer/presentation/bridges/transcode-ui.bridge.ts', () => ({
   TranscodeUIBridge: vi.fn()
 }));
 
 // Features: Devices mocks
-vi.mock('@renderer/features/devices/services/device.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device.service.ts', () => ({
   DeviceService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-connection.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-connection.service.ts', () => ({
   DeviceConnectionService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-storage.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-storage.service.ts', () => ({
   DeviceStorageService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device-media.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/devices/device-media.service.ts', () => ({
   DeviceMediaService: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/services/device.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/device.orchestrator.ts', () => ({
   DeviceOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/device-ipc-status.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts', () => ({
   DeviceIpcStatusAdapter: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/device-ipc.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', () => ({
   DeviceIpcAdapter: vi.fn()
 }));
 
-vi.mock('@renderer/features/devices/adapters/chromatic/device-chromatic.adapter.js', () => ({
+vi.mock('@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts', () => ({
   DeviceChromaticAdapter: vi.fn()
 }));
 
 // Features: Streaming mocks
-vi.mock('@renderer/features/streaming/services/streaming.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/streaming.service.ts', () => ({
   StreamingService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/services/streaming.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/streaming.orchestrator.ts', () => ({
   StreamingOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/factories/streaming-adapter.factory.js', () => ({
+vi.mock('@renderer/application/orchestrators/streaming-audio.orchestrator.ts', () => ({
+  StreamingAudioOrchestrator: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/factories/streaming-adapter.factory.ts', () => ({
   StreamingAdapterFactory: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-canvas-renderer.class.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/canvas-renderer.ts', () => ({
   StreamingCanvasRenderer: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-render-pipeline.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/render-pipeline.service.ts', () => ({
   StreamingRenderPipelineService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-canvas-lifecycle.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts', () => ({
   StreamingCanvasLifecycleService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-gpu-render-loop.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/gpu-render-loop.service.ts', () => ({
   StreamingGpuRenderLoopService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-viewport.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/viewport.service.ts', () => ({
   StreamingViewportService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/streaming-health.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/health.service.ts', () => ({
   StreamingHealthService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/rendering/gpu/streaming-gpu-renderer.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/gpu-renderer.service.ts', () => ({
   StreamingGpuRendererService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/services/streaming-view.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/streaming-view.service.ts', () => ({
   StreamingViewService: vi.fn()
 }));
 
-vi.mock('@renderer/features/streaming/audio/streaming-audio-pipeline.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/audio-pipeline.service.ts', () => ({
   StreamingAudioPipelineService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/streaming/streaming-controls.component.js', () => ({
+vi.mock('@renderer/infrastructure/services/streaming/gpu-frame-buffer.ts', () => ({
+  GpuFrameBuffer: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/streaming/gpu-worker-manager.ts', () => ({
+  GpuWorkerManager: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/factories/streaming-renderer.factory.ts', () => ({
+  StreamingRendererFactory: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts', () => ({
+  StreamingGpuRendererAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts', () => ({
+  StreamingCanvas2DRendererAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts', () => ({
+  DeviceChangeDebounceAdapter: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts', () => ({
+  DeviceOperationSequencerService: vi.fn()
+}));
+
+vi.mock('@renderer/infrastructure/services/notes/notes.service.ts', () => ({
+  NotesService: vi.fn()
+}));
+
+vi.mock('@renderer/presentation/features/streaming/streaming-controls.component.js', () => ({
   StreamingControlsComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/toolbar/components/shader-selector.component.js', () => ({
+vi.mock('@renderer/presentation/features/toolbar/components/shader-selector.component.js', () => ({
   ShaderSelectorComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/shared/status-notification.component.js', () => ({
+vi.mock('@renderer/presentation/shared/status-notification.component.js', () => ({
   StatusNotificationComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/shared/device-status.component.js', () => ({
+vi.mock('@renderer/presentation/shared/device-status.component.js', () => ({
   DeviceStatusComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/transcode/transcode-toast.component.js', () => ({
+vi.mock('@renderer/presentation/features/transcode/transcode-toast.component.js', () => ({
   TranscodeToastComponent: vi.fn()
 }));
 
 // Features: Capture mocks
-vi.mock('@renderer/features/capture/services/capture.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/capture.service.ts', () => ({
   CaptureService: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/capture.orchestrator.ts', () => ({
   CaptureOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture-gpu-recording.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/gpu-recording.service.ts', () => ({
   CaptureGpuRecordingService: vi.fn()
 }));
 
-vi.mock('@renderer/features/capture/services/capture-save.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/capture/capture-save.service.ts', () => ({
   CaptureSaveService: vi.fn()
 }));
 
 // Features: Transcode mocks
-vi.mock('@renderer/features/transcode/services/transcode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/transcode/transcode.service.ts', () => ({
   TranscodeService: vi.fn()
 }));
 
 // Features: Settings mocks
-vi.mock('@renderer/features/settings/services/settings.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/settings.service.ts', () => ({
   SettingsService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-preferences.orchestrator.js', () => ({
+vi.mock('@renderer/presentation/config/storage-keys.config.ts', () => ({
+  PROTECTED_STORAGE_KEYS: []
+}));
+
+vi.mock('@renderer/application/orchestrators/preferences.orchestrator.ts', () => ({
   SettingsPreferencesOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-display-mode.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/display-mode.orchestrator.ts', () => ({
   SettingsDisplayModeOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-fullscreen.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/fullscreen.service.ts', () => ({
   SettingsFullscreenService: vi.fn()
 }));
 
-vi.mock('@renderer/features/settings/services/settings-cinematic-mode.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/settings/cinematic-mode.service.ts', () => ({
   SettingsCinematicModeService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/settings/settings-menu.component.js', () => ({
+vi.mock('@renderer/presentation/features/settings/settings-menu.component.js', () => ({
   SettingsMenuComponent: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/notes/notes-panel.component.js', () => ({
+vi.mock('@renderer/presentation/features/notes/notes-panel.component.js', () => ({
   NotesPanelComponent: vi.fn()
 }));
 
 // Features: Updates mocks
-vi.mock('@renderer/features/updates/services/update.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/updates/update.service.ts', () => ({
   UpdateService: vi.fn()
 }));
 
-vi.mock('@renderer/features/updates/services/update.orchestrator.js', () => ({
+vi.mock('@renderer/application/orchestrators/update.orchestrator.ts', () => ({
   UpdateOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/features/updates/ui/update-ui.service.js', () => ({
+vi.mock('@renderer/infrastructure/services/updates/update-ui.service.ts', () => ({
   UpdateUiService: vi.fn()
 }));
 
-vi.mock('@renderer/ui/features/updates/update-section.component.js', () => ({
+vi.mock('@renderer/presentation/features/updates/update-section.component.js', () => ({
   UpdateSectionComponent: vi.fn()
 }));
 
@@ -292,8 +332,20 @@ vi.mock('@shared/utils/performance-cache.utils.js', () => ({
   AnimationCache: vi.fn()
 }));
 
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    setDefault: vi.fn(),
+    get: vi.fn(),
+    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test' })),
+    getForUI: vi.fn(() => []),
+    getAll: vi.fn(() => [])
+  },
+  buildUniforms: vi.fn(),
+  detectCapabilities: vi.fn()
+}));
+
 // Import the container module
-import * as containerModuleImport from '@renderer/container.js';
+import * as containerModuleImport from '@renderer/application/container.ts';
 
 describe('Renderer Container', () => {
   let containerModule;

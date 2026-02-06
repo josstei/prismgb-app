@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsMenuComponent } from '@renderer/ui/features/settings/settings-menu.component.js';
+import { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
 
 describe('SettingsMenuComponent', () => {
   let component;

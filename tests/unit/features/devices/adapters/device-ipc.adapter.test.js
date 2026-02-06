@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeviceIpcAdapter } from '@renderer/features/devices/adapters/device-ipc.adapter.js';
+import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;

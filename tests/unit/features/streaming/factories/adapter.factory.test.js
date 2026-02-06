@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingAdapterFactory } from '@renderer/features/streaming/factories/streaming-adapter.factory.js';
+import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
-vi.mock('@shared/streaming/acquisition/constraint-builder.class.js', () => {
+vi.mock('@renderer/infrastructure/streaming/acquisition/constraint-builder.ts', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
@@ -14,7 +14,7 @@ vi.mock('@shared/streaming/acquisition/constraint-builder.class.js', () => {
   };
 });
 
-vi.mock('@shared/streaming/acquisition/stream-lifecycle.base.js', () => {
+vi.mock('@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts', () => {
   return {
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}

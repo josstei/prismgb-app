@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingOrchestrator } from '@renderer/features/streaming/services/streaming.orchestrator.js';
+import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
 
 describe('StreamingOrchestrator', () => {
   let orchestrator;

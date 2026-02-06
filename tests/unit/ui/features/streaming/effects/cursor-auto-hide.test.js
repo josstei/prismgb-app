@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CursorAutoHide } from '@renderer/ui/features/streaming/effects/cursor-auto-hide.class.js';
+import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect.ts';
 
 describe('CursorAutoHide', () => {
   let autoHide;

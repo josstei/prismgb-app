@@ -57,7 +57,7 @@ vi.mock('@main/infrastructure/events/event-channels.config.js', () => ({
   }
 }));
 
-import { DeviceService } from '@main/features/devices/device.service.js';
+import { DeviceService } from '@main/infrastructure/devices/device.service.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 

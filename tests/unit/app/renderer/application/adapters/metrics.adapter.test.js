@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MetricsAdapter } from '@renderer/application/adapters/metrics.adapter.js';
+import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter.ts';
 
 describe('MetricsAdapter', () => {
   let adapter;

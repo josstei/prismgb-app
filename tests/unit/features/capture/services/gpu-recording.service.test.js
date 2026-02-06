@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CaptureGpuRecordingService } from '@renderer/features/capture/services/capture-gpu-recording.service.js';
+import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
 
 describe('CaptureGpuRecordingService', () => {
   let service;

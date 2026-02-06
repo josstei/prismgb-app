@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { NotesPanelLayoutComponent } from '@renderer/ui/features/notes/components/notes-panel-layout.component.js';
+import { NotesPanelLayoutComponent } from '@renderer/presentation/features/notes/components/notes-panel-layout.component.js';
 
 describe('NotesPanelLayoutComponent', () => {
   let component;

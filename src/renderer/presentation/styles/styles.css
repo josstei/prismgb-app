@@ -1,0 +1,20 @@
+/* =====================================================
+   PrismGB Styles
+   ===================================================== */
+
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './utilities.css';
+@import './branding.css';
+@import './status-indicators.css';
+@import './buttons.css';
+@import '../features/settings/settings.styles.css';
+@import '../features/updates/updates.styles.css';
+@import '../features/streaming/streaming.styles.css';
+@import '../features/toolbar/toolbar.styles.css';
+@import '../features/fullscreen/fullscreen.styles.css';
+@import '../features/notes/notes.styles.css';
+@import './states.css';
+@import './animations.css';
+@import './responsive.css';

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { TranscodeService } from '@renderer/features/transcode/services/transcode.service.js';
+import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('TranscodeService', () => {

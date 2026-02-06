@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CaptureEffects } from '@renderer/ui/features/toolbar/effects/capture-effects.class.js';
+import { CaptureEffects } from '@renderer/presentation/effects/capture.effect.ts';
 
 describe('CaptureEffects', () => {
   let captureEffects;

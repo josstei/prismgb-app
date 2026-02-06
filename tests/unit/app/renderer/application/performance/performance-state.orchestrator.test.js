@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceStateOrchestrator } from '@renderer/application/performance/performance-state.orchestrator.js';
+import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance-state.orchestrator.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('PerformanceStateOrchestrator', () => {

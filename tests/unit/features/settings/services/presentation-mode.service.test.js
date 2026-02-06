@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PresentationModeService } from '@renderer/features/settings/services/presentation-mode.service.js';
+import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
 
 describe('PresentationModeService', () => {
   let service;

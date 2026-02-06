@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { AppOrchestrator } from '@renderer/application/app.orchestrator.js';
+import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('AppOrchestrator', () => {

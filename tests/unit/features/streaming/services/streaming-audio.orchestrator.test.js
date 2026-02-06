@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingAudioOrchestrator } from '@renderer/features/streaming/services/streaming-audio.orchestrator.js';
+import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator.ts';
 
 describe('StreamingAudioOrchestrator', () => {
   let orchestrator;
