@@ -5,12 +5,14 @@ export interface UpscaleUniforms {
 }
 
 export interface UnsharpUniforms {
+  enabled: boolean;
   texelSize: [number, number];
   strength: number;
   scaleFactor: number;
 }
 
 export interface ColorUniforms {
+  enabled: boolean;
   gamma: number;
   saturation: number;
   greenBias: number;
@@ -19,6 +21,7 @@ export interface ColorUniforms {
 }
 
 export interface CRTUniforms {
+  enabled: boolean;
   resolution: [number, number];
   scaleFactor: number;
   scanlineStrength: number;

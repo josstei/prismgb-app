@@ -4,15 +4,16 @@ import { PresetRegistry } from '../preset-registry';
 export const vibrantPreset: IPreset = {
   id: 'vibrant',
   name: 'Vibrant',
+  description: 'Boosted colors for modern displays',
   upscale: { enabled: true },
   unsharp: { enabled: true, strength: 0.3 },
   color: {
     enabled: true,
-    gamma: 1.0,
-    saturation: 1.25,
-    greenBias: 0.04,
+    gamma: 0.88,
+    saturation: 1.2,
+    greenBias: 0.02,
     brightness: 1.05,
-    contrast: 1.05
+    contrast: 1.1
   },
   crt: {
     enabled: false,

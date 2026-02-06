@@ -4,13 +4,14 @@ import { PresetRegistry } from '../preset-registry';
 export const trueColorPreset: IPreset = {
   id: 'true-color',
   name: 'True Color',
+  description: 'Accurate GBC colors',
   upscale: { enabled: true },
   unsharp: { enabled: false, strength: 0 },
   color: {
     enabled: true,
-    gamma: 1.0,
+    gamma: 0.92,
     saturation: 1.0,
-    greenBias: 0.04,
+    greenBias: 0.03,
     brightness: 1.0,
     contrast: 1.0
   },

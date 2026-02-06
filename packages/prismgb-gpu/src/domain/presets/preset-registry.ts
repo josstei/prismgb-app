@@ -31,8 +31,8 @@ class PresetRegistryImpl {
     return Array.from(this.presets.values());
   }
 
-  getForUI(): Array<{ id: string; name: string }> {
-    return this.getAll().map(p => ({ id: p.id, name: p.name }));
+  getForUI(): Array<{ id: string; name: string; description: string }> {
+    return this.getAll().map(p => ({ id: p.id, name: p.name, description: p.description }));
   }
 }
 

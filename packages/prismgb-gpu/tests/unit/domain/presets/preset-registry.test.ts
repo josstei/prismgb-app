@@ -19,6 +19,16 @@ describe('PresetRegistry', () => {
       expect(presets.map(p => p.id)).toContain('vibrant');
       expect(presets.map(p => p.id)).toContain('vintage');
     });
+
+    it('should have description field on all presets', () => {
+      const presets = PresetRegistry.getAll();
+
+      presets.forEach(preset => {
+        expect(preset).toHaveProperty('description');
+        expect(typeof preset.description).toBe('string');
+        expect(preset.description.length).toBeGreaterThan(0);
+      });
+    });
   });
 
   describe('get', () => {
@@ -52,6 +62,17 @@ describe('PresetRegistry', () => {
       expect(presets.length).toBeGreaterThan(0);
       expect(presets[0]).toHaveProperty('id');
       expect(presets[0]).toHaveProperty('name');
+      expect(presets[0]).toHaveProperty('description');
+    });
+
+    it('should include description field for all presets', () => {
+      const presets = PresetRegistry.getForUI();
+
+      presets.forEach(preset => {
+        expect(preset.description).toBeDefined();
+        expect(typeof preset.description).toBe('string');
+        expect(preset.description.length).toBeGreaterThan(0);
+      });
     });
   });
 });

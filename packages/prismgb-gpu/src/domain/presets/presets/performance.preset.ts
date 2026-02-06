@@ -4,6 +4,7 @@ import { PresetRegistry } from '../preset-registry';
 export const performancePreset: IPreset = {
   id: 'performance',
   name: 'Performance',
+  description: 'Minimal processing for weak GPUs',
   upscale: { enabled: true },
   unsharp: { enabled: false, strength: 0 },
   color: {

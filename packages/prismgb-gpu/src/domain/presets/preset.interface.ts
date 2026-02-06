@@ -28,6 +28,7 @@ export interface CRTConfig {
 export interface IPreset {
   readonly id: string;
   readonly name: string;
+  readonly description: string;
   readonly upscale: UpscaleConfig;
   readonly unsharp: UnsharpConfig;
   readonly color: ColorConfig;

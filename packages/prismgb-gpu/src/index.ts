@@ -25,6 +25,14 @@ export type {
 } from './domain/presets';
 
 export type {
+  PipelineUniforms,
+  UpscaleUniforms,
+  UnsharpUniforms,
+  ColorUniforms,
+  CRTUniforms
+} from './domain/shaders';
+
+export type {
   FrameSource,
   IFrameProvider
 } from './domain/frame';
@@ -34,6 +42,10 @@ export { PresetRegistry } from './domain/presets';
 
 // Capability Detection (for UI to show GPU status)
 export { detectCapabilities } from './application/capability-detector';
+
+// Uniform Builder (for building shader uniforms from presets)
+export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
+export type { UniformBuildContext } from './application/uniform-builder';
 
 // Pipeline Factory (main entry point)
 export { createPipeline, type CreatePipelineOptions } from './factories';
