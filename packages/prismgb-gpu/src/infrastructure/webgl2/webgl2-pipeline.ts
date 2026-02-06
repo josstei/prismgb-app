@@ -82,7 +82,7 @@ export class WebGL2Pipeline extends BasePipeline {
     this.framebuffers = [];
 
     for (let i = 0; i < 2; i++) {
-      const texture = this.createTexture(targetWidth, targetHeight, gl.LINEAR)!;
+      const texture = this.createTexture(targetWidth, targetHeight, gl.LINEAR);
       this.intermediateTextures.push(texture);
 
       const framebuffer = gl.createFramebuffer()!;
@@ -95,10 +95,14 @@ export class WebGL2Pipeline extends BasePipeline {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  private createTexture(width: number, height: number, filter: number): WebGLTexture | null {
+  private createTexture(width: number, height: number, filter: number): WebGLTexture {
     const gl = this.gl!;
 
     const texture = gl.createTexture();
+    if (!texture) {
+      throw new Error('Failed to create WebGL texture');
+    }
+
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
