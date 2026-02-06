@@ -1,40 +1,66 @@
+import type {
+  DeviceInfoPayload,
+  DeviceStatusPayload,
+  GpuPolicyPayload,
+  ProcessMetricsResponse,
+  ShellOpenExternalResponse,
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeFormat,
+  TranscodeProgressPayload,
+  TranscodeStartOptions,
+  TranscodeStartResponse,
+  TranscodeStatusResponse,
+  TranscodeCancelResponse,
+  UpdateCheckResponse,
+  UpdateDownloadResponse,
+  UpdateErrorPayload,
+  UpdateGetStatusResponse,
+  UpdateInfoPayload,
+  UpdateInstallResponse,
+  UpdateProgressPayload,
+  WindowIsFullscreenResponse,
+  WindowSetFullscreenResponse
+} from '@shared/ipc/preload-api.contract.js';
+
 export {};
 
 type Unsubscribe = () => void;
 
 interface DeviceAPI {
-  getDeviceStatus(): Promise<unknown>;
-  onDeviceConnected(callback: (device: unknown) => void): Unsubscribe;
-  onDeviceDisconnected(callback: (device: unknown) => void): Unsubscribe;
+  getDeviceStatus(): Promise<DeviceStatusPayload>;
+  onDeviceConnected(callback: (device: DeviceInfoPayload) => void): Unsubscribe;
+  onDeviceDisconnected(callback: (device: DeviceInfoPayload | null | undefined) => void): Unsubscribe;
   removeDeviceListeners(): void;
 }
 
 interface UpdateAPI {
-  getStatus(): Promise<unknown>;
-  checkForUpdates(): Promise<unknown>;
-  downloadUpdate(): Promise<unknown>;
-  installUpdate(): Promise<unknown>;
-  onAvailable(callback: (info: unknown) => void): Unsubscribe;
-  onNotAvailable(callback: (info: unknown) => void): Unsubscribe;
-  onProgress(callback: (progress: unknown) => void): Unsubscribe;
-  onDownloaded(callback: (info: unknown) => void): Unsubscribe;
-  onError(callback: (error: unknown) => void): Unsubscribe;
+  getStatus(): Promise<UpdateGetStatusResponse>;
+  checkForUpdates(): Promise<UpdateCheckResponse>;
+  downloadUpdate(): Promise<UpdateDownloadResponse>;
+  installUpdate(): Promise<UpdateInstallResponse>;
+  onAvailable(callback: (info: UpdateInfoPayload) => void): Unsubscribe;
+  onNotAvailable(callback: (info: UpdateInfoPayload) => void): Unsubscribe;
+  onProgress(callback: (progress: UpdateProgressPayload) => void): Unsubscribe;
+  onDownloaded(callback: (info: UpdateInfoPayload) => void): Unsubscribe;
+  onError(callback: (error: UpdateErrorPayload) => void): Unsubscribe;
   removeListeners(): void;
 }
 
 interface TranscodeAPI {
   start(
     inputBuffer: ArrayBuffer,
-    format: string,
+    format: TranscodeFormat,
     outputFilename?: string,
-    options?: { inputArgs?: string[]; interrupted?: boolean }
-  ): Promise<unknown>;
-  cancel(jobId: string): Promise<unknown>;
-  getStatus(): Promise<unknown>;
-  onProgress(callback: (progress: unknown) => void): Unsubscribe;
-  onCompleted(callback: (result: unknown) => void): Unsubscribe;
-  onError(callback: (error: unknown) => void): Unsubscribe;
-  onCancelled(callback: (payload: unknown) => void): Unsubscribe;
+    options?: TranscodeStartOptions
+  ): Promise<TranscodeStartResponse>;
+  cancel(jobId: string): Promise<TranscodeCancelResponse>;
+  getStatus(jobId?: string): Promise<TranscodeStatusResponse>;
+  onProgress(callback: (progress: TranscodeProgressPayload) => void): Unsubscribe;
+  onCompleted(callback: (result: TranscodeCompletedPayload) => void): Unsubscribe;
+  onError(callback: (error: TranscodeErrorPayload) => void): Unsubscribe;
+  onCancelled(callback: (payload: TranscodeCancelledPayload) => void): Unsubscribe;
   removeListeners(): void;
 }
 
@@ -42,21 +68,21 @@ interface WindowAPI {
   onEnterFullscreen(callback: () => void): Unsubscribe;
   onLeaveFullscreen(callback: () => void): Unsubscribe;
   onResized(callback: () => void): Unsubscribe;
-  setFullScreen(enabled: boolean): Promise<unknown>;
-  isFullScreen(): Promise<boolean>;
+  setFullScreen(enabled: boolean): Promise<WindowSetFullscreenResponse>;
+  isFullScreen(): Promise<WindowIsFullscreenResponse>;
   removeListeners(): void;
 }
 
 interface ShellAPI {
-  openExternal(url: string): Promise<unknown>;
+  openExternal(url: string): Promise<ShellOpenExternalResponse>;
 }
 
 interface MetricsAPI {
-  getProcessMetrics(): Promise<unknown>;
+  getProcessMetrics(): Promise<ProcessMetricsResponse>;
 }
 
 interface GpuAPI {
-  getPolicy(): Promise<{ skipWebGPU: boolean; reason: string | null }>;
+  getPolicy(): Promise<GpuPolicyPayload>;
 }
 
 declare global {

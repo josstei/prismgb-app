@@ -21,7 +21,6 @@ const OperationType = {
 };
 
 export class DeviceOperationSequencerService extends BaseService {
-  [key: string]: any;
 
   /**
    * @param {Object} dependencies - Injected dependencies

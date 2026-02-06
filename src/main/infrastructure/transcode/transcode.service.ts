@@ -91,7 +91,6 @@ interface TranscodeServiceDependencies {
 }
 
 class TranscodeService extends BaseService {
-  [key: string]: any;
 
   private windowService: TranscodeServiceDependencies['windowService'];
   private _jobs: Map<string, TranscodeJob> = new Map();
@@ -169,7 +168,7 @@ class TranscodeService extends BaseService {
       try {
         durationUs = await probeDuration(inputPath);
         this.logger.debug('Probed video duration', { sessionId, durationUs });
-      } catch (error) {
+      } catch {
         this.logger.debug('Duration unknown, will show spinner', { sessionId });
         durationUs = 0;
       }
@@ -399,7 +398,7 @@ class TranscodeService extends BaseService {
     this.logger.info('Disposing TranscodeService');
 
     // Cancel any running processes
-    for (const [jobId, process] of this._processes) {
+    for (const process of this._processes.values()) {
       if (process.isRunning) {
         process.cancel();
       }

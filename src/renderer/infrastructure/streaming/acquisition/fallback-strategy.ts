@@ -16,7 +16,6 @@ import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interfac
  * 4. video-only-minimal - Video only with minimal constraints (last resort)
  */
 export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
-  [key: string]: any;
   constructor(options: any = {}) {
     super();
     this.includeAudioFallbacks = options.includeAudioFallbacks !== false;

@@ -30,7 +30,6 @@ const StreamState = {
 };
 
 export class StreamingService extends BaseService {
-  [key: string]: any;
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {DeviceService} dependencies.deviceService - Device enumeration service

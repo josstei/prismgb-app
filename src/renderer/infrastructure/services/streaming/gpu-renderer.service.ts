@@ -45,7 +45,6 @@ const BITMAP_OPTIONS = Object.freeze({
 });
 
 export class StreamingGpuRendererService extends BaseService {
-  [key: string]: any;
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for render events

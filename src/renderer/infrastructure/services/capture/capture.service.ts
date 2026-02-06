@@ -17,7 +17,6 @@ import { FilenameGenerator } from '@renderer/presentation/lib/filename-generator
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {
-  [key: string]: any;
 
   /**
    * @param {Object} dependencies - Injected dependencies

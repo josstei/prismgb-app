@@ -8,7 +8,6 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class PerformanceAnimationService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');

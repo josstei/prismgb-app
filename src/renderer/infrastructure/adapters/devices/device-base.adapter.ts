@@ -14,7 +14,6 @@ interface BaseDeviceAdapterDependencies {
  * @extends IDeviceAdapter
  */
 export class BaseDeviceAdapter extends IDeviceAdapter {
-  [key: string]: any;
 
   /**
    * @param {Object} [dependencies={}] - Injected dependencies

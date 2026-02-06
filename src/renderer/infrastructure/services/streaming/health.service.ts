@@ -10,7 +10,6 @@ import { BaseService } from '@shared/base/service.base.js';
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
 export class StreamingHealthService extends BaseService {
-  [key: string]: any;
   constructor(dependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingHealthService');
 

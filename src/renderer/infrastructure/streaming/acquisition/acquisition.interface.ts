@@ -3,6 +3,7 @@
  * Provides consistent stream acquisition, release, and tracking
  */
 export class IStreamLifecycle {
+
   /**
    * Acquire a media stream with given constraints
    * @param {Object} constraints - MediaStreamConstraints
@@ -63,6 +64,7 @@ export class IStreamLifecycle {
  * always preserved - no code path should produce `audio: true` or `video: true`
  */
 export class IConstraintBuilder {
+
   /**
    * Build media constraints from acquisition context
    * @param {AcquisitionContext} context - Immutable acquisition context with device identity

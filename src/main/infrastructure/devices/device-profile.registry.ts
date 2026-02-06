@@ -31,7 +31,6 @@ interface DeviceProfileRegistryDependencies {
 }
 
 class DeviceProfileRegistry {
-  [key: string]: any;
 
   private readonly logger: Logger;
   private readonly profiles: Map<string, DeviceProfile>;

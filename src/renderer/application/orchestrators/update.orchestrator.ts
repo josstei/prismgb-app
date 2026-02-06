@@ -12,7 +12,6 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { UpdateState } from '@renderer/infrastructure/services/updates/update.service';
 
 class UpdateOrchestrator extends BaseOrchestrator {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(

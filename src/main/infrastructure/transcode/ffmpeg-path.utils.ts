@@ -209,19 +209,6 @@ export function validateFfmpegBinaries(): FfmpegBinaryPaths {
   return { ffmpegPath, ffprobePath };
 }
 
-function normalizeArchDir(arch: string): string {
-  if (arch === 'arm64') {
-    return 'arm64';
-  }
-  if (arch === 'arm') {
-    return 'arm';
-  }
-  if (arch === 'ia32') {
-    return 'ia32';
-  }
-  return 'x64';
-}
-
 function resolveSystemBinary(binaryName: string): string | null {
   try {
     const resolved = execSync(`command -v ${binaryName}`, { stdio: ['ignore', 'pipe', 'ignore'] })

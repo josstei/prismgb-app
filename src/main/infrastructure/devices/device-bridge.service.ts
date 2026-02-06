@@ -27,7 +27,6 @@ interface DeviceBridgeServiceDependencies {
 }
 
 class DeviceBridgeService extends BaseService {
-  [key: string]: any;
 
   private readonly deviceService: DeviceService;
   private readonly trayService: TrayService;

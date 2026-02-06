@@ -27,7 +27,6 @@ type AudioEnergyResult = {
 type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
 
 export class StreamingAudioPipelineService extends BaseService {
-  [key: string]: any;
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
 

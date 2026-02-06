@@ -14,20 +14,18 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-
-interface RendererTranscodeOptions {
-  inputArgs?: string[];
-  interrupted?: boolean;
-}
-
-interface RendererTranscodeResult {
-  success: boolean;
-  jobId?: string;
-  error?: string;
-}
+import type {
+  TranscodeCancelResponse,
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeFormat,
+  TranscodeProgressPayload,
+  TranscodeStartOptions,
+  TranscodeStartResponse
+} from '@shared/ipc/preload-api.contract.js';
 
 class TranscodeService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
@@ -80,10 +78,10 @@ class TranscodeService extends BaseService {
    */
   async transcode(
     blob: Blob,
-    format: string,
+    format: TranscodeFormat,
     outputBaseName?: string,
-    options: RendererTranscodeOptions = {}
-  ): Promise<RendererTranscodeResult> {
+    options: TranscodeStartOptions = {}
+  ): Promise<TranscodeStartResponse> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -109,7 +107,7 @@ class TranscodeService extends BaseService {
           inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
           interrupted: Boolean(options.interrupted)
         }
-      ) as RendererTranscodeResult;
+      );
 
       if (result.success && result.jobId) {
         // Track state locally since main process doesn't emit STARTED event
@@ -133,7 +131,7 @@ class TranscodeService extends BaseService {
    * Cancel the current transcoding operation
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async cancel(): Promise<{ success: boolean; error?: string }> {
+  async cancel(): Promise<TranscodeCancelResponse> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -145,7 +143,7 @@ class TranscodeService extends BaseService {
     }
 
     this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    return window.transcodeAPI.cancel(this._activeJobId) as Promise<{ success: boolean; error?: string }>;
+    return window.transcodeAPI.cancel(this._activeJobId);
   }
 
   /**
@@ -170,7 +168,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Progress data (percent, timeRemaining, etc.)
    * @private
    */
-  _handleProgress(data) {
+  _handleProgress(data: TranscodeProgressPayload) {
     this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
   }
 
@@ -179,7 +177,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Completion data (outputPath, duration, etc.)
    * @private
    */
-  _handleCompleted(data) {
+  _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
     this._activeJobId = null;
@@ -191,7 +189,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Error data
    * @private
    */
-  _handleError(data) {
+  _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
     this._activeJobId = null;
@@ -203,7 +201,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Cancellation data
    * @private
    */
-  _handleCancelled(data) {
+  _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
     this._activeJobId = null;

@@ -7,7 +7,6 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PresentationModeService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeService');

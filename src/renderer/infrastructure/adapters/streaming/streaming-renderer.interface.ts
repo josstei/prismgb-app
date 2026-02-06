@@ -6,6 +6,7 @@
  */
 
 export class IStreamingRenderer {
+
   /**
    * Initialize the renderer with a canvas and resolution
    * @param {HTMLCanvasElement} _canvasElement - Canvas to render to

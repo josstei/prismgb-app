@@ -3,7 +3,7 @@
  * Handles main application window creation and lifecycle
  */
 
-import { BrowserWindow, app, DownloadItem, Event, WebContents } from 'electron';
+import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -42,7 +42,6 @@ type AppWithQuitFlag = typeof app & {
 };
 
 class WindowService extends BaseService {
-  [key: string]: any;
 
   private mainWindow: BrowserWindow | null = null;
   private _consoleMessageListener: ConsoleMessageListener | null = null;
@@ -142,8 +141,8 @@ class WindowService extends BaseService {
         event: Event,
         level: number,
         message: string,
-        line: number,
-        sourceId: string
+        _line: number,
+        _sourceId: string
       ) => {
         const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
         console.log(`[Renderer ${levels[level] || level}] ${message}`);

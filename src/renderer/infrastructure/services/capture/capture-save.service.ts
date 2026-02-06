@@ -23,7 +23,6 @@ interface SaveResult {
 }
 
 class CaptureSaveService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(

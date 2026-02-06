@@ -16,7 +16,6 @@ import { generateEntityId } from '@shared/utils/string.utils.js';
 import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config';
 
 class NotesService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');

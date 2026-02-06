@@ -71,7 +71,6 @@ interface UpdateStatus {
 }
 
 class UpdateService extends BaseService {
-  [key: string]: any;
 
   state: UpdateStateType;
   updateInfo: UpdateInfo | null;

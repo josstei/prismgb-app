@@ -20,7 +20,6 @@ interface PerformanceStateInitOptions {
 }
 
 class PerformanceStateService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');

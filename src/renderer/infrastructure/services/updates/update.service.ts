@@ -16,25 +16,20 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { UpdateState } from '@renderer/presentation/config/update-state.config';
+import type {
+  UpdateCheckResponse,
+  UpdateDownloadResponse,
+  UpdateErrorPayload,
+  UpdateInfoPayload,
+  UpdateInstallResponse,
+  UpdateProgressPayload,
+  UpdateStatusPayload
+} from '@shared/ipc/preload-api.contract.js';
 
 // Re-export for backward compatibility
 export { UpdateState };
 
-interface UpdateStatusSnapshot {
-  state?: string;
-  updateInfo?: unknown;
-  downloadProgress?: unknown;
-  error?: unknown;
-}
-
-interface UpdateActionResult {
-  success: boolean;
-  error?: string;
-  [key: string]: unknown;
-}
-
 class UpdateService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
@@ -76,7 +71,7 @@ class UpdateService extends BaseService {
 
   async _loadInitialStatus() {
     try {
-      const result = await window.updateAPI.getStatus() as UpdateStatusSnapshot | null;
+      const result = await window.updateAPI.getStatus();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
         this._updateInfo = result.updateInfo;
@@ -88,40 +83,40 @@ class UpdateService extends BaseService {
     }
   }
 
-  _handleAvailable(info) {
+  _handleAvailable(info: UpdateInfoPayload) {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
   }
 
-  _handleNotAvailable(info) {
+  _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
   }
 
-  _handleProgress(progress) {
+  _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
     this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
   }
 
-  _handleDownloaded(info) {
+  _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
     this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
   }
 
-  _handleError(error) {
+  _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
     this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
-  _setState(newState) {
+  _setState(newState: string) {
     const oldState = this._state;
     this._state = newState;
     this._emitStateChanged();
@@ -132,7 +127,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, this.getStatus());
   }
 
-  getStatus() {
+  getStatus(): UpdateStatusPayload {
     return {
       state: this._state,
       updateInfo: this._updateInfo,
@@ -149,7 +144,7 @@ class UpdateService extends BaseService {
     return this._updateInfo;
   }
 
-  async checkForUpdates(): Promise<UpdateActionResult> {
+  async checkForUpdates(): Promise<UpdateCheckResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -158,7 +153,7 @@ class UpdateService extends BaseService {
     this._setState(UpdateState.CHECKING);
 
     try {
-      const result = await window.updateAPI.checkForUpdates() as UpdateActionResult;
+      const result = await window.updateAPI.checkForUpdates();
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -168,7 +163,7 @@ class UpdateService extends BaseService {
     }
   }
 
-  async downloadUpdate(): Promise<UpdateActionResult> {
+  async downloadUpdate(): Promise<UpdateDownloadResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -182,7 +177,7 @@ class UpdateService extends BaseService {
     this._setState(UpdateState.DOWNLOADING);
 
     try {
-      const result = await window.updateAPI.downloadUpdate() as UpdateActionResult;
+      const result = await window.updateAPI.downloadUpdate();
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -192,7 +187,7 @@ class UpdateService extends BaseService {
     }
   }
 
-  async installUpdate(): Promise<UpdateActionResult> {
+  async installUpdate(): Promise<UpdateInstallResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -206,7 +201,7 @@ class UpdateService extends BaseService {
     this.logger.info('Installing update and restarting...');
 
     try {
-      const result = await window.updateAPI.installUpdate() as UpdateActionResult;
+      const result = await window.updateAPI.installUpdate();
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

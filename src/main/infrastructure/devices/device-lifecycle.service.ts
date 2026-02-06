@@ -26,7 +26,6 @@ interface DeviceLifecycleServiceDependencies {
 }
 
 export class DeviceLifecycleService extends BaseService {
-  [key: string]: any;
 
   private readonly deviceService: DeviceService;
   private readonly windowService: WindowService;

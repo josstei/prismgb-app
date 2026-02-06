@@ -32,7 +32,6 @@ interface AppOrchestratorDependencies {
 }
 
 class AppOrchestrator extends BaseOrchestrator {
-  [key: string]: any;
 
   private container: AwilixContainer<ContainerDependencies> | null = null;
   private _windowService: WindowService | null = null;

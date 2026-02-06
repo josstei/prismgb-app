@@ -9,7 +9,6 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureGpuRecordingService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');

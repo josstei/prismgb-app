@@ -12,7 +12,6 @@ function getDeviceStorageKey(deviceType) {
 }
 
 class DeviceStorageService extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['storageService', 'loggerFactory'], 'DeviceStorageService');

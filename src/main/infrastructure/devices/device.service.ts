@@ -59,7 +59,6 @@ interface DeviceServiceDependencies {
 }
 
 class DeviceService extends BaseService {
-  [key: string]: any;
 
   private readonly profileRegistry: DeviceProfileRegistry;
   private readonly eventBus: EventBus;

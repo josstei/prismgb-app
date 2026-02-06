@@ -6,6 +6,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;
@@ -29,7 +30,7 @@ export function registerWindowHandlers({ registerHandler, windowService, logger 
   registerHandler(IPC_CHANNELS.WINDOW.SET_FULLSCREEN, async (event: IpcMainInvokeEvent, enabled: boolean) => {
     logger.debug(`Setting fullscreen: ${enabled}`);
     windowService.setFullScreen(enabled);
-    return { success: true };
+    return { success: true } as WindowSetFullscreenResponse;
   });
 
   registerHandler(IPC_CHANNELS.WINDOW.IS_FULLSCREEN, async () => {

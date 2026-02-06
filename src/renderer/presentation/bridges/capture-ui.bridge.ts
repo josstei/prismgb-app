@@ -9,7 +9,6 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 import { TIMING } from '@renderer/presentation/config/constants.config';
 
 class CaptureUIBridge extends BaseService {
-  [key: string]: any;
 
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
