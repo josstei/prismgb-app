@@ -5,8 +5,9 @@ export interface UpscaleUniforms {
 }
 
 export interface UnsharpUniforms {
-  strength: number;
   texelSize: [number, number];
+  strength: number;
+  scaleFactor: number;
 }
 
 export interface ColorUniforms {
@@ -18,12 +19,13 @@ export interface ColorUniforms {
 }
 
 export interface CRTUniforms {
+  resolution: [number, number];
+  scaleFactor: number;
   scanlineStrength: number;
   pixelMaskStrength: number;
   bloomStrength: number;
   curvature: number;
   vignetteStrength: number;
-  outputSize: [number, number];
 }
 
 export interface PipelineUniforms {

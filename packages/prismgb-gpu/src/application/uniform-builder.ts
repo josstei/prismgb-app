@@ -35,8 +35,9 @@ export function buildUniforms(context: UniformBuildContext): PipelineUniforms {
       scaleFactor
     },
     unsharp: {
+      texelSize: [1 / scaledWidth, 1 / scaledHeight],
       strength: preset.unsharp.enabled ? preset.unsharp.strength : 0,
-      texelSize: [1 / scaledWidth, 1 / scaledHeight]
+      scaleFactor
     },
     color: {
       gamma: preset.color.enabled ? preset.color.gamma : 1.0,
@@ -46,12 +47,13 @@ export function buildUniforms(context: UniformBuildContext): PipelineUniforms {
       contrast: preset.color.enabled ? preset.color.contrast : 1.0
     },
     crt: {
+      resolution: [scaledWidth, scaledHeight],
+      scaleFactor,
       scanlineStrength: preset.crt.enabled ? preset.crt.scanlineStrength : 0,
       pixelMaskStrength: preset.crt.enabled ? preset.crt.pixelMaskStrength : 0,
       bloomStrength: preset.crt.enabled ? preset.crt.bloomStrength : 0,
       curvature: preset.crt.enabled ? preset.crt.curvature : 0,
-      vignetteStrength: preset.crt.enabled ? preset.crt.vignetteStrength : 0,
-      outputSize: [outputWidth, outputHeight]
+      vignetteStrength: preset.crt.enabled ? preset.crt.vignetteStrength : 0
     }
   };
 }

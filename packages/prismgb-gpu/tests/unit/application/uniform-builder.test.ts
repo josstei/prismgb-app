@@ -5,6 +5,7 @@ import { PresetRegistry } from '@/domain/presets';
 // Import presets to register them
 import '@/domain/presets/presets/true-color.preset';
 import '@/domain/presets/presets/performance.preset';
+import '@/domain/presets/presets/vintage.preset';
 
 describe('calculateScaleFactor', () => {
   it('should calculate integer scale factor', () => {
@@ -70,5 +71,36 @@ describe('buildUniforms', () => {
 
     expect(uniforms.unsharp.strength).toBe(0);
     expect(uniforms.crt.scanlineStrength).toBe(0);
+  });
+
+  it('should include scaleFactor in unsharp uniforms', () => {
+    const preset = PresetRegistry.get('true-color')!;
+
+    const uniforms = buildUniforms({
+      preset,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      outputWidth: 640,
+      outputHeight: 576,
+      brightness: 1.0
+    });
+
+    expect(uniforms.unsharp.scaleFactor).toBe(4);
+  });
+
+  it('should include scaleFactor and resolution in crt uniforms', () => {
+    const preset = PresetRegistry.get('vintage')!;
+
+    const uniforms = buildUniforms({
+      preset,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      outputWidth: 640,
+      outputHeight: 576,
+      brightness: 1.0
+    });
+
+    expect(uniforms.crt.scaleFactor).toBe(4);
+    expect(uniforms.crt.resolution).toEqual([640, 576]);
   });
 });
