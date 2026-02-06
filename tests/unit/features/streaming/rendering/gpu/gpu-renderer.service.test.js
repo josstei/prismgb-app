@@ -9,7 +9,7 @@ import { StreamingGpuRendererService } from '@renderer/infrastructure/services/s
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 // Mock the capability detector
-vi.mock('@renderer/features/streaming/rendering/gpu/capability-detector.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
   CapabilityDetector: {
     detect: vi.fn().mockResolvedValue({
       preferredAPI: 'webgl2',
@@ -25,7 +25,7 @@ vi.mock('@renderer/features/streaming/rendering/gpu/capability-detector.js', () 
 }));
 
 // Mock worker protocol
-vi.mock('@renderer/features/streaming/rendering/workers/worker-protocol.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', () => ({
   WorkerMessageType: {
     INIT: 'INIT',
     FRAME: 'FRAME',
@@ -48,7 +48,7 @@ vi.mock('@renderer/features/streaming/rendering/workers/worker-protocol.js', () 
 }));
 
 // Mock render presets
-vi.mock('@renderer/features/streaming/rendering/presets/render-presets.config.js', () => ({
+vi.mock('@renderer/infrastructure/rendering/presets/render-presets.config.ts', () => ({
   DEFAULT_PRESET_ID: 'default',
   getPresetById: vi.fn(() => ({ id: 'default', name: 'Default' })),
   buildUniformsFromPreset: vi.fn(() => ({
