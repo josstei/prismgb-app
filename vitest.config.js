@@ -47,7 +47,7 @@ export default defineConfig({
         // Main process files require Electron APIs that can't be tested with vitest/happy-dom
         'src/main/**',
         // Auto-update feature requires Electron autoUpdater API
-        'src/renderer/features/updates/**',
+        'src/renderer/infrastructure/services/updates/**',
         // Web Worker files run in Worker context, not testable in vitest
         'src/**/workers/*.js',
         // GPU rendering requires WebGPU/WebGL APIs not available in vitest
@@ -57,8 +57,8 @@ export default defineConfig({
         // Canvas lifecycle requires complex DOM/Canvas API interactions
         'src/**/canvas-lifecycle.service.js',
         // UI templates use Vite ?raw imports for SVGs not available in vitest
-        'src/renderer/ui/templates/*.js',
-        'src/renderer/ui/icons/*.js',
+        'src/renderer/presentation/shell/*.js',
+        'src/renderer/presentation/icons/*.js',
         // Interface files are abstract base classes (throw stubs) not meant to be tested
         'src/shared/interfaces/*.interface.js',
         // JSON configuration files
