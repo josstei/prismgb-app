@@ -7,14 +7,15 @@ import { ShaderPresetListComponent } from '@renderer/presentation/features/toolb
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-// Mock the presets module
-vi.mock('@renderer/infrastructure/rendering/presets/render-presets.config.ts', () => ({
-  getPresetsForUI: () => [
-    { id: 'sharp', name: 'Sharp' },
-    { id: 'soft', name: 'Soft' },
-    { id: 'crt', name: 'CRT' },
-    { id: 'performance', name: 'Performance' }
-  ]
+vi.mock('@prismgb/gpu', () => ({
+  PresetRegistry: {
+    getForUI: () => [
+      { id: 'sharp', name: 'Sharp' },
+      { id: 'soft', name: 'Soft' },
+      { id: 'crt', name: 'CRT' },
+      { id: 'performance', name: 'Performance' }
+    ]
+  }
 }));
 
 function createMockSettingsService(overrides = {}) {

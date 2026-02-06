@@ -6,7 +6,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { getPresetsForUI } from '@renderer/infrastructure/rendering/presets/render-presets.config.ts';
+import { PresetRegistry } from '@prismgb/gpu';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class ShaderPresetListComponent {
@@ -63,7 +63,7 @@ class ShaderPresetListComponent {
     this._domListeners.removeAll();
     this.optionsContainer.innerHTML = '';
 
-    const presets = getPresetsForUI();
+    const presets = PresetRegistry.getForUI();
     presets.forEach((preset) => {
       if (preset.id === 'performance') return;
 
