@@ -99,7 +99,7 @@ export class GpuWorkerManager {
 
     // Create the render worker
     this._worker = new Worker(
-      new URL('../../workers/streaming-render.worker.js', import.meta.url),
+      new URL('../../rendering/workers/render.worker.ts', import.meta.url),
       { type: 'module' }
     );
 
