@@ -162,8 +162,9 @@ export class StreamingGpuRendererService extends BaseService {
 
     // Check if worker rendering is possible
     if (!CapabilityDetector.isWorkerRenderingAvailable(this._capabilities)) {
-      this.logger.warn('Worker rendering not available, will use main-thread GPU rendering');
-      // TODO: Implement main-thread GPU rendering
+      this.logger.warn(
+        'Worker rendering not available; main-thread GPU mode is unsupported, using Canvas2D fallback'
+      );
       this._isUsingFallback = true;
       return false;
     }

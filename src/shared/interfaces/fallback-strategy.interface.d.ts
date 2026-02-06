@@ -4,11 +4,9 @@ export interface FallbackConfig {
   audio: boolean;
   video: boolean;
   description?: string;
-  [key: string]: unknown;
 }
 
 export class IFallbackStrategy {
-  [key: string]: any;
   initialize(_context: unknown): void;
   getNext(): FallbackConfig | null;
   hasMore(): boolean;

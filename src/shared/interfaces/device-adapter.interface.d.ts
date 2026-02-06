@@ -1,5 +1,4 @@
 export class IDeviceAdapter {
-  [key: string]: any;
   initialize(_deviceInfo: unknown): Promise<void>;
   getStream(_options?: Record<string, unknown>): Promise<MediaStream>;
   releaseStream(_stream: MediaStream): Promise<void>;

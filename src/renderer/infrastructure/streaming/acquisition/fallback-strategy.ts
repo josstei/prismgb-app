@@ -1,4 +1,5 @@
 import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
+import type { FallbackConfig } from '@shared/interfaces/fallback-strategy.interface.js';
 
 /**
  * DeviceAwareFallbackStrategy
@@ -16,6 +17,11 @@ import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interfac
  * 4. video-only-minimal - Video only with minimal constraints (last resort)
  */
 export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
+  includeAudioFallbacks: boolean;
+  currentIndex: number;
+  chain: FallbackConfig[] | null;
+  context: any;
+
   constructor(options: any = {}) {
     super();
     this.includeAudioFallbacks = options.includeAudioFallbacks !== false;

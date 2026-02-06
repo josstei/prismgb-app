@@ -13,7 +13,19 @@ import {
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
 export class GpuWorkerManager {
-  [key: string]: any;
+  _logger: any;
+  _eventBus: any;
+  _worker: Worker | null;
+  _isReady: boolean;
+  _capabilities: any;
+  _canvas: HTMLCanvasElement | null;
+  _offscreenCanvas: OffscreenCanvas | null;
+  _wasCanvasTransferred: boolean;
+  _messageHandlers: Map<string, (payload: any) => void>;
+  _readyResolve: ((value?: unknown) => void) | null;
+  _readyReject: ((error: Error) => void) | null;
+  _readyTimeoutId: ReturnType<typeof setTimeout> | null;
+
   /**
    * @param {Object} dependencies
    * @param {Object} dependencies.loggerFactory - Logger factory

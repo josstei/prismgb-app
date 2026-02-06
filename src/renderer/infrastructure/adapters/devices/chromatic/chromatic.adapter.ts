@@ -10,6 +10,14 @@ import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisiti
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
+  ipcClient: any;
+  deviceProfile: any;
+  config: any;
+  mediaConfig: any;
+  helpers: any;
+  browserMediaService: any;
+  canvasScale: number;
+  acquisitionCoordinator: StreamAcquisitionOrchestrator;
 
   /**
    * Create Chromatic adapter

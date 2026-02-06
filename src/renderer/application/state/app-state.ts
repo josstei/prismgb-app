@@ -8,8 +8,20 @@
 
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
+type AppStateDependencies = {
+  streamingService?: any;
+  deviceService?: any;
+  eventBus?: any;
+};
+
 class AppState {
-  [key: string]: any;
+  streamingService: any;
+  deviceService: any;
+  eventBus: any;
+  isCinematicModeEnabled: boolean;
+  _streamCache: MediaStream | null;
+  _capabilitiesCache: unknown;
+  _subscriptions: Array<() => void>;
 
   /**
    * @param {Object} dependencies - Injected dependencies
@@ -18,7 +30,7 @@ class AppState {
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
-  constructor(dependencies: any = {}) {
+  constructor(dependencies: AppStateDependencies = {}) {
     const { streamingService, deviceService, eventBus } = dependencies;
 
     // Service references for derived state

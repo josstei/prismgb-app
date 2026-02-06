@@ -37,12 +37,25 @@ async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
 }
 
 class RendererAppOrchestrator {
-  [key: string]: any;
+  container: any;
+  orchestrator: any;
+  isInitialized: boolean;
+  logger: any;
+  _uiController: UIController | null;
+  _uiEventBridge: any;
+  _captureUiBridge: any;
+  _transcodeUiBridge: any;
+  _transcodeService: any;
 
   constructor() {
     this.container = null;
     this.orchestrator = null;
     this.isInitialized = false;
+    this._uiController = null;
+    this._uiEventBridge = null;
+    this._captureUiBridge = null;
+    this._transcodeUiBridge = null;
+    this._transcodeService = null;
 
     // Create logger for bootstrap logging
     const loggerFactory = new RendererLogger();

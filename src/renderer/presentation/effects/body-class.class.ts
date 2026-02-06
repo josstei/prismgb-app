@@ -16,7 +16,7 @@ const APP_CSS_CLASSES = Object.freeze({
 });
 
 export class BodyClassManager {
-  [key: string]: any;
+  _minimalistTransitionTimer: ReturnType<typeof setTimeout> | null;
 
   constructor() {
     this._minimalistTransitionTimer = null;

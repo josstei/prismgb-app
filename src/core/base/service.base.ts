@@ -8,8 +8,9 @@ export type { ILogger, ILoggerFactory };
  */
 export interface BaseServiceDependencies {
   loggerFactory?: ILoggerFactory;
-  [key: string]: unknown;
 }
+
+type ResolvableDependencies = BaseServiceDependencies & Record<string, unknown>;
 
 /**
  * Base class for all services providing:
@@ -27,7 +28,7 @@ export class BaseService {
    * @param serviceName - Name of the service (for logging)
    */
   constructor(
-    dependencies: BaseServiceDependencies,
+    dependencies: ResolvableDependencies,
     requiredDeps: string[] = [],
     serviceName: string | null = null
   ) {
@@ -35,8 +36,9 @@ export class BaseService {
     validateDependencies(dependencies, requiredDeps, name);
 
     // Explicitly assign only required dependencies
+    const dependencyMap = dependencies as Record<string, unknown>;
     for (const dep of requiredDeps) {
-      (this as any)[dep] = dependencies[dep];
+      (this as Record<string, unknown>)[dep] = dependencyMap[dep];
     }
 
     // Create logger if loggerFactory provided

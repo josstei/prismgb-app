@@ -6,8 +6,11 @@ export interface LoggerLike {
 }
 
 export class BaseService {
-  [key: string]: any;
   protected logger: LoggerLike;
   protected readonly _serviceName: string;
   constructor(dependencies: object, requiredDeps?: string[], serviceName?: string | null);
 }
+
+/* eslint-disable no-redeclare */
+export interface BaseService extends Record<string, any> {}
+/* eslint-enable no-redeclare */

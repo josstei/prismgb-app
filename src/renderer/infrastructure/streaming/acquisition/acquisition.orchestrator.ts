@@ -1,6 +1,13 @@
 import { DeviceAwareFallbackStrategy } from './fallback-strategy';
 import { formatErrorLabel } from '@shared/lib/errors.utils.js';
 
+type StreamAcquisitionDependencies = {
+  constraintBuilder?: any;
+  streamLifecycle?: any;
+  logger?: any;
+  fallbackStrategy?: DeviceAwareFallbackStrategy;
+};
+
 /**
  * StreamAcquisitionOrchestrator
  *
@@ -15,8 +22,12 @@ import { formatErrorLabel } from '@shared/lib/errors.utils.js';
  * - Deterministic behavior throughout
  */
 export class StreamAcquisitionOrchestrator {
-  [key: string]: any;
-  constructor(dependencies: any = {}) {
+  constraintBuilder: any;
+  streamLifecycle: any;
+  logger: any;
+  fallbackStrategy: DeviceAwareFallbackStrategy;
+
+  constructor(dependencies: StreamAcquisitionDependencies = {}) {
     this.constraintBuilder = dependencies.constraintBuilder;
     this.streamLifecycle = dependencies.streamLifecycle;
     this.logger = dependencies.logger;

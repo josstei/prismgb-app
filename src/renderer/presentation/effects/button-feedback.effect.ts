@@ -7,10 +7,17 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
-export class ButtonFeedback {
-  [key: string]: any;
+type ButtonElements = Record<string, HTMLElement | null>;
 
-  constructor(dependencies: any = {}) {
+type ButtonFeedbackDependencies = {
+  elements?: ButtonElements | null;
+};
+
+export class ButtonFeedback {
+  elements: ButtonElements | null;
+  _activeTimeouts: Set<ReturnType<typeof setTimeout>>;
+
+  constructor(dependencies: ButtonFeedbackDependencies = {}) {
     const { elements } = dependencies;
     this.elements = elements;
     this._activeTimeouts = new Set();

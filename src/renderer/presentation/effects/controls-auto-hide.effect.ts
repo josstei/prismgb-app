@@ -8,8 +8,28 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
+type ControlsAutoHideOptions = {
+  onShowAll?: () => void;
+  onHideAll?: () => void;
+  onEnable?: () => void;
+  onDisable?: () => void;
+};
+
 export class ControlsAutoHide {
-  [key: string]: any;
+  _enabled: boolean;
+  _element: HTMLElement | null;
+  _hideTimer: ReturnType<typeof setTimeout> | null;
+  _mouseMoveFramePending: boolean;
+  _rafId: number | null;
+  _onShowAll: () => void;
+  _onHideAll: () => void;
+  _onEnable: () => void;
+  _onDisable: () => void;
+  _boundHandleMouseMove: () => void;
+  _boundHandleMouseEnter: () => void;
+  _boundHandleMouseLeave: () => void;
+  _boundHandleFocusIn: () => void;
+  _boundHandleFocusOut: () => void;
 
   /**
    * @param {Object} options
@@ -18,7 +38,7 @@ export class ControlsAutoHide {
    * @param {Function} [options.onEnable] - Callback when controls auto-hide is enabled
    * @param {Function} [options.onDisable] - Callback when controls auto-hide is disabled
    */
-  constructor(options: any = {}) {
+  constructor(options: ControlsAutoHideOptions = {}) {
     this._enabled = false;
     this._element = null;
     this._hideTimer = null;

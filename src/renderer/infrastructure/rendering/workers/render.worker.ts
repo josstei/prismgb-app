@@ -79,7 +79,27 @@ let captureManager = null;
 // ============================================================================
 
 class WebGPURenderer {
-  [key: string]: any;
+  device: any;
+  context: any;
+  canvasFormat: any;
+  adapterInfo: any;
+  shaderModules: Record<string, any>;
+  pipelines: Record<string, any>;
+  _crtLcdBindGroupLayout: any;
+  sourceTexture: any;
+  intermediateTextures: any[];
+  intermediateTextureViews: any[];
+  nearestSampler: any;
+  linearSampler: any;
+  uniformBuffers: Record<string, any>;
+  config: any;
+  currentPreset: any;
+  hasError: boolean;
+  errorMessage: string | null;
+  bindGroupCache: BindGroupCache;
+  typedArrayPool: TypedArrayPool;
+  uniformTracker: UniformTracker;
+
   constructor() {
     this.device = null;
     this.context = null;
@@ -700,7 +720,14 @@ class WebGPURenderer {
 // ============================================================================
 
 class WebGL2Renderer {
-  [key: string]: any;
+  gl: WebGL2RenderingContext | null;
+  programs: Record<string, ShaderProgram>;
+  sourceTexture: WebGLTexture | null;
+  intermediateTextures: WebGLTexture[];
+  framebuffers: WebGLFramebuffer[];
+  vao: WebGLVertexArrayObject | null;
+  config: any;
+
   constructor() {
     this.gl = null;
 

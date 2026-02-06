@@ -6,7 +6,13 @@
  * Tracks metrics for performance monitoring.
  */
 export class GpuFrameBuffer {
-  [key: string]: any;
+  _logger: any;
+  _capacity: number;
+  _queue: Array<{ frame: unknown; enqueueTime: number }>;
+  _totalEnqueued: number;
+  _totalDropped: number;
+  _enqueueTimes: number[];
+
   /**
    * @param {Object} dependencies
    * @param {Object} dependencies.loggerFactory - Logger factory

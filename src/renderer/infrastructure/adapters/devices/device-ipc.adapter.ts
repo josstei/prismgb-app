@@ -9,8 +9,17 @@
  * - onDeviceDisconnected IPC event
  */
 
+type DeviceEventHandler = (...args: unknown[]) => void;
+type Unsubscribe = (() => void) | null;
+type DeviceApiLike = {
+  onDeviceConnected(handler: DeviceEventHandler): () => void;
+  onDeviceDisconnected(handler: DeviceEventHandler): () => void;
+};
+
 export class DeviceIpcAdapter {
-  [key: string]: any;
+  _logger?: { warn?: (...args: unknown[]) => void };
+  _unsubscribeConnected: Unsubscribe;
+  _unsubscribeDisconnected: Unsubscribe;
 
   constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
     this._logger = logger;
@@ -24,7 +33,7 @@ export class DeviceIpcAdapter {
    * @param {Function} onDisconnected - Called when device is disconnected
    * @returns {Function} Cleanup function to remove listeners
    */
-  subscribe(onConnected, onDisconnected) {
+  subscribe(onConnected: DeviceEventHandler, onDisconnected: DeviceEventHandler) {
     if (typeof window === 'undefined' || !window.deviceAPI) {
       // Gracefully handle missing deviceAPI (e.g., in tests or if preload fails)
       return () => {};
@@ -37,8 +46,9 @@ export class DeviceIpcAdapter {
     }
 
     // Subscribe to IPC events
-    this._unsubscribeConnected = window.deviceAPI.onDeviceConnected(onConnected);
-    this._unsubscribeDisconnected = window.deviceAPI.onDeviceDisconnected(onDisconnected);
+    const deviceApi = window.deviceAPI as DeviceApiLike;
+    this._unsubscribeConnected = deviceApi.onDeviceConnected(onConnected);
+    this._unsubscribeDisconnected = deviceApi.onDeviceDisconnected(onDisconnected);
 
     // Return cleanup function
     return () => this.dispose();

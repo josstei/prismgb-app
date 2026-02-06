@@ -6,7 +6,6 @@
 export interface IpcActionResult {
   success: boolean;
   error?: string;
-  [key: string]: unknown;
 }
 
 export interface DeviceInfoPayload {
@@ -18,14 +17,12 @@ export interface DeviceInfoPayload {
   serialNumber?: string;
   deviceAddress?: number;
   configName?: string;
-  [key: string]: unknown;
 }
 
 export interface DeviceStatusPayload {
   connected: boolean | null;
   device?: DeviceInfoPayload | null;
   error?: string;
-  [key: string]: unknown;
 }
 
 export type UpdateStateValue =
@@ -42,7 +39,6 @@ export interface UpdateInfoPayload {
   releaseDate?: string;
   releaseNotes?: unknown;
   reason?: string;
-  [key: string]: unknown;
 }
 
 export interface UpdateProgressPayload {
@@ -50,13 +46,11 @@ export interface UpdateProgressPayload {
   bytesPerSecond?: number;
   transferred?: number;
   total?: number;
-  [key: string]: unknown;
 }
 
 export interface UpdateErrorPayload {
   message?: string;
   code?: string;
-  [key: string]: unknown;
 }
 
 export interface UpdateStatusPayload {
@@ -64,7 +58,6 @@ export interface UpdateStatusPayload {
   updateInfo?: UpdateInfoPayload | null;
   downloadProgress?: UpdateProgressPayload | null;
   error?: string | UpdateErrorPayload | null;
-  [key: string]: unknown;
 }
 
 export interface UpdateCheckResponse extends IpcActionResult {
@@ -93,7 +86,6 @@ export interface TranscodeJobPayload {
   outputPath: string | null;
   error: string | null;
   startTime: number;
-  [key: string]: unknown;
 }
 
 export interface TranscodeProgressPayload {
@@ -101,26 +93,22 @@ export interface TranscodeProgressPayload {
   percent: number;
   timeUs?: number;
   elapsedMs?: number;
-  [key: string]: unknown;
 }
 
 export interface TranscodeCompletedPayload {
   jobId?: string;
   filePath?: string | null;
   outputPath?: string;
-  [key: string]: unknown;
 }
 
 export interface TranscodeCancelledPayload {
   jobId?: string;
-  [key: string]: unknown;
 }
 
 export interface TranscodeErrorPayload {
   jobId?: string;
   error?: string;
   message?: string;
-  [key: string]: unknown;
 }
 
 export interface TranscodeStartResponse extends IpcActionResult {

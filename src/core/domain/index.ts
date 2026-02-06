@@ -1,2 +1,2 @@
 export * from './devices';
-// export * from './transcode'; // TODO: Add when transcode domain is migrated
+// Transcode domain export is intentionally deferred until migration is complete.

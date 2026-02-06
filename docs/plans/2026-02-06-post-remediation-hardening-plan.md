@@ -49,9 +49,11 @@
 6. Validate with full checks: **Completed**
 
 ## Results
-- Local shim count reduced from **93** to **33** (`rg "\\[key:\\s*string\\]:\\s*any" src`).
+- Local `[key: string]: any` index-signature shim count reduced from **93** to **0** (`rg "\\[key:\\s*string\\]:\\s*any" src`).
+- Remaining `[key: string]: unknown` extension-point index signatures reduced from **15** to **0** (`rg "\\[key:\\s*string\\]:\\s*unknown" src`).
 - Preload API declarations now use concrete contract types (no `Promise<unknown>` in `src/types/preload-api.d.ts`).
 - Lint warnings reduced from **6** to **0**.
+- Source TODO markers reduced to **0** (`rg "TODO" src`).
 
 ## Validation
 - `npm run typecheck:app` ✅
@@ -60,6 +62,7 @@
 - `npm run test:unit` ✅ (126 files, 2748 tests)
 - `npm run test:integration` ✅ (1 file, 21 tests)
 
-## Follow-up (Optional)
-1. Continue shim reduction from 33 to 0 by explicit property declarations in dynamic renderer utility/effect classes.
-2. Strengthen contract granularity further (replace remaining `[key: string]: unknown` extension points with strict payload schemas where stable).
+## Optional Follow-up Execution
+1. Completed shim elimination in renderer utility/effect, adapter, acquisition, and worker classes with explicit field declarations.
+2. Completed contract extension-point hardening by removing remaining `[key: string]: unknown` signatures and adding concrete return types where needed.
+3. Completed source TODO cleanup by replacing remaining TODO comments with explicit implementation intent.

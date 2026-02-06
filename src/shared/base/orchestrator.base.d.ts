@@ -6,7 +6,6 @@ interface EventBusLike {
 }
 
 export class BaseOrchestrator {
-  [key: string]: any;
   protected logger: LoggerLike;
   protected eventBus?: EventBusLike;
   isInitialized: boolean;
@@ -17,3 +16,7 @@ export class BaseOrchestrator {
   onInitialize(): Promise<void>;
   onCleanup(): Promise<void>;
 }
+
+/* eslint-disable no-redeclare */
+export interface BaseOrchestrator extends Record<string, any> {}
+/* eslint-enable no-redeclare */

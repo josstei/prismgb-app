@@ -13,7 +13,8 @@ import { IConstraintBuilder } from './acquisition.interface';
  * - 'minimal': Just device targeting, no quality settings
  */
 export class ConstraintBuilder extends IConstraintBuilder {
-  [key: string]: any;
+  logger: Record<string, (...args: unknown[]) => void> | null;
+
   constructor(logger: any = null) {
     super();
     this.logger = logger;

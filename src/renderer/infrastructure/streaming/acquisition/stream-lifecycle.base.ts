@@ -1,10 +1,17 @@
 import { IStreamLifecycle } from './acquisition.interface';
 
+type MediaServiceLike = {
+  getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
+};
+
 /**
  * Base implementation of stream lifecycle management
  */
 export class BaseStreamLifecycle extends IStreamLifecycle {
-  [key: string]: any;
+  logger: Record<string, (...args: unknown[]) => void> | null;
+  mediaService: MediaServiceLike | null;
+  activeStreams: Set<MediaStream>;
+
   /**
    * @param {Object} logger - Optional logger instance
    * @param {Object} mediaService - Optional media service (BrowserMediaAdapter or compatible)

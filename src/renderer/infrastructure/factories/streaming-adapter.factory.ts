@@ -22,13 +22,21 @@ type AdapterMetadata = {
   requiresProfile?: boolean;
   dependencies?: string[];
   capabilities?: Record<string, unknown>;
-  [key: string]: unknown;
 };
 
 type DependencyBag = Record<string, unknown>;
 
 export class StreamingAdapterFactory {
-  [key: string]: any;
+  eventBus: any;
+  loggerFactory: any;
+  browserMediaService: any;
+  logger: any;
+  _adapterClasses: Map<string, any>;
+  commonDependencies: DependencyBag;
+  adapterRegistry: Map<string, any>;
+  metadataRegistry: Map<string, AdapterMetadata>;
+  initialized: boolean;
+
   /**
    * @param {Object} eventBus - Event bus for cross-service communication
    * @param {Object} loggerFactory - Factory for creating loggers

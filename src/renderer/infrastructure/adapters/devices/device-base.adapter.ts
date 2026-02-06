@@ -14,6 +14,13 @@ interface BaseDeviceAdapterDependencies {
  * @extends IDeviceAdapter
  */
 export class BaseDeviceAdapter extends IDeviceAdapter {
+  eventBus: unknown;
+  logger: Record<string, (...args: unknown[]) => void> | undefined;
+  constraintBuilder: any;
+  streamLifecycle: any;
+  deviceInfo: MediaDeviceInfo | null;
+  profile: any;
+  currentStream: MediaStream | null;
 
   /**
    * @param {Object} [dependencies={}] - Injected dependencies
