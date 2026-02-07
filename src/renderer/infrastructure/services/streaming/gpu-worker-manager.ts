@@ -297,22 +297,20 @@ export class GpuWorkerManager {
   }
 
   /**
-   * Fully terminate the worker and reset all state
-   * @param {boolean} [resetCanvasFlag=true] - Whether to reset canvas transfer flag
+   * Fully terminate the worker and reset all state.
+   * Always resets the canvas transfer flag — a terminated worker
+   * holds no canvas reference, so the flag would be dangling state.
    */
-  terminate(resetCanvasFlag = true) {
-    // Clear ready timeout if pending
+  terminate() {
     if (this._readyTimeoutId !== null) {
       clearTimeout(this._readyTimeoutId);
       this._readyTimeoutId = null;
     }
 
-    // Clear pending promises
     this._readyResolve = null;
     this._readyReject = null;
 
     if (this._worker) {
-      // Remove handlers before termination
       this._worker.onmessage = null;
       this._worker.onerror = null;
 
@@ -321,15 +319,11 @@ export class GpuWorkerManager {
       this._worker = null;
     }
 
-    // Clear all state
     this._isReady = false;
     this._messageHandlers.clear();
     this._canvas = null;
     this._offscreenCanvas = null;
-
-    if (resetCanvasFlag) {
-      this._wasCanvasTransferred = false;
-    }
+    this._wasCanvasTransferred = false;
 
     this._logger?.info('Worker terminated');
   }

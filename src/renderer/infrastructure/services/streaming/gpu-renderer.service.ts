@@ -561,7 +561,7 @@ export class StreamingGpuRendererService extends BaseService {
 
     const wasTransferred = this._workerManager.isCanvasTransferred();
 
-    this._workerManager.terminate(emitCanvasExpired);
+    this._workerManager.terminate();
 
     this._pendingFrames = 0;
     this._skippedFrames = 0;
