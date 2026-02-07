@@ -88,7 +88,7 @@ class WebGPURenderer {
   async initialize(offscreenCanvas: OffscreenCanvas, config: RenderConfig) {
     this.config = config;
 
-    const gpu = (globalThis as unknown as { gpu?: GPU }).gpu;
+    const gpu = (navigator as unknown as { gpu?: GPU }).gpu;
     if (!gpu) {
       throw new Error('WebGPU not available');
     }
