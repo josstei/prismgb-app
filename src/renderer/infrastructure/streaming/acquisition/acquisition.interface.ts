@@ -1,3 +1,5 @@
+import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+
 /**
  * Interface for managing MediaStream lifecycle
  * Provides consistent stream acquisition, release, and tracking
@@ -10,7 +12,7 @@ export class IStreamLifecycle {
    * @param {Object} _options - Additional acquisition options
    * @returns {Promise<MediaStream>} Acquired stream
    */
-  async acquireStream(constraints, _options = {}): Promise<MediaStream> {
+  async acquireStream(_constraints: MediaStreamConstraints, _options: Record<string, unknown> = {}): Promise<MediaStream> {
     throw new Error('acquireStream() must be implemented');
   }
 
@@ -19,7 +21,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to release
    * @returns {Promise<void>}
    */
-  async releaseStream(_stream): Promise<void> {
+  async releaseStream(_stream: MediaStream): Promise<void> {
     throw new Error('releaseStream() must be implemented');
   }
 
@@ -28,7 +30,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to inspect
    * @returns {Object} Stream information
    */
-  getStreamInfo(_stream): Record<string, unknown> {
+  getStreamInfo(_stream: MediaStream): Record<string, unknown> | null {
     throw new Error('getStreamInfo() must be implemented');
   }
 
@@ -37,7 +39,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to check
    * @returns {boolean} Whether stream is active
    */
-  isStreamActive(_stream): boolean {
+  isStreamActive(_stream: MediaStream): boolean {
     throw new Error('isStreamActive() must be implemented');
   }
 
@@ -72,7 +74,7 @@ export class IConstraintBuilder {
    * @param {Object} _options - Additional options (audio/video toggles)
    * @returns {MediaStreamConstraints} WebRTC constraints with device targeting preserved
    */
-  build(context, _detailLevel = 'full', _options = {}): MediaStreamConstraints {
+  build(_context: AcquisitionContextLike, _detailLevel = 'full', _options: AcquisitionOptions = {}): MediaStreamConstraints {
     throw new Error('build() must be implemented');
   }
 }

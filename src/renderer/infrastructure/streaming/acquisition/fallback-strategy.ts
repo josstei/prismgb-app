@@ -1,5 +1,6 @@
 import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
 import type { FallbackConfig } from '@shared/interfaces/fallback-strategy.interface.js';
+import type { AcquisitionContextLike } from './acquisition.types';
 
 /**
  * DeviceAwareFallbackStrategy
@@ -20,9 +21,9 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
   includeAudioFallbacks: boolean;
   currentIndex: number;
   chain: FallbackConfig[] | null;
-  context: any;
+  context: AcquisitionContextLike | null;
 
-  constructor(options: any = {}) {
+  constructor(options: { includeAudioFallbacks?: boolean } = {}) {
     super();
     this.includeAudioFallbacks = options.includeAudioFallbacks !== false;
     this.currentIndex = -1;
@@ -35,7 +36,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Must be called before using getNext() or hasMore()
    * @param {AcquisitionContext} context - The acquisition context
    */
-  initialize(context: any) {
+  initialize(context: AcquisitionContextLike) {
     this.context = context;
     this.currentIndex = -1;
     this.chain = this._buildChain(context);
@@ -45,7 +46,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Build the fallback chain based on context
    * @private
    */
-  _buildChain(context: any) {
+  _buildChain(context: AcquisitionContextLike) {
     const chain = [];
 
     const hasAudio = context.hasAudioProfile();
@@ -147,7 +148,7 @@ export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
    * Get the current context
    * @returns {AcquisitionContext|null}
    */
-  getContext(): any | null {
+  getContext(): AcquisitionContextLike | null {
     return this.context;
   }
 }

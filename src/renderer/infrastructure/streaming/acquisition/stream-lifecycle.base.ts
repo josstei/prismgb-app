@@ -28,7 +28,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
   /**
    * Acquire a media stream
    */
-  async acquireStream(constraints, _options = {}) {
+  async acquireStream(constraints: MediaStreamConstraints, _options: Record<string, unknown> = {}) {
     try {
       this._log('debug', 'Acquiring stream with constraints:', constraints);
 
@@ -56,7 +56,8 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
 
       return stream;
     } catch (error) {
-      const errLabel = `${error?.name || 'Error'}: ${error?.message || 'Unknown error'}`;
+      const err = error as { name?: string; message?: string };
+      const errLabel = `${err.name || 'Error'}: ${err.message || 'Unknown error'}`;
       const constraintsStr = this._safeStringify(constraints);
       const supportedStr = this._safeStringify(
         this.mediaService
@@ -72,7 +73,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
    * Release a stream and stop all tracks
    * Uses per-track try-catch to ensure all tracks are attempted even if one fails
    */
-  async releaseStream(stream) {
+  async releaseStream(stream: MediaStream) {
     if (!stream) {
       this._log('warn', 'Attempted to release null stream');
       return;
@@ -103,16 +104,25 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
   /**
    * Get stream information
    */
-  getStreamInfo(stream) {
+  getStreamInfo(stream: MediaStream) {
     if (!stream) return null;
 
-    const info = {
+    interface TrackInfo {
+      kind: string;
+      label: string;
+      enabled: boolean;
+      muted: boolean;
+      readyState: string;
+      settings: MediaTrackSettings;
+    }
+
+    const info: { id: string; active: boolean; tracks: TrackInfo[] } = {
       id: stream.id,
       active: stream.active,
       tracks: []
     };
 
-    stream.getTracks().forEach(track => {
+    stream.getTracks().forEach((track: MediaStreamTrack) => {
       const settings = track.getSettings();
       info.tracks.push({
         kind: track.kind,
@@ -132,7 +142,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
    * @param {MediaStream} stream - The stream to check
    * @returns {boolean} True if stream is active
    */
-  isStreamActive(stream) {
+  isStreamActive(stream: MediaStream) {
     return this.activeStreams.has(stream);
   }
 
@@ -167,7 +177,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
     }
   }
 
-  _safeStringify(obj) {
+  _safeStringify(obj: unknown) {
     try {
       return JSON.stringify(obj);
     } catch {

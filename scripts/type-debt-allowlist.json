@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T03:40:08.521Z",
+  "generatedAt": "2026-02-07T03:47:11.385Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -300,19 +300,13 @@
     {
       "file": "src/renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
       "code": "TS2322",
-      "maxCount": 2,
+      "maxCount": 1,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
       "code": "TS7006",
       "maxCount": 4,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
-      "code": "TS2322",
-      "maxCount": 1,
       "expiresOn": "2026-04-30"
     },
     {
@@ -1141,66 +1135,6 @@
       "file": "src/renderer/infrastructure/services/updates/update.service.ts",
       "code": "TS7006",
       "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS2339",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS7008",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS7031",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.interface.ts",
-      "code": "TS7006",
-      "maxCount": 5,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
-      "code": "TS2339",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
-      "code": "TS2345",
-      "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2339",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2416",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS7006",
-      "maxCount": 6,
       "expiresOn": "2026-04-30"
     },
     {
