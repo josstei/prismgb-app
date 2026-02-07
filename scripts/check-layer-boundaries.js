@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url';
 const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.ts']);
 
 const LayerIds = {
+  CORE: 'core',
   MAIN_ENTRY: 'main/entry',
   MAIN_APPLICATION: 'main/application',
   MAIN_INFRASTRUCTURE: 'main/infrastructure',
@@ -29,6 +30,7 @@ const SPECIAL_FILE_LAYER_MAP = new Map([
 ]);
 
 const LAYER_SEQUENCE = [
+  LayerIds.CORE,
   LayerIds.MAIN_ENTRY,
   LayerIds.MAIN_APPLICATION,
   LayerIds.MAIN_INFRASTRUCTURE,
@@ -44,6 +46,7 @@ const LAYER_SEQUENCE = [
 
 const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_ENTRY]: new Set([
+    LayerIds.CORE,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.RENDERER_APPLICATION,
@@ -51,36 +54,42 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.MAIN_APPLICATION]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.MAIN_INFRASTRUCTURE]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.MAIN_IPC]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.RENDERER_ENTRY]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
   ]),
   [LayerIds.RENDERER_BOOTSTRAP]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
   ]),
   [LayerIds.RENDERER_APPLICATION]: new Set([
+    LayerIds.CORE,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
@@ -88,6 +97,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.MAIN_IPC
   ]),
   [LayerIds.RENDERER_INFRASTRUCTURE]: new Set([
+    LayerIds.CORE,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
@@ -96,6 +106,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.RENDERER_PRESENTATION]: new Set([
+    LayerIds.CORE,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
@@ -104,6 +115,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.RENDERER_INFRASTRUCTURE
   ]),
   [LayerIds.SHARED]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
@@ -116,6 +128,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.PRELOAD
   ]),
   [LayerIds.PRELOAD]: new Set([
+    LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
@@ -224,6 +237,10 @@ function resolveAliasTarget(specifier) {
 
   if (specifier.startsWith('@preload/')) {
     return LayerIds.PRELOAD;
+  }
+
+  if (specifier.startsWith('@core/')) {
+    return LayerIds.CORE;
   }
 
   return null;

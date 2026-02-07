@@ -32,15 +32,26 @@ jobs:
         run: npm run lint
 
       - name: Generate architecture scorecard
-        run: npm run architecture:scorecard -- --output artifacts/architecture-scorecard.json
+        run: npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md
 
       - name: Upload architecture scorecard
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: architecture-scorecard
-          path: artifacts/architecture-scorecard.json
+          path: |
+            artifacts/architecture-scorecard.json
+            artifacts/architecture-scorecard-summary.md
           if-no-files-found: error
+
+      - name: Publish architecture scorecard summary
+        if: always()
+        run: |
+          if [ -f artifacts/architecture-scorecard-summary.md ]; then
+            cat artifacts/architecture-scorecard-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Architecture scorecard summary was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Run typecheck
         run: npm run typecheck

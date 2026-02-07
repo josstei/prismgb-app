@@ -1,20 +1,20 @@
 {
-  "mode": "warning",
+  "mode": "enforce",
   "limits": {
     "boundaryViolationCount": 0,
     "infraToPresentationImportCount": 0,
     "crossProcessImportCount": 0,
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "anyOccurrenceCountMax": 152,
-    "topRuntimeFileLocMax": 1271
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "anyOccurrenceCountMax": 142,
+    "topRuntimeFileLocMax": 900
   },
   "nextReleaseTargets": {
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "anyOccurrenceCountMax": 0,
-    "topRuntimeFileLocMax": 900
+    "topRuntimeFileLocMax": 700
   }
 }
