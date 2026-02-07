@@ -18,5 +18,5 @@ export class BaseOrchestrator {
 }
 
 /* eslint-disable no-redeclare */
-export interface BaseOrchestrator extends Record<string, any> {}
+export interface BaseOrchestrator extends Record<string, unknown> {}
 /* eslint-enable no-redeclare */

@@ -5,6 +5,8 @@ export interface LoggerLike {
   error(...args: unknown[]): void;
 }
 
+export type ServiceDependencies = Record<string, unknown>;
+
 export class BaseService {
   protected logger: LoggerLike;
   protected readonly _serviceName: string;
@@ -12,5 +14,5 @@ export class BaseService {
 }
 
 /* eslint-disable no-redeclare */
-export interface BaseService extends Record<string, any> {}
+export interface BaseService extends ServiceDependencies {}
 /* eslint-enable no-redeclare */
