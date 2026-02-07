@@ -222,4 +222,4 @@ flowchart LR
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
 - Shared timing constants live in `src/shared/config/timing.config.ts`; infrastructure code should not pull timing values from presentation config.
-- Runtime code no longer depends on `@core` aliases; `src/core` is not part of the active runtime path.
+- `src/core` has been retired and removed; the boundary checker prevents reintroduction via `@core/` imports.

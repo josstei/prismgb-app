@@ -63,7 +63,7 @@ This document captures the naming and organization conventions used throughout P
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
   - `@shared` -> `src/shared`
-- Runtime code should not depend on `@core`; treat `src/core` as archived/experimental.
+- `src/core` has been retired and removed; the boundary checker prevents `@core/` imports.
 - Prefer extensionless TS imports (avoid `.ts` suffix in TS/JS import specifiers).
 
 ## Testing Conventions
