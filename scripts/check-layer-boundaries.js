@@ -6,9 +6,12 @@ import { pathToFileURL } from 'url';
 const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.ts']);
 
 const LayerIds = {
+  MAIN_ENTRY: 'main/entry',
   MAIN_APPLICATION: 'main/application',
   MAIN_INFRASTRUCTURE: 'main/infrastructure',
   MAIN_IPC: 'main/ipc',
+  RENDERER_ENTRY: 'renderer/entry',
+  RENDERER_BOOTSTRAP: 'renderer/bootstrap',
   RENDERER_APPLICATION: 'renderer/application',
   RENDERER_INFRASTRUCTURE: 'renderer/infrastructure',
   RENDERER_PRESENTATION: 'renderer/presentation',
@@ -16,10 +19,22 @@ const LayerIds = {
   PRELOAD: 'preload'
 };
 
+const SPECIAL_FILE_LAYER_MAP = new Map([
+  ['main/index.ts', LayerIds.MAIN_ENTRY],
+  ['main/index', LayerIds.MAIN_ENTRY],
+  ['renderer/index.ts', LayerIds.RENDERER_ENTRY],
+  ['renderer/index', LayerIds.RENDERER_ENTRY],
+  ['renderer/renderer-app.orchestrator.ts', LayerIds.RENDERER_BOOTSTRAP],
+  ['renderer/renderer-app.orchestrator', LayerIds.RENDERER_BOOTSTRAP]
+]);
+
 const LAYER_SEQUENCE = [
+  LayerIds.MAIN_ENTRY,
   LayerIds.MAIN_APPLICATION,
   LayerIds.MAIN_INFRASTRUCTURE,
   LayerIds.MAIN_IPC,
+  LayerIds.RENDERER_ENTRY,
+  LayerIds.RENDERER_BOOTSTRAP,
   LayerIds.RENDERER_APPLICATION,
   LayerIds.RENDERER_INFRASTRUCTURE,
   LayerIds.RENDERER_PRESENTATION,
@@ -28,47 +43,95 @@ const LAYER_SEQUENCE = [
 ];
 
 const FORBIDDEN_LAYER_MAP = {
+  [LayerIds.MAIN_ENTRY]: new Set([
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
   [LayerIds.MAIN_APPLICATION]: new Set([
+    LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.MAIN_INFRASTRUCTURE]: new Set([
+    LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.MAIN_IPC]: new Set([
+    LayerIds.MAIN_ENTRY,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
+  [LayerIds.RENDERER_ENTRY]: new Set([
+    LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC
+  ]),
+  [LayerIds.RENDERER_BOOTSTRAP]: new Set([
+    LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC
+  ]),
   [LayerIds.RENDERER_APPLICATION]: new Set([
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
   ]),
   [LayerIds.RENDERER_INFRASTRUCTURE]: new Set([
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC,
     LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.RENDERER_PRESENTATION]: new Set([
-    LayerIds.MAIN_APPLICATION,
-    LayerIds.MAIN_INFRASTRUCTURE,
-    LayerIds.MAIN_IPC
-  ]),
-  [LayerIds.SHARED]: new Set([
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC,
+    LayerIds.RENDERER_INFRASTRUCTURE
+  ]),
+  [LayerIds.SHARED]: new Set([
+    LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC,
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION,
     LayerIds.PRELOAD
+  ]),
+  [LayerIds.PRELOAD]: new Set([
+    LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC,
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
   ])
 };
+
+const TEMPORARY_ALLOWED_IMPORTS = new Set([
+  'renderer/presentation->renderer/infrastructure:@renderer/infrastructure/events/event-channels.config.js',
+  'renderer/presentation->renderer/infrastructure:@renderer/infrastructure/logging/logger.factory.js'
+]);
 
 function normalizePath(value) {
   return value.split(path.sep).join('/');
@@ -120,6 +183,11 @@ export function getImportSpecifiers(sourceCode) {
 
 function classifyLayerFromSourceRelativePath(relativePath) {
   const normalized = normalizePath(relativePath);
+  const specialLayer = SPECIAL_FILE_LAYER_MAP.get(normalized);
+  if (specialLayer) {
+    return specialLayer;
+  }
+
   for (const layerId of LAYER_SEQUENCE) {
     if (normalized === layerId || normalized.startsWith(`${layerId}/`)) {
       return layerId;
@@ -184,6 +252,11 @@ function buildViolationMessage(sourceLayer, targetLayer) {
   return `${sourceLayer} cannot depend on ${targetLayer}.`;
 }
 
+function isTemporarilyAllowedImport(sourceLayer, targetLayer, specifier) {
+  const key = `${sourceLayer}->${targetLayer}:${specifier}`;
+  return TEMPORARY_ALLOWED_IMPORTS.has(key);
+}
+
 export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
   const srcRoot = path.join(projectRoot, 'src');
   const violations = [];
@@ -214,7 +287,10 @@ export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
         continue;
       }
 
-      if (forbiddenLayers.has(targetLayer)) {
+      if (
+        forbiddenLayers.has(targetLayer)
+        && !isTemporarilyAllowedImport(sourceLayer, targetLayer, specifier)
+      ) {
         violations.push({
           filePath,
           sourceLayer,

@@ -6,7 +6,7 @@
 
 ## Phase Tracking
 1. Phase 0: Completed
-2. Phase 1: Pending
+2. Phase 1: Completed
 3. Phase 2: Pending
 4. Phase 3: Pending
 5. Phase 4: Pending
@@ -427,3 +427,17 @@ Make architecture regressions unmergeable.
    - Added docs index link in `README.md`.
 4. Validation:
    - `npm run architecture:scorecard -- --output artifacts/architecture-scorecard-baseline.json` ✅
+
+### Phase 1
+1. Status: Completed
+2. Date: 2026-02-07
+3. Deliverables:
+   - Expanded checker layer model with runtime entry/bootstrap classification.
+   - Added explicit `renderer/presentation -> renderer/infrastructure` boundary rule with temporary exceptions.
+   - Added fixture coverage for entry/bootstrap rules and presentation->infrastructure violations.
+   - Updated ESLint restrictions for new policy plus temporary exception file list.
+4. Validation:
+   - `node scripts/check-layer-boundaries.js` ✅
+   - `npm run lint` ✅
+   - `npm run test:unit -- tests/unit/scripts/check-layer-boundaries.test.js` ✅
+   - Runtime unclassified file count: `0` ✅
