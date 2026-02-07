@@ -53,6 +53,9 @@ jobs:
             echo "Architecture scorecard summary was not generated." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Build GPU package types
+        run: npm run build --workspace=@prismgb/gpu
+
       - name: Run typecheck
         run: npm run typecheck
 
@@ -77,6 +80,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+
+      - name: Build GPU package types
+        run: npm run build --workspace=@prismgb/gpu
 
       - name: Run typecheck
         run: npm run typecheck
