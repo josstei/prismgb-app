@@ -4,11 +4,20 @@
  * Manages button press/pop animations and recording state display.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+
+type ButtonElements = Record<string, HTMLElement | null>;
+
+type ButtonFeedbackDependencies = {
+  elements?: ButtonElements | null;
+};
 
 export class ButtonFeedback {
-  constructor(dependencies = {}) {
+  elements: ButtonElements | null;
+  _activeTimeouts: Set<ReturnType<typeof setTimeout>>;
+
+  constructor(dependencies: ButtonFeedbackDependencies = {}) {
     const { elements } = dependencies;
     this.elements = elements;
     this._activeTimeouts = new Set();

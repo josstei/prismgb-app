@@ -7,17 +7,23 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import type {
+  TranscodeCancelResponse,
+  TranscodeFormat,
+  TranscodeStartResponse,
+  TranscodeStatusResponse
+} from '@shared/ipc/preload-api.contract.js';
 
 interface TranscodeService {
   transcode(options: {
     inputBuffer: Buffer;
-    format: string;
+    format: TranscodeFormat;
     outputFilename?: string;
     inputArgs?: string[];
     interrupted: boolean;
-  }): Promise<unknown>;
-  cancel(jobId: string): unknown;
-  getStatus(jobId?: string): unknown;
+  }): Promise<TranscodeStartResponse>;
+  cancel(jobId: string): TranscodeCancelResponse;
+  getStatus(jobId?: string): TranscodeStatusResponse;
 }
 
 interface RegisterHandler {
@@ -32,7 +38,7 @@ export interface TranscodeHandlerDependencies {
 
 interface TranscodeStartOptions {
   inputBuffer: ArrayBuffer | Buffer | ArrayBufferView;
-  format: string;
+  format: TranscodeFormat;
   outputFilename?: string;
   inputArgs?: string[];
   interrupted?: boolean;
@@ -80,7 +86,7 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       return result;
     } catch (error) {
       logger.error('Failed to start transcode:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as TranscodeStartResponse;
     }
   });
 
@@ -95,7 +101,7 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       return result;
     } catch (error) {
       logger.error('Failed to cancel transcode:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as TranscodeCancelResponse;
     }
   });
 
@@ -110,7 +116,7 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       return result;
     } catch (error) {
       logger.error('Failed to get transcode status:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as TranscodeStatusResponse;
     }
   });
 }

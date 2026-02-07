@@ -6,9 +6,10 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 class TranscodeUIBridge extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
     this._subscriptions = [];

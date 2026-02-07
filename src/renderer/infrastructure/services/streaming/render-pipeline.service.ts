@@ -216,7 +216,7 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   _waitForHealthyStream(videoElement) {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.streamHealthService.checkStreamHealth(
         videoElement,
         (frameData) => {
@@ -227,7 +227,7 @@ export class StreamingRenderPipelineService extends BaseService {
         (errorData) => {
           this.logger.warn(`Stream unhealthy: ${errorData.reason}`);
           this.eventBus.publish(EventChannels.STREAM.HEALTH_TIMEOUT, errorData);
-          const error = new Error(`No frames received: ${errorData.reason}`);
+          const error = new Error(`No frames received: ${errorData.reason}`) as Error & { reason?: string };
           error.reason = errorData.reason;
           reject(error);
         },

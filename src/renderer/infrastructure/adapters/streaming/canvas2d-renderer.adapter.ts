@@ -10,9 +10,17 @@
  * - Handle canvas context state
  */
 
-import { IStreamingRenderer } from './streaming-renderer.interface.ts';
+import { IStreamingRenderer } from './streaming-renderer.interface';
 
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
+  canvasRenderer: any;
+  appState: any;
+  logger: any;
+  _canvasElement: HTMLCanvasElement | null;
+  _videoElement: HTMLVideoElement | null;
+  _isHiddenFn: () => boolean;
+  _isInitialized: boolean;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {Object} dependencies.canvasRenderer - Canvas2D renderer class

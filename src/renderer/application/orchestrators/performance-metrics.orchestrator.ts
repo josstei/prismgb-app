@@ -5,9 +5,10 @@
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
+
   /**
    * @param {Object} dependencies
    * @param {EventBus} dependencies.eventBus

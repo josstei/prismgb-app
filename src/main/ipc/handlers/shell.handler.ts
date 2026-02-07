@@ -6,6 +6,7 @@
 import type { IpcMainInvokeEvent, Shell } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import type { ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
 
 interface RegisterHandler {
   (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
@@ -25,10 +26,10 @@ export function registerShellHandlers({ registerHandler, shell, logger }: ShellH
         throw new Error('Only http and https URLs are allowed');
       }
       await shell.openExternal(url);
-      return { success: true };
+      return { success: true } as ShellOpenExternalResponse;
     } catch (error) {
       logger.error('Failed to open external URL:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as ShellOpenExternalResponse;
     }
   });
 }

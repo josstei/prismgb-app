@@ -7,6 +7,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PerformanceMetricsService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 

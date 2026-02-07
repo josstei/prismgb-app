@@ -32,6 +32,7 @@ interface AppOrchestratorDependencies {
 }
 
 class AppOrchestrator extends BaseOrchestrator {
+
   private container: AwilixContainer<ContainerDependencies> | null = null;
   private _windowService: WindowService | null = null;
   private _deviceService: DeviceService | null = null;
@@ -131,16 +132,14 @@ class AppOrchestrator extends BaseOrchestrator {
 
     // Window cleanup requires special handling (isDestroyed check, devtools)
     try {
-      if (this._windowService?.mainWindow) {
-        const win = this._windowService.mainWindow;
-        if (!win.isDestroyed()) {
-          if (win.webContents?.isDevToolsOpened()) {
-            win.webContents.closeDevTools();
-            this.logger.debug('Closed DevTools');
-          }
-          win.destroy();
-          this.logger.debug('Destroyed main window');
+      const win = this._windowService?.getMainWindow();
+      if (win && !win.isDestroyed()) {
+        if (win.webContents?.isDevToolsOpened()) {
+          win.webContents.closeDevTools();
+          this.logger.debug('Closed DevTools');
         }
+        win.destroy();
+        this.logger.debug('Destroyed main window');
       }
     } catch (error) {
       this.logger.error('Error destroying window:', error);

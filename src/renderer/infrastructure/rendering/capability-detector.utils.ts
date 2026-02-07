@@ -12,6 +12,7 @@ async function getGpuPolicyWithFallback() {
       return await window.gpuAPI.getPolicy();
     }
   } catch {
+    // Fall back to UA-based policy detection when preload API is unavailable.
   }
 
   const ua = navigator.userAgent;

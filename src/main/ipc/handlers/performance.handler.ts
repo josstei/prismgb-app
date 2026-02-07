@@ -6,6 +6,7 @@
 import type { App, IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
 
 interface RegisterHandler {
   (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
@@ -38,10 +39,10 @@ export function registerPerformanceHandlers({ registerHandler, app, logger }: Pe
           peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
           cpuPercent: proc.cpu.percentCPUUsage
         }))
-      };
+      } as ProcessMetricsResponse;
     } catch (error) {
       logger.error('Failed to get process metrics:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as ProcessMetricsResponse;
     }
   });
 }

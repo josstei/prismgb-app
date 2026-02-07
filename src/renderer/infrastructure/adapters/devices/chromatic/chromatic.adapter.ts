@@ -3,13 +3,22 @@
  * Domain-based architecture with clean dependencies
  */
 
-import { BaseDeviceAdapter } from '../device-base.adapter.ts';
-import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
-import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy.ts';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { BaseDeviceAdapter } from '../device-base.adapter';
+import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator';
+import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy';
+import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
+  ipcClient: any;
+  deviceProfile: any;
+  config: any;
+  mediaConfig: any;
+  helpers: any;
+  browserMediaService: any;
+  canvasScale: number;
+  acquisitionCoordinator: StreamAcquisitionOrchestrator;
+
   /**
    * Create Chromatic adapter
    * @param {Object} dependencies - Injected dependencies
@@ -116,7 +125,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Get device capabilities
    */
-  async getCapabilities() {
+  getCapabilities() {
     const base = super.getCapabilities();
     const { nativeWidth, nativeHeight } = this.config.display;
 

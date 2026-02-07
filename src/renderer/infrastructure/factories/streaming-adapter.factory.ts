@@ -10,20 +10,45 @@
  * hardcoded imports and improve testability.
  */
 
-import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder.ts';
-import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
+import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder';
+import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
+type AdapterMetadata = {
+  deviceType?: string;
+  requiresIPC?: boolean;
+  requiresProfile?: boolean;
+  dependencies?: string[];
+  capabilities?: Record<string, unknown>;
+};
+
+type DependencyBag = Record<string, unknown>;
+
 export class StreamingAdapterFactory {
+  eventBus: any;
+  loggerFactory: any;
+  browserMediaService: any;
+  logger: any;
+  _adapterClasses: Map<string, any>;
+  commonDependencies: DependencyBag;
+  adapterRegistry: Map<string, any>;
+  metadataRegistry: Map<string, AdapterMetadata>;
+  initialized: boolean;
+
   /**
    * @param {Object} eventBus - Event bus for cross-service communication
    * @param {Object} loggerFactory - Factory for creating loggers
    * @param {Object} browserMediaService - Browser media service
    * @param {Map<string, class>} adapterClasses - Map of device type IDs to adapter classes (injected via DI)
    */
-  constructor(eventBus, loggerFactory, browserMediaService = null, adapterClasses = new Map()) {
+  constructor(
+    eventBus: any,
+    loggerFactory: any,
+    browserMediaService: any = null,
+    adapterClasses: Map<string, any> = new Map()
+  ) {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
     this.browserMediaService = browserMediaService;
@@ -122,7 +147,7 @@ export class StreamingAdapterFactory {
    * @param {Object} metadata - Adapter metadata
    * @private
    */
-  _register(deviceType, AdapterClass, metadata = {}) {
+  _register(deviceType: string, AdapterClass: any, metadata: AdapterMetadata = {}) {
     this.adapterRegistry.set(deviceType, AdapterClass);
     this.metadataRegistry.set(deviceType, {
       deviceType,
@@ -137,7 +162,7 @@ export class StreamingAdapterFactory {
   /**
    * Get adapter for device type
    */
-  getAdapter(deviceType, dependencies = {}) {
+  getAdapter(deviceType: string, dependencies: DependencyBag = {}) {
     if (!this.initialized) {
       throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
@@ -149,7 +174,7 @@ export class StreamingAdapterFactory {
       throw new Error(`No adapter registered for device type: ${deviceType}`);
     }
 
-    const metadata = this.metadataRegistry.get(deviceType);
+    const metadata = (this.metadataRegistry.get(deviceType) || {}) as AdapterMetadata;
     const resolvedDeps = this._resolveDependencies(metadata, {
       logger: this.loggerFactory.create(deviceType),
       ...dependencies
@@ -162,7 +187,7 @@ export class StreamingAdapterFactory {
    * Resolve dependencies for adapter
    * @private
    */
-  _resolveDependencies(metadata, additionalDeps) {
+  _resolveDependencies(metadata: AdapterMetadata, additionalDeps: DependencyBag) {
     const resolved = { ...this.commonDependencies, ...additionalDeps };
 
     // Validate IPC client if required
@@ -180,7 +205,7 @@ export class StreamingAdapterFactory {
    * Detect device ID from device info
    * Uses unified detection to identify supported devices
    */
-  detectDeviceId(device) {
+  detectDeviceId(device: any) {
     if (!this.initialized) {
       throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
@@ -206,7 +231,7 @@ export class StreamingAdapterFactory {
    * Get adapter for specific device
    * Returns adapter for supported devices only
    */
-  getAdapterForDevice(device, dependencies = {}) {
+  getAdapterForDevice(device: any, dependencies: DependencyBag = {}) {
     const deviceId = this.detectDeviceId(device);
     if (!deviceId) {
       throw new Error(`Unsupported device: ${device?.label || 'unknown'}`);
@@ -217,7 +242,7 @@ export class StreamingAdapterFactory {
   /**
    * Register a custom adapter type
    */
-  registerAdapter(deviceType, AdapterClass, metadata = {}) {
+  registerAdapter(deviceType: string, AdapterClass: any, metadata: AdapterMetadata = {}) {
     this._register(deviceType, AdapterClass, metadata);
     this.logger.info(`Registered adapter for device type: ${deviceType}`);
   }

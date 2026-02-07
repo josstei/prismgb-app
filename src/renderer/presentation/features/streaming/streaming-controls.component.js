@@ -5,7 +5,7 @@
  * Handles all UI elements related to streaming configuration and state.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 const STREAM_TRANSITION_DURATION = 1000; // Match CSS animation duration
 

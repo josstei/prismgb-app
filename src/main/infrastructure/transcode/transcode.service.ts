@@ -91,8 +91,8 @@ interface TranscodeServiceDependencies {
 }
 
 class TranscodeService extends BaseService {
+
   private windowService: TranscodeServiceDependencies['windowService'];
-  private logger: ReturnType<TranscodeServiceDependencies['loggerFactory']['create']>;
   private _jobs: Map<string, TranscodeJob> = new Map();
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
@@ -102,7 +102,6 @@ class TranscodeService extends BaseService {
   constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory'], 'TranscodeService');
     this.windowService = dependencies.windowService;
-    this.logger = dependencies.loggerFactory.create('TranscodeService');
   }
 
   /**
@@ -169,7 +168,7 @@ class TranscodeService extends BaseService {
       try {
         durationUs = await probeDuration(inputPath);
         this.logger.debug('Probed video duration', { sessionId, durationUs });
-      } catch (error) {
+      } catch {
         this.logger.debug('Duration unknown, will show spinner', { sessionId });
         durationUs = 0;
       }
@@ -399,7 +398,7 @@ class TranscodeService extends BaseService {
     this.logger.info('Disposing TranscodeService');
 
     // Cancel any running processes
-    for (const [jobId, process] of this._processes) {
+    for (const process of this._processes.values()) {
       if (process.isRunning) {
         process.cancel();
       }

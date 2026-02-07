@@ -6,13 +6,13 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
-import type { ILogger, ILoggerFactory, LogLevel } from '@core/interfaces/infrastructure';
+import type { Logger, LoggerFactory, LogLevel } from './logger.interface.js';
 
 /**
  * Extended logger interface with Winston-specific features.
  * Used by MainLogger to provide access to underlying Winston logger.
  */
-export interface IMainLogger extends ILogger {
+export interface IMainLogger extends Logger {
   /**
    * Get the underlying Winston logger instance.
    * @returns The Winston logger
@@ -41,7 +41,7 @@ try {
  *     this.logger = mainLogger.create('ServiceName');
  *   }
  */
-export class MainLogger implements ILoggerFactory {
+export class MainLogger implements LoggerFactory {
   private rootLogger: winston.Logger;
 
   constructor() {

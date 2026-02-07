@@ -3,7 +3,7 @@
  * Handles main application window creation and lifecycle
  */
 
-import { BrowserWindow, app, DownloadItem, Event, WebContents } from 'electron';
+import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -37,7 +37,12 @@ type DownloadHandler = (event: Event, item: DownloadItem) => void;
 
 type FullscreenListener = () => void;
 
+type AppWithQuitFlag = typeof app & {
+  isQuitting?: boolean;
+};
+
 class WindowService extends BaseService {
+
   private mainWindow: BrowserWindow | null = null;
   private _consoleMessageListener: ConsoleMessageListener | null = null;
   private _downloadHandler: DownloadHandler | null = null;
@@ -136,8 +141,8 @@ class WindowService extends BaseService {
         event: Event,
         level: number,
         message: string,
-        line: number,
-        sourceId: string
+        _line: number,
+        _sourceId: string
       ) => {
         const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
         console.log(`[Renderer ${levels[level] || level}] ${message}`);
@@ -164,7 +169,7 @@ class WindowService extends BaseService {
 
     // Handle window close - clean up listeners before window is destroyed
     this.mainWindow.on('close', (event: Event) => {
-      if (!app.isQuitting) {
+      if (!(app as AppWithQuitFlag).isQuitting) {
         event.preventDefault();
         this.mainWindow!.hide();
         return;
@@ -244,6 +249,13 @@ class WindowService extends BaseService {
    */
   hasWindow(): boolean {
     return this.mainWindow !== null;
+  }
+
+  /**
+   * Get main window reference
+   */
+  getMainWindow(): BrowserWindow | null {
+    return this.mainWindow;
   }
 
   /**

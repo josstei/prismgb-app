@@ -7,6 +7,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
+import type { GpuPolicyResponse } from '@shared/ipc/preload-api.contract.js';
 
 interface RegisterHandler {
   (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
@@ -25,10 +26,10 @@ export function registerGpuHandlers({ registerHandler, logger }: GpuHandlerDepen
         success: true,
         skipWebGPU: policy.skipWebGPU,
         reason: policy.reason
-      };
+      } as GpuPolicyResponse;
     } catch (error) {
       logger.error('Failed to get GPU policy:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: (error as Error).message } as GpuPolicyResponse;
     }
   });
 }

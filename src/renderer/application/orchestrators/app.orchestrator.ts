@@ -10,9 +10,10 @@
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 export class AppOrchestrator extends BaseOrchestrator {
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management
@@ -102,7 +103,7 @@ export class AppOrchestrator extends BaseOrchestrator {
   _wireHighLevelEvents() {
     this.subscribeWithCleanup({
       [EventChannels.DEVICE.STATUS_CHANGED]: (status) => this._handleDeviceStatusChanged(status),
-      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data) => {
+      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data: { reason?: string; error?: string }) => {
         const message = data.reason === 'webcam_access'
           ? 'Camera access denied. Please allow camera permissions.'
           : `Device error: ${data.error}`;

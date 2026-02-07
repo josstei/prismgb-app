@@ -5,9 +5,17 @@
  * This adapter isolates the PerformanceMetricsService from direct global access.
  */
 
+import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
+
+type MetricsApiLike = {
+  getProcessMetrics: () => Promise<ProcessMetricsResponse>;
+};
+
 export class MetricsAdapter {
+  _metricsAPI?: MetricsApiLike;
+
   constructor() {
-    this._metricsAPI = globalThis.metricsAPI || window.metricsAPI;
+    this._metricsAPI = (globalThis.metricsAPI || window.metricsAPI) as MetricsApiLike | undefined;
   }
 
   /**

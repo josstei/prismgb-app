@@ -29,6 +29,7 @@ interface UpdateBridgeDependencies {
 }
 
 class UpdateBridge extends BaseService {
+
   constructor(dependencies: UpdateBridgeDependencies) {
     super(
       dependencies,

@@ -5,10 +5,11 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { EventChannels } from '@shared/events/event-channels.js';
+import { TIMING } from '@renderer/presentation/config/constants.config';
 
 class CaptureUIBridge extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
     this._subscriptions = [];

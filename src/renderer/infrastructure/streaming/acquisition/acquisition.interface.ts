@@ -3,13 +3,14 @@
  * Provides consistent stream acquisition, release, and tracking
  */
 export class IStreamLifecycle {
+
   /**
    * Acquire a media stream with given constraints
    * @param {Object} constraints - MediaStreamConstraints
    * @param {Object} _options - Additional acquisition options
    * @returns {Promise<MediaStream>} Acquired stream
    */
-  async acquireStream(constraints, _options = {}) {
+  async acquireStream(constraints, _options = {}): Promise<MediaStream> {
     throw new Error('acquireStream() must be implemented');
   }
 
@@ -18,7 +19,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to release
    * @returns {Promise<void>}
    */
-  async releaseStream(_stream) {
+  async releaseStream(_stream): Promise<void> {
     throw new Error('releaseStream() must be implemented');
   }
 
@@ -27,7 +28,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to inspect
    * @returns {Object} Stream information
    */
-  getStreamInfo(_stream) {
+  getStreamInfo(_stream): Record<string, unknown> {
     throw new Error('getStreamInfo() must be implemented');
   }
 
@@ -36,7 +37,7 @@ export class IStreamLifecycle {
    * @param {MediaStream} _stream - Stream to check
    * @returns {boolean} Whether stream is active
    */
-  isStreamActive(_stream) {
+  isStreamActive(_stream): boolean {
     throw new Error('isStreamActive() must be implemented');
   }
 
@@ -44,7 +45,7 @@ export class IStreamLifecycle {
    * Get all currently tracked streams
    * @returns {Array<MediaStream>} Active streams
    */
-  getActiveStreams() {
+  getActiveStreams(): MediaStream[] {
     throw new Error('getActiveStreams() must be implemented');
   }
 
@@ -52,7 +53,7 @@ export class IStreamLifecycle {
    * Release all active streams
    * @returns {Promise<void>}
    */
-  async releaseAll() {
+  async releaseAll(): Promise<void> {
     throw new Error('releaseAll() must be implemented');
   }
 }
@@ -63,6 +64,7 @@ export class IStreamLifecycle {
  * always preserved - no code path should produce `audio: true` or `video: true`
  */
 export class IConstraintBuilder {
+
   /**
    * Build media constraints from acquisition context
    * @param {AcquisitionContext} context - Immutable acquisition context with device identity
@@ -70,7 +72,7 @@ export class IConstraintBuilder {
    * @param {Object} _options - Additional options (audio/video toggles)
    * @returns {MediaStreamConstraints} WebRTC constraints with device targeting preserved
    */
-  build(context, _detailLevel = 'full', _options = {}) {
+  build(context, _detailLevel = 'full', _options = {}): MediaStreamConstraints {
     throw new Error('build() must be implemented');
   }
 }

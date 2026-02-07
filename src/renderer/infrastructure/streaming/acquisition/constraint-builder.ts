@@ -1,4 +1,4 @@
-import { IConstraintBuilder } from './acquisition.interface.ts';
+import { IConstraintBuilder } from './acquisition.interface';
 
 /**
  * ConstraintBuilder
@@ -13,7 +13,9 @@ import { IConstraintBuilder } from './acquisition.interface.ts';
  * - 'minimal': Just device targeting, no quality settings
  */
 export class ConstraintBuilder extends IConstraintBuilder {
-  constructor(logger = null) {
+  logger: Record<string, (...args: unknown[]) => void> | null;
+
+  constructor(logger: any = null) {
     super();
     this.logger = logger;
   }
@@ -27,7 +29,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * @param {boolean} options.video - Enable video (default: true if profile has video)
    * @returns {MediaStreamConstraints}
    */
-  build(context, detailLevel = 'full', options = {}) {
+  build(context: any, detailLevel = 'full', options: any = {}) {
     const videoDeviceConstraint = context.getDeviceConstraint();
     const audioDeviceConstraint = options.audioDeviceId
       ? { exact: options.audioDeviceId }
@@ -60,7 +62,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Build audio constraints with device targeting always included
    * @private
    */
-  _buildAudio(audioConfig, deviceConstraint, detailLevel) {
+  _buildAudio(audioConfig: any, deviceConstraint: any, detailLevel: string) {
     // Device targeting is ALWAYS included
     // Handle groupId separately - it should be at top level, not nested under deviceId
     // { deviceId: { groupId: xxx } } is INVALID per MediaTrackConstraints spec
@@ -97,7 +99,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Build video constraints with device targeting always included
    * @private
    */
-  _buildVideo(videoConfig, deviceConstraint, detailLevel) {
+  _buildVideo(videoConfig: any, deviceConstraint: any, detailLevel: string) {
     // Device targeting is ALWAYS included
     const base = { deviceId: deviceConstraint };
 
@@ -129,7 +131,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Handles both { exact: X }, { ideal: X }, and plain X formats
    * @private
    */
-  _extractIdeal(value) {
+  _extractIdeal(value: any) {
     if (value === null || value === undefined) {
       return undefined;
     }
@@ -142,7 +144,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
   /**
    * @private
    */
-  _log(level, message, ...args) {
+  _log(level: string, message: string, ...args: any[]) {
     if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }

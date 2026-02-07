@@ -9,7 +9,7 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config.ts';
+import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // Timing constants
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;

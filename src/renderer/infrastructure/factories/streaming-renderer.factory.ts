@@ -11,6 +11,15 @@
  */
 
 export class StreamingRendererFactory {
+  eventBus: any;
+  loggerFactory: any;
+  logger: any;
+  _rendererClasses: Map<string, any>;
+  _commonDependencies: Record<string, unknown>;
+  rendererRegistry: Map<string, any>;
+  metadataRegistry: Map<string, Record<string, unknown>>;
+  _initialized: boolean;
+
   /**
    * @param {Object} eventBus - Event bus for cross-service communication
    * @param {Object} loggerFactory - Factory for creating loggers

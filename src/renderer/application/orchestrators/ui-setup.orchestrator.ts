@@ -12,10 +12,11 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
+
   constructor(dependencies) {
     super(
       dependencies,
@@ -35,7 +36,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_RECREATED]: (data) => this._handleCanvasRecreated(data)
+      [EventChannels.RENDER.CANVAS_RECREATED]: (data: { oldCanvas: any; newCanvas: any }) => this._handleCanvasRecreated(data)
     });
   }
 
@@ -45,7 +46,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Event data with oldCanvas and newCanvas
    * @private
    */
-  _handleCanvasRecreated({ oldCanvas, newCanvas }) {
+  _handleCanvasRecreated({ oldCanvas, newCanvas }: { oldCanvas: any; newCanvas: any }) {
     // Remove listeners from old canvas to allow GC
     const removed = this._domListeners.removeByTarget(oldCanvas);
     this.logger.debug(`Removed ${removed} listener(s) from old canvas`);

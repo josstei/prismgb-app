@@ -15,12 +15,12 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils.ts';
+import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
 
 /**
@@ -162,8 +162,9 @@ export class StreamingGpuRendererService extends BaseService {
 
     // Check if worker rendering is possible
     if (!CapabilityDetector.isWorkerRenderingAvailable(this._capabilities)) {
-      this.logger.warn('Worker rendering not available, will use main-thread GPU rendering');
-      // TODO: Implement main-thread GPU rendering
+      this.logger.warn(
+        'Worker rendering not available; main-thread GPU mode is unsupported, using Canvas2D fallback'
+      );
       this._isUsingFallback = true;
       return false;
     }

@@ -7,7 +7,7 @@
  * Follows the adapter pattern established by VisibilityAdapter, UserActivityAdapter.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { TIMING } from '@shared/config/timing.config';
 
 /**
  * Default debounce delay in milliseconds
@@ -16,14 +16,38 @@ import { TIMING } from '@renderer/presentation/config/constants.config.ts';
  */
 const DEFAULT_DEBOUNCE_MS = TIMING?.DEVICE_CHANGE_DEBOUNCE_MS ?? 150;
 
+type DeviceChangeEventSource = {
+  addEventListener(event: 'devicechange', handler: () => void): void;
+  removeEventListener(event: 'devicechange', handler: () => void): void;
+};
+
+type DeviceChangeLogger = {
+  debug?: (...args: unknown[]) => void;
+  warn?: (...args: unknown[]) => void;
+};
+
+type DeviceChangeDebounceOptions = {
+  browserMediaService: DeviceChangeEventSource;
+  logger?: DeviceChangeLogger;
+  debounceMs?: number;
+};
+
 export class DeviceChangeDebounceAdapter {
+  _browserMediaService: DeviceChangeEventSource;
+  _logger: DeviceChangeLogger | undefined;
+  _debounceMs: number;
+  _debounceTimer: ReturnType<typeof setTimeout> | null;
+  _rawHandler: (() => void) | null;
+  _callback: (() => void) | null;
+  _suppressedCount: number;
+
   /**
    * @param {Object} options - Configuration options
    * @param {Object} options.browserMediaService - Browser media API wrapper
    * @param {Object} [options.logger] - Optional logger
    * @param {number} [options.debounceMs] - Debounce delay (default: 150ms)
    */
-  constructor({ browserMediaService, logger, debounceMs = DEFAULT_DEBOUNCE_MS }) {
+  constructor({ browserMediaService, logger, debounceMs = DEFAULT_DEBOUNCE_MS }: DeviceChangeDebounceOptions) {
     if (!browserMediaService) {
       throw new Error('DeviceChangeDebounceAdapter: browserMediaService is required');
     }

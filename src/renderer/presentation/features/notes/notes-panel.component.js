@@ -6,8 +6,8 @@
  */
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { NotesListViewComponent } from './components/notes-list-view.component.js';
 import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
 import { NotesSearchComponent } from './components/notes-search.component.js';
@@ -455,6 +455,16 @@ class NotesPanelComponent {
       }
     );
     this._eventSubscriptions.push(unsubscribeDeleted);
+
+    const unsubscribeUpdated = this.eventBus.subscribe(
+      EventChannels.NOTES.NOTE_UPDATED,
+      (note) => {
+        if (note && note.id !== this.currentNoteId) {
+          this.listView.render(this.searchComponent.getQuery());
+        }
+      }
+    );
+    this._eventSubscriptions.push(unsubscribeUpdated);
   }
 
   /**

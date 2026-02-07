@@ -14,8 +14,19 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import type {
+  TranscodeCancelResponse,
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeFormat,
+  TranscodeProgressPayload,
+  TranscodeStartOptions,
+  TranscodeStartResponse
+} from '@shared/ipc/preload-api.contract.js';
 
 class TranscodeService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
 
@@ -65,7 +76,12 @@ class TranscodeService extends BaseService {
    * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
    * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
    */
-  async transcode(blob, format, outputBaseName, options = {}) {
+  async transcode(
+    blob: Blob,
+    format: TranscodeFormat,
+    outputBaseName?: string,
+    options: TranscodeStartOptions = {}
+  ): Promise<TranscodeStartResponse> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -104,7 +120,10 @@ class TranscodeService extends BaseService {
       return result;
     } catch (error) {
       this.logger.error('Transcode failed', error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   }
 
@@ -112,7 +131,7 @@ class TranscodeService extends BaseService {
    * Cancel the current transcoding operation
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async cancel() {
+  async cancel(): Promise<TranscodeCancelResponse> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
       return { success: false, error: 'Transcoding not available' };
@@ -149,7 +168,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Progress data (percent, timeRemaining, etc.)
    * @private
    */
-  _handleProgress(data) {
+  _handleProgress(data: TranscodeProgressPayload) {
     this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
   }
 
@@ -158,7 +177,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Completion data (outputPath, duration, etc.)
    * @private
    */
-  _handleCompleted(data) {
+  _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
     this._activeJobId = null;
@@ -170,7 +189,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Error data
    * @private
    */
-  _handleError(data) {
+  _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
     this._activeJobId = null;
@@ -182,7 +201,7 @@ class TranscodeService extends BaseService {
    * @param {Object} data - Cancellation data
    * @private
    */
-  _handleCancelled(data) {
+  _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
     this._activeJobId = null;

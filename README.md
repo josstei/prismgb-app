@@ -427,6 +427,7 @@ If transcoding fails, ensure FFmpeg binaries are included in the application pac
 | [docs/architecture-diagrams-onboarding.md](docs/architecture-diagrams-onboarding.md) | Architectural onboarding guide |
 | [docs/naming-conventions.md](docs/naming-conventions.md) | Code naming standards |
 | [docs/ci-cd-workflows.md](docs/ci-cd-workflows.md) | GitHub Actions workflows |
+| [docs/plans/2026-02-07-architecture-closure-plan.md](docs/plans/2026-02-07-architecture-closure-plan.md) | Multi-phase architecture closure plan |
 
 ## Testing
 

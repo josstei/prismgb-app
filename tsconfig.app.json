@@ -1,0 +1,54 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "dist/typecheck",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@main/*": [
+        "src/main/*"
+      ],
+      "@renderer/*": [
+        "src/renderer/*"
+      ],
+      "@preload/*": [
+        "src/preload/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ],
+      "@prismgb/gpu": [
+        "packages/prismgb-gpu/dist/index.d.ts"
+      ],
+      "@prismgb/gpu/*": [
+        "packages/prismgb-gpu/dist/*"
+      ]
+    },
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "exactOptionalPropertyTypes": false,
+    "declaration": false,
+    "declarationMap": false,
+    "allowImportingTsExtensions": false,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "src/main/**/*.ts",
+    "src/renderer/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests"
+  ]
+}

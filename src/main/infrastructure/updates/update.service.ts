@@ -71,6 +71,7 @@ interface UpdateStatus {
 }
 
 class UpdateService extends BaseService {
+
   state: UpdateStateType;
   updateInfo: UpdateInfo | null;
   downloadProgress: ProgressInfo | null;

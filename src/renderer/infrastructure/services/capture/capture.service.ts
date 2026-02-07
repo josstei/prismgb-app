@@ -13,10 +13,11 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { FilenameGenerator } from '@renderer/presentation/lib/filename-generator.utils.ts';
+import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for capture events

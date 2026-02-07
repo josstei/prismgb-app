@@ -6,13 +6,14 @@
  */
 
 export class IStreamingRenderer {
+
   /**
    * Initialize the renderer with a canvas and resolution
    * @param {HTMLCanvasElement} _canvasElement - Canvas to render to
    * @param {Object} _nativeResolution - Native device resolution { width, height }
    * @returns {Promise<boolean>} True if initialization successful
    */
-  async initialize(_canvasElement, _nativeResolution) {
+  async initialize(_canvasElement: any, _nativeResolution: any): Promise<boolean> {
     throw new Error('initialize() must be implemented');
   }
 
@@ -21,7 +22,7 @@ export class IStreamingRenderer {
    * @param {HTMLVideoElement} _videoElement - Video element to capture frame from
    * @returns {Promise<void>}
    */
-  async renderFrame(_videoElement) {
+  async renderFrame(_videoElement: any): Promise<void> {
     throw new Error('renderFrame() must be implemented');
   }
 
@@ -30,7 +31,7 @@ export class IStreamingRenderer {
    * @param {number} _width - New width
    * @param {number} _height - New height
    */
-  resize(_width, _height) {
+  resize(_width: number, _height: number): void {
     throw new Error('resize() must be implemented');
   }
 
@@ -38,7 +39,7 @@ export class IStreamingRenderer {
    * Check if renderer is currently active
    * @returns {boolean} True if rendering is active
    */
-  isActive() {
+  isActive(): boolean {
     throw new Error('isActive() must be implemented');
   }
 
@@ -46,7 +47,7 @@ export class IStreamingRenderer {
    * Pause rendering (window hidden)
    * @param {HTMLVideoElement} _videoElement - Video element for callback cancellation
    */
-  pause(_videoElement) {
+  pause(_videoElement: any): void {
     throw new Error('pause() must be implemented');
   }
 
@@ -54,14 +55,14 @@ export class IStreamingRenderer {
    * Resume rendering (window visible)
    * @param {HTMLVideoElement} _videoElement - Video element for callback registration
    */
-  resume(_videoElement) {
+  resume(_videoElement: any): void {
     throw new Error('resume() must be implemented');
   }
 
   /**
    * Cleanup all resources
    */
-  cleanup() {
+  cleanup(): void {
     throw new Error('cleanup() must be implemented');
   }
 
@@ -71,7 +72,7 @@ export class IStreamingRenderer {
    * GPU: No-op (canvas recreation handled via CANVAS_EXPIRED event)
    * Canvas2D: Clear canvas to black to show idle state
    */
-  handlePipelineStop() {
+  handlePipelineStop(): void {
     // Default: no-op - renderers that need special stop handling override this
   }
 
@@ -83,7 +84,7 @@ export class IStreamingRenderer {
    * Check if renderer supports shader presets
    * @returns {boolean} True if presets are supported
    */
-  supportsPresets() {
+  supportsPresets(): boolean {
     return false;
   }
 
@@ -91,7 +92,7 @@ export class IStreamingRenderer {
    * Get current preset ID
    * @returns {string|null} Current preset ID, or null if not applicable
    */
-  getPresetId() {
+  getPresetId(): string | null {
     return null;
   }
 
@@ -99,7 +100,7 @@ export class IStreamingRenderer {
    * Set the active render preset
    * @param {string} _presetId - Preset ID to apply
    */
-  setPreset(_presetId) {
+  setPreset(_presetId: string): void {
     // no-op for renderers that don't support presets
   }
 
@@ -107,7 +108,7 @@ export class IStreamingRenderer {
    * Check if canvas control was transferred (irreversible)
    * @returns {boolean} True if canvas was transferred
    */
-  isCanvasTransferred() {
+  isCanvasTransferred(): boolean {
     return false;
   }
 
@@ -116,7 +117,7 @@ export class IStreamingRenderer {
    * Used for memory savings when streaming stops
    * Note: Only GPU resources are released; the worker stays alive.
    */
-  releaseGpuResources() {
+  releaseGpuResources(): void {
     // no-op for renderers that don't have releasable resources
   }
 
@@ -124,7 +125,7 @@ export class IStreamingRenderer {
    * Terminate and reset the renderer
    * @param {boolean} _emitCanvasExpired - Whether to emit canvas expired event
    */
-  terminateAndReset(_emitCanvasExpired = true) {
+  terminateAndReset(_emitCanvasExpired = true): void {
     // no-op, cleanup() is the standard method
   }
 }

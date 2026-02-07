@@ -5,8 +5,8 @@
  * Responsible for DOM mutations; business logic lives in services/orchestrators.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { TIMING } from '@renderer/presentation/config/constants.config';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 const APP_CSS_CLASSES = Object.freeze({
   STREAMING: 'app-streaming',
@@ -16,6 +16,8 @@ const APP_CSS_CLASSES = Object.freeze({
 });
 
 export class BodyClassManager {
+  _minimalistTransitionTimer: ReturnType<typeof setTimeout> | null;
+
   constructor() {
     this._minimalistTransitionTimer = null;
   }

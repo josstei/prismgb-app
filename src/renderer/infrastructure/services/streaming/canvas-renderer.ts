@@ -17,7 +17,25 @@
  * - Desynchronized rendering for lower latency
  */
 
+type AnimationCacheLike = {
+  cancelAnimation: (name: string) => void;
+  cancelAllAnimations: () => void;
+};
+
 export class StreamingCanvasRenderer {
+  logger: any;
+  animationCache: AnimationCacheLike;
+  _cachedContext: CanvasRenderingContext2D | null;
+  _cachedCanvas: HTMLCanvasElement | null;
+  _isRenderLoopActive: boolean;
+  _lastFrameTime: number;
+  _rvfcHandle: number | null;
+  _loadedDataHandler: (() => void) | null;
+  _currentVideoElement: HTMLVideoElement | null;
+  _displayWidth: number;
+  _displayHeight: number;
+  _devicePixelRatio: number;
+
   /**
    * Create a canvas renderer
    * @param {Object} logger - Logger instance for debugging

@@ -1,0 +1,431 @@
+{
+  "totalDiagnostics": 1482,
+  "files": [
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
+      "count": 134
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/render-pipeline.service.ts",
+      "count": 91
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
+      "count": 76
+    },
+    {
+      "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
+      "count": 64
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/audio-pipeline.service.ts",
+      "count": 56
+    },
+    {
+      "file": "src/renderer/application/orchestrators/streaming.orchestrator.ts",
+      "count": 53
+    },
+    {
+      "file": "src/renderer/infrastructure/services/devices/device-media.service.ts",
+      "count": 47
+    },
+    {
+      "file": "src/renderer/presentation/bridges/ui-event.bridge.ts",
+      "count": 46
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/optimization.utils.ts",
+      "count": 45
+    },
+    {
+      "file": "src/renderer/infrastructure/services/capture/gpu-recording.service.ts",
+      "count": 39
+    },
+    {
+      "file": "src/renderer/application/orchestrators/capture.orchestrator.ts",
+      "count": 37
+    },
+    {
+      "file": "src/renderer/application/orchestrators/ui-setup.orchestrator.ts",
+      "count": 36
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "count": 35
+    },
+    {
+      "file": "src/renderer/infrastructure/services/notes/notes.service.ts",
+      "count": 34
+    },
+    {
+      "file": "src/renderer/application/orchestrators/app.orchestrator.ts",
+      "count": 28
+    },
+    {
+      "file": "src/renderer/infrastructure/services/performance/performance-state.service.ts",
+      "count": 28
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/streaming.service.ts",
+      "count": 28
+    },
+    {
+      "file": "src/renderer/presentation/bridges/capture-ui.bridge.ts",
+      "count": 27
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
+      "count": 25
+    },
+    {
+      "file": "src/renderer/infrastructure/services/capture/capture.service.ts",
+      "count": 25
+    },
+    {
+      "file": "src/renderer/infrastructure/services/updates/update-ui.service.ts",
+      "count": 25
+    },
+    {
+      "file": "src/renderer/presentation/bridges/transcode-ui.bridge.ts",
+      "count": 22
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/viewport.service.ts",
+      "count": 21
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts",
+      "count": 20
+    },
+    {
+      "file": "src/renderer/infrastructure/services/performance/performance-metrics.service.ts",
+      "count": 18
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/canvas-renderer.ts",
+      "count": 17
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/health.service.ts",
+      "count": 17
+    },
+    {
+      "file": "src/renderer/application/orchestrators/performance-state.orchestrator.ts",
+      "count": 16
+    },
+    {
+      "file": "src/renderer/infrastructure/services/settings/presentation-mode.service.ts",
+      "count": 15
+    },
+    {
+      "file": "src/renderer/infrastructure/services/updates/update.service.ts",
+      "count": 15
+    },
+    {
+      "file": "src/renderer/infrastructure/services/settings/fullscreen.service.ts",
+      "count": 14
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/gpu-worker-manager.ts",
+      "count": 14
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts",
+      "count": 13
+    },
+    {
+      "file": "src/renderer/infrastructure/factories/streaming-renderer.factory.ts",
+      "count": 13
+    },
+    {
+      "file": "src/renderer/infrastructure/services/devices/device.service.ts",
+      "count": 13
+    },
+    {
+      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
+      "count": 13
+    },
+    {
+      "file": "src/renderer/presentation/effects/ui-effects.class.ts",
+      "count": 13
+    },
+    {
+      "file": "src/renderer/infrastructure/services/devices/device-operation-sequencer.service.ts",
+      "count": 12
+    },
+    {
+      "file": "src/renderer/application/orchestrators/device.orchestrator.ts",
+      "count": 11
+    },
+    {
+      "file": "src/renderer/application/orchestrators/update.orchestrator.ts",
+      "count": 11
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts",
+      "count": 11
+    },
+    {
+      "file": "src/renderer/application/orchestrators/performance-animation.orchestrator.ts",
+      "count": 10
+    },
+    {
+      "file": "src/renderer/application/orchestrators/streaming-audio.orchestrator.ts",
+      "count": 10
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/streaming-view.service.ts",
+      "count": 10
+    },
+    {
+      "file": "src/renderer/infrastructure/services/transcode/transcode.service.ts",
+      "count": 10
+    },
+    {
+      "file": "src/renderer/application/orchestrators/display-mode.orchestrator.ts",
+      "count": 9
+    },
+    {
+      "file": "src/renderer/infrastructure/services/capture/capture-save.service.ts",
+      "count": 9
+    },
+    {
+      "file": "src/renderer/infrastructure/services/devices/device-storage.service.ts",
+      "count": 9
+    },
+    {
+      "file": "src/renderer/application/di/register-ui.ts",
+      "count": 8
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/gpu-render-loop.service.ts",
+      "count": 8
+    },
+    {
+      "file": "src/renderer/presentation/effects/body-class.class.ts",
+      "count": 8
+    },
+    {
+      "file": "src/main/application/app.orchestrator.ts",
+      "count": 7
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
+      "count": 7
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
+      "count": 7
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts",
+      "count": 7
+    },
+    {
+      "file": "src/renderer/infrastructure/services/performance/performance-animation.service.ts",
+      "count": 7
+    },
+    {
+      "file": "src/renderer/application/orchestrators/preferences.orchestrator.ts",
+      "count": 6
+    },
+    {
+      "file": "src/renderer/infrastructure/factories/streaming-adapter.factory.ts",
+      "count": 6
+    },
+    {
+      "file": "src/renderer/presentation/effects/button-feedback.effect.ts",
+      "count": 6
+    },
+    {
+      "file": "src/renderer/application/orchestrators/performance-metrics.orchestrator.ts",
+      "count": 5
+    },
+    {
+      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.interface.ts",
+      "count": 5
+    },
+    {
+      "file": "src/renderer/presentation/effects/controls-auto-hide.effect.ts",
+      "count": 5
+    },
+    {
+      "file": "src/renderer/infrastructure/services/settings/cinematic-mode.service.ts",
+      "count": 4
+    },
+    {
+      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
+      "count": 4
+    },
+    {
+      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
+      "count": 4
+    },
+    {
+      "file": "src/main/ipc/handlers/transcode.handler.ts",
+      "count": 3
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/worker-protocol.config.ts",
+      "count": 3
+    },
+    {
+      "file": "src/renderer/infrastructure/services/devices/device-connection.service.ts",
+      "count": 3
+    },
+    {
+      "file": "src/main/infrastructure/events/event-bus.ts",
+      "count": 2
+    },
+    {
+      "file": "src/main/infrastructure/tray/tray.service.ts",
+      "count": 2
+    },
+    {
+      "file": "src/main/infrastructure/window/window.service.ts",
+      "count": 2
+    },
+    {
+      "file": "src/renderer/application/state/app-state.ts",
+      "count": 2
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/platform/metrics.adapter.ts",
+      "count": 2
+    },
+    {
+      "file": "src/renderer/infrastructure/services/streaming/gpu-frame-buffer.ts",
+      "count": 2
+    },
+    {
+      "file": "src/renderer/presentation/lib/brightness.utils.ts",
+      "count": 2
+    },
+    {
+      "file": "src/shared/lib/file-download.utils.ts",
+      "count": 2
+    },
+    {
+      "file": "src/main/infrastructure/devices/device.service.ts",
+      "count": 1
+    },
+    {
+      "file": "src/main/infrastructure/transcode/transcode.service.ts",
+      "count": 1
+    },
+    {
+      "file": "src/main/ipc/handlers/shell.handler.ts",
+      "count": 1
+    },
+    {
+      "file": "src/main/ipc/handlers/window.handler.ts",
+      "count": 1
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts",
+      "count": 1
+    },
+    {
+      "file": "src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts",
+      "count": 1
+    },
+    {
+      "file": "src/renderer/presentation/effects/capture.effect.ts",
+      "count": 1
+    },
+    {
+      "file": "src/renderer/presentation/effects/toolbar-auto-hide.effect.ts",
+      "count": 1
+    }
+  ],
+  "codes": [
+    {
+      "code": "2571",
+      "count": 493
+    },
+    {
+      "code": "7006",
+      "count": 476
+    },
+    {
+      "code": "18047",
+      "count": 130
+    },
+    {
+      "code": "2339",
+      "count": 122
+    },
+    {
+      "code": "2532",
+      "count": 43
+    },
+    {
+      "code": "18046",
+      "count": 42
+    },
+    {
+      "code": "2769",
+      "count": 29
+    },
+    {
+      "code": "2345",
+      "count": 27
+    },
+    {
+      "code": "7031",
+      "count": 27
+    },
+    {
+      "code": "2349",
+      "count": 20
+    },
+    {
+      "code": "2322",
+      "count": 19
+    },
+    {
+      "code": "7005",
+      "count": 14
+    },
+    {
+      "code": "2722",
+      "count": 10
+    },
+    {
+      "code": "2531",
+      "count": 6
+    },
+    {
+      "code": "7053",
+      "count": 6
+    },
+    {
+      "code": "18048",
+      "count": 5
+    },
+    {
+      "code": "7034",
+      "count": 4
+    },
+    {
+      "code": "2416",
+      "count": 2
+    },
+    {
+      "code": "2418",
+      "count": 2
+    },
+    {
+      "code": "2698",
+      "count": 2
+    },
+    {
+      "code": "7019",
+      "count": 2
+    },
+    {
+      "code": "7008",
+      "count": 1
+    }
+  ]
+}

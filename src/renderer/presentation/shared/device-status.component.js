@@ -5,7 +5,7 @@
  * Handles all UI elements related to device connection state.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 class DeviceStatusComponent {
   /**

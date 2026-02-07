@@ -8,6 +8,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class DeviceService extends BaseService {
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher

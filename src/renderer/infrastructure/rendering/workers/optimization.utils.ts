@@ -14,6 +14,11 @@
  * cache and reuse them.
  */
 export class BindGroupCache {
+  _cache: Map<string, any>;
+  _version: number;
+  _hits: number;
+  _misses: number;
+
   constructor() {
     this._cache = new Map();
     this._version = 0;
@@ -100,6 +105,12 @@ export class BindGroupCache {
  * Includes a safety limit on pool types to prevent unbounded memory growth.
  */
 export class TypedArrayPool {
+  _poolDepth: number;
+  _float32Pools: Map<number, { arrays: Float32Array[]; index: number }>;
+  _allocations: number;
+  _reuses: number;
+  _prewarmCount: number;
+
   /**
    * Maximum number of unique array sizes to pool (safety limit)
    * Pre-warmed sizes don't count toward this limit
@@ -210,6 +221,13 @@ export class TypedArrayPool {
  * Uses FNV-1a hashing for fast change detection.
  */
 export class UniformTracker {
+  _hashes: Map<string, number>;
+  _checks: number;
+  _skips: number;
+  _writes: number;
+  _hashView: Uint8Array | null;
+  _hashViewBuffer: ArrayBufferLike | null;
+
   constructor() {
     this._hashes = new Map();
     this._checks = 0;
@@ -316,6 +334,12 @@ export class UniformTracker {
  * ~0.5-1ms per frame to only when screenshots are needed.
  */
 export class CaptureBufferManager {
+  _captureRequested: boolean;
+  _capturedFrame: ImageBitmap | null;
+  _canvas: OffscreenCanvas | null;
+  _captureCount: number;
+  _lazyCaptures: number;
+
   constructor() {
     this._captureRequested = false;
     this._capturedFrame = null;
@@ -397,6 +421,13 @@ export class CaptureBufferManager {
  * Eliminates per-frame getUniformLocation string lookups.
  */
 export class ShaderProgram {
+  gl: WebGL2RenderingContext;
+  label: string;
+  program: WebGLProgram | null;
+  uniformLocations: Map<string, WebGLUniformLocation | null>;
+  _uniformCalls: number;
+  _cacheHits: number;
+
   constructor(gl, vertexSource, fragmentSource, label = 'ShaderProgram') {
     this.gl = gl;
     this.label = label;

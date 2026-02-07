@@ -6,9 +6,23 @@
  * Orchestrators should use AppState instead of calling each other directly
  */
 
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
+
+type AppStateDependencies = {
+  streamingService?: any;
+  deviceService?: any;
+  eventBus?: any;
+};
 
 class AppState {
+  streamingService: any;
+  deviceService: any;
+  eventBus: any;
+  isCinematicModeEnabled: boolean;
+  _streamCache: MediaStream | null;
+  _capabilitiesCache: unknown;
+  _subscriptions: Array<() => void>;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {StreamingService} dependencies.streamingService - Streaming service for state derivation
@@ -16,7 +30,7 @@ class AppState {
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
-  constructor(dependencies = {}) {
+  constructor(dependencies: AppStateDependencies = {}) {
     const { streamingService, deviceService, eventBus } = dependencies;
 
     // Service references for derived state

@@ -8,6 +8,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class UpdateUiService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
     this._subscriptions = [];

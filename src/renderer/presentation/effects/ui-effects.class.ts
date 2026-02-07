@@ -6,15 +6,36 @@
  * Maintains backwards-compatible public API.
  */
 
-import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect.ts';
-import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect.ts';
-import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect.ts';
-import { CaptureEffects } from '@renderer/presentation/effects/capture.effect.ts';
-import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect.ts';
+import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
+import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
+import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
+import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
+import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
 import { HideTimer } from '@renderer/presentation/primitives/hide-timer.class.js';
 
+type BodyClassManagerLike = {
+  setCinematicMode?: (isActive: boolean) => void;
+  setMinimalistFullscreen?: (isActive: boolean) => void;
+  setFullscreenMode?: (isActive: boolean) => void;
+  dispose?: () => void;
+};
+
+type UIEffectsDependencies = {
+  elements?: any;
+  bodyClassManager?: BodyClassManagerLike | null;
+};
+
 export class UIEffects {
-  constructor(dependencies = {}) {
+  elements: any;
+  _bodyClassManager: BodyClassManagerLike | null;
+  _buttonFeedback: ButtonFeedback;
+  _captureEffects: CaptureEffects;
+  _cursor: CursorAutoHide;
+  _toolbar: ToolbarAutoHide;
+  _controls: ControlsAutoHide;
+  _unifiedTimer: HideTimer;
+
+  constructor(dependencies: UIEffectsDependencies = {}) {
     const { elements, bodyClassManager } = dependencies;
     this.elements = elements;
 

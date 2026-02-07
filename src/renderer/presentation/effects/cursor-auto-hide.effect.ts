@@ -5,15 +5,27 @@
  * Coordinates with toolbar auto-hide through callbacks.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+
+type CursorAutoHideOptions = {
+  onActivity?: () => void;
+  onHide?: () => void;
+};
 
 export class CursorAutoHide {
+  _enabled: boolean;
+  _onActivity: () => void;
+  _onHide: () => void;
+  _boundHandleMouseMove: () => void;
+  _mouseMoveFramePending: boolean;
+  _rafId: number | null;
+
   /**
    * @param {Object} options
    * @param {Function} [options.onActivity] - Callback when mouse activity detected
    * @param {Function} [options.onHide] - Callback when cursor is hidden
    */
-  constructor(options = {}) {
+  constructor(options: CursorAutoHideOptions = {}) {
     this._enabled = false;
     this._onActivity = options.onActivity || (() => {});
     this._onHide = options.onHide || (() => {});

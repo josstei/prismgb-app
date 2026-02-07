@@ -15,7 +15,12 @@ const DEFAULT_STATE = Object.freeze({
   reducedMotion: false
 });
 
+interface PerformanceStateInitOptions {
+  onStateChange?: (state: Record<string, boolean>) => void;
+}
+
 class PerformanceStateService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
 
@@ -35,7 +40,7 @@ class PerformanceStateService extends BaseService {
     this._motionCleanup = null;
   }
 
-  initialize({ onStateChange } = {}) {
+  initialize({ onStateChange }: PerformanceStateInitOptions = {}) {
     this._onStateChange = onStateChange;
     this._setupVisibilityHandling();
     this._setupReducedMotionHandling();

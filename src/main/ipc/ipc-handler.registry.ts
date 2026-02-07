@@ -5,8 +5,15 @@
 
 import type { IpcMainInvokeEvent } from 'electron';
 import { app, ipcMain, shell } from 'electron';
-import type { Logger, LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 import { BaseService } from '@shared/base/service.base.js';
+import type {
+  DeviceStatusPayload,
+  TranscodeCancelResponse,
+  TranscodeStartResponse,
+  TranscodeStatusResponse,
+  UpdateStatusPayload
+} from '@shared/ipc/preload-api.contract.js';
 import {
   registerDeviceHandlers,
   registerUpdateHandlers,
@@ -18,14 +25,14 @@ import {
 } from './handlers/index.js';
 
 interface DeviceService {
-  getStatus(): { connected: boolean; error?: string };
+  getStatus(): DeviceStatusPayload;
 }
 
 interface UpdateService {
-  checkForUpdates(): Promise<unknown>;
+  checkForUpdates(): Promise<Record<string, unknown>>;
   downloadUpdate(): Promise<void>;
   installUpdate(): void;
-  getStatus(): unknown;
+  getStatus(): UpdateStatusPayload;
 }
 
 interface WindowService {
@@ -40,9 +47,9 @@ interface TranscodeService {
     outputFilename?: string;
     inputArgs?: string[];
     interrupted: boolean;
-  }): Promise<unknown>;
-  cancel(jobId: string): unknown;
-  getStatus(jobId?: string): unknown;
+  }): Promise<TranscodeStartResponse>;
+  cancel(jobId: string): TranscodeCancelResponse;
+  getStatus(jobId?: string): TranscodeStatusResponse;
 }
 
 export interface IpcHandlerRegistryDependencies {
@@ -54,11 +61,11 @@ export interface IpcHandlerRegistryDependencies {
 }
 
 class IpcHandlerRegistry extends BaseService {
+
   private readonly deviceService: DeviceService;
   private readonly updateService: UpdateService;
   private readonly windowService: WindowService;
   private readonly transcodeService: TranscodeService;
-  protected readonly logger: Logger;
   private _registeredChannels: string[];
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
@@ -67,7 +74,6 @@ class IpcHandlerRegistry extends BaseService {
     this.updateService = dependencies.updateService;
     this.windowService = dependencies.windowService;
     this.transcodeService = dependencies.transcodeService;
-    this.logger = dependencies.loggerFactory.create('IpcHandlerRegistry');
     this._registeredChannels = [];
   }
 

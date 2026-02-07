@@ -4,7 +4,7 @@
  * Shared helpers for rendering and updating listbox-style option lists.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 function renderListboxOptions({ container, options, createOption }) {
   if (!container) return;

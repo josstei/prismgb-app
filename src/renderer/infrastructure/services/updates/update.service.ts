@@ -15,12 +15,22 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@renderer/presentation/config/update-state.config.ts';
+import { UpdateState } from '@shared/config/update-state.config';
+import type {
+  UpdateCheckResponse,
+  UpdateDownloadResponse,
+  UpdateErrorPayload,
+  UpdateInfoPayload,
+  UpdateInstallResponse,
+  UpdateProgressPayload,
+  UpdateStatusPayload
+} from '@shared/ipc/preload-api.contract.js';
 
 // Re-export for backward compatibility
 export { UpdateState };
 
 class UpdateService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
 
@@ -73,40 +83,40 @@ class UpdateService extends BaseService {
     }
   }
 
-  _handleAvailable(info) {
+  _handleAvailable(info: UpdateInfoPayload) {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
   }
 
-  _handleNotAvailable(info) {
+  _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
   }
 
-  _handleProgress(progress) {
+  _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
     this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
   }
 
-  _handleDownloaded(info) {
+  _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
     this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
   }
 
-  _handleError(error) {
+  _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
     this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
-  _setState(newState) {
+  _setState(newState: string) {
     const oldState = this._state;
     this._state = newState;
     this._emitStateChanged();
@@ -117,7 +127,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, this.getStatus());
   }
 
-  getStatus() {
+  getStatus(): UpdateStatusPayload {
     return {
       state: this._state,
       updateInfo: this._updateInfo,
@@ -134,7 +144,7 @@ class UpdateService extends BaseService {
     return this._updateInfo;
   }
 
-  async checkForUpdates() {
+  async checkForUpdates(): Promise<UpdateCheckResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -146,13 +156,14 @@ class UpdateService extends BaseService {
       const result = await window.updateAPI.checkForUpdates();
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Check for updates failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 
-  async downloadUpdate() {
+  async downloadUpdate(): Promise<UpdateDownloadResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -169,13 +180,14 @@ class UpdateService extends BaseService {
       const result = await window.updateAPI.downloadUpdate();
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Download update failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 
-  async installUpdate() {
+  async installUpdate(): Promise<UpdateInstallResponse> {
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available');
       return { success: false, error: 'Updates not available' };
@@ -192,9 +204,10 @@ class UpdateService extends BaseService {
       const result = await window.updateAPI.installUpdate();
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error('Install update failed', error);
-      this._handleError({ message: error.message });
-      return { success: false, error: error.message };
+      this._handleError({ message: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 

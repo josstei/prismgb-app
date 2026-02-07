@@ -10,7 +10,14 @@
 
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose, safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
+import { safeDispose } from '@shared/utils/safe-disposer.utils.js';
+import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
+import type { RendererServiceContainer } from '@renderer/application/container';
+import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
+import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
+import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
+import type { LoggerLike } from '@shared/base/service.base.js';
 
 /**
  * Retry a dynamic import with exponential backoff
@@ -19,7 +26,7 @@ import { safeDispose, safeDisposeAll } from '@shared/utils/safe-disposer.utils.j
  * @param {number} baseDelayMs - Base delay between retries (doubles each attempt)
  * @returns {Promise<T>}
  */
-async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
+async function importWithRetry<T>(importFn: () => Promise<T>, maxRetries = 3, baseDelayMs = 300): Promise<T> {
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -37,14 +44,29 @@ async function importWithRetry(importFn, maxRetries = 3, baseDelayMs = 300) {
 }
 
 class RendererAppOrchestrator {
+  container: RendererServiceContainer | null;
+  orchestrator: AppOrchestrator | null;
+  isInitialized: boolean;
+  logger: LoggerLike;
+  _uiController: UIController | null;
+  _uiEventBridge: UIEventBridge | null;
+  _captureUiBridge: CaptureUIBridge | null;
+  _transcodeUiBridge: TranscodeUIBridge | null;
+  _transcodeService: TranscodeService | null;
+
   constructor() {
     this.container = null;
     this.orchestrator = null;
     this.isInitialized = false;
+    this._uiController = null;
+    this._uiEventBridge = null;
+    this._captureUiBridge = null;
+    this._transcodeUiBridge = null;
+    this._transcodeService = null;
 
     // Create logger for bootstrap logging
     const loggerFactory = new RendererLogger();
-    this.logger = loggerFactory.create('RendererAppOrchestrator');
+    this.logger = loggerFactory.create('RendererAppOrchestrator') as LoggerLike;
   }
 
   /**
@@ -62,9 +84,10 @@ class RendererAppOrchestrator {
     try {
       // 1. Create DI container with retry for resilience
       const { initializeContainer } = await importWithRetry(
-        () => import('./application/container.ts')
+        () => import('./application/container')
       );
-      this.container = initializeContainer();
+      const container = initializeContainer();
+      this.container = container;
 
       // 2. Initialize UI components (not managed by DI)
       await this._initializeUI();
@@ -76,10 +99,11 @@ class RendererAppOrchestrator {
       await this._initializeUIEventBridge();
 
       // 5. Resolve orchestrator (this will wire everything up)
-      this.orchestrator = this.container.resolve('appOrchestrator');
+      const orchestrator = container.resolve('appOrchestrator');
+      this.orchestrator = orchestrator;
 
       // 6. Initialize orchestrator
-      await this.orchestrator.initialize();
+      await orchestrator.initialize();
 
       this.isInitialized = true;
       this.logger.info('Renderer application initialized successfully');
@@ -101,6 +125,9 @@ class RendererAppOrchestrator {
 
     try {
       // Start the orchestrator
+      if (!this.orchestrator) {
+        throw new Error('App orchestrator not initialized');
+      }
       await this.orchestrator.start();
 
       this.logger.info('Renderer application started successfully');
@@ -118,22 +145,34 @@ class RendererAppOrchestrator {
     this.logger.info('Cleaning up renderer application...');
 
     // Cleanup orchestrator first
-    await safeDispose(this.logger, 'orchestrator', this.orchestrator, 'cleanup');
+    if (this.orchestrator) {
+      await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
+    }
 
     // Cleanup UI bridges, services, and controllers
-    await safeDisposeAll(this.logger, [
-      ['TranscodeService', this._transcodeService],
-      ['TranscodeUIBridge', this._transcodeUiBridge],
-      ['CaptureUIBridge', this._captureUiBridge],
-      ['UIController', this._uiController]
-    ]);
+    if (this._transcodeService) {
+      await safeDispose(this.logger, 'TranscodeService', this._transcodeService as Object);
+    }
+    if (this._transcodeUiBridge) {
+      await safeDispose(this.logger, 'TranscodeUIBridge', this._transcodeUiBridge as Object);
+    }
+    if (this._captureUiBridge) {
+      await safeDispose(this.logger, 'CaptureUIBridge', this._captureUiBridge as Object);
+    }
+    if (this._uiController) {
+      await safeDispose(this.logger, 'UIController', this._uiController as Object);
+    }
 
     // Cleanup AppState (resolved from container)
     const appState = this.container?.resolve?.('appState');
-    await safeDispose(this.logger, 'AppState', appState);
+    if (appState) {
+      await safeDispose(this.logger, 'AppState', appState as Object);
+    }
 
     // Cleanup container last
-    await safeDispose(this.logger, 'container', this.container);
+    if (this.container) {
+      await safeDispose(this.logger, 'container', this.container as Object);
+    }
 
     this.isInitialized = false;
     this.logger.info('Renderer application cleanup complete');
@@ -144,11 +183,13 @@ class RendererAppOrchestrator {
    * @private
    */
   async _initializeUI() {
+    const container = this._requireContainer();
+
     // Get dependencies from DI
-    const uiComponentRegistry = this.container.resolve('uiComponentRegistry');
-    const uiEffects = this.container.resolve('uiEffects');
-    const bodyClassManager = this.container.resolve('bodyClassManager');
-    const loggerFactory = this.container.resolve('loggerFactory');
+    const uiComponentRegistry = container.resolve('uiComponentRegistry');
+    const uiEffects = container.resolve('uiEffects');
+    const bodyClassManager = container.resolve('bodyClassManager');
+    const loggerFactory = container.resolve('loggerFactory');
 
     // Create UIController with new dependencies
     const uiController = new UIController({
@@ -173,11 +214,12 @@ class RendererAppOrchestrator {
    * @private
    */
   async _registerUIComponents() {
-    const { asValue } = await importWithRetry(() => import('./application/container.ts'));
+    const { asValue } = await importWithRetry(() => import('./application/container'));
+    const container = this._requireContainer();
 
     // Register UI components as values (already instantiated)
-    this.container.register({
-      uiController: asValue(this._uiController)
+    container.register({
+      uiController: asValue(this._uiController as UIController)
     });
   }
 
@@ -187,26 +229,34 @@ class RendererAppOrchestrator {
    */
   async _initializeUIEventBridge() {
     try {
-      const uiEventBridge = this.container.resolve('uiEventBridge');
+      const container = this._requireContainer();
+      const uiEventBridge = container.resolve('uiEventBridge');
       uiEventBridge.initialize();
       this._uiEventBridge = uiEventBridge;
 
-      const captureUiBridge = this.container.resolve('captureUiBridge');
+      const captureUiBridge = container.resolve('captureUiBridge');
       captureUiBridge.initialize();
       this._captureUiBridge = captureUiBridge;
 
-      const transcodeUiBridge = this.container.resolve('transcodeUiBridge');
+      const transcodeUiBridge = container.resolve('transcodeUiBridge');
       transcodeUiBridge.initialize();
       this._transcodeUiBridge = transcodeUiBridge;
 
       // Initialize TranscodeService to set up IPC event listeners
-      const transcodeService = this.container.resolve('transcodeService');
+      const transcodeService = container.resolve('transcodeService');
       transcodeService.initialize();
       this._transcodeService = transcodeService;
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);
       throw error;
     }
+  }
+
+  _requireContainer(): RendererServiceContainer {
+    if (!this.container) {
+      throw new Error('Container not initialized');
+    }
+    return this.container;
   }
 }
 

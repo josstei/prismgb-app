@@ -13,9 +13,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
-import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config.ts';
+import { NotesStorageKeys } from '@shared/config/storage-keys.config';
 
 class NotesService extends BaseService {
+
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
 
@@ -136,6 +137,7 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Updated note: ${id}`);
+    this.eventBus.publish(EventChannels.NOTES.NOTE_UPDATED, updatedNote);
 
     return updatedNote;
   }
@@ -260,7 +262,7 @@ class NotesService extends BaseService {
    */
   getUniqueGames() {
     const notes = this.getAllNotes();
-    const games = new Set();
+    const games = new Set<string>();
 
     for (const note of notes) {
       if (note.gameName && typeof note.gameName === 'string') {
