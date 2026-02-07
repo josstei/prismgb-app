@@ -16,8 +16,9 @@ import { PerformanceMetricsService } from '@renderer/infrastructure/services/per
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { RegistrableContainer } from './registrable-container.type';
+import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerOrchestrators(container: RegistrableContainer): void {
+export function registerOrchestrators(container: RegistrableContainer<RendererContainerMap>): void {
   container.registerSingleton(
     'deviceOrchestrator',
     function (deviceService, deviceIpcAdapter, deviceOperationSequencer, eventBus, loggerFactory) {

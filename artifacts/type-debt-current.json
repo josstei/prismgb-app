@@ -1,5 +1,5 @@
 {
-  "totalDiagnostics": 1499,
+  "totalDiagnostics": 1485,
   "files": [
     {
       "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
@@ -174,10 +174,6 @@
       "count": 10
     },
     {
-      "file": "src/renderer/application/di/register-ui.ts",
-      "count": 9
-    },
-    {
       "file": "src/renderer/application/orchestrators/display-mode.orchestrator.ts",
       "count": 9
     },
@@ -188,6 +184,10 @@
     {
       "file": "src/renderer/infrastructure/services/devices/device-storage.service.ts",
       "count": 9
+    },
+    {
+      "file": "src/renderer/application/di/register-ui.ts",
+      "count": 8
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-render-loop.service.ts",
@@ -234,20 +234,12 @@
       "count": 5
     },
     {
-      "file": "src/renderer/index.ts",
-      "count": 5
-    },
-    {
       "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.interface.ts",
       "count": 5
     },
     {
       "file": "src/renderer/presentation/effects/controls-auto-hide.effect.ts",
       "count": 5
-    },
-    {
-      "file": "src/renderer/application/container.ts",
-      "count": 4
     },
     {
       "file": "src/renderer/infrastructure/services/settings/cinematic-mode.service.ts",
@@ -263,10 +255,6 @@
     },
     {
       "file": "src/main/ipc/handlers/transcode.handler.ts",
-      "count": 3
-    },
-    {
-      "file": "src/renderer/application/di/register-infrastructure.ts",
       "count": 3
     },
     {
@@ -340,10 +328,6 @@
     {
       "file": "src/renderer/presentation/effects/toolbar-auto-hide.effect.ts",
       "count": 1
-    },
-    {
-      "file": "src/renderer/renderer-app.orchestrator.ts",
-      "count": 1
     }
   ],
   "codes": [
@@ -353,7 +337,7 @@
     },
     {
       "code": "7006",
-      "count": 476
+      "count": 475
     },
     {
       "code": "18047",
@@ -364,36 +348,36 @@
       "count": 122
     },
     {
-      "code": "18046",
-      "count": 44
-    },
-    {
       "code": "2532",
       "count": 43
     },
     {
-      "code": "2345",
-      "count": 30
+      "code": "18046",
+      "count": 42
     },
     {
       "code": "2769",
       "count": 29
     },
     {
+      "code": "2345",
+      "count": 27
+    },
+    {
       "code": "7031",
       "count": 27
     },
     {
-      "code": "7005",
-      "count": 23
+      "code": "2349",
+      "count": 20
     },
     {
       "code": "2322",
-      "count": 20
+      "count": 19
     },
     {
-      "code": "2349",
-      "count": 20
+      "code": "7005",
+      "count": 18
     },
     {
       "code": "2722",
@@ -404,16 +388,16 @@
       "count": 6
     },
     {
-      "code": "7034",
-      "count": 6
-    },
-    {
       "code": "7053",
       "count": 6
     },
     {
       "code": "18048",
       "count": 5
+    },
+    {
+      "code": "7034",
+      "count": 4
     },
     {
       "code": "2416",

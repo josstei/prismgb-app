@@ -3,7 +3,7 @@
  * Lightweight dependency injection container for browser/renderer context.
  */
 
-type ServiceInstanceMap = Record<string, unknown>;
+type ServiceInstanceMap = object;
 
 type Constructable<T> = new (...args: unknown[]) => T;
 type Callable<T> = (...args: unknown[]) => T;

@@ -1,5 +1,6 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
 
 class LoggerService {
   info(message: string) {
@@ -24,5 +25,17 @@ describe('ServiceContainer type contracts', () => {
 
     expectTypeOf(container.resolve('appVersion')).toEqualTypeOf<string>();
     expectTypeOf(container.resolve('featureFlags')).toEqualTypeOf<{ capture: boolean }>();
+  });
+
+  it('enforces renderer container keys at compile-time', () => {
+    const container = new ServiceContainer<RendererContainerMap>()
+      .register({
+        appOrchestrator: asValue({} as RendererContainerMap['appOrchestrator'])
+      });
+
+    // @ts-expect-error unknown key should fail compile-time
+    container.registerSingleton('notARegisteredRendererKey', () => ({}), []);
+
+    expectTypeOf(container.resolve('appOrchestrator')).toEqualTypeOf<RendererContainerMap['appOrchestrator']>();
   });
 });

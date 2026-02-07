@@ -10,11 +10,14 @@ import { registerStreaming } from '@renderer/application/di/register-streaming';
 import { registerCapture } from '@renderer/application/di/register-capture';
 import { registerUi } from '@renderer/application/di/register-ui';
 import { registerOrchestrators } from '@renderer/application/di/register-orchestrators';
+import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
 
 PresetRegistry.setDefault('vibrant');
 
-function createRendererContainer() {
-  const container = new ServiceContainer();
+type RendererServiceContainer = ServiceContainer<RendererContainerMap>;
+
+function createRendererContainer(): RendererServiceContainer {
+  const container = new ServiceContainer<RendererContainerMap>();
 
   registerInfrastructure(container);
   registerDevices(container);
@@ -26,9 +29,9 @@ function createRendererContainer() {
   return container;
 }
 
-let container = null;
+let container: RendererServiceContainer | null = null;
 
-function initializeContainer() {
+function initializeContainer(): RendererServiceContainer {
   if (container) {
     console.warn('Container already initialized');
     return container;
@@ -39,7 +42,7 @@ function initializeContainer() {
   return container;
 }
 
-function getContainer() {
+function getContainer(): RendererServiceContainer {
   if (!container) {
     throw new Error('Container not initialized. Call initializeContainer() first.');
   }
@@ -59,4 +62,8 @@ export {
   getContainer,
   resetContainer,
   asValue
+};
+
+export type {
+  RendererServiceContainer
 };

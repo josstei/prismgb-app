@@ -24,8 +24,9 @@ import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager';
 import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 import type { RegistrableContainer } from './registrable-container.type';
+import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerInfrastructure(container: RegistrableContainer): void {
+export function registerInfrastructure(container: RegistrableContainer<RendererContainerMap>): void {
   container.registerSingleton(
     'eventBus',
     function (loggerFactory) {

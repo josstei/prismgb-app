@@ -6,8 +6,9 @@ import { DeviceMediaService } from '@renderer/infrastructure/services/devices/de
 import { DeviceService } from '@renderer/infrastructure/services/devices/device.service';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service';
 import type { RegistrableContainer } from './registrable-container.type';
+import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerDevices(container: RegistrableContainer): void {
+export function registerDevices(container: RegistrableContainer<RendererContainerMap>): void {
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {

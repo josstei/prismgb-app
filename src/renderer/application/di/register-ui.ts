@@ -21,8 +21,9 @@ import { PresentationModeService } from '@renderer/infrastructure/services/setti
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import type { RegistrableContainer } from './registrable-container.type';
+import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerUi(container: RegistrableContainer): void {
+export function registerUi(container: RegistrableContainer<RendererContainerMap>): void {
   container.registerSingleton(
     'settingsService',
     function (eventBus, loggerFactory, storageService) {

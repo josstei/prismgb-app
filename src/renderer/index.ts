@@ -30,9 +30,10 @@ document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
 import { createApplication } from './renderer-app.orchestrator';
+import type { RendererAppOrchestrator } from './renderer-app.orchestrator';
 
 // Global application instance
-let app = null;
+let app: RendererAppOrchestrator | null = null;
 
 /**
  * Initialize the application
@@ -43,9 +44,11 @@ async function init() {
     app = await createApplication();
 
   } catch (error) {
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+
     // Use console.error as fallback since app may not be initialized
     // and logger is not available at this point in the lifecycle
-    console.error('Failed to initialize application:', error);
+    console.error('Failed to initialize application:', normalizedError);
 
     // Show error to user using safe DOM manipulation (prevents XSS)
     const container = document.createElement('div');
@@ -55,10 +58,10 @@ async function init() {
     heading.textContent = 'Failed to initialize application';
 
     const message = document.createElement('p');
-    message.textContent = error.message;
+    message.textContent = normalizedError.message;
 
     const stack = document.createElement('pre');
-    stack.textContent = error.stack;
+    stack.textContent = normalizedError.stack ?? '';
 
     container.appendChild(heading);
     container.appendChild(message);

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T01:59:10.640Z",
+  "generatedAt": "2026-02-07T02:07:07.906Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -60,30 +60,6 @@
     {
       "file": "src/main/ipc/handlers/window.handler.ts",
       "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/application/container.ts",
-      "code": "TS7005",
-      "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/application/container.ts",
-      "code": "TS7034",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/application/di/register-infrastructure.ts",
-      "code": "TS2345",
-      "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/application/di/register-ui.ts",
-      "code": "TS2322",
       "maxCount": 1,
       "expiresOn": "2026-04-30"
     },
@@ -325,24 +301,6 @@
       "file": "src/renderer/application/state/app-state.ts",
       "code": "TS7006",
       "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/index.ts",
-      "code": "TS18046",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/index.ts",
-      "code": "TS7005",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/index.ts",
-      "code": "TS7034",
-      "maxCount": 1,
       "expiresOn": "2026-04-30"
     },
     {
@@ -1357,12 +1315,6 @@
       "file": "src/renderer/presentation/lib/brightness.utils.ts",
       "code": "TS7006",
       "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/renderer-app.orchestrator.ts",
-      "code": "TS7006",
-      "maxCount": 1,
       "expiresOn": "2026-04-30"
     },
     {

@@ -3,8 +3,9 @@ import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/ca
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
 import type { RegistrableContainer } from './registrable-container.type';
+import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerCapture(container: RegistrableContainer): void {
+export function registerCapture(container: RegistrableContainer<RendererContainerMap>): void {
   container.registerSingleton(
     'captureService',
     function (eventBus, loggerFactory) {

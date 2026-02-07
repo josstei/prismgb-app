@@ -9,7 +9,7 @@
 2. Phase 1: Completed
 3. Phase 2: Completed
 4. Phase 3: Completed
-5. Phase 4: Pending
+5. Phase 4: Completed
 6. Phase 5: Pending
 7. Phase 6: Pending
 8. Phase 7: Pending
@@ -476,3 +476,27 @@ Make architecture regressions unmergeable.
    - `npm run architecture:scorecard -- --output /tmp/architecture-scorecard-phase3.json` ✅ (`strict=true`, `any=150`)
    - `npm run lint` ✅
    - `npm run test:unit -- tests/unit/scripts/type-debt-report.test.js tests/unit/scripts/check-layer-boundaries.test.js` ✅
+
+### Phase 4
+1. Status: Completed
+2. Date: 2026-02-07
+3. Deliverables:
+   - Added typed DI key map: `src/renderer/application/di/renderer-container-map.type.ts`.
+   - Upgraded registrable container contract to keyed generic API:
+     - `src/renderer/application/di/registrable-container.type.ts`
+   - Wired typed map through all renderer DI registration modules:
+     - `register-infrastructure.ts`, `register-devices.ts`, `register-streaming.ts`, `register-capture.ts`, `register-ui.ts`, `register-orchestrators.ts`
+   - Typed renderer container bootstrap and exported typed container alias:
+     - `src/renderer/application/container.ts`
+   - Replaced bootstrap `any` fields with explicit orchestrator/container/bridge/service types:
+     - `src/renderer/renderer-app.orchestrator.ts`
+   - Typed renderer entry app instance error normalization:
+     - `src/renderer/index.ts`
+   - Extended compile-time DI contract coverage:
+     - `tests/unit/renderer/infrastructure/di/service-container.types.test.ts`
+4. Validation:
+   - `npm run typecheck:app` ✅
+   - `npm run typecheck:app:allowlist` ✅
+   - `npm run architecture:type-debt:report` ✅ (`totalDiagnostics=1485`)
+   - `npm run lint` ✅
+   - `npm run test:unit -- tests/unit/renderer/infrastructure/di/service-container.types.test.ts` ✅
