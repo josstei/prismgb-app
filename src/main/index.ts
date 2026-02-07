@@ -172,8 +172,8 @@ if (process.argv.includes('--smoke-test')) {
     });
 
     app.on('before-quit', (event) => {
-      const wasAlreadyQuitting = (app as any).isQuitting;
-      (app as any).isQuitting = true;
+      const wasAlreadyQuitting = app.isQuitting;
+      app.isQuitting = true;
 
       application.cleanup();
 

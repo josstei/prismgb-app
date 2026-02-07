@@ -15,7 +15,7 @@ import type { LoggerFactory } from '@main/infrastructure/logging/logger.interfac
 
 interface DeviceStatus {
   connected: boolean;
-  device: any;
+  device: Record<string, unknown> | null;
 }
 
 interface DeviceBridgeServiceDependencies {

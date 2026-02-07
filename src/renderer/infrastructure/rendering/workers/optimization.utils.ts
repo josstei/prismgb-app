@@ -14,7 +14,7 @@
  * cache and reuse them.
  */
 export class BindGroupCache {
-  _cache: Map<string, any>;
+  _cache: Map<string, GPUBindGroup>;
   _version: number;
   _hits: number;
   _misses: number;

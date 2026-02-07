@@ -220,7 +220,7 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   _createAudioContext(trackSampleRate) {
-    const AudioContextCtor = (window.AudioContext || (window as any).webkitAudioContext) as AudioContextCtor | undefined;
+    const AudioContextCtor = (window.AudioContext || window.webkitAudioContext) as AudioContextCtor | undefined;
     if (!AudioContextCtor) {
       return null;
     }

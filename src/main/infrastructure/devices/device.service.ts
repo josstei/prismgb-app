@@ -30,7 +30,7 @@ interface DeviceMatch {
 
 interface DeviceStatus {
   connected: boolean;
-  device: any;
+  device: ConnectedDeviceInfo | null;
 }
 
 interface ConnectedDeviceInfo {
@@ -411,20 +411,21 @@ class DeviceService extends BaseService {
   private async _performDeviceCheck(): Promise<boolean> {
     try {
       // Get list of all connected USB devices
-      let devicesObj: any;
+      let findResult: unknown = null;
       try {
-        devicesObj = this._usbDetection.find();
-        this.logger.debug(`find() returned ${devicesObj ? Object.keys(devicesObj).length : 0} device(s)`);
+        findResult = this._usbDetection.find();
+        const keyCount = (findResult && typeof findResult === 'object') ? Object.keys(findResult as object).length : 0;
+        this.logger.debug(`find() returned ${keyCount} device(s)`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(`USB detection find() failed: ${errorMessage}`);
-        devicesObj = null;
+        findResult = null;
       }
 
       // Convert object to array - usb-detection returns { deviceId: device, ... }
       let devices: USBDetectionDevice[] = [];
-      if (devicesObj && typeof devicesObj === 'object') {
-        devices = Object.values(devicesObj);
+      if (findResult && typeof findResult === 'object') {
+        devices = Object.values(findResult as Record<string, USBDetectionDevice>);
       }
 
       // Handle undefined/null/empty

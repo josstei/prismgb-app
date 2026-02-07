@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T03:52:28.348Z",
+  "generatedAt": "2026-02-07T04:30:11.540Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -929,12 +929,6 @@
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
-      "code": "TS2339",
-      "maxCount": 8,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2345",
       "maxCount": 3,
       "expiresOn": "2026-04-30"
@@ -942,25 +936,25 @@
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2349",
-      "maxCount": 6,
+      "maxCount": 3,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2571",
-      "maxCount": 34,
+      "maxCount": 48,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2769",
-      "maxCount": 7,
+      "maxCount": 3,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS7006",
-      "maxCount": 14,
+      "maxCount": 13,
       "expiresOn": "2026-04-30"
     },
     {
