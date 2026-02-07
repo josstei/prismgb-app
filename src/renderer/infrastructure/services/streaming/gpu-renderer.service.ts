@@ -2,8 +2,8 @@
  * GPU Renderer Service
  *
  * Main thread service that coordinates GPU-accelerated rendering.
- * Manages the render worker, handles frame submission, and provides
- * fallback to Canvas2D when GPU rendering is unavailable.
+ * Delegates worker lifecycle to GpuWorkerManager and handles domain-specific
+ * concerns: frame submission, preset management, capture, and fallback.
  *
  * Features:
  * - Automatic capability detection
@@ -18,8 +18,7 @@ import { EventChannels } from '@renderer/infrastructure/events/event-channels.co
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
 import {
   WorkerMessageType,
-  WorkerResponseType,
-  createWorkerMessage
+  WorkerResponseType
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
 
@@ -60,23 +59,13 @@ export class StreamingGpuRendererService extends BaseService {
       'StreamingGpuRendererService'
     );
 
-    // Store manager references
     this._frameBuffer = dependencies.gpuFrameBuffer;
     this._workerManager = dependencies.gpuWorkerManager;
 
-    // Worker state
-    this._worker = null;
-    this._isReady = false;
     this._pendingFrames = 0;
 
-    // Canvas references
-    this._canvas = null;
-    this._offscreenCanvas = null;
-
-    // GPU capabilities
     this._capabilities = null;
 
-    // Current configuration
     this._currentPresetId = null;
     this._currentPreset = null;
     this._globalBrightness = 1.0;
@@ -84,49 +73,36 @@ export class StreamingGpuRendererService extends BaseService {
     this._targetWidth = NATIVE_WIDTH;
     this._targetHeight = NATIVE_HEIGHT;
 
-    // Cached uniforms to avoid per-frame object allocation
     this._cachedUniforms = null;
-    // Track values used to build cached uniforms (avoids per-frame string allocation)
     this._cachedPresetId = null;
     this._cachedScaleFactor = null;
     this._cachedTargetWidth = null;
     this._cachedTargetHeight = null;
     this._cachedBrightness = null;
 
-    // Performance stats
     this._lastStats = null;
 
-    // Fallback flag
     this._isUsingFallback = false;
 
-    // Track if canvas control was transferred (irreversible operation)
-    this._wasCanvasTransferred = false;
-
-    // Pending capture request (Promise resolvers and timeout)
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
     this._captureTimeoutId = null;
     this._isWaitingForCapturedFrame = false;
 
-    // Brightness event subscription (for cleanup)
     this._brightnessUnsubscribe = null;
 
-    // Destruction guard to prevent captures during teardown
     this._isDestroying = false;
 
-    // Ready promise resolvers (for direct resolution instead of polling)
-    this._readyResolve = null;
-    this._readyReject = null;
-    this._readyTimeoutId = null;
-
-    // Backpressure diagnostics (throttled logging to avoid spam)
     this._skippedFrames = 0;
     this._lastBackpressureLog = 0;
+
+    this._messageUnsubscribers = [];
   }
 
   /**
    * Initialize the GPU renderer with a canvas element
-   * Detects GPU capabilities, creates render worker, and sets up the rendering pipeline.
+   * Detects GPU capabilities, delegates worker creation to GpuWorkerManager,
+   * and sets up the rendering pipeline.
    * @param {HTMLCanvasElement} canvasElement - Canvas to render to (control will be transferred)
    * @param {Object} [nativeResolution={width: 160, height: 144}] - Native device resolution
    * @returns {Promise<boolean>} True if GPU rendering is available, false if fallback needed
@@ -134,7 +110,6 @@ export class StreamingGpuRendererService extends BaseService {
   async initialize(canvasElement, nativeResolution = { width: NATIVE_WIDTH, height: NATIVE_HEIGHT }) {
     this.logger.info('Initializing GPU renderer...');
 
-    // Load initial brightness from settings and subscribe to changes
     this._globalBrightness = this.settingsService.getGlobalBrightness();
     if (!this._brightnessUnsubscribe) {
       this._brightnessUnsubscribe = this.eventBus.subscribe(
@@ -146,21 +121,17 @@ export class StreamingGpuRendererService extends BaseService {
       );
     }
 
-    // Detect GPU capabilities
     this._capabilities = await CapabilityDetector.detect();
     this.logger.info(CapabilityDetector.describeCapabilities(this._capabilities));
 
-    // Publish capability detection event
     this.eventBus.publish(EventChannels.RENDER.CAPABILITY_DETECTED, this._capabilities);
 
-    // Check if GPU rendering is possible
     if (!CapabilityDetector.isGPURenderingAvailable(this._capabilities)) {
       this.logger.warn('GPU rendering not available, will use Canvas2D fallback');
       this._isUsingFallback = true;
       return false;
     }
 
-    // Check if worker rendering is possible
     if (!CapabilityDetector.isWorkerRenderingAvailable(this._capabilities)) {
       this.logger.warn(
         'Worker rendering not available; main-thread GPU mode is unsupported, using Canvas2D fallback'
@@ -170,86 +141,6 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     try {
-      // Check if this is the same canvas that was already transferred
-      if (this._canvas === canvasElement && this._wasCanvasTransferred) {
-        // Canvas was already transferred
-        if (this._worker) {
-          // Worker exists - check if we can reuse or need to re-init
-          if (this._isReady) {
-            // Already initialized - just resize
-            this.logger.info('Reusing existing GPU renderer setup (canvas already transferred)');
-
-            this._scaleFactor = Math.max(1, Math.floor(Math.min(
-              canvasElement.clientWidth / nativeResolution.width,
-              canvasElement.clientHeight / nativeResolution.height
-            )));
-            this._targetWidth = nativeResolution.width * this._scaleFactor;
-            this._targetHeight = nativeResolution.height * this._scaleFactor;
-
-            this.resize(canvasElement.clientWidth, canvasElement.clientHeight);
-            return true;
-          } else {
-            // Worker alive but GPU released - re-initialize GPU resources
-            this.logger.info('Re-initializing GPU resources (worker alive, resources were released)');
-
-            this._scaleFactor = Math.max(1, Math.floor(Math.min(
-              canvasElement.clientWidth / nativeResolution.width,
-              canvasElement.clientHeight / nativeResolution.height
-            )));
-            this._targetWidth = nativeResolution.width * this._scaleFactor;
-            this._targetHeight = nativeResolution.height * this._scaleFactor;
-
-            // Load saved preset or use default
-            const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
-            this._currentPresetId = savedPresetId;
-            this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
-
-            // Build config for re-init (no canvas - worker already has it)
-            const config = {
-              nativeWidth: nativeResolution.width,
-              nativeHeight: nativeResolution.height,
-              targetWidth: this._targetWidth,
-              targetHeight: this._targetHeight,
-              scaleFactor: this._scaleFactor,
-              api: this._capabilities.preferredAPI,
-              presetId: this._currentPresetId
-            };
-
-            // Send init message WITHOUT canvas (worker reuses stored reference)
-            const message = createWorkerMessage(WorkerMessageType.INIT, { config });
-            this._worker.postMessage(message);
-
-            await this._waitForReady(5000);
-            this.logger.info('GPU resources re-initialized successfully');
-            return true;
-          }
-        } else {
-          // Canvas was transferred but worker is gone - we can't recover
-          this.logger.error('Canvas control was previously transferred but worker terminated. Cannot reinitialize.');
-          this._isUsingFallback = true;
-          return false;
-        }
-      }
-
-      // Store canvas reference
-      this._canvas = canvasElement;
-
-      // Transfer canvas control to offscreen
-      // WARNING: This is irreversible - canvas can never be used with 2D context after this
-      this._offscreenCanvas = canvasElement.transferControlToOffscreen();
-      this._wasCanvasTransferred = true;
-
-      // Create the render worker
-      this._worker = new Worker(
-        new URL('../../rendering/workers/render.worker.ts', import.meta.url),
-        { type: 'module' }
-      );
-
-      // Set up message handler
-      this._worker.onmessage = (event) => this._handleWorkerMessage(event);
-      this._worker.onerror = (error) => this._handleWorkerError(error);
-
-      // Calculate initial dimensions
       this._scaleFactor = Math.max(1, Math.floor(Math.min(
         canvasElement.clientWidth / nativeResolution.width,
         canvasElement.clientHeight / nativeResolution.height
@@ -257,12 +148,10 @@ export class StreamingGpuRendererService extends BaseService {
       this._targetWidth = nativeResolution.width * this._scaleFactor;
       this._targetHeight = nativeResolution.height * this._scaleFactor;
 
-      // Load saved preset or use default
       const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
       this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
 
-      // Build initialization config
       const config = {
         nativeWidth: nativeResolution.width,
         nativeHeight: nativeResolution.height,
@@ -273,16 +162,16 @@ export class StreamingGpuRendererService extends BaseService {
         presetId: this._currentPresetId
       };
 
-      // Send init message to worker
-      const message = createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: this._offscreenCanvas,
-        config
-      });
+      this._registerMessageHandlers();
 
-      this._worker.postMessage(message, [this._offscreenCanvas]);
+      const initialized = await this._workerManager.initialize(canvasElement, config, 5000);
 
-      // Wait for worker to be ready (with timeout)
-      await this._waitForReady(5000);
+      if (!initialized) {
+        this.logger.error('Worker manager initialization returned false');
+        this._unregisterMessageHandlers();
+        this._isUsingFallback = true;
+        return false;
+      }
 
       this.logger.info(`GPU renderer initialized with ${this._capabilities.preferredAPI}`);
       return true;
@@ -296,153 +185,75 @@ export class StreamingGpuRendererService extends BaseService {
   }
 
   /**
-   * Wait for the worker to report ready
-   * Uses direct promise resolution instead of polling for immediate response
-   * @param {number} timeout - Timeout in milliseconds
-   * @returns {Promise<void>}
-   */
-  _waitForReady(timeout) {
-    // If already ready, resolve immediately
-    if (this._isReady) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      this._readyResolve = resolve;
-      this._readyReject = reject;
-
-      this._readyTimeoutId = setTimeout(() => {
-        this._readyResolve = null;
-        this._readyReject = null;
-        this._readyTimeoutId = null;
-        reject(new Error('Worker initialization timed out'));
-      }, timeout);
-    });
-  }
-
-  /**
-   * Resolve the pending ready promise
-   * Called by _handleWorkerMessage when READY is received
+   * Register domain-specific message handlers on the worker manager
    * @private
    */
-  _resolveReady() {
-    if (this._readyTimeoutId !== null) {
-      clearTimeout(this._readyTimeoutId);
-      this._readyTimeoutId = null;
-    }
+  _registerMessageHandlers() {
+    this._unregisterMessageHandlers();
 
-    if (this._readyResolve) {
-      this._readyResolve();
-      this._readyResolve = null;
-      this._readyReject = null;
-    }
-  }
-
-  /**
-   * Handle messages from the render worker
-   * @param {MessageEvent} event
-   */
-  _handleWorkerMessage(event) {
-    const { type, payload } = event.data;
-
-    switch (type) {
-      case WorkerResponseType.READY:
-        this._isReady = true;
-        this._resolveReady();
+    this._messageUnsubscribers = [
+      this._workerManager.onMessage(WorkerResponseType.READY, (payload) => {
         this.logger.info(`Render worker ready (API: ${payload.api})`);
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, payload);
-        break;
+      }),
 
-      case WorkerResponseType.FRAME_RENDERED:
+      this._workerManager.onMessage(WorkerResponseType.FRAME_RENDERED, () => {
         this._pendingFrames = Math.max(0, this._pendingFrames - 1);
-        // If we're waiting for a frame to be captured, send CAPTURE now
         if (this._isWaitingForCapturedFrame) {
           this._isWaitingForCapturedFrame = false;
-          const captureMessage = createWorkerMessage(WorkerMessageType.CAPTURE);
-          this._worker.postMessage(captureMessage);
+          this._workerManager.sendCommand(WorkerMessageType.CAPTURE);
         }
-        break;
+      }),
 
-      case WorkerResponseType.STATS:
+      this._workerManager.onMessage(WorkerResponseType.STATS, (payload) => {
         this._lastStats = payload;
         this.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, payload);
-        break;
+      }),
 
-      case WorkerResponseType.ERROR:
-        // Ignore expected "destroyed" errors from intentional resource release
+      this._workerManager.onMessage(WorkerResponseType.ERROR, (payload) => {
         if (payload.code === 'DEVICE_LOST' && payload.message?.includes('destroyed')) {
           this.logger.debug('GPU device destroyed (expected during cleanup)');
-          break;
+          return;
         }
         this.logger.error('Render worker error:', payload.message);
-        this._isReady = false;
         this._pendingFrames = 0;
-        if (this._readyReject) {
-          const readyReject = this._readyReject;
-          this._readyResolve = null;
-          this._readyReject = null;
-          if (this._readyTimeoutId !== null) {
-            clearTimeout(this._readyTimeoutId);
-            this._readyTimeoutId = null;
-          }
-          readyReject(new Error(payload.message));
-        }
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
         if (this._captureTimeoutId) {
           clearTimeout(this._captureTimeoutId);
           this._captureTimeoutId = null;
         }
         this._resolvePendingCapture(null, new Error(payload.message));
-        break;
+      }),
 
-      case WorkerResponseType.CAPTURE_REQUESTED:
-        // Capture request acknowledged - no logging needed (floods console during recording)
-        break;
+      this._workerManager.onMessage(WorkerResponseType.CAPTURE_REQUESTED, () => {}),
 
-      case WorkerResponseType.CAPTURE_READY:
-        // Clear timeout to prevent race condition
+      this._workerManager.onMessage(WorkerResponseType.CAPTURE_READY, (payload) => {
         if (this._captureTimeoutId) {
           clearTimeout(this._captureTimeoutId);
           this._captureTimeoutId = null;
         }
-        // Resolve pending capture request with the ImageBitmap
         this._resolvePendingCapture(payload.bitmap, null);
-        break;
+      }),
 
-      case WorkerResponseType.RELEASED:
+      this._workerManager.onMessage(WorkerResponseType.RELEASED, () => {
         this.logger.info('GPU resources released (worker still alive)');
-        break;
+      }),
 
-      case WorkerResponseType.DESTROYED:
+      this._workerManager.onMessage(WorkerResponseType.DESTROYED, () => {
         this.logger.info('Render worker destroyed');
-        break;
-    }
+      })
+    ];
   }
 
   /**
-   * Handle worker errors
-   * @param {ErrorEvent} error
+   * Unregister all domain-specific message handlers
+   * @private
    */
-  _handleWorkerError(error) {
-    this.logger.error('Worker error:', error.message);
-    this._isReady = false;
-    this._pendingFrames = 0;
-
-    // Reject pending ready promise if waiting for initialization
-    if (this._readyReject) {
-      this._readyReject(new Error(error.message));
-      this._readyResolve = null;
-      this._readyReject = null;
-      if (this._readyTimeoutId !== null) {
-        clearTimeout(this._readyTimeoutId);
-        this._readyTimeoutId = null;
-      }
+  _unregisterMessageHandlers() {
+    for (const unsub of this._messageUnsubscribers) {
+      unsub();
     }
-
-    this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, {
-      message: error.message,
-      code: 'WORKER_ERROR'
-    });
+    this._messageUnsubscribers = [];
   }
 
   /**
@@ -453,13 +264,10 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {Promise<void>}
    */
   async renderFrame(videoElement) {
-    // Skip if not ready or too many pending frames (triple buffering)
-    if (!this._isReady || this._pendingFrames >= MAX_PENDING_FRAMES) {
-      // Track backpressure for diagnostics
-      if (this._isReady && this._pendingFrames >= MAX_PENDING_FRAMES) {
+    if (!this._workerManager.isReady() || this._pendingFrames >= MAX_PENDING_FRAMES) {
+      if (this._workerManager.isReady() && this._pendingFrames >= MAX_PENDING_FRAMES) {
         this._skippedFrames++;
         const now = performance.now();
-        // Log every 5 seconds if frames are being skipped
         if (now - this._lastBackpressureLog > 5000) {
           this.logger.warn(`GPU backpressure: ${this._skippedFrames} frame(s) skipped (pending: ${this._pendingFrames})`);
           this._skippedFrames = 0;
@@ -469,7 +277,6 @@ export class StreamingGpuRendererService extends BaseService {
       return;
     }
 
-    // Skip if video not ready
     if (videoElement.readyState < videoElement.HAVE_CURRENT_DATA) {
       return;
     }
@@ -477,23 +284,18 @@ export class StreamingGpuRendererService extends BaseService {
     let imageBitmap = null;
 
     try {
-      // Create ImageBitmap from video for efficient transfer
       imageBitmap = await createImageBitmap(videoElement, BITMAP_OPTIONS);
 
-      // Get cached uniforms (rebuilt only when preset/dimensions/brightness change)
-      // Brightness is now included in cache key, so we can use cached uniforms directly
       const uniforms = this._getCachedUniforms();
 
-      // Send frame to worker
       this._pendingFrames++;
 
-      const message = createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap,
-        uniforms
-      });
-
-      this._worker.postMessage(message, [imageBitmap]);
-      imageBitmap = null; // Ownership transferred
+      this._workerManager.sendCommand(
+        WorkerMessageType.FRAME,
+        { imageBitmap, uniforms },
+        [imageBitmap]
+      );
+      imageBitmap = null;
     } catch (error) {
       this.logger.error('Failed to render frame:', error);
       if (imageBitmap) {
@@ -504,13 +306,11 @@ export class StreamingGpuRendererService extends BaseService {
 
   /**
    * Get cached uniforms, rebuilding only when preset, dimensions, or brightness change
-   * Includes final brightness calculation to avoid per-frame object allocation
    * Uses direct value comparison instead of string concatenation to avoid GC pressure
    * @returns {Object} Uniform values for all shader passes
    * @private
    */
   _getCachedUniforms() {
-    // Fast path: check if any value changed using direct comparison (no string allocation)
     if (this._cachedUniforms &&
         this._cachedPresetId === this._currentPresetId &&
         this._cachedScaleFactor === this._scaleFactor &&
@@ -520,7 +320,6 @@ export class StreamingGpuRendererService extends BaseService {
       return this._cachedUniforms;
     }
 
-    // Cache miss: rebuild uniforms and update tracking values
     const baseUniforms = buildUniforms({
       preset: this._currentPreset,
       nativeWidth: NATIVE_WIDTH,
@@ -531,7 +330,6 @@ export class StreamingGpuRendererService extends BaseService {
     });
     this._cachedUniforms = baseUniforms;
 
-    // Update tracked values
     this._cachedPresetId = this._currentPresetId;
     this._cachedScaleFactor = this._scaleFactor;
     this._cachedTargetWidth = this._targetWidth;
@@ -552,7 +350,6 @@ export class StreamingGpuRendererService extends BaseService {
       return;
     }
 
-    // Skip if already set to this preset
     if (this._currentPresetId === presetId) {
       return;
     }
@@ -562,13 +359,11 @@ export class StreamingGpuRendererService extends BaseService {
 
     this.logger.info(`Render preset changed to: ${preset.name}`);
 
-    // Notify worker (for any preset-specific resource changes)
-    if (this._worker && this._isReady) {
-      const message = createWorkerMessage(WorkerMessageType.SET_PRESET, {
+    if (this._workerManager.isReady()) {
+      this._workerManager.sendCommand(WorkerMessageType.SET_PRESET, {
         presetId,
         preset
       });
-      this._worker.postMessage(message);
     }
   }
 
@@ -587,7 +382,6 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {number} height - New height in CSS pixels
    */
   resize(width, height) {
-    // Calculate new integer scale factor
     this._scaleFactor = Math.max(1, Math.floor(Math.min(
       width / NATIVE_WIDTH,
       height / NATIVE_HEIGHT
@@ -596,14 +390,12 @@ export class StreamingGpuRendererService extends BaseService {
     this._targetWidth = NATIVE_WIDTH * this._scaleFactor;
     this._targetHeight = NATIVE_HEIGHT * this._scaleFactor;
 
-    // Notify worker
-    if (this._worker && this._isReady) {
-      const message = createWorkerMessage(WorkerMessageType.RESIZE, {
+    if (this._workerManager.isReady()) {
+      this._workerManager.sendCommand(WorkerMessageType.RESIZE, {
         width: this._targetWidth,
         height: this._targetHeight,
         scaleFactor: this._scaleFactor
       });
-      this._worker.postMessage(message);
     }
 
     this.logger.debug(`Resized to ${this._targetWidth}×${this._targetHeight} (${this._scaleFactor}× scale)`);
@@ -614,7 +406,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if ready and not using fallback
    */
   isActive() {
-    return this._isReady && !this._isUsingFallback;
+    return this._workerManager.isReady() && !this._isUsingFallback;
   }
 
   /**
@@ -631,7 +423,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if canvas was transferred (irreversible)
    */
   isCanvasTransferred() {
-    return this._wasCanvasTransferred;
+    return this._workerManager.isCanvasTransferred();
   }
 
   /**
@@ -661,16 +453,14 @@ export class StreamingGpuRendererService extends BaseService {
    * @throws {Error} If renderer not ready or capture already in progress
    */
   async captureFrame() {
-    // Guard against captures during GPU teardown
     if (this._isDestroying) {
       throw new Error('GPU renderer is shutting down');
     }
 
-    if (!this._isReady || !this._worker) {
+    if (!this._workerManager.isReady()) {
       throw new Error('GPU renderer not ready');
     }
 
-    // Only allow one pending capture at a time
     if (this._pendingCaptureResolve) {
       throw new Error('Capture already in progress');
     }
@@ -679,15 +469,10 @@ export class StreamingGpuRendererService extends BaseService {
       this._pendingCaptureResolve = resolve;
       this._pendingCaptureReject = reject;
 
-      // Step 1: Send REQUEST_CAPTURE to arm the lazy capture buffer
-      const requestMessage = createWorkerMessage(WorkerMessageType.REQUEST_CAPTURE);
-      this._worker.postMessage(requestMessage);
+      this._workerManager.sendCommand(WorkerMessageType.REQUEST_CAPTURE);
 
-      // Step 2: Set flag to send CAPTURE when next FRAME_RENDERED arrives
-      // This ensures we capture a fully rendered frame with all shader effects
       this._isWaitingForCapturedFrame = true;
 
-      // Timeout after 1 second (should complete within 1-2 frames at 60fps)
       this._captureTimeoutId = setTimeout(() => {
         this._isWaitingForCapturedFrame = false;
         this._resolvePendingCapture(null, new Error('Capture request timed out'));
@@ -699,25 +484,19 @@ export class StreamingGpuRendererService extends BaseService {
    * Release GPU resources while keeping worker alive
    * Allows re-initialization without needing a new canvas transfer.
    * Used for idle memory savings when streaming stops.
-   * Note: Only GPU resources are released; the worker stays alive.
    */
   releaseGpuResources() {
-    if (!this._worker || !this._isReady) {
+    if (!this._workerManager.isReady()) {
       this.logger.debug('releaseGpuResources: Nothing to release (worker not ready)');
       return;
     }
 
-    // Send release message to worker (keeps worker alive)
-    this._worker.postMessage(createWorkerMessage(WorkerMessageType.RELEASE));
-    this._isReady = false;
+    this._workerManager.releaseResources();
     this._pendingFrames = 0;
 
-    // Reset backpressure diagnostics to avoid stale counts on re-init
     this._skippedFrames = 0;
     this._lastBackpressureLog = 0;
 
-    // Note: Worker stays alive, canvas reference preserved
-    // This allows re-initialization without canvas transfer
     this.logger.info('GPU resources released (worker kept alive for re-init)');
   }
 
@@ -727,14 +506,12 @@ export class StreamingGpuRendererService extends BaseService {
    * Emits CANVAS_EXPIRED event so UI can provide fresh canvas on next init.
    */
   terminateAndReset(emitCanvasExpired = true) {
-    if (!this._worker && !this._wasCanvasTransferred) {
+    if (!this._workerManager.isCanvasTransferred()) {
       this.logger.debug('terminateAndReset: Nothing to terminate');
       return;
     }
 
-    // Pass false to avoid duplicate CANVAS_EXPIRED emission - we handle it explicitly below
     this._cleanup(false);
-    this._wasCanvasTransferred = false;
 
     if (emitCanvasExpired) {
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
@@ -746,83 +523,55 @@ export class StreamingGpuRendererService extends BaseService {
 
   /**
    * Resolve or reject a pending capture request and clean up state
-   * Centralizes cleanup logic to ensure timeout is always cleared
    * @param {ImageBitmap|null} result - The captured frame (null if error)
    * @param {Error|null} error - The error (null if success)
    * @private
    */
   _resolvePendingCapture(result, error) {
-    // Clear timeout first to prevent race conditions
     if (this._captureTimeoutId !== null) {
       clearTimeout(this._captureTimeoutId);
       this._captureTimeoutId = null;
     }
 
-    // Resolve or reject if pending
     if (error && this._pendingCaptureReject) {
       this._pendingCaptureReject(error);
     } else if (result && this._pendingCaptureResolve) {
       this._pendingCaptureResolve(result);
     }
 
-    // Clear pending state
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
   }
 
   /**
-   * Cleanup resources
-   * @param {boolean} [emitCanvasExpired=true] - Whether to emit CANVAS_EXPIRED if canvas was transferred
+   * Cleanup resources by delegating to worker manager
+   * @param {boolean} [emitCanvasExpired=true] - Whether to emit CANVAS_EXPIRED
    */
   _cleanup(emitCanvasExpired = true) {
-    // Set destroying flag FIRST to reject any new/in-flight captures
     this._isDestroying = true;
 
-    // Unsubscribe from brightness events
     if (this._brightnessUnsubscribe) {
       this._brightnessUnsubscribe();
       this._brightnessUnsubscribe = null;
     }
 
-    // Clear ready timeout if pending
-    if (this._readyTimeoutId !== null) {
-      clearTimeout(this._readyTimeoutId);
-      this._readyTimeoutId = null;
-    }
-
-    // Clear ready promise resolvers
-    this._readyResolve = null;
-    this._readyReject = null;
-
-    // Reject any pending capture request before destroying worker
     this._resolvePendingCapture(null, new Error('GPU renderer cleanup'));
 
-    if (this._worker) {
-      // Remove message handlers before termination to break reference chains
-      this._worker.onmessage = null;
-      this._worker.onerror = null;
+    this._unregisterMessageHandlers();
 
-      this._worker.postMessage(createWorkerMessage(WorkerMessageType.DESTROY));
-      this._worker.terminate();
-      this._worker = null;
-    }
+    const wasTransferred = this._workerManager.isCanvasTransferred();
 
-    this._isReady = false;
+    this._workerManager.terminate(emitCanvasExpired);
+
     this._pendingFrames = 0;
     this._skippedFrames = 0;
     this._lastBackpressureLog = 0;
-    this._canvas = null;
-    this._offscreenCanvas = null;
 
-    // If canvas was transferred but cleanup is happening (init failure, error, etc.),
-    // emit CANVAS_EXPIRED so orchestrator can provide fresh canvas on next init
-    if (emitCanvasExpired && this._wasCanvasTransferred) {
-      this._wasCanvasTransferred = false;
+    if (emitCanvasExpired && wasTransferred) {
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
       this.logger.info('Canvas expired - orchestrator will recreate for next session');
     }
 
-    // Reset destroying flag so service can be reused
     this._isDestroying = false;
   }
 

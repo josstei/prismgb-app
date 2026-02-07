@@ -1,7 +1,8 @@
 /**
  * StreamingGpuRendererService Unit Tests
  *
- * Tests for canvas recovery and cleanup behavior
+ * Tests for canvas recovery, cleanup behavior, initialization,
+ * frame rendering, preset management, capture, and resize.
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -31,6 +32,7 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
     FRAME: 'FRAME',
     RESIZE: 'RESIZE',
     SET_PRESET: 'SET_PRESET',
+    REQUEST_CAPTURE: 'REQUEST_CAPTURE',
     CAPTURE: 'CAPTURE',
     RELEASE: 'RELEASE',
     DESTROY: 'DESTROY'
@@ -40,6 +42,7 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
     FRAME_RENDERED: 'FRAME_RENDERED',
     STATS: 'STATS',
     ERROR: 'ERROR',
+    CAPTURE_REQUESTED: 'CAPTURE_REQUESTED',
     CAPTURE_READY: 'CAPTURE_READY',
     RELEASED: 'RELEASED',
     DESTROYED: 'DESTROYED'
@@ -116,14 +119,6 @@ describe('StreamingGpuRendererService', () => {
       terminate: vi.fn()
     };
 
-    // Mock Worker constructor
-    global.Worker = vi.fn().mockImplementation(() => ({
-      postMessage: vi.fn(),
-      terminate: vi.fn(),
-      onmessage: null,
-      onerror: null
-    }));
-
     service = new StreamingGpuRendererService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
@@ -140,10 +135,9 @@ describe('StreamingGpuRendererService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(service._worker).toBeNull();
-      expect(service._isReady).toBe(false);
-      expect(service._wasCanvasTransferred).toBe(false);
+      expect(service._pendingFrames).toBe(0);
       expect(service._isUsingFallback).toBe(false);
+      expect(service._isDestroying).toBe(false);
     });
 
     it('should store manager references', () => {
@@ -152,24 +146,307 @@ describe('StreamingGpuRendererService', () => {
     });
   });
 
+  describe('initialize', () => {
+    it('should delegate worker creation to GpuWorkerManager', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576, transferControlToOffscreen: vi.fn() };
+
+      const result = await service.initialize(canvasElement);
+
+      expect(result).toBe(true);
+      expect(mockGpuWorkerManager.initialize).toHaveBeenCalledWith(
+        canvasElement,
+        expect.objectContaining({
+          nativeWidth: 160,
+          nativeHeight: 144,
+          api: 'webgl2'
+        }),
+        5000
+      );
+    });
+
+    it('should register message handlers before initializing worker', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576, transferControlToOffscreen: vi.fn() };
+
+      await service.initialize(canvasElement);
+
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalled();
+    });
+
+    it('should return false when GPU rendering not available', async () => {
+      const { CapabilityDetector } = await import('@renderer/infrastructure/rendering/capability-detector.utils.ts');
+      CapabilityDetector.isGPURenderingAvailable.mockReturnValueOnce(false);
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const result = await service.initialize(canvasElement);
+
+      expect(result).toBe(false);
+      expect(service._isUsingFallback).toBe(true);
+    });
+
+    it('should return false when worker manager initialization fails', async () => {
+      mockGpuWorkerManager.initialize.mockResolvedValueOnce(false);
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const result = await service.initialize(canvasElement);
+
+      expect(result).toBe(false);
+      expect(service._isUsingFallback).toBe(true);
+    });
+
+    it('should handle initialization error gracefully', async () => {
+      mockGpuWorkerManager.initialize.mockRejectedValueOnce(new Error('Worker timeout'));
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const result = await service.initialize(canvasElement);
+
+      expect(result).toBe(false);
+      expect(service._isUsingFallback).toBe(true);
+      expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    it('should subscribe to brightness changes', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
+        expect.any(Function)
+      );
+    });
+
+    it('should publish capability detection event', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.RENDER.CAPABILITY_DETECTED,
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('renderFrame', () => {
+    it('should skip when worker not ready', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('should skip when too many pending frames', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._pendingFrames = 2;
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('should skip when video not ready', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const videoElement = { readyState: 1, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('should send frame via worker manager', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      const mockBitmap = { close: vi.fn() };
+      global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
+
+      service._currentPreset = { id: 'default' };
+      service._currentPresetId = 'default';
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'FRAME',
+        expect.objectContaining({ imageBitmap: mockBitmap }),
+        [mockBitmap]
+      );
+      expect(service._pendingFrames).toBe(1);
+    });
+
+    it('should track backpressure when frames skipped', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._pendingFrames = 2;
+      service._lastBackpressureLog = 0;
+
+      vi.spyOn(performance, 'now').mockReturnValue(6000);
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(service._skippedFrames).toBe(0);
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('GPU backpressure'));
+    });
+  });
+
+  describe('setPreset', () => {
+    it('should update current preset', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      service.setPreset('default');
+
+      expect(service._currentPresetId).toBe('default');
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'SET_PRESET',
+        expect.objectContaining({ presetId: 'default' })
+      );
+    });
+
+    it('should skip if preset already set', () => {
+      service._currentPresetId = 'default';
+
+      service.setPreset('default');
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('should warn for unknown preset', async () => {
+      const { PresetRegistry } = await import('@prismgb/gpu');
+      PresetRegistry.get.mockReturnValueOnce(null);
+
+      service.setPreset('nonexistent');
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Unknown preset'));
+    });
+
+    it('should not send command when worker not ready', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      service.setPreset('default');
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resize', () => {
+    it('should calculate scale factor and notify worker', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      service.resize(640, 576);
+
+      expect(service._scaleFactor).toBe(4);
+      expect(service._targetWidth).toBe(640);
+      expect(service._targetHeight).toBe(576);
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'RESIZE',
+        expect.objectContaining({
+          width: 640,
+          height: 576,
+          scaleFactor: 4
+        })
+      );
+    });
+
+    it('should not send command when worker not ready', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      service.resize(640, 576);
+
+      expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
+    });
+
+    it('should clamp scale factor to minimum of 1', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      service.resize(100, 100);
+
+      expect(service._scaleFactor).toBe(1);
+    });
+  });
+
+  describe('captureFrame', () => {
+    it('should throw when destroying', async () => {
+      service._isDestroying = true;
+
+      await expect(service.captureFrame()).rejects.toThrow('GPU renderer is shutting down');
+    });
+
+    it('should throw when worker not ready', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      await expect(service.captureFrame()).rejects.toThrow('GPU renderer not ready');
+    });
+
+    it('should throw when capture already in progress', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._pendingCaptureResolve = vi.fn();
+
+      await expect(service.captureFrame()).rejects.toThrow('Capture already in progress');
+    });
+
+    it('should send REQUEST_CAPTURE via worker manager', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const capturePromise = service.captureFrame();
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith('REQUEST_CAPTURE');
+      expect(service._isWaitingForCapturedFrame).toBe(true);
+
+      service._resolvePendingCapture({ close: vi.fn() }, null);
+      await capturePromise;
+    });
+
+    it('should timeout after 1 second', async () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const capturePromise = service.captureFrame();
+
+      vi.advanceTimersByTime(1000);
+
+      await expect(capturePromise).rejects.toThrow('Capture request timed out');
+    });
+  });
+
+  describe('releaseGpuResources', () => {
+    it('should delegate to worker manager', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      service.releaseGpuResources();
+
+      expect(mockGpuWorkerManager.releaseResources).toHaveBeenCalled();
+      expect(service._pendingFrames).toBe(0);
+    });
+
+    it('should skip when worker not ready', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      service.releaseGpuResources();
+
+      expect(mockGpuWorkerManager.releaseResources).not.toHaveBeenCalled();
+    });
+
+    it('should reset backpressure diagnostics', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._skippedFrames = 10;
+      service._lastBackpressureLog = 5000;
+
+      service.releaseGpuResources();
+
+      expect(service._skippedFrames).toBe(0);
+      expect(service._lastBackpressureLog).toBe(0);
+    });
+  });
+
   describe('_cleanup', () => {
     it('should emit CANVAS_EXPIRED when canvas was transferred', () => {
-      // Simulate canvas was transferred
-      service._wasCanvasTransferred = true;
-      service._worker = {
-        postMessage: vi.fn(),
-        terminate: vi.fn()
-      };
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
 
       service._cleanup();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      expect(service._wasCanvasTransferred).toBe(false);
     });
 
     it('should NOT emit CANVAS_EXPIRED when canvas was not transferred', () => {
-      service._wasCanvasTransferred = false;
-      service._worker = null;
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(false);
 
       service._cleanup();
 
@@ -177,39 +454,17 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should NOT emit CANVAS_EXPIRED when emitCanvasExpired is false', () => {
-      service._wasCanvasTransferred = true;
-      service._worker = {
-        postMessage: vi.fn(),
-        terminate: vi.fn()
-      };
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
 
       service._cleanup(false);
 
       expect(mockEventBus.publish).not.toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      // Note: _wasCanvasTransferred is NOT reset when emitCanvasExpired is false
-      expect(service._wasCanvasTransferred).toBe(true);
     });
 
-    it('should terminate worker and clear references', () => {
-      const mockWorker = {
-        postMessage: vi.fn(),
-        terminate: vi.fn()
-      };
-      service._worker = mockWorker;
-      service._isReady = true;
-      service._pendingFrames = 5;
-      service._canvas = { id: 'canvas' };
-      service._offscreenCanvas = { id: 'offscreen' };
-
+    it('should delegate termination to worker manager', () => {
       service._cleanup();
 
-      expect(mockWorker.postMessage).toHaveBeenCalled();
-      expect(mockWorker.terminate).toHaveBeenCalled();
-      expect(service._worker).toBeNull();
-      expect(service._isReady).toBe(false);
-      expect(service._pendingFrames).toBe(0);
-      expect(service._canvas).toBeNull();
-      expect(service._offscreenCanvas).toBeNull();
+      expect(mockGpuWorkerManager.terminate).toHaveBeenCalled();
     });
 
     it('should reject pending capture request on cleanup', () => {
@@ -223,29 +478,55 @@ describe('StreamingGpuRendererService', () => {
       expect(service._pendingCaptureReject).toBeNull();
       expect(service._pendingCaptureResolve).toBeNull();
     });
+
+    it('should unregister message handlers', () => {
+      const unsub1 = vi.fn();
+      const unsub2 = vi.fn();
+      service._messageUnsubscribers = [unsub1, unsub2];
+
+      service._cleanup();
+
+      expect(unsub1).toHaveBeenCalled();
+      expect(unsub2).toHaveBeenCalled();
+      expect(service._messageUnsubscribers).toEqual([]);
+    });
+
+    it('should reset pending frames and backpressure', () => {
+      service._pendingFrames = 5;
+      service._skippedFrames = 10;
+      service._lastBackpressureLog = 5000;
+
+      service._cleanup();
+
+      expect(service._pendingFrames).toBe(0);
+      expect(service._skippedFrames).toBe(0);
+      expect(service._lastBackpressureLog).toBe(0);
+    });
   });
 
   describe('terminateAndReset', () => {
     it('should emit CANVAS_EXPIRED after cleanup', () => {
-      service._wasCanvasTransferred = true;
-      service._worker = {
-        postMessage: vi.fn(),
-        terminate: vi.fn()
-      };
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
 
       service.terminateAndReset();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-      expect(service._wasCanvasTransferred).toBe(false);
     });
 
-    it('should do nothing if no worker and canvas not transferred', () => {
-      service._worker = null;
-      service._wasCanvasTransferred = false;
+    it('should do nothing if canvas not transferred', () => {
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(false);
 
       service.terminateAndReset();
 
-      expect(mockEventBus.publish).not.toHaveBeenCalled();
+      expect(mockGpuWorkerManager.terminate).not.toHaveBeenCalled();
+    });
+
+    it('should suppress CANVAS_EXPIRED when emitCanvasExpired is false', () => {
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
+
+      service.terminateAndReset(false);
+
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
     });
   });
 
@@ -259,67 +540,104 @@ describe('StreamingGpuRendererService', () => {
       expect(unsubscribeFn).toHaveBeenCalled();
       expect(service._brightnessUnsubscribe).toBeNull();
     });
+  });
 
-    it('should clear ready timeout if pending', () => {
-      vi.useFakeTimers();
-      service._readyTimeoutId = setTimeout(() => {}, 5000);
-      const timeoutId = service._readyTimeoutId;
+  describe('isActive', () => {
+    it('should return true when worker ready and not using fallback', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._isUsingFallback = false;
 
-      service.cleanup();
-
-      expect(service._readyTimeoutId).toBeNull();
-      vi.useRealTimers();
+      expect(service.isActive()).toBe(true);
     });
 
-    it('should clear ready promise resolvers', () => {
-      service._readyResolve = vi.fn();
-      service._readyReject = vi.fn();
+    it('should return false when using fallback', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._isUsingFallback = true;
 
-      service.cleanup();
+      expect(service.isActive()).toBe(false);
+    });
 
-      expect(service._readyResolve).toBeNull();
-      expect(service._readyReject).toBeNull();
+    it('should return false when worker not ready', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(false);
+
+      expect(service.isActive()).toBe(false);
     });
   });
 
   describe('isCanvasTransferred', () => {
-    it('should return current canvas transfer state', () => {
-      service._wasCanvasTransferred = false;
-      expect(service.isCanvasTransferred()).toBe(false);
-
-      service._wasCanvasTransferred = true;
+    it('should delegate to worker manager', () => {
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
       expect(service.isCanvasTransferred()).toBe(true);
+
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(false);
+      expect(service.isCanvasTransferred()).toBe(false);
+    });
+  });
+
+  describe('getTargetDimensions', () => {
+    it('should return current target dimensions', () => {
+      service._targetWidth = 640;
+      service._targetHeight = 576;
+
+      expect(service.getTargetDimensions()).toEqual({ width: 640, height: 576 });
+    });
+  });
+
+  describe('_getCachedUniforms', () => {
+    it('should return cached uniforms when nothing changed', () => {
+      const uniforms = { test: true };
+      service._cachedUniforms = uniforms;
+      service._cachedPresetId = 'default';
+      service._currentPresetId = 'default';
+      service._cachedScaleFactor = 4;
+      service._scaleFactor = 4;
+      service._cachedTargetWidth = 640;
+      service._targetWidth = 640;
+      service._cachedTargetHeight = 576;
+      service._targetHeight = 576;
+      service._cachedBrightness = 1.0;
+      service._globalBrightness = 1.0;
+
+      expect(service._getCachedUniforms()).toBe(uniforms);
+    });
+
+    it('should rebuild uniforms when preset changes', () => {
+      service._cachedUniforms = { old: true };
+      service._cachedPresetId = 'old';
+      service._currentPresetId = 'new';
+      service._currentPreset = { id: 'new' };
+
+      const result = service._getCachedUniforms();
+
+      expect(result).not.toEqual({ old: true });
+      expect(service._cachedPresetId).toBe('new');
+    });
+  });
+
+  describe('_registerMessageHandlers', () => {
+    it('should register handlers for all response types', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('READY', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('FRAME_RENDERED', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('STATS', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('ERROR', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('CAPTURE_REQUESTED', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('CAPTURE_READY', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('RELEASED', expect.any(Function));
+      expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('DESTROYED', expect.any(Function));
     });
   });
 
   describe('canvas recovery scenario', () => {
     it('should allow orchestrator to recreate canvas after init failure', async () => {
-      // This test verifies the full recovery flow:
-      // 1. Canvas gets transferred
-      // 2. Init fails (worker timeout, etc.)
-      // 3. _cleanup() emits CANVAS_EXPIRED
-      // 4. Orchestrator can now recreate canvas and try again
+      mockGpuWorkerManager.isCanvasTransferred.mockReturnValue(true);
 
-      // Simulate successful canvas transfer
-      service._wasCanvasTransferred = true;
-      service._worker = {
-        postMessage: vi.fn(),
-        terminate: vi.fn()
-      };
-
-      // Simulate init failure triggering cleanup
       service._cleanup();
 
-      // Verify CANVAS_EXPIRED was emitted
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.RENDER.CANVAS_EXPIRED);
-
-      // Verify service state is reset for fresh init
-      expect(service._wasCanvasTransferred).toBe(false);
-      expect(service._worker).toBeNull();
-      expect(service._canvas).toBeNull();
-
-      // Now a fresh canvas can be passed to initialize()
-      // The orchestrator listens for CANVAS_EXPIRED and creates a new canvas element
+      expect(mockGpuWorkerManager.terminate).toHaveBeenCalled();
     });
   });
 });
