@@ -34,10 +34,10 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Surface | Template | Component(s) | Orchestrator/Bridge |
 | --- | --- | --- | --- |
 | Header + Settings | `src/renderer/presentation/shell/header.template.js` | `SettingsMenuComponent`, `UpdateSectionComponent`, `DeviceStatusComponent` | `UISetupOrchestrator`, `UIEventBridge` |
-| Stream viewer + toolbar | `src/renderer/presentation/shell/stream-viewer.template.js` | `StreamingControlsComponent`, `StreamingShaderSelectorComponent` | `UISetupOrchestrator`, `UIEventBridge` |
-| Notes panel | `src/renderer/presentation/shell/notes-panel.template.js` | `NotesPanelComponent` | `UISetupOrchestrator` |
+| Stream viewer + toolbar | `src/renderer/presentation/features/streaming/stream-viewer.template.js` | `StreamingControlsComponent`, `ShaderSelectorComponent` | `UISetupOrchestrator`, `UIEventBridge` |
+| Notes panel | `src/renderer/presentation/features/notes/notes-panel.template.js` | `NotesPanelComponent` | `UISetupOrchestrator` |
 | Status footer | `src/renderer/presentation/shell/status-footer.template.js` | `StatusNotificationComponent`, `DeviceStatusComponent` | `UIEventBridge` |
-| Transcode toast | `src/renderer/presentation/shell/stream-viewer.template.js` | `TranscodeToastComponent` | `TranscodeUIBridge` |
+| Transcode toast | `src/renderer/presentation/features/streaming/stream-viewer.template.js` | `TranscodeToastComponent` | `TranscodeUIBridge` |
 
 ## UI Flows (Renderer)
 
@@ -68,13 +68,13 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 ### Recording Start/Stop
 
 1. User clicks the record button -> `ui:recording-toggle-requested`.
-2. `CaptureOrchestrator` starts/stops recording (GPU path via `GpuRecordingService` when active).
+2. `CaptureOrchestrator` starts/stops recording (GPU path via `CaptureGpuRecordingService` when active).
 3. `CaptureService` emits `capture:recording-started`, `capture:recording-stopped`, and `capture:recording-ready`.
-4. `CaptureSaveService` checks the user's format preference:
-   - If WebM: direct download via `CaptureUIBridge`.
+4. `CaptureOrchestrator` calls `CaptureSaveService.saveRecording`, which checks the user's format preference:
+   - If WebM: direct download via `CaptureSaveService._directSave`.
    - If MP4/MOV: sends blob to `TranscodeService` (main process) for ffmpeg conversion.
 5. During transcoding, `TranscodeUIBridge` shows progress toast and updates the record button with percentage.
-6. On completion, `CaptureUIBridge` triggers the download and publishes `ui:status-message`.
+6. On completion, `CaptureOrchestrator` publishes `ui:status-message` for direct saves; `TranscodeUIBridge` handles status for transcoded saves.
 
 ### Recording Format Selection
 
@@ -87,7 +87,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 1. Shader panel updates settings via `SettingsService.setRenderPreset`, `setGlobalBrightness`, `setVolume`.
 2. Settings events emit `settings:render-preset-changed`, `settings:brightness-changed`, `settings:volume-changed`.
 3. `StreamingOrchestrator` listens for preset changes and updates the render pipeline.
-4. `StreamingShaderSelectorComponent` listens for brightness/volume updates to keep UI in sync.
+4. `ShaderSliderControlsComponent` listens for brightness/volume updates to keep UI in sync.
 
 ### Performance Mode
 
@@ -132,8 +132,8 @@ Screenshots will not be added to this repository.
 ### Add a New Device
 
 1. Register metadata in `src/shared/features/devices/device.registry.js`.
-2. Add a profile class in `src/main/infrastructure/devices` and register it.
-3. Add an adapter in `src/renderer/infrastructure/adapters/devices` and register it.
+2. Add a profile class in `src/shared/features/devices/profiles/` and register it in `src/main/infrastructure/devices/device-profile.registry.ts`.
+3. Add an adapter in `src/renderer/infrastructure/adapters/devices/<device-name>/` and register it.
 4. Update docs and tests if behavior changes.
 
 ### Add a Render Preset

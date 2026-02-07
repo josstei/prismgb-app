@@ -18,7 +18,7 @@ This document captures the naming and organization conventions used throughout P
 | `.service.<ext>` | Business logic and stateful operations | `streaming.service.ts` |
 | `.orchestrator.<ext>` | Coordination across services | `capture.orchestrator.ts` |
 | `.component.<ext>` | UI component logic | `notes-panel.component.js` |
-| `.adapter.<ext>` | External or platform abstraction | `device-chromatic.adapter.ts` |
+| `.adapter.<ext>` | External or platform abstraction | `chromatic.adapter.ts` |
 | `.handler.<ext>` | IPC or event handler | `window.handler.ts` |
 | `.bridge.<ext>` | Cross-boundary coordination | `update.bridge.ts` |
 | `.registry.<ext>` | Collections and registries | `device-profile.registry.ts` |
@@ -29,7 +29,7 @@ This document captures the naming and organization conventions used throughout P
 | `.class.<ext>` | Plain classes (no DI) | `event-bus.class.js` |
 | `.interface.<ext>` | Interface definitions | `logger.interface.ts` |
 | `.worker.<ext>` | Web workers | `render.worker.ts` |
-| `.profile.<ext>` | Device profiles | `chromatic.profile.ts` |
+| `.profile.<ext>` | Device profiles | `device-chromatic.profile.js` |
 | `.base.<ext>` | Abstract base classes | `service.base.js` |
 
 ## Directory Conventions
@@ -39,10 +39,11 @@ This document captures the naming and organization conventions used throughout P
 - `src/renderer`: Renderer process and UI.
 - `src/shared`: Process-agnostic utilities and config.
 - `src/renderer/application/di`: Renderer DI registration modules (`register-*.ts`).
-- `src/renderer/features/<feature>`: Feature modules (capture, devices, notes, settings, streaming, updates).
-- `src/renderer/ui`: Shared UI components, templates, and orchestration.
-- `src/renderer/application`: App-level orchestrators and performance services.
-- `src/main/features/<feature>`: Main-process features.
+- `src/renderer/infrastructure/services/<domain>`: Renderer services by domain (capture, devices, notes, performance, settings, streaming, transcode, updates).
+- `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config).
+- `src/renderer/presentation/features/<feature>`: Feature-specific UI components and templates.
+- `src/renderer/application`: App-level orchestrators and state.
+- `src/main/infrastructure/<domain>`: Main-process services by domain (devices, transcode, updates, window, tray, etc.).
 - `tests/unit` and `tests/integration`: Test suites.
 
 ## Identifier Naming
@@ -63,7 +64,8 @@ This document captures the naming and organization conventions used throughout P
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
   - `@shared` -> `src/shared`
-- `src/core` has been retired and removed; the boundary checker prevents `@core/` imports.
+  - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
+- `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.
 - Prefer extensionless TS imports (avoid `.ts` suffix in TS/JS import specifiers).
 
 ## Testing Conventions

@@ -7,9 +7,9 @@ Related docs:
 - `docs/naming-conventions.md`
 
 Legend
-- Solid edges: control flow or delegation.
-- Dashed edges: error/cleanup or retry flow.
-- Nodes labeled "State" are the primary owners of state transitions.
+- Solid edges: direct dependency (constructor injection).
+- Dashed labeled edges: indirect communication via EventBus.
+- Dashed unlabeled edges: error/cleanup or retry flow.
 - IPC edges are labeled explicitly.
 
 ## Renderer DI Composition
@@ -37,29 +37,23 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph RENDERER[Renderer]
-    UIEventBridge[UIEventBridge]
     UISetupOrchestrator[UISetupOrchestrator]
     StreamingOrchestrator[StreamingOrchestrator]
     StreamingService[StreamingService]
     DeviceOrchestrator[DeviceOrchestrator]
     DeviceService[DeviceService]
-    MediaDeviceService[MediaDeviceService]
+    DeviceMediaService[DeviceMediaService]
     DeviceConnectionService[DeviceConnectionService]
-    StreamingState[StreamingState]
+    UIEventBridge[UIEventBridge]
   end
 
-  UIEventBridge --> UISetupOrchestrator
-  UIEventBridge --> StreamingOrchestrator
-  UISetupOrchestrator --> StreamingOrchestrator
+  UISetupOrchestrator -. "ui:stream-start/stop-requested" .-> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
-  StreamingOrchestrator --> DeviceOrchestrator
+  StreamingOrchestrator -. "ui:streaming-mode, ui:stream-info" .-> UIEventBridge
   DeviceOrchestrator --> DeviceService
-  StreamingOrchestrator --> StreamingState
   StreamingService --> DeviceService
-  DeviceService --> MediaDeviceService
+  DeviceService --> DeviceMediaService
   DeviceService --> DeviceConnectionService
-
-  StreamingService -. cleanup/retry .-> StreamingState
 ```
 
 ## Capture and GPU Recording
@@ -67,21 +61,15 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph RENDERER[Renderer]
-    UIEventBridge[UIEventBridge]
     CaptureOrchestrator[CaptureOrchestrator]
     CaptureService[CaptureService]
     CaptureSaveService[CaptureSaveService]
-    GpuRecordingService[GpuRecordingService]
-    CaptureState[CaptureState]
+    CaptureGpuRecordingService[CaptureGpuRecordingService]
   end
 
-  UIEventBridge --> CaptureOrchestrator
   CaptureOrchestrator --> CaptureService
   CaptureOrchestrator --> CaptureSaveService
-  CaptureOrchestrator --> GpuRecordingService
-  CaptureOrchestrator --> CaptureState
-
-  GpuRecordingService -. cleanup .-> CaptureState
+  CaptureOrchestrator --> CaptureGpuRecordingService
 ```
 
 ## Recording Transcode Flow
@@ -103,11 +91,11 @@ flowchart LR
   end
 
   CaptureSaveService --> TranscodeServiceRenderer
-  TranscodeServiceRenderer -- IPC: transcode-start --> TranscodeIpcHandler
+  TranscodeServiceRenderer -- IPC: transcode:start --> TranscodeIpcHandler
   TranscodeIpcHandler --> TranscodeServiceMain
   TranscodeServiceMain --> FFmpeg
-  TranscodeServiceMain -- IPC: transcode-progress --> TranscodeServiceRenderer
-  TranscodeServiceMain -- IPC: transcode-complete --> TranscodeServiceRenderer
+  TranscodeServiceMain -- IPC: transcode:progress --> TranscodeServiceRenderer
+  TranscodeServiceMain -- IPC: transcode:completed --> TranscodeServiceRenderer
   TranscodeServiceRenderer --> TranscodeUIBridge
   TranscodeUIBridge --> TranscodeToast
   TranscodeUIBridge --> CaptureUIBridge
@@ -119,25 +107,20 @@ flowchart LR
 flowchart LR
   subgraph RENDERER[Renderer]
     AppOrchestrator[AppOrchestrator]
-    AnimationPerformanceOrchestrator[AnimationPerformanceOrchestrator]
+    PerformanceAnimationOrchestrator[PerformanceAnimationOrchestrator]
     PerformanceStateOrchestrator[PerformanceStateOrchestrator]
     PerformanceMetricsOrchestrator[PerformanceMetricsOrchestrator]
-    AnimationPerformanceService[AnimationPerformanceService]
+    PerformanceAnimationService[PerformanceAnimationService]
     PerformanceStateService[PerformanceStateService]
     PerformanceMetricsService[PerformanceMetricsService]
-    PerformanceState[PerformanceState]
   end
 
-  AppOrchestrator --> AnimationPerformanceOrchestrator
+  AppOrchestrator --> PerformanceAnimationOrchestrator
   AppOrchestrator --> PerformanceStateOrchestrator
   AppOrchestrator --> PerformanceMetricsOrchestrator
-  AnimationPerformanceOrchestrator --> AnimationPerformanceService
-  AnimationPerformanceService --> PerformanceMetricsService
+  PerformanceAnimationOrchestrator --> PerformanceAnimationService
   PerformanceStateOrchestrator --> PerformanceStateService
-  PerformanceStateService --> PerformanceState
   PerformanceMetricsOrchestrator --> PerformanceMetricsService
-
-  AnimationPerformanceService -. cleanup .-> PerformanceState
 ```
 
 ## Main Process IPC and Core Services
@@ -145,34 +128,34 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph MAIN[Main Process]
-    MainAppOrchestrator[MainAppOrchestrator]
-    IpcHandlers[IpcHandlers]
-    TrayManager[TrayManager]
+    AppOrchestrator["AppOrchestrator (Main)"]
+    IpcHandlerRegistry[IpcHandlerRegistry]
+    TrayService[TrayService]
     DeviceBridge[DeviceBridgeService]
-    UpdateBridge[UpdateBridgeService]
+    UpdateBridge[UpdateBridge]
     DeviceServiceMain[DeviceServiceMain]
     UpdateServiceMain[UpdateServiceMain]
     TranscodeServiceMain[TranscodeServiceMain]
     UsbDetection[usb-detection]
     DeviceRegistry[DeviceRegistry]
-    ProfileRegistry[ProfileRegistry]
+    DeviceProfileRegistry[DeviceProfileRegistry]
     AutoUpdater[electron-updater]
     FFmpeg[ffmpeg-static]
   end
 
-  MainAppOrchestrator --> IpcHandlers
-  MainAppOrchestrator --> TrayManager
-  MainAppOrchestrator --> DeviceBridge
-  MainAppOrchestrator --> UpdateBridge
+  AppOrchestrator --> IpcHandlerRegistry
+  AppOrchestrator --> TrayService
+  AppOrchestrator --> DeviceBridge
+  AppOrchestrator --> UpdateBridge
 
-  IpcHandlers --> DeviceServiceMain
-  IpcHandlers --> UpdateServiceMain
-  IpcHandlers --> TranscodeServiceMain
-  TrayManager --> DeviceServiceMain
+  IpcHandlerRegistry --> DeviceServiceMain
+  IpcHandlerRegistry --> UpdateServiceMain
+  IpcHandlerRegistry --> TranscodeServiceMain
+  TrayService --> DeviceServiceMain
 
   DeviceServiceMain --> UsbDetection
   DeviceServiceMain --> DeviceRegistry
-  DeviceServiceMain --> ProfileRegistry
+  DeviceServiceMain --> DeviceProfileRegistry
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
@@ -182,15 +165,16 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph RENDERER[Renderer]
-    UIEventBridge[UIEventBridge]
     UISetupOrchestrator[UISetupOrchestrator]
     StreamingOrchestrator[StreamingOrchestrator]
     CaptureOrchestrator[CaptureOrchestrator]
+    UIEventBridge[UIEventBridge]
   end
 
-  UIEventBridge --> UISetupOrchestrator
-  UIEventBridge --> StreamingOrchestrator
-  UIEventBridge --> CaptureOrchestrator
+  UISetupOrchestrator -. "ui:stream/capture/fullscreen requests" .-> StreamingOrchestrator
+  UISetupOrchestrator -. "ui:screenshot/recording requests" .-> CaptureOrchestrator
+  StreamingOrchestrator -. "ui:streaming-mode, ui:status-message" .-> UIEventBridge
+  CaptureOrchestrator -. "ui:shutter-flash, ui:recording-state" .-> UIEventBridge
 ```
 
 ## Cross-Process Device, Update, and Transcode Channels
@@ -199,7 +183,7 @@ flowchart LR
 flowchart LR
   subgraph MAIN[Main Process]
     DeviceBridge[DeviceBridgeService]
-    UpdateBridge[UpdateBridgeService]
+    UpdateBridge[UpdateBridge]
     TranscodeService[TranscodeService]
   end
 
@@ -211,8 +195,8 @@ flowchart LR
 
   DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
   UpdateBridge -- IPC: update-status --> UIService
-  TranscodeServiceRenderer -- IPC: transcode-start --> TranscodeService
-  TranscodeService -- IPC: transcode-progress/complete --> TranscodeServiceRenderer
+  TranscodeServiceRenderer -- IPC: transcode:start --> TranscodeService
+  TranscodeService -- IPC: transcode:progress/completed --> TranscodeServiceRenderer
 ```
 
 ## Notes
@@ -222,4 +206,4 @@ flowchart LR
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
 - Shared timing constants live in `src/shared/config/timing.config.ts`; infrastructure code should not pull timing values from presentation config.
-- `src/core` has been retired and removed; the boundary checker prevents reintroduction via `@core/` imports.
+- `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.

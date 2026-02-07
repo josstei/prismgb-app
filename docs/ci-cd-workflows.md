@@ -11,7 +11,7 @@ Related docs:
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| `ci-pr.yml` | pull_request, workflow_dispatch | PR lint, tests, optional full OS matrix, and build smoke steps (Vite + Linux ARM64 desktop build). |
+| `ci-pr.yml` | pull_request, workflow_dispatch | PR lint, tests, optional full OS matrix, and Vite build smoke test. |
 | `build-smoke.yml` | workflow_dispatch | Manual packaging build and smoke tests across selected platforms. |
 | `release-prepare.yml` | workflow_dispatch | Creates a release PR and bumps version. |
 | `release.yml` | push to main (package.json), workflow_dispatch | Tags releases, builds artifacts, and publishes a draft release. |
@@ -56,7 +56,6 @@ flowchart TD
   CI --> LINT[reusable-ci-lint.yml]
   LINT --> TESTS[reusable-ci-tests.yml]
   LINT --> SMOKE[reusable-ci-build-smoke.yml]
-  LINT --> ARM64[reusable-build-desktop.yml (linux-arm64)]
 
   TESTS --> LINUX[Test: ubuntu-latest + coverage]
   TESTS --> MATRIX{Full matrix?}
