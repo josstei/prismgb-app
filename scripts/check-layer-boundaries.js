@@ -128,11 +128,6 @@ const FORBIDDEN_LAYER_MAP = {
   ])
 };
 
-const TEMPORARY_ALLOWED_IMPORTS = new Set([
-  'renderer/presentation->renderer/infrastructure:@renderer/infrastructure/events/event-channels.config.js',
-  'renderer/presentation->renderer/infrastructure:@renderer/infrastructure/logging/logger.factory.js'
-]);
-
 function normalizePath(value) {
   return value.split(path.sep).join('/');
 }
@@ -252,11 +247,6 @@ function buildViolationMessage(sourceLayer, targetLayer) {
   return `${sourceLayer} cannot depend on ${targetLayer}.`;
 }
 
-function isTemporarilyAllowedImport(sourceLayer, targetLayer, specifier) {
-  const key = `${sourceLayer}->${targetLayer}:${specifier}`;
-  return TEMPORARY_ALLOWED_IMPORTS.has(key);
-}
-
 export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
   const srcRoot = path.join(projectRoot, 'src');
   const violations = [];
@@ -287,10 +277,7 @@ export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
         continue;
       }
 
-      if (
-        forbiddenLayers.has(targetLayer)
-        && !isTemporarilyAllowedImport(sourceLayer, targetLayer, specifier)
-      ) {
+      if (forbiddenLayers.has(targetLayer)) {
         violations.push({
           filePath,
           sourceLayer,

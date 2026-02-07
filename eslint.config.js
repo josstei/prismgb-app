@@ -126,23 +126,6 @@ export default [
     }
   },
   {
-    // Temporary exceptions until shared event contract migration is complete.
-    files: [
-      'src/renderer/presentation/bridges/capture-ui.bridge.ts',
-      'src/renderer/presentation/bridges/transcode-ui.bridge.ts',
-      'src/renderer/presentation/bridges/ui-event.bridge.ts',
-      'src/renderer/presentation/features/notes/notes-panel.component.js',
-      'src/renderer/presentation/features/toolbar/components/cinematic-toggle.component.js',
-      'src/renderer/presentation/features/toolbar/components/shader-preset-list.component.js',
-      'src/renderer/presentation/features/toolbar/components/shader-slider-controls.component.js',
-      'src/renderer/presentation/features/updates/update-section.component.js',
-      'src/renderer/presentation/icons/icon.utils.js'
-    ],
-    rules: {
-      'no-restricted-imports': 'off'
-    }
-  },
-  {
     files: ['src/main/index.ts'],
     rules: {
       'no-restricted-imports': ['error', {

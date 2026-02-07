@@ -5,11 +5,6 @@
  * Uses Vite's ?raw suffix for tree-shaking support.
  */
 
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
-
-// Module-level logger for icon utilities
-const logger = new RendererLogger().create('IconUtils');
-
 // Header icons
 import headerFullscreen from '@renderer/assets/icons/header-fullscreen.svg?raw';
 import headerSettings from '@renderer/assets/icons/header-settings.svg?raw';
@@ -90,7 +85,7 @@ const icons = {
 export function getIconSvg(name, size) {
   const svgString = icons[name];
   if (!svgString) {
-    logger.warn(`Icon "${name}" not found in registry`);
+    console.warn(`Icon "${name}" not found in registry`);
     return '';
   }
 

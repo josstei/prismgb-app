@@ -6,7 +6,7 @@
 
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 class CinematicToggleComponent {
   constructor({ eventBus, appState, logger }) {

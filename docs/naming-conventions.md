@@ -50,7 +50,8 @@ This document captures the naming and organization conventions used throughout P
 - Classes use PascalCase and include role suffixes: `StreamingService`, `SettingsDisplayModeOrchestrator`.
 - Services are UI-agnostic and emit events rather than manipulating DOM directly.
 - Event channel names follow `domain:action` in kebab-case.
-  - Renderer events: `src/renderer/infrastructure/events/event-channels.config.js`.
+  - Shared event contract: `src/shared/events/event-channels.ts`.
+  - Compatibility re-export: `src/renderer/infrastructure/events/event-channels.config.js`.
   - IPC channels: `src/shared/ipc/channels.json`.
 - localStorage keys use camelCase values and live in `src/renderer/presentation/config/storage-keys.config.ts`.
 

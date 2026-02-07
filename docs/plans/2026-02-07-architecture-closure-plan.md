@@ -7,7 +7,7 @@
 ## Phase Tracking
 1. Phase 0: Completed
 2. Phase 1: Completed
-3. Phase 2: Pending
+3. Phase 2: Completed
 4. Phase 3: Pending
 5. Phase 4: Pending
 6. Phase 5: Pending
@@ -441,3 +441,19 @@ Make architecture regressions unmergeable.
    - `npm run lint` ✅
    - `npm run test:unit -- tests/unit/scripts/check-layer-boundaries.test.js` ✅
    - Runtime unclassified file count: `0` ✅
+
+### Phase 2
+1. Status: Completed
+2. Date: 2026-02-07
+3. Deliverables:
+   - Added shared event contract source: `src/shared/events/event-channels.ts`.
+   - Converted `src/renderer/infrastructure/events/event-channels.config.js` to compatibility re-export.
+   - Migrated renderer application and presentation imports to `@shared/events/event-channels.js`.
+   - Removed temporary boundary policy exceptions and enforced presentation independence from infrastructure.
+   - Added shared contract test: `tests/unit/shared/events/event-channels.contract.test.ts`.
+4. Validation:
+   - `node scripts/check-layer-boundaries.js` ✅
+   - `npm run lint` ✅
+   - `npm run test:unit -- tests/unit/scripts/check-layer-boundaries.test.js tests/unit/shared/events/event-channels.contract.test.ts tests/unit/renderer/infrastructure/events/event-channels.contract.test.js` ✅
+   - `npm run architecture:scorecard -- --output /tmp/architecture-scorecard-phase2.json` ✅
+   - `presentationToInfrastructureImports=0` ✅

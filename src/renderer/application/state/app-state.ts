@@ -6,7 +6,7 @@
  * Orchestrators should use AppState instead of calling each other directly
  */
 
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 type AppStateDependencies = {
   streamingService?: any;

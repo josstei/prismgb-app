@@ -78,9 +78,13 @@ describe('check-layer-boundaries script', () => {
     });
   });
 
-  it('allows temporary shared event-channel import from presentation', () => {
+  it('flags presentation imports of infrastructure event-channel constants', () => {
     const report = runFixture('presentation-imports-infra-allowed');
-    expect(report.violations).toHaveLength(0);
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      sourceLayer: 'renderer/presentation',
+      targetLayer: 'renderer/infrastructure'
+    });
   });
 
   it('flags re-exports from shared to renderer', () => {

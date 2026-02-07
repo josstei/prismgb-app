@@ -7,7 +7,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { UpdateState } from '@renderer/presentation/config/update-state.config';
 
 class UpdateSectionComponent {

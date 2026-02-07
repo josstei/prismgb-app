@@ -7,7 +7,7 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 class ShaderSliderControlsComponent {
   constructor({ settingsService, eventBus, logger }) {
