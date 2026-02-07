@@ -253,7 +253,7 @@ vi.mock('@renderer/infrastructure/services/settings/settings.service.ts', () => 
   SettingsService: vi.fn()
 }));
 
-vi.mock('@renderer/presentation/config/storage-keys.config.ts', () => ({
+vi.mock('@shared/config/storage-keys.config.ts', () => ({
   PROTECTED_STORAGE_KEYS: []
 }));
 

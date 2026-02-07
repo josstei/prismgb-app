@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
 
 // Mock FilenameGenerator
-vi.mock('../../../../../src/renderer/presentation/lib/filename-generator.utils.ts', () => ({
+vi.mock('../../../../../src/shared/lib/filename-generator.utils.ts', () => ({
   FilenameGenerator: {
     forScreenshot: vi.fn(() => 'screenshot_2024-01-01_12-00-00.png'),
     forRecording: vi.fn(() => 'recording_2024-01-01_12-00-00.webm')

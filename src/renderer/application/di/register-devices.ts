@@ -5,16 +5,13 @@ import { DeviceConnectionService } from '@renderer/infrastructure/services/devic
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
 import { DeviceService } from '@renderer/infrastructure/services/devices/device.service';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerDevices(container: RegistrableContainer): void {
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
-      const adapterClasses = new Map<string, any>([
+      const adapterClasses = new Map<string, unknown>([
         ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
       const adapterFactory = new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);

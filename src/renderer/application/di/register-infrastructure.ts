@@ -1,4 +1,4 @@
-import { PROTECTED_STORAGE_KEYS } from '@renderer/presentation/config/storage-keys.config';
+import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config';
 import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
@@ -23,10 +23,7 @@ import { StreamingRenderPipelineService } from '@renderer/infrastructure/service
 import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager';
 import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerInfrastructure(container: RegistrableContainer): void {
   container.registerSingleton(
@@ -67,13 +64,13 @@ export function registerInfrastructure(container: RegistrableContainer): void {
     return new MetricsAdapter();
   }, []);
 
-  container.registerSingleton('deviceIpcAdapter', function(loggerFactory) {
+  container.registerSingleton('deviceIpcAdapter', function(loggerFactory: RendererLogger) {
     return new DeviceIpcAdapter({ logger: loggerFactory.create('DeviceIpcAdapter') });
   }, ['loggerFactory']);
 
   container.registerSingleton(
     'deviceChangeDebounceAdapter',
-    function(browserMediaService, loggerFactory) {
+    function(browserMediaService: BrowserMediaAdapter, loggerFactory: RendererLogger) {
       return new DeviceChangeDebounceAdapter({
         browserMediaService,
         logger: loggerFactory.create('DeviceChangeDebounceAdapter')
@@ -88,7 +85,7 @@ export function registerInfrastructure(container: RegistrableContainer): void {
 
   container.registerSingleton(
     'canvasRenderer',
-    function(loggerFactory, animationCache) {
+    function(loggerFactory: RendererLogger, animationCache: AnimationCache) {
       return new StreamingCanvasRenderer(
         loggerFactory.create('StreamingCanvasRenderer'),
         animationCache
@@ -169,7 +166,7 @@ export function registerInfrastructure(container: RegistrableContainer): void {
   container.registerSingleton(
     'streamingRendererFactory',
     function(eventBus, loggerFactory) {
-      const rendererClasses = new Map<string, any>([
+      const rendererClasses = new Map<string, unknown>([
         ['gpu', StreamingGpuRendererAdapter],
         ['canvas2d', StreamingCanvas2DRendererAdapter]
       ]);

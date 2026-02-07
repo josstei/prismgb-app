@@ -1,8 +1,5 @@
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerStreaming(container: RegistrableContainer): void {
   container.registerSingleton(

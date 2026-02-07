@@ -15,10 +15,7 @@ import { SettingsCinematicModeService } from '@renderer/infrastructure/services/
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerOrchestrators(container: RegistrableContainer): void {
   container.registerSingleton(

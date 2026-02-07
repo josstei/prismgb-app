@@ -1,105 +1,263 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
-const projectRoot = process.cwd();
-const srcRoot = path.join(projectRoot, 'src');
-const rendererInfraRoot = path.join(srcRoot, 'renderer', 'infrastructure');
-const rendererPresentationRoot = path.join(srcRoot, 'renderer', 'presentation');
+const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.ts']);
 
-function walk(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+const LayerIds = {
+  MAIN_APPLICATION: 'main/application',
+  MAIN_INFRASTRUCTURE: 'main/infrastructure',
+  MAIN_IPC: 'main/ipc',
+  RENDERER_APPLICATION: 'renderer/application',
+  RENDERER_INFRASTRUCTURE: 'renderer/infrastructure',
+  RENDERER_PRESENTATION: 'renderer/presentation',
+  SHARED: 'shared',
+  PRELOAD: 'preload'
+};
+
+const LAYER_SEQUENCE = [
+  LayerIds.MAIN_APPLICATION,
+  LayerIds.MAIN_INFRASTRUCTURE,
+  LayerIds.MAIN_IPC,
+  LayerIds.RENDERER_APPLICATION,
+  LayerIds.RENDERER_INFRASTRUCTURE,
+  LayerIds.RENDERER_PRESENTATION,
+  LayerIds.SHARED,
+  LayerIds.PRELOAD
+];
+
+const FORBIDDEN_LAYER_MAP = {
+  [LayerIds.MAIN_APPLICATION]: new Set([
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
+  [LayerIds.MAIN_INFRASTRUCTURE]: new Set([
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
+  [LayerIds.MAIN_IPC]: new Set([
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
+  [LayerIds.RENDERER_APPLICATION]: new Set([
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC
+  ]),
+  [LayerIds.RENDERER_INFRASTRUCTURE]: new Set([
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
+  [LayerIds.RENDERER_PRESENTATION]: new Set([
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC
+  ]),
+  [LayerIds.SHARED]: new Set([
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC,
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION,
+    LayerIds.PRELOAD
+  ])
+};
+
+function normalizePath(value) {
+  return value.split(path.sep).join('/');
+}
+
+export function walkCodeFiles(rootDir) {
+  if (!rootDir || !fs.existsSync(rootDir)) {
+    return [];
+  }
+
   const files = [];
+  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
   for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
+    const fullPath = path.join(rootDir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...walk(fullPath));
+      files.push(...walkCodeFiles(fullPath));
       continue;
     }
 
-    if (entry.isFile() && (fullPath.endsWith('.js') || fullPath.endsWith('.ts'))) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const extension = path.extname(entry.name);
+    if (SOURCE_FILE_EXTENSIONS.has(extension)) {
       files.push(fullPath);
     }
   }
+
   return files;
 }
 
-function getImportSpecifiers(source) {
-  const specs = [];
+export function getImportSpecifiers(sourceCode) {
+  const specifiers = [];
+  const patterns = [
+    /(?:^|\s)import\s+(?:[\s\S]*?\sfrom\s*)?['"]([^'"]+)['"]/gm,
+    /(?:^|\s)export\s+[\s\S]*?\sfrom\s*['"]([^'"]+)['"]/gm,
+    /import\(\s*['"]([^'"]+)['"]\s*\)/gm
+  ];
 
-  for (const match of source.matchAll(/(?:import|export)\s+[\s\S]*?from\s*['"]([^'"]+)['"]/g)) {
-    specs.push(match[1]);
+  for (const pattern of patterns) {
+    for (const match of sourceCode.matchAll(pattern)) {
+      specifiers.push(match[1]);
+    }
   }
 
-  for (const match of source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)) {
-    specs.push(match[1]);
+  return specifiers;
+}
+
+function classifyLayerFromSourceRelativePath(relativePath) {
+  const normalized = normalizePath(relativePath);
+  for (const layerId of LAYER_SEQUENCE) {
+    if (normalized === layerId || normalized.startsWith(`${layerId}/`)) {
+      return layerId;
+    }
   }
 
-  return specs;
+  return null;
 }
 
-function isDisallowedInfraImport(specifier) {
-  return specifier === '@renderer/presentation/config/constants.config'
-    || specifier === '@renderer/presentation/config/constants.config.ts';
+export function classifyFileLayer(filePath, srcRoot) {
+  if (!srcRoot) {
+    return null;
+  }
+
+  const relativePath = path.relative(srcRoot, filePath);
+  if (relativePath.startsWith('..')) {
+    return null;
+  }
+
+  return classifyLayerFromSourceRelativePath(relativePath);
 }
 
-function resolveRelativeImport(filePath, specifier) {
+function resolveAliasTarget(specifier) {
+  if (specifier.startsWith('@/')) {
+    return classifyLayerFromSourceRelativePath(specifier.slice(2));
+  }
+
+  if (specifier.startsWith('@main/')) {
+    return classifyLayerFromSourceRelativePath(specifier.slice(1));
+  }
+
+  if (specifier.startsWith('@renderer/')) {
+    return classifyLayerFromSourceRelativePath(specifier.slice(1));
+  }
+
+  if (specifier.startsWith('@shared/')) {
+    return LayerIds.SHARED;
+  }
+
+  if (specifier.startsWith('@preload/')) {
+    return LayerIds.PRELOAD;
+  }
+
+  return null;
+}
+
+export function resolveTargetLayer(specifier, sourceFilePath, srcRoot) {
+  const aliasLayer = resolveAliasTarget(specifier);
+  if (aliasLayer) {
+    return aliasLayer;
+  }
+
   if (!specifier.startsWith('.')) {
     return null;
   }
 
-  const base = path.dirname(filePath);
-  return path.resolve(base, specifier);
+  const absoluteTargetPath = path.resolve(path.dirname(sourceFilePath), specifier);
+  return classifyFileLayer(absoluteTargetPath, srcRoot);
 }
 
-function isMainImport(specifier, filePath) {
-  if (specifier.startsWith('@main/')) {
-    return true;
+function buildViolationMessage(sourceLayer, targetLayer) {
+  return `${sourceLayer} cannot depend on ${targetLayer}.`;
+}
+
+export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
+  const srcRoot = path.join(projectRoot, 'src');
+  const violations = [];
+
+  if (!fs.existsSync(srcRoot)) {
+    return { violations, fileCount: 0 };
   }
 
-  const resolved = resolveRelativeImport(filePath, specifier);
-  return Boolean(resolved && resolved.includes(`${path.sep}src${path.sep}main${path.sep}`));
-}
+  const allFiles = walkCodeFiles(srcRoot);
 
-const violations = [];
+  for (const filePath of allFiles) {
+    const sourceLayer = classifyFileLayer(filePath, srcRoot);
+    if (!sourceLayer) {
+      continue;
+    }
 
-if (fs.existsSync(rendererInfraRoot)) {
-  for (const filePath of walk(rendererInfraRoot)) {
-    const source = fs.readFileSync(filePath, 'utf8');
-    for (const specifier of getImportSpecifiers(source)) {
-      if (isDisallowedInfraImport(specifier)) {
+    const forbiddenLayers = FORBIDDEN_LAYER_MAP[sourceLayer];
+    if (!forbiddenLayers) {
+      continue;
+    }
+
+    const sourceCode = fs.readFileSync(filePath, 'utf8');
+    const specifiers = getImportSpecifiers(sourceCode);
+
+    for (const specifier of specifiers) {
+      const targetLayer = resolveTargetLayer(specifier, filePath, srcRoot);
+      if (!targetLayer) {
+        continue;
+      }
+
+      if (forbiddenLayers.has(targetLayer)) {
         violations.push({
           filePath,
+          sourceLayer,
+          targetLayer,
           specifier,
-          message: 'Renderer infrastructure cannot import presentation timing config.'
+          message: buildViolationMessage(sourceLayer, targetLayer)
         });
       }
     }
   }
-}
 
-if (fs.existsSync(rendererPresentationRoot)) {
-  for (const filePath of walk(rendererPresentationRoot)) {
-    const source = fs.readFileSync(filePath, 'utf8');
-    for (const specifier of getImportSpecifiers(source)) {
-      if (isMainImport(specifier, filePath)) {
-        violations.push({
-          filePath,
-          specifier,
-          message: 'Renderer presentation cannot import main-process internals.'
-        });
-      }
+  violations.sort((a, b) => {
+    const fileCompare = a.filePath.localeCompare(b.filePath);
+    if (fileCompare !== 0) {
+      return fileCompare;
     }
-  }
+
+    return a.specifier.localeCompare(b.specifier);
+  });
+
+  return {
+    violations,
+    fileCount: allFiles.length
+  };
 }
 
-if (violations.length > 0) {
-  console.error('Architecture boundary violations:');
-  for (const violation of violations) {
-    const relPath = path.relative(projectRoot, violation.filePath);
-    console.error(`- ${relPath}: ${violation.message} (${violation.specifier})`);
+function runCli() {
+  const projectRoot = process.cwd();
+  const { violations } = analyzeLayerBoundaries({ projectRoot });
+
+  if (violations.length > 0) {
+    console.error('Architecture boundary violations:');
+    for (const violation of violations) {
+      const relativePath = path.relative(projectRoot, violation.filePath);
+      console.error(`- ${relativePath}: ${violation.message} (${violation.specifier})`);
+    }
+    process.exit(1);
   }
-  process.exit(1);
+
+  console.log('Architecture boundary checks passed.');
 }
 
-console.log('Architecture boundary checks passed.');
+const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedScript) {
+  runCli();
+}

@@ -455,6 +455,16 @@ class NotesPanelComponent {
       }
     );
     this._eventSubscriptions.push(unsubscribeDeleted);
+
+    const unsubscribeUpdated = this.eventBus.subscribe(
+      EventChannels.NOTES.NOTE_UPDATED,
+      (note) => {
+        if (note && note.id !== this.currentNoteId) {
+          this.listView.render(this.searchComponent.getQuery());
+        }
+      }
+    );
+    this._eventSubscriptions.push(unsubscribeUpdated);
   }
 
   /**

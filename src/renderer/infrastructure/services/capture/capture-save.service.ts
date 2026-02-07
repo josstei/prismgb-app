@@ -10,7 +10,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
+import { downloadFile } from '@shared/lib/file-download.utils';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;

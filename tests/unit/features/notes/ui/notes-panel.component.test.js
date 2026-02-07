@@ -915,5 +915,31 @@ describe('NotesPanelComponent', () => {
         expect(mockNotesService.searchNotes).toHaveBeenCalled();
       }
     });
+
+    it('should handle note updated event for non-selected note', () => {
+      component.currentNoteId = 'note_1';
+      const noteUpdatedCallback = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === EventChannels.NOTES.NOTE_UPDATED
+      )?.[1];
+
+      if (noteUpdatedCallback) {
+        mockNotesService.searchNotes.mockReturnValue([]);
+        noteUpdatedCallback({ id: 'note_2' });
+        expect(mockNotesService.searchNotes).toHaveBeenCalled();
+      }
+    });
+
+    it('should ignore note updated event for currently selected note', () => {
+      component.currentNoteId = 'note_1';
+      const noteUpdatedCallback = mockEventBus.subscribe.mock.calls.find(
+        call => call[0] === EventChannels.NOTES.NOTE_UPDATED
+      )?.[1];
+
+      if (noteUpdatedCallback) {
+        mockNotesService.searchNotes.mockClear();
+        noteUpdatedCallback({ id: 'note_1' });
+        expect(mockNotesService.searchNotes).not.toHaveBeenCalled();
+      }
+    });
   });
 });

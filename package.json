@@ -18,6 +18,7 @@
     "start": "electron dist/main/index.js",
     "lint": "eslint \"src/**/*.{js,ts}\" && node scripts/check-layer-boundaries.js",
     "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix && node scripts/check-layer-boundaries.js",
+    "architecture:scorecard": "node scripts/architecture-scorecard.js",
     "typecheck:app": "tsc -p tsconfig.app.json --noEmit",
     "typecheck:gpu": "npm run typecheck --workspace=@prismgb/gpu",
     "typecheck": "npm run typecheck:app && npm run typecheck:gpu",

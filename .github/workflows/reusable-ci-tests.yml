@@ -31,6 +31,17 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Generate architecture scorecard
+        run: npm run architecture:scorecard -- --output artifacts/architecture-scorecard.json
+
+      - name: Upload architecture scorecard
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: architecture-scorecard
+          path: artifacts/architecture-scorecard.json
+          if-no-files-found: error
+
       - name: Run typecheck
         run: npm run typecheck
 

@@ -110,6 +110,7 @@ export const EventChannels = {
   // Notes events
   NOTES: {
     NOTE_CREATED: 'notes:note-created',
+    NOTE_UPDATED: 'notes:note-updated',
     NOTE_DELETED: 'notes:note-deleted'
   },
 

@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config.ts';
+import { NotesStorageKeys } from '@shared/config/storage-keys.config.ts';
 
 describe('NotesService', () => {
   let service;
@@ -269,6 +269,15 @@ describe('NotesService', () => {
 
       const stored = JSON.parse(mockStorageService.store[NotesStorageKeys.USER_NOTES]);
       expect(stored[0].title).toBe('Updated');
+    });
+
+    it('should publish NOTE_UPDATED event', () => {
+      const updated = service.updateNote('note_1', { title: 'Updated' });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.NOTES.NOTE_UPDATED,
+        updated
+      );
     });
 
     it('should return null if storage fails', () => {

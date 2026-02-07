@@ -12,7 +12,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { SettingsStorageKeys } from '@renderer/presentation/config/storage-keys.config';
+import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
 
 class SettingsService extends BaseService {
 

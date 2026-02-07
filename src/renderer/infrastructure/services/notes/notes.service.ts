@@ -13,7 +13,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
-import { NotesStorageKeys } from '@renderer/presentation/config/storage-keys.config';
+import { NotesStorageKeys } from '@shared/config/storage-keys.config';
 
 class NotesService extends BaseService {
 
@@ -137,6 +137,7 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Updated note: ${id}`);
+    this.eventBus.publish(EventChannels.NOTES.NOTE_UPDATED, updatedNote);
 
     return updatedNote;
   }

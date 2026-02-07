@@ -20,10 +20,7 @@ import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerUi(container: RegistrableContainer): void {
   container.registerSingleton(

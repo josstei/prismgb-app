@@ -2,10 +2,7 @@ import { CaptureService } from '@renderer/infrastructure/services/capture/captur
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
-
-type RegistrableContainer = {
-  registerSingleton(name: string, factory: (...args: any[]) => unknown, deps: string[]): void;
-};
+import type { RegistrableContainer } from './registrable-container.type';
 
 export function registerCapture(container: RegistrableContainer): void {
   container.registerSingleton(

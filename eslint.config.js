@@ -83,13 +83,37 @@ export default [
     }
   },
   {
+    files: ['src/main/application/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: ['@renderer/*']
+      }]
+    }
+  },
+  {
     files: ['src/renderer/infrastructure/**/*.{js,ts}'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
-          '@renderer/presentation/config/constants.config',
-          '@renderer/presentation/config/constants.config.ts'
+          '@renderer/presentation/*',
+          '@main/*'
         ]
+      }]
+    }
+  },
+  {
+    files: ['src/main/infrastructure/**/*.{js,ts}', 'src/main/ipc/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: ['@renderer/*']
+      }]
+    }
+  },
+  {
+    files: ['src/renderer/application/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: ['@main/*']
       }]
     }
   },
@@ -98,6 +122,14 @@ export default [
     rules: {
       'no-restricted-imports': ['error', {
         patterns: ['@main/*']
+      }]
+    }
+  },
+  {
+    files: ['src/shared/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: ['@main/*', '@renderer/*', '@preload/*']
       }]
     }
   },
