@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-02-07T01:40:05.659Z",
+  "metrics": {
+    "infraToPresentationImportCount": 0,
+    "crossProcessImportCount": 0,
+    "tsStrictness": {
+      "strict": false,
+      "noImplicitAny": false,
+      "strictNullChecks": false
+    },
+    "any": {
+      "occurrenceCount": 152,
+      "filesWithAnyCount": 40,
+      "totalTsFiles": 193,
+      "files": [
+        {
+          "file": "renderer/infrastructure/rendering/workers/render.worker.ts",
+          "count": 24
+        },
+        {
+          "file": "renderer/infrastructure/factories/streaming-adapter.factory.ts",
+          "count": 14
+        },
+        {
+          "file": "renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
+          "count": 10
+        },
+        {
+          "file": "renderer/infrastructure/streaming/acquisition/constraint-builder.ts",
+          "count": 9
+        },
+        {
+          "file": "renderer/renderer-app.orchestrator.ts",
+          "count": 7
+        },
+        {
+          "file": "renderer/application/state/app-state.ts",
+          "count": 6
+        },
+        {
+          "file": "renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
+          "count": 6
+        },
+        {
+          "file": "renderer/infrastructure/adapters/devices/device-base.adapter.ts",
+          "count": 5
+        },
+        {
+          "file": "renderer/infrastructure/adapters/streaming/streaming-renderer.interface.ts",
+          "count": 5
+        },
+        {
+          "file": "renderer/infrastructure/factories/streaming-renderer.factory.ts",
+          "count": 5
+        },
+        {
+          "file": "renderer/infrastructure/streaming/acquisition/fallback-strategy.ts",
+          "count": 5
+        },
+        {
+          "file": "main/infrastructure/devices/device.service.ts",
+          "count": 4
+        },
+        {
+          "file": "renderer/application/orchestrators/ui-setup.orchestrator.ts",
+          "count": 4
+        },
+        {
+          "file": "renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts",
+          "count": 4
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
+          "count": 4
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/gpu-worker-manager.ts",
+          "count": 4
+        },
+        {
+          "file": "main/infrastructure/devices/device-lifecycle.service.ts",
+          "count": 3
+        },
+        {
+          "file": "renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts",
+          "count": 3
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/canvas-renderer.ts",
+          "count": 3
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/streaming.service.ts",
+          "count": 3
+        },
+        {
+          "file": "main/index.ts",
+          "count": 2
+        },
+        {
+          "file": "renderer/infrastructure/services/capture/capture.service.ts",
+          "count": 2
+        },
+        {
+          "file": "renderer/infrastructure/services/capture/gpu-recording.service.ts",
+          "count": 2
+        },
+        {
+          "file": "renderer/presentation/effects/ui-effects.class.ts",
+          "count": 2
+        },
+        {
+          "file": "core/base/validate-deps.utils.ts",
+          "count": 1
+        },
+        {
+          "file": "main/infrastructure/devices/device-bridge.service.ts",
+          "count": 1
+        },
+        {
+          "file": "main/infrastructure/transcode/transcode-temp.utils.ts",
+          "count": 1
+        },
+        {
+          "file": "main/infrastructure/transcode/transcode.service.ts",
+          "count": 1
+        },
+        {
+          "file": "main/infrastructure/updates/update.service.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/application/orchestrators/capture.orchestrator.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/infrastructure/rendering/workers/optimization.utils.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/audio-pipeline.service.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/gpu-frame-buffer.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/infrastructure/services/streaming/viewport.service.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/presentation/effects/controls-auto-hide.effect.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/presentation/effects/cursor-auto-hide.effect.ts",
+          "count": 1
+        },
+        {
+          "file": "renderer/presentation/effects/toolbar-auto-hide.effect.ts",
+          "count": 1
+        },
+        {
+          "file": "shared/base/orchestrator.base.d.ts",
+          "count": 1
+        },
+        {
+          "file": "shared/base/service.base.d.ts",
+          "count": 1
+        }
+      ]
+    },
+    "topRuntimeFiles": [
+      {
+        "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
+        "loc": 1271
+      },
+      {
+        "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
+        "loc": 838
+      },
+      {
+        "file": "src/preload/index.js",
+        "loc": 698
+      },
+      {
+        "file": "src/main/infrastructure/devices/device.service.ts",
+        "loc": 533
+      },
+      {
+        "file": "src/renderer/infrastructure/rendering/workers/optimization.utils.ts",
+        "loc": 526
+      },
+      {
+        "file": "src/renderer/presentation/features/notes/notes-panel.component.js",
+        "loc": 514
+      },
+      {
+        "file": "src/renderer/infrastructure/services/streaming/render-pipeline.service.ts",
+        "loc": 483
+      },
+      {
+        "file": "src/renderer/infrastructure/services/streaming/streaming.service.ts",
+        "loc": 445
+      },
+      {
+        "file": "src/main/infrastructure/transcode/transcode.service.ts",
+        "loc": 427
+      },
+      {
+        "file": "src/main/infrastructure/updates/update.service.ts",
+        "loc": 403
+      }
+    ],
+    "boundaryViolationCount": 0
+  }
+}
