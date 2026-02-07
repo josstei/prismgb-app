@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T02:13:35.385Z",
+  "generatedAt": "2026-02-07T03:30:49.261Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -295,12 +295,6 @@
       "file": "src/renderer/application/orchestrators/update.orchestrator.ts",
       "code": "TS7006",
       "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/application/state/app-state.ts",
-      "code": "TS7006",
-      "maxCount": 2,
       "expiresOn": "2026-04-30"
     },
     {
@@ -1321,12 +1315,6 @@
       "file": "src/renderer/presentation/effects/ui-effects.class.ts",
       "code": "TS2722",
       "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/presentation/effects/ui-effects.class.ts",
-      "code": "TS7006",
-      "maxCount": 10,
       "expiresOn": "2026-04-30"
     },
     {

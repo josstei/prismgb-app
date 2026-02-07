@@ -5,8 +5,10 @@
  * Prevents frame drops by throttling submission when the queue is full.
  * Tracks metrics for performance monitoring.
  */
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 export class GpuFrameBuffer {
-  _logger: any;
+  _logger: LoggerLike;
   _capacity: number;
   _queue: Array<{ frame: unknown; enqueueTime: number }>;
   _totalEnqueued: number;
