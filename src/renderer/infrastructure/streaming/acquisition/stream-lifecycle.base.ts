@@ -1,3 +1,5 @@
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 import { IStreamLifecycle } from './acquisition.interface';
 
 type MediaServiceLike = {
@@ -8,7 +10,7 @@ type MediaServiceLike = {
  * Base implementation of stream lifecycle management
  */
 export class BaseStreamLifecycle extends IStreamLifecycle {
-  logger: Record<string, (...args: unknown[]) => void> | null;
+  logger: LoggerLike | null;
   mediaService: MediaServiceLike | null;
   activeStreams: Set<MediaStream>;
 
@@ -16,7 +18,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
    * @param {Object} logger - Optional logger instance
    * @param {Object} mediaService - Optional media service (BrowserMediaAdapter or compatible)
    */
-  constructor(logger = null, mediaService = null) {
+  constructor(logger: LoggerLike | null = null, mediaService: MediaServiceLike | null = null) {
     super();
     this.logger = logger;
     this.mediaService = mediaService;
@@ -159,8 +161,8 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
     }
   }
 
-  _log(level, message, ...args) {
-    if (this.logger && this.logger[level]) {
+  _log(level: keyof LoggerLike, message: string, ...args: unknown[]) {
+    if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }
   }

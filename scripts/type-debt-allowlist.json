@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T03:30:49.261Z",
+  "generatedAt": "2026-02-07T03:37:25.308Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -1218,13 +1218,7 @@
     {
       "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
       "code": "TS7006",
-      "maxCount": 8,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS7019",
-      "maxCount": 1,
+      "maxCount": 6,
       "expiresOn": "2026-04-30"
     },
     {

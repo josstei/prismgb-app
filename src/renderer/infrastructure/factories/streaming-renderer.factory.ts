@@ -10,13 +10,17 @@
  * - Common dependencies reused across adapters
  */
 
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
+type RendererConstructor = new (deps: Record<string, unknown>) => unknown;
+
 export class StreamingRendererFactory {
-  eventBus: any;
-  loggerFactory: any;
-  logger: any;
-  _rendererClasses: Map<string, any>;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  logger: LoggerLike;
+  _rendererClasses: Map<string, RendererConstructor>;
   _commonDependencies: Record<string, unknown>;
-  rendererRegistry: Map<string, any>;
+  rendererRegistry: Map<string, RendererConstructor>;
   metadataRegistry: Map<string, Record<string, unknown>>;
   _initialized: boolean;
 

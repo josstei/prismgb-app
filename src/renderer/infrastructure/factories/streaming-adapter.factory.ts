@@ -16,6 +16,8 @@ import { DeviceDetectionHelper } from '@shared/features/devices/device-detection
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
 type AdapterMetadata = {
   deviceType?: string;
   requiresIPC?: boolean;
@@ -26,14 +28,26 @@ type AdapterMetadata = {
 
 type DependencyBag = Record<string, unknown>;
 
+type AdapterConstructor = new (deps: DependencyBag) => unknown;
+
+interface BrowserMediaServiceLike {
+  enumerateDevices(): Promise<MediaDeviceInfo[]>;
+  getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
+}
+
+interface MediaDeviceLike {
+  label?: string;
+  deviceId?: string;
+}
+
 export class StreamingAdapterFactory {
-  eventBus: any;
-  loggerFactory: any;
-  browserMediaService: any;
-  logger: any;
-  _adapterClasses: Map<string, any>;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  browserMediaService: BrowserMediaServiceLike | null;
+  logger: LoggerLike;
+  _adapterClasses: Map<string, AdapterConstructor>;
   commonDependencies: DependencyBag;
-  adapterRegistry: Map<string, any>;
+  adapterRegistry: Map<string, AdapterConstructor>;
   metadataRegistry: Map<string, AdapterMetadata>;
   initialized: boolean;
 
@@ -44,10 +58,10 @@ export class StreamingAdapterFactory {
    * @param {Map<string, class>} adapterClasses - Map of device type IDs to adapter classes (injected via DI)
    */
   constructor(
-    eventBus: any,
-    loggerFactory: any,
-    browserMediaService: any = null,
-    adapterClasses: Map<string, any> = new Map()
+    eventBus: EventBusLike,
+    loggerFactory: LoggerFactoryLike,
+    browserMediaService: BrowserMediaServiceLike | null = null,
+    adapterClasses: Map<string, AdapterConstructor> = new Map()
   ) {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
@@ -117,7 +131,7 @@ export class StreamingAdapterFactory {
     // Load adapters from registry
     for (const device of devices) {
       try {
-        const AdapterClass = DeviceRegistry.getAdapterClass(device.id);
+        const AdapterClass = DeviceRegistry.getAdapterClass(device.id) as AdapterConstructor | null;
         if (!AdapterClass) {
           this.logger.error(`No adapter class found for device: ${device.id}`);
           continue;
@@ -147,7 +161,7 @@ export class StreamingAdapterFactory {
    * @param {Object} metadata - Adapter metadata
    * @private
    */
-  _register(deviceType: string, AdapterClass: any, metadata: AdapterMetadata = {}) {
+  _register(deviceType: string, AdapterClass: AdapterConstructor, metadata: AdapterMetadata = {}) {
     this.adapterRegistry.set(deviceType, AdapterClass);
     this.metadataRegistry.set(deviceType, {
       deviceType,
@@ -205,7 +219,7 @@ export class StreamingAdapterFactory {
    * Detect device ID from device info
    * Uses unified detection to identify supported devices
    */
-  detectDeviceId(device: any) {
+  detectDeviceId(device: MediaDeviceLike) {
     if (!this.initialized) {
       throw new Error('StreamingAdapterFactory not initialized. Call initialize() first.');
     }
@@ -231,7 +245,7 @@ export class StreamingAdapterFactory {
    * Get adapter for specific device
    * Returns adapter for supported devices only
    */
-  getAdapterForDevice(device: any, dependencies: DependencyBag = {}) {
+  getAdapterForDevice(device: MediaDeviceLike, dependencies: DependencyBag = {}) {
     const deviceId = this.detectDeviceId(device);
     if (!deviceId) {
       throw new Error(`Unsupported device: ${device?.label || 'unknown'}`);
@@ -242,7 +256,7 @@ export class StreamingAdapterFactory {
   /**
    * Register a custom adapter type
    */
-  registerAdapter(deviceType: string, AdapterClass: any, metadata: AdapterMetadata = {}) {
+  registerAdapter(deviceType: string, AdapterClass: AdapterConstructor, metadata: AdapterMetadata = {}) {
     this._register(deviceType, AdapterClass, metadata);
     this.logger.info(`Registered adapter for device type: ${deviceType}`);
   }

@@ -1,3 +1,5 @@
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 import { IConstraintBuilder } from './acquisition.interface';
 
 /**
@@ -13,9 +15,9 @@ import { IConstraintBuilder } from './acquisition.interface';
  * - 'minimal': Just device targeting, no quality settings
  */
 export class ConstraintBuilder extends IConstraintBuilder {
-  logger: Record<string, (...args: unknown[]) => void> | null;
+  logger: LoggerLike | null;
 
-  constructor(logger: any = null) {
+  constructor(logger: LoggerLike | null = null) {
     super();
     this.logger = logger;
   }
@@ -144,7 +146,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
   /**
    * @private
    */
-  _log(level: string, message: string, ...args: any[]) {
+  _log(level: keyof LoggerLike, message: string, ...args: unknown[]) {
     if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }

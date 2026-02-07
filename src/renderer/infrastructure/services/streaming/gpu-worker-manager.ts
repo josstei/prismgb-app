@@ -12,16 +12,20 @@ import {
   createWorkerMessage
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
+import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
+export type WorkerCapabilities = Record<string, unknown>;
+
 export class GpuWorkerManager {
-  _logger: any;
-  _eventBus: any;
+  _logger: LoggerLike;
+  _eventBus: EventBusLike;
   _worker: Worker | null;
   _isReady: boolean;
-  _capabilities: any;
+  _capabilities: WorkerCapabilities | null;
   _canvas: HTMLCanvasElement | null;
   _offscreenCanvas: OffscreenCanvas | null;
   _wasCanvasTransferred: boolean;
-  _messageHandlers: Map<string, (payload: any) => void>;
+  _messageHandlers: Map<string, (payload: Record<string, unknown>) => void>;
   _readyResolve: ((value?: unknown) => void) | null;
   _readyReject: ((error: Error) => void) | null;
   _readyTimeoutId: ReturnType<typeof setTimeout> | null;

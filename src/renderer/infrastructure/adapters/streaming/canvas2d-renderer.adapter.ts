@@ -10,12 +10,28 @@
  * - Handle canvas context state
  */
 
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 import { IStreamingRenderer } from './streaming-renderer.interface';
 
+interface CanvasRendererLike {
+  startRendering(videoElement: HTMLVideoElement, canvasElement: HTMLCanvasElement, isStreamingFn: () => boolean, isHiddenFn: () => boolean): void;
+  stopRendering(videoElement: HTMLVideoElement): void;
+  clearCanvas(canvasElement: HTMLCanvasElement): void;
+  resize(canvasElement: HTMLCanvasElement, width: number, height: number): void;
+  isActive(): boolean;
+  resetCanvasState(): void;
+  cleanup(): void;
+}
+
+interface AppStateLike {
+  readonly isStreaming: boolean;
+}
+
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
-  canvasRenderer: any;
-  appState: any;
-  logger: any;
+  canvasRenderer: CanvasRendererLike;
+  appState: AppStateLike;
+  logger: LoggerLike;
   _canvasElement: HTMLCanvasElement | null;
   _videoElement: HTMLVideoElement | null;
   _isHiddenFn: () => boolean;
