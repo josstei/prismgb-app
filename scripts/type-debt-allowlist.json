@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T02:07:07.906Z",
+  "generatedAt": "2026-02-07T02:13:35.385Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -450,31 +450,49 @@
     {
       "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
       "code": "TS18046",
-      "maxCount": 6,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
-      "code": "TS18047",
-      "maxCount": 126,
+      "maxCount": 5,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
       "code": "TS7005",
-      "maxCount": 17,
+      "maxCount": 13,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
       "code": "TS7006",
-      "maxCount": 45,
+      "maxCount": 4,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
       "code": "TS7034",
       "maxCount": 3,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
+      "code": "TS18047",
+      "maxCount": 126,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
+      "code": "TS7006",
+      "maxCount": 8,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "code": "TS18046",
+      "maxCount": 1,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "code": "TS7006",
+      "maxCount": 34,
       "expiresOn": "2026-04-30"
     },
     {

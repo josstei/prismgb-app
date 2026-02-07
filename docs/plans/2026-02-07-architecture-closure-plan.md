@@ -10,7 +10,7 @@
 3. Phase 2: Completed
 4. Phase 3: Completed
 5. Phase 4: Completed
-6. Phase 5: Pending
+6. Phase 5: Completed
 7. Phase 6: Pending
 8. Phase 7: Pending
 
@@ -500,3 +500,32 @@ Make architecture regressions unmergeable.
    - `npm run architecture:type-debt:report` ✅ (`totalDiagnostics=1485`)
    - `npm run lint` ✅
    - `npm run test:unit -- tests/unit/renderer/infrastructure/di/service-container.types.test.ts` ✅
+
+### Phase 5
+1. Status: Completed
+2. Date: 2026-02-07
+3. Deliverables:
+   - Extracted worker rendering engines from facade:
+     - Added `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts`
+     - Added `src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts`
+     - Reduced `src/renderer/infrastructure/rendering/workers/render.worker.ts` from `1271` LOC to `227` LOC.
+   - Decomposed preload composition root:
+     - Added `src/preload/validators.js`
+     - Added `src/preload/listener-registry.js`
+     - Added `src/preload/apis/device.preload-api.js`
+     - Added `src/preload/apis/window.preload-api.js`
+     - Added `src/preload/apis/update.preload-api.js`
+     - Added `src/preload/apis/transcode.preload-api.js`
+     - Reduced `src/preload/index.js` from `697` LOC to `155` LOC.
+   - Updated strict-debt baselines after refactor path changes:
+     - `scripts/type-debt-allowlist.json`
+     - `artifacts/type-debt-current.json`
+4. Validation:
+   - `npm run typecheck:app` ✅
+   - `npm run typecheck:app:allowlist` ✅
+   - `npm run lint` ✅
+   - `npm run test:unit` ✅
+   - `npm run test:integration` ✅
+   - `npm run build:vite` ✅
+   - `npm run test:smoke` ✅
+   - `npm run architecture:scorecard -- --output /tmp/architecture-scorecard-phase5.json` ✅ (`topRuntimeFiles[0]=838`)

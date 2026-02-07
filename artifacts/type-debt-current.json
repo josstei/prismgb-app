@@ -1,9 +1,9 @@
 {
-  "totalDiagnostics": 1485,
+  "totalDiagnostics": 1482,
   "files": [
     {
-      "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
-      "count": 197
+      "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
+      "count": 134
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/render-pipeline.service.ts",
@@ -50,6 +50,10 @@
       "count": 36
     },
     {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "count": 35
+    },
+    {
       "file": "src/renderer/infrastructure/services/notes/notes.service.ts",
       "count": 34
     },
@@ -68,6 +72,10 @@
     {
       "file": "src/renderer/presentation/bridges/capture-ui.bridge.ts",
       "count": 27
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/render.worker.ts",
+      "count": 25
     },
     {
       "file": "src/renderer/infrastructure/services/capture/capture.service.ts",
@@ -337,7 +345,7 @@
     },
     {
       "code": "7006",
-      "count": 475
+      "count": 476
     },
     {
       "code": "18047",
@@ -377,7 +385,7 @@
     },
     {
       "code": "7005",
-      "count": 18
+      "count": 14
     },
     {
       "code": "2722",
