@@ -41,6 +41,10 @@ type AppWithQuitFlag = typeof app & {
   isQuitting?: boolean;
 };
 
+interface CreateWindowOptions {
+  hidden?: boolean;
+}
+
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
@@ -49,6 +53,7 @@ class WindowService extends BaseService {
   private _enterFullscreenListener: FullscreenListener | null = null;
   private _leaveFullscreenListener: FullscreenListener | null = null;
   private _resizedListener: (() => void) | null = null;
+  private _isHiddenLaunch: boolean = false;
 
   constructor(dependencies: WindowServiceDependencies) {
     super(dependencies, ['loggerFactory'], 'WindowService');
@@ -57,11 +62,13 @@ class WindowService extends BaseService {
   /**
    * Create the main application window
    */
-  createWindow(): BrowserWindow {
+  createWindow(options: CreateWindowOptions = {}): BrowserWindow {
     if (this.mainWindow) {
       this._forceWindowToForeground();
       return this.mainWindow;
     }
+
+    this._isHiddenLaunch = options.hidden ?? false;
 
     this.logger.info('Creating main window');
 
@@ -151,7 +158,11 @@ class WindowService extends BaseService {
     }
 
     this.mainWindow.once('ready-to-show', () => {
-      this._forceWindowToForeground();
+      if (!this._isHiddenLaunch) {
+        this._forceWindowToForeground();
+      } else {
+        this.logger.info('Window created in hidden mode - awaiting tray click');
+      }
     });
 
     this._enterFullscreenListener = () => {
@@ -237,6 +248,7 @@ class WindowService extends BaseService {
    * Show the window if it exists
    */
   showWindow(): void {
+    this._isHiddenLaunch = false;
     if (this.mainWindow) {
       this._forceWindowToForeground();
     } else {
