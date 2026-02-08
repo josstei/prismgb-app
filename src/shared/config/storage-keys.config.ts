@@ -12,7 +12,8 @@ export const SettingsStorageKeys = {
   FULLSCREEN_ON_STARTUP: 'fullscreenOnStartup',
   MINIMALIST_FULLSCREEN: 'minimalistFullscreen',
   AUTO_STREAM_ON_CONNECT: 'autoStreamOnConnect',
-  RECORDING_FORMAT: 'recordingFormat'
+  RECORDING_FORMAT: 'recordingFormat',
+  LAUNCH_ON_LOGIN: 'launchOnLogin'
 };
 
 export const NotesStorageKeys = {
@@ -33,5 +34,6 @@ export const PROTECTED_STORAGE_KEYS = [
   SettingsStorageKeys.FULLSCREEN_ON_STARTUP,
   SettingsStorageKeys.MINIMALIST_FULLSCREEN,
   SettingsStorageKeys.AUTO_STREAM_ON_CONNECT,
-  SettingsStorageKeys.RECORDING_FORMAT
+  SettingsStorageKeys.RECORDING_FORMAT,
+  SettingsStorageKeys.LAUNCH_ON_LOGIN
 ];

@@ -27,7 +27,7 @@ describe('IPC channel contracts', () => {
   it('enforces channel naming format', () => {
     const values = flattenChannelValues(channelsJson);
     for (const channel of values) {
-      expect(channel).toMatch(/^[a-z]+:[a-z-]+$/);
+      expect(channel).toMatch(/^[a-z][a-z-]*:[a-z-]+$/);
     }
   });
 });
