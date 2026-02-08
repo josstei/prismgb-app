@@ -2,6 +2,8 @@ import type {
   DeviceInfoPayload,
   DeviceStatusPayload,
   GpuPolicyPayload,
+  LoginItemGetResponse,
+  LoginItemSetResponse,
   ProcessMetricsResponse,
   ShellOpenExternalResponse,
   TranscodeCancelledPayload,
@@ -85,6 +87,11 @@ interface GpuAPI {
   getPolicy(): Promise<GpuPolicyPayload>;
 }
 
+interface LoginItemAPI {
+  get(): Promise<LoginItemGetResponse>;
+  set(enabled: boolean): Promise<LoginItemSetResponse>;
+}
+
 declare global {
   interface Window {
     deviceAPI?: DeviceAPI;
@@ -94,6 +101,7 @@ declare global {
     shellAPI?: ShellAPI;
     metricsAPI?: MetricsAPI;
     gpuAPI?: GpuAPI;
+    loginItemAPI?: LoginItemAPI;
     __app?: () => unknown;
   }
 
@@ -104,4 +112,5 @@ declare global {
   var shellAPI: ShellAPI | undefined;
   var metricsAPI: MetricsAPI | undefined;
   var gpuAPI: GpuAPI | undefined;
+  var loginItemAPI: LoginItemAPI | undefined;
 }

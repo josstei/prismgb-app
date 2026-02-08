@@ -56,6 +56,7 @@ describe('Preload API contract', () => {
       updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError', 'removeListeners'],
       metricsAPI: ['getProcessMetrics'],
       gpuAPI: ['getPolicy'],
+      loginItemAPI: ['get', 'set'],
       transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled', 'removeListeners']
     };
 

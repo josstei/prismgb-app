@@ -82,6 +82,24 @@ const gpuAPI = {
   }
 };
 
+const loginItemAPI = {
+  get: async () => {
+    try {
+      return await ipcRenderer.invoke(IPC_CHANNELS.LOGIN_ITEM.GET);
+    } catch (error) {
+      console.warn('loginItemAPI.get: IPC error:', error);
+      return false;
+    }
+  },
+  set: (enabled) => {
+    if (typeof enabled !== 'boolean') {
+      console.warn('loginItemAPI.set: Invalid parameter - expected boolean');
+      return Promise.resolve({ success: false, error: 'Invalid parameter' });
+    }
+    return ipcRenderer.invoke(IPC_CHANNELS.LOGIN_ITEM.SET, enabled);
+  }
+};
+
 const transcodeAPI = createTranscodePreloadAPI({
   ipcRenderer,
   channels: IPC_CHANNELS,
@@ -141,6 +159,11 @@ contextBridge.exposeInMainWorld('metricsAPI', {
 
 contextBridge.exposeInMainWorld('gpuAPI', {
   getPolicy: gpuAPI.getPolicy
+});
+
+contextBridge.exposeInMainWorld('loginItemAPI', {
+  get: loginItemAPI.get,
+  set: loginItemAPI.set
 });
 
 contextBridge.exposeInMainWorld('transcodeAPI', {
