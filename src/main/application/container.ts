@@ -20,6 +20,7 @@ import {
 } from '@main/infrastructure/devices/index.js';
 import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
 import { TranscodeService } from '@main/infrastructure/transcode/index.js';
+import { LoginItemService } from '@main/infrastructure/platform/index.js';
 import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
 import type { MainLogger } from '@main/infrastructure/logging/index.js';
 
@@ -49,6 +50,7 @@ export interface ContainerDependencies {
   updateService: UpdateService;
   updateBridgeService: UpdateBridge;
   transcodeService: TranscodeService;
+  loginItemService: LoginItemService;
 }
 
 /**
@@ -85,7 +87,8 @@ async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixCont
   container.register({
     windowService: asClass(WindowService).singleton(),
     trayService: asClass(TrayService).singleton(),
-    ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton()
+    ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton(),
+    loginItemService: asClass(LoginItemService).singleton()
   });
 
   // Register device components
