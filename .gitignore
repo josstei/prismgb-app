@@ -41,6 +41,7 @@ Thumbs.db
 .claude/
 CLAUDE.md
 GEMINI.md
+AGENT.md
 
 # Git worktrees
 .worktrees/
@@ -54,6 +55,7 @@ screenshots/
 # Test coverage
 tests/coverage/
 .vitest/
+artifacts/
 
 # Playwright E2E test artifacts
 tests/e2e/test-results/

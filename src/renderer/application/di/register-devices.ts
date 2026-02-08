@@ -12,7 +12,7 @@ export function registerDevices(container: RegistrableContainer<RendererContaine
   container.registerSingleton(
     'adapterFactory',
     function (eventBus, loggerFactory, browserMediaService) {
-      const adapterClasses = new Map<string, unknown>([
+      const adapterClasses = new Map([
         ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
       const adapterFactory = new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);

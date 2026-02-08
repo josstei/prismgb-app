@@ -328,7 +328,7 @@ class UpdateService extends BaseService {
     }
 
     this.logger.info('Installing update and restarting...');
-    (app as any).isQuitting = true;
+    app.isQuitting = true;
     autoUpdater.quitAndInstall(false, true);
   }
 

@@ -1,3 +1,6 @@
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+
 import { IConstraintBuilder } from './acquisition.interface';
 
 /**
@@ -13,9 +16,9 @@ import { IConstraintBuilder } from './acquisition.interface';
  * - 'minimal': Just device targeting, no quality settings
  */
 export class ConstraintBuilder extends IConstraintBuilder {
-  logger: Record<string, (...args: unknown[]) => void> | null;
+  logger: LoggerLike | null;
 
-  constructor(logger: any = null) {
+  constructor(logger: LoggerLike | null = null) {
     super();
     this.logger = logger;
   }
@@ -29,14 +32,14 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * @param {boolean} options.video - Enable video (default: true if profile has video)
    * @returns {MediaStreamConstraints}
    */
-  build(context: any, detailLevel = 'full', options: any = {}) {
+  build(context: AcquisitionContextLike, detailLevel = 'full', options: AcquisitionOptions = {}) {
     const videoDeviceConstraint = context.getDeviceConstraint();
     const audioDeviceConstraint = options.audioDeviceId
       ? { exact: options.audioDeviceId }
       : context.getAudioDeviceConstraint();
     const profile = context.profile;
 
-    const constraints = {
+    const constraints: { audio: boolean | Record<string, unknown>; video: boolean | Record<string, unknown> } = {
       audio: false,
       video: false
     };
@@ -62,7 +65,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Build audio constraints with device targeting always included
    * @private
    */
-  _buildAudio(audioConfig: any, deviceConstraint: any, detailLevel: string) {
+  _buildAudio(audioConfig: Record<string, unknown>, deviceConstraint: { exact?: string; groupId?: string }, detailLevel: string) {
     // Device targeting is ALWAYS included
     // Handle groupId separately - it should be at top level, not nested under deviceId
     // { deviceId: { groupId: xxx } } is INVALID per MediaTrackConstraints spec
@@ -99,7 +102,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Build video constraints with device targeting always included
    * @private
    */
-  _buildVideo(videoConfig: any, deviceConstraint: any, detailLevel: string) {
+  _buildVideo(videoConfig: Record<string, unknown>, deviceConstraint: { exact: string }, detailLevel: string) {
     // Device targeting is ALWAYS included
     const base = { deviceId: deviceConstraint };
 
@@ -131,12 +134,13 @@ export class ConstraintBuilder extends IConstraintBuilder {
    * Handles both { exact: X }, { ideal: X }, and plain X formats
    * @private
    */
-  _extractIdeal(value: any) {
+  _extractIdeal(value: unknown) {
     if (value === null || value === undefined) {
       return undefined;
     }
     if (typeof value === 'object') {
-      return value.ideal ?? value.exact ?? value;
+      const obj = value as Record<string, unknown>;
+      return obj.ideal ?? obj.exact ?? value;
     }
     return value;
   }
@@ -144,7 +148,7 @@ export class ConstraintBuilder extends IConstraintBuilder {
   /**
    * @private
    */
-  _log(level: string, message: string, ...args: any[]) {
+  _log(level: keyof LoggerLike, message: string, ...args: unknown[]) {
     if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }

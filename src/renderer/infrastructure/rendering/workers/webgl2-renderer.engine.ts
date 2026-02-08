@@ -5,7 +5,9 @@ import colorElevationFragGLSL from '../shaders/webgl2/color-elevation.frag.glsl?
 import crtLcdFragGLSL from '../shaders/webgl2/crt-lcd.frag.glsl?raw';
 import { ShaderProgram } from './optimization.utils.js';
 
-function isCrtEnabled(uniforms) {
+import type { RenderConfig, RenderUniforms } from './engine.types';
+
+function isCrtEnabled(uniforms: RenderUniforms) {
   return uniforms.crt.scanlineStrength > 0
     || uniforms.crt.pixelMaskStrength > 0
     || uniforms.crt.bloomStrength > 0
@@ -21,7 +23,7 @@ class WebGL2Renderer {
   framebuffers: WebGLFramebuffer[];
   vao: WebGLVertexArrayObject | null;
   canvas: OffscreenCanvas | null;
-  config: any;
+  config: RenderConfig | null;
 
   constructor() {
     this.gl = null;
@@ -42,7 +44,7 @@ class WebGL2Renderer {
     this.config = null;
   }
 
-  async initialize(offscreenCanvas, config) {
+  async initialize(offscreenCanvas: OffscreenCanvas, config: RenderConfig) {
     this.config = config;
     this.canvas = offscreenCanvas;
 
@@ -85,7 +87,7 @@ class WebGL2Renderer {
     };
   }
 
-  _createResources(config) {
+  _createResources(config: RenderConfig) {
     const gl = this.gl;
     const { nativeWidth, nativeHeight, targetWidth, targetHeight } = config;
 
@@ -120,7 +122,7 @@ class WebGL2Renderer {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  uploadFrame(imageBitmap) {
+  uploadFrame(imageBitmap: ImageBitmap) {
     const gl = this.gl;
 
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
@@ -128,7 +130,7 @@ class WebGL2Renderer {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  render(uniforms) {
+  render(uniforms: RenderUniforms) {
     const gl = this.gl;
     const { nativeWidth, nativeHeight, targetWidth, targetHeight, scaleFactor } = this.config;
     const canvas = this.canvas;
@@ -227,7 +229,7 @@ class WebGL2Renderer {
     gl.bindVertexArray(null);
   }
 
-  resize(width, height) {
+  resize(width: number, height: number) {
     const gl = this.gl;
     this.config.targetWidth = width;
     this.config.targetHeight = height;
@@ -252,7 +254,7 @@ class WebGL2Renderer {
     this.framebuffers.forEach(fb => gl.deleteFramebuffer(fb));
 
     // Delete shader programs (using ShaderProgram.destroy())
-    (Object.values(this.programs) as any[]).forEach((prog) => prog?.destroy?.());
+    Object.values(this.programs).forEach((prog) => prog?.destroy?.());
 
     // Delete VAO
     if (this.vao) gl.deleteVertexArray(this.vao);

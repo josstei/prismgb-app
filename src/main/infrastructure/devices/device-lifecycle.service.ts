@@ -15,7 +15,7 @@ const { DEVICE_LAUNCH_DELAY } = appConfig;
 
 interface DeviceStatus {
   connected: boolean;
-  device?: any;
+  device?: Record<string, unknown> | null;
 }
 
 interface DeviceLifecycleServiceDependencies {

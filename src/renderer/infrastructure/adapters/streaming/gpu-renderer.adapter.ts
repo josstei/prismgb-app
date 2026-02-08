@@ -11,13 +11,37 @@
  * - Track active state
  */
 
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 import { IStreamingRenderer } from './streaming-renderer.interface';
 
+interface GpuRendererServiceLike {
+  initialize(canvasElement: HTMLCanvasElement, nativeResolution: { width: number; height: number }): Promise<boolean>;
+  renderFrame(videoElement: HTMLVideoElement): Promise<void>;
+  resize(width: number, height: number): void;
+  isActive(): boolean;
+  getPresetId(): string | null;
+  setPreset(presetId: string): void;
+  isCanvasTransferred(): boolean;
+  releaseGpuResources(): void;
+  terminateAndReset(emitCanvasExpired: boolean): void;
+  cleanup(): void;
+}
+
+interface GpuRenderLoopServiceLike {
+  start(config: { videoElement: HTMLVideoElement; renderFrame: () => Promise<void>; shouldContinue: () => boolean }): void;
+  stop(videoElement: HTMLVideoElement): void;
+}
+
+interface AppStateLike {
+  readonly isStreaming: boolean;
+}
+
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
-  gpuRendererService: any;
-  gpuRenderLoopService: any;
-  appState: any;
-  logger: any;
+  gpuRendererService: GpuRendererServiceLike;
+  gpuRenderLoopService: GpuRenderLoopServiceLike;
+  appState: AppStateLike;
+  logger: LoggerLike;
   _videoElement: HTMLVideoElement | null;
   _isHiddenFn: () => boolean;
   _renderLoopActive: boolean;

@@ -6,11 +6,22 @@
  * ensuring device ID cannot be accidentally lost during constraint simplification
  * or fallback operations.
  */
+interface MediaProfile {
+  audio?: Record<string, unknown>;
+  video?: Record<string, unknown>;
+}
+
+interface AcquisitionContextParams {
+  deviceId: string;
+  groupId?: string | null;
+  profile?: MediaProfile;
+}
+
 export class AcquisitionContext {
-  #deviceId;
-  #groupId;
-  #profile;
-  #createdAt;
+  #deviceId: string;
+  #groupId: string | null;
+  #profile: Readonly<MediaProfile>;
+  #createdAt: number;
 
   /**
    * Create an acquisition context
@@ -19,7 +30,7 @@ export class AcquisitionContext {
    * @param {string|null} params.groupId - Optional group ID for device grouping
    * @param {Object} params.profile - Device profile with audio/video configurations
    */
-  constructor({ deviceId, groupId = null, profile = {} }) {
+  constructor({ deviceId, groupId = null, profile = {} }: AcquisitionContextParams) {
     if (!deviceId) {
       throw new Error('AcquisitionContext requires deviceId');
     }

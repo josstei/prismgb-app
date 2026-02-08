@@ -12,10 +12,9 @@ import {
   UniformTracker
 } from './optimization.utils.js';
 
-const WebGPUTextureUsage = (globalThis as any).GPUTextureUsage;
-const WebGPUBufferUsage = (globalThis as any).GPUBufferUsage;
+import type { RenderConfig, RenderUniforms, AdapterInfo } from './engine.types';
 
-function isCrtEnabled(uniforms) {
+function isCrtEnabled(uniforms: RenderUniforms) {
   return uniforms.crt.scanlineStrength > 0
     || uniforms.crt.pixelMaskStrength > 0
     || uniforms.crt.bloomStrength > 0
@@ -24,21 +23,21 @@ function isCrtEnabled(uniforms) {
 }
 
 class WebGPURenderer {
-  device: any;
-  context: any;
-  canvasFormat: any;
-  adapterInfo: any;
-  shaderModules: Record<string, any>;
-  pipelines: Record<string, any>;
-  _crtLcdBindGroupLayout: any;
-  sourceTexture: any;
-  intermediateTextures: any[];
-  intermediateTextureViews: any[];
-  nearestSampler: any;
-  linearSampler: any;
-  uniformBuffers: Record<string, any>;
-  config: any;
-  currentPreset: any;
+  device: GPUDevice | null;
+  context: GPUCanvasContext | null;
+  canvasFormat: string | null;
+  adapterInfo: AdapterInfo | null;
+  shaderModules: Record<string, GPUShaderModule>;
+  pipelines: Record<string, GPURenderPipeline>;
+  _crtLcdBindGroupLayout: GPUBindGroupLayout | null;
+  sourceTexture: GPUTexture | null;
+  intermediateTextures: GPUTexture[];
+  intermediateTextureViews: GPUTextureView[];
+  nearestSampler: GPUSampler | null;
+  linearSampler: GPUSampler | null;
+  uniformBuffers: Record<string, GPUBuffer>;
+  config: RenderConfig | null;
+  currentPreset: string | null;
   hasError: boolean;
   errorMessage: string | null;
   bindGroupCache: BindGroupCache;
@@ -86,10 +85,10 @@ class WebGPURenderer {
     this.uniformTracker = new UniformTracker();
   }
 
-  async initialize(offscreenCanvas, config) {
+  async initialize(offscreenCanvas: OffscreenCanvas, config: RenderConfig) {
     this.config = config;
 
-    const gpu = (navigator as any).gpu;
+    const gpu = (navigator as unknown as { gpu?: GPU }).gpu;
     if (!gpu) {
       throw new Error('WebGPU not available');
     }
@@ -149,7 +148,7 @@ class WebGPURenderer {
 
   async _createShaderModules() {
     // Create shader modules and check for compilation errors
-    const createAndValidateShader = async (label, code) => {
+    const createAndValidateShader = async (label: string, code: string) => {
       const module = this.device.createShaderModule({
         label,
         code
@@ -193,7 +192,7 @@ class WebGPURenderer {
     });
   }
 
-  _createResources(config) {
+  _createResources(config: RenderConfig) {
     const { nativeWidth, nativeHeight, targetWidth, targetHeight } = config;
 
     // Source texture (160×144) - receives video frames
@@ -202,9 +201,9 @@ class WebGPURenderer {
       size: [nativeWidth, nativeHeight],
       format: 'rgba8unorm',
       usage:
-        WebGPUTextureUsage.TEXTURE_BINDING |
-        WebGPUTextureUsage.COPY_DST |
-        WebGPUTextureUsage.RENDER_ATTACHMENT
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT
     });
 
     // Intermediate textures for multi-pass rendering
@@ -217,8 +216,8 @@ class WebGPURenderer {
         size: [targetWidth, targetHeight],
         format: 'rgba8unorm',
         usage:
-          WebGPUTextureUsage.TEXTURE_BINDING |
-          WebGPUTextureUsage.RENDER_ATTACHMENT
+          GPUTextureUsage.TEXTURE_BINDING |
+          GPUTextureUsage.RENDER_ATTACHMENT
       });
 
       this.intermediateTextures.push(texture);
@@ -230,22 +229,22 @@ class WebGPURenderer {
       upscale: this.device.createBuffer({
         label: 'Upscale Uniforms',
         size: 32, // 2×vec2 + 2×f32 = 24, aligned to 32
-        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       }),
       unsharp: this.device.createBuffer({
         label: 'Unsharp Uniforms',
         size: 16, // vec2 + 2×f32 = 16
-        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       }),
       color: this.device.createBuffer({
         label: 'Color Uniforms',
         size: 32, // 5×f32 + padding = 32
-        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       }),
       crt: this.device.createBuffer({
         label: 'CRT Uniforms',
         size: 32, // vec2 + 6×f32 = 32
-        usage: WebGPUBufferUsage.UNIFORM | WebGPUBufferUsage.COPY_DST
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       })
     };
   }
@@ -331,7 +330,7 @@ class WebGPURenderer {
     this._crtLcdBindGroupLayout = this.pipelines.crtLcd.getBindGroupLayout(0);
   }
 
-  uploadFrame(imageBitmap) {
+  uploadFrame(imageBitmap: ImageBitmap) {
     // Copy ImageBitmap to source texture
     // flipY: true ensures consistent orientation across WebGL2/WebGPU coordinate systems
     this.device.queue.copyExternalImageToTexture(
@@ -341,7 +340,7 @@ class WebGPURenderer {
     );
   }
 
-  render(uniforms) {
+  render(uniforms: RenderUniforms) {
     // Stop rendering if there's a GPU error
     if (this.hasError) {
       return;
@@ -423,12 +422,12 @@ class WebGPURenderer {
     } catch (error) {
       // GPU error occurred - stop rendering to prevent error spam
       this.hasError = true;
-      this.errorMessage = `Render error: ${error.message}`;
+      this.errorMessage = `Render error: ${(error as Error).message}`;
       this._postError(this.errorMessage, 'RENDER_ERROR');
     }
   }
 
-  _postError(message, code) {
+  _postError(message: string, code: string) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
       message,
       code,
@@ -436,7 +435,7 @@ class WebGPURenderer {
     }));
   }
 
-  _buildAdapterInfo(adapter) {
+  _buildAdapterInfo(adapter: GPUAdapter): AdapterInfo | null {
     if (!adapter) return null;
 
     try {
@@ -454,7 +453,7 @@ class WebGPURenderer {
     }
   }
 
-  _getIntermediateTextureView(texture) {
+  _getIntermediateTextureView(texture: GPUTexture) {
     const index = this.intermediateTextures.indexOf(texture);
     if (index === -1) {
       return texture.createView();
@@ -467,7 +466,7 @@ class WebGPURenderer {
     return this.intermediateTextureViews[index];
   }
 
-  _renderPass(commandEncoder, pipeline, inputTexture, outputTexture, uniformBuffer, sampler) {
+  _renderPass(commandEncoder: GPUCommandEncoder, pipeline: GPURenderPipeline, inputTexture: GPUTexture, outputTexture: GPUTexture, uniformBuffer: GPUBuffer, sampler: GPUSampler) {
     // Use cached bind group to avoid per-frame GPU driver calls
     const bindGroup = this.bindGroupCache.getOrCreate(
       this.device,
@@ -492,7 +491,7 @@ class WebGPURenderer {
     passEncoder.end();
   }
 
-  _renderPassToCanvas(commandEncoder, pipeline, inputTexture, canvasTexture, uniformBuffer, sampler) {
+  _renderPassToCanvas(commandEncoder: GPUCommandEncoder, pipeline: GPURenderPipeline, inputTexture: GPUTexture, canvasTexture: GPUTexture, uniformBuffer: GPUBuffer, sampler: GPUSampler) {
     // Note: Canvas texture changes each frame (swapchain), so bind group cannot be cached
     // We still need to create a new bind group each frame for the final pass
     // But we use the cached layout and intermediate texture view to minimize per-frame allocations
@@ -524,7 +523,7 @@ class WebGPURenderer {
    * Copy intermediate texture to canvas without CRT effects
    * Uses the CRT pipeline with zeroed uniforms for format conversion
    */
-  _copyToCanvas(commandEncoder, inputTexture, canvasTexture) {
+  _copyToCanvas(commandEncoder: GPUCommandEncoder, inputTexture: GPUTexture, canvasTexture: GPUTexture) {
     // Use CRT pipeline but with zero-effect uniforms for passthrough
     // This is needed because intermediate textures are rgba8unorm but canvas may be bgra8unorm
     // Use cached layout and intermediate texture view to minimize per-frame allocations
@@ -552,7 +551,7 @@ class WebGPURenderer {
     passEncoder.end();
   }
 
-  _updateUniforms(uniforms) {
+  _updateUniforms(uniforms: RenderUniforms) {
     const { nativeWidth, nativeHeight, targetWidth, targetHeight, scaleFactor } = this.config;
 
     // Upscale uniforms - use pooled array and track changes
@@ -608,7 +607,7 @@ class WebGPURenderer {
     }
   }
 
-  resize(width, height) {
+  resize(width: number, height: number) {
     this.config.targetWidth = width;
     this.config.targetHeight = height;
 
@@ -624,8 +623,8 @@ class WebGPURenderer {
           size: [width, height],
           format: 'rgba8unorm',
           usage:
-            WebGPUTextureUsage.TEXTURE_BINDING |
-            WebGPUTextureUsage.RENDER_ATTACHMENT
+            GPUTextureUsage.TEXTURE_BINDING |
+            GPUTextureUsage.RENDER_ATTACHMENT
         })
       );
     }
@@ -649,7 +648,7 @@ class WebGPURenderer {
     this.intermediateTextureViews = [];
 
     // Destroy buffers
-    (Object.values(this.uniformBuffers) as any[]).forEach((buf) => buf?.destroy?.());
+    Object.values(this.uniformBuffers).forEach((buf) => buf?.destroy?.());
 
     // Destroy device
     this.device?.destroy();

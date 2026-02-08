@@ -7,8 +7,8 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "anyOccurrenceCountMax": 142,
-    "topRuntimeFileLocMax": 900
+    "anyOccurrenceCountMax": 23,
+    "topRuntimeFileLocMax": 700
   },
   "nextReleaseTargets": {
     "strict": true,

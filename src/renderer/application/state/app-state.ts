@@ -8,16 +8,28 @@
 
 import { EventChannels } from '@shared/events/event-channels.js';
 
+import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
+interface StreamingServiceLike {
+  readonly isStreaming: boolean;
+  readonly currentCapabilities: unknown;
+  getStream(): MediaStream | null;
+}
+
+interface DeviceServiceLike {
+  readonly isConnected: boolean;
+}
+
 type AppStateDependencies = {
-  streamingService?: any;
-  deviceService?: any;
-  eventBus?: any;
+  streamingService?: StreamingServiceLike;
+  deviceService?: DeviceServiceLike;
+  eventBus?: EventBusLike;
 };
 
 class AppState {
-  streamingService: any;
-  deviceService: any;
-  eventBus: any;
+  streamingService: StreamingServiceLike | undefined;
+  deviceService: DeviceServiceLike | undefined;
+  eventBus: EventBusLike | undefined;
   isCinematicModeEnabled: boolean;
   _streamCache: MediaStream | null;
   _capabilitiesCache: unknown;
@@ -59,13 +71,14 @@ class AppState {
    * @private
    */
   _setupEventSubscriptions() {
-    const streamStartedUnsub = this.eventBus.subscribe(EventChannels.STREAM.STARTED, (data) => {
+    const streamStartedUnsub = this.eventBus!.subscribe(EventChannels.STREAM.STARTED, (...args: unknown[]) => {
+      const data = args[0] as { stream: MediaStream; capabilities: unknown };
       this._streamCache = data.stream;
       this._capabilitiesCache = data.capabilities;
     });
     this._subscriptions.push(streamStartedUnsub);
 
-    const streamStoppedUnsub = this.eventBus.subscribe(EventChannels.STREAM.STOPPED, () => {
+    const streamStoppedUnsub = this.eventBus!.subscribe(EventChannels.STREAM.STOPPED, () => {
       this._streamCache = null;
       this._capabilitiesCache = null;
     });
@@ -114,7 +127,7 @@ class AppState {
    * Set cinematic mode state
    * @param {boolean} enabled - Whether cinematic mode is enabled
    */
-  setCinematicMode(enabled) {
+  setCinematicMode(enabled: boolean) {
     this.isCinematicModeEnabled = enabled;
   }
 

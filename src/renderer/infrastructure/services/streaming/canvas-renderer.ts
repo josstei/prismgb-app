@@ -22,8 +22,10 @@ type AnimationCacheLike = {
   cancelAllAnimations: () => void;
 };
 
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
 export class StreamingCanvasRenderer {
-  logger: any;
+  logger: LoggerLike;
   animationCache: AnimationCacheLike;
   _cachedContext: CanvasRenderingContext2D | null;
   _cachedCanvas: HTMLCanvasElement | null;

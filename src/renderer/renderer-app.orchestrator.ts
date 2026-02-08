@@ -200,7 +200,7 @@ class RendererAppOrchestrator {
     });
 
     // Wire up elements to UIEffects after UIController creates them
-    uiEffects.elements = uiController.elements;
+    uiEffects.elements = uiController.elements as Record<string, HTMLElement | null>;
 
     // Initialize component registry with elements
     uiController.initializeComponents();

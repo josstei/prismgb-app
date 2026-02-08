@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-02-07T02:13:35.385Z",
+  "generatedAt": "2026-02-07T04:30:11.540Z",
   "defaultExpiresOn": "2026-04-30",
   "entries": [
     {
@@ -298,12 +298,6 @@
       "expiresOn": "2026-04-30"
     },
     {
-      "file": "src/renderer/application/state/app-state.ts",
-      "code": "TS7006",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
       "file": "src/renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
       "code": "TS2322",
       "maxCount": 1,
@@ -311,32 +305,14 @@
     },
     {
       "file": "src/renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts",
-      "code": "TS7006",
-      "maxCount": 6,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
-      "code": "TS2322",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
-      "code": "TS2416",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
       "code": "TS7006",
       "maxCount": 4,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/adapters/devices/device-base.adapter.ts",
-      "code": "TS7019",
-      "maxCount": 1,
+      "code": "TS7006",
+      "maxCount": 2,
       "expiresOn": "2026-04-30"
     },
     {
@@ -347,12 +323,6 @@
     },
     {
       "file": "src/renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts",
-      "code": "TS7006",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts",
       "code": "TS7006",
       "maxCount": 1,
       "expiresOn": "2026-04-30"
@@ -479,20 +449,38 @@
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
-      "code": "TS7006",
-      "maxCount": 8,
+      "code": "TS2339",
+      "maxCount": 5,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts",
+      "code": "TS2531",
+      "maxCount": 2,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
-      "code": "TS18046",
-      "maxCount": 1,
+      "code": "TS2322",
+      "maxCount": 7,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
-      "code": "TS7006",
-      "maxCount": 34,
+      "code": "TS2339",
+      "maxCount": 5,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "code": "TS2345",
+      "maxCount": 4,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts",
+      "code": "TS2531",
+      "maxCount": 28,
       "expiresOn": "2026-04-30"
     },
     {
@@ -941,12 +929,6 @@
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
-      "code": "TS2339",
-      "maxCount": 8,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2345",
       "maxCount": 3,
       "expiresOn": "2026-04-30"
@@ -954,25 +936,25 @@
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2349",
-      "maxCount": 6,
+      "maxCount": 3,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2571",
-      "maxCount": 34,
+      "maxCount": 48,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS2769",
-      "maxCount": 7,
+      "maxCount": 3,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/streaming/gpu-renderer.service.ts",
       "code": "TS7006",
-      "maxCount": 14,
+      "maxCount": 13,
       "expiresOn": "2026-04-30"
     },
     {
@@ -1168,72 +1150,6 @@
       "expiresOn": "2026-04-30"
     },
     {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS2339",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS7008",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition-context.ts",
-      "code": "TS7031",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.interface.ts",
-      "code": "TS7006",
-      "maxCount": 5,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
-      "code": "TS2339",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts",
-      "code": "TS2345",
-      "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2339",
-      "maxCount": 2,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS2416",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS7006",
-      "maxCount": 8,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts",
-      "code": "TS7019",
-      "maxCount": 1,
-      "expiresOn": "2026-04-30"
-    },
-    {
       "file": "src/renderer/presentation/bridges/capture-ui.bridge.ts",
       "code": "TS2571",
       "maxCount": 19,
@@ -1321,12 +1237,6 @@
       "file": "src/renderer/presentation/effects/ui-effects.class.ts",
       "code": "TS2722",
       "maxCount": 3,
-      "expiresOn": "2026-04-30"
-    },
-    {
-      "file": "src/renderer/presentation/effects/ui-effects.class.ts",
-      "code": "TS7006",
-      "maxCount": 10,
       "expiresOn": "2026-04-30"
     },
     {

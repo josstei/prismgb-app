@@ -34,34 +34,47 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       reportsDirectory: './tests/coverage',
       all: true,
-      include: ['src/**/*.js'],
+      include: ['src/**/*.{js,ts}'],
       exclude: [
         'node_modules/**',
         'dist/**',
         'build/**',
-        '**/*.test.js',
-        '**/*.spec.js',
-        '**/index.js', // Entry points
+        '**/*.test.{js,ts}',
+        '**/*.spec.{js,ts}',
+        '**/index.{js,ts}', // Entry points
         'scripts/**',
         'assets/**',
         // Main process files require Electron APIs that can't be tested with vitest/happy-dom
         'src/main/**',
+        // Preload scripts require Electron contextBridge/ipcRenderer APIs
+        'src/preload/**',
         // Auto-update feature requires Electron autoUpdater API
         'src/renderer/infrastructure/services/updates/**',
         // Web Worker files run in Worker context, not testable in vitest
-        'src/**/workers/*.js',
-        // GPU rendering requires WebGPU/WebGL APIs not available in vitest
-        'src/**/rendering/gpu/*.js',
+        'src/**/workers/*.{js,ts}',
+        // GPU/Canvas/WebGPU APIs not available in vitest
+        'src/**/rendering/gpu/*.{js,ts}',
+        'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
+        'src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts',
+        'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
+        'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
+        'src/**/gpu-render-loop.service.{js,ts}',
         // Audio warmup requires Web Audio API not available in vitest
-        'src/**/audio/*.js',
+        'src/**/audio/*.{js,ts}',
         // Canvas lifecycle requires complex DOM/Canvas API interactions
-        'src/**/canvas-lifecycle.service.js',
+        'src/**/canvas-lifecycle.service.{js,ts}',
         // UI templates use Vite ?raw imports for SVGs not available in vitest
-        'src/renderer/presentation/shell/*.js',
-        'src/renderer/presentation/icons/*.js',
-        'src/renderer/presentation/features/**/*.template.js',
-        // Interface files are abstract base classes (throw stubs) not meant to be tested
-        'src/shared/interfaces/*.interface.js',
+        'src/renderer/presentation/shell/*.{js,ts}',
+        'src/renderer/presentation/icons/*.{js,ts}',
+        'src/renderer/presentation/features/**/*.template.{js,ts}',
+        // Interface and type-only files (abstract base classes, contracts, type definitions)
+        'src/shared/interfaces/**',
+        'src/shared/ipc/*.contract.ts',
+        'src/**/*.interface.{js,ts}',
+        'src/**/*.type.ts',
+        'src/**/*.types.ts',
+        // Type declaration files
+        'src/**/*.d.ts',
         // JSON configuration files
         '**/*.json'
       ],

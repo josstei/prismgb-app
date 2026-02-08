@@ -1,10 +1,27 @@
 import { DeviceAwareFallbackStrategy } from './fallback-strategy';
 import { formatErrorLabel } from '@shared/lib/errors.utils.js';
 
+import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
+interface ConstraintBuilderLike {
+  build(context: AcquisitionContextLike, detailLevel: string, options?: Record<string, unknown>): MediaStreamConstraints;
+}
+
+interface StreamLifecycleLike {
+  acquireStream(constraints: MediaStreamConstraints, options?: Record<string, unknown>): Promise<MediaStream>;
+}
+
+interface AcquisitionResult {
+  stream: MediaStream;
+  strategy: string;
+  context: AcquisitionContextLike;
+}
+
 type StreamAcquisitionDependencies = {
-  constraintBuilder?: any;
-  streamLifecycle?: any;
-  logger?: any;
+  constraintBuilder?: ConstraintBuilderLike;
+  streamLifecycle?: StreamLifecycleLike;
+  logger?: LoggerLike;
   fallbackStrategy?: DeviceAwareFallbackStrategy;
 };
 
@@ -22,9 +39,9 @@ type StreamAcquisitionDependencies = {
  * - Deterministic behavior throughout
  */
 export class StreamAcquisitionOrchestrator {
-  constraintBuilder: any;
-  streamLifecycle: any;
-  logger: any;
+  constraintBuilder: ConstraintBuilderLike | undefined;
+  streamLifecycle: StreamLifecycleLike | undefined;
+  logger: LoggerLike | undefined;
   fallbackStrategy: DeviceAwareFallbackStrategy;
 
   constructor(dependencies: StreamAcquisitionDependencies = {}) {
@@ -40,42 +57,42 @@ export class StreamAcquisitionOrchestrator {
    * @param {Object} options - Additional options
    * @returns {Promise<{stream: MediaStream, strategy: string, context: AcquisitionContext}>}
    */
-  async acquire(context: any, options: any = {}) {
+  async acquire(context: AcquisitionContextLike, options: AcquisitionOptions = {}): Promise<AcquisitionResult> {
     this.fallbackStrategy.initialize(context);
 
-    let lastError: any = null;
+    let lastError: unknown = null;
     let currentStrategy = 'full';
 
     // Primary acquisition attempt with full constraints
     try {
-      const constraints = this.constraintBuilder.build(context, 'full', options);
+      const constraints = this.constraintBuilder!.build(context, 'full', options);
       this._log('info', `Attempting primary acquisition (full) for device: ${context.deviceId}`);
       this._log('debug', `Constraints: ${this._stringifyConstraints(constraints)}`);
 
-      const stream = await this.streamLifecycle.acquireStream(constraints, options);
+      const stream = await this.streamLifecycle!.acquireStream(constraints, options);
 
       this._log('info', 'Stream acquired with primary strategy');
       return { stream, strategy: currentStrategy, context };
 
     } catch (error) {
       lastError = error;
-      const errLabel = formatErrorLabel(error);
+      const errLabel = formatErrorLabel(error as Error);
       this._log('warn', `Primary acquisition failed - ${errLabel}`);
 
       // For OverconstrainedError, try simple constraints before fallback chain
-      if (error?.name === 'OverconstrainedError') {
+      if ((error as { name?: string })?.name === 'OverconstrainedError') {
         try {
-          const simpleConstraints = this.constraintBuilder.build(context, 'simple', options);
+          const simpleConstraints = this.constraintBuilder!.build(context, 'simple', options);
           this._log('info', 'Retrying with simple constraints after OverconstrainedError');
           this._log('debug', `Constraints: ${this._stringifyConstraints(simpleConstraints)}`);
 
-          const stream = await this.streamLifecycle.acquireStream(simpleConstraints, options);
+          const stream = await this.streamLifecycle!.acquireStream(simpleConstraints, options);
 
           this._log('info', 'Stream acquired with simple constraints');
           return { stream, strategy: 'full-softened', context };
         } catch (retryError) {
           lastError = retryError;
-          const retryLabel = formatErrorLabel(retryError);
+          const retryLabel = formatErrorLabel(retryError as Error);
           this._log('warn', `Simple constraints retry failed - ${retryLabel}`);
         }
       }
@@ -90,27 +107,27 @@ export class StreamAcquisitionOrchestrator {
         currentStrategy = fallback.name;
         this._log('info', `Trying fallback: ${currentStrategy} - ${fallback.description}`);
 
-        const constraints = this.constraintBuilder.build(context, fallback.detailLevel, {
+        const constraints = this.constraintBuilder!.build(context, fallback.detailLevel, {
           audio: fallback.audio,
           video: fallback.video,
           ...options
         });
         this._log('debug', `Constraints: ${this._stringifyConstraints(constraints)}`);
 
-        const stream = await this.streamLifecycle.acquireStream(constraints, options);
+        const stream = await this.streamLifecycle!.acquireStream(constraints, options);
 
         this._log('info', `Stream acquired with fallback: ${currentStrategy}`);
         return { stream, strategy: currentStrategy, context };
 
       } catch (error) {
         lastError = error;
-        const errLabel = formatErrorLabel(error);
+        const errLabel = formatErrorLabel(error as Error);
         this._log('warn', `Fallback ${currentStrategy} failed - ${errLabel}`);
       }
     }
 
     // All attempts failed
-    const errorMessage = `Stream acquisition failed after all attempts. Device: ${context.deviceId}. Last error: ${lastError?.message}`;
+    const errorMessage = `Stream acquisition failed after all attempts. Device: ${context.deviceId}. Last error: ${(lastError as Error)?.message}`;
     this._log('error', errorMessage);
     throw new Error(errorMessage);
   }
@@ -129,7 +146,7 @@ export class StreamAcquisitionOrchestrator {
   /**
    * @private
    */
-  _log(level: string, message: string, ...args: any[]) {
+  _log(level: keyof LoggerLike, message: string, ...args: unknown[]) {
     if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }

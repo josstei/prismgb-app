@@ -4,7 +4,7 @@ import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
 export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {
   ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> };
 
-  constructor(ipcClient) {
+  constructor(ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> }) {
     super();
     this.ipcClient = ipcClient;
   }

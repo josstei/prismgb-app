@@ -12,16 +12,20 @@ import {
   createWorkerMessage
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
+import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
+export type WorkerCapabilities = Record<string, unknown>;
+
 export class GpuWorkerManager {
-  _logger: any;
-  _eventBus: any;
+  _logger: LoggerLike;
+  _eventBus: EventBusLike;
   _worker: Worker | null;
   _isReady: boolean;
-  _capabilities: any;
+  _capabilities: WorkerCapabilities | null;
   _canvas: HTMLCanvasElement | null;
   _offscreenCanvas: OffscreenCanvas | null;
   _wasCanvasTransferred: boolean;
-  _messageHandlers: Map<string, (payload: any) => void>;
+  _messageHandlers: Map<string, (payload: Record<string, unknown>) => void>;
   _readyResolve: ((value?: unknown) => void) | null;
   _readyReject: ((error: Error) => void) | null;
   _readyTimeoutId: ReturnType<typeof setTimeout> | null;
@@ -293,22 +297,20 @@ export class GpuWorkerManager {
   }
 
   /**
-   * Fully terminate the worker and reset all state
-   * @param {boolean} [resetCanvasFlag=true] - Whether to reset canvas transfer flag
+   * Fully terminate the worker and reset all state.
+   * Always resets the canvas transfer flag — a terminated worker
+   * holds no canvas reference, so the flag would be dangling state.
    */
-  terminate(resetCanvasFlag = true) {
-    // Clear ready timeout if pending
+  terminate() {
     if (this._readyTimeoutId !== null) {
       clearTimeout(this._readyTimeoutId);
       this._readyTimeoutId = null;
     }
 
-    // Clear pending promises
     this._readyResolve = null;
     this._readyReject = null;
 
     if (this._worker) {
-      // Remove handlers before termination
       this._worker.onmessage = null;
       this._worker.onerror = null;
 
@@ -317,15 +319,11 @@ export class GpuWorkerManager {
       this._worker = null;
     }
 
-    // Clear all state
     this._isReady = false;
     this._messageHandlers.clear();
     this._canvas = null;
     this._offscreenCanvas = null;
-
-    if (resetCanvasFlag) {
-      this._wasCanvasTransferred = false;
-    }
+    this._wasCanvasTransferred = false;
 
     this._logger?.info('Worker terminated');
   }

@@ -20,13 +20,15 @@ type BodyClassManagerLike = {
   dispose?: () => void;
 };
 
+type UIElements = Record<string, HTMLElement | null>;
+
 type UIEffectsDependencies = {
-  elements?: any;
+  elements?: UIElements | null;
   bodyClassManager?: BodyClassManagerLike | null;
 };
 
 export class UIEffects {
-  elements: any;
+  elements: UIElements | null;
   _bodyClassManager: BodyClassManagerLike | null;
   _buttonFeedback: ButtonFeedback;
   _captureEffects: CaptureEffects;
@@ -37,7 +39,7 @@ export class UIEffects {
 
   constructor(dependencies: UIEffectsDependencies = {}) {
     const { elements, bodyClassManager } = dependencies;
-    this.elements = elements;
+    this.elements = elements ?? null;
 
     // Shared body class manager (global)
     this._bodyClassManager = bodyClassManager || null;
@@ -112,7 +114,7 @@ export class UIEffects {
    * @param {string} className - CSS class to add temporarily
    * @param {number} duration - Duration in ms before removing class
    */
-  triggerButtonFeedback(elementKey, className, duration) {
+  triggerButtonFeedback(elementKey: string, className: string, duration: number) {
     this._buttonFeedback.triggerButtonFeedback(elementKey, className, duration);
   }
 
@@ -121,7 +123,7 @@ export class UIEffects {
    * @param {HTMLElement} element - The record button element
    * @param {boolean} isActive - Whether recording is active
    */
-  setRecordingButtonState(element, isActive) {
+  setRecordingButtonState(element: HTMLElement, isActive: boolean) {
     this._buttonFeedback.setRecordingButtonState(element, isActive);
   }
 
@@ -154,7 +156,7 @@ export class UIEffects {
    * Enable toolbar auto-hide
    * @param {HTMLElement} toolbarElement - The toolbar element to auto-hide
    */
-  enableToolbarAutoHide(toolbarElement) {
+  enableToolbarAutoHide(toolbarElement: HTMLElement) {
     this._toolbar.enable(toolbarElement);
   }
 
@@ -183,7 +185,7 @@ export class UIEffects {
    * Enable fullscreen controls auto-hide
    * @param {HTMLElement} controlsElement - The fullscreen controls element
    */
-  enableControlsAutoHide(controlsElement) {
+  enableControlsAutoHide(controlsElement: HTMLElement) {
     this._controls.enable(controlsElement);
   }
 
@@ -202,7 +204,7 @@ export class UIEffects {
    * Set cinematic mode body class
    * @param {boolean} isActive - Whether cinematic mode should be visually active
    */
-  setCinematicMode(isActive) {
+  setCinematicMode(isActive: boolean) {
     this._bodyClassManager?.setCinematicMode(isActive);
   }
 
@@ -210,7 +212,7 @@ export class UIEffects {
    * Set minimalist fullscreen body class
    * @param {boolean} isActive - Whether minimalist fullscreen should be active
    */
-  setMinimalistFullscreen(isActive) {
+  setMinimalistFullscreen(isActive: boolean) {
     this._bodyClassManager?.setMinimalistFullscreen(isActive);
   }
 
@@ -218,7 +220,7 @@ export class UIEffects {
    * Set fullscreen mode body class
    * @param {boolean} isActive - Whether fullscreen mode is active
    */
-  setFullscreenMode(isActive) {
+  setFullscreenMode(isActive: boolean) {
     this._bodyClassManager?.setFullscreenMode(isActive);
   }
 

@@ -13,7 +13,7 @@ export class IStreamingRenderer {
    * @param {Object} _nativeResolution - Native device resolution { width, height }
    * @returns {Promise<boolean>} True if initialization successful
    */
-  async initialize(_canvasElement: any, _nativeResolution: any): Promise<boolean> {
+  async initialize(_canvasElement: HTMLCanvasElement, _nativeResolution: { width: number; height: number }): Promise<boolean> {
     throw new Error('initialize() must be implemented');
   }
 
@@ -22,7 +22,7 @@ export class IStreamingRenderer {
    * @param {HTMLVideoElement} _videoElement - Video element to capture frame from
    * @returns {Promise<void>}
    */
-  async renderFrame(_videoElement: any): Promise<void> {
+  async renderFrame(_videoElement: HTMLVideoElement): Promise<void> {
     throw new Error('renderFrame() must be implemented');
   }
 
@@ -47,7 +47,7 @@ export class IStreamingRenderer {
    * Pause rendering (window hidden)
    * @param {HTMLVideoElement} _videoElement - Video element for callback cancellation
    */
-  pause(_videoElement: any): void {
+  pause(_videoElement: HTMLVideoElement): void {
     throw new Error('pause() must be implemented');
   }
 
@@ -55,7 +55,7 @@ export class IStreamingRenderer {
    * Resume rendering (window visible)
    * @param {HTMLVideoElement} _videoElement - Video element for callback registration
    */
-  resume(_videoElement: any): void {
+  resume(_videoElement: HTMLVideoElement): void {
     throw new Error('resume() must be implemented');
   }
 

@@ -9,13 +9,49 @@ import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 
+interface IpcClientLike {
+  getDeviceStatus(): Promise<unknown>;
+}
+
+interface ChromaticConfigLike {
+  rendering: { canvasScale: number; [key: string]: unknown };
+  display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: unknown[] };
+  media?: ChromaticMediaConfig;
+}
+
+interface ChromaticMediaConfig {
+  audioFull?: Record<string, unknown>;
+  video?: { frameRate?: { ideal?: number }; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+interface ChromaticHelpersLike {
+  getResolutionByScale(scale: number): { width: number; height: number };
+}
+
+interface ChromaticDeviceProfile {
+  name: string;
+  rendering: Record<string, unknown>;
+  media: {
+    audio?: { full?: Record<string, unknown>; [key: string]: unknown };
+    video?: Record<string, unknown>;
+    fallbackStrategy?: string;
+    [key: string]: unknown;
+  };
+  display: Record<string, unknown>;
+}
+
+interface BrowserMediaServiceLike {
+  enumerateDevices(): Promise<MediaDeviceInfo[]>;
+}
+
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
-  ipcClient: any;
-  deviceProfile: any;
-  config: any;
-  mediaConfig: any;
-  helpers: any;
-  browserMediaService: any;
+  ipcClient: IpcClientLike;
+  deviceProfile: ChromaticDeviceProfile | null;
+  config: ChromaticConfigLike;
+  mediaConfig: ChromaticMediaConfig;
+  helpers: ChromaticHelpersLike;
+  browserMediaService: BrowserMediaServiceLike | null;
   canvasScale: number;
   acquisitionCoordinator: StreamAcquisitionOrchestrator;
 
@@ -116,7 +152,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     this._log('info', `Stream acquired using strategy: ${strategy}`);
 
     // Log stream info using base class method
-    const streamInfo = this.streamLifecycle.getStreamInfo(stream);
+    const streamInfo = this.streamLifecycle!.getStreamInfo(stream);
     this._log('info', 'Stream info:', streamInfo);
 
     return stream;

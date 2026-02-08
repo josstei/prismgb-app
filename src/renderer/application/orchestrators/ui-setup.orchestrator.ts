@@ -36,7 +36,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_RECREATED]: (data: { oldCanvas: any; newCanvas: any }) => this._handleCanvasRecreated(data)
+      [EventChannels.RENDER.CANVAS_RECREATED]: (data: { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement }) => this._handleCanvasRecreated(data)
     });
   }
 
@@ -46,7 +46,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Event data with oldCanvas and newCanvas
    * @private
    */
-  _handleCanvasRecreated({ oldCanvas, newCanvas }: { oldCanvas: any; newCanvas: any }) {
+  _handleCanvasRecreated({ oldCanvas, newCanvas }: { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement }) {
     // Remove listeners from old canvas to allow GC
     const removed = this._domListeners.removeByTarget(oldCanvas);
     this.logger.debug(`Removed ${removed} listener(s) from old canvas`);

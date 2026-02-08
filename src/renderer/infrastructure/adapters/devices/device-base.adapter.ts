@@ -1,11 +1,28 @@
 import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 
+import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+
+interface ConstraintBuilderLike {
+  build(context: AcquisitionContext, detailLevel: string, options?: Record<string, unknown>): MediaStreamConstraints;
+}
+
+interface StreamLifecycleLike {
+  acquireStream(constraints: MediaStreamConstraints, options?: Record<string, unknown>): Promise<MediaStream>;
+  releaseStream(stream: MediaStream): Promise<void>;
+  getStreamInfo(stream: MediaStream): Record<string, unknown>;
+}
+
+interface MediaProfile {
+  audio?: Record<string, unknown>;
+  video?: Record<string, unknown>;
+}
+
 interface BaseDeviceAdapterDependencies {
-  eventBus?: unknown;
-  logger?: Record<string, (...args: unknown[]) => void>;
-  constraintBuilder?: any;
-  streamLifecycle?: any;
+  eventBus?: EventBusLike;
+  logger?: LoggerLike;
+  constraintBuilder?: ConstraintBuilderLike;
+  streamLifecycle?: StreamLifecycleLike;
 }
 
 /**
@@ -14,12 +31,12 @@ interface BaseDeviceAdapterDependencies {
  * @extends IDeviceAdapter
  */
 export class BaseDeviceAdapter extends IDeviceAdapter {
-  eventBus: unknown;
-  logger: Record<string, (...args: unknown[]) => void> | undefined;
-  constraintBuilder: any;
-  streamLifecycle: any;
+  eventBus: EventBusLike | undefined;
+  logger: LoggerLike | undefined;
+  constraintBuilder: ConstraintBuilderLike | undefined;
+  streamLifecycle: StreamLifecycleLike | undefined;
   deviceInfo: MediaDeviceInfo | null;
-  profile: any;
+  profile: MediaProfile | null;
   currentStream: MediaStream | null;
 
   /**
@@ -75,8 +92,8 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
       profile: this.profile
     });
 
-    const constraints = this.constraintBuilder.build(context, 'full', options);
-    this.currentStream = await this.streamLifecycle.acquireStream(constraints, options);
+    const constraints = this.constraintBuilder!.build(context, 'full', options);
+    this.currentStream = await this.streamLifecycle!.acquireStream(constraints, options);
 
     return this.currentStream;
   }
@@ -88,7 +105,7 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
    */
   async releaseStream(stream) {
     if (stream) {
-      await this.streamLifecycle.releaseStream(stream);
+      await this.streamLifecycle?.releaseStream(stream);
     }
     if (stream === this.currentStream) {
       this.currentStream = null;
@@ -127,8 +144,8 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
     this.profile = null;
   }
 
-  _log(level, message, ...args) {
-    if (this.logger && this.logger[level]) {
+  _log(level: keyof LoggerLike, message: string, ...args: unknown[]) {
+    if (this.logger?.[level]) {
       this.logger[level](message, ...args);
     }
   }
