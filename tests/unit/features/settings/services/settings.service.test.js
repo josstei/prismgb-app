@@ -321,4 +321,57 @@ describe('SettingsService', () => {
     });
   });
 
+  describe('getLaunchOnLogin', () => {
+    it('should call loginItemAPI.get when available', async () => {
+      window.loginItemAPI = { get: vi.fn(() => Promise.resolve(true)), set: vi.fn() };
+
+      const result = await service.getLaunchOnLogin();
+      expect(result).toBe(true);
+      expect(window.loginItemAPI.get).toHaveBeenCalled();
+
+      delete window.loginItemAPI;
+    });
+
+    it('should fall back to localStorage when loginItemAPI is unavailable', async () => {
+      localStorageMock.store['launchOnLogin'] = 'true';
+
+      const result = await service.getLaunchOnLogin();
+      expect(result).toBe(true);
+    });
+
+    it('should return false by default', async () => {
+      const result = await service.getLaunchOnLogin();
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('setLaunchOnLogin', () => {
+    it('should call loginItemAPI.set when available', async () => {
+      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
+
+      await service.setLaunchOnLogin(true);
+      expect(window.loginItemAPI.set).toHaveBeenCalledWith(true);
+
+      delete window.loginItemAPI;
+    });
+
+    it('should cache value in localStorage', async () => {
+      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
+
+      await service.setLaunchOnLogin(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
+
+      delete window.loginItemAPI;
+    });
+
+    it('should log the change', async () => {
+      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
+
+      await service.setLaunchOnLogin(true);
+      expect(mockLogger.debug).toHaveBeenCalledWith('Launch on login enabled');
+
+      delete window.loginItemAPI;
+    });
+  });
+
 });
