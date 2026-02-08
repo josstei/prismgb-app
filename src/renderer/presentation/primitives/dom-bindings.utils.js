@@ -74,6 +74,7 @@ function createDomBindings(root = document) {
     settingStatusStrip: DOMSelectors.SETTING_STATUS_STRIP,
     settingFullscreenOnStartup: DOMSelectors.SETTING_FULLSCREEN_ON_STARTUP,
     settingAutoStreamOnConnect: DOMSelectors.SETTING_AUTO_STREAM_ON_CONNECT,
+    settingLaunchOnLogin: DOMSelectors.SETTING_LAUNCH_ON_LOGIN,
     settingMinimalistFullscreen: DOMSelectors.SETTING_MINIMALIST_FULLSCREEN,
     settingAnimationSaver: DOMSelectors.SETTING_ANIMATION_SAVER,
     settingRenderPreset: DOMSelectors.SETTING_RENDER_PRESET,

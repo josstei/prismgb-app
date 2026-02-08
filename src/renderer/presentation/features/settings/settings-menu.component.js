@@ -38,6 +38,7 @@ class SettingsMenuComponent {
     this.statusStripCheckbox = elements.settingStatusStrip;
     this.fullscreenOnStartupCheckbox = elements.settingFullscreenOnStartup;
     this.autoStreamOnConnectCheckbox = elements.settingAutoStreamOnConnect;
+    this.launchOnLoginCheckbox = elements.settingLaunchOnLogin;
     this.minimalistFullscreenCheckbox = elements.settingMinimalistFullscreen;
     this.animationSaverCheckbox = elements.settingAnimationSaver;
     this.recordingFormatTrigger = elements.settingRecordingFormat;
@@ -136,6 +137,13 @@ class SettingsMenuComponent {
       });
     }
 
+    // Launch on login toggle
+    if (this.launchOnLoginCheckbox) {
+      this._domListeners.add(this.launchOnLoginCheckbox, 'change', () => {
+        this.settingsService.setLaunchOnLogin(this.launchOnLoginCheckbox.checked);
+      });
+    }
+
     // Animation power saver toggle
     if (this.animationSaverCheckbox) {
       this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
@@ -192,6 +200,16 @@ class SettingsMenuComponent {
     }
 
     this._applyStatusStripVisibility(statusStripVisible);
+
+    this._loadAsyncSettings();
+  }
+
+  async _loadAsyncSettings() {
+    const launchOnLoginEnabled = await this.settingsService.getLaunchOnLogin?.() ?? false;
+
+    if (this.launchOnLoginCheckbox) {
+      this.launchOnLoginCheckbox.checked = launchOnLoginEnabled;
+    }
   }
 
   /**

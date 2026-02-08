@@ -55,6 +55,7 @@ export const DOMSelectors = {
   SETTING_FULLSCREEN_ON_STARTUP: 'settingFullscreenOnStartup',
   SETTING_MINIMALIST_FULLSCREEN: 'settingMinimalistFullscreen',
   SETTING_AUTO_STREAM_ON_CONNECT: 'settingAutoStreamOnConnect',
+  SETTING_LAUNCH_ON_LOGIN: 'settingLaunchOnLogin',
   SETTING_RECORDING_FORMAT: 'settingRecordingFormat',
   RECORDING_FORMAT_MENU: 'recordingFormatMenu',
   RECORDING_FORMAT_LABEL: 'recordingFormatLabel',

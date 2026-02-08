@@ -18,7 +18,9 @@ describe('SettingsMenuComponent', () => {
       getStatusStripVisible: vi.fn(() => true),
       setStatusStripVisible: vi.fn(),
       getPerformanceMode: vi.fn(() => true),
-      setPerformanceMode: vi.fn()
+      setPerformanceMode: vi.fn(),
+      getLaunchOnLogin: vi.fn(() => Promise.resolve(false)),
+      setLaunchOnLogin: vi.fn(() => Promise.resolve())
     };
 
     // Mock event bus
@@ -41,6 +43,7 @@ describe('SettingsMenuComponent', () => {
       settingsBtn: document.createElement('button'),
       settingStatusStrip: document.createElement('input'),
       settingAnimationSaver: document.createElement('input'),
+      settingLaunchOnLogin: (() => { const el = document.createElement('input'); el.type = 'checkbox'; return el; })(),
       disclaimerBtn: document.createElement('button'),
       disclaimerContent: document.createElement('div'),
       footer: document.createElement('footer')
@@ -263,6 +266,26 @@ describe('SettingsMenuComponent', () => {
       expect(mockElements.settingAnimationSaver.checked).toBe(false);
 
       componentWithLimitedService.dispose();
+    });
+  });
+
+  describe('launch on login toggle', () => {
+    beforeEach(() => {
+      component.initialize(mockElements);
+    });
+
+    it('should call setLaunchOnLogin when checkbox changes', () => {
+      mockElements.settingLaunchOnLogin.checked = true;
+      mockElements.settingLaunchOnLogin.dispatchEvent(new Event('change'));
+
+      expect(mockSettingsService.setLaunchOnLogin).toHaveBeenCalledWith(true);
+    });
+
+    it('should load saved state on initialization', async () => {
+      mockSettingsService.getLaunchOnLogin.mockResolvedValue(true);
+      await component._loadAsyncSettings();
+
+      expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
     });
   });
 
