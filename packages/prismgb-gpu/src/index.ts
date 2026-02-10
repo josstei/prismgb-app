@@ -57,6 +57,9 @@ export type { UniformBuildContext } from './application/uniform-builder';
 // Uniform Context (application-level caching helper)
 export { UniformContext } from './application/uniform-context';
 
+// Capture Buffer (buffered-frame capture)
+export { CaptureBuffer } from './infrastructure/capture';
+
 // Pipeline Factory (main entry point)
 export { createPipeline, type CreatePipelineOptions } from './factories';
 

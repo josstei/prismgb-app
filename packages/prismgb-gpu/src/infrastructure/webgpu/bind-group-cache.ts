@@ -1,3 +1,11 @@
+export interface BindGroupCacheStats {
+  readonly size: number;
+  readonly version: number;
+  readonly hits: number;
+  readonly misses: number;
+  readonly hitRate: string;
+}
+
 /**
  * Caches WebGPU bind groups to avoid expensive per-frame recreation.
  *
@@ -12,6 +20,8 @@
 export class BindGroupCache {
   private readonly cache = new Map<string, GPUBindGroup>();
   private version = 0;
+  private _hits = 0;
+  private _misses = 0;
 
   private generateKey(pipelineLabel: string, textureLabel: string): string {
     return `${pipelineLabel}:${textureLabel}:v${this.version}`;
@@ -29,9 +39,11 @@ export class BindGroupCache {
     const cached = this.cache.get(key);
 
     if (cached) {
+      this._hits++;
       return cached;
     }
 
+    this._misses++;
     const bindGroup = device.createBindGroup({
       label: `Cached ${pipeline.label} BindGroup`,
       layout: pipeline.getBindGroupLayout(0),
@@ -50,5 +62,23 @@ export class BindGroupCache {
   invalidate(): void {
     this.cache.clear();
     this.version++;
+  }
+
+  getStats(): BindGroupCacheStats {
+    const total = this._hits + this._misses;
+    const hitRate = total === 0 ? 0 : (this._hits / total) * 100;
+
+    return {
+      size: this.cache.size,
+      version: this.version,
+      hits: this._hits,
+      misses: this._misses,
+      hitRate: `${hitRate.toFixed(2)}%`
+    };
+  }
+
+  resetStats(): void {
+    this._hits = 0;
+    this._misses = 0;
   }
 }

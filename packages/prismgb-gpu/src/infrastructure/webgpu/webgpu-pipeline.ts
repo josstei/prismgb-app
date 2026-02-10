@@ -1,7 +1,7 @@
 import { BasePipeline } from '../base-pipeline';
 import { loadShaders } from './webgpu-shader-loader';
 import { BindGroupCache } from './bind-group-cache';
-import { UniformTracker } from './uniform-tracker';
+import { UniformTracker } from '../optimization/uniform-tracker';
 
 interface RenderPipelines {
   pixelUpscale: GPURenderPipeline;
