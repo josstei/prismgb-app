@@ -1,5 +1,19 @@
 # @prismgb/gpu Package Consolidation - Implementation Plan
 
+## Replacement Note (2026-02-10)
+
+This plan is superseded by:
+- `docs/plans/2026-02-10-gpu-package-consolidation-plan-v2.md`
+- `docs/plans/2026-02-10-gpu-package-consolidation-design-v2.md`
+
+### Diff Summary (Why Replaced)
+
+- Worker `INIT` flow in this version assumes `payload.canvas` is always present, which breaks re-init after `RELEASE` where config-only `INIT` is used by `GpuWorkerManager`.
+- Capture flow in this version regresses behavior by not preserving buffered "next rendered frame" semantics (`REQUEST_CAPTURE` -> frame buffer -> `CAPTURE` retrieval).
+- Phase 2 includes contradictory tests/implementations (notably TypedArrayPool and ShaderProgramCache examples), making the plan non-executable as written.
+- The plan allows committing intentionally broken type states in early phases, which undermines CI and rollback safety.
+- v2 keeps protocol/capture invariants explicit and enforces green validation gates at every phase.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Consolidate all GPU rendering code into `@prismgb/gpu`, eliminating duplicated shaders, engines, and optimization utilities between the package and the app's worker directory.

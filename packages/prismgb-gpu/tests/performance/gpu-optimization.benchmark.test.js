@@ -4,16 +4,37 @@
  * Measures actual CPU time and memory usage of optimization utilities
  * to verify performance improvements are effective.
  *
- * Run with: npx vitest run tests/performance/gpu-optimization.benchmark.test.js
+ * Run from package root: npx vitest run tests/performance/gpu-optimization.benchmark.test.js
+ * Run from workspace root: cd packages/prismgb-gpu && npx vitest run tests/performance/gpu-optimization.benchmark.test.js
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  BindGroupCache,
-  TypedArrayPool,
-  UniformTracker
-} from '../../src/renderer/infrastructure/rendering/workers/optimization.utils.ts';
-import { performanceUtils } from '../mocks/index.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { TypedArrayPool } from '../../src/infrastructure/optimization/typed-array-pool.ts';
+import { UniformTracker } from '../../src/infrastructure/optimization/uniform-tracker.ts';
+import { BindGroupCache } from '../../src/infrastructure/webgpu/bind-group-cache.ts';
+
+/**
+ * Performance measurement utility
+ * Measures execution time of a function over multiple iterations
+ */
+async function measureTime(fn, iterations = 1) {
+  const times = [];
+
+  for (let i = 0; i < iterations; i++) {
+    const start = performance.now();
+    await fn();
+    times.push(performance.now() - start);
+  }
+
+  return {
+    min: Math.min(...times),
+    max: Math.max(...times),
+    avg: times.reduce((a, b) => a + b, 0) / times.length,
+    total: times.reduce((a, b) => a + b, 0),
+    iterations,
+    times,
+  };
+}
 
 // Performance thresholds (in milliseconds)
 const THRESHOLDS = {
@@ -46,12 +67,12 @@ describe('GPU Optimization Benchmarks', () => {
 
     it('should get pooled array faster than creating new array', async () => {
       // Measure pooled array retrieval
-      const pooledResult = await performanceUtils.measureTime(() => {
+      const pooledResult = await measureTime(() => {
         pool.getFloat32(8);
       }, 10000);
 
       // Measure unpooled (new) array creation
-      const unpooledResult = await performanceUtils.measureTime(() => {
+      const unpooledResult = await measureTime(() => {
         new Float32Array(8);
       }, 10000);
 
@@ -66,11 +87,11 @@ describe('GPU Optimization Benchmarks', () => {
     it('should efficiently set values in pooled arrays', async () => {
       const testValues = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
 
-      const pooledResult = await performanceUtils.measureTime(() => {
+      const pooledResult = await measureTime(() => {
         pool.getFloat32WithValues(testValues);
       }, 10000);
 
-      const unpooledResult = await performanceUtils.measureTime(() => {
+      const unpooledResult = await measureTime(() => {
         const arr = new Float32Array(8);
         arr.set(testValues);
       }, 10000);
@@ -92,14 +113,14 @@ describe('GPU Optimization Benchmarks', () => {
       ];
 
       // Pooled approach
-      const pooledResult = await performanceUtils.measureTime(() => {
+      const pooledResult = await measureTime(() => {
         for (let i = 0; i < 1000; i++) {
           uniformData.forEach(data => pool.getFloat32WithValues(data));
         }
       }, 10);
 
       // Unpooled approach
-      const unpooledResult = await performanceUtils.measureTime(() => {
+      const unpooledResult = await measureTime(() => {
         for (let i = 0; i < 1000; i++) {
           uniformData.forEach(data => new Float32Array(data));
         }
@@ -142,7 +163,7 @@ describe('GPU Optimization Benchmarks', () => {
       tracker.hasChanged('upscale', uniformData);
 
       // Measure repeated checks with same data (should skip)
-      const unchangedResult = await performanceUtils.measureTime(() => {
+      const unchangedResult = await measureTime(() => {
         tracker.hasChanged('upscale', uniformData);
       }, 10000);
 
@@ -155,7 +176,7 @@ describe('GPU Optimization Benchmarks', () => {
     it('should efficiently detect changed uniforms', async () => {
       let value = 0;
 
-      const changedResult = await performanceUtils.measureTime(() => {
+      const changedResult = await measureTime(() => {
         const data = new Float32Array([160, 144, 640, 576, value++, 0]);
         tracker.hasChanged('upscale', data);
       }, 10000);
@@ -309,7 +330,7 @@ describe('GPU Optimization Benchmarks', () => {
       ];
 
       // Simulate optimized frame loop
-      const optimizedResult = await performanceUtils.measureTime(() => {
+      const optimizedResult = await measureTime(() => {
         for (let frame = 0; frame < 60; frame++) {
           uniformConfigs.forEach(({ name, data }) => {
             const arr = pool.getFloat32WithValues(data);
@@ -319,7 +340,7 @@ describe('GPU Optimization Benchmarks', () => {
       }, 100);
 
       // Simulate unoptimized frame loop
-      const unoptimizedResult = await performanceUtils.measureTime(() => {
+      const unoptimizedResult = await measureTime(() => {
         for (let frame = 0; frame < 60; frame++) {
           uniformConfigs.forEach(({ data }) => {
             new Float32Array(data);

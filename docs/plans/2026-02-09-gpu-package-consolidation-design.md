@@ -1,5 +1,18 @@
 # @prismgb/gpu Package Consolidation Design
 
+## Replacement Note (2026-02-10)
+
+This design is superseded by:
+- `docs/plans/2026-02-10-gpu-package-consolidation-design-v2.md`
+- `docs/plans/2026-02-10-gpu-package-consolidation-plan-v2.md`
+
+### Diff Summary (Why Replaced)
+
+- Some baseline assertions in this version are no longer accurate (for example, stale line-count assumptions and "missing" optimizations that already have package equivalents).
+- The worker rewrite sketch in this version does not preserve required re-init and capture invariants used by the current app lifecycle.
+- Phase sequencing in this version tolerates temporary broken compile states; v2 requires green lint/typecheck/test gates per phase.
+- v2 documents strict protocol-compatibility rules (`INIT` with optional canvas, `SET_PRESET` path continuity, `REQUEST_CAPTURE` buffering semantics) and aligns migration steps to those constraints.
+
 **Date**: 2026-02-09
 **Status**: Proposed
 **Branch**: TBD (feature/gpu-package-consolidation)
