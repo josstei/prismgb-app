@@ -6,8 +6,6 @@ import { TypedArrayPool } from '../optimization/typed-array-pool';
 import type { FrameSource } from '../../domain/frame';
 import type { PipelineUniforms } from '../../domain/shaders';
 import type { IPipelineOptions, RenderAPI, IAdapterInfo } from '../../domain/pipeline';
-import type { IPreset } from '../../domain/presets';
-
 interface RenderPipelines {
   pixelUpscale: GPURenderPipeline;
   unsharpMask: GPURenderPipeline;
@@ -53,8 +51,6 @@ export class WebGPUPipeline extends BasePipeline {
   private bindGroupCache = new BindGroupCache();
   private uniformTracker = new UniformTracker();
   private arrayPool = new TypedArrayPool(3, [4, 6, 8, 16, 32]);
-
-  private currentPreset: IPreset | null = null;
 
   getAdapterInfo(): IAdapterInfo | null {
     if (!this.adapter) return null;
@@ -105,7 +101,6 @@ export class WebGPUPipeline extends BasePipeline {
     this.createResources();
     await this.createPipelines();
 
-    this.currentPreset = options.preset ?? null;
   }
 
   private async createShaderModules(): Promise<void> {
@@ -259,7 +254,7 @@ export class WebGPUPipeline extends BasePipeline {
     );
     currentTexture = 0;
 
-    if (this.currentPreset?.unsharp.enabled && uniforms.unsharp.strength > 0) {
+    if (uniforms.unsharp.enabled && uniforms.unsharp.strength > 0) {
       const nextTexture = (currentTexture + 1) % 2;
       this.renderPass(
         commandEncoder,
@@ -272,7 +267,7 @@ export class WebGPUPipeline extends BasePipeline {
       currentTexture = nextTexture;
     }
 
-    if (this.currentPreset?.color.enabled) {
+    if (uniforms.color.enabled) {
       const nextTexture = (currentTexture + 1) % 2;
       this.renderPass(
         commandEncoder,
@@ -523,6 +518,5 @@ export class WebGPUPipeline extends BasePipeline {
     this.crtLcdBindGroupLayout = null;
     this.nearestSampler = null;
     this.linearSampler = null;
-    this.currentPreset = null;
   }
 }

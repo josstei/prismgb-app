@@ -4,8 +4,6 @@ import { ShaderProgram } from './shader-program';
 import type { FrameSource } from '../../domain/frame';
 import type { PipelineUniforms } from '../../domain/shaders';
 import type { IPipelineOptions, RenderAPI, IAdapterInfo } from '../../domain/pipeline';
-import type { IPreset } from '../../domain/presets';
-
 interface ShaderPrograms {
   pixelUpscale: ShaderProgram;
   unsharpMask: ShaderProgram;
@@ -22,8 +20,6 @@ export class WebGL2Pipeline extends BasePipeline {
   private intermediateTextures: WebGLTexture[] = [];
   private framebuffers: WebGLFramebuffer[] = [];
   private vao: WebGLVertexArrayObject | null = null;
-
-  private currentPreset: IPreset | null = null;
 
   getAdapterInfo(): IAdapterInfo | null {
     if (!this.gl) return null;
@@ -70,7 +66,6 @@ export class WebGL2Pipeline extends BasePipeline {
     this.createVAO();
     this.createResources();
 
-    this.currentPreset = options.preset ?? null;
   }
 
   private createPrograms(): void {
@@ -158,7 +153,7 @@ export class WebGL2Pipeline extends BasePipeline {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     currentTexture = 0;
 
-    if (this.currentPreset?.unsharp.enabled && unsharp.strength > 0) {
+    if (uniforms.unsharp.enabled && uniforms.unsharp.strength > 0) {
       const nextTexture = (currentTexture + 1) % 2;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
       this.programs.unsharpMask.use();
@@ -174,7 +169,7 @@ export class WebGL2Pipeline extends BasePipeline {
       currentTexture = nextTexture;
     }
 
-    if (this.currentPreset?.color.enabled) {
+    if (uniforms.color.enabled) {
       const nextTexture = (currentTexture + 1) % 2;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
       this.programs.colorElevation.use();
@@ -270,6 +265,5 @@ export class WebGL2Pipeline extends BasePipeline {
 
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.gl = null;
-    this.currentPreset = null;
   }
 }
