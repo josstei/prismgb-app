@@ -13,7 +13,13 @@ export type {
   IPipelineStats,
   RenderAPI,
   WebGPULimits,
-  WebGL2Info
+  WebGL2Info,
+  PipelineState,
+  PipelineErrorCode,
+  IPipelineError,
+  IAdapterInfo,
+  IPipelineCallbacks,
+  ICaptureProvider
 } from './domain/pipeline';
 
 export type {
@@ -29,7 +35,8 @@ export type {
   UpscaleUniforms,
   UnsharpUniforms,
   ColorUniforms,
-  CRTUniforms
+  CRTUniforms,
+  IShaderLoader
 } from './domain/shaders';
 
 export type {
@@ -46,6 +53,9 @@ export { detectCapabilities } from './application/capability-detector';
 // Uniform Builder (for building shader uniforms from presets)
 export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
 export type { UniformBuildContext } from './application/uniform-builder';
+
+// Uniform Context (application-level caching helper)
+export { UniformContext } from './application/uniform-context';
 
 // Pipeline Factory (main entry point)
 export { createPipeline, type CreatePipelineOptions } from './factories';

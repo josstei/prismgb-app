@@ -5,3 +5,5 @@ export type {
   CRTUniforms,
   PipelineUniforms
 } from './shader-uniforms.types';
+
+export type { IShaderLoader } from './shader-loader.interface';
