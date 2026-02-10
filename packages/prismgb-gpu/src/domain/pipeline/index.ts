@@ -2,6 +2,7 @@ export type { IPipeline } from './pipeline.interface';
 
 export type {
   IPipelineConfig,
+  IPipelineOptions,
   RenderAPI
 } from './pipeline-config.interface';
 

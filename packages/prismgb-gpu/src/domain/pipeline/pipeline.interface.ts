@@ -1,30 +1,24 @@
-import type { IPreset } from '../presets/preset.interface';
+import type { FrameSource } from '../frame/frame-source.interface';
+import type { PipelineUniforms } from '../shaders/shader-uniforms.types';
 import type { IPipelineStats } from './pipeline-stats.interface';
+import type { IPipelineError } from './pipeline-error.interface';
+import type { IPipelineOptions, RenderAPI } from './pipeline-config.interface';
+import type { PipelineState } from './pipeline-state';
+import type { IAdapterInfo } from './pipeline-error.interface';
 
-/**
- * Core pipeline interface for GPU rendering.
- * Implementations: WebGPUPipeline, WebGL2Pipeline, Canvas2DPipeline
- */
 export interface IPipeline {
-  readonly isInitialized: boolean;
-  readonly isActive: boolean;
+  initialize(options: IPipelineOptions): Promise<void>;
+  suspend(): void;
+  resume(): Promise<void>;
+  dispose(): void;
 
-  initialize(): Promise<void>;
-  renderFrame(source: TexImageSource): void;
+  renderFrame(source: FrameSource, uniforms: PipelineUniforms): void;
   resize(width: number, height: number): void;
 
-  setPreset(preset: IPreset): void;
-  getPreset(): IPreset;
-
-  setBrightness(value: number): void;
-
-  captureFrame(): Promise<ImageBitmap>;
-
-  pause(): void;
-  resume(): void;
+  readonly state: PipelineState;
+  readonly api: RenderAPI;
+  readonly lastError: IPipelineError | null;
 
   getStats(): IPipelineStats;
-
-  releaseResources(): void;
-  dispose(): Promise<void>;
+  getAdapterInfo(): IAdapterInfo | null;
 }

@@ -1,3 +1,5 @@
+import type { RenderAPI } from './pipeline-config.interface';
+
 export type PipelineErrorCode =
   | 'DEVICE_LOST'
   | 'SHADER_ERROR'
@@ -15,8 +17,9 @@ export interface IPipelineError {
 }
 
 export interface IAdapterInfo {
-  vendor: string;
-  architecture: string;
-  device: string;
-  description: string;
+  readonly vendor: string;
+  readonly architecture: string;
+  readonly device: string;
+  readonly description: string;
+  readonly api: RenderAPI;
 }

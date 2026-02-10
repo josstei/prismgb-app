@@ -1,7 +1,7 @@
 export interface IPipelineStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  framesRendered: number;
-  framesDropped: number;
+  readonly fps: number;
+  readonly frameTime: number;
+  readonly framesRendered: number;
+  readonly framesDropped: number;
+  readonly gpuMemoryBytes?: number;
 }

@@ -2,6 +2,11 @@ import { BasePipeline } from '../base-pipeline';
 import { loadShaders } from './webgpu-shader-loader';
 import { BindGroupCache } from './bind-group-cache';
 import { UniformTracker } from '../optimization/uniform-tracker';
+import { TypedArrayPool } from '../optimization/typed-array-pool';
+import type { FrameSource } from '../../domain/frame';
+import type { PipelineUniforms } from '../../domain/shaders';
+import type { IPipelineOptions, RenderAPI, IAdapterInfo } from '../../domain/pipeline';
+import type { IPreset } from '../../domain/presets';
 
 interface RenderPipelines {
   pixelUpscale: GPURenderPipeline;
@@ -24,18 +29,13 @@ interface ShaderModules {
   crtLcd: GPUShaderModule;
 }
 
-/**
- * WebGPU 4-pass rendering pipeline.
- *
- * Renders Game Boy frames through a configurable shader chain:
- * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
- * Uses ping-pong intermediate textures, bind group caching, and
- * uniform change tracking for optimized per-frame overhead.
- */
 export class WebGPUPipeline extends BasePipeline {
+  readonly api: RenderAPI = 'webgpu';
+
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
+  private adapter: GPUAdapter | null = null;
 
   private shaderModules: ShaderModules | null = null;
   private renderPipelines: RenderPipelines | null = null;
@@ -52,31 +52,43 @@ export class WebGPUPipeline extends BasePipeline {
 
   private bindGroupCache = new BindGroupCache();
   private uniformTracker = new UniformTracker();
+  private arrayPool = new TypedArrayPool(3, [4, 6, 8, 16, 32]);
 
-  private hasError = false;
+  private currentPreset: IPreset | null = null;
 
-  async initialize(): Promise<void> {
-    if (this._isInitialized) return;
+  getAdapterInfo(): IAdapterInfo | null {
+    if (!this.adapter) return null;
 
+    const info = this.adapter.info;
+    return {
+      vendor: info.vendor,
+      architecture: info.architecture,
+      device: info.device,
+      description: info.description,
+      api: 'webgpu'
+    };
+  }
+
+  protected async onInitialize(options: IPipelineOptions): Promise<void> {
     if (!navigator.gpu) {
       throw new Error('WebGPU not supported');
     }
 
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
+    this.adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
       ?? await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
 
-    if (!adapter) {
+    if (!this.adapter) {
       throw new Error('WebGPU adapter not available');
     }
 
-    this.device = await adapter.requestDevice();
+    this.device = await this.adapter.requestDevice();
 
     this.device.lost.then(() => {
-      this.hasError = true;
-      this._isActive = false;
+      this.handleError('DEVICE_LOST', 'GPU device was lost', false);
     });
 
-    this.context = (this.canvas as HTMLCanvasElement).getContext('webgpu') as GPUCanvasContext;
+    const canvasElement = this.canvas as HTMLCanvasElement;
+    this.context = canvasElement.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
       throw new Error('WebGPU context not available');
     }
@@ -93,8 +105,7 @@ export class WebGPUPipeline extends BasePipeline {
     this.createResources();
     await this.createPipelines();
 
-    this._isInitialized = true;
-    this._isActive = true;
+    this.currentPreset = options.preset ?? null;
   }
 
   private async createShaderModules(): Promise<void> {
@@ -144,8 +155,6 @@ export class WebGPUPipeline extends BasePipeline {
 
   private createResources(): void {
     const device = this.device!;
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
 
     this.sourceTexture = device.createTexture({
       label: 'Source Texture',
@@ -159,7 +168,7 @@ export class WebGPUPipeline extends BasePipeline {
     for (let i = 0; i < 2; i++) {
       const texture = device.createTexture({
         label: `Intermediate Texture ${i}`,
-        size: [targetWidth, targetHeight],
+        size: [this.targetWidth, this.targetHeight],
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
@@ -225,88 +234,80 @@ export class WebGPUPipeline extends BasePipeline {
     this.crtLcdBindGroupLayout = this.renderPipelines.crtLcd.getBindGroupLayout(0);
   }
 
-  renderFrame(source: TexImageSource): void {
-    if (!this._isActive || !this.device || !this.context || this.hasError) return;
+  protected onRenderFrame(source: FrameSource, uniforms: PipelineUniforms): void {
+    if (!this.device || !this.context) return;
     if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) return;
 
-    const startTime = performance.now();
+    this.device.queue.copyExternalImageToTexture(
+      { source: source as ImageBitmap, flipY: true },
+      { texture: this.sourceTexture },
+      [this.nativeWidth, this.nativeHeight]
+    );
 
-    try {
-      this.device.queue.copyExternalImageToTexture(
-        { source: source as ImageBitmap, flipY: true },
-        { texture: this.sourceTexture },
-        [this.nativeWidth, this.nativeHeight]
-      );
+    this.uploadUniforms(uniforms);
 
-      this.uploadUniforms();
+    const commandEncoder = this.device.createCommandEncoder();
+    let currentTexture = 0;
 
-      const commandEncoder = this.device.createCommandEncoder();
-      let currentTexture = 0;
+    this.renderPass(
+      commandEncoder,
+      this.renderPipelines.pixelUpscale,
+      this.sourceTexture,
+      this.intermediateTextures[0],
+      this.uniformBuffers.upscale,
+      this.nearestSampler!
+    );
+    currentTexture = 0;
 
+    if (this.currentPreset?.unsharp.enabled && uniforms.unsharp.strength > 0) {
+      const nextTexture = (currentTexture + 1) % 2;
       this.renderPass(
         commandEncoder,
-        this.renderPipelines.pixelUpscale,
-        this.sourceTexture,
-        this.intermediateTextures[0],
-        this.uniformBuffers.upscale,
-        this.nearestSampler!
+        this.renderPipelines.unsharpMask,
+        this.intermediateTextures[currentTexture],
+        this.intermediateTextures[nextTexture],
+        this.uniformBuffers.unsharp,
+        this.linearSampler!
       );
-      currentTexture = 0;
-
-      if (this.preset.unsharp.enabled && this.uniforms.unsharp.strength > 0) {
-        const nextTexture = (currentTexture + 1) % 2;
-        this.renderPass(
-          commandEncoder,
-          this.renderPipelines.unsharpMask,
-          this.intermediateTextures[currentTexture],
-          this.intermediateTextures[nextTexture],
-          this.uniformBuffers.unsharp,
-          this.linearSampler!
-        );
-        currentTexture = nextTexture;
-      }
-
-      if (this.preset.color.enabled) {
-        const nextTexture = (currentTexture + 1) % 2;
-        this.renderPass(
-          commandEncoder,
-          this.renderPipelines.colorElevation,
-          this.intermediateTextures[currentTexture],
-          this.intermediateTextures[nextTexture],
-          this.uniformBuffers.color,
-          this.linearSampler!
-        );
-        currentTexture = nextTexture;
-      }
-
-      const canvasTexture = this.context.getCurrentTexture();
-      const { crt } = this.uniforms;
-      const crtEnabled = crt.scanlineStrength > 0 || crt.pixelMaskStrength > 0 ||
-        crt.bloomStrength > 0 || crt.curvature > 0 || crt.vignetteStrength > 0;
-
-      if (crtEnabled) {
-        this.renderPassToCanvas(
-          commandEncoder,
-          this.renderPipelines.crtLcd,
-          this.intermediateTextures[currentTexture],
-          canvasTexture,
-          this.uniformBuffers.crt,
-          this.linearSampler!
-        );
-      } else {
-        this.copyToCanvas(
-          commandEncoder,
-          this.intermediateTextures[currentTexture],
-          canvasTexture
-        );
-      }
-
-      this.device.queue.submit([commandEncoder.finish()]);
-      this.updateStats(performance.now() - startTime);
-    } catch {
-      this.hasError = true;
-      this._isActive = false;
+      currentTexture = nextTexture;
     }
+
+    if (this.currentPreset?.color.enabled) {
+      const nextTexture = (currentTexture + 1) % 2;
+      this.renderPass(
+        commandEncoder,
+        this.renderPipelines.colorElevation,
+        this.intermediateTextures[currentTexture],
+        this.intermediateTextures[nextTexture],
+        this.uniformBuffers.color,
+        this.linearSampler!
+      );
+      currentTexture = nextTexture;
+    }
+
+    const canvasTexture = this.context.getCurrentTexture();
+    const { crt } = uniforms;
+    const crtEnabled = crt.scanlineStrength > 0 || crt.pixelMaskStrength > 0 ||
+      crt.bloomStrength > 0 || crt.curvature > 0 || crt.vignetteStrength > 0;
+
+    if (crtEnabled) {
+      this.renderPassToCanvas(
+        commandEncoder,
+        this.renderPipelines.crtLcd,
+        this.intermediateTextures[currentTexture],
+        canvasTexture,
+        this.uniformBuffers.crt,
+        this.linearSampler!
+      );
+    } else {
+      this.copyToCanvas(
+        commandEncoder,
+        this.intermediateTextures[currentTexture],
+        canvasTexture
+      );
+    }
+
+    this.device.queue.submit([commandEncoder.finish()]);
   }
 
   private renderPass(
@@ -416,31 +417,31 @@ export class WebGPUPipeline extends BasePipeline {
     passEncoder.end();
   }
 
-  private uploadUniforms(): void {
+  private uploadUniforms(uniforms: PipelineUniforms): void {
     const device = this.device!;
     const buffers = this.uniformBuffers!;
-    const { upscale, unsharp, color, crt } = this.uniforms;
+    const { upscale, unsharp, color, crt } = uniforms;
 
-    const upscaleData = new Float32Array([
+    const upscaleData = this.arrayPool.getFloat32WithValues([
       upscale.inputSize[0], upscale.inputSize[1],
       upscale.outputSize[0], upscale.outputSize[1],
       upscale.scaleFactor,
       0
     ]);
     if (this.uniformTracker.hasChanged('upscale', upscaleData)) {
-      device.queue.writeBuffer(buffers.upscale, 0, upscaleData);
+      device.queue.writeBuffer(buffers.upscale, 0, upscaleData.buffer, upscaleData.byteOffset, upscaleData.byteLength);
     }
 
-    const unsharpData = new Float32Array([
+    const unsharpData = this.arrayPool.getFloat32WithValues([
       unsharp.texelSize[0], unsharp.texelSize[1],
       unsharp.strength,
       unsharp.scaleFactor
     ]);
     if (this.uniformTracker.hasChanged('unsharp', unsharpData)) {
-      device.queue.writeBuffer(buffers.unsharp, 0, unsharpData);
+      device.queue.writeBuffer(buffers.unsharp, 0, unsharpData.buffer, unsharpData.byteOffset, unsharpData.byteLength);
     }
 
-    const colorData = new Float32Array([
+    const colorData = this.arrayPool.getFloat32WithValues([
       color.gamma,
       color.saturation,
       color.greenBias,
@@ -449,10 +450,10 @@ export class WebGPUPipeline extends BasePipeline {
       0, 0, 0
     ]);
     if (this.uniformTracker.hasChanged('color', colorData)) {
-      device.queue.writeBuffer(buffers.color, 0, colorData);
+      device.queue.writeBuffer(buffers.color, 0, colorData.buffer, colorData.byteOffset, colorData.byteLength);
     }
 
-    const crtData = new Float32Array([
+    const crtData = this.arrayPool.getFloat32WithValues([
       crt.resolution[0], crt.resolution[1],
       crt.scaleFactor,
       crt.scanlineStrength,
@@ -462,28 +463,21 @@ export class WebGPUPipeline extends BasePipeline {
       crt.vignetteStrength
     ]);
     if (this.uniformTracker.hasChanged('crt', crtData)) {
-      device.queue.writeBuffer(buffers.crt, 0, crtData);
+      device.queue.writeBuffer(buffers.crt, 0, crtData.buffer, crtData.byteOffset, crtData.byteLength);
     }
   }
 
-  protected onUniformsChanged(): void {
-    this.uniformTracker.invalidateAll();
-  }
-
-  protected onResize(): void {
+  protected onResize(width: number, height: number): void {
     if (!this.device || !this.context) return;
 
     this.intermediateTextures.forEach(tex => tex.destroy());
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
 
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
-
     for (let i = 0; i < 2; i++) {
       const texture = this.device.createTexture({
         label: `Intermediate Texture ${i}`,
-        size: [targetWidth, targetHeight],
+        size: [width, height],
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
@@ -501,11 +495,13 @@ export class WebGPUPipeline extends BasePipeline {
     this.uniformTracker.invalidateAll();
   }
 
-  async captureFrame(): Promise<ImageBitmap> {
-    return createImageBitmap(this.canvas as ImageBitmapSource);
+  protected onSuspend(): void {
   }
 
-  releaseResources(): void {
+  protected async onResume(): Promise<void> {
+  }
+
+  protected onDispose(): void {
     this.sourceTexture?.destroy();
     this.sourceTexture = null;
     this.intermediateTextures.forEach(tex => tex.destroy());
@@ -518,19 +514,15 @@ export class WebGPUPipeline extends BasePipeline {
     }
 
     this.bindGroupCache.invalidate();
-    this._isActive = false;
-  }
-
-  async dispose(): Promise<void> {
-    this.releaseResources();
     this.device?.destroy();
     this.device = null;
+    this.adapter = null;
     this.context = null;
     this.renderPipelines = null;
     this.shaderModules = null;
     this.crtLcdBindGroupLayout = null;
     this.nearestSampler = null;
     this.linearSampler = null;
-    this._isInitialized = false;
+    this.currentPreset = null;
   }
 }

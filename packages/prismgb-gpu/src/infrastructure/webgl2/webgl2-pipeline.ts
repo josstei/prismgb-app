@@ -1,6 +1,10 @@
 import { BasePipeline } from '../base-pipeline';
 import { loadShaders } from './webgl2-shader-loader';
 import { ShaderProgram } from './shader-program';
+import type { FrameSource } from '../../domain/frame';
+import type { PipelineUniforms } from '../../domain/shaders';
+import type { IPipelineOptions, RenderAPI, IAdapterInfo } from '../../domain/pipeline';
+import type { IPreset } from '../../domain/presets';
 
 interface ShaderPrograms {
   pixelUpscale: ShaderProgram;
@@ -9,14 +13,9 @@ interface ShaderPrograms {
   crtLcd: ShaderProgram;
 }
 
-/**
- * WebGL2 4-pass rendering pipeline.
- *
- * Renders Game Boy frames through a configurable shader chain:
- * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
- * Uses ping-pong intermediate textures for multi-pass rendering.
- */
 export class WebGL2Pipeline extends BasePipeline {
+  readonly api: RenderAPI = 'webgl2';
+
   private gl: WebGL2RenderingContext | null = null;
   private programs: ShaderPrograms | null = null;
   private sourceTexture: WebGLTexture | null = null;
@@ -24,9 +23,29 @@ export class WebGL2Pipeline extends BasePipeline {
   private framebuffers: WebGLFramebuffer[] = [];
   private vao: WebGLVertexArrayObject | null = null;
 
-  async initialize(): Promise<void> {
-    if (this._isInitialized) return;
+  private currentPreset: IPreset | null = null;
 
+  getAdapterInfo(): IAdapterInfo | null {
+    if (!this.gl) return null;
+
+    const debugInfo = this.gl.getExtension('WEBGL_debug_renderer_info');
+    const vendor = debugInfo
+      ? this.gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || 'Unknown'
+      : 'Unknown';
+    const renderer = debugInfo
+      ? this.gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'Unknown'
+      : 'Unknown';
+
+    return {
+      vendor,
+      architecture: 'Unknown',
+      device: renderer,
+      description: `${vendor} - ${renderer}`,
+      api: 'webgl2'
+    };
+  }
+
+  protected async onInitialize(options: IPipelineOptions): Promise<void> {
     const baseAttributes: WebGLContextAttributes = {
       alpha: false,
       antialias: false,
@@ -36,8 +55,9 @@ export class WebGL2Pipeline extends BasePipeline {
       powerPreference: 'low-power'
     };
 
-    this.gl = (this.canvas as HTMLCanvasElement).getContext('webgl2', baseAttributes)
-      ?? (this.canvas as HTMLCanvasElement).getContext('webgl2', {
+    const canvasElement = this.canvas as HTMLCanvasElement;
+    this.gl = canvasElement.getContext('webgl2', baseAttributes)
+      ?? canvasElement.getContext('webgl2', {
         ...baseAttributes,
         powerPreference: 'high-performance'
       });
@@ -50,8 +70,7 @@ export class WebGL2Pipeline extends BasePipeline {
     this.createVAO();
     this.createResources();
 
-    this._isInitialized = true;
-    this._isActive = true;
+    this.currentPreset = options.preset ?? null;
   }
 
   private createPrograms(): void {
@@ -73,8 +92,6 @@ export class WebGL2Pipeline extends BasePipeline {
 
   private createResources(): void {
     const gl = this.gl!;
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
 
     this.sourceTexture = this.createTexture(this.nativeWidth, this.nativeHeight, gl.NEAREST);
 
@@ -82,7 +99,7 @@ export class WebGL2Pipeline extends BasePipeline {
     this.framebuffers = [];
 
     for (let i = 0; i < 2; i++) {
-      const texture = this.createTexture(targetWidth, targetHeight, gl.LINEAR);
+      const texture = this.createTexture(this.targetWidth, this.targetHeight, gl.LINEAR);
       this.intermediateTextures.push(texture);
 
       const framebuffer = gl.createFramebuffer()!;
@@ -113,16 +130,14 @@ export class WebGL2Pipeline extends BasePipeline {
     return texture;
   }
 
-  renderFrame(source: TexImageSource): void {
-    if (!this._isActive || !this.gl || !this.sourceTexture || !this.programs) return;
+  protected onRenderFrame(source: FrameSource, uniforms: PipelineUniforms): void {
+    if (!this.gl || !this.sourceTexture || !this.programs) return;
 
-    const startTime = performance.now();
     const gl = this.gl;
-    const { upscale, unsharp, color, crt } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
+    const { upscale, unsharp, color, crt } = uniforms;
 
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source as TexImageSource);
     gl.bindTexture(gl.TEXTURE_2D, null);
 
     gl.bindVertexArray(this.vao);
@@ -130,20 +145,20 @@ export class WebGL2Pipeline extends BasePipeline {
     let currentTexture = 0;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
-    gl.viewport(0, 0, targetWidth, targetHeight);
+    gl.viewport(0, 0, this.targetWidth, this.targetHeight);
     this.programs.pixelUpscale.use();
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
     this.programs.pixelUpscale.setUniform1i('uSourceTex', 0);
     this.programs.pixelUpscale.setUniform2f('uSourceSize', this.nativeWidth, this.nativeHeight);
-    this.programs.pixelUpscale.setUniform2f('uTargetSize', targetWidth, targetHeight);
+    this.programs.pixelUpscale.setUniform2f('uTargetSize', this.targetWidth, this.targetHeight);
     this.programs.pixelUpscale.setUniform1f('uScaleFactor', upscale.scaleFactor);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     currentTexture = 0;
 
-    if (this.preset.unsharp.enabled && unsharp.strength > 0) {
+    if (this.currentPreset?.unsharp.enabled && unsharp.strength > 0) {
       const nextTexture = (currentTexture + 1) % 2;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
       this.programs.unsharpMask.use();
@@ -159,7 +174,7 @@ export class WebGL2Pipeline extends BasePipeline {
       currentTexture = nextTexture;
     }
 
-    if (this.preset.color.enabled) {
+    if (this.currentPreset?.color.enabled) {
       const nextTexture = (currentTexture + 1) % 2;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
       this.programs.colorElevation.use();
@@ -201,7 +216,7 @@ export class WebGL2Pipeline extends BasePipeline {
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[currentTexture]);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       gl.blitFramebuffer(
-        0, 0, targetWidth, targetHeight,
+        0, 0, this.targetWidth, this.targetHeight,
         0, 0, this.canvas.width, this.canvas.height,
         gl.COLOR_BUFFER_BIT,
         gl.NEAREST
@@ -210,23 +225,20 @@ export class WebGL2Pipeline extends BasePipeline {
     }
 
     gl.bindVertexArray(null);
-    this.updateStats(performance.now() - startTime);
   }
 
-  async captureFrame(): Promise<ImageBitmap> {
-    return createImageBitmap(this.canvas as ImageBitmapSource);
-  }
-
-  protected onUniformsChanged(): void {
-    // WebGL2 uniforms are set per-frame in renderFrame() via setUniform calls.
-  }
-
-  protected onResize(): void {
+  protected onResize(width: number, height: number): void {
     this.releaseResources();
     this.createResources();
   }
 
-  releaseResources(): void {
+  protected onSuspend(): void {
+  }
+
+  protected async onResume(): Promise<void> {
+  }
+
+  private releaseResources(): void {
     if (!this.gl) return;
 
     const gl = this.gl;
@@ -238,10 +250,9 @@ export class WebGL2Pipeline extends BasePipeline {
     this.intermediateTextures = [];
     this.framebuffers.forEach(f => gl.deleteFramebuffer(f));
     this.framebuffers = [];
-    this._isActive = false;
   }
 
-  async dispose(): Promise<void> {
+  protected onDispose(): void {
     this.releaseResources();
 
     if (this.programs) {
@@ -259,6 +270,6 @@ export class WebGL2Pipeline extends BasePipeline {
 
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.gl = null;
-    this._isInitialized = false;
+    this.currentPreset = null;
   }
 }

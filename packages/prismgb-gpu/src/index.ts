@@ -5,10 +5,10 @@
 // Internal implementation details are not exposed.
 // =============================================================================
 
-// Domain Types (for typing only)
 export type {
   IPipeline,
   IPipelineConfig,
+  IPipelineOptions,
   IPipelineCapabilities,
   IPipelineStats,
   RenderAPI,
@@ -43,6 +43,8 @@ export type {
   FrameSource,
   IFrameProvider
 } from './domain/frame';
+
+export { WebGPUPipeline, WebGL2Pipeline, Canvas2DPipeline } from './infrastructure';
 
 // Preset Registry (for UI to list/select presets)
 export { PresetRegistry } from './domain/presets';

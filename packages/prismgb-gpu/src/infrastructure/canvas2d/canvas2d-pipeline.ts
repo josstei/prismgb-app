@@ -1,11 +1,18 @@
-import { BasePipeline, type BasePipelineConfig } from '../base-pipeline';
+import { BasePipeline } from '../base-pipeline';
+import type { FrameSource } from '../../domain/frame';
+import type { PipelineUniforms } from '../../domain/shaders';
+import type { IPipelineOptions, RenderAPI, IAdapterInfo } from '../../domain/pipeline';
 
 export class Canvas2DPipeline extends BasePipeline {
+  readonly api: RenderAPI = 'canvas2d';
+
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
-  async initialize(): Promise<void> {
-    if (this._isInitialized) return;
+  getAdapterInfo(): IAdapterInfo | null {
+    return null;
+  }
 
+  protected async onInitialize(options: IPipelineOptions): Promise<void> {
     this.ctx = this.canvas.getContext('2d', {
       alpha: false,
       desynchronized: true
@@ -16,44 +23,30 @@ export class Canvas2DPipeline extends BasePipeline {
     }
 
     (this.ctx as CanvasRenderingContext2D).imageSmoothingEnabled = false;
-    this._isInitialized = true;
-    this._isActive = true;
   }
 
-  renderFrame(source: TexImageSource): void {
-    if (!this._isActive || !this.ctx) return;
-
-    const startTime = performance.now();
+  protected onRenderFrame(source: FrameSource, uniforms: PipelineUniforms): void {
+    if (!this.ctx) return;
 
     this.ctx.drawImage(
       source as CanvasImageSource,
       0, 0,
       this.nativeWidth, this.nativeHeight,
       0, 0,
-      this.outputWidth, this.outputHeight
+      this.targetWidth, this.targetHeight
     );
-
-    this.updateStats(performance.now() - startTime);
   }
 
-  async captureFrame(): Promise<ImageBitmap> {
-    return createImageBitmap(this.canvas as ImageBitmapSource);
+  protected onResize(width: number, height: number): void {
   }
 
-  protected onUniformsChanged(): void {
-    // Canvas2D doesn't support shader uniforms
+  protected onSuspend(): void {
   }
 
-  protected onResize(): void {
-    // Context handles resize automatically
+  protected async onResume(): Promise<void> {
   }
 
-  releaseResources(): void {
-    this._isActive = false;
-  }
-
-  async dispose(): Promise<void> {
+  protected onDispose(): void {
     this.ctx = null;
-    this._isInitialized = false;
   }
 }
