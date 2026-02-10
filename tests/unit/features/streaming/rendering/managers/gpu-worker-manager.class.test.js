@@ -335,6 +335,106 @@ describe('GpuWorkerManager', () => {
     });
   });
 
+  describe('re-init after release (characterization)', () => {
+    let mockCanvas;
+
+    beforeEach(async () => {
+      manager = new GpuWorkerManager({
+        loggerFactory: mockLoggerFactory,
+        eventBus: mockEventBus
+      });
+
+      mockCanvas = {
+        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
+        clientWidth: 640,
+        clientHeight: 576
+      };
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2', presetId: 'default' });
+    });
+
+    it('should reinit without canvas transfer after release', async () => {
+      manager.releaseResources();
+      expect(manager.isReady()).toBe(false);
+      expect(manager.isCanvasTransferred()).toBe(true);
+
+      mockWorker.postMessage.mockClear();
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2', presetId: 'default' });
+
+      expect(manager.isReady()).toBe(true);
+      expect(mockCanvas.transferControlToOffscreen).toHaveBeenCalledTimes(1);
+
+      const initMessage = mockWorker.postMessage.mock.calls[0][0];
+      expect(initMessage.type).toBe('init');
+      expect(initMessage.payload.canvas).toBeUndefined();
+      expect(initMessage.payload.config).toBeDefined();
+    });
+
+    it('should not create new Worker instance on reinit', async () => {
+      manager.releaseResources();
+
+      const workerCallsBefore = global.Worker.mock.calls.length;
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+
+      expect(global.Worker.mock.calls.length).toBe(workerCallsBefore);
+    });
+
+    it('should send INIT with config-only payload on reinit', async () => {
+      manager.releaseResources();
+      mockWorker.postMessage.mockClear();
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2', presetId: 'vibrant' });
+
+      const reinitMsg = mockWorker.postMessage.mock.calls[0][0];
+      expect(reinitMsg.type).toBe('init');
+      expect(reinitMsg.payload).toEqual({
+        config: { api: 'webgl2', presetId: 'vibrant' }
+      });
+    });
+
+    it('should preserve canvas transferred flag across release/reinit cycle', async () => {
+      expect(manager.isCanvasTransferred()).toBe(true);
+
+      manager.releaseResources();
+      expect(manager.isCanvasTransferred()).toBe(true);
+
+      setTimeout(() => {
+        mockWorker.onmessage({
+          data: { type: 'ready', payload: { api: 'webgl2' } }
+        });
+      }, 10);
+
+      await manager.initialize(mockCanvas, { api: 'webgl2' });
+      expect(manager.isCanvasTransferred()).toBe(true);
+    });
+  });
+
   describe('terminate', () => {
     beforeEach(async () => {
       manager = new GpuWorkerManager({

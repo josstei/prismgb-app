@@ -640,4 +640,137 @@ describe('StreamingGpuRendererService', () => {
       expect(mockGpuWorkerManager.terminate).toHaveBeenCalled();
     });
   });
+
+  describe('capture chain (characterization)', () => {
+    let capturedHandlers;
+
+    beforeEach(async () => {
+      capturedHandlers = {};
+      mockGpuWorkerManager.onMessage.mockImplementation((type, handler) => {
+        capturedHandlers[type] = handler;
+        return vi.fn();
+      });
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+    });
+
+    it('should follow REQUEST_CAPTURE → FRAME_RENDERED → CAPTURE → CAPTURE_READY chain', async () => {
+      const mockBitmap = { close: vi.fn(), width: 640, height: 576 };
+      const capturePromise = service.captureFrame();
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith('REQUEST_CAPTURE');
+      expect(service._isWaitingForCapturedFrame).toBe(true);
+
+      mockGpuWorkerManager.sendCommand.mockClear();
+
+      capturedHandlers['FRAME_RENDERED']({});
+
+      expect(service._isWaitingForCapturedFrame).toBe(false);
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith('CAPTURE');
+
+      capturedHandlers['CAPTURE_READY']({ bitmap: mockBitmap });
+
+      const result = await capturePromise;
+      expect(result).toBe(mockBitmap);
+      expect(service._pendingCaptureResolve).toBeNull();
+      expect(service._pendingCaptureReject).toBeNull();
+    });
+
+    it('should reject capture on worker error during chain', async () => {
+      const capturePromise = service.captureFrame();
+
+      capturedHandlers['ERROR']({
+        code: 'GPU_ERROR',
+        message: 'Device lost during capture'
+      });
+
+      await expect(capturePromise).rejects.toThrow('Device lost during capture');
+      expect(service._pendingCaptureResolve).toBeNull();
+    });
+
+    it('should only send CAPTURE once per capture request', async () => {
+      const mockBitmap = { close: vi.fn() };
+      const capturePromise = service.captureFrame();
+
+      mockGpuWorkerManager.sendCommand.mockClear();
+
+      capturedHandlers['FRAME_RENDERED']({});
+      capturedHandlers['FRAME_RENDERED']({});
+      capturedHandlers['FRAME_RENDERED']({});
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledTimes(1);
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith('CAPTURE');
+
+      capturedHandlers['CAPTURE_READY']({ bitmap: mockBitmap });
+      await capturePromise;
+    });
+  });
+
+  describe('setPreset message shape (characterization)', () => {
+    beforeEach(async () => {
+      mockGpuWorkerManager.onMessage.mockReturnValue(vi.fn());
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+      mockGpuWorkerManager.sendCommand.mockClear();
+    });
+
+    it('should send SET_PRESET with presetId and full preset object', () => {
+      service._currentPresetId = 'other';
+
+      service.setPreset('default');
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'SET_PRESET',
+        expect.objectContaining({
+          presetId: 'default',
+          preset: expect.objectContaining({
+            id: 'default',
+            name: expect.any(String)
+          })
+        })
+      );
+    });
+  });
+
+  describe('release and reinit (characterization)', () => {
+    beforeEach(async () => {
+      mockGpuWorkerManager.onMessage.mockReturnValue(vi.fn());
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+    });
+
+    it('should reset pending frames on release', () => {
+      service._pendingFrames = 2;
+
+      service.releaseGpuResources();
+
+      expect(service._pendingFrames).toBe(0);
+      expect(mockGpuWorkerManager.releaseResources).toHaveBeenCalled();
+    });
+
+    it('should allow rendering after reinit', async () => {
+      service.releaseGpuResources();
+
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      const mockBitmap = { close: vi.fn() };
+      global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
+      service._currentPreset = { id: 'default' };
+      service._currentPresetId = 'default';
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'FRAME',
+        expect.objectContaining({ imageBitmap: mockBitmap }),
+        [mockBitmap]
+      );
+    });
+  });
 });
