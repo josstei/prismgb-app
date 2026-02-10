@@ -20,7 +20,7 @@ import {
   WorkerMessageType,
   WorkerResponseType
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
-import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
+import { PresetRegistry, UniformContext } from '@prismgb/gpu';
 
 /**
  * Maximum number of frames that can be pending render
@@ -68,17 +68,11 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._currentPresetId = null;
     this._currentPreset = null;
-    this._globalBrightness = 1.0;
     this._scaleFactor = 1;
     this._targetWidth = NATIVE_WIDTH;
     this._targetHeight = NATIVE_HEIGHT;
 
-    this._cachedUniforms = null;
-    this._cachedPresetId = null;
-    this._cachedScaleFactor = null;
-    this._cachedTargetWidth = null;
-    this._cachedTargetHeight = null;
-    this._cachedBrightness = null;
+    this._uniformContext = null;
 
     this._lastStats = null;
 
@@ -110,12 +104,13 @@ export class StreamingGpuRendererService extends BaseService {
   async initialize(canvasElement, nativeResolution = { width: NATIVE_WIDTH, height: NATIVE_HEIGHT }) {
     this.logger.info('Initializing GPU renderer...');
 
-    this._globalBrightness = this.settingsService.getGlobalBrightness();
     if (!this._brightnessUnsubscribe) {
       this._brightnessUnsubscribe = this.eventBus.subscribe(
         EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
         (brightness) => {
-          this._globalBrightness = brightness;
+          if (this._uniformContext) {
+            this._uniformContext.setBrightness(brightness);
+          }
           this.logger.debug(`Global brightness updated to ${brightness.toFixed(2)}`);
         }
       );
@@ -151,6 +146,15 @@ export class StreamingGpuRendererService extends BaseService {
       const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
       this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
+
+      this._uniformContext = new UniformContext({
+        preset: this._currentPreset,
+        nativeWidth: nativeResolution.width,
+        nativeHeight: nativeResolution.height,
+        outputWidth: this._targetWidth,
+        outputHeight: this._targetHeight,
+        brightness: this.settingsService.getGlobalBrightness()
+      });
 
       const config = {
         nativeWidth: nativeResolution.width,
@@ -305,38 +309,12 @@ export class StreamingGpuRendererService extends BaseService {
   }
 
   /**
-   * Get cached uniforms, rebuilding only when preset, dimensions, or brightness change
-   * Uses direct value comparison instead of string concatenation to avoid GC pressure
+   * Get uniforms for the current frame via UniformContext dirty-flag cache
    * @returns {Object} Uniform values for all shader passes
    * @private
    */
   _getCachedUniforms() {
-    if (this._cachedUniforms &&
-        this._cachedPresetId === this._currentPresetId &&
-        this._cachedScaleFactor === this._scaleFactor &&
-        this._cachedTargetWidth === this._targetWidth &&
-        this._cachedTargetHeight === this._targetHeight &&
-        this._cachedBrightness === this._globalBrightness) {
-      return this._cachedUniforms;
-    }
-
-    const baseUniforms = buildUniforms({
-      preset: this._currentPreset,
-      nativeWidth: NATIVE_WIDTH,
-      nativeHeight: NATIVE_HEIGHT,
-      outputWidth: this._targetWidth,
-      outputHeight: this._targetHeight,
-      brightness: this._globalBrightness
-    });
-    this._cachedUniforms = baseUniforms;
-
-    this._cachedPresetId = this._currentPresetId;
-    this._cachedScaleFactor = this._scaleFactor;
-    this._cachedTargetWidth = this._targetWidth;
-    this._cachedTargetHeight = this._targetHeight;
-    this._cachedBrightness = this._globalBrightness;
-
-    return this._cachedUniforms;
+    return this._uniformContext.uniforms;
   }
 
   /**
@@ -356,6 +334,10 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._currentPresetId = presetId;
     this._currentPreset = preset;
+
+    if (this._uniformContext) {
+      this._uniformContext.setPreset(preset);
+    }
 
     this.logger.info(`Render preset changed to: ${preset.name}`);
 
@@ -389,6 +371,10 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._targetWidth = NATIVE_WIDTH * this._scaleFactor;
     this._targetHeight = NATIVE_HEIGHT * this._scaleFactor;
+
+    if (this._uniformContext) {
+      this._uniformContext.setOutputSize(this._targetWidth, this._targetHeight);
+    }
 
     if (this._workerManager.isReady()) {
       this._workerManager.sendCommand(WorkerMessageType.RESIZE, {

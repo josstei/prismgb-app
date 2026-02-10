@@ -50,19 +50,30 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
   createWorkerMessage: vi.fn((type, payload) => ({ type, payload }))
 }));
 
-// Mock render presets
-vi.mock('@prismgb/gpu', () => ({
-  PresetRegistry: {
-    get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
-    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
-  },
-  buildUniforms: vi.fn(() => ({
-    upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
-    unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
-    color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
-    crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
-  }))
-}));
+const MOCK_UNIFORMS = {
+  upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
+  unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
+  color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
+  crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
+};
+
+vi.mock('@prismgb/gpu', () => {
+  class MockUniformContext {
+    constructor() {
+      this.uniforms = MOCK_UNIFORMS;
+      this.setPreset = vi.fn();
+      this.setBrightness = vi.fn();
+      this.setOutputSize = vi.fn();
+    }
+  }
+  return {
+    PresetRegistry: {
+      get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+      getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+    },
+    UniformContext: MockUniformContext
+  };
+});
 
 describe('StreamingGpuRendererService', () => {
   let service;
@@ -255,12 +266,13 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should send frame via worker manager', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+      mockGpuWorkerManager.sendCommand.mockClear();
+
       mockGpuWorkerManager.isReady.mockReturnValue(true);
       const mockBitmap = { close: vi.fn() };
       global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
-
-      service._currentPreset = { id: 'default' };
-      service._currentPresetId = 'default';
 
       const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
       await service.renderFrame(videoElement);
@@ -584,33 +596,23 @@ describe('StreamingGpuRendererService', () => {
   });
 
   describe('_getCachedUniforms', () => {
-    it('should return cached uniforms when nothing changed', () => {
-      const uniforms = { test: true };
-      service._cachedUniforms = uniforms;
-      service._cachedPresetId = 'default';
-      service._currentPresetId = 'default';
-      service._cachedScaleFactor = 4;
-      service._scaleFactor = 4;
-      service._cachedTargetWidth = 640;
-      service._targetWidth = 640;
-      service._cachedTargetHeight = 576;
-      service._targetHeight = 576;
-      service._cachedBrightness = 1.0;
-      service._globalBrightness = 1.0;
-
-      expect(service._getCachedUniforms()).toBe(uniforms);
-    });
-
-    it('should rebuild uniforms when preset changes', () => {
-      service._cachedUniforms = { old: true };
-      service._cachedPresetId = 'old';
-      service._currentPresetId = 'new';
-      service._currentPreset = { id: 'new' };
+    it('should delegate to UniformContext uniforms getter', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
 
       const result = service._getCachedUniforms();
 
-      expect(result).not.toEqual({ old: true });
-      expect(service._cachedPresetId).toBe('new');
+      expect(result).toEqual(MOCK_UNIFORMS);
+    });
+
+    it('should propagate preset changes to UniformContext', async () => {
+      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      await service.initialize(canvasElement);
+
+      service._currentPresetId = 'other';
+      service.setPreset('default');
+
+      expect(service._uniformContext.setPreset).toHaveBeenCalled();
     });
   });
 
@@ -756,12 +758,11 @@ describe('StreamingGpuRendererService', () => {
 
     it('should allow rendering after reinit', async () => {
       service.releaseGpuResources();
+      mockGpuWorkerManager.sendCommand.mockClear();
 
       mockGpuWorkerManager.isReady.mockReturnValue(true);
       const mockBitmap = { close: vi.fn() };
       global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
-      service._currentPreset = { id: 'default' };
-      service._currentPresetId = 'default';
 
       const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
       await service.renderFrame(videoElement);
