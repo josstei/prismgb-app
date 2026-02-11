@@ -3,23 +3,84 @@
  *
  * Centralized localStorage management for user preferences
  * 100% UI-agnostic - emits events when settings change
- *
- * Events emitted:
- * - 'settings:volume-changed' - Volume changed
- * - 'settings:cinematic-changed' - Cinematic mode changed
- * - 'settings:status-strip-changed' - Status strip visibility changed
  */
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
 
+type SettingsDefaults = {
+  gameVolume: number;
+  statusStripVisible: boolean;
+  renderPreset: string;
+  globalBrightness: number;
+  performanceMode: boolean;
+  fullscreenOnStartup: boolean;
+  minimalistFullscreen: boolean;
+  autoStreamOnConnect: boolean;
+  recordingFormat: string;
+};
+
+type SettingsEventBus = {
+  publish(channel: string, payload?: unknown): void;
+};
+
+type SettingsStorage = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+type SettingsLogger = {
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+};
+
+interface SettingsServiceDependencies {
+  eventBus: SettingsEventBus;
+  loggerFactory: { create(name: string): SettingsLogger };
+  storageService: SettingsStorage;
+}
+
+type SettingDefinition<TValue> = {
+  key: string;
+  defaultValue: TValue;
+  parse: (storedValue: string) => TValue;
+  normalize?: (nextValue: TValue) => TValue;
+  serialize?: (value: TValue) => string;
+  eventChannel?: string;
+  logMessage?: (value: TValue) => string;
+};
+
+type SettingCatalog = {
+  volume: SettingDefinition<number>;
+  statusStripVisible: SettingDefinition<boolean>;
+  renderPreset: SettingDefinition<string>;
+  globalBrightness: SettingDefinition<number>;
+  performanceMode: SettingDefinition<boolean>;
+  fullscreenOnStartup: SettingDefinition<boolean>;
+  minimalistFullscreen: SettingDefinition<boolean>;
+  autoStreamOnConnect: SettingDefinition<boolean>;
+  recordingFormat: SettingDefinition<string>;
+};
+
 class SettingsService extends BaseService {
+  static readonly dependencies = ['eventBus', 'loggerFactory', 'storageService'] as const;
 
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
+  declare eventBus: SettingsEventBus;
+  declare storageService: SettingsStorage;
+  declare logger: SettingsLogger;
 
-    // Default settings
+  readonly defaults: SettingsDefaults;
+  readonly validRecordingFormats: readonly string[];
+  readonly keys: typeof SettingsStorageKeys;
+
+  private readonly _settings: SettingCatalog;
+
+  constructor(dependencies: SettingsServiceDependencies) {
+    super(dependencies, [...SettingsService.dependencies], 'SettingsService');
+
     this.defaults = {
       gameVolume: 70,
       statusStripVisible: false,
@@ -32,18 +93,87 @@ class SettingsService extends BaseService {
       recordingFormat: 'webm'
     };
 
-    // Valid recording formats
     this.validRecordingFormats = ['webm', 'mp4', 'mov'];
-
-    // Use centralized storage keys
     this.keys = SettingsStorageKeys;
+
+    this._settings = {
+      volume: {
+        key: this.keys.VOLUME,
+        defaultValue: this.defaults.gameVolume,
+        parse: (storedValue) => parseInt(storedValue, 10),
+        normalize: (nextValue) => Math.max(0, Math.min(100, nextValue)),
+        serialize: (value) => value.toString(),
+        eventChannel: EventChannels.SETTINGS.VOLUME_CHANGED
+      },
+      statusStripVisible: {
+        key: this.keys.STATUS_STRIP,
+        defaultValue: this.defaults.statusStripVisible,
+        parse: (storedValue) => storedValue === 'true',
+        serialize: (value) => value.toString(),
+        logMessage: (visible) => `Status strip ${visible ? 'shown' : 'hidden'}`
+      },
+      renderPreset: {
+        key: this.keys.RENDER_PRESET,
+        defaultValue: this.defaults.renderPreset,
+        parse: (storedValue) => storedValue,
+        eventChannel: EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
+        logMessage: (presetId) => `Render preset set to ${presetId}`
+      },
+      globalBrightness: {
+        key: this.keys.GLOBAL_BRIGHTNESS,
+        defaultValue: this.defaults.globalBrightness,
+        parse: (storedValue) => parseFloat(storedValue),
+        normalize: (nextValue) => Math.max(0.5, Math.min(1.5, nextValue)),
+        serialize: (value) => value.toString(),
+        eventChannel: EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
+        logMessage: (brightness) => `Global brightness set to ${brightness.toFixed(2)}`
+      },
+      performanceMode: {
+        key: this.keys.PERFORMANCE_MODE,
+        defaultValue: this.defaults.performanceMode,
+        parse: (storedValue) => storedValue === 'true',
+        serialize: (value) => value.toString(),
+        eventChannel: EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
+        logMessage: (enabled) => `Performance mode ${enabled ? 'enabled' : 'disabled'}`
+      },
+      fullscreenOnStartup: {
+        key: this.keys.FULLSCREEN_ON_STARTUP,
+        defaultValue: this.defaults.fullscreenOnStartup,
+        parse: (storedValue) => storedValue === 'true',
+        serialize: (value) => value.toString(),
+        logMessage: (enabled) => `Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`
+      },
+      minimalistFullscreen: {
+        key: this.keys.MINIMALIST_FULLSCREEN,
+        defaultValue: this.defaults.minimalistFullscreen,
+        parse: (storedValue) => storedValue === 'true',
+        serialize: (value) => value.toString(),
+        eventChannel: EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
+        logMessage: (enabled) => `Minimalist fullscreen ${enabled ? 'enabled' : 'disabled'}`
+      },
+      autoStreamOnConnect: {
+        key: this.keys.AUTO_STREAM_ON_CONNECT,
+        defaultValue: this.defaults.autoStreamOnConnect,
+        parse: (storedValue) => storedValue === 'true',
+        serialize: (value) => value.toString(),
+        logMessage: (enabled) => `Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`
+      },
+      recordingFormat: {
+        key: this.keys.RECORDING_FORMAT,
+        defaultValue: this.defaults.recordingFormat,
+        parse: (storedValue) => storedValue,
+        eventChannel: EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED,
+        logMessage: (format) => `Recording format set to ${format}`
+      }
+    };
   }
 
-  /**
-   * Load all saved preferences
-   * @returns {Object} All preferences
-   */
-  loadAllPreferences() {
+  loadAllPreferences(): {
+    volume: number;
+    statusStripVisible: boolean;
+    performanceMode: boolean;
+    minimalistFullscreen: boolean;
+  } {
     const volume = this.getVolume();
     const statusStripVisible = this.getStatusStripVisible();
     const performanceMode = this.getPerformanceMode();
@@ -61,202 +191,115 @@ class SettingsService extends BaseService {
     };
   }
 
-  /**
-   * Get saved volume preference
-   * @returns {number} Volume (0-100)
-   */
-  getVolume() {
-    const saved = this.storageService?.getItem(this.keys.VOLUME);
-    return saved !== null ? parseInt(saved) : this.defaults.gameVolume;
+  getVolume(): number {
+    return this._read(this._settings.volume);
   }
 
-  /**
-   * Save volume preference
-   * @param {number} volume - Volume (0-100)
-   */
-  setVolume(volume) {
-    const clampedVolume = Math.max(0, Math.min(100, volume));
-    this.storageService?.setItem(this.keys.VOLUME, clampedVolume.toString());
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, clampedVolume);
+  setVolume(volume: number): void {
+    this._write(this._settings.volume, volume);
   }
 
-  /**
-   * Get saved status strip visibility preference
-   * @returns {boolean} Status strip visible
-   */
-  getStatusStripVisible() {
-    const saved = this.storageService?.getItem(this.keys.STATUS_STRIP);
-    return saved !== null ? saved === 'true' : this.defaults.statusStripVisible;
+  getStatusStripVisible(): boolean {
+    return this._read(this._settings.statusStripVisible);
   }
 
-  /**
-   * Save status strip visibility preference
-   * @param {boolean} visible - Status strip visible
-   */
-  setStatusStripVisible(visible) {
-    this.storageService?.setItem(this.keys.STATUS_STRIP, visible.toString());
-
-    this.logger.debug(`Status strip ${visible ? 'shown' : 'hidden'}`);
+  setStatusStripVisible(visible: boolean): void {
+    this._write(this._settings.statusStripVisible, visible);
   }
 
-  /**
-   * Get saved render preset preference
-   * @returns {string} Render preset ID
-   */
-  getRenderPreset() {
-    const saved = this.storageService?.getItem(this.keys.RENDER_PRESET);
-    return saved !== null ? saved : this.defaults.renderPreset;
+  getRenderPreset(): string {
+    return this._read(this._settings.renderPreset);
   }
 
-  /**
-   * Save render preset preference
-   * @param {string} presetId - Render preset ID
-   */
-  setRenderPreset(presetId) {
-    this.storageService?.setItem(this.keys.RENDER_PRESET, presetId);
-
-    this.logger.debug(`Render preset set to ${presetId}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, presetId);
+  setRenderPreset(presetId: string): void {
+    this._write(this._settings.renderPreset, presetId);
   }
 
-  /**
-   * Get saved global brightness preference
-   * @returns {number} Global brightness multiplier (0.5-1.5)
-   */
-  getGlobalBrightness() {
-    const saved = this.storageService?.getItem(this.keys.GLOBAL_BRIGHTNESS);
-    return saved !== null ? parseFloat(saved) : this.defaults.globalBrightness;
+  getGlobalBrightness(): number {
+    return this._read(this._settings.globalBrightness);
   }
 
-  /**
-   * Save global brightness preference
-   * @param {number} brightness - Brightness multiplier (0.5-1.5)
-   */
-  setGlobalBrightness(brightness) {
-    const clampedBrightness = Math.max(0.5, Math.min(1.5, brightness));
-    this.storageService?.setItem(this.keys.GLOBAL_BRIGHTNESS, clampedBrightness.toString());
-
-    this.logger.debug(`Global brightness set to ${clampedBrightness.toFixed(2)}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.BRIGHTNESS_CHANGED, clampedBrightness);
+  setGlobalBrightness(brightness: number): void {
+    this._write(this._settings.globalBrightness, brightness);
   }
 
-  /**
-   * Get performance mode preference
-   * @returns {boolean} True if performance mode is enabled (Canvas2D, minimal shaders, no CSS animations)
-   */
-  getPerformanceMode() {
-    const saved = this.storageService?.getItem(this.keys.PERFORMANCE_MODE);
-    return saved !== null ? saved === 'true' : this.defaults.performanceMode;
+  getPerformanceMode(): boolean {
+    return this._read(this._settings.performanceMode);
   }
 
-  /**
-   * Set performance mode preference
-   * @param {boolean} enabled - Enable performance mode (Canvas2D, minimal shaders, no CSS animations)
-   */
-  setPerformanceMode(enabled) {
-    this.storageService?.setItem(this.keys.PERFORMANCE_MODE, enabled.toString());
-
-    this.logger.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, enabled);
+  setPerformanceMode(enabled: boolean): void {
+    this._write(this._settings.performanceMode, enabled);
   }
 
-  /**
-   * Get fullscreen on startup preference
-   * @returns {boolean} True if fullscreen on startup is enabled
-   */
-  getFullscreenOnStartup() {
-    const saved = this.storageService?.getItem(this.keys.FULLSCREEN_ON_STARTUP);
-    return saved !== null ? saved === 'true' : this.defaults.fullscreenOnStartup;
+  getFullscreenOnStartup(): boolean {
+    return this._read(this._settings.fullscreenOnStartup);
   }
 
-  /**
-   * Set fullscreen on startup preference
-   * @param {boolean} enabled - Enable fullscreen on startup
-   */
-  setFullscreenOnStartup(enabled) {
-    this.storageService?.setItem(this.keys.FULLSCREEN_ON_STARTUP, enabled.toString());
-
-    this.logger.debug(`Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`);
+  setFullscreenOnStartup(enabled: boolean): void {
+    this._write(this._settings.fullscreenOnStartup, enabled);
   }
 
-  /**
-   * Get minimalist fullscreen preference
-   * @returns {boolean} True if minimalist fullscreen is enabled
-   */
-  getMinimalistFullscreen() {
-    const saved = this.storageService?.getItem(this.keys.MINIMALIST_FULLSCREEN);
-    return saved !== null ? saved === 'true' : this.defaults.minimalistFullscreen;
+  getMinimalistFullscreen(): boolean {
+    return this._read(this._settings.minimalistFullscreen);
   }
 
-  /**
-   * Set minimalist fullscreen preference
-   * @param {boolean} enabled - Enable minimalist fullscreen
-   */
-  setMinimalistFullscreen(enabled) {
-    this.storageService?.setItem(this.keys.MINIMALIST_FULLSCREEN, enabled.toString());
-
-    this.logger.debug(`Minimalist fullscreen ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, enabled);
+  setMinimalistFullscreen(enabled: boolean): void {
+    this._write(this._settings.minimalistFullscreen, enabled);
   }
 
-  /**
-   * Get auto-stream on connect preference
-   * @returns {boolean} True if auto-stream on connect is enabled
-   */
-  getAutoStreamOnConnect() {
-    const saved = this.storageService?.getItem(this.keys.AUTO_STREAM_ON_CONNECT);
-    return saved !== null ? saved === 'true' : this.defaults.autoStreamOnConnect;
+  getAutoStreamOnConnect(): boolean {
+    return this._read(this._settings.autoStreamOnConnect);
   }
 
-  /**
-   * Set auto-stream on connect preference
-   * @param {boolean} enabled - Enable auto-stream on connect
-   */
-  setAutoStreamOnConnect(enabled) {
-    this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
-
-    this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
+  setAutoStreamOnConnect(enabled: boolean): void {
+    this._write(this._settings.autoStreamOnConnect, enabled);
   }
 
-  /**
-   * Get recording format preference
-   * @returns {string} Recording format (webm, mp4, or mov)
-   */
-  getRecordingFormat() {
-    const saved = this.storageService?.getItem(this.keys.RECORDING_FORMAT);
-    if (saved !== null && this.validRecordingFormats.includes(saved)) {
-      return saved;
+  getRecordingFormat(): string {
+    const format = this._read(this._settings.recordingFormat);
+    if (this.validRecordingFormats.includes(format)) {
+      return format;
     }
     return this.defaults.recordingFormat;
   }
 
-  /**
-   * Set recording format preference
-   * @param {string} format - Recording format (webm, mp4, or mov)
-   * @returns {boolean} True if format was valid and saved
-   */
-  setRecordingFormat(format) {
+  setRecordingFormat(format: string): boolean {
     if (!this.validRecordingFormats.includes(format)) {
       this.logger.warn(`Invalid recording format: ${format}. Valid formats: ${this.validRecordingFormats.join(', ')}`);
       return false;
     }
 
-    this.storageService?.setItem(this.keys.RECORDING_FORMAT, format);
-    this.logger.debug(`Recording format set to ${format}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED, format);
+    this._write(this._settings.recordingFormat, format);
     return true;
+  }
+
+  private _read<TValue>(definition: SettingDefinition<TValue>): TValue {
+    const storedValue = this.storageService?.getItem(definition.key);
+    if (storedValue === null) {
+      return definition.defaultValue;
+    }
+
+    const parsed = definition.parse(storedValue);
+    return parsed ?? definition.defaultValue;
+  }
+
+  private _write<TValue>(definition: SettingDefinition<TValue>, nextValue: TValue): TValue {
+    const normalizedValue = definition.normalize ? definition.normalize(nextValue) : nextValue;
+    const serializedValue = definition.serialize
+      ? definition.serialize(normalizedValue)
+      : String(normalizedValue);
+
+    this.storageService?.setItem(definition.key, serializedValue);
+
+    if (definition.logMessage) {
+      this.logger.debug(definition.logMessage(normalizedValue));
+    }
+
+    if (definition.eventChannel) {
+      this.eventBus.publish(definition.eventChannel, normalizedValue);
+    }
+
+    return normalizedValue;
   }
 }
 

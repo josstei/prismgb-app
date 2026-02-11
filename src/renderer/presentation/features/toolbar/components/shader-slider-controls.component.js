@@ -8,6 +8,7 @@ import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { cleanupCallbacks } from '@renderer/presentation/lib/event-subscriptions.utils';
 
 class ShaderSliderControlsComponent {
   constructor({ settingsService, eventBus, logger }) {
@@ -237,22 +238,8 @@ class ShaderSliderControlsComponent {
 
   dispose() {
     this._domListeners.removeAll();
-    this._eventSubscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
+    cleanupCallbacks(this._eventSubscriptions);
     this._eventSubscriptions = [];
-
-    this.brightnessSlider = null;
-    this.brightnessPercentage = null;
-    this.brightnessControl = null;
-    this.volumeSlider = null;
-    this.volumePercentage = null;
-    this.streamVideo = null;
-    this.settingsService = null;
-    this.eventBus = null;
-    this.logger = null;
   }
 }
 

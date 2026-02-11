@@ -17,8 +17,10 @@ import { BaseService } from '@shared/base/service.base.js';
 import { TIMING } from '@shared/config/timing.config';
 
 export class StreamingViewportService extends BaseService {
+  static readonly dependencies = ['loggerFactory'] as const;
+
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingViewportService');
+    super(dependencies, [...StreamingViewportService.dependencies], 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;

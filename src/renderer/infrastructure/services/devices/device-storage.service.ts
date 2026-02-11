@@ -12,9 +12,10 @@ function getDeviceStorageKey(deviceType) {
 }
 
 class DeviceStorageService extends BaseService {
+  static readonly dependencies = ['storageService', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['storageService', 'loggerFactory'], 'DeviceStorageService');
+    super(dependencies, [...DeviceStorageService.dependencies], 'DeviceStorageService');
   }
 
   getStoredDeviceId(deviceType) {

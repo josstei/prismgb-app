@@ -4,7 +4,7 @@
  * Manages button press/pop animations and recording state display.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@shared/config/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 type ButtonElements = Record<string, HTMLElement | null>;

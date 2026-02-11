@@ -70,6 +70,35 @@ describe('ServiceContainer', () => {
     });
   });
 
+  describe('explicit registration APIs', () => {
+    it('should register class constructors through registerClass', () => {
+      class Logger {}
+      class FeatureService {
+        constructor(logger) {
+          this.logger = logger;
+        }
+      }
+
+      container.registerClass('logger', Logger);
+      container.registerClass('featureService', FeatureService, ['logger']);
+
+      const instance = container.resolve('featureService');
+      expect(instance).toBeInstanceOf(FeatureService);
+      expect(instance.logger).toBeInstanceOf(Logger);
+    });
+
+    it('should register pure factories through registerFactory', () => {
+      const createdAt = Date.now();
+      const factory = vi.fn(() => ({ createdAt }));
+
+      container.registerFactory('factoryService', factory);
+      const instance = container.resolve('factoryService');
+
+      expect(factory).toHaveBeenCalledTimes(1);
+      expect(instance).toEqual({ createdAt });
+    });
+  });
+
   describe('register', () => {
     it('should register multiple services', () => {
       class ServiceA {}

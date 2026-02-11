@@ -7,8 +7,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class StreamingGpuRenderLoopService extends BaseService {
+  static readonly dependencies = ['loggerFactory'] as const;
+
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingGpuRenderLoopService');
+    super(dependencies, [...StreamingGpuRenderLoopService.dependencies], 'StreamingGpuRenderLoopService');
     this._rvfcHandle = null;
     this._active = false;
   }

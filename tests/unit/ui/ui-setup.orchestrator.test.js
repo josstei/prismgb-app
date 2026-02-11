@@ -9,7 +9,7 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts'
 describe('UISetupOrchestrator', () => {
   let orchestrator;
   let mockAppState;
-  let mockUpdateOrchestrator;
+  let mockUpdateService;
   let mockSettingsService;
   let mockNotesService;
   let mockUiController;
@@ -42,7 +42,7 @@ describe('UISetupOrchestrator', () => {
       isStreaming: false
     };
 
-    mockUpdateOrchestrator = {};
+    mockUpdateService = {};
 
     mockSettingsService = {};
 
@@ -126,7 +126,7 @@ describe('UISetupOrchestrator', () => {
 
     orchestrator = new UISetupOrchestrator({
       appState: mockAppState,
-      updateOrchestrator: mockUpdateOrchestrator,
+      updateService: mockUpdateService,
       settingsService: mockSettingsService,
       notesService: mockNotesService,
       uiController: mockUiController,
@@ -156,7 +156,7 @@ describe('UISetupOrchestrator', () => {
 
       expect(mockUiController.initSettingsMenu).toHaveBeenCalledWith({
         settingsService: mockSettingsService,
-        updateOrchestrator: mockUpdateOrchestrator,
+        updateService: mockUpdateService,
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory,
         logger: mockLogger

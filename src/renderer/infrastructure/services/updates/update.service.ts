@@ -13,7 +13,7 @@
  * - 'update:state-changed' - State transition
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { UpdateState } from '@shared/config/update-state.config';
 import type {
@@ -29,44 +29,37 @@ import type {
 // Re-export for backward compatibility
 export { UpdateState };
 
-class UpdateService extends BaseService {
+class UpdateService extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
+    super(dependencies, [...UpdateService.dependencies], 'UpdateService');
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._cleanupFns = [];
-    this._initialized = false;
   }
 
   async initialize() {
-    if (this._initialized) {
-      this.logger.warn('UpdateService already initialized');
-      return;
-    }
-
     if (!window.updateAPI) {
       this.logger.warn('updateAPI not available - updates disabled');
       return;
     }
 
-    this.logger.info('Initializing UpdateService');
+    await super.initialize();
+  }
 
+  async onInitialize() {
     await this._loadInitialStatus();
 
-    this._cleanupFns.push(
+    this._subscriptions.push(
       window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
       window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
       window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
       window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
       window.updateAPI.onError((error) => this._handleError(error))
     );
-
-    this._initialized = true;
-    this.logger.info('UpdateService initialized');
   }
 
   async _loadInitialStatus() {
@@ -211,19 +204,13 @@ class UpdateService extends BaseService {
     }
   }
 
-  dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
+  async onDispose() {
     window.updateAPI?.removeListeners();
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._initialized = false;
     this.logger.info('UpdateService disposed');
   }
 }

@@ -5,9 +5,9 @@
 
 type ServiceInstanceMap = object;
 
-type Constructable<T> = new (...args: unknown[]) => T;
-type Callable<T> = (...args: unknown[]) => T;
-type ServiceFactory<T> = Constructable<T> | Callable<T>;
+type ClassConstructor<T> = new (...args: unknown[]) => T;
+type FactoryFunction<T> = (...args: unknown[]) => T;
+type ServiceFactory<T> = ClassConstructor<T> | FactoryFunction<T>;
 
 type RegistryRecord = Record<string, ServiceFactory<unknown> | ValueRegistration<unknown>>;
 
@@ -45,25 +45,47 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
   private _instances = new Map<string, unknown>();
   private _resolutionStack: string[] = [];
 
-  registerSingleton<TKey extends string, TService>(
+  registerClass<TKey extends string, TService>(
     name: TKey,
-    ClassOrValue: ServiceFactory<TService>,
+    ServiceClass: ClassConstructor<TService>,
     dependencies: string[] = []
   ): ServiceContainer<TServices & Record<TKey, TService>> {
-    if (this._definitions.has(name)) {
-      console.warn(`[ServiceContainer] Service "${name}" is already registered. Overwriting.`);
-    }
+    return this._register(name, ServiceClass, dependencies, true);
+  }
 
-    // Preserve existing runtime behavior: every function is treated as constructable.
-    const isClass = typeof ClassOrValue === 'function';
+  registerFactory<TKey extends string, TService>(
+    name: TKey,
+    factory: FactoryFunction<TService>,
+    dependencies: string[] = []
+  ): ServiceContainer<TServices & Record<TKey, TService>> {
+    return this._register(name, factory, dependencies, false);
+  }
 
-    this._definitions.set(name, {
-      type: 'singleton',
-      factory: ClassOrValue,
-      dependencies,
-      isClass
-    });
+  registerSingleton<TKey extends string, TService>(
+    name: TKey,
+    classOrFactory: ServiceFactory<TService>,
+    dependencies: string[] = []
+  ): ServiceContainer<TServices & Record<TKey, TService>> {
+    // Backward-compatible pathway that preserves historical "constructor-first" behavior.
+    return this._register(name, classOrFactory, dependencies, true);
+  }
 
+  autoRegister<TKey extends string, TService, TDependencies extends object = Record<string, unknown>>(
+    name: TKey,
+    ServiceClass: { readonly dependencies: readonly string[]; new (deps: TDependencies): TService }
+  ): ServiceContainer<TServices & Record<TKey, TService>> {
+    const deps = [...ServiceClass.dependencies];
+    this.registerFactory(
+      name,
+      function (...resolvedDeps: unknown[]) {
+        const depsObj: Record<string, unknown> = {};
+        for (let i = 0; i < deps.length; i++) {
+          depsObj[deps[i]] = resolvedDeps[i];
+        }
+        return new ServiceClass(depsObj as unknown as TDependencies);
+      },
+      deps
+    );
     return this as unknown as ServiceContainer<TServices & Record<TKey, TService>>;
   }
 
@@ -107,10 +129,10 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
       let instance: unknown;
       try {
         if (definition.isClass) {
-          const constructor = definition.factory as Constructable<unknown>;
+          const constructor = definition.factory as ClassConstructor<unknown>;
           instance = new constructor(...resolvedDeps);
         } else {
-          const factory = definition.factory as Callable<unknown>;
+          const factory = definition.factory as FactoryFunction<unknown>;
           instance = factory(...resolvedDeps);
         }
       } catch (instantiationError: unknown) {
@@ -150,6 +172,26 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
     this._instances.clear();
     this._definitions.clear();
     this._resolutionStack = [];
+  }
+
+  private _register<TKey extends string, TService>(
+    name: TKey,
+    factory: ServiceFactory<TService>,
+    dependencies: string[],
+    isClass: boolean
+  ): ServiceContainer<TServices & Record<TKey, TService>> {
+    if (this._definitions.has(name)) {
+      console.warn(`[ServiceContainer] Service "${name}" is already registered. Overwriting.`);
+    }
+
+    this._definitions.set(name, {
+      type: 'singleton',
+      factory,
+      dependencies,
+      isClass
+    });
+
+    return this as unknown as ServiceContainer<TServices & Record<TKey, TService>>;
   }
 }
 

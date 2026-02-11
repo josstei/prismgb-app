@@ -3,17 +3,17 @@
  * Registers device-related IPC routes.
  */
 
-import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 interface DeviceService {
   getStatus(): DeviceStatusPayload;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
 }
 
 export interface DeviceHandlerDependencies {
@@ -30,8 +30,12 @@ function isTestMode(): boolean {
 }
 
 export function registerDeviceHandlers({ registerHandler, deviceService, logger }: DeviceHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.DEVICE.GET_STATUS,
+    logger,
+    logMessage: 'Failed to get device status:',
+    handler: async () => {
       // In test mode, check for mock status first
       const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
       if (isTestMode() && testGlobal.__testMockDeviceStatus) {
@@ -41,9 +45,9 @@ export function registerDeviceHandlers({ registerHandler, deviceService, logger 
 
       const status = deviceService.getStatus();
       return status;
-    } catch (error) {
-      logger.error('Failed to get device status:', error);
-      return { connected: false, error: (error as Error).message };
+    },
+    onError: (error) => {
+      return { connected: false, error: getErrorMessage(error) };
     }
   });
 }

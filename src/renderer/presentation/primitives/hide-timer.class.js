@@ -5,7 +5,7 @@
  * Supports conditions that prevent the timer from starting.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@shared/config/timing.config';
 
 export class HideTimer {
   /**

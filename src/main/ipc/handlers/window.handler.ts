@@ -7,14 +7,15 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;
   isFullScreen(): boolean;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
 }
 
 export interface WindowHandlerDependencies {
@@ -27,13 +28,29 @@ export interface WindowHandlerDependencies {
  * Register window-related IPC handlers
  */
 export function registerWindowHandlers({ registerHandler, windowService, logger }: WindowHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.WINDOW.SET_FULLSCREEN, async (event: IpcMainInvokeEvent, enabled: boolean) => {
-    logger.debug(`Setting fullscreen: ${enabled}`);
-    windowService.setFullScreen(enabled);
-    return { success: true } as WindowSetFullscreenResponse;
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
+    logger,
+    logMessage: 'Failed to set fullscreen:',
+    handler: async (_event: IpcMainInvokeEvent, enabled: boolean) => {
+      logger.debug(`Setting fullscreen: ${enabled}`);
+      windowService.setFullScreen(enabled);
+      return { success: true } as WindowSetFullscreenResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as WindowSetFullscreenResponse;
+    }
   });
 
-  registerHandler(IPC_CHANNELS.WINDOW.IS_FULLSCREEN, async () => {
-    return windowService.isFullScreen();
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.WINDOW.IS_FULLSCREEN,
+    logger,
+    logMessage: 'Failed to query fullscreen state:',
+    handler: async () => {
+      return windowService.isFullScreen();
+    },
+    onError: () => false
   });
 }

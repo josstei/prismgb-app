@@ -3,14 +3,15 @@
  * Registers performance-related IPC routes.
  */
 
-import type { App, IpcMainInvokeEvent } from 'electron';
+import type { App } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
-}
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 export interface PerformanceHandlerDependencies {
   registerHandler: RegisterHandler;
@@ -19,8 +20,12 @@ export interface PerformanceHandlerDependencies {
 }
 
 export function registerPerformanceHandlers({ registerHandler, app, logger }: PerformanceHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.PERFORMANCE.GET_METRICS,
+    logger,
+    logMessage: 'Failed to get process metrics:',
+    handler: async () => {
       const metrics = app.getAppMetrics();
       const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
 
@@ -40,9 +45,9 @@ export function registerPerformanceHandlers({ registerHandler, app, logger }: Pe
           cpuPercent: proc.cpu.percentCPUUsage
         }))
       } as ProcessMetricsResponse;
-    } catch (error) {
-      logger.error('Failed to get process metrics:', error);
-      return { success: false, error: (error as Error).message } as ProcessMetricsResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as ProcessMetricsResponse;
     }
   });
 }

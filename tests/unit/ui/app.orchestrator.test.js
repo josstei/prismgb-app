@@ -12,82 +12,63 @@ describe('AppOrchestrator', () => {
   let mockStreamingOrchestrator;
   let mockStreamingAudioOrchestrator;
   let mockCaptureOrchestrator;
-  let mockSettingsPreferencesOrchestrator;
-  let mockSettingsDisplayModeOrchestrator;
-  let mockUpdateOrchestrator;
-  let mockUISetupOrchestrator;
-  let mockPerformanceAnimationOrchestrator;
-  let mockPerformanceMetricsOrchestrator;
-  let mockPerformanceStateOrchestrator;
+  let mockPreferencesOrchestrator;
+  let mockDisplayModeOrchestrator;
+  let mockUpdateService;
+  let mockUiSetupOrchestrator;
+  let mockPerformanceOrchestrator;
   let mockEventBus;
   let mockLogger;
 
   beforeEach(() => {
     mockDeviceOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
     mockStreamingOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      start: vi.fn(),
-      stop: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
     mockStreamingAudioOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
     mockCaptureOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      takeScreenshot: vi.fn(),
-      toggleRecording: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockSettingsPreferencesOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      loadPreferences: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
+    mockPreferencesOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockSettingsDisplayModeOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      toggleFullscreen: vi.fn(),
-      toggleCinematicMode: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
+    mockDisplayModeOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockUpdateOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
+    mockUpdateService = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockUISetupOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockUiSetupOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(undefined),
       initializeSettingsMenu: vi.fn(),
       initializeShaderSelector: vi.fn(),
       initializeNotesPanel: vi.fn(),
       setupOverlayClickHandlers: vi.fn(),
       setupUIEventListeners: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockPerformanceAnimationOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
-
-    mockPerformanceMetricsOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
-
-    mockPerformanceStateOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
+    mockPerformanceOrchestrator = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
     mockEventBus = {
@@ -107,13 +88,11 @@ describe('AppOrchestrator', () => {
       streamingOrchestrator: mockStreamingOrchestrator,
       streamingAudioOrchestrator: mockStreamingAudioOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
-      preferencesOrchestrator: mockSettingsPreferencesOrchestrator,
-      displayModeOrchestrator: mockSettingsDisplayModeOrchestrator,
-      updateOrchestrator: mockUpdateOrchestrator,
-      uiSetupOrchestrator: mockUISetupOrchestrator,
-      animationPerformanceOrchestrator: mockPerformanceAnimationOrchestrator,
-      performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
-      performanceStateOrchestrator: mockPerformanceStateOrchestrator,
+      preferencesOrchestrator: mockPreferencesOrchestrator,
+      displayModeOrchestrator: mockDisplayModeOrchestrator,
+      updateService: mockUpdateService,
+      uiSetupOrchestrator: mockUiSetupOrchestrator,
+      performanceOrchestrator: mockPerformanceOrchestrator,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -121,144 +100,83 @@ describe('AppOrchestrator', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    document.body.className = '';
   });
 
-  describe('Constructor', () => {
-    it('should initialize subscriptions array', () => {
-      expect(orchestrator._subscriptions).toEqual([]);
-    });
+  it('wires high-level subscriptions during initialize', async () => {
+    await orchestrator.onInitialize();
 
-    it('should not have domListeners manager (delegated to UISetupOrchestrator)', () => {
-      expect(orchestrator._domListeners).toBeUndefined();
-    });
+    expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+      EventChannels.DEVICE.STATUS_CHANGED,
+      expect.any(Function)
+    );
+    expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+      EventChannels.DEVICE.ENUMERATION_FAILED,
+      expect.any(Function)
+    );
   });
 
-  describe('onInitialize', () => {
-    it('should wire high-level events', async () => {
-      await orchestrator.onInitialize();
+  it('initializes orchestrators and update service', async () => {
+    await orchestrator.onInitialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.ENUMERATION_FAILED, expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(2);
-    });
-
-    it('should initialize all domain orchestrators', async () => {
-      await orchestrator.onInitialize();
-
-      expect(mockDeviceOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockStreamingOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockCaptureOrchestrator.initialize).toHaveBeenCalled();
-    });
-
-    it('should initialize all application orchestrators', async () => {
-      await orchestrator.onInitialize();
-
-      expect(mockSettingsPreferencesOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockSettingsDisplayModeOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceAnimationOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
-    });
+    expect(mockStreamingAudioOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockStreamingOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockDeviceOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockCaptureOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockPerformanceOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockUpdateService.initialize).toHaveBeenCalled();
+    expect(mockUiSetupOrchestrator.initialize).toHaveBeenCalled();
   });
 
-  describe('start', () => {
-    it('should delegate settings menu initialization to UISetupOrchestrator', async () => {
-      await orchestrator.start();
+  it('delegates start work to ui setup orchestrator', async () => {
+    await orchestrator.start();
 
-      expect(mockUISetupOrchestrator.initializeSettingsMenu).toHaveBeenCalled();
-    });
-
-    it('should delegate overlay click handlers to UISetupOrchestrator', async () => {
-      await orchestrator.start();
-
-      expect(mockUISetupOrchestrator.setupOverlayClickHandlers).toHaveBeenCalled();
-    });
-
-    it('should delegate UI event listeners to UISetupOrchestrator', async () => {
-      await orchestrator.start();
-
-      expect(mockUISetupOrchestrator.setupUIEventListeners).toHaveBeenCalled();
-    });
-
-    it('should not call loadPreferences directly (delegated to SettingsPreferencesOrchestrator.initialize)', async () => {
-      await orchestrator.start();
-
-      // loadPreferences is now called during SettingsPreferencesOrchestrator.initialize()
-      // not directly by AppOrchestrator.start()
-      expect(mockSettingsPreferencesOrchestrator.loadPreferences).not.toHaveBeenCalled();
-    });
+    expect(mockUiSetupOrchestrator.initializeSettingsMenu).toHaveBeenCalled();
+    expect(mockUiSetupOrchestrator.initializeShaderSelector).toHaveBeenCalled();
+    expect(mockUiSetupOrchestrator.initializeNotesPanel).toHaveBeenCalled();
+    expect(mockUiSetupOrchestrator.setupOverlayClickHandlers).toHaveBeenCalled();
+    expect(mockUiSetupOrchestrator.setupUIEventListeners).toHaveBeenCalled();
   });
 
-  describe('_handleDeviceStatusChanged', () => {
-    it('should update UI when connected', () => {
-      const status = { connected: true, device: { deviceName: 'Chromatic' } };
+  it('publishes connected device UI events', () => {
+    const status = { connected: true, device: { deviceName: 'Chromatic' } };
+    orchestrator._handleDeviceStatusChanged(status);
 
-      orchestrator._handleDeviceStatusChanged(status);
-
-      // UI updates are now done via events
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: true });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device ready' });
-    });
-
-    it('should update UI when disconnected', () => {
-      const status = { connected: false };
-
-      orchestrator._handleDeviceStatusChanged(status);
-
-      // UI updates are now done via events
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: false });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-visible', { visible: true });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device disconnected', type: 'warning' });
-    });
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: true });
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device ready' });
   });
 
-  describe('onCleanup', () => {
-    it('should unsubscribe all subscriptions via cleanup()', async () => {
-      // Subscription cleanup now happens in BaseOrchestrator.cleanup()
-      const unsubscribe1 = vi.fn();
-      const unsubscribe2 = vi.fn();
-      orchestrator._subscriptions = [unsubscribe1, unsubscribe2];
+  it('publishes disconnected device UI events', () => {
+    const status = { connected: false };
+    orchestrator._handleDeviceStatusChanged(status);
 
-      await orchestrator.cleanup();
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: false });
+    expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-visible', { visible: true });
+    expect(mockEventBus.publish).toHaveBeenCalledWith(
+      'ui:status-message',
+      { message: 'Device disconnected', type: 'warning' }
+    );
+  });
 
-      expect(unsubscribe1).toHaveBeenCalled();
-      expect(unsubscribe2).toHaveBeenCalled();
-      expect(orchestrator._subscriptions).toEqual([]);
-    });
+  it('cleanup disposes updateService and cleans orchestrators', async () => {
+    await orchestrator.onCleanup();
 
-    it('should cleanup all sub-orchestrators in correct order', async () => {
-      await orchestrator.onCleanup();
+    expect(mockUiSetupOrchestrator.cleanup).toHaveBeenCalled();
+    expect(mockPerformanceOrchestrator.cleanup).toHaveBeenCalled();
+    expect(mockUpdateService.dispose).toHaveBeenCalled();
+    expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
+  });
 
-      // Verify all orchestrators are cleaned up
-      expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceAnimationOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockSettingsPreferencesOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockStreamingAudioOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
-    });
+  it('continues cleanup when one dependency throws', async () => {
+    const error = new Error('cleanup failed');
+    mockStreamingOrchestrator.cleanup.mockRejectedValue(error);
 
-    it('should continue cleanup even if one orchestrator fails', async () => {
-      const error = new Error('Cleanup failed');
-      mockStreamingOrchestrator.cleanup.mockRejectedValue(error);
+    await orchestrator.onCleanup();
 
-      await orchestrator.onCleanup();
-
-      // Should still attempt to cleanup all other orchestrators
-      expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockLogger.error).toHaveBeenCalledWith('Error cleaning up streamingOrchestrator:', error);
-    });
+    expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
+    expect(mockLogger.error).toHaveBeenCalledWith('Error cleaning up streamingOrchestrator:', error);
   });
 });

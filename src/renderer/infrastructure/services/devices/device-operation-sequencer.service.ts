@@ -21,15 +21,16 @@ const OperationType = {
 };
 
 export class DeviceOperationSequencerService extends BaseService {
+  static readonly dependencies = ['deviceMediaService', 'eventBus', 'loggerFactory'] as const;
 
   /**
    * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceService} dependencies.deviceService - Device service facade
+   * @param {DeviceMediaService} dependencies.deviceMediaService - Device media service
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
   constructor(dependencies) {
-    super(dependencies, ['deviceService', 'eventBus', 'loggerFactory'], 'DeviceOperationSequencerService');
+    super(dependencies, [...DeviceOperationSequencerService.dependencies], 'DeviceOperationSequencerService');
 
     /**
      * Promise chain for sequential operation execution
@@ -59,8 +60,8 @@ export class DeviceOperationSequencerService extends BaseService {
    */
   queueConnected() {
     return this._enqueue(OperationType.CONNECTED, async () => {
-      await this.deviceService.updateDeviceStatus();
-      await this.deviceService.enumerateDevices();
+      await this.deviceMediaService.updateConnectionStatus();
+      await this.deviceMediaService.enumerateDevices();
     });
   }
 
@@ -71,7 +72,7 @@ export class DeviceOperationSequencerService extends BaseService {
    */
   queueDisconnected(onComplete) {
     return this._enqueue(OperationType.DISCONNECTED, async () => {
-      await this.deviceService.updateDeviceStatus();
+      await this.deviceMediaService.updateConnectionStatus();
       if (typeof onComplete === 'function') {
         onComplete();
       }
@@ -84,8 +85,8 @@ export class DeviceOperationSequencerService extends BaseService {
    */
   queueRefresh() {
     return this._enqueue(OperationType.REFRESH, async () => {
-      await this.deviceService.updateDeviceStatus();
-      await this.deviceService.enumerateDevices();
+      await this.deviceMediaService.updateConnectionStatus();
+      await this.deviceMediaService.enumerateDevices();
     });
   }
 

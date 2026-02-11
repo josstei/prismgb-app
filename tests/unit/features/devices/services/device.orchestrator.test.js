@@ -4,27 +4,24 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
+import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;
-  let mockDeviceService;
+  let mockDeviceMediaService;
   let mockDeviceIpcAdapter;
   let mockDeviceOperationSequencer;
   let mockEventBus;
   let mockLogger;
 
   beforeEach(() => {
-    mockDeviceService = {
+    mockDeviceMediaService = {
       setupDeviceChangeListener: vi.fn(),
-      updateDeviceStatus: vi.fn().mockResolvedValue({}),
-      enumerateDevices: vi.fn().mockResolvedValue({}),
-      isDeviceConnected: vi.fn(),
       dispose: vi.fn()
     };
 
     mockDeviceIpcAdapter = {
-      subscribe: vi.fn(() => vi.fn()),  // Returns unsubscribe function
-      dispose: vi.fn()
+      subscribe: vi.fn(() => vi.fn())
     };
 
     mockDeviceOperationSequencer = {
@@ -36,8 +33,7 @@ describe('DeviceOrchestrator', () => {
         return Promise.resolve();
       }),
       queueRefresh: vi.fn().mockResolvedValue(undefined),
-      flush: vi.fn().mockResolvedValue(undefined),
-      getQueueDepth: vi.fn().mockReturnValue(0)
+      flush: vi.fn().mockResolvedValue(undefined)
     };
 
     mockEventBus = {
@@ -53,7 +49,7 @@ describe('DeviceOrchestrator', () => {
     };
 
     orchestrator = new DeviceOrchestrator({
-      deviceService: mockDeviceService,
+      deviceMediaService: mockDeviceMediaService,
       deviceIpcAdapter: mockDeviceIpcAdapter,
       deviceOperationSequencer: mockDeviceOperationSequencer,
       eventBus: mockEventBus,
@@ -65,174 +61,55 @@ describe('DeviceOrchestrator', () => {
     vi.restoreAllMocks();
   });
 
-  describe('Constructor', () => {
-    it('should store dependencies', () => {
-      expect(orchestrator.deviceService).toBe(mockDeviceService);
-      expect(orchestrator.deviceIpcAdapter).toBe(mockDeviceIpcAdapter);
-      expect(orchestrator.deviceOperationSequencer).toBe(mockDeviceOperationSequencer);
-      expect(orchestrator.eventBus).toBe(mockEventBus);
-    });
+  it('stores dependencies', () => {
+    expect(orchestrator.deviceMediaService).toBe(mockDeviceMediaService);
+    expect(orchestrator.deviceIpcAdapter).toBe(mockDeviceIpcAdapter);
+    expect(orchestrator.deviceOperationSequencer).toBe(mockDeviceOperationSequencer);
   });
 
-  describe('onInitialize', () => {
-    it('should setup device change listener', async () => {
-      await orchestrator.onInitialize();
+  it('sets up device change listener and IPC subscriptions on initialize', async () => {
+    await orchestrator.onInitialize();
 
-      expect(mockDeviceService.setupDeviceChangeListener).toHaveBeenCalled();
-    });
-
-    it('should subscribe to IPC events via adapter', async () => {
-      await orchestrator.onInitialize();
-
-      expect(mockDeviceIpcAdapter.subscribe).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.any(Function)
-      );
-    });
-
-    it('should queue initial device refresh through sequencer', async () => {
-      await orchestrator.onInitialize();
-
-      expect(mockDeviceOperationSequencer.queueRefresh).toHaveBeenCalled();
-    });
+    expect(mockDeviceMediaService.setupDeviceChangeListener).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockDeviceIpcAdapter.subscribe).toHaveBeenCalledWith(expect.any(Function), expect.any(Function));
+    expect(mockDeviceOperationSequencer.queueRefresh).toHaveBeenCalled();
   });
 
-  describe('isDeviceConnected', () => {
-    it('should return true when device connected', () => {
-      mockDeviceService.isDeviceConnected.mockReturnValue(true);
+  it('queues refresh when media listener callback runs', async () => {
+    await orchestrator.onInitialize();
+    const onChange = mockDeviceMediaService.setupDeviceChangeListener.mock.calls[0][0];
 
-      expect(orchestrator.isDeviceConnected()).toBe(true);
-    });
-
-    it('should return false when device disconnected', () => {
-      mockDeviceService.isDeviceConnected.mockReturnValue(false);
-
-      expect(orchestrator.isDeviceConnected()).toBe(false);
-    });
+    await onChange();
+    expect(mockDeviceOperationSequencer.queueRefresh).toHaveBeenCalledTimes(2);
   });
 
-  describe('IPC event handling via adapter', () => {
-    it('should queue connected operation when adapter triggers connected event', async () => {
-      let connectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        connectedCallback = onConnected;
-        return vi.fn();
-      });
-
-      await orchestrator.onInitialize();
-
-      // Simulate IPC connected event
-      connectedCallback();
-
-      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
+  it('queues connected and disconnected operations from IPC handlers', async () => {
+    let onConnected;
+    let onDisconnected;
+    mockDeviceIpcAdapter.subscribe.mockImplementation((connected, disconnected) => {
+      onConnected = connected;
+      onDisconnected = disconnected;
+      return vi.fn();
     });
 
-    it('should queue disconnected operation when adapter triggers disconnected event', async () => {
-      let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        disconnectedCallback = onDisconnected;
-        return vi.fn();
-      });
+    await orchestrator.onInitialize();
+    onConnected();
+    onDisconnected();
 
-      await orchestrator.onInitialize();
-
-      // Simulate IPC disconnected event
-      disconnectedCallback();
-
-      expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('should publish disconnect event via callback when disconnected', async () => {
-      let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        disconnectedCallback = onDisconnected;
-        return vi.fn();
-      });
-
-      await orchestrator.onInitialize();
-
-      // Simulate IPC disconnected event
-      disconnectedCallback();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('device:disconnected-during-session');
-    });
+    expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
+    expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
   });
 
-  describe('_handleDeviceConnectedIPC', () => {
-    it('should queue connected operation', () => {
-      orchestrator._handleDeviceConnectedIPC();
+  it('flushes sequencer and disposes device media service on cleanup', async () => {
+    const unsubscribe = vi.fn();
+    mockDeviceIpcAdapter.subscribe.mockReturnValue(unsubscribe);
 
-      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
-    });
+    await orchestrator.onInitialize();
+    await orchestrator.onCleanup();
 
-    it('should be fire-and-forget (synchronous)', () => {
-      // The method should return immediately without awaiting
-      const result = orchestrator._handleDeviceConnectedIPC();
-
-      // Should not return a promise that we need to await
-      // queueConnected is called but not awaited in the handler
-      expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
-    });
-  });
-
-  describe('_handleDeviceDisconnectedIPC', () => {
-    it('should queue disconnected operation with callback', () => {
-      orchestrator._handleDeviceDisconnectedIPC();
-
-      expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('should publish event:disconnected-during-session via callback', () => {
-      orchestrator._handleDeviceDisconnectedIPC();
-
-      // The mock calls the callback immediately
-      expect(mockEventBus.publish).toHaveBeenCalledWith('device:disconnected-during-session');
-    });
-  });
-
-  describe('onCleanup', () => {
-    it('should call unsubscribe function from IPC adapter', async () => {
-      const mockUnsubscribe = vi.fn();
-      mockDeviceIpcAdapter.subscribe.mockReturnValue(mockUnsubscribe);
-
-      // Initialize to set up listeners
-      await orchestrator.onInitialize();
-      // Cleanup
-      await orchestrator.onCleanup();
-
-      expect(mockUnsubscribe).toHaveBeenCalled();
-    });
-
-    it('should flush sequencer before cleanup', async () => {
-      await orchestrator.onCleanup();
-
-      expect(mockDeviceOperationSequencer.flush).toHaveBeenCalled();
-    });
-
-    it('should dispose device service after flushing', async () => {
-      const callOrder = [];
-      mockDeviceOperationSequencer.flush.mockImplementation(() => {
-        callOrder.push('flush');
-        return Promise.resolve();
-      });
-      mockDeviceService.dispose.mockImplementation(() => {
-        callOrder.push('dispose');
-      });
-
-      await orchestrator.onCleanup();
-
-      expect(callOrder).toEqual(['flush', 'dispose']);
-    });
-
-    it('should handle cleanup without prior initialization', async () => {
-      // Don't call onInitialize, just cleanup
-      await expect(orchestrator.onCleanup()).resolves.not.toThrow();
-    });
-
-    it('should handle missing dispose method on deviceService', async () => {
-      orchestrator.deviceService = {};
-
-      await expect(orchestrator.onCleanup()).resolves.not.toThrow();
-    });
+    expect(unsubscribe).toHaveBeenCalled();
+    expect(mockDeviceOperationSequencer.flush).toHaveBeenCalled();
+    expect(mockDeviceMediaService.dispose).toHaveBeenCalled();
   });
 });

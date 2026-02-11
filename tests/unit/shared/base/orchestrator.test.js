@@ -130,7 +130,7 @@ describe('BaseOrchestrator', () => {
       await orchestrator.cleanup();
 
       expect(orchestrator.isInitialized).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up TestOrchestrator');
+      expect(mockLogger.info).toHaveBeenCalledWith('Disposing TestOrchestrator');
     });
 
     it('should call onCleanup', async () => {

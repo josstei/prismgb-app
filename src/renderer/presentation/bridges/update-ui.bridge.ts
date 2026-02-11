@@ -1,39 +1,33 @@
 /**
- * Update UI Service
+ * Update UI Bridge
  *
  * Translates update events into UI notifications and badge visibility.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
+import { EventChannels } from '@shared/events/event-channels.js';
 
-class UpdateUiService extends BaseService {
+class UpdateUIBridge extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
-    this._subscriptions = [];
+    super(dependencies, [...UpdateUIBridge.dependencies], 'UpdateUIBridge');
   }
 
-  initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.UPDATE.AVAILABLE, (info) => this._handleUpdateAvailable(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate()),
-      this.eventBus.subscribe(EventChannels.UPDATE.PROGRESS, (progress) => this._handleProgress(progress)),
-      this.eventBus.subscribe(EventChannels.UPDATE.DOWNLOADED, (info) => this._handleDownloaded(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.ERROR, (error) => this._handleError(error))
-    );
-
-    this.logger.info('UpdateUiService initialized');
-  }
-
-  dispose() {
-    this._subscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
+  async onInitialize() {
+    this.subscribeWithCleanup({
+      [EventChannels.UPDATE.AVAILABLE]: (info) => this._handleUpdateAvailable(info),
+      [EventChannels.UPDATE.NOT_AVAILABLE]: () => this._handleNoUpdate(),
+      [EventChannels.UPDATE.PROGRESS]: (progress) => this._handleProgress(progress),
+      [EventChannels.UPDATE.DOWNLOADED]: (info) => this._handleDownloaded(info),
+      [EventChannels.UPDATE.ERROR]: (error) => this._handleError(error)
     });
-    this._subscriptions = [];
-    this.logger.info('UpdateUiService disposed');
+
+    this.logger.info('UpdateUIBridge initialized');
+  }
+
+  async onDispose() {
+    this.logger.info('UpdateUIBridge disposed');
   }
 
   _handleUpdateAvailable(info) {
@@ -85,4 +79,4 @@ class UpdateUiService extends BaseService {
   }
 }
 
-export { UpdateUiService };
+export { UpdateUIBridge };

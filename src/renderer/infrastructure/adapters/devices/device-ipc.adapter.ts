@@ -17,12 +17,20 @@ type DeviceApiLike = {
 };
 
 export class DeviceIpcAdapter {
+  static readonly dependencies = ['loggerFactory'] as const;
+
   _logger?: { warn?: (...args: unknown[]) => void };
   _unsubscribeConnected: Unsubscribe;
   _unsubscribeDisconnected: Unsubscribe;
 
-  constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
-    this._logger = logger;
+  constructor({
+    loggerFactory,
+    logger
+  }: {
+    loggerFactory?: { create?: (name: string) => { warn?: (...args: unknown[]) => void } };
+    logger?: { warn?: (...args: unknown[]) => void };
+  } = {}) {
+    this._logger = logger ?? loggerFactory?.create?.('DeviceIpcAdapter');
     this._unsubscribeConnected = null;
     this._unsubscribeDisconnected = null;
   }

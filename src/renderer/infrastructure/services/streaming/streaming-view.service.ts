@@ -8,8 +8,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class StreamingViewService extends BaseService {
+  static readonly dependencies = ['uiController', 'loggerFactory'] as const;
+
   constructor(dependencies) {
-    super(dependencies, ['uiController', 'loggerFactory'], 'StreamingViewService');
+    super(dependencies, [...StreamingViewService.dependencies], 'StreamingViewService');
   }
 
   /**

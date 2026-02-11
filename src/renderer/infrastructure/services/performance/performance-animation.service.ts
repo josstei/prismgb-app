@@ -8,9 +8,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 class PerformanceAnimationService extends BaseService {
+  static readonly dependencies = ['loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
+    super(dependencies, [...PerformanceAnimationService.dependencies], 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,

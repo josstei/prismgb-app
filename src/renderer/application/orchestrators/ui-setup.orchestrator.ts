@@ -16,11 +16,20 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'appState',
+    'updateService',
+    'settingsService',
+    'notesService',
+    'uiController',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
 
   constructor(dependencies) {
     super(
       dependencies,
-      ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory'],
+      [...UISetupOrchestrator.dependencies],
       'UISetupOrchestrator'
     );
 
@@ -64,7 +73,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   initializeSettingsMenu() {
     this.uiController.initSettingsMenu({
       settingsService: this.settingsService,
-      updateOrchestrator: this.updateOrchestrator,
+      updateService: this.updateService,
       eventBus: this.eventBus,
       loggerFactory: this.loggerFactory,
       logger: this.logger

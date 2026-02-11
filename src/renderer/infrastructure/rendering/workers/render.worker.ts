@@ -21,6 +21,76 @@ let frameCount = 0;
 let lastStatsTime = performance.now();
 let totalFrameTime = 0;
 
+type WorkerInitConfig = {
+  nativeWidth: number;
+  nativeHeight: number;
+  targetWidth: number;
+  targetHeight: number;
+  api: 'webgpu' | 'webgl2';
+};
+
+type WorkerInitPayload = {
+  canvas?: OffscreenCanvas;
+  config: WorkerInitConfig;
+};
+
+type WorkerFramePayload = {
+  imageBitmap: ImageBitmap;
+  uniforms: unknown;
+};
+
+type WorkerResizePayload = {
+  width: number;
+  height: number;
+};
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object');
+}
+
+function isWorkerInitPayload(payload: unknown): payload is WorkerInitPayload {
+  if (!isObjectRecord(payload)) {
+    return false;
+  }
+
+  const config = payload.config;
+  if (!isObjectRecord(config)) {
+    return false;
+  }
+
+  return (
+    typeof config.nativeWidth === 'number' &&
+    typeof config.nativeHeight === 'number' &&
+    typeof config.targetWidth === 'number' &&
+    typeof config.targetHeight === 'number' &&
+    (config.api === 'webgpu' || config.api === 'webgl2')
+  );
+}
+
+function isWorkerFramePayload(payload: unknown): payload is WorkerFramePayload {
+  if (!isObjectRecord(payload)) {
+    return false;
+  }
+
+  return payload.imageBitmap instanceof ImageBitmap && 'uniforms' in payload;
+}
+
+function isWorkerResizePayload(payload: unknown): payload is WorkerResizePayload {
+  if (!isObjectRecord(payload)) {
+    return false;
+  }
+
+  return typeof payload.width === 'number' && typeof payload.height === 'number';
+}
+
+function getErrorDetails(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+
+  return { message: String(error) };
+}
+
 function forwardPipelineError(error: IPipelineError): void {
   self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
     message: error.message,
@@ -50,7 +120,8 @@ self.onmessage = async (event: MessageEvent) => {
     return;
   }
 
-  const { type, payload } = message;
+  const typedMessage = message as { type: string; payload: unknown };
+  const { type, payload } = typedMessage;
 
   switch (type) {
     case WorkerMessageType.INIT:
@@ -85,8 +156,12 @@ self.onmessage = async (event: MessageEvent) => {
   }
 };
 
-async function handleInit(payload: any): Promise<void> {
+async function handleInit(payload: unknown): Promise<void> {
   try {
+    if (!isWorkerInitPayload(payload)) {
+      throw new Error('Invalid init payload');
+    }
+
     const { canvas: offscreenCanvas, config } = payload;
     const canvasToUse = offscreenCanvas || canvas;
 
@@ -126,17 +201,22 @@ async function handleInit(payload: any): Promise<void> {
     self.postMessage(createWorkerResponse(WorkerResponseType.READY, {
       api: config.api
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const details = getErrorDetails(error);
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
-      stack: error.stack,
+      message: details.message,
+      stack: details.stack,
       code: 'INIT_FAILED',
       adapterInfo: pipeline?.getAdapterInfo() || null
     }));
   }
 }
 
-async function handleFrame(payload: any): Promise<void> {
+async function handleFrame(payload: unknown): Promise<void> {
+  if (!isWorkerFramePayload(payload)) {
+    return;
+  }
+
   const { imageBitmap, uniforms } = payload;
 
   if (!isInitialized || !pipeline || pipeline.state !== 'ready') {
@@ -147,7 +227,7 @@ async function handleFrame(payload: any): Promise<void> {
   const frameStart = performance.now();
 
   try {
-    pipeline.renderFrame(imageBitmap, uniforms);
+    pipeline.renderFrame(imageBitmap, uniforms as Parameters<IPipeline['renderFrame']>[1]);
 
     if (captureBuffer?.hasPendingCapture()) {
       await captureBuffer.onFrameRendered();
@@ -170,11 +250,11 @@ async function handleFrame(payload: any): Promise<void> {
     }
 
     self.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
-  } catch (error: any) {
+  } catch (error: unknown) {
     // BasePipeline forwards structured pipeline errors through onError callback.
     if (!isPipelineError(error)) {
       self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-        message: error?.message ?? String(error),
+        message: getErrorDetails(error).message,
         code: 'RENDER_FAILED',
         adapterInfo: pipeline?.getAdapterInfo() || null
       }));
@@ -184,21 +264,25 @@ async function handleFrame(payload: any): Promise<void> {
   }
 }
 
-function handleResize(payload: any): void {
+function handleResize(payload: unknown): void {
   if (!isInitialized || !pipeline) return;
 
   try {
+    if (!isWorkerResizePayload(payload)) {
+      throw new Error('Invalid resize payload');
+    }
+
     const { width, height } = payload;
     pipeline.resize(width, height);
-  } catch (error: any) {
+  } catch (error: unknown) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
+      message: getErrorDetails(error).message,
       code: 'RESIZE_FAILED'
     }));
   }
 }
 
-function handleSetPreset(_payload: any): void {
+function handleSetPreset(_payload: unknown): void {
 }
 
 function handleRequestCapture(): void {
@@ -224,27 +308,37 @@ async function handleCapture(): Promise<void> {
   }
 
   if (captureBuffer.hasCapturedFrame()) {
-    const frameToSend = captureBuffer.retrieveCapture()!;
+    const frameToSend = captureBuffer.retrieveCapture();
+    if (!frameToSend) {
+      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+        message: 'Capture frame missing',
+        code: 'CAPTURE_FAILED'
+      }));
+      return;
+    }
+
+    const transferOptions: StructuredSerializeOptions = { transfer: [frameToSend] };
     self.postMessage(
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: frameToSend
       }),
-      { transfer: [frameToSend] } as any
+      transferOptions
     );
     return;
   }
 
   try {
     const capturedFrame = await captureBuffer.captureImmediate();
+    const transferOptions: StructuredSerializeOptions = { transfer: [capturedFrame] };
     self.postMessage(
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: capturedFrame
       }),
-      { transfer: [capturedFrame] } as any
+      transferOptions
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: 'Failed to capture frame: ' + error.message,
+      message: `Failed to capture frame: ${getErrorDetails(error).message}`,
       code: 'CAPTURE_FAILED'
     }));
   }

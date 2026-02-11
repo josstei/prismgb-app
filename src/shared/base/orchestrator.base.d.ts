@@ -1,20 +1,10 @@
-import type { LoggerLike } from './service.base.js';
+import { LifecycleService } from './lifecycle-service.base.ts';
 
-interface EventBusLike {
-  subscribe(event: string, handler: (...args: unknown[]) => void): () => void;
-  publish(event: string, data?: unknown): void;
-}
-
-export class BaseOrchestrator {
-  protected logger: LoggerLike;
-  protected eventBus?: EventBusLike;
-  isInitialized: boolean;
+export class BaseOrchestrator extends LifecycleService {
   constructor(dependencies: object, requiredDeps?: string[], name?: string);
-  initialize(): Promise<void>;
   cleanup(): Promise<void>;
-  subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void>): void;
-  onInitialize(): Promise<void>;
   onCleanup(): Promise<void>;
+  onDispose(): Promise<void>;
 }
 
 /* eslint-disable no-redeclare */

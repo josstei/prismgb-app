@@ -7,6 +7,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { AutoHideBase } from './auto-hide.base';
 
 type ToolbarAutoHideOptions = {
   onActivity?: () => void;
@@ -15,8 +16,7 @@ type ToolbarAutoHideOptions = {
   onHoverEnd?: () => void;
 };
 
-export class ToolbarAutoHide {
-  _enabled: boolean;
+export class ToolbarAutoHide extends AutoHideBase {
   _element: HTMLElement | null;
   _hovering: boolean;
   _onActivity: () => void;
@@ -37,7 +37,7 @@ export class ToolbarAutoHide {
    * @param {Function} [options.onHoverEnd] - Callback when hovering ends
    */
   constructor(options: ToolbarAutoHideOptions = {}) {
-    this._enabled = false;
+    super();
     this._element = null;
     this._hovering = false;
     this._onActivity = options.onActivity || (() => {});
@@ -55,14 +55,6 @@ export class ToolbarAutoHide {
   }
 
   /**
-   * Check if toolbar auto-hide is enabled
-   * @returns {boolean}
-   */
-  get isEnabled() {
-    return this._enabled;
-  }
-
-  /**
    * Check if currently hovering over toolbar
    * @returns {boolean}
    */
@@ -74,19 +66,20 @@ export class ToolbarAutoHide {
    * Enable toolbar auto-hide
    * @param {HTMLElement} element - The toolbar element
    */
-  enable(element) {
-    if (this._enabled) return;
+  enable(element: HTMLElement | null): void {
+    if (!element) return;
 
-    this._element = element;
-    if (!this._element) return;
-
-    this._enabled = true;
-    this._hovering = false;
-    this._panelCacheDirty = true;
-
-    this._element.addEventListener('mouseenter', this._boundHandleMouseEnter);
-    this._element.addEventListener('mouseleave', this._boundHandleMouseLeave);
-    this._bindPanelObserver();
+    if (!this.activate(() => {
+      const toolbarElement = element;
+      this._element = toolbarElement;
+      this._hovering = false;
+      this._panelCacheDirty = true;
+      this.addListener(toolbarElement, 'mouseenter', this._boundHandleMouseEnter);
+      this.addListener(toolbarElement, 'mouseleave', this._boundHandleMouseLeave);
+      this._bindPanelObserver();
+    })) {
+      return;
+    }
 
     this._onActivity();
   }
@@ -95,29 +88,22 @@ export class ToolbarAutoHide {
    * Disable toolbar auto-hide
    */
   disable() {
-    if (!this._enabled) return;
-
-    this._enabled = false;
-
-    if (this._element) {
-      this._element.removeEventListener('mouseenter', this._boundHandleMouseEnter);
-      this._element.removeEventListener('mouseleave', this._boundHandleMouseLeave);
-    }
-
-    if (this._panelObserver) {
-      try {
-        this._panelObserver.disconnect();
-      } catch {
-        // MutationObserver may not be fully supported in test environments
+    this.deactivate(() => {
+      if (this._panelObserver) {
+        try {
+          this._panelObserver.disconnect();
+        } catch {
+          // MutationObserver may not be fully supported in test environments
+        }
+        this._panelObserver = null;
       }
-      this._panelObserver = null;
-    }
 
-    this.show();
-    this._element = null;
-    this._hovering = false;
-    this._panelCacheDirty = true;
-    this._panelOpenCache = false;
+      this.show();
+      this._element = null;
+      this._hovering = false;
+      this._panelCacheDirty = true;
+      this._panelOpenCache = false;
+    });
   }
 
   /**

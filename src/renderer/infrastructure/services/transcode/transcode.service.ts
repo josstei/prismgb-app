@@ -12,7 +12,7 @@
  * - 'transcode:cancelled' - Transcoding was cancelled
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import type {
   TranscodeCancelResponse,
@@ -25,45 +25,38 @@ import type {
   TranscodeStartResponse
 } from '@shared/ipc/preload-api.contract.js';
 
-class TranscodeService extends BaseService {
+class TranscodeService extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
+    super(dependencies, [...TranscodeService.dependencies], 'TranscodeService');
 
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._cleanupFns = [];
-    this._initialized = false;
   }
 
   /**
    * Initialize the service - subscribe to IPC events via window.transcodeAPI
    */
-  initialize() {
-    if (this._initialized) {
-      this.logger.warn('TranscodeService already initialized');
-      return;
-    }
-
+  async initialize() {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available - transcoding disabled');
       return;
     }
 
-    this.logger.info('Initializing TranscodeService');
+    await super.initialize();
+  }
 
+  async onInitialize() {
     // Subscribe to IPC events and republish on eventBus
     // Note: No onStarted handler - the main process doesn't emit a STARTED event.
     // The started state is determined by the successful return of transcode() call.
-    this._cleanupFns.push(
+    this._subscriptions.push(
       window.transcodeAPI.onProgress((data) => this._handleProgress(data)),
       window.transcodeAPI.onCompleted((data) => this._handleCompleted(data)),
       window.transcodeAPI.onError((data) => this._handleError(data)),
       window.transcodeAPI.onCancelled((data) => this._handleCancelled(data))
     );
-
-    this._initialized = true;
-    this.logger.info('TranscodeService initialized');
   }
 
   /**
@@ -211,17 +204,11 @@ class TranscodeService extends BaseService {
   /**
    * Cleanup subscriptions and reset state
    */
-  dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
+  async onDispose() {
     window.transcodeAPI?.removeListeners?.();
 
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._initialized = false;
     this.logger.info('TranscodeService disposed');
   }
 }

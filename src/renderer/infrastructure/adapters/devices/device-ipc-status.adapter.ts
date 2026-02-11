@@ -2,11 +2,17 @@ import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
 
 export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {
+  static readonly dependencies = ['ipcClient'] as const;
+
   ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> };
 
-  constructor(ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> }) {
+  constructor(
+    dependencies:
+      | { ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> } }
+      | { getDeviceStatus: () => Promise<DeviceStatusPayload> }
+  ) {
     super();
-    this.ipcClient = ipcClient;
+    this.ipcClient = 'ipcClient' in dependencies ? dependencies.ipcClient : dependencies;
   }
 
   async getDeviceStatus(): Promise<DeviceStatusPayload> {

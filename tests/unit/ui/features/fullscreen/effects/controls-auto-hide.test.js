@@ -89,9 +89,9 @@ describe('ControlsAutoHide', () => {
       autoHide = new ControlsAutoHide(callbacks);
       autoHide.enable(controlsElement);
 
-      expect(addEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
-      expect(addEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
-      expect(addEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function));
+      expect(addEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function), undefined);
+      expect(addEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function), undefined);
+      expect(addEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function), undefined);
     });
   });
 
@@ -135,9 +135,9 @@ describe('ControlsAutoHide', () => {
       autoHide.enable(controlsElement);
       autoHide.disable();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function), undefined);
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function), undefined);
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function), undefined);
     });
 
     it('should clear hide timer', () => {

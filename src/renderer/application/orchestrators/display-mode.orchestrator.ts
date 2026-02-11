@@ -8,11 +8,18 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'fullscreenService',
+    'appState',
+    'settingsService',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
 
   constructor(dependencies) {
     super(
       dependencies,
-      ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory'],
+      [...SettingsDisplayModeOrchestrator.dependencies],
       'SettingsDisplayModeOrchestrator'
     );
   }
@@ -69,6 +76,8 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
    * Toggle cinematic mode
    */
   toggleCinematicMode() {
-    this.cinematicModeService.toggleCinematicMode();
+    const newMode = !this.appState.isCinematicModeEnabled;
+    this.appState.setCinematicMode(newMode);
+    this.eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: newMode });
   }
 }

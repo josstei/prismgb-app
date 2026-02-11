@@ -3,15 +3,15 @@
  * Registers GPU policy-related IPC routes.
  */
 
-import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
 import type { GpuPolicyResponse } from '@shared/ipc/preload-api.contract.js';
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
-}
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 export interface GpuHandlerDependencies {
   registerHandler: RegisterHandler;
@@ -19,17 +19,21 @@ export interface GpuHandlerDependencies {
 }
 
 export function registerGpuHandlers({ registerHandler, logger }: GpuHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.GPU.GET_POLICY, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.GPU.GET_POLICY,
+    logger,
+    logMessage: 'Failed to get GPU policy:',
+    handler: async () => {
       const policy = getGpuPolicy();
       return {
         success: true,
         skipWebGPU: policy.skipWebGPU,
         reason: policy.reason
       } as GpuPolicyResponse;
-    } catch (error) {
-      logger.error('Failed to get GPU policy:', error);
-      return { success: false, error: (error as Error).message } as GpuPolicyResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as GpuPolicyResponse;
     }
   });
 }

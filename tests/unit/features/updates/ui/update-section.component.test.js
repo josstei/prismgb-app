@@ -4,14 +4,14 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
-import { UpdateState } from '@renderer/presentation/config/update-state.config.ts';
+import { UpdateState } from '@shared/config/update-state.config.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config.ts';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 
 describe('UpdateSectionComponent', () => {
   let component;
-  let mockUpdateOrchestrator;
+  let mockUpdateService;
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
@@ -34,7 +34,7 @@ describe('UpdateSectionComponent', () => {
       subscribe: vi.fn(() => vi.fn())
     };
 
-    mockUpdateOrchestrator = {
+    mockUpdateService = {
       getStatus: vi.fn(() => ({
         state: UpdateState.IDLE,
         updateInfo: null
@@ -69,7 +69,7 @@ describe('UpdateSectionComponent', () => {
     Object.values(mockElements).forEach(el => document.body.appendChild(el));
 
     component = new UpdateSectionComponent({
-      updateOrchestrator: mockUpdateOrchestrator,
+      updateService: mockUpdateService,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
@@ -119,7 +119,7 @@ describe('UpdateSectionComponent', () => {
     });
 
     it('should load initial state', () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({
+      mockUpdateService.getStatus.mockReturnValue({
         state: UpdateState.AVAILABLE,
         updateInfo: { version: '2.0.0' }
       });
@@ -130,7 +130,7 @@ describe('UpdateSectionComponent', () => {
     });
 
     it('should show badge for AVAILABLE state', () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({
+      mockUpdateService.getStatus.mockReturnValue({
         state: UpdateState.AVAILABLE,
         updateInfo: { version: '2.0.0' }
       });
@@ -254,48 +254,48 @@ describe('UpdateSectionComponent', () => {
     });
 
     it('should call checkForUpdates for IDLE state', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.IDLE });
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.IDLE });
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.checkForUpdates).toHaveBeenCalled();
+      expect(mockUpdateService.checkForUpdates).toHaveBeenCalled();
     });
 
     it('should call checkForUpdates for NOT_AVAILABLE state', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.NOT_AVAILABLE });
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.NOT_AVAILABLE });
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.checkForUpdates).toHaveBeenCalled();
+      expect(mockUpdateService.checkForUpdates).toHaveBeenCalled();
     });
 
     it('should call checkForUpdates for ERROR state', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.ERROR });
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.ERROR });
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.checkForUpdates).toHaveBeenCalled();
+      expect(mockUpdateService.checkForUpdates).toHaveBeenCalled();
     });
 
     it('should call downloadUpdate for AVAILABLE state', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.AVAILABLE });
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.AVAILABLE });
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.downloadUpdate).toHaveBeenCalled();
+      expect(mockUpdateService.downloadUpdate).toHaveBeenCalled();
     });
 
     it('should call installUpdate for DOWNLOADED state', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.DOWNLOADED });
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.DOWNLOADED });
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.installUpdate).toHaveBeenCalled();
+      expect(mockUpdateService.installUpdate).toHaveBeenCalled();
     });
 
     it('should disable button during action', async () => {
-      mockUpdateOrchestrator.getStatus.mockReturnValue({ state: UpdateState.IDLE });
-      mockUpdateOrchestrator.checkForUpdates.mockImplementation(() => {
+      mockUpdateService.getStatus.mockReturnValue({ state: UpdateState.IDLE });
+      mockUpdateService.checkForUpdates.mockImplementation(() => {
         expect(mockElements.actionBtn.disabled).toBe(true);
         return Promise.resolve();
       });
@@ -308,7 +308,7 @@ describe('UpdateSectionComponent', () => {
 
       await component._handleActionClick();
 
-      expect(mockUpdateOrchestrator.checkForUpdates).not.toHaveBeenCalled();
+      expect(mockUpdateService.checkForUpdates).not.toHaveBeenCalled();
     });
   });
 

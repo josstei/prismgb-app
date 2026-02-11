@@ -10,15 +10,18 @@ import { TIMING } from '@shared/config/timing.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {
+  static readonly dependencies = [
+    'eventBus',
+    'loggerFactory',
+    'browserMediaService',
+    'deviceStatusProvider',
+    'deviceStorageService',
+    'deviceChangeDebounceAdapter'
+  ] as const;
 
   constructor(dependencies) {
     super(dependencies, [
-      'eventBus',
-      'loggerFactory',
-      'browserMediaService',
-      'deviceConnectionService',
-      'deviceStorageService',
-      'deviceChangeDebounceAdapter'
+      ...DeviceMediaService.dependencies
     ], 'DeviceMediaService');
 
     this.videoDevices = [];
@@ -30,6 +33,32 @@ class DeviceMediaService extends BaseService {
     this._unsubscribeDeviceChange = null;
     this._knownSupportedDeviceIds = new Set();
     this._permissionProbeInFlight = null;
+    this._isConnected = null;
+  }
+
+  get isConnected() {
+    return Boolean(this._isConnected);
+  }
+
+  async updateConnectionStatus() {
+    try {
+      const status = await this.deviceStatusProvider.getDeviceStatus();
+      const connected = Boolean(status.connected);
+      const changed = this._isConnected !== connected;
+
+      this._isConnected = connected;
+
+      if (changed) {
+        this.logger.info(`Device status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+        this.invalidateEnumerationCache();
+        this.eventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, status);
+      }
+
+      return { status, changed };
+    } catch (error) {
+      this.logger.error('Error updating device status:', error);
+      throw error;
+    }
   }
 
   invalidateEnumerationCache() {
@@ -52,7 +81,7 @@ class DeviceMediaService extends BaseService {
 
     this._enumerateInFlight = (async () => {
       try {
-        const { status } = await this.deviceConnectionService.updateConnectionStatus();
+        const { status } = await this.updateConnectionStatus();
         const connected = status.connected;
 
         this.logger.info(`Main process device status: ${connected ? 'CONNECTED' : 'NOT CONNECTED'}`);
@@ -119,7 +148,7 @@ class DeviceMediaService extends BaseService {
   }
 
   async discoverSupportedDevice() {
-    const { status } = await this.deviceConnectionService.updateConnectionStatus();
+    const { status } = await this.updateConnectionStatus();
     if (!status.connected) {
       return null;
     }

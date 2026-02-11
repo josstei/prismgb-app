@@ -8,6 +8,7 @@
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { cleanupCallbacks } from '@renderer/presentation/lib/event-subscriptions.utils';
 import { NotesListViewComponent } from './components/notes-list-view.component.js';
 import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
 import { NotesSearchComponent } from './components/notes-search.component.js';
@@ -484,12 +485,8 @@ class NotesPanelComponent {
     this._domListeners.removeAll();
 
     // Unsubscribe from events (with error protection)
-    this._eventSubscriptions.forEach(unsubscribe => {
-      try {
-        unsubscribe();
-      } catch (error) {
-        this.logger?.warn('Error unsubscribing from event', error);
-      }
+    cleanupCallbacks(this._eventSubscriptions, (error) => {
+      this.logger?.warn('Error unsubscribing from event', error);
     });
     this._eventSubscriptions = [];
 

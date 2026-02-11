@@ -13,11 +13,17 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'settingsService',
+    'appState',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
 
   constructor(dependencies) {
     super(
       dependencies,
-      ['settingsService', 'appState', 'eventBus', 'loggerFactory'],
+      [...SettingsPreferencesOrchestrator.dependencies],
       'SettingsPreferencesOrchestrator'
     );
   }

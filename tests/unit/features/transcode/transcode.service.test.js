@@ -84,8 +84,8 @@ describe('TranscodeService', () => {
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._cleanupFns).toEqual([]);
-      expect(service._initialized).toBe(false);
+      expect(service._subscriptions).toEqual([]);
+      expect(service.isInitialized).toBe(false);
     });
   });
 
@@ -97,8 +97,8 @@ describe('TranscodeService', () => {
       });
     });
 
-    it('should subscribe to IPC events', () => {
-      service.initialize();
+    it('should subscribe to IPC events', async () => {
+      await service.initialize();
 
       expect(mockTranscodeAPI.onProgress).toHaveBeenCalledWith(expect.any(Function));
       expect(mockTranscodeAPI.onCompleted).toHaveBeenCalledWith(expect.any(Function));
@@ -106,53 +106,53 @@ describe('TranscodeService', () => {
       expect(mockTranscodeAPI.onCancelled).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should set initialized flag', () => {
-      service.initialize();
-      expect(service._initialized).toBe(true);
+    it('should set initialized flag', async () => {
+      await service.initialize();
+      expect(service.isInitialized).toBe(true);
     });
 
-    it('should log initialization', () => {
-      service.initialize();
+    it('should log initialization', async () => {
+      await service.initialize();
       expect(mockLogger.info).toHaveBeenCalledWith('Initializing TranscodeService');
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService initialized');
     });
 
-    it('should store cleanup functions', () => {
-      service.initialize();
-      expect(service._cleanupFns.length).toBe(4);
+    it('should store cleanup functions', async () => {
+      await service.initialize();
+      expect(service._subscriptions.length).toBe(4);
     });
 
-    it('should warn and skip if already initialized', () => {
-      service.initialize();
+    it('should warn and skip if already initialized', async () => {
+      await service.initialize();
       mockLogger.warn.mockClear();
 
-      service.initialize();
+      await service.initialize();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('TranscodeService already initialized');
       expect(mockTranscodeAPI.onProgress).toHaveBeenCalledTimes(1);
     });
 
-    it('should warn and skip if transcodeAPI is not available', () => {
+    it('should warn and skip if transcodeAPI is not available', async () => {
       global.window = {};
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
-      service.initialize();
+      await service.initialize();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('transcodeAPI not available - transcoding disabled');
-      expect(service._initialized).toBe(false);
+      expect(service.isInitialized).toBe(false);
     });
   });
 
   describe('transcode', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
-      service.initialize();
+      await service.initialize();
     });
 
     it('should convert blob and call transcodeAPI.start', async () => {
@@ -255,12 +255,12 @@ describe('TranscodeService', () => {
   });
 
   describe('cancel', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
-      service.initialize();
+      await service.initialize();
     });
 
     it('should call transcodeAPI.cancel with active job id', async () => {
@@ -305,7 +305,7 @@ describe('TranscodeService', () => {
     });
 
     it('should return true during transcoding', async () => {
-      service.initialize();
+      await service.initialize();
       const mockBlob = new Blob(['test data'], { type: 'video/webm' });
       await service.transcode(mockBlob, 'mp4');
 
@@ -340,7 +340,7 @@ describe('TranscodeService', () => {
     let errorHandler;
     let cancelledHandler;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -364,7 +364,7 @@ describe('TranscodeService', () => {
         return vi.fn();
       });
 
-      service.initialize();
+      await service.initialize();
     });
 
     describe('_handleProgress', () => {
@@ -476,64 +476,64 @@ describe('TranscodeService', () => {
       });
     });
 
-    it('should call all cleanup functions', () => {
+    it('should call all cleanup functions', async () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
       mockTranscodeAPI.onProgress.mockReturnValue(cleanup1);
       mockTranscodeAPI.onCompleted.mockReturnValue(cleanup2);
 
-      service.initialize();
-      service.dispose();
+      await service.initialize();
+      await service.dispose();
 
       expect(cleanup1).toHaveBeenCalled();
       expect(cleanup2).toHaveBeenCalled();
     });
 
-    it('should clear cleanup array', () => {
-      service.initialize();
-      service.dispose();
+    it('should clear cleanup array', async () => {
+      await service.initialize();
+      await service.dispose();
 
-      expect(service._cleanupFns).toEqual([]);
+      expect(service._subscriptions).toEqual([]);
     });
 
-    it('should call removeListeners on transcodeAPI', () => {
-      service.initialize();
-      service.dispose();
+    it('should call removeListeners on transcodeAPI', async () => {
+      await service.initialize();
+      await service.dispose();
 
       expect(mockTranscodeAPI.removeListeners).toHaveBeenCalled();
     });
 
-    it('should reset state', () => {
-      service.initialize();
-      service.dispose();
+    it('should reset state', async () => {
+      await service.initialize();
+      await service.dispose();
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._initialized).toBe(false);
+      expect(service.isInitialized).toBe(false);
     });
 
-    it('should log disposal', () => {
-      service.initialize();
-      service.dispose();
+    it('should log disposal', async () => {
+      await service.initialize();
+      await service.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService disposed');
     });
 
-    it('should handle non-function cleanup items gracefully', () => {
-      service.initialize();
-      service._cleanupFns.push(null, undefined, 'not-a-function');
+    it('should handle non-function cleanup items gracefully', async () => {
+      await service.initialize();
+      service._subscriptions.push(null, undefined, 'not-a-function');
 
-      expect(() => service.dispose()).not.toThrow();
+      await expect(service.dispose()).resolves.toBeUndefined();
     });
 
-    it('should be safe when transcodeAPI is missing', () => {
+    it('should be safe when transcodeAPI is missing', async () => {
       global.window = {};
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(() => service.dispose()).not.toThrow();
+      await expect(service.dispose()).resolves.toBeUndefined();
     });
   });
 });

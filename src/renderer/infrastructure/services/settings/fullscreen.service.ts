@@ -4,55 +4,42 @@
  * Owns fullscreen event listeners and UI state updates.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
-class SettingsFullscreenService extends BaseService {
+class SettingsFullscreenService extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
+    super(dependencies, [...SettingsFullscreenService.dependencies], 'SettingsFullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
-    this._unsubscribeEnterFullscreen = null;
-    this._unsubscribeLeaveFullscreen = null;
-    this._unsubscribeResized = null;
   }
 
-  initialize() {
+  async onInitialize() {
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
 
     if (window.windowAPI) {
-      this._unsubscribeEnterFullscreen = window.windowAPI.onEnterFullscreen(() => {
-        this._handleNativeFullscreen(true);
-      });
-      this._unsubscribeLeaveFullscreen = window.windowAPI.onLeaveFullscreen(() => {
-        this._handleNativeFullscreen(false);
-      });
-      this._unsubscribeResized = window.windowAPI.onResized(() => {
-        this._syncFullscreenState();
-        this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
-      });
+      this._subscriptions.push(
+        window.windowAPI.onEnterFullscreen(() => {
+          this._handleNativeFullscreen(true);
+        }),
+        window.windowAPI.onLeaveFullscreen(() => {
+          this._handleNativeFullscreen(false);
+        }),
+        window.windowAPI.onResized(() => {
+          this._syncFullscreenState();
+          this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
+        })
+      );
     }
 
-    this._syncFullscreenState();
+    await this._syncFullscreenState();
   }
 
-  dispose() {
+  async onDispose() {
     document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange);
-
-    if (this._unsubscribeEnterFullscreen) {
-      this._unsubscribeEnterFullscreen();
-      this._unsubscribeEnterFullscreen = null;
-    }
-    if (this._unsubscribeLeaveFullscreen) {
-      this._unsubscribeLeaveFullscreen();
-      this._unsubscribeLeaveFullscreen = null;
-    }
-    if (this._unsubscribeResized) {
-      this._unsubscribeResized();
-      this._unsubscribeResized = null;
-    }
   }
 
   async toggleFullscreen() {

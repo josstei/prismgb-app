@@ -10,8 +10,10 @@ import { BaseService } from '@shared/base/service.base.js';
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
 export class StreamingHealthService extends BaseService {
+  static readonly dependencies = ['loggerFactory'] as const;
+
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingHealthService');
+    super(dependencies, [...StreamingHealthService.dependencies], 'StreamingHealthService');
 
     this._timeoutMs = 4000;
     this._isMonitoring = false;

@@ -7,9 +7,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PerformanceMetricsService extends BaseService {
+  static readonly dependencies = ['loggerFactory', 'metricsAdapter'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
+    super(dependencies, [...PerformanceMetricsService.dependencies], 'PerformanceMetricsService');
 
     this._pendingTimeouts = new Set();
     this._intervalId = null;

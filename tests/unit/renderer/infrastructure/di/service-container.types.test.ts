@@ -38,4 +38,19 @@ describe('ServiceContainer type contracts', () => {
 
     expectTypeOf(container.resolve('appOrchestrator')).toEqualTypeOf<RendererContainerMap['appOrchestrator']>();
   });
+
+  it('infers resolve type for explicit registerFactory/registerClass APIs', () => {
+    class ClockService {
+      now() {
+        return 1;
+      }
+    }
+
+    const container = new ServiceContainer()
+      .registerClass('clock', ClockService)
+      .registerFactory('clockNow', (clock: ClockService) => clock.now(), ['clock']);
+
+    expectTypeOf(container.resolve('clock')).toEqualTypeOf<ClockService>();
+    expectTypeOf(container.resolve('clockNow')).toEqualTypeOf<number>();
+  });
 });

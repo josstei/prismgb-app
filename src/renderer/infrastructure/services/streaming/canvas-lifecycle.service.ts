@@ -8,10 +8,19 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class StreamingCanvasLifecycleService extends BaseService {
+  static readonly dependencies = [
+    'streamViewService',
+    'canvasRenderer',
+    'viewportService',
+    'gpuRendererService',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
+
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+      [...StreamingCanvasLifecycleService.dependencies],
       'StreamingCanvasLifecycleService'
     );
 

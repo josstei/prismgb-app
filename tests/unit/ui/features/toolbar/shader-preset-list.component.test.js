@@ -235,15 +235,16 @@ describe('ShaderPresetListComponent', () => {
       });
     });
 
-    it('should nullify references', () => {
+    it('should keep element and dependency references stable after dispose', () => {
       component.initialize({ optionsContainer, unavailableMessage });
       component.dispose();
 
-      expect(component.optionsContainer).toBeNull();
-      expect(component.unavailableMessage).toBeNull();
-      expect(component.settingsService).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.logger).toBeNull();
+      expect(component.optionsContainer).toBe(optionsContainer);
+      expect(component.unavailableMessage).toBe(unavailableMessage);
+      expect(component.settingsService).toBe(mockSettingsService);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.logger).toBe(mockLogger);
+      expect(component._eventSubscriptions).toEqual([]);
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

@@ -97,8 +97,7 @@ describe('SettingsFullscreenService', () => {
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
       expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
-      expect(service._unsubscribeEnterFullscreen).toBeNull();
-      expect(service._unsubscribeLeaveFullscreen).toBeNull();
+      expect(service._subscriptions).toEqual([]);
     });
 
     it('should throw if missing required dependencies', () => {
@@ -109,8 +108,8 @@ describe('SettingsFullscreenService', () => {
   });
 
   describe('initialize', () => {
-    it('should add fullscreenchange event listener', () => {
-      service.initialize();
+    it('should add fullscreenchange event listener', async () => {
+      await service.initialize();
 
       expect(mockDocument.addEventListener).toHaveBeenCalledWith(
         'fullscreenchange',
@@ -118,35 +117,36 @@ describe('SettingsFullscreenService', () => {
       );
     });
 
-    it('should subscribe to native fullscreen events if windowAPI exists', () => {
-      service.initialize();
+    it('should subscribe to native fullscreen events if windowAPI exists', async () => {
+      await service.initialize();
 
       expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
       expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
-      expect(service._unsubscribeEnterFullscreen).toBeTypeOf('function');
-      expect(service._unsubscribeLeaveFullscreen).toBeTypeOf('function');
+      expect(service._subscriptions.length).toBe(3);
+      service._subscriptions.forEach((unsubscribe) => {
+        expect(typeof unsubscribe).toBe('function');
+      });
     });
 
-    it('should handle missing windowAPI gracefully', () => {
+    it('should handle missing windowAPI gracefully', async () => {
       global.window.windowAPI = undefined;
       const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(() => serviceWithoutAPI.initialize()).not.toThrow();
-      expect(serviceWithoutAPI._unsubscribeEnterFullscreen).toBeNull();
-      expect(serviceWithoutAPI._unsubscribeLeaveFullscreen).toBeNull();
+      await expect(serviceWithoutAPI.initialize()).resolves.toBeUndefined();
+      expect(serviceWithoutAPI._subscriptions).toEqual([]);
     });
   });
 
   describe('dispose', () => {
-    beforeEach(() => {
-      service.initialize();
+    beforeEach(async () => {
+      await service.initialize();
     });
 
-    it('should remove fullscreenchange event listener', () => {
-      service.dispose();
+    it('should remove fullscreenchange event listener', async () => {
+      await service.dispose();
 
       expect(mockDocument.removeEventListener).toHaveBeenCalledWith(
         'fullscreenchange',
@@ -154,35 +154,34 @@ describe('SettingsFullscreenService', () => {
       );
     });
 
-    it('should unsubscribe from native fullscreen events', () => {
-      const unsubscribeEnter = service._unsubscribeEnterFullscreen;
-      const unsubscribeLeave = service._unsubscribeLeaveFullscreen;
+    it('should unsubscribe from native fullscreen events', async () => {
+      const [unsubscribeEnter, unsubscribeLeave, unsubscribeResized] = service._subscriptions;
 
-      service.dispose();
+      await service.dispose();
 
       expect(unsubscribeEnter).toHaveBeenCalled();
       expect(unsubscribeLeave).toHaveBeenCalled();
-      expect(service._unsubscribeEnterFullscreen).toBeNull();
-      expect(service._unsubscribeLeaveFullscreen).toBeNull();
+      expect(unsubscribeResized).toHaveBeenCalled();
+      expect(service._subscriptions).toEqual([]);
     });
 
-    it('should handle dispose when not initialized', () => {
+    it('should handle dispose when not initialized', async () => {
       const uninitializedService = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(() => uninitializedService.dispose()).not.toThrow();
+      await expect(uninitializedService.dispose()).resolves.toBeUndefined();
     });
 
-    it('should handle dispose without windowAPI', () => {
+    it('should handle dispose without windowAPI', async () => {
       global.window.windowAPI = undefined;
       const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(() => serviceWithoutAPI.dispose()).not.toThrow();
+      await expect(serviceWithoutAPI.dispose()).resolves.toBeUndefined();
     });
   });
 

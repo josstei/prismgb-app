@@ -2,7 +2,6 @@ import { AppState } from '@renderer/application/state/app-state';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service';
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
-import { UpdateUiService } from '@renderer/infrastructure/services/updates/update-ui.service';
 import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
 import { UIComponentRegistry } from '@renderer/presentation/controller/component.registry.js';
@@ -20,63 +19,19 @@ import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import { UpdateUIBridge } from '@renderer/presentation/bridges/update-ui.bridge';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
 export function registerUi(container: RegistrableContainer<RendererContainerMap>): void {
-  container.registerSingleton(
-    'settingsService',
-    function (eventBus, loggerFactory, storageService) {
-      return new SettingsService({ eventBus, loggerFactory, storageService });
-    },
-    ['eventBus', 'loggerFactory', 'storageService']
-  );
+  container.autoRegister('settingsService', SettingsService);
+  container.autoRegister('notesService', NotesService);
+  container.autoRegister('updateService', UpdateService);
+  container.autoRegister('streamViewService', StreamingViewService);
+  container.autoRegister('streamingAudioPipelineService', StreamingAudioPipelineService);
+  container.autoRegister('appState', AppState);
 
-  container.registerSingleton(
-    'notesService',
-    function (eventBus, loggerFactory, storageService) {
-      return new NotesService({ eventBus, loggerFactory, storageService });
-    },
-    ['eventBus', 'loggerFactory', 'storageService']
-  );
-
-  container.registerSingleton(
-    'updateService',
-    function (eventBus, loggerFactory) {
-      return new UpdateService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'updateUiService',
-    function (eventBus, loggerFactory) {
-      return new UpdateUiService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'streamViewService',
-    function (uiController, loggerFactory) {
-      return new StreamingViewService({ uiController, loggerFactory });
-    },
-    ['uiController', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'streamingAudioPipelineService',
-    function (eventBus, loggerFactory, settingsService) {
-      return new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
-    },
-    ['eventBus', 'loggerFactory', 'settingsService']
-  );
-
-  container.registerSingleton('appState', function(streamingService, deviceService, eventBus) {
-    return new AppState({ streamingService, deviceService, eventBus });
-  }, ['streamingService', 'deviceService', 'eventBus']);
-
-  container.registerSingleton(
+  container.registerFactory(
     'uiComponentRegistry',
     function (loggerFactory) {
       const componentDefinitions = [
@@ -127,9 +82,9 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
           id: 'settingsMenuComponent',
           stage: 'deferred',
           create: ({ dependencies }) => {
-            const updateSectionComponent = dependencies.updateOrchestrator
+            const updateSectionComponent = dependencies.updateService
               ? new UpdateSectionComponent({
-                updateOrchestrator: dependencies.updateOrchestrator,
+                updateService: dependencies.updateService,
                 eventBus: dependencies.eventBus,
                 loggerFactory: dependencies.loggerFactory
               })
@@ -170,7 +125,7 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
     ['loggerFactory']
   );
 
-  container.registerSingleton(
+  container.registerFactory(
     'uiEffects',
     function (bodyClassManager) {
       return new UIEffects({ elements: null, bodyClassManager });
@@ -178,7 +133,7 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
     ['bodyClassManager']
   );
 
-  container.registerSingleton(
+  container.registerFactory(
     'bodyClassManager',
     function () {
       return new BodyClassManager();
@@ -186,35 +141,9 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
     []
   );
 
-  container.registerSingleton(
-    'uiEventBridge',
-    function (eventBus, uiController, presentationModeService, loggerFactory) {
-      return new UIEventBridge({ eventBus, uiController, presentationModeService, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'presentationModeService',
-    function (uiController, appState, loggerFactory) {
-      return new PresentationModeService({ uiController, appState, loggerFactory });
-    },
-    ['uiController', 'appState', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'captureUiBridge',
-    function (eventBus, uiController, loggerFactory) {
-      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'transcodeUiBridge',
-    function (eventBus, uiController, loggerFactory) {
-      return new TranscodeUIBridge({ eventBus, uiController, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'loggerFactory']
-  );
+  container.autoRegister('uiEventBridge', UIEventBridge);
+  container.autoRegister('presentationModeService', PresentationModeService);
+  container.autoRegister('captureUiBridge', CaptureUIBridge);
+  container.autoRegister('updateUiBridge', UpdateUIBridge);
+  container.autoRegister('transcodeUiBridge', TranscodeUIBridge);
 }

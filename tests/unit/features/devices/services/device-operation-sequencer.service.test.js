@@ -7,13 +7,13 @@ import { DeviceOperationSequencerService } from '@renderer/infrastructure/servic
 
 describe('DeviceOperationSequencerService', () => {
   let service;
-  let mockDeviceService;
+  let mockDeviceMediaService;
   let mockEventBus;
   let mockLogger;
 
   beforeEach(() => {
-    mockDeviceService = {
-      updateDeviceStatus: vi.fn().mockResolvedValue({}),
+    mockDeviceMediaService = {
+      updateConnectionStatus: vi.fn().mockResolvedValue({}),
       enumerateDevices: vi.fn().mockResolvedValue({})
     };
 
@@ -30,7 +30,7 @@ describe('DeviceOperationSequencerService', () => {
     };
 
     service = new DeviceOperationSequencerService({
-      deviceService: mockDeviceService,
+      deviceMediaService: mockDeviceMediaService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -42,7 +42,7 @@ describe('DeviceOperationSequencerService', () => {
 
   describe('Constructor', () => {
     it('should store dependencies', () => {
-      expect(service.deviceService).toBe(mockDeviceService);
+      expect(service.deviceMediaService).toBe(mockDeviceMediaService);
       expect(service.eventBus).toBe(mockEventBus);
     });
 
@@ -54,18 +54,18 @@ describe('DeviceOperationSequencerService', () => {
   describe('queueConnected', () => {
     it('should update status then enumerate devices', async () => {
       const callOrder = [];
-      mockDeviceService.updateDeviceStatus.mockImplementation(() => {
-        callOrder.push('updateDeviceStatus');
+      mockDeviceMediaService.updateConnectionStatus.mockImplementation(() => {
+        callOrder.push('updateConnectionStatus');
         return Promise.resolve({});
       });
-      mockDeviceService.enumerateDevices.mockImplementation(() => {
+      mockDeviceMediaService.enumerateDevices.mockImplementation(() => {
         callOrder.push('enumerateDevices');
         return Promise.resolve({});
       });
 
       await service.queueConnected();
 
-      expect(callOrder).toEqual(['updateDeviceStatus', 'enumerateDevices']);
+      expect(callOrder).toEqual(['updateConnectionStatus', 'enumerateDevices']);
     });
 
     it('should log operation execution', async () => {
@@ -81,15 +81,15 @@ describe('DeviceOperationSequencerService', () => {
     it('should update status', async () => {
       await service.queueDisconnected();
 
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalled();
+      expect(mockDeviceMediaService.updateConnectionStatus).toHaveBeenCalled();
     });
 
     it('should call callback after status update', async () => {
       const callback = vi.fn();
       const callOrder = [];
 
-      mockDeviceService.updateDeviceStatus.mockImplementation(() => {
-        callOrder.push('updateDeviceStatus');
+      mockDeviceMediaService.updateConnectionStatus.mockImplementation(() => {
+        callOrder.push('updateConnectionStatus');
         return Promise.resolve({});
       });
 
@@ -98,7 +98,7 @@ describe('DeviceOperationSequencerService', () => {
         callback();
       });
 
-      expect(callOrder).toEqual(['updateDeviceStatus', 'callback']);
+      expect(callOrder).toEqual(['updateConnectionStatus', 'callback']);
       expect(callback).toHaveBeenCalled();
     });
 
@@ -111,25 +111,25 @@ describe('DeviceOperationSequencerService', () => {
     it('should NOT enumerate devices', async () => {
       await service.queueDisconnected();
 
-      expect(mockDeviceService.enumerateDevices).not.toHaveBeenCalled();
+      expect(mockDeviceMediaService.enumerateDevices).not.toHaveBeenCalled();
     });
   });
 
   describe('queueRefresh', () => {
     it('should update status then enumerate devices', async () => {
       const callOrder = [];
-      mockDeviceService.updateDeviceStatus.mockImplementation(() => {
-        callOrder.push('updateDeviceStatus');
+      mockDeviceMediaService.updateConnectionStatus.mockImplementation(() => {
+        callOrder.push('updateConnectionStatus');
         return Promise.resolve({});
       });
-      mockDeviceService.enumerateDevices.mockImplementation(() => {
+      mockDeviceMediaService.enumerateDevices.mockImplementation(() => {
         callOrder.push('enumerateDevices');
         return Promise.resolve({});
       });
 
       await service.queueRefresh();
 
-      expect(callOrder).toEqual(['updateDeviceStatus', 'enumerateDevices']);
+      expect(callOrder).toEqual(['updateConnectionStatus', 'enumerateDevices']);
     });
   });
 
@@ -137,7 +137,7 @@ describe('DeviceOperationSequencerService', () => {
     it('should execute operations in order', async () => {
       const callOrder = [];
 
-      mockDeviceService.updateDeviceStatus
+      mockDeviceMediaService.updateConnectionStatus
         .mockImplementationOnce(() => {
           callOrder.push('first-status');
           return Promise.resolve({});
@@ -147,7 +147,7 @@ describe('DeviceOperationSequencerService', () => {
           return Promise.resolve({});
         });
 
-      mockDeviceService.enumerateDevices
+      mockDeviceMediaService.enumerateDevices
         .mockImplementationOnce(() => {
           callOrder.push('first-enumerate');
           return Promise.resolve({});
@@ -173,11 +173,11 @@ describe('DeviceOperationSequencerService', () => {
     it('should handle rapid sequential calls', async () => {
       const calls = [];
 
-      mockDeviceService.updateDeviceStatus.mockImplementation(() => {
+      mockDeviceMediaService.updateConnectionStatus.mockImplementation(() => {
         calls.push('status');
         return Promise.resolve({});
       });
-      mockDeviceService.enumerateDevices.mockImplementation(() => {
+      mockDeviceMediaService.enumerateDevices.mockImplementation(() => {
         calls.push('enumerate');
         return Promise.resolve({});
       });
@@ -197,18 +197,18 @@ describe('DeviceOperationSequencerService', () => {
       expect(service.getQueueDepth()).toBe(0);
       // 5 status updates (3 connected + 1 disconnected + 1 refresh)
       // 4 enumerations (3 connected + 1 refresh, disconnected doesn't enumerate)
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalledTimes(5);
-      expect(mockDeviceService.enumerateDevices).toHaveBeenCalledTimes(4);
+      expect(mockDeviceMediaService.updateConnectionStatus).toHaveBeenCalledTimes(5);
+      expect(mockDeviceMediaService.enumerateDevices).toHaveBeenCalledTimes(4);
     });
   });
 
   describe('Error handling', () => {
     it('should continue queue processing after error', async () => {
-      mockDeviceService.updateDeviceStatus
+      mockDeviceMediaService.updateConnectionStatus
         .mockRejectedValueOnce(new Error('First failed'))
         .mockResolvedValueOnce({});
 
-      mockDeviceService.enumerateDevices.mockResolvedValue({});
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({});
 
       // First will fail, second should still run
       const promise1 = service.queueConnected();
@@ -218,12 +218,12 @@ describe('DeviceOperationSequencerService', () => {
       await promise2;
 
       // Second operation should have run despite first failing
-      expect(mockDeviceService.updateDeviceStatus).toHaveBeenCalledTimes(2);
+      expect(mockDeviceMediaService.updateConnectionStatus).toHaveBeenCalledTimes(2);
     });
 
     it('should log errors without rethrowing', async () => {
       const error = new Error('Test error');
-      mockDeviceService.updateDeviceStatus.mockRejectedValue(error);
+      mockDeviceMediaService.updateConnectionStatus.mockRejectedValue(error);
 
       await expect(service.queueConnected()).resolves.not.toThrow();
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -240,8 +240,8 @@ describe('DeviceOperationSequencerService', () => {
       // Use a deferred pattern that works with the sequencer
       let resolveStatus;
       const statusPromise = new Promise(resolve => { resolveStatus = resolve; });
-      mockDeviceService.updateDeviceStatus.mockReturnValue(statusPromise);
-      mockDeviceService.enumerateDevices.mockResolvedValue({});
+      mockDeviceMediaService.updateConnectionStatus.mockReturnValue(statusPromise);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({});
 
       // Queue first operation - increments depth immediately
       const promise1 = service.queueConnected();
@@ -256,7 +256,7 @@ describe('DeviceOperationSequencerService', () => {
 
       // Resolve the first status call and let operations complete
       resolveStatus({});
-      mockDeviceService.updateDeviceStatus.mockResolvedValue({});
+      mockDeviceMediaService.updateConnectionStatus.mockResolvedValue({});
 
       await promise1;
       await promise2;
@@ -268,10 +268,10 @@ describe('DeviceOperationSequencerService', () => {
   describe('flush', () => {
     it('should wait for all queued operations', async () => {
       let resolveOp;
-      mockDeviceService.updateDeviceStatus.mockImplementation(
+      mockDeviceMediaService.updateConnectionStatus.mockImplementation(
         () => new Promise(resolve => { resolveOp = resolve; })
       );
-      mockDeviceService.enumerateDevices.mockResolvedValue({});
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({});
 
       service.queueConnected();
 

@@ -22,13 +22,15 @@ interface DeviceServiceLike {
 
 type AppStateDependencies = {
   streamingService?: StreamingServiceLike;
-  deviceService?: DeviceServiceLike;
+  deviceMediaService?: DeviceServiceLike;
   eventBus?: EventBusLike;
 };
 
 class AppState {
+  static readonly dependencies = ['streamingService', 'deviceMediaService', 'eventBus'] as const;
+
   streamingService: StreamingServiceLike | undefined;
-  deviceService: DeviceServiceLike | undefined;
+  deviceMediaService: DeviceServiceLike | undefined;
   eventBus: EventBusLike | undefined;
   isCinematicModeEnabled: boolean;
   _streamCache: MediaStream | null;
@@ -38,16 +40,16 @@ class AppState {
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {StreamingService} dependencies.streamingService - Streaming service for state derivation
-   * @param {DeviceService} dependencies.deviceService - Device service for connection state
+   * @param {DeviceMediaService} dependencies.deviceMediaService - Device media service for connection state
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
   constructor(dependencies: AppStateDependencies = {}) {
-    const { streamingService, deviceService, eventBus } = dependencies;
+    const { streamingService, deviceMediaService, eventBus } = dependencies;
 
     // Service references for derived state
     this.streamingService = streamingService;
-    this.deviceService = deviceService;
+    this.deviceMediaService = deviceMediaService;
     this.eventBus = eventBus;
 
     // UI state
@@ -98,7 +100,7 @@ class AppState {
    * @returns {boolean} True if device is connected
    */
   get deviceConnected() {
-    return this.deviceService?.isConnected ?? false;
+    return this.deviceMediaService?.isConnected ?? false;
   }
 
   /**

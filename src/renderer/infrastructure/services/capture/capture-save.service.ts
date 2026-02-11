@@ -23,11 +23,17 @@ interface SaveResult {
 }
 
 class CaptureSaveService extends BaseService {
+  static readonly dependencies = [
+    'eventBus',
+    'settingsService',
+    'transcodeService',
+    'loggerFactory'
+  ] as const;
 
   constructor(dependencies) {
     super(
       dependencies,
-      ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory'],
+      [...CaptureSaveService.dependencies],
       'CaptureSaveService'
     );
   }

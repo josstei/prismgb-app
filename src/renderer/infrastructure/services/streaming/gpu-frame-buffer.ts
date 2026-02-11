@@ -8,6 +8,8 @@
 import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 export class GpuFrameBuffer {
+  static readonly dependencies = ['loggerFactory'] as const;
+
   _logger: LoggerLike;
   _capacity: number;
   _queue: Array<{ frame: unknown; enqueueTime: number }>;

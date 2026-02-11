@@ -9,7 +9,8 @@ describe('StreamingService', () => {
   let service;
   let mockDependencies;
   let mockEventBus;
-  let mockDeviceService;
+  let mockDeviceMediaService;
+  let mockDeviceStorageService;
   let mockAdapterRegistry;
   let mockIpcClient;
   let mockLogger;
@@ -21,11 +22,14 @@ describe('StreamingService', () => {
       subscribe: vi.fn()
     };
 
-    mockDeviceService = {
-      getRegisteredStoredDeviceIds: vi.fn(),
+    mockDeviceMediaService = {
       enumerateDevices: vi.fn(),
       discoverSupportedDevice: vi.fn(),
       registerSupportedDevice: vi.fn()
+    };
+
+    mockDeviceStorageService = {
+      getRegisteredStoredDeviceIds: vi.fn()
     };
 
     mockAdapter = {
@@ -50,7 +54,8 @@ describe('StreamingService', () => {
     };
 
     mockDependencies = {
-      deviceService: mockDeviceService,
+      deviceMediaService: mockDeviceMediaService,
+      deviceStorageService: mockDeviceStorageService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) },
       adapterFactory: mockAdapterRegistry,
@@ -88,7 +93,7 @@ describe('StreamingService', () => {
     };
 
     beforeEach(() => {
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
       mockAdapter.getStream.mockResolvedValue(mockStream);
       mockAdapter.getCapabilities.mockResolvedValue({ hasAudio: true });
     });
@@ -102,7 +107,7 @@ describe('StreamingService', () => {
     });
 
     it('should auto-select device when no ID provided', async () => {
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['device-1']);
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['device-1']);
 
       const result = await service.start();
 
@@ -130,18 +135,18 @@ describe('StreamingService', () => {
     });
 
     it('should throw when device not found', async () => {
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
 
       await expect(service.start('unknown-device')).rejects.toThrow('Device not found');
     });
 
     it('should throw when no device available for auto-select', async () => {
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
-      mockDeviceService.enumerateDevices.mockResolvedValue({
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
         connected: true
       });
-      mockDeviceService.discoverSupportedDevice.mockResolvedValue(null);
+      mockDeviceMediaService.discoverSupportedDevice.mockResolvedValue(null);
 
       await expect(service.start()).rejects.toThrow('Chromatic camera not authorized');
     });
@@ -235,7 +240,7 @@ describe('StreamingService', () => {
         { deviceId: 'dev-1', kind: 'videoinput' },
         { deviceId: 'dev-2', kind: 'videoinput' }
       ];
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
 
       const result = await service._getDeviceById('dev-2');
 
@@ -243,7 +248,7 @@ describe('StreamingService', () => {
     });
 
     it('should throw for non-existent device', async () => {
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
 
       await expect(service._getDeviceById('unknown')).rejects.toThrow('Device not found: unknown');
     });
@@ -253,7 +258,7 @@ describe('StreamingService', () => {
         { deviceId: 'dev-1', kind: 'audioinput' },
         { deviceId: 'dev-1', kind: 'videoinput' }
       ];
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
 
       const result = await service._getDeviceById('dev-1');
 
@@ -262,10 +267,10 @@ describe('StreamingService', () => {
   });
 
   describe('_autoSelectDevice', () => {
-    it('should use device from DeviceService first', async () => {
+    it('should use device from DeviceMediaService first', async () => {
       const mockDevice = { deviceId: 'selected-dev', kind: 'videoinput', label: 'Chromatic' };
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['selected-dev']);
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['selected-dev']);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
 
       const result = await service._autoSelectDevice();
 
@@ -273,8 +278,8 @@ describe('StreamingService', () => {
     });
 
     it('should fallback to label matching when stored IDs missing', async () => {
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
-      mockDeviceService.enumerateDevices.mockResolvedValue({
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'chromatic-dev', kind: 'videoinput', label: 'ModRetro Chromatic' }],
         connected: true
       });
@@ -285,28 +290,28 @@ describe('StreamingService', () => {
     });
 
     it('should throw when labels are hidden', async () => {
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
-      mockDeviceService.enumerateDevices.mockResolvedValue({
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
         connected: true
       });
-      mockDeviceService.discoverSupportedDevice.mockResolvedValue(null);
+      mockDeviceMediaService.discoverSupportedDevice.mockResolvedValue(null);
 
       await expect(service._autoSelectDevice()).rejects.toThrow('Chromatic camera not authorized');
     });
 
     it('should use discoverSupportedDevice when stored IDs not in enumerated devices', async () => {
       const discoveredDevice = { deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' };
-      mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
-      mockDeviceService.enumerateDevices.mockResolvedValue({
+      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'other-dev', kind: 'videoinput', label: '' }],
         connected: true
       });
-      mockDeviceService.discoverSupportedDevice.mockResolvedValue(discoveredDevice);
+      mockDeviceMediaService.discoverSupportedDevice.mockResolvedValue(discoveredDevice);
 
       const result = await service._autoSelectDevice();
 
-      expect(mockDeviceService.discoverSupportedDevice).toHaveBeenCalled();
+      expect(mockDeviceMediaService.discoverSupportedDevice).toHaveBeenCalled();
       expect(result).toBe(discoveredDevice);
     });
 
@@ -326,7 +331,7 @@ describe('StreamingService', () => {
     };
 
     beforeEach(() => {
-      mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
+      mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
       mockAdapter.getCapabilities.mockResolvedValue({ hasAudio: true });
     });
 

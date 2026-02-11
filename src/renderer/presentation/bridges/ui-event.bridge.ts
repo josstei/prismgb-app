@@ -9,32 +9,21 @@
  * between business logic and UI concerns.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 
-export class UIEventBridge extends BaseService {
+export class UIEventBridge extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
-
-    // Track subscriptions for cleanup
-    this._subscriptions = [];
+    super(dependencies, [...UIEventBridge.dependencies], 'UIEventBridge');
   }
 
   /**
    * Initialize event subscriptions
    */
-  initialize() {
-    this._subscribeToEvents();
-    this.logger.info('UIEventBridge initialized');
-  }
-
-  /**
-   * Subscribe to all UI events
-   * @private
-   */
-  _subscribeToEvents() {
-    const eventHandlers = {
+  async onInitialize() {
+    this.subscribeWithCleanup({
       // Status messages
       [EventChannels.UI.STATUS_MESSAGE]: (data) => this._handleStatusMessage(data),
 
@@ -65,13 +54,9 @@ export class UIEventBridge extends BaseService {
 
       // Fullscreen
       [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)
-    };
+    });
 
-    // Subscribe to all events
-    for (const [event, handler] of Object.entries(eventHandlers)) {
-      const unsubscribe = this.eventBus.subscribe(event, handler);
-      this._subscriptions.push(unsubscribe);
-    }
+    this.logger.info('UIEventBridge initialized');
   }
 
   _handleStatusMessage(data) {
@@ -155,16 +140,7 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleFullscreenState(active);
   }
 
-  /**
-   * Dispose and cleanup subscriptions
-   */
-  dispose() {
-    for (const unsubscribe of this._subscriptions) {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    }
-    this._subscriptions = [];
+  async onDispose() {
     this.logger.info('UIEventBridge disposed');
   }
 }

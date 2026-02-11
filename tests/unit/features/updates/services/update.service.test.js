@@ -62,7 +62,7 @@ describe('UpdateService', () => {
       expect(service._updateInfo).toBeNull();
       expect(service._downloadProgress).toBeNull();
       expect(service._error).toBeNull();
-      expect(service._initialized).toBe(false);
+      expect(service.isInitialized).toBe(false);
     });
 
     it('should create logger', () => {
@@ -84,7 +84,7 @@ describe('UpdateService', () => {
       expect(mockUpdateAPI.onProgress).toHaveBeenCalled();
       expect(mockUpdateAPI.onDownloaded).toHaveBeenCalled();
       expect(mockUpdateAPI.onError).toHaveBeenCalled();
-      expect(service._initialized).toBe(true);
+      expect(service.isInitialized).toBe(true);
     });
 
     it('should load initial status', async () => {
@@ -108,7 +108,7 @@ describe('UpdateService', () => {
       await service.initialize();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('updateAPI not available - updates disabled');
-      expect(service._initialized).toBe(false);
+      expect(service.isInitialized).toBe(false);
     });
 
     it('should warn if already initialized', async () => {
@@ -126,7 +126,7 @@ describe('UpdateService', () => {
       await service.initialize();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Failed to load initial update status', testError);
-      expect(service._initialized).toBe(true);
+      expect(service.isInitialized).toBe(true);
     });
   });
 
@@ -372,33 +372,32 @@ describe('UpdateService', () => {
       await service.initialize();
     });
 
-    it('should call cleanup functions', () => {
+    it('should call cleanup functions', async () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
-      service._cleanupFns = [cleanup1, cleanup2];
+      service._subscriptions = [cleanup1, cleanup2];
 
-      service.dispose();
+      await service.dispose();
 
       expect(cleanup1).toHaveBeenCalled();
       expect(cleanup2).toHaveBeenCalled();
     });
 
-    it('should call removeListeners', () => {
-      service.dispose();
+    it('should call removeListeners', async () => {
+      await service.dispose();
 
       expect(mockUpdateAPI.removeListeners).toHaveBeenCalled();
     });
 
-    it('should reset state', () => {
+    it('should reset state', async () => {
       service._state = UpdateState.AVAILABLE;
       service._updateInfo = { version: '2.0.0' };
-      service._initialized = true;
 
-      service.dispose();
+      await service.dispose();
 
       expect(service._state).toBe(UpdateState.IDLE);
       expect(service._updateInfo).toBeNull();
-      expect(service._initialized).toBe(false);
+      expect(service.isInitialized).toBe(false);
     });
   });
 

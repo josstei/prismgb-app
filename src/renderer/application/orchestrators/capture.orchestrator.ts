@@ -15,21 +15,23 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class CaptureOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'captureService',
+    'appState',
+    'streamViewService',
+    'gpuRendererService',
+    'gpuRecordingService',
+    'canvasRenderer',
+    'transcodeService',
+    'captureSaveService',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
+
   constructor(dependencies) {
     super(
       dependencies,
-      [
-        'captureService',
-        'appState',
-        'streamViewService',
-        'gpuRendererService',
-        'gpuRecordingService',
-        'canvasRenderer',
-        'transcodeService',
-        'captureSaveService',
-        'eventBus',
-        'loggerFactory'
-      ],
+      [...CaptureOrchestrator.dependencies],
       'CaptureOrchestrator'
     );
 

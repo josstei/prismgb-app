@@ -30,16 +30,30 @@ const StreamState = {
 };
 
 export class StreamingService extends BaseService {
+  static readonly dependencies = [
+    'deviceMediaService',
+    'deviceStorageService',
+    'eventBus',
+    'loggerFactory',
+    'adapterFactory',
+    'ipcClient'
+  ] as const;
+
   /**
    * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceService} dependencies.deviceService - Device enumeration service
+   * @param {DeviceMediaService} dependencies.deviceMediaService - Device enumeration service
+   * @param {DeviceStorageService} dependencies.deviceStorageService - Device storage service
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    * @param {StreamingAdapterFactory} dependencies.adapterFactory - Creates device adapters
    * @param {Object} dependencies.ipcClient - IPC client for main process communication
    */
   constructor(dependencies) {
-    super(dependencies, ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'], 'StreamingService');
+    super(
+      dependencies,
+      [...StreamingService.dependencies],
+      'StreamingService'
+    );
 
     // State machine
     this._state = StreamState.IDLE;
@@ -139,7 +153,7 @@ export class StreamingService extends BaseService {
       // Get stream from adapter
       this.currentStream = await this.currentAdapter.getStream(device);
       this.currentDevice = device;
-      this.deviceService.registerSupportedDevice(device);
+      this.deviceMediaService.registerSupportedDevice(device);
 
       // Get stream settings
       const settings = this._getStreamSettings();
@@ -354,7 +368,7 @@ export class StreamingService extends BaseService {
    */
   async _getDeviceById(deviceId) {
     // Use DeviceService to ensure permission warm-up and caching
-    const { devices } = await this.deviceService.enumerateDevices();
+    const { devices } = await this.deviceMediaService.enumerateDevices();
     const device = devices.find(d => d.deviceId === deviceId && d.kind === 'videoinput');
 
     if (!device) {
@@ -373,7 +387,7 @@ export class StreamingService extends BaseService {
   async _autoSelectDevice() {
     this.logger.info('Auto-selecting device');
 
-    const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
+    const storedIds = this.deviceStorageService.getRegisteredStoredDeviceIds();
     if (storedIds.length > 0) {
       // Try all stored device IDs in parallel for faster restoration when first IDs are stale
       try {
@@ -388,13 +402,13 @@ export class StreamingService extends BaseService {
       }
     }
 
-    const discoveredDevice = await this.deviceService.discoverSupportedDevice();
+    const discoveredDevice = await this.deviceMediaService.discoverSupportedDevice();
     if (discoveredDevice) {
       this.logger.info('Discovered supported device:', discoveredDevice.label);
       return discoveredDevice;
     }
 
-    const { devices } = await this.deviceService.enumerateDevices();
+    const { devices } = await this.deviceMediaService.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     const matchedDevice = videoDevices.find(device =>
       DeviceDetectionHelper.matchesByLabel(device.label) !== null

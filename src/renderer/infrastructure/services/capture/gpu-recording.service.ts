@@ -9,9 +9,10 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureGpuRecordingService extends BaseService {
+  static readonly dependencies = ['gpuRendererService', 'eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
+    super(dependencies, [...CaptureGpuRecordingService.dependencies], 'CaptureGpuRecordingService');
 
     this._recordingCanvas = null;
     this._recordingCtx = null;

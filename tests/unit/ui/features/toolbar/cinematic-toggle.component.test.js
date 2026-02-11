@@ -163,15 +163,16 @@ describe('CinematicToggleComponent', () => {
       expect(unsubscribeFn).toHaveBeenCalled();
     });
 
-    it('should nullify references', () => {
+    it('should keep references stable after dispose', () => {
       component.initialize({ toggleElement, textElement });
       component.dispose();
 
-      expect(component.toggleElement).toBeNull();
-      expect(component.textElement).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.appState).toBeNull();
-      expect(component.logger).toBeNull();
+      expect(component.toggleElement).toBe(toggleElement);
+      expect(component.textElement).toBe(textElement);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.appState).toBe(mockAppState);
+      expect(component.logger).toBe(mockLogger);
+      expect(component._eventSubscriptions).toEqual([]);
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

@@ -13,6 +13,11 @@ import type {
   TranscodeStartResponse,
   TranscodeStatusResponse
 } from '@shared/ipc/preload-api.contract.js';
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 interface TranscodeService {
   transcode(options: {
@@ -24,10 +29,6 @@ interface TranscodeService {
   }): Promise<TranscodeStartResponse>;
   cancel(jobId: string): TranscodeCancelResponse;
   getStatus(jobId?: string): TranscodeStatusResponse;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
 }
 
 export interface TranscodeHandlerDependencies {
@@ -61,8 +62,12 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
    * Expects: { inputBuffer: ArrayBuffer, format: string, outputFilename?: string, inputArgs?: string[] }
    * Returns: { success: boolean, jobId?: string, error?: string }
    */
-  registerHandler(IPC_CHANNELS.TRANSCODE.START, async (_event: IpcMainInvokeEvent, options: TranscodeStartOptions) => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.TRANSCODE.START,
+    logger,
+    logMessage: 'Failed to start transcode:',
+    handler: async (_event: IpcMainInvokeEvent, options: TranscodeStartOptions) => {
       // Convert ArrayBuffer to Buffer if needed
       let inputBuffer: Buffer = options.inputBuffer as Buffer;
       if (options.inputBuffer instanceof ArrayBuffer) {
@@ -84,9 +89,9 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       });
 
       return result;
-    } catch (error) {
-      logger.error('Failed to start transcode:', error);
-      return { success: false, error: (error as Error).message } as TranscodeStartResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as TranscodeStartResponse;
     }
   });
 
@@ -95,13 +100,17 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
    * Expects: { jobId: string }
    * Returns: { success: boolean, error?: string }
    */
-  registerHandler(IPC_CHANNELS.TRANSCODE.CANCEL, async (_event: IpcMainInvokeEvent, { jobId }: TranscodeCancelOptions) => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.TRANSCODE.CANCEL,
+    logger,
+    logMessage: 'Failed to cancel transcode:',
+    handler: async (_event: IpcMainInvokeEvent, { jobId }: TranscodeCancelOptions) => {
       const result = transcodeService.cancel(jobId);
       return result;
-    } catch (error) {
-      logger.error('Failed to cancel transcode:', error);
-      return { success: false, error: (error as Error).message } as TranscodeCancelResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as TranscodeCancelResponse;
     }
   });
 
@@ -110,13 +119,17 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
    * Expects: { jobId?: string } (optional - if not provided, returns all jobs)
    * Returns: { success: boolean, job?: TranscodeJob, jobs?: TranscodeJob[], error?: string }
    */
-  registerHandler(IPC_CHANNELS.TRANSCODE.GET_STATUS, async (_event: IpcMainInvokeEvent, options: TranscodeStatusOptions = {}) => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.TRANSCODE.GET_STATUS,
+    logger,
+    logMessage: 'Failed to get transcode status:',
+    handler: async (_event: IpcMainInvokeEvent, options: TranscodeStatusOptions = {}) => {
       const result = transcodeService.getStatus(options.jobId);
       return result;
-    } catch (error) {
-      logger.error('Failed to get transcode status:', error);
-      return { success: false, error: (error as Error).message } as TranscodeStatusResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as TranscodeStatusResponse;
     }
   });
 }

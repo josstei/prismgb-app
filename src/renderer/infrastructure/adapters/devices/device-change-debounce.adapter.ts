@@ -26,13 +26,20 @@ type DeviceChangeLogger = {
   warn?: (...args: unknown[]) => void;
 };
 
+type DeviceChangeLoggerFactory = {
+  create?: (name: string) => DeviceChangeLogger;
+};
+
 type DeviceChangeDebounceOptions = {
   browserMediaService: DeviceChangeEventSource;
+  loggerFactory?: DeviceChangeLoggerFactory;
   logger?: DeviceChangeLogger;
   debounceMs?: number;
 };
 
 export class DeviceChangeDebounceAdapter {
+  static readonly dependencies = ['browserMediaService', 'loggerFactory'] as const;
+
   _browserMediaService: DeviceChangeEventSource;
   _logger: DeviceChangeLogger | undefined;
   _debounceMs: number;
@@ -47,13 +54,18 @@ export class DeviceChangeDebounceAdapter {
    * @param {Object} [options.logger] - Optional logger
    * @param {number} [options.debounceMs] - Debounce delay (default: 150ms)
    */
-  constructor({ browserMediaService, logger, debounceMs = DEFAULT_DEBOUNCE_MS }: DeviceChangeDebounceOptions) {
+  constructor({
+    browserMediaService,
+    loggerFactory,
+    logger,
+    debounceMs = DEFAULT_DEBOUNCE_MS
+  }: DeviceChangeDebounceOptions) {
     if (!browserMediaService) {
       throw new Error('DeviceChangeDebounceAdapter: browserMediaService is required');
     }
 
     this._browserMediaService = browserMediaService;
-    this._logger = logger;
+    this._logger = logger ?? loggerFactory?.create?.('DeviceChangeDebounceAdapter');
     this._debounceMs = debounceMs;
 
     /**

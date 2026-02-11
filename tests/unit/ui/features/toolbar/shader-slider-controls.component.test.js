@@ -442,7 +442,7 @@ describe('ShaderSliderControlsComponent', () => {
       });
     });
 
-    it('should nullify all references', () => {
+    it('should keep references stable after dispose', () => {
       component.initialize({
         brightnessSlider,
         brightnessPercentage,
@@ -454,15 +454,16 @@ describe('ShaderSliderControlsComponent', () => {
 
       component.dispose();
 
-      expect(component.brightnessSlider).toBeNull();
-      expect(component.brightnessPercentage).toBeNull();
-      expect(component.brightnessControl).toBeNull();
-      expect(component.volumeSlider).toBeNull();
-      expect(component.volumePercentage).toBeNull();
-      expect(component.streamVideo).toBeNull();
-      expect(component.settingsService).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.logger).toBeNull();
+      expect(component.brightnessSlider).toBe(brightnessSlider);
+      expect(component.brightnessPercentage).toBe(brightnessPercentage);
+      expect(component.brightnessControl).toBe(brightnessControl);
+      expect(component.volumeSlider).toBe(volumeSlider);
+      expect(component.volumePercentage).toBe(volumePercentage);
+      expect(component.streamVideo).toBe(streamVideo);
+      expect(component.settingsService).toBe(mockSettingsService);
+      expect(component.eventBus).toBe(mockEventBus);
+      expect(component.logger).toBe(mockLogger);
+      expect(component._eventSubscriptions).toEqual([]);
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

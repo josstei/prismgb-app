@@ -8,7 +8,7 @@ import { AppState } from '@renderer/application/state/app-state.ts';
 describe('AppState', () => {
   let state;
   let mockStreamingService;
-  let mockDeviceService;
+  let mockDeviceMediaService;
   let mockEventBus;
   let subscribedHandlers;
 
@@ -20,7 +20,7 @@ describe('AppState', () => {
       isStreaming: false
     };
 
-    mockDeviceService = {
+    mockDeviceMediaService = {
       isConnected: false
     };
 
@@ -34,7 +34,7 @@ describe('AppState', () => {
 
     state = new AppState({
       streamingService: mockStreamingService,
-      deviceService: mockDeviceService,
+      deviceMediaService: mockDeviceMediaService,
       eventBus: mockEventBus
     });
   });
@@ -71,14 +71,14 @@ describe('AppState', () => {
   });
 
   describe('Derived State - deviceConnected', () => {
-    it('should derive device connection state from DeviceService', () => {
+    it('should derive device connection state from DeviceMediaService', () => {
       expect(state.deviceConnected).toBe(false);
 
       // Change service state
-      mockDeviceService.isConnected = true;
+      mockDeviceMediaService.isConnected = true;
       expect(state.deviceConnected).toBe(true);
 
-      mockDeviceService.isConnected = false;
+      mockDeviceMediaService.isConnected = false;
       expect(state.deviceConnected).toBe(false);
     });
   });
@@ -100,7 +100,7 @@ describe('AppState', () => {
     it('should maintain independent state values', () => {
       // Update service state (the real way to change state now)
       mockStreamingService.isStreaming = true;
-      mockDeviceService.isConnected = true;
+      mockDeviceMediaService.isConnected = true;
       state.setCinematicMode(false);
 
       expect(state.isStreaming).toBe(true);
@@ -115,7 +115,7 @@ describe('AppState', () => {
 
       // Change services
       mockStreamingService.isStreaming = true;
-      mockDeviceService.isConnected = true;
+      mockDeviceMediaService.isConnected = true;
 
       // State reflects service changes
       expect(state.isStreaming).toBe(true);
@@ -123,7 +123,7 @@ describe('AppState', () => {
 
       // Reset services
       mockStreamingService.isStreaming = false;
-      mockDeviceService.isConnected = false;
+      mockDeviceMediaService.isConnected = false;
 
       expect(state.isStreaming).toBe(false);
       expect(state.deviceConnected).toBe(false);
@@ -170,7 +170,7 @@ describe('AppState', () => {
     it('should not setup subscriptions without eventBus', () => {
       const stateNoEventBus = new AppState({
         streamingService: mockStreamingService,
-        deviceService: mockDeviceService
+        deviceMediaService: mockDeviceMediaService
       });
 
       // Should not throw and state should work
@@ -328,7 +328,7 @@ describe('AppState', () => {
   describe('Edge Cases', () => {
     it('should handle missing streamingService gracefully', () => {
       const stateNoService = new AppState({
-        deviceService: mockDeviceService,
+        deviceMediaService: mockDeviceMediaService,
         eventBus: mockEventBus
       });
 
@@ -337,7 +337,7 @@ describe('AppState', () => {
       expect(stateNoService.currentCapabilities).toBeNull();
     });
 
-    it('should handle missing deviceService gracefully', () => {
+    it('should handle missing deviceMediaService gracefully', () => {
       const stateNoDevice = new AppState({
         streamingService: mockStreamingService,
         eventBus: mockEventBus
@@ -357,7 +357,7 @@ describe('AppState', () => {
 
     it('should maintain cinematic mode state independently of services', () => {
       state.streamingService = null;
-      state.deviceService = null;
+      state.deviceMediaService = null;
 
       state.setCinematicMode(false);
       expect(state.isCinematicModeEnabled).toBe(false);

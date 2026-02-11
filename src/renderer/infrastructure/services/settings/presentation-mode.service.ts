@@ -7,9 +7,10 @@
 import { BaseService } from '@shared/base/service.base.js';
 
 export class PresentationModeService extends BaseService {
+  static readonly dependencies = ['uiController', 'appState', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeService');
+    super(dependencies, [...PresentationModeService.dependencies], 'PresentationModeService');
 
     this._minimalistEnabled = false;
     this._cinematicEnabled = Boolean(this.appState?.isCinematicModeEnabled);

@@ -16,9 +16,10 @@ import { generateEntityId } from '@shared/utils/string.utils.js';
 import { NotesStorageKeys } from '@shared/config/storage-keys.config';
 
 class NotesService extends BaseService {
+  static readonly dependencies = ['eventBus', 'loggerFactory', 'storageService'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
+    super(dependencies, [...NotesService.dependencies], 'NotesService');
 
     // In-memory cache to avoid redundant JSON parsing
     this._notesCache = null;

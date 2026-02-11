@@ -6,10 +6,82 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock all the imported modules before importing the container
 vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => {
+  const autoDepsByKey = {
+    eventBus: ['loggerFactory'],
+    deviceIpcAdapter: ['loggerFactory'],
+    deviceChangeDebounceAdapter: ['browserMediaService', 'loggerFactory'],
+    viewportService: ['loggerFactory'],
+    canvasLifecycleService: ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+    gpuRenderLoopService: ['loggerFactory'],
+    streamHealthService: ['loggerFactory'],
+    gpuFrameBuffer: ['loggerFactory'],
+    gpuWorkerManager: ['loggerFactory', 'eventBus'],
+    gpuRendererService: ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager'],
+    renderPipelineService: ['appState', 'streamViewService', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'canvasRenderer', 'eventBus', 'loggerFactory'],
+    deviceStatusProvider: ['ipcClient'],
+
+    deviceStorageService: ['storageService', 'loggerFactory'],
+    deviceMediaService: ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceStatusProvider', 'deviceStorageService', 'deviceChangeDebounceAdapter'],
+    deviceOperationSequencer: ['deviceMediaService', 'eventBus', 'loggerFactory'],
+
+    streamingService: ['deviceMediaService', 'deviceStorageService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'],
+
+    captureService: ['eventBus', 'loggerFactory'],
+    gpuRecordingService: ['gpuRendererService', 'eventBus', 'loggerFactory'],
+    transcodeService: ['eventBus', 'loggerFactory'],
+    captureSaveService: ['streamViewService', 'captureService', 'gpuRendererService', 'gpuRecordingService', 'transcodeService', 'eventBus', 'loggerFactory'],
+
+    settingsService: ['eventBus', 'loggerFactory', 'storageService'],
+    notesService: ['eventBus', 'loggerFactory', 'storageService'],
+    updateService: ['eventBus', 'loggerFactory'],
+    streamViewService: ['uiController', 'loggerFactory'],
+    streamingAudioPipelineService: ['eventBus', 'loggerFactory', 'settingsService'],
+    appState: ['streamingService', 'deviceMediaService', 'eventBus'],
+    uiEventBridge: ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'],
+    presentationModeService: ['uiController', 'appState', 'loggerFactory'],
+    captureUiBridge: ['eventBus', 'uiController', 'loggerFactory'],
+    updateUiBridge: ['eventBus', 'loggerFactory'],
+    transcodeUiBridge: ['eventBus', 'uiController', 'loggerFactory'],
+
+    fullscreenService: ['eventBus', 'loggerFactory'],
+    performanceMetricsService: ['loggerFactory', 'metricsAdapter'],
+    performanceStateService: ['eventBus', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter', 'loggerFactory'],
+    animationPerformanceService: ['loggerFactory'],
+    deviceOrchestrator: ['deviceMediaService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
+    streamingAudioOrchestrator: ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory'],
+    streamingOrchestrator: ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
+    captureOrchestrator: ['captureService', 'appState', 'streamViewService', 'gpuRendererService', 'gpuRecordingService', 'canvasRenderer', 'transcodeService', 'captureSaveService', 'eventBus', 'loggerFactory'],
+    preferencesOrchestrator: ['settingsService', 'eventBus', 'loggerFactory'],
+    displayModeOrchestrator: ['settingsService', 'eventBus', 'loggerFactory'],
+    performanceOrchestrator: ['performanceStateService', 'performanceMetricsService', 'animationPerformanceService', 'appState', 'eventBus', 'loggerFactory'],
+    uiSetupOrchestrator: ['uiController', 'uiComponentRegistry', 'uiEffects', 'settingsService', 'updateService', 'appState', 'eventBus', 'loggerFactory'],
+    appOrchestrator: ['deviceOrchestrator', 'streamingOrchestrator', 'streamingAudioOrchestrator', 'captureOrchestrator', 'preferencesOrchestrator', 'displayModeOrchestrator', 'performanceOrchestrator', 'uiSetupOrchestrator', 'updateUiBridge', 'eventBus', 'loggerFactory']
+  };
+
   return {
     ServiceContainer: class MockServiceContainer {
       constructor() {
         this.registerSingleton = vi.fn();
+        this.registerClass = vi.fn((name, ServiceClass, deps = []) => {
+          this.registerSingleton(name, ServiceClass, deps);
+        });
+        this.registerFactory = vi.fn((name, factory, deps = []) => {
+          this.registerSingleton(name, factory, deps);
+        });
+        this.autoRegister = vi.fn((name, ServiceClass) => {
+          const deps = autoDepsByKey[name] ?? [...(ServiceClass.dependencies ?? [])];
+          this.registerFactory(
+            name,
+            (...resolvedDeps) => {
+              const depsObj = {};
+              for (let i = 0; i < deps.length; i++) {
+                depsObj[deps[i]] = resolvedDeps[i];
+              }
+              return new ServiceClass(depsObj);
+            },
+            deps
+          );
+        });
         this.resolve = vi.fn();
         this.dispose = vi.fn();
       }
@@ -27,24 +99,16 @@ vi.mock('@renderer/application/orchestrators/app.orchestrator.ts', () => ({
   AppOrchestrator: vi.fn()
 }));
 
-vi.mock('@renderer/application/orchestrators/performance-animation.orchestrator.ts', () => ({
-  PerformanceAnimationOrchestrator: vi.fn()
+vi.mock('@renderer/application/orchestrators/performance.orchestrator.ts', () => ({
+  PerformanceOrchestrator: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/services/performance/performance-animation.service.ts', () => ({
   PerformanceAnimationService: vi.fn()
 }));
 
-vi.mock('@renderer/application/orchestrators/performance-state.orchestrator.ts', () => ({
-  PerformanceStateOrchestrator: vi.fn()
-}));
-
 vi.mock('@renderer/infrastructure/services/performance/performance-state.service.ts', () => ({
   PerformanceStateService: vi.fn()
-}));
-
-vi.mock('@renderer/application/orchestrators/performance-metrics.orchestrator.ts', () => ({
-  PerformanceMetricsOrchestrator: vi.fn()
 }));
 
 vi.mock('@renderer/infrastructure/services/performance/performance-metrics.service.ts', () => ({
@@ -89,14 +153,6 @@ vi.mock('@renderer/presentation/bridges/transcode-ui.bridge.ts', () => ({
 }));
 
 // Features: Devices mocks
-vi.mock('@renderer/infrastructure/services/devices/device.service.ts', () => ({
-  DeviceService: vi.fn()
-}));
-
-vi.mock('@renderer/infrastructure/services/devices/device-connection.service.ts', () => ({
-  DeviceConnectionService: vi.fn()
-}));
-
 vi.mock('@renderer/infrastructure/services/devices/device-storage.service.ts', () => ({
   DeviceStorageService: vi.fn()
 }));
@@ -269,10 +325,6 @@ vi.mock('@renderer/infrastructure/services/settings/fullscreen.service.ts', () =
   SettingsFullscreenService: vi.fn()
 }));
 
-vi.mock('@renderer/infrastructure/services/settings/cinematic-mode.service.ts', () => ({
-  SettingsCinematicModeService: vi.fn()
-}));
-
 vi.mock('@renderer/presentation/features/settings/settings-menu.component.js', () => ({
   SettingsMenuComponent: vi.fn()
 }));
@@ -286,12 +338,8 @@ vi.mock('@renderer/infrastructure/services/updates/update.service.ts', () => ({
   UpdateService: vi.fn()
 }));
 
-vi.mock('@renderer/application/orchestrators/update.orchestrator.ts', () => ({
-  UpdateOrchestrator: vi.fn()
-}));
-
-vi.mock('@renderer/infrastructure/services/updates/update-ui.service.ts', () => ({
-  UpdateUiService: vi.fn()
+vi.mock('@renderer/presentation/bridges/update-ui.bridge.ts', () => ({
+  UpdateUIBridge: vi.fn()
 }));
 
 vi.mock('@renderer/presentation/features/updates/update-section.component.js', () => ({
@@ -430,7 +478,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'appState',
         expect.any(Function),
-        ['streamingService', 'deviceService', 'eventBus']
+        ['streamingService', 'deviceMediaService', 'eventBus']
       );
     });
 
@@ -474,13 +522,13 @@ describe('Renderer Container', () => {
       );
     });
 
-    it('should register deviceService singleton', () => {
+    it('should register deviceMediaService singleton', () => {
       const container = containerModule.createRendererContainer();
 
       expect(container.registerSingleton).toHaveBeenCalledWith(
-        'deviceService',
+        'deviceMediaService',
         expect.any(Function),
-        ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'deviceConnectionService', 'deviceStorageService', 'deviceMediaService']
+        ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceStatusProvider', 'deviceStorageService', 'deviceChangeDebounceAdapter']
       );
     });
 
@@ -490,7 +538,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'streamingService',
         expect.any(Function),
-        ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient']
+        ['deviceMediaService', 'deviceStorageService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient']
       );
     });
 
@@ -510,7 +558,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'renderPipelineService',
         expect.any(Function),
-        ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
+        ['appState', 'streamViewService', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'canvasRenderer', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -540,7 +588,7 @@ describe('Renderer Container', () => {
       expect(container.registerSingleton).toHaveBeenCalledWith(
         'deviceOrchestrator',
         expect.any(Function),
-        ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
+        ['deviceMediaService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
       );
     });
 
@@ -614,9 +662,7 @@ describe('Renderer Container', () => {
         'deviceStatusProvider',
         'adapterFactory',
         'deviceStorageService',
-        'deviceConnectionService',
         'deviceMediaService',
-        'deviceService',
         'deviceOperationSequencer',
         'streamingService',
         'captureService',
@@ -626,7 +672,6 @@ describe('Renderer Container', () => {
         'settingsService',
         'notesService',
         'updateService',
-        'updateUiService',
         'streamViewService',
         'streamingAudioPipelineService',
         'appState',
@@ -636,6 +681,7 @@ describe('Renderer Container', () => {
         'uiEventBridge',
         'presentationModeService',
         'captureUiBridge',
+        'updateUiBridge',
         'transcodeUiBridge',
         'deviceOrchestrator',
         'streamingAudioOrchestrator',
@@ -643,15 +689,11 @@ describe('Renderer Container', () => {
         'captureOrchestrator',
         'preferencesOrchestrator',
         'fullscreenService',
-        'cinematicModeService',
         'displayModeOrchestrator',
-        'updateOrchestrator',
-        'performanceStateOrchestrator',
-        'animationPerformanceOrchestrator',
+        'performanceOrchestrator',
         'performanceMetricsService',
         'performanceStateService',
         'animationPerformanceService',
-        'performanceMetricsOrchestrator',
         'uiSetupOrchestrator',
         'appOrchestrator'
       ]);
@@ -663,7 +705,7 @@ describe('Renderer Container', () => {
       const container = containerModule.createRendererContainer();
 
       expect(() => container.resolve('appOrchestrator')).not.toThrow();
-      expect(() => container.resolve('deviceService')).not.toThrow();
+      expect(() => container.resolve('deviceMediaService')).not.toThrow();
       expect(() => container.resolve('streamingService')).not.toThrow();
     });
   });
@@ -887,12 +929,22 @@ describe('Renderer Container', () => {
       expect(result).toBeDefined();
     });
 
-    it('should create deviceConnectionService with dependencies', () => {
+    it('should create deviceMediaService with dependencies', () => {
       const mockEventBus = {};
       const mockLoggerFactory = { create: vi.fn(() => ({})) };
+      const mockBrowserMediaService = {};
       const mockDeviceStatusProvider = {};
-      const factoryFn = getFactoryFn('deviceConnectionService');
-      const result = factoryFn(mockEventBus, mockLoggerFactory, mockDeviceStatusProvider);
+      const mockDeviceStorageService = {};
+      const mockDeviceChangeDebounceAdapter = {};
+      const factoryFn = getFactoryFn('deviceMediaService');
+      const result = factoryFn(
+        mockEventBus,
+        mockLoggerFactory,
+        mockBrowserMediaService,
+        mockDeviceStatusProvider,
+        mockDeviceStorageService,
+        mockDeviceChangeDebounceAdapter
+      );
       expect(result).toBeDefined();
     });
 
@@ -938,10 +990,10 @@ describe('Renderer Container', () => {
       expect(result).toBeDefined();
     });
 
-    it('should create updateUiService with dependencies', () => {
+    it('should create updateUiBridge with dependencies', () => {
       const mockEventBus = {};
       const mockLoggerFactory = { create: vi.fn(() => ({})) };
-      const factoryFn = getFactoryFn('updateUiService');
+      const factoryFn = getFactoryFn('updateUiBridge');
       const result = factoryFn(mockEventBus, mockLoggerFactory);
       expect(result).toBeDefined();
     });

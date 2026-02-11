@@ -16,6 +16,7 @@ import type { RendererServiceContainer } from '@renderer/application/container';
 import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import type { UpdateUIBridge } from '@renderer/presentation/bridges/update-ui.bridge';
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import type { LoggerLike } from '@shared/base/service.base.js';
 
@@ -52,6 +53,7 @@ class RendererAppOrchestrator {
   _uiEventBridge: UIEventBridge | null;
   _captureUiBridge: CaptureUIBridge | null;
   _transcodeUiBridge: TranscodeUIBridge | null;
+  _updateUiBridge: UpdateUIBridge | null;
   _transcodeService: TranscodeService | null;
 
   constructor() {
@@ -62,6 +64,7 @@ class RendererAppOrchestrator {
     this._uiEventBridge = null;
     this._captureUiBridge = null;
     this._transcodeUiBridge = null;
+    this._updateUiBridge = null;
     this._transcodeService = null;
 
     // Create logger for bootstrap logging
@@ -159,6 +162,9 @@ class RendererAppOrchestrator {
     if (this._captureUiBridge) {
       await safeDispose(this.logger, 'CaptureUIBridge', this._captureUiBridge as Object);
     }
+    if (this._updateUiBridge) {
+      await safeDispose(this.logger, 'UpdateUIBridge', this._updateUiBridge as Object);
+    }
     if (this._uiController) {
       await safeDispose(this.logger, 'UIController', this._uiController as Object);
     }
@@ -241,6 +247,10 @@ class RendererAppOrchestrator {
       const transcodeUiBridge = container.resolve('transcodeUiBridge');
       transcodeUiBridge.initialize();
       this._transcodeUiBridge = transcodeUiBridge;
+
+      const updateUiBridge = container.resolve('updateUiBridge');
+      updateUiBridge.initialize();
+      this._updateUiBridge = updateUiBridge;
 
       // Initialize TranscodeService to set up IPC event listeners
       const transcodeService = container.resolve('transcodeService');

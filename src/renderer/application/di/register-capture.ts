@@ -6,35 +6,8 @@ import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
 export function registerCapture(container: RegistrableContainer<RendererContainerMap>): void {
-  container.registerSingleton(
-    'captureService',
-    function (eventBus, loggerFactory) {
-      return new CaptureService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'gpuRecordingService',
-    function (gpuRendererService, eventBus, loggerFactory) {
-      return new CaptureGpuRecordingService({ gpuRendererService, eventBus, loggerFactory });
-    },
-    ['gpuRendererService', 'eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'transcodeService',
-    function (eventBus, loggerFactory) {
-      return new TranscodeService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'captureSaveService',
-    function (eventBus, settingsService, transcodeService, loggerFactory) {
-      return new CaptureSaveService({ eventBus, settingsService, transcodeService, loggerFactory });
-    },
-    ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory']
-  );
+  container.autoRegister('captureService', CaptureService);
+  container.autoRegister('gpuRecordingService', CaptureGpuRecordingService);
+  container.autoRegister('transcodeService', TranscodeService);
+  container.autoRegister('captureSaveService', CaptureSaveService);
 }

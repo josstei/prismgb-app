@@ -64,6 +64,12 @@ vi.mock('@renderer/application/container.ts', () => ({
           dispose: vi.fn()
         };
       }
+      if (name === 'updateUiBridge') {
+        return {
+          initialize: vi.fn(),
+          dispose: vi.fn()
+        };
+      }
       if (name === 'transcodeService') {
         return {
           initialize: vi.fn(),
@@ -148,10 +154,11 @@ describe('RendererAppOrchestrator', () => {
     });
 
     it('should warn if already initialized', async () => {
+      const warnSpy = vi.spyOn(app.logger, 'warn');
       await app.initialize();
       await app.initialize();
 
-      expect(console.warn).toHaveBeenCalledWith('[RendererAppOrchestrator]', 'Renderer application already initialized');
+      expect(warnSpy).toHaveBeenCalledWith('Renderer application already initialized');
     });
   });
 

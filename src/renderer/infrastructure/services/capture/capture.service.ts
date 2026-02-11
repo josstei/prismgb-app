@@ -17,6 +17,7 @@ import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {
+  static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   /**
    * @param {Object} dependencies - Injected dependencies
@@ -24,7 +25,7 @@ class CaptureService extends BaseService {
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'CaptureService');
+    super(dependencies, [...CaptureService.dependencies], 'CaptureService');
 
     // Recording state
     this.isRecording = false;

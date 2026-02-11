@@ -19,6 +19,8 @@ import { EventChannels } from './event-channels.config.js';
  *   }
  */
 class EventBus {
+  static dependencies = ['loggerFactory'];
+
   constructor({ loggerFactory } = {}) {
     this.emitter = new EventEmitter();
     this.logger = loggerFactory?.create('EventBus');

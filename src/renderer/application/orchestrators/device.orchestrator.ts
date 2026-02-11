@@ -15,11 +15,18 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class DeviceOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'deviceMediaService',
+    'deviceIpcAdapter',
+    'deviceOperationSequencer',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
 
   constructor(dependencies) {
     super(
       dependencies,
-      ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
+      [...DeviceOrchestrator.dependencies],
       'DeviceOrchestrator'
     );
     // Store unsubscribe function for IPC adapter
@@ -31,7 +38,9 @@ export class DeviceOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     // Set up device change listener
-    this.deviceService.setupDeviceChangeListener();
+    this.deviceMediaService.setupDeviceChangeListener(async () => {
+      await this.deviceOperationSequencer.queueRefresh();
+    });
 
     // Set up IPC event listeners for USB events via adapter
     this._unsubscribeIPC = this.deviceIpcAdapter.subscribe(
@@ -41,13 +50,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
 
     // Queue initial status check through sequencer
     await this.deviceOperationSequencer.queueRefresh();
-  }
-
-  /**
-   * Get current device connection status
-   */
-  isDeviceConnected() {
-    return this.deviceService.isDeviceConnected();
   }
 
   /**
@@ -86,8 +88,8 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     await this.deviceOperationSequencer.flush();
 
     // Cleanup device service
-    if (this.deviceService && typeof this.deviceService.dispose === 'function') {
-      this.deviceService.dispose();
+    if (this.deviceMediaService && typeof this.deviceMediaService.dispose === 'function') {
+      this.deviceMediaService.dispose();
     }
   }
 }

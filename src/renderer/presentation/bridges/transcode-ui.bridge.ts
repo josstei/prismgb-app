@@ -5,14 +5,14 @@
  * Shows transcode progress toast and manages record button state.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 
-class TranscodeUIBridge extends BaseService {
+class TranscodeUIBridge extends LifecycleService {
+  static readonly dependencies = ['eventBus', 'uiController', 'loggerFactory'] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
-    this._subscriptions = [];
+    super(dependencies, [...TranscodeUIBridge.dependencies], 'TranscodeUIBridge');
     this._currentFormat = null;
   }
 
@@ -25,25 +25,19 @@ class TranscodeUIBridge extends BaseService {
     return this.uiController?.registry?.get('transcodeToastComponent');
   }
 
-  initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.TRANSCODE.STARTED, (data) => this._handleStarted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.PROGRESS, (data) => this._handleProgress(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.COMPLETED, (data) => this._handleCompleted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.ERROR, (data) => this._handleError(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this._handleCancelled())
-    );
+  async onInitialize() {
+    this.subscribeWithCleanup({
+      [EventChannels.TRANSCODE.STARTED]: (data) => this._handleStarted(data),
+      [EventChannels.TRANSCODE.PROGRESS]: (data) => this._handleProgress(data),
+      [EventChannels.TRANSCODE.COMPLETED]: (data) => this._handleCompleted(data),
+      [EventChannels.TRANSCODE.ERROR]: (data) => this._handleError(data),
+      [EventChannels.TRANSCODE.CANCELLED]: () => this._handleCancelled()
+    });
 
     this.logger.info('TranscodeUIBridge initialized');
   }
 
-  dispose() {
-    this._subscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
+  async onDispose() {
     this._toast?.dispose();
     this.logger.info('TranscodeUIBridge disposed');
   }

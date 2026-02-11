@@ -3,7 +3,6 @@
  * Registers update-related IPC routes.
  */
 
-import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type {
@@ -13,16 +12,17 @@ import type {
   UpdateInstallResponse,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
+import {
+  getErrorMessage,
+  registerWrappedHandler,
+  type RegisterHandler
+} from './handler-wrapper.utils.js';
 
 interface UpdateService {
   checkForUpdates(): Promise<Record<string, unknown>>;
   downloadUpdate(): Promise<void>;
   installUpdate(): void;
   getStatus(): UpdateStatusPayload;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
 }
 
 export interface UpdateHandlerDependencies {
@@ -39,43 +39,59 @@ function toObjectPayload(value: unknown): Record<string, unknown> {
 }
 
 export function registerUpdateHandlers({ registerHandler, updateService, logger }: UpdateHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.UPDATE.CHECK, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.UPDATE.CHECK,
+    logger,
+    logMessage: 'Failed to check for updates:',
+    handler: async () => {
       const result = await updateService.checkForUpdates();
       return { success: true, ...toObjectPayload(result) } as UpdateCheckResponse;
-    } catch (error) {
-      logger.error('Failed to check for updates:', error);
-      return { success: false, error: (error as Error).message } as UpdateCheckResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as UpdateCheckResponse;
     }
   });
 
-  registerHandler(IPC_CHANNELS.UPDATE.DOWNLOAD, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.UPDATE.DOWNLOAD,
+    logger,
+    logMessage: 'Failed to download update:',
+    handler: async () => {
       await updateService.downloadUpdate();
       return { success: true } as UpdateDownloadResponse;
-    } catch (error) {
-      logger.error('Failed to download update:', error);
-      return { success: false, error: (error as Error).message } as UpdateDownloadResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as UpdateDownloadResponse;
     }
   });
 
-  registerHandler(IPC_CHANNELS.UPDATE.INSTALL, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.UPDATE.INSTALL,
+    logger,
+    logMessage: 'Failed to install update:',
+    handler: async () => {
       updateService.installUpdate();
       return { success: true } as UpdateInstallResponse;
-    } catch (error) {
-      logger.error('Failed to install update:', error);
-      return { success: false, error: (error as Error).message } as UpdateInstallResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as UpdateInstallResponse;
     }
   });
 
-  registerHandler(IPC_CHANNELS.UPDATE.GET_STATUS, async () => {
-    try {
+  registerWrappedHandler({
+    registerHandler,
+    channel: IPC_CHANNELS.UPDATE.GET_STATUS,
+    logger,
+    logMessage: 'Failed to get update status:',
+    handler: async () => {
       const status = updateService.getStatus();
       return { success: true, ...toObjectPayload(status) } as UpdateGetStatusResponse;
-    } catch (error) {
-      logger.error('Failed to get update status:', error);
-      return { success: false, error: (error as Error).message } as UpdateGetStatusResponse;
+    },
+    onError: (error) => {
+      return { success: false, error: getErrorMessage(error) } as UpdateGetStatusResponse;
     }
   });
 }

@@ -13,6 +13,19 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class AppOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'deviceOrchestrator',
+    'streamingOrchestrator',
+    'streamingAudioOrchestrator',
+    'captureOrchestrator',
+    'preferencesOrchestrator',
+    'displayModeOrchestrator',
+    'updateService',
+    'uiSetupOrchestrator',
+    'performanceOrchestrator',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
 
   /**
    * @param {Object} dependencies - Injected dependencies
@@ -22,32 +35,16 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
    * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
    * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
-   * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
-   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
-   * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
-   * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
-   * @param {PerformanceStateOrchestrator} dependencies.performanceStateOrchestrator - Performance state fan-out
+ * @param {UpdateService} dependencies.updateService - Auto-updates
+ * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
+ * @param {PerformanceOrchestrator} dependencies.performanceOrchestrator - Performance state + animation + metrics
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
   constructor(dependencies) {
     super(
       dependencies,
-      [
-        'deviceOrchestrator',
-        'streamingOrchestrator',
-        'streamingAudioOrchestrator',
-        'captureOrchestrator',
-        'preferencesOrchestrator',
-        'displayModeOrchestrator',
-        'updateOrchestrator',
-        'uiSetupOrchestrator',
-        'animationPerformanceOrchestrator',
-        'performanceMetricsOrchestrator',
-        'performanceStateOrchestrator',
-        'eventBus',
-        'loggerFactory'
-      ],
+      [...AppOrchestrator.dependencies],
       'AppOrchestrator'
     );
   }
@@ -68,12 +65,10 @@ export class AppOrchestrator extends BaseOrchestrator {
     await this.captureOrchestrator.initialize();
 
     // Initialize application orchestrators
-    await this.performanceStateOrchestrator.initialize();
-    await this.animationPerformanceOrchestrator.initialize();
-    await this.performanceMetricsOrchestrator.initialize();
+    await this.performanceOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
     await this.preferencesOrchestrator.initialize();
-    await this.updateOrchestrator.initialize();
+    await this.updateService.initialize();
     await this.uiSetupOrchestrator.initialize();
   }
 
@@ -148,10 +143,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Cleanup all sub-orchestrators (continue even if one fails)
     const orchestrators = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
-      ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
-      ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
-      ['performanceStateOrchestrator', this.performanceStateOrchestrator],
-      ['updateOrchestrator', this.updateOrchestrator],
+      ['performanceOrchestrator', this.performanceOrchestrator],
+      ['updateService', this.updateService],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
       ['preferencesOrchestrator', this.preferencesOrchestrator],
       ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
@@ -160,9 +153,13 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['deviceOrchestrator', this.deviceOrchestrator]
     ];
 
-    for (const [name, orchestrator] of orchestrators) {
+    for (const [name, dependency] of orchestrators) {
       try {
-        await orchestrator.cleanup();
+        if (dependency && typeof dependency.cleanup === 'function') {
+          await dependency.cleanup();
+        } else if (dependency && typeof dependency.dispose === 'function') {
+          await dependency.dispose();
+        }
         this.logger.debug(`${name} cleaned up`);
       } catch (error) {
         this.logger.error(`Error cleaning up ${name}:`, error);

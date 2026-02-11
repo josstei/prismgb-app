@@ -8,11 +8,12 @@
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { UpdateState } from '@renderer/presentation/config/update-state.config';
+import { UpdateState } from '@shared/config/update-state.config';
+import { cleanupCallbacks, cleanupTimeouts } from '@renderer/presentation/lib/event-subscriptions.utils';
 
 class UpdateSectionComponent {
-  constructor({ updateOrchestrator, eventBus, loggerFactory }) {
-    this.updateOrchestrator = updateOrchestrator;
+  constructor({ updateService, eventBus, loggerFactory }) {
+    this.updateService = updateService;
     this.eventBus = eventBus;
     this.logger = loggerFactory?.create('UpdateSectionComponent') || console;
 
@@ -97,7 +98,7 @@ class UpdateSectionComponent {
   }
 
   _loadInitialState() {
-    const status = this.updateOrchestrator.getStatus();
+    const status = this.updateService.getStatus();
     this._updateUI(status);
 
     if (status.state === UpdateState.AVAILABLE || status.state === UpdateState.DOWNLOADED) {
@@ -277,19 +278,19 @@ class UpdateSectionComponent {
     btn.disabled = true;
 
     try {
-      const status = this.updateOrchestrator.getStatus();
+      const status = this.updateService.getStatus();
 
       switch (status.state) {
         case UpdateState.IDLE:
         case UpdateState.NOT_AVAILABLE:
         case UpdateState.ERROR:
-          await this.updateOrchestrator.checkForUpdates();
+          await this.updateService.checkForUpdates();
           break;
         case UpdateState.AVAILABLE:
-          await this.updateOrchestrator.downloadUpdate();
+          await this.updateService.downloadUpdate();
           break;
         case UpdateState.DOWNLOADED:
-          await this.updateOrchestrator.installUpdate();
+          await this.updateService.installUpdate();
           break;
       }
     } catch (error) {
@@ -299,7 +300,7 @@ class UpdateSectionComponent {
         type: 'error'
       });
     } finally {
-      this._updateActionButton(this.updateOrchestrator.getStatus().state);
+      this._updateActionButton(this.updateService.getStatus().state);
     }
   }
 
@@ -310,14 +311,10 @@ class UpdateSectionComponent {
   }
 
   dispose() {
-    this._subscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
+    cleanupCallbacks(this._subscriptions);
     this._subscriptions = [];
 
-    this._activeTimeouts.forEach(clearTimeout);
+    cleanupTimeouts(this._activeTimeouts);
     this._activeTimeouts = [];
 
     if (this.elements.actionBtn && this._actionClickHandler) {

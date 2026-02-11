@@ -6,14 +6,14 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { AutoHideBase, cancelRafThrottled, runRafThrottled } from './auto-hide.base';
 
 type CursorAutoHideOptions = {
   onActivity?: () => void;
   onHide?: () => void;
 };
 
-export class CursorAutoHide {
-  _enabled: boolean;
+export class CursorAutoHide extends AutoHideBase {
   _onActivity: () => void;
   _onHide: () => void;
   _boundHandleMouseMove: () => void;
@@ -26,7 +26,7 @@ export class CursorAutoHide {
    * @param {Function} [options.onHide] - Callback when cursor is hidden
    */
   constructor(options: CursorAutoHideOptions = {}) {
-    this._enabled = false;
+    super();
     this._onActivity = options.onActivity || (() => {});
     this._onHide = options.onHide || (() => {});
     this._boundHandleMouseMove = this._handleMouseMove.bind(this);
@@ -35,21 +35,15 @@ export class CursorAutoHide {
   }
 
   /**
-   * Check if cursor auto-hide is enabled
-   * @returns {boolean}
-   */
-  get isEnabled() {
-    return this._enabled;
-  }
-
-  /**
    * Enable cursor auto-hide
    */
   enable() {
-    if (this._enabled) return;
+    if (!this.activate(() => {
+      this.addListener(document, 'mousemove', this._boundHandleMouseMove);
+    })) {
+      return;
+    }
 
-    this._enabled = true;
-    document.addEventListener('mousemove', this._boundHandleMouseMove);
     this._onActivity();
   }
 
@@ -57,19 +51,10 @@ export class CursorAutoHide {
    * Disable cursor auto-hide
    */
   disable() {
-    if (!this._enabled) return;
-
-    this._enabled = false;
-    document.removeEventListener('mousemove', this._boundHandleMouseMove);
-
-    // Cancel any pending RAF
-    if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
-    this._mouseMoveFramePending = false;
-
-    this.show();
+    this.deactivate(() => {
+      cancelRafThrottled(this);
+      this.show();
+    });
   }
 
   /**
@@ -78,12 +63,7 @@ export class CursorAutoHide {
    * @private
    */
   _handleMouseMove() {
-    if (this._mouseMoveFramePending) return;
-
-    this._mouseMoveFramePending = true;
-    this._rafId = requestAnimationFrame(() => {
-      this._mouseMoveFramePending = false;
-      this._rafId = null;
+    runRafThrottled(this, () => {
       this.show();
       this._onActivity();
     });

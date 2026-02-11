@@ -20,9 +20,15 @@ interface PerformanceStateInitOptions {
 }
 
 class PerformanceStateService extends BaseService {
+  static readonly dependencies = [
+    'loggerFactory',
+    'visibilityAdapter',
+    'userActivityAdapter',
+    'reducedMotionAdapter'
+  ] as const;
 
   constructor(dependencies) {
-    super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
+    super(dependencies, [...PerformanceStateService.dependencies], 'PerformanceStateService');
 
     this._visibilityAdapter = dependencies.visibilityAdapter;
     this._userActivityAdapter = dependencies.userActivityAdapter;

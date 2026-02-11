@@ -73,7 +73,7 @@ describe('CursorAutoHide', () => {
       autoHide = new CursorAutoHide(callbacks);
       autoHide.enable();
 
-      expect(addEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+      expect(addEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function), undefined);
     });
   });
 
@@ -99,7 +99,7 @@ describe('CursorAutoHide', () => {
       autoHide.enable();
       autoHide.disable();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function), undefined);
     });
 
     it('should show cursor on disable', () => {

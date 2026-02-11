@@ -9,10 +9,18 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
+  static readonly dependencies = [
+    'streamingAudioPipelineService',
+    'streamViewService',
+    'appState',
+    'eventBus',
+    'loggerFactory'
+  ] as const;
+
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory'],
+      [...StreamingAudioOrchestrator.dependencies],
       'StreamingAudioOrchestrator'
     );
 

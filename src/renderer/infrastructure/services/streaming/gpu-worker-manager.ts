@@ -17,6 +17,8 @@ import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure
 export type WorkerCapabilities = Record<string, unknown>;
 
 export class GpuWorkerManager {
+  static readonly dependencies = ['loggerFactory', 'eventBus'] as const;
+
   _logger: LoggerLike;
   _eventBus: EventBusLike;
   _worker: Worker | null;

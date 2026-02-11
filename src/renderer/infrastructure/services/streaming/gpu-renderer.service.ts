@@ -44,6 +44,14 @@ const BITMAP_OPTIONS = Object.freeze({
 });
 
 export class StreamingGpuRendererService extends BaseService {
+  static readonly dependencies = [
+    'eventBus',
+    'loggerFactory',
+    'settingsService',
+    'gpuFrameBuffer',
+    'gpuWorkerManager'
+  ] as const;
+
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {EventBus} dependencies.eventBus - Event publisher for render events
@@ -55,7 +63,7 @@ export class StreamingGpuRendererService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
-      ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager'],
+      [...StreamingGpuRendererService.dependencies],
       'StreamingGpuRendererService'
     );
 
