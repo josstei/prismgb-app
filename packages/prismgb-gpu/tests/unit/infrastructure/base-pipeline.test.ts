@@ -208,7 +208,7 @@ describe('BasePipeline', () => {
         }
       };
 
-      pipeline.renderFrame(mockSource, mockUniforms);
+      expect(() => pipeline.renderFrame(mockSource, mockUniforms)).toThrow();
       expect(pipeline.state).toBe('ready');
     });
   });
@@ -476,8 +476,8 @@ describe('BasePipeline', () => {
         }
       };
 
-      pipeline.renderFrame(mockSource, mockUniforms);
-      pipeline.renderFrame(mockSource, mockUniforms);
+      expect(() => pipeline.renderFrame(mockSource, mockUniforms)).toThrow();
+      expect(() => pipeline.renderFrame(mockSource, mockUniforms)).toThrow();
 
       const stats = pipeline.getStats();
       expect(stats.framesDropped).toBe(2);
@@ -657,7 +657,7 @@ describe('BasePipeline', () => {
         }
       };
 
-      pipeline.renderFrame(mockSource, mockUniforms);
+      expect(() => pipeline.renderFrame(mockSource, mockUniforms)).toThrow();
       expect(pipeline.state).toBe('ready');
     });
   });

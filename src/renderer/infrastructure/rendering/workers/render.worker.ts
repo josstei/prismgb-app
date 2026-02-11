@@ -29,6 +29,16 @@ function forwardPipelineError(error: IPipelineError): void {
   }));
 }
 
+function isPipelineError(error: unknown): error is IPipelineError {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    'message' in error &&
+    'recoverable' in error
+  );
+}
+
 self.onmessage = async (event: MessageEvent) => {
   const message = event.data;
 
@@ -161,11 +171,14 @@ async function handleFrame(payload: any): Promise<void> {
 
     self.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
   } catch (error: any) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
-      code: 'RENDER_FAILED',
-      adapterInfo: pipeline?.getAdapterInfo() || null
-    }));
+    // BasePipeline forwards structured pipeline errors through onError callback.
+    if (!isPipelineError(error)) {
+      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+        message: error?.message ?? String(error),
+        code: 'RENDER_FAILED',
+        adapterInfo: pipeline?.getAdapterInfo() || null
+      }));
+    }
   } finally {
     imageBitmap?.close();
   }

@@ -109,11 +109,12 @@ export abstract class BasePipeline implements IPipeline {
       this.updateStats(frameTime);
     } catch (error) {
       this._framesDropped++;
-      this.handleError(
+      const pipelineError = this.handleError(
         'RENDER_FAILED',
         error instanceof Error ? error.message : String(error),
         true
       );
+      throw pipelineError;
     }
   }
 
