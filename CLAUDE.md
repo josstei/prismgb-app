@@ -9,7 +9,7 @@ PrismGB is an Electron desktop application for streaming and capturing video fro
 **Version**: 1.2.1
 **Electron**: 28.x
 **Build Tool**: Vite 7.x
-**Test Framework**: Vitest 4.x (unit/integration), Playwright 1.57.x (E2E)
+**Test Framework**: Vitest 4.x (unit/integration), Playwright 1.58.x (E2E)
 
 ## Commands
 
@@ -46,7 +46,7 @@ The app follows the standard Electron architecture with three processes:
 
 - **Main Process** (`src/main/`): Node.js process handling USB device detection via `usb-detection`, system tray, auto-updates via `electron-updater`, window management, and IPC
 - **Preload** (`src/preload/`): Bridge exposing APIs to renderer via `contextBridge` with type-safe IPC channel mappings
-- **Renderer** (`src/renderer/`): Browser-based UI with domain-driven architecture
+- **Renderer** (`src/renderer/`): Browser-based UI with clean architecture (application/infrastructure/presentation layers)
 
 ### Source Structure
 
@@ -70,6 +70,7 @@ src/
 │   └── index.js             # Exposes deviceAPI, shellAPI, windowAPI, updateAPI, metricsAPI, transcodeAPI
 ├── renderer/                # Browser renderer process
 │   ├── application/         # App orchestrator, state, container, DI wiring
+│   │   ├── di/              # DI registration modules (register-*.ts)
 │   │   ├── orchestrators/   # All renderer orchestrators
 │   │   └── state/           # AppState
 │   ├── infrastructure/      # Renderer infrastructure
@@ -82,23 +83,21 @@ src/
 │   │   ├── events/          # EventBus (eventemitter3)
 │   │   ├── factories/       # StreamingRendererFactory
 │   │   ├── logging/         # Console-based RendererLogger
-│   │   ├── rendering/       # GPU rendering internals
-│   │   │   ├── presets/     # Render preset configurations
-│   │   │   ├── shaders/     # WebGL2 and WebGPU shaders
+│   │   ├── rendering/       # GPU rendering internals (presets/shaders now in @prismgb/gpu)
 │   │   │   └── workers/     # Render worker (off-main-thread GPU)
 │   │   ├── services/        # All renderer services (by domain)
 │   │   │   ├── capture/     # Screenshot/recording services
 │   │   │   ├── devices/     # Device connection, media, storage services
 │   │   │   ├── notes/       # Notes CRUD service
 │   │   │   ├── performance/ # Performance metrics/state services
-│   │   │   ├── settings/    # Settings, fullscreen, cinematic services
+│   │   │   ├── settings/    # Settings, fullscreen, presentation mode services
 │   │   │   ├── streaming/   # Streaming, audio, render pipeline services
 │   │   │   ├── transcode/   # Transcode bridge service
-│   │   │   └── updates/     # Update state and UI services
+│   │   │   └── updates/     # Update state service
 │   │   └── streaming/       # Stream acquisition
 │   │       └── acquisition/ # AcquisitionContext, ConstraintBuilder, FallbackStrategy
 │   ├── presentation/        # UI layer
-│   │   ├── bridges/         # UIEventBridge, CaptureUIBridge, TranscodeUIBridge
+│   │   ├── bridges/         # UIEventBridge, CaptureUIBridge, TranscodeUIBridge, UpdateUIBridge
 │   │   ├── config/          # CSS classes, DOM selectors, storage keys
 │   │   ├── controller/      # UIController, UIComponentRegistry
 │   │   ├── effects/         # UIEffects, BodyClassManager
@@ -120,7 +119,7 @@ src/
 │   ├── index.ts             # Renderer entry point
 │   └── renderer-app.orchestrator.ts  # RendererAppOrchestrator
 └── shared/                  # Cross-process shared code
-    ├── base/                # BaseService, BaseOrchestrator
+    ├── base/                # BaseService, LifecycleService, BaseOrchestrator
     ├── config/              # config-loader utility
     ├── features/            # Shared device profiles, transcode config
     │   ├── devices/         # DeviceRegistry, DeviceProfile, ChromaticProfile
@@ -144,13 +143,10 @@ src/
 | `DeviceOrchestrator` | `renderer/application/orchestrators/` | Device detection, status management |
 | `SettingsPreferencesOrchestrator` | `renderer/application/orchestrators/` | Preferences loading and state management |
 | `SettingsDisplayModeOrchestrator` | `renderer/application/orchestrators/` | Fullscreen and cinematic mode coordination |
-| `UpdateOrchestrator` | `renderer/application/orchestrators/` | Auto-update coordination |
 | `UISetupOrchestrator` | `renderer/application/orchestrators/` | UI component initialization |
-| `PerformanceMetricsOrchestrator` | `renderer/application/orchestrators/` | Performance metrics collection |
-| `PerformanceStateOrchestrator` | `renderer/application/orchestrators/` | Performance state management |
-| `PerformanceAnimationOrchestrator` | `renderer/application/orchestrators/` | Animation performance management |
+| `PerformanceOrchestrator` | `renderer/application/orchestrators/` | Performance metrics, state, and animation management |
 
-#### Renderer Services (extend BaseService)
+#### Renderer Services (extend BaseService or LifecycleService)
 
 | Service | Location | Responsibilities |
 |---------|----------|------------------|
@@ -160,18 +156,18 @@ src/
 | `CaptureService` | `renderer/infrastructure/services/capture/` | Screenshot/recording via MediaRecorder |
 | `CaptureSaveService` | `renderer/infrastructure/services/capture/` | Save with optional transcoding |
 | `CaptureGpuRecordingService` | `renderer/infrastructure/services/capture/` | GPU-based recording pipeline |
-| `DeviceService` | `renderer/infrastructure/services/devices/` | Facade for connection, storage, media services |
-| `DeviceConnectionService` | `renderer/infrastructure/services/devices/` | USB connection status from main process |
 | `DeviceMediaService` | `renderer/infrastructure/services/devices/` | Media device enumeration with caching |
 | `DeviceStorageService` | `renderer/infrastructure/services/devices/` | Device ID persistence |
+| `DeviceOperationSequencerService` | `renderer/infrastructure/services/devices/` | Sequenced device operations |
 | `SettingsService` | `renderer/infrastructure/services/settings/` | LocalStorage-backed preferences |
 | `SettingsFullscreenService` | `renderer/infrastructure/services/settings/` | Fullscreen event handling |
-| `SettingsCinematicModeService` | `renderer/infrastructure/services/settings/` | Cinematic mode state |
-| `PresentationModeService` | `renderer/infrastructure/services/settings/` | Visual state coordination |
+| `PresentationModeService` | `renderer/infrastructure/services/settings/` | Visual state coordination (cinematic, minimalist) |
 | `TranscodeService` | `renderer/infrastructure/services/transcode/` | Renderer-side transcode bridge |
 | `UpdateService` | `renderer/infrastructure/services/updates/` | Update state and IPC bridge |
-| `UpdateUiService` | `renderer/infrastructure/services/updates/` | Update notifications and badge |
 | `NotesService` | `renderer/infrastructure/services/notes/` | Notes CRUD with localStorage |
+| `PerformanceAnimationService` | `renderer/infrastructure/services/performance/` | Animation frame management |
+| `PerformanceStateService` | `renderer/infrastructure/services/performance/` | Performance state tracking |
+| `PerformanceMetricsService` | `renderer/infrastructure/services/performance/` | Performance metrics collection |
 
 #### Main Process Services
 
@@ -187,14 +183,14 @@ src/
 
 ### Dependency Injection
 
-Uses a custom `ServiceContainer` (`renderer/infrastructure/di/service-container.factory.js`) for constructor injection:
+Uses a custom `ServiceContainer` (`renderer/infrastructure/di/service-container.factory.ts`) for constructor injection:
 
 ```javascript
 container.registerSingleton('serviceName', ServiceClass, ['dep1', 'dep2']);
 const instance = container.resolve('serviceName');
 ```
 
-The renderer container (`renderer/application/container.js`) wires all services and orchestrators. Services receive dependencies as an object:
+The renderer container (`renderer/application/container.ts`) is a thin composition shell that delegates to DI registration modules in `renderer/application/di/`. Services receive dependencies as an object:
 
 ```javascript
 new MyService({ eventBus, loggerFactory, otherDep });
@@ -219,17 +215,21 @@ constructor(dependencies, requiredDeps = [], serviceName = null)
 - Assigns only required dependencies to `this`
 - Creates `this.logger` if `loggerFactory` provided
 
+#### LifecycleService (`shared/base/lifecycle-service.base.ts`)
+
+- Extends BaseService
+- Adds lifecycle state management: `initialize()` / `teardown()` (template methods)
+- Tracks `isInitialized` and `_isCleanedUp` flags
+- Override `onInitialize()` and `onCleanup()` for custom logic
+
 #### BaseOrchestrator (`shared/base/orchestrator.base.js`)
 
 ```javascript
 constructor(dependencies, requiredDeps, name)
 ```
 
-- Extends BaseService validation
-- Lifecycle management: `initialize()` / `cleanup()` (template methods)
-- Override `onInitialize()` and `onCleanup()` for custom logic
+- Extends LifecycleService (inherits lifecycle management)
 - `subscribeWithCleanup(eventMap)` - Auto-tracks EventBus subscriptions for cleanup
-- Tracks `isInitialized` and `_isCleanedUp` flags
 
 ### Event-Driven Communication
 
@@ -248,7 +248,7 @@ Uses Node.js built-in `events` module.
 
 #### Event Channels
 
-**Renderer** (`renderer/infrastructure/events/event-channels.config.js`):
+**Renderer** (source of truth: `shared/events/event-channels.ts`, re-exported via `renderer/infrastructure/events/event-channels.config.js`):
 
 | Domain | Events |
 |--------|--------|
@@ -259,9 +259,9 @@ Uses Node.js built-in `events` module.
 | SETTINGS | `VOLUME_CHANGED`, `RENDER_PRESET_CHANGED`, `BRIGHTNESS_CHANGED`, `PERFORMANCE_MODE_CHANGED`, `CINEMATIC_MODE_CHANGED`, `MINIMALIST_FULLSCREEN_CHANGED`, `PREFERENCES_LOADED`, `RECORDING_FORMAT_CHANGED` |
 | PERFORMANCE | `STATE_CHANGED`, `UI_MODE_CHANGED`, `RENDER_MODE_CHANGED`, `MEMORY_SNAPSHOT_REQUESTED` |
 | RENDER | `CAPABILITY_DETECTED`, `PIPELINE_READY`, `PIPELINE_ERROR`, `STATS_UPDATE`, `CANVAS_EXPIRED`, `CANVAS_RECREATED` |
-| UI | `STATUS_MESSAGE`, `DEVICE_STATUS`, `OVERLAY_MESSAGE`, `OVERLAY_VISIBLE`, `OVERLAY_ERROR`, `STREAMING_MODE`, `STREAM_INFO`, `SHUTTER_FLASH`, `RECORDING_STATE`, `FULLSCREEN_STATE`, `WINDOW_RESIZED`, `SCREENSHOT_REQUESTED`, `RECORDING_TOGGLE_REQUESTED`, `FULLSCREEN_TOGGLE_REQUESTED`, `CINEMATIC_TOGGLE_REQUESTED`, `STREAM_START_REQUESTED`, `STREAM_STOP_REQUESTED` |
+| UI | `STATUS_MESSAGE`, `DEVICE_STATUS`, `OVERLAY_MESSAGE`, `OVERLAY_VISIBLE`, `OVERLAY_ERROR`, `STREAMING_MODE`, `STREAM_INFO`, `SHUTTER_FLASH`, `RECORD_BUTTON_POP`, `RECORD_BUTTON_PRESS`, `BUTTON_FEEDBACK`, `RECORDING_STATE`, `RECORD_BUTTON_DISABLED`, `RECORD_BUTTON_ENABLED`, `FULLSCREEN_STATE`, `WINDOW_RESIZED`, `SCREENSHOT_REQUESTED`, `RECORDING_TOGGLE_REQUESTED`, `FULLSCREEN_TOGGLE_REQUESTED`, `CINEMATIC_TOGGLE_REQUESTED`, `STREAM_START_REQUESTED`, `STREAM_STOP_REQUESTED` |
 | UPDATE | `AVAILABLE`, `NOT_AVAILABLE`, `PROGRESS`, `DOWNLOADED`, `ERROR`, `STATE_CHANGED`, `BADGE_SHOW`, `BADGE_HIDE` |
-| NOTES | `NOTE_CREATED`, `NOTE_DELETED` |
+| NOTES | `NOTE_CREATED`, `NOTE_UPDATED`, `NOTE_DELETED` |
 | TRANSCODE | `STARTED`, `PROGRESS`, `COMPLETED`, `ERROR`, `CANCELLED` |
 
 **Main Process** (`main/infrastructure/events/event-channels.config.js`):
@@ -295,6 +295,7 @@ Configured in both `vite.config.js` and `vitest.config.js`:
 | `@renderer/` | `src/renderer/` |
 | `@preload/` | `src/preload/` |
 | `@shared/` | `src/shared/` |
+| `@prismgb/gpu` | `packages/prismgb-gpu/src/index.ts` |
 
 ### Rendering Pipeline
 
@@ -302,8 +303,7 @@ The streaming feature supports multiple rendering strategies:
 
 1. **GPU Renderer** (`infrastructure/services/streaming/gpu-renderer.service.ts`)
    - WebGPU (preferred) or WebGL2 fallback
-   - Custom shaders in `infrastructure/rendering/shaders/`
-   - Render presets in `infrastructure/rendering/presets/streaming-render-presets.config.js`
+   - Shaders and render presets provided by `@prismgb/gpu` package
 
 2. **Canvas2D Renderer** (`infrastructure/services/streaming/canvas-renderer.ts`)
    - Fallback for performance mode or unsupported GPU
@@ -324,7 +324,7 @@ Located in `renderer/infrastructure/streaming/acquisition/`:
 
 - `AcquisitionContext` - Immutable context with device/group IDs and profile
 - `ConstraintBuilder` - Builds MediaStreamConstraints at 'full', 'simple', or 'minimal' detail levels
-- `DeviceAwareFallbackStrategy` - Fallback chain for stream acquisition failures
+- `FallbackStrategy` - Fallback chain for stream acquisition failures
 - `StreamAcquisitionOrchestrator` - Coordinates acquisition with automatic fallback
 
 ## Testing
@@ -363,7 +363,7 @@ tests/
 - `src/**/rendering/gpu/*.js` - WebGPU/WebGL APIs
 - `src/**/audio/*.js` - Web Audio API
 - `src/**/canvas-lifecycle.service.js` - DOM/Canvas interactions
-- `src/renderer/ui/templates/*.js` - Vite `?raw` imports
+- `src/renderer/presentation/shell/*.js` - Vite `?raw` imports
 - `src/shared/interfaces/*.interface.js` - Abstract base classes
 
 ### Mock Factories
@@ -439,6 +439,7 @@ Bridges translate EventBus events into UIController calls:
 - `UIEventBridge` (`presentation/bridges/`) - General UI state updates
 - `CaptureUIBridge` (`presentation/bridges/`) - Capture feedback (shutter flash, button states)
 - `TranscodeUIBridge` (`presentation/bridges/`) - Transcode progress UI
+- `UpdateUIBridge` (`presentation/bridges/`) - Update notifications and badge visibility
 
 ## Code Style
 

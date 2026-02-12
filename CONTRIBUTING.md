@@ -94,12 +94,10 @@ src/
 ├── main/               # Electron main process
 ├── preload/            # Context bridge APIs
 ├── renderer/           # Renderer process and UI
-│   ├── application/    # App orchestrators and state
-│   ├── assets/         # Styles, fonts, images
-│   ├── features/       # Domain features (capture, devices, notes, settings, streaming, updates)
-│   ├── infrastructure/ # Event bus, logging, adapters
-│   ├── ui/             # Templates, components, orchestration
-│   └── lib/            # Renderer-only utilities
+│   ├── application/    # App orchestrators, state, DI container and registration modules
+│   ├── assets/         # Fonts and static assets
+│   ├── infrastructure/ # Services, adapters, factories, rendering, events, logging
+│   └── presentation/   # UI layer (features, bridges, effects, shell, config)
 ├── shared/             # Shared utilities and config
 tests/                  # Unit and integration tests
 docs/                   # Architecture and feature docs
@@ -157,7 +155,7 @@ ci: add security scanning to PR workflow
 
 This project uses Husky to enforce commit conventions:
 
-- **pre-commit**: Runs `npm test` (Vitest watch mode)
+- **pre-commit**: Runs `npm run test:run` (single Vitest run)
 - **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
@@ -301,7 +299,7 @@ describe('MyService', () => {
   it('should do something', () => {
     const mockDeps = {
       eventBus: { publish: vi.fn(), subscribe: vi.fn() },
-      loggerFactory: { createLogger: () => ({ info: vi.fn() }) }
+      loggerFactory: { create: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }) }
     };
 
     const service = new MyService(mockDeps);

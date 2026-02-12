@@ -22,8 +22,8 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Capture (screenshots/recording) | `src/renderer/infrastructure/services/capture` | PNG screenshots, recordings with format selection |
 | Transcode | `src/main/infrastructure/transcode`, `src/renderer/infrastructure/services/transcode`, `src/shared/features/transcode` | FFmpeg-based transcoding for MP4/MOV output |
 | Devices and adapters | `src/renderer/infrastructure/services/devices`, `src/renderer/infrastructure/adapters/devices`, `src/main/infrastructure/devices`, `src/shared/features/devices` | USB detection, device registry, adapters |
-| Settings and display modes | `src/renderer/infrastructure/services/settings`, `src/renderer/presentation/config/storage-keys.config.ts` | Cinematic, fullscreen, performance mode, status strip |
-| Notes | `src/renderer/infrastructure/services/notes`, `src/renderer/presentation/config/storage-keys.config.ts` | Notes CRUD and search |
+| Settings and display modes | `src/renderer/infrastructure/services/settings`, `src/shared/config/storage-keys.config.ts` | Cinematic, fullscreen, performance mode, status strip |
+| Notes | `src/renderer/infrastructure/services/notes`, `src/shared/config/storage-keys.config.ts` | Notes CRUD and search |
 | Updates | `src/main/infrastructure/updates`, `src/renderer/infrastructure/services/updates`, `src/preload/index.js` | electron-updater + renderer UI |
 | UI shell | `src/renderer/presentation`, `src/renderer/assets` | Templates, components, effects |
 | App lifecycle and performance | `src/renderer/application`, `src/renderer/application/di`, `src/main/application` | Orchestrators, DI registration modules, performance state |
@@ -41,7 +41,7 @@ This document maps user-facing features to the codebase for maintenance and onbo
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.js`, `src/renderer/presentation/bridges/capture-ui.bridge.js`, or `src/renderer/presentation/bridges/transcode-ui.bridge.js`.
+UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, `src/renderer/presentation/bridges/transcode-ui.bridge.ts`, or `src/renderer/presentation/bridges/update-ui.bridge.ts`.
 
 ### Start Streaming
 
@@ -92,7 +92,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 ### Performance Mode
 
 1. Settings toggle calls `SettingsService.setPerformanceMode`.
-2. `settings:performance-mode-changed` updates `PerformanceStateOrchestrator`, which emits `performance:render-mode-changed`.
+2. `settings:performance-mode-changed` updates `PerformanceOrchestrator`, which emits `performance:render-mode-changed`.
 3. `StreamingOrchestrator` switches to Canvas2D rendering when performance mode is enabled.
 
 ### Fullscreen and Cinematic Mode
@@ -101,7 +101,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 2. `SettingsDisplayModeOrchestrator` toggles `SettingsFullscreenService`.
 3. `SettingsFullscreenService` emits `ui:fullscreen-state`.
 4. `UIEventBridge` updates fullscreen UI and control auto-hide.
-5. Cinematic toggle -> `ui:cinematic-toggle-requested` -> `SettingsCinematicModeService` -> `settings:cinematic-mode-changed`.
+5. Cinematic toggle -> `ui:cinematic-toggle-requested` -> `PresentationModeService` -> `settings:cinematic-mode-changed`.
 
 ### Notes Panel
 
@@ -111,15 +111,15 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 
 ### Update Check and Install
 
-1. Settings update action button calls `UpdateOrchestrator` (check/download/install).
+1. Settings update action button calls `UpdateService` (check/download/install).
 2. `UpdateService` uses `window.updateAPI` to call IPC and emits `update:*` events.
-3. `UpdateUiService` publishes status messages and badge visibility.
+3. `UpdateUIBridge` publishes status messages and badge visibility.
 4. `UpdateSectionComponent` listens for `update:state-changed` and `update:progress` to refresh UI.
 
 ## Data and Storage
 
 - Downloads location: screenshots and recordings go to the OS downloads folder.
-- Local storage keys: settings and notes live in localStorage, defined in `src/renderer/presentation/config/storage-keys.config.ts`.
+- Local storage keys: settings and notes live in localStorage, defined in `src/shared/config/storage-keys.config.ts`.
 - Stored device IDs: `src/renderer/infrastructure/services/devices/device-storage.service.ts`.
 - Transcode temp files: during MP4/MOV conversion, temporary files are created in the system temp directory and cleaned up after completion or cancellation.
 
@@ -145,7 +145,7 @@ Screenshots will not be added to this repository.
 
 ### Add a New Setting
 
-1. Add a storage key in `src/renderer/presentation/config/storage-keys.config.ts`.
+1. Add a storage key in `src/shared/config/storage-keys.config.ts`.
 2. Update `src/renderer/infrastructure/services/settings/settings.service.ts`.
 3. Wire UI in `src/renderer/presentation/features/settings`.
 

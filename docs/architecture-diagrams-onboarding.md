@@ -32,16 +32,20 @@ flowchart LR
   StreamingOrchestrator[StreamingOrchestrator]
   StreamingService[StreamingService]
   DeviceOrchestrator[DeviceOrchestrator]
-  DeviceService[DeviceService]
   DeviceMediaService[DeviceMediaService]
+  DeviceStorageService[DeviceStorageService]
+  DeviceOperationSequencerService[DeviceOperationSequencerService]
+  DeviceIpcAdapter[DeviceIpcAdapter]
   UIEventBridge[UIEventBridge]
 
   UISetupOrchestrator -. "ui:stream-start/stop-requested" .-> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
   StreamingOrchestrator -. "ui:streaming-mode, ui:stream-info" .-> UIEventBridge
-  DeviceOrchestrator --> DeviceService
-  StreamingService --> DeviceService
-  DeviceService --> DeviceMediaService
+  DeviceOrchestrator --> DeviceMediaService
+  DeviceOrchestrator --> DeviceStorageService
+  DeviceOrchestrator --> DeviceOperationSequencerService
+  DeviceOrchestrator --> DeviceIpcAdapter
+  StreamingService --> DeviceMediaService
 ```
 
 ## 3) Capture and GPU Recording
@@ -65,17 +69,15 @@ Note: `CaptureSaveService` handles format selection (WebM direct download, or MP
 ```mermaid
 flowchart LR
   AppOrchestrator[AppOrchestrator]
-  PerformanceAnimationOrchestrator[PerformanceAnimationOrchestrator]
-  PerformanceStateOrchestrator[PerformanceStateOrchestrator]
-  PerformanceMetricsOrchestrator[PerformanceMetricsOrchestrator]
+  PerformanceOrchestrator[PerformanceOrchestrator]
   PerformanceAnimationService[PerformanceAnimationService]
+  PerformanceStateService[PerformanceStateService]
   PerformanceMetricsService[PerformanceMetricsService]
 
-  AppOrchestrator --> PerformanceAnimationOrchestrator
-  AppOrchestrator --> PerformanceStateOrchestrator
-  AppOrchestrator --> PerformanceMetricsOrchestrator
-  PerformanceAnimationOrchestrator --> PerformanceAnimationService
-  PerformanceMetricsOrchestrator --> PerformanceMetricsService
+  AppOrchestrator --> PerformanceOrchestrator
+  PerformanceOrchestrator --> PerformanceAnimationService
+  PerformanceOrchestrator --> PerformanceStateService
+  PerformanceOrchestrator --> PerformanceMetricsService
 ```
 
 ## 5) Main Process IPC and Services
@@ -115,12 +117,14 @@ flowchart LR
   DeviceBridge[DeviceBridgeService]
   UpdateBridge[UpdateBridge]
   TranscodeService[TranscodeService]
-  DeviceServiceRenderer["DeviceService (Renderer)"]
-  UIService["UIService / UI Components"]
+  DeviceIpcAdapter[DeviceIpcAdapter]
+  UpdateService[UpdateService]
+  UpdateUIBridge[UpdateUIBridge]
   TranscodeServiceRenderer["TranscodeService (Renderer)"]
 
-  DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
-  UpdateBridge -- IPC: update-status --> UIService
+  DeviceBridge -- IPC: device-status --> DeviceIpcAdapter
+  UpdateBridge -- IPC: update-status --> UpdateService
+  UpdateService --> UpdateUIBridge
   TranscodeServiceRenderer -- IPC: transcode --> TranscodeService
 ```
 
