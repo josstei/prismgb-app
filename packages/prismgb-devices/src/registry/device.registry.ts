@@ -22,8 +22,33 @@
  * ProfileClass/AdapterClass are registered at runtime by each process.
  */
 
+import type { DeviceProfile } from './device-profile.base';
+
+export interface DeviceRegistryUSBConfig {
+  vendorId: number;
+  productId: number;
+}
+
+type ProfileClassConstructor = new (...args: unknown[]) => DeviceProfile;
+type AdapterClassConstructor = new (dependencies: Record<string, unknown>) => unknown;
+
+export interface DeviceRegistryEntry {
+  id: string;
+  name: string;
+  manufacturer: string;
+  enabled: boolean;
+  usb: DeviceRegistryUSBConfig;
+  labelPatterns: string[];
+  profileModule?: string;
+  adapterModule?: string;
+  ProfileClass?: ProfileClassConstructor;
+  AdapterClass?: AdapterClassConstructor;
+}
+
+export type DeviceModuleType = 'profileModule' | 'adapterModule';
+
 // Built-in devices that ship with PrismGB
-const BUILT_IN_DEVICES = [
+const BUILT_IN_DEVICES: DeviceRegistryEntry[] = [
   {
     id: 'chromatic-mod-retro',
     name: 'Mod Retro Chromatic',
@@ -45,7 +70,7 @@ const BUILT_IN_DEVICES = [
 ];
 
 // Mutable internal registry initialized with built-in devices
-const _registeredDevices = [...BUILT_IN_DEVICES];
+const _registeredDevices: DeviceRegistryEntry[] = [...BUILT_IN_DEVICES];
 
 /**
  * DeviceRegistry - Extensible API for device registration
@@ -67,7 +92,7 @@ export const DeviceRegistry = {
    * @param {string} id - Device ID
    * @returns {Object|undefined} Device entry or undefined
    */
-  get(id) {
+  get(id: string): DeviceRegistryEntry | undefined {
     return _registeredDevices.find(d => d.id === id);
   },
 
@@ -76,14 +101,14 @@ export const DeviceRegistry = {
    * @param {Object} deviceEntry - Device configuration
    * @throws {Error} If device lacks id or already exists
    */
-  register(deviceEntry) {
+  register(deviceEntry: DeviceRegistryEntry): void {
     if (!deviceEntry.id) {
       throw new Error('Device entry must have an id');
     }
     if (this.get(deviceEntry.id)) {
       throw new Error(`Device ${deviceEntry.id} already registered`);
     }
-    _registeredDevices.push(Object.freeze(deviceEntry));
+    _registeredDevices.push(Object.freeze({ ...deviceEntry }) as DeviceRegistryEntry);
   },
 
   /**
@@ -91,7 +116,7 @@ export const DeviceRegistry = {
    * @param {string} id - Device ID to remove
    * @returns {boolean} True if device was removed, false if not found
    */
-  unregister(id) {
+  unregister(id: string): boolean {
     const index = _registeredDevices.findIndex(d => d.id === id);
     if (index > -1) {
       _registeredDevices.splice(index, 1);
@@ -105,7 +130,7 @@ export const DeviceRegistry = {
    * @param {string} deviceId - Device ID
    * @param {Function} ProfileClass - Profile class constructor
    */
-  registerProfileClass(deviceId, ProfileClass) {
+  registerProfileClass(deviceId: string, ProfileClass: ProfileClassConstructor): void {
     const device = this.get(deviceId);
     if (!device) {
       throw new Error(`Device ${deviceId} not found in registry`);
@@ -118,7 +143,7 @@ export const DeviceRegistry = {
    * @param {string} deviceId - Device ID
    * @param {Function} AdapterClass - Adapter class constructor
    */
-  registerAdapterClass(deviceId, AdapterClass) {
+  registerAdapterClass(deviceId: string, AdapterClass: AdapterClassConstructor): void {
     const device = this.get(deviceId);
     if (!device) {
       throw new Error(`Device ${deviceId} not found in registry`);
@@ -131,7 +156,7 @@ export const DeviceRegistry = {
    * @param {string} deviceId - Device ID
    * @returns {Function|null} ProfileClass constructor or null
    */
-  getProfileClass(deviceId) {
+  getProfileClass(deviceId: string): ProfileClassConstructor | null {
     const device = this.get(deviceId);
     return device?.ProfileClass || null;
   },
@@ -141,7 +166,7 @@ export const DeviceRegistry = {
    * @param {string} deviceId - Device ID
    * @returns {Function|null} AdapterClass constructor or null
    */
-  getAdapterClass(deviceId) {
+  getAdapterClass(deviceId: string): AdapterClassConstructor | null {
     const device = this.get(deviceId);
     return device?.AdapterClass || null;
   }

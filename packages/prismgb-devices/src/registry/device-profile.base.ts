@@ -5,11 +5,121 @@
  * All device-specific profiles should extend this class.
  */
 
+type LoggerLike = {
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  debug: (...args: unknown[]) => void;
+};
+
+interface Resolution {
+  label: string;
+  width: number;
+  height: number;
+  scale: number | null;
+}
+
+interface NativeResolution {
+  width: number;
+  height: number;
+}
+
+export interface DeviceUSBIdentifier {
+  vendorId: number;
+  productId: number;
+  deviceClass?: number;
+  [key: string]: unknown;
+}
+
+interface DisplayConfigInput {
+  nativeResolution: NativeResolution;
+  supportedResolutions?: ReadonlyArray<Resolution>;
+  aspectRatio?: number;
+  pixelPerfect?: boolean;
+}
+
+interface MediaConfigInput {
+  video?: Record<string, unknown>;
+  audio?: {
+    full?: Record<string, unknown>;
+    simple?: Record<string, unknown>;
+  };
+  fallbackStrategy?: string;
+}
+
+interface RenderingConfigInput {
+  canvasScale?: number;
+  imageSmoothing?: boolean;
+  preferredRenderer?: string;
+}
+
+interface BehaviorConfigInput {
+  autoLaunchDelay?: number;
+  requiresStrictMode?: boolean;
+  allowFallback?: boolean;
+}
+
+interface MetadataConfigInput {
+  description?: string;
+  website?: string;
+  supportContact?: string;
+  documentation?: string;
+}
+
+export interface DeviceProfileConfig {
+  id: string;
+  name: string;
+  manufacturer: string;
+  version?: string;
+  usbIdentifiers?: DeviceUSBIdentifier[];
+  display: DisplayConfigInput;
+  media?: MediaConfigInput;
+  capabilities?: Iterable<string>;
+  rendering?: RenderingConfigInput;
+  behavior?: BehaviorConfigInput;
+  metadata?: MetadataConfigInput;
+}
+
+interface DeviceProfileDisplay {
+  nativeResolution: NativeResolution;
+  supportedResolutions: ReadonlyArray<Resolution>;
+  aspectRatio: number;
+  pixelPerfect: boolean;
+}
+
+interface DeviceProfileMedia {
+  video: Record<string, unknown>;
+  audio: {
+    full: Record<string, unknown>;
+    simple: Record<string, unknown>;
+  };
+  fallbackStrategy: string;
+}
+
+interface DeviceProfileRendering {
+  canvasScale: number;
+  imageSmoothing: boolean;
+  preferredRenderer: string;
+}
+
+interface DeviceProfileBehavior {
+  autoLaunchDelay: number;
+  requiresStrictMode: boolean;
+  allowFallback: boolean;
+}
+
+interface DeviceProfileMetadata {
+  description: string;
+  website?: string;
+  supportContact?: string;
+  documentation?: string;
+}
+
 /**
  * No-op logger for when no logger is provided
  * Silent by default to maintain logging consistency across shared modules
  */
-const NO_OP_LOGGER = Object.freeze({
+const NO_OP_LOGGER: LoggerLike = Object.freeze({
   info: () => {},
   warn: () => {},
   error: () => {},
@@ -17,12 +127,25 @@ const NO_OP_LOGGER = Object.freeze({
 });
 
 class DeviceProfile {
+  logger: LoggerLike;
+  id: string;
+  name: string;
+  manufacturer: string;
+  version: string;
+  usbIdentifiers: DeviceUSBIdentifier[];
+  display: DeviceProfileDisplay;
+  media: DeviceProfileMedia;
+  capabilities: Set<string>;
+  rendering: DeviceProfileRendering;
+  behavior: DeviceProfileBehavior;
+  metadata: DeviceProfileMetadata;
+
   /**
    * Create a new device profile
    * @param {Object} config - Profile configuration
    * @param {Object} logger - Optional logger instance
    */
-  constructor(config, logger = null) {
+  constructor(config: DeviceProfileConfig, logger: LoggerLike | null = null) {
     // Use provided logger or no-op (no console fallback in shared modules)
     this.logger = logger || NO_OP_LOGGER;
 
@@ -99,13 +222,13 @@ class DeviceProfile {
    * Validate configuration
    * @private
    */
-  _validateConfig(config) {
+  _validateConfig(config: DeviceProfileConfig) {
     if (!config) {
       throw new Error('DeviceProfile: Configuration is required');
     }
 
     // Required fields
-    const required = ['id', 'name', 'manufacturer'];
+    const required: Array<'id' | 'name' | 'manufacturer'> = ['id', 'name', 'manufacturer'];
     for (const field of required) {
       if (!config[field]) {
         throw new Error(`DeviceProfile: Missing required field: ${field}`);
@@ -145,7 +268,7 @@ class DeviceProfile {
    * Calculate aspect ratio from resolution
    * @private
    */
-  _calculateAspectRatio(resolution) {
+  _calculateAspectRatio(resolution: NativeResolution): number {
     return resolution.width / resolution.height;
   }
 
@@ -196,7 +319,7 @@ class DeviceProfile {
    * @param {string} capability - Capability to check
    * @returns {boolean} True if capability is supported
    */
-  hasCapability(capability) {
+  hasCapability(capability: string): boolean {
     return this.capabilities.has(capability);
   }
 
@@ -205,8 +328,8 @@ class DeviceProfile {
    * @param {string} deviceId - Optional device ID for constraints
    * @returns {Object} Media constraints object
    */
-  getMediaConstraints(deviceId = null) {
-    const constraints = {
+  getMediaConstraints(deviceId: string | null = null): { video: Record<string, unknown>; audio: Record<string, unknown> } {
+    const constraints: { video: Record<string, unknown>; audio: Record<string, unknown> } = {
       video: { ...this.media.video },
       audio: { ...this.media.audio.full }
     };
@@ -225,7 +348,7 @@ class DeviceProfile {
    * @param {number} scale - Scale factor
    * @returns {Object} Resolution object with width and height
    */
-  getResolutionByScale(scale) {
+  getResolutionByScale(scale: number): { width: number; height: number } {
     const native = this.display.nativeResolution;
     return {
       width: native.width * scale,

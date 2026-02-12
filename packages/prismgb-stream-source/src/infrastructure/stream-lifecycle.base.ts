@@ -6,6 +6,21 @@ type MediaServiceLike = {
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
 };
 
+interface StreamTrackInfo {
+  kind: string;
+  label: string;
+  enabled: boolean;
+  muted: boolean;
+  readyState: string;
+  settings: MediaTrackSettings;
+}
+
+interface StreamInfo {
+  id: string;
+  active: boolean;
+  tracks: StreamTrackInfo[];
+}
+
 /**
  * Base implementation of stream lifecycle management
  */
@@ -104,19 +119,10 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
   /**
    * Get stream information
    */
-  getStreamInfo(stream: MediaStream) {
+  getStreamInfo(stream: MediaStream): Record<string, unknown> | null {
     if (!stream) return null;
 
-    interface TrackInfo {
-      kind: string;
-      label: string;
-      enabled: boolean;
-      muted: boolean;
-      readyState: string;
-      settings: MediaTrackSettings;
-    }
-
-    const info: { id: string; active: boolean; tracks: TrackInfo[] } = {
+    const info: StreamInfo = {
       id: stream.id,
       active: stream.active,
       tracks: []
@@ -134,7 +140,7 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
       });
     });
 
-    return info;
+    return info as unknown as Record<string, unknown>;
   }
 
   /**

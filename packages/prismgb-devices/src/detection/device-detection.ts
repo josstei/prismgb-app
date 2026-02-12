@@ -10,6 +10,13 @@
  */
 
 import { DeviceRegistry } from '../registry/device.registry';
+import type { DeviceRegistryUSBConfig } from '../registry/device.registry';
+
+type DetectableDevice = {
+  label?: string;
+  vendorId?: number;
+  productId?: number;
+};
 
 /**
  * Match a device label against registered label patterns
@@ -18,7 +25,7 @@ import { DeviceRegistry } from '../registry/device.registry';
  * @param {string[]} patterns - Array of label patterns to match against
  * @returns {boolean} True if label matches any pattern, false otherwise
  */
-function matchesLabelPatterns(label, patterns) {
+function matchesLabelPatterns(label?: string, patterns?: string[]): boolean {
   if (!label || !patterns) return false;
   const normalizedLabel = label.toLowerCase();
   return patterns.some(pattern => normalizedLabel.includes(pattern.toLowerCase()));
@@ -35,7 +42,7 @@ function matchesLabelPatterns(label, patterns) {
  * @param {number} usbConfig.productId - Expected USB product ID
  * @returns {boolean} True if both vendorId and productId match, false otherwise
  */
-function matchesUSBConfig(device, usbConfig) {
+function matchesUSBConfig(device: DetectableDevice, usbConfig?: DeviceRegistryUSBConfig): boolean {
   if (!device?.vendorId || !device?.productId || !usbConfig) return false;
   return device.vendorId === usbConfig.vendorId &&
          device.productId === usbConfig.productId;
@@ -46,7 +53,7 @@ function matchesUSBConfig(device, usbConfig) {
  * @param {Object} device - Device with label and/or vendorId/productId
  * @returns {string|null} Device ID or null if not matched
  */
-function detectDeviceId(device) {
+function detectDeviceId(device: DetectableDevice | null | undefined): string | null {
   if (!device) return null;
 
   for (const entry of DeviceRegistry.getAll()) {
@@ -86,7 +93,7 @@ export const DeviceDetectionHelper = {
    * @param {string} label - Device label from MediaDeviceInfo or device name
    * @returns {string|null} Device ID if matched, null if no match found
    */
-  matchesByLabel(label) {
+  matchesByLabel(label: string): string | null {
     return detectDeviceId({ label });
   },
 
@@ -95,7 +102,7 @@ export const DeviceDetectionHelper = {
    * @param {Object} usbDevice - USB device info
    * @returns {string|null} Device ID or null
    */
-  matchesByUSB(usbDevice) {
+  matchesByUSB(usbDevice: DetectableDevice): string | null {
     return detectDeviceId(usbDevice);
   }
 };

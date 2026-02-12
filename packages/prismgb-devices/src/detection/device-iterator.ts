@@ -5,6 +5,15 @@
  */
 
 import { DeviceRegistry } from '../registry/device.registry';
+import type { DeviceModuleType, DeviceRegistryEntry } from '../registry/device.registry';
+
+type LoggerLike = {
+  debug?: (...args: unknown[]) => void;
+};
+
+interface IteratorOptions {
+  logger?: LoggerLike;
+}
 
 /**
  * Iterate over enabled devices that have the specified module type
@@ -13,17 +22,21 @@ import { DeviceRegistry } from '../registry/device.registry';
  * @param {Object} [options] - Optional configuration
  * @param {Object} [options.logger] - Logger with debug method
  */
-export function forEachDeviceWithModule(moduleType, callback, options = {}) {
+export function forEachDeviceWithModule(
+  moduleType: DeviceModuleType,
+  callback: (device: DeviceRegistryEntry) => void,
+  options: IteratorOptions = {}
+): void {
   const { logger } = options;
 
   for (const device of DeviceRegistry.getAll()) {
     if (!device.enabled) {
-      logger?.debug(`Skipping disabled device: ${device.id}`);
+      logger?.debug?.(`Skipping disabled device: ${device.id}`);
       continue;
     }
 
     if (!device[moduleType]) {
-      logger?.debug(`Device ${device.id} has no ${moduleType}`);
+      logger?.debug?.(`Device ${device.id} has no ${moduleType}`);
       continue;
     }
 

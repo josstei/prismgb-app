@@ -181,7 +181,7 @@ export const chromaticHelpers = Object.freeze({
   /**
    * Check if USB device matches Chromatic identifiers
    */
-  matchesUSB(usbDevice) {
+  matchesUSB(usbDevice: { vendorId?: number; productId?: number } | null | undefined): boolean {
     if (!usbDevice || !usbDevice.vendorId || !usbDevice.productId) {
       return false;
     }
@@ -192,10 +192,10 @@ export const chromaticHelpers = Object.freeze({
   /**
    * Check if device label matches Chromatic patterns
    */
-  matchesLabel(label) {
+  matchesLabel(label: string | null | undefined): boolean {
     if (!label) return false;
     const normalizedLabel = label.toLowerCase();
-    return chromaticConfig.metadata.labelPatterns.some(pattern =>
+    return chromaticConfig.metadata.labelPatterns.some((pattern: string) =>
       normalizedLabel.includes(pattern)
     );
   },
@@ -203,7 +203,7 @@ export const chromaticHelpers = Object.freeze({
   /**
    * Get resolution by scale factor
    */
-  getResolutionByScale(scale) {
+  getResolutionByScale(scale: number): { width: number; height: number; scale: number } {
     const { nativeWidth, nativeHeight } = chromaticConfig.display;
     return {
       width: nativeWidth * scale,

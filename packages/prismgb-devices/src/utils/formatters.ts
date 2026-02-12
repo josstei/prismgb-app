@@ -2,6 +2,25 @@
  * Data formatting utilities
  */
 
+interface RawDeviceInfo {
+  vendorId?: number;
+  productId?: number;
+  vid?: string;
+  pid?: string;
+  deviceName?: string;
+  configName?: string;
+  name?: string;
+  deviceClass?: number;
+  class?: number;
+}
+
+interface FormattedDeviceInfo {
+  vid?: string;
+  pid?: string;
+  name: string;
+  class: string | null;
+}
+
 /**
  * Formats USB device information into a standardized object structure.
  *
@@ -36,10 +55,11 @@
  * formatDeviceInfo({ vid: "1234", pid: "5678", name: "Chromatic" })
  * // Returns: { vid: "0x1234", pid: "0x5678", name: "Chromatic", class: null }
  */
-function formatDeviceInfo(device) {
+function formatDeviceInfo(device: RawDeviceInfo): FormattedDeviceInfo {
   // USB detection library returns vid/pid as hex strings, but some code uses vendorId/productId as numbers
   const vendorId = device.vendorId || (device.vid ? parseInt(device.vid, 16) : null);
   const productId = device.productId || (device.pid ? parseInt(device.pid, 16) : null);
+  const deviceClass = device.deviceClass ?? device.class;
 
   let ids = null;
   if (vendorId && productId) {
@@ -51,7 +71,7 @@ function formatDeviceInfo(device) {
   return {
     ...ids,
     name: device.deviceName || device.configName || device.name || 'Unknown',
-    class: device.deviceClass || device.class ? `0x${(device.deviceClass || device.class).toString(16)}` : null
+    class: deviceClass !== undefined ? `0x${deviceClass.toString(16)}` : null
   };
 }
 

@@ -11,8 +11,15 @@
 import { DeviceProfile } from '../../registry/device-profile.base';
 import { chromaticConfig, chromaticHelpers as chromaticConfigHelpers, mediaConfig } from './device-chromatic.config';
 
+type LoggerLike = {
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  debug: (...args: unknown[]) => void;
+};
+
 export class DeviceChromaticProfile extends DeviceProfile {
-  constructor(logger = null) {
+  constructor(logger: LoggerLike | null = null) {
     // Build configuration for base DeviceProfile
     const profileConfig = {
       id: chromaticConfig.id,
@@ -63,7 +70,7 @@ export class DeviceChromaticProfile extends DeviceProfile {
    * @param {string} label - Device label
    * @returns {boolean} True if label matches Chromatic
    */
-  matchesLabel(label) {
+  matchesLabel(label: string): boolean {
     return chromaticConfigHelpers.matchesLabel(label);
   }
 }
