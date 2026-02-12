@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
+import { BaseStreamLifecycle } from '@prismgb/stream-source';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;

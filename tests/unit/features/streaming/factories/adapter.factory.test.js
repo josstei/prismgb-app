@@ -5,17 +5,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
 
-// Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
-vi.mock('@renderer/infrastructure/streaming/acquisition/constraint-builder.ts', () => {
+vi.mock('@prismgb/stream-source', async (importOriginal) => {
+  const actual = await importOriginal();
   return {
+    ...actual,
     ConstraintBuilder: class MockConstraintBuilder {
       constructor() {}
-    }
-  };
-});
-
-vi.mock('@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts', () => {
-  return {
+    },
     BaseStreamLifecycle: class MockBaseStreamLifecycle {
       constructor() {}
     }

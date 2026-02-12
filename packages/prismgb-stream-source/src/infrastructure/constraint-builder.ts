@@ -1,7 +1,7 @@
 import type { LoggerLike } from '@prismgb/core';
-import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+import type { AcquisitionContextLike, AcquisitionOptions } from '../domain/acquisition.types';
 
-import { IConstraintBuilder } from './acquisition.interface';
+import { IConstraintBuilder } from '../domain/acquisition.interface';
 
 /**
  * ConstraintBuilder

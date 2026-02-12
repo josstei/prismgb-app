@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { IConstraintBuilder, IStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/acquisition.interface.ts';
+import { IConstraintBuilder, IStreamLifecycle } from '@prismgb/stream-source';
 import { IFallbackStrategy } from '@prismgb/devices';
 
 describe('IConstraintBuilder', () => {

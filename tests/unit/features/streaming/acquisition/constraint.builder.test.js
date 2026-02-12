@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder.ts';
+import { ConstraintBuilder } from '@prismgb/stream-source';
 
 describe('ConstraintBuilder', () => {
   let builder;

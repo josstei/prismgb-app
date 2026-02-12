@@ -1,6 +1,6 @@
 import { IFallbackStrategy } from '@prismgb/devices';
 import type { FallbackConfig } from '@prismgb/devices';
-import type { AcquisitionContextLike } from './acquisition.types';
+import type { AcquisitionContextLike } from '../domain/acquisition.types';
 
 /**
  * DeviceAwareFallbackStrategy

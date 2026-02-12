@@ -1,8 +1,11 @@
-import { DeviceAwareFallbackStrategy } from './fallback-strategy';
-import { formatErrorLabel } from '@shared/lib/errors.utils.js';
+import { DeviceAwareFallbackStrategy } from '../infrastructure/fallback-strategy';
 
-import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+import type { AcquisitionContextLike, AcquisitionOptions } from '../domain/acquisition.types';
 import type { LoggerLike } from '@prismgb/core';
+
+function formatErrorLabel(error: Error): string {
+  return `${error?.name || 'Error'}: ${error?.message || error}`;
+}
 
 interface ConstraintBuilderLike {
   build(context: AcquisitionContextLike, detailLevel: string, options?: Record<string, unknown>): MediaStreamConstraints;

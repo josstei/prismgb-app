@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy.ts';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { DeviceAwareFallbackStrategy, AcquisitionContext } from '@prismgb/stream-source';
 
 describe('DeviceAwareFallbackStrategy', () => {
   let strategy;

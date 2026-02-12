@@ -1,4 +1,4 @@
-import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
+import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types.js';
 
 /**
  * Interface for managing MediaStream lifecycle

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { AcquisitionContext } from '@prismgb/stream-source';
 
 describe('AcquisitionContext', () => {
   describe('Constructor', () => {

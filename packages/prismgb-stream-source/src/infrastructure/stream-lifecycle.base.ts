@@ -1,6 +1,6 @@
 import type { LoggerLike } from '@prismgb/core';
 
-import { IStreamLifecycle } from './acquisition.interface';
+import { IStreamLifecycle } from '../domain/acquisition.interface';
 
 type MediaServiceLike = {
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;

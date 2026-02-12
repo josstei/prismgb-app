@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseDeviceAdapter } from '@renderer/infrastructure/adapters/devices/device-base.adapter.ts';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { AcquisitionContext } from '@prismgb/stream-source';
 
 describe('BaseDeviceAdapter', () => {
   let adapter;

@@ -4,9 +4,7 @@
  */
 
 import { BaseDeviceAdapter } from '../device-base.adapter';
-import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator';
-import { DeviceAwareFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+import { StreamAcquisitionOrchestrator, DeviceAwareFallbackStrategy, AcquisitionContext } from '@prismgb/stream-source';
 import { chromaticConfig as defaultConfig, chromaticHelpers as defaultHelpers, mediaConfig as defaultMediaConfig } from '@prismgb/devices';
 
 interface IpcClientLike {

@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { StreamAcquisitionOrchestrator, AcquisitionContext } from '@prismgb/stream-source';
 
 describe('StreamAcquisitionOrchestrator', () => {
   let coordinator;
