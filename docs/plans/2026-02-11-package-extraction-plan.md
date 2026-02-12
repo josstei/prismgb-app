@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vite 7.x, Vitest 4.x, npm workspaces
 
-**Worktree:** `.worktrees/package-extraction` on branch `feature/package-extraction`
+**Worktree:** Current working tree on branch `codex/gpu-package-consolidation-v2` (do not use a separate worktree for this plan)
 
 **Design doc:** `docs/plans/2026-02-11-package-extraction-design.md`
 

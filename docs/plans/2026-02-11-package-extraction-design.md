@@ -1,7 +1,7 @@
 # Package Extraction Design
 
 **Date:** 2026-02-11
-**Branch:** TBD (from `codex/gpu-package-consolidation-v2`)
+**Branch:** `codex/gpu-package-consolidation-v2` (current branch; execute this plan here)
 **Goal:** Extract reusable domains from the application into `@prismgb/*` packages, eliminating `shared/` entirely.
 
 ## Overview
