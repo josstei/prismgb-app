@@ -56,7 +56,7 @@ import type { UIComponentRegistry } from '@renderer/presentation/controller/comp
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
 import type { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
-import type { AnimationCache } from '@shared/utils/performance-cache.utils.js';
+import type { AnimationCache } from '@renderer/infrastructure/utils/performance-cache.utils';
 
 export interface RendererContainerMap {
   eventBus: EventBus;

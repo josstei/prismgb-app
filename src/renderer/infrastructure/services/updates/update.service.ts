@@ -15,7 +15,7 @@
 
 import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@shared/config/update-state.config';
+import { UpdateState } from '@renderer/application/config/update-state.config';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,

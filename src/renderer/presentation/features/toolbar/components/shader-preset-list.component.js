@@ -4,10 +4,10 @@
  * Renders shader presets, handles selection, and responds to performance mode changes.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresetRegistry } from '@prismgb/gpu';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@renderer/application/config/event-channels';
 import { cleanupCallbacks } from '@renderer/presentation/lib/event-subscriptions.utils';
 
 class ShaderPresetListComponent {

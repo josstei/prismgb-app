@@ -36,7 +36,7 @@ vi.mock('@prismgb/devices', async (importOriginal) => {
 });
 
 // Mock config loader
-vi.mock('@shared/config/config-loader.utils.js', () => ({
+vi.mock('@main/infrastructure/config/config-loader.utils', () => ({
   appConfig: {
     USB_SCAN_DELAY: 100
   }

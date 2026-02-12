@@ -4,7 +4,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { appConfig } from '@shared/config/config-loader.utils.js';
+import { appConfig } from '@main/infrastructure/config/config-loader.utils';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceService } from './device.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';

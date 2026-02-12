@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { appConfig, uiConfig } from '../../../src/shared/config/config-loader.utils.js';
+import { appConfig, uiConfig } from '@main/infrastructure/config/config-loader.utils';
 
 describe('ConfigLoader', () => {
   describe('appConfig', () => {

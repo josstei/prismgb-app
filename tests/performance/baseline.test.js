@@ -20,7 +20,7 @@ import { createDeviceService, createDeviceAdapter } from '../factories/device.fa
 import { createMockDependencies } from '../factories/index.js';
 import { createChromaticWithFSM, DeviceState } from '../mocks/MockDeviceStateMachine.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@renderer/infrastructure/utils/performance-cache.utils';
 
 /**
  * Measure execution time of a function

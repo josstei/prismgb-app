@@ -12,8 +12,8 @@
 
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { generateEntityId } from '@shared/utils/string.utils.js';
-import { NotesStorageKeys } from '@shared/config/storage-keys.config';
+import { generateEntityId } from '@renderer/application/lib/string.utils';
+import { NotesStorageKeys } from '@renderer/infrastructure/config/storage-keys.config';
 
 class NotesService extends BaseService {
   static readonly dependencies = ['eventBus', 'loggerFactory', 'storageService'] as const;

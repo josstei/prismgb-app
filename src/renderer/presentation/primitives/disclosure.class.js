@@ -5,7 +5,7 @@
  * escape key and click-outside handling.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 class DisclosureController {

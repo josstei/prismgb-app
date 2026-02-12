@@ -4,7 +4,7 @@
  * Shared controller for listbox-style dropdowns with disclosure behavior.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from './disclosure.class.js';
 import { updateListboxActiveState } from './listbox.utils.js';

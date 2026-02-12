@@ -5,8 +5,8 @@
  */
 
 import { LifecycleService } from '@prismgb/core';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { TIMING } from '@shared/config/timing.config';
+import { EventChannels } from '@renderer/application/config/event-channels';
+import { TIMING } from '@renderer/application/config/timing.config';
 
 class CaptureUIBridge extends LifecycleService {
   static readonly dependencies = ['eventBus', 'uiController', 'loggerFactory'] as const;

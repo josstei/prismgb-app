@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventChannels as SharedEventChannels } from '@shared/events/event-channels.js';
+import { EventChannels as SharedEventChannels } from '@renderer/application/config/event-channels';
 import { EventChannels as CompatibilityEventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 function flattenEventValues(node: unknown): string[] {

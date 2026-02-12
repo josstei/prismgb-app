@@ -6,7 +6,7 @@
  * Orchestrators should use AppState instead of calling each other directly
  */
 
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@renderer/application/config/event-channels';
 
 import type { EventBusLike } from '@prismgb/core';
 

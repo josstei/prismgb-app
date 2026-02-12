@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   PerformanceCache,
   AnimationCache
-} from '../../../src/shared/utils/performance-cache.utils.js';
+} from '@renderer/infrastructure/utils/performance-cache.utils';
 
 /**
  * ResolutionCache - Test-only class for resolution calculations

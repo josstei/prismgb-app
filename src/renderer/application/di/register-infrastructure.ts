@@ -1,4 +1,4 @@
-import { PROTECTED_STORAGE_KEYS } from '@shared/config/storage-keys.config';
+import { PROTECTED_STORAGE_KEYS } from '@renderer/infrastructure/config/storage-keys.config';
 import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
@@ -22,7 +22,7 @@ import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/adapt
 import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service';
 import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager';
-import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@renderer/infrastructure/utils/performance-cache.utils';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 

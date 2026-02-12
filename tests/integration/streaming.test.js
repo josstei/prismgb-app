@@ -17,7 +17,7 @@ import {
   performanceUtils,
 } from '../mocks/index.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@renderer/infrastructure/utils/performance-cache.utils';
 
 describe('Streaming Pipeline Integration', () => {
   let mockDeviceManager;

@@ -4,7 +4,7 @@
  * Handles positioning and sizing for the notes panel.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 
 const RESIZE_DEBOUNCE_MS = 100;
 

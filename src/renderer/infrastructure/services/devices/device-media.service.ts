@@ -6,7 +6,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { DeviceDetectionHelper } from '@prismgb/devices';
-import { TIMING } from '@shared/config/timing.config';
+import { TIMING } from '@renderer/application/config/timing.config';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class DeviceMediaService extends BaseService {

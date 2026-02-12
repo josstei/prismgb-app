@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   AppError,
   formatErrorLabel
-} from '@shared/lib/errors.utils.js';
+} from '@renderer/infrastructure/lib/errors.utils';
 
 describe('Error Classes', () => {
   describe('AppError', () => {

@@ -7,7 +7,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
+import { SettingsStorageKeys } from '@renderer/infrastructure/config/storage-keys.config';
 
 type SettingsDefaults = {
   gameVolume: number;

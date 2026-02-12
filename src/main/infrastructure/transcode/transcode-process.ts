@@ -8,7 +8,7 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
-import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { TRANSCODE_CONFIG } from '@main/infrastructure/transcode/config/transcode.config';
 
 /**
  * Progress data emitted during transcode

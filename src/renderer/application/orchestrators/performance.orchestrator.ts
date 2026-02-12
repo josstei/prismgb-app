@@ -1,5 +1,5 @@
 import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@renderer/application/config/event-channels';
 
 export class PerformanceOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [

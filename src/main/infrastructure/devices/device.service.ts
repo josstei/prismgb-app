@@ -6,7 +6,7 @@
 
 import { BaseService } from '@prismgb/core';
 import usbDetection, { type Device as USBDetectionDevice } from 'usb-detection';
-import { appConfig } from '@shared/config/config-loader.utils.js';
+import { appConfig } from '@main/infrastructure/config/config-loader.utils';
 import { formatDeviceInfo, forEachDeviceWithModule, DeviceRegistry } from '@prismgb/devices';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';

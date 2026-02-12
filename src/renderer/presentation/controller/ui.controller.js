@@ -3,8 +3,8 @@
  * Delegates to UIComponentRegistry and UIEffects for actual work
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { downloadFile } from '@shared/lib/file-download.utils';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { downloadFile } from '@renderer/application/lib/file-download.utils';
 import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 class UIController {

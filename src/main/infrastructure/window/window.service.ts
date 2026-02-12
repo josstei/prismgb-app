@@ -7,7 +7,7 @@ import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { uiConfig } from '@shared/config/config-loader.utils.js';
+import { uiConfig } from '@main/infrastructure/config/config-loader.utils';
 import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { BaseService } from '@prismgb/core';
 

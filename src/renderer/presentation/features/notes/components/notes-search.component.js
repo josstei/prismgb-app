@@ -7,7 +7,7 @@
  * - Search query management
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 
 // Timing constant
 const SEARCH_DEBOUNCE_MS = 200;

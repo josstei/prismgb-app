@@ -14,7 +14,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { TIMING } from '@shared/config/timing.config';
+import { TIMING } from '@renderer/application/config/timing.config';
 
 export class StreamingViewportService extends BaseService {
   static readonly dependencies = ['loggerFactory'] as const;

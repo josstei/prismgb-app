@@ -13,7 +13,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
+import { FilenameGenerator } from '@renderer/infrastructure/lib/filename-generator.utils';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureService extends BaseService {

@@ -1,6 +1,6 @@
 /**
  * Compatibility re-export for event channels.
  *
- * Canonical source now lives in @shared/events/event-channels.js.
+ * Canonical source now lives locally in infrastructure/events/event-channels.ts.
  */
-export { EventChannels } from '@shared/events/event-channels.js';
+export { EventChannels } from '@renderer/application/config/event-channels';

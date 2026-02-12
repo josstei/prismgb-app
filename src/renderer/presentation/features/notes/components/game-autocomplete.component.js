@@ -8,9 +8,9 @@
  * - Item selection
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@shared/utils/string.utils.js';
+import { escapeHtml } from '@renderer/application/lib/string.utils';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // Autocomplete debounce
