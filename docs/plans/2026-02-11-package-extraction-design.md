@@ -6,7 +6,7 @@
 
 ## Overview
 
-The `shared/` directory contains 31 modules, but only 10 are genuinely cross-process. The remaining 21 are single-process consumers misplaced in `shared/`. Rather than cleaning up `shared/` directly, we extract the genuinely reusable domains into standalone packages. The remaining application code naturally returns to its owning process, and `shared/` is deleted.
+The `shared/` directory currently contains 32 runtime modules (37 files including `.d.ts` sidecars). Only 10 are genuinely cross-process; the remaining 22 are single-process consumers misplaced in `shared/`. Rather than cleaning up `shared/` directly, we extract the genuinely reusable domains into standalone packages. The remaining application code naturally returns to its owning process, and `shared/` is deleted.
 
 ## Package Architecture
 
@@ -17,18 +17,20 @@ The `shared/` directory contains 31 modules, but only 10 are genuinely cross-pro
 | `@prismgb/core` | Base classes, lifecycle, type contracts | None | None |
 | `@prismgb/di` | ServiceContainer (DI framework) | None | None |
 | `@prismgb/ipc` | IPC channel definitions + payload contracts | None | None |
-| `@prismgb/devices` | Device registry, profiles, detection | `@prismgb/core` | None |
+| `@prismgb/devices` | Device registry, profiles, detection | `@prismgb/core`, `@prismgb/ipc` | None |
 | `@prismgb/stream-source` | Stream acquisition pipeline | `@prismgb/core`, `@prismgb/devices` | None |
 
 ### Dependency Graph
 
 ```
-@prismgb/di          (standalone)
-@prismgb/ipc         (standalone)
-@prismgb/core        (standalone)
-    ^
-@prismgb/devices     (depends on core)
-    ^
+@prismgb/di           (standalone)
+@prismgb/ipc          (standalone)
+@prismgb/core         (standalone)
+   ^       ^
+   |       |
+@prismgb/devices      (depends on core + ipc)
+        ^
+        |
 @prismgb/stream-source (depends on core + devices)
 
 @prismgb/gpu         (standalone, existing, unchanged)
@@ -36,7 +38,7 @@ The `shared/` directory contains 31 modules, but only 10 are genuinely cross-pro
 
 ### Design Decisions
 
-- **Inter-package dependencies allowed:** `@prismgb/core` is the foundation. `devices` and `stream-source` declare it as a dependency. Keeps types DRY.
+- **Inter-package dependencies allowed:** `@prismgb/core` is the foundation. `devices` and `stream-source` declare it as a dependency. `devices` also depends on `@prismgb/ipc` for shared payload type contracts. Keeps types DRY.
 - **Package-first strategy:** Extract reusable packages first; cleanup falls out naturally as `shared/` empties.
 - **Test utils deferred:** Packages use minimal inline mocks for now. A `@prismgb/test-utils` package can be revisited once package boundaries are stable.
 
@@ -116,7 +118,7 @@ packages/prismgb-di/
 
 ```typescript
 export { ServiceContainer, asValue } from './service-container';
-export type { ValueRegistration, ServiceContainerOptions } from './service-container';
+export type { ValueRegistration } from './service-container';
 ```
 
 **Why separate from `@prismgb/core`:** The DI container defines *how services are wired* (container, resolution, registration). Core defines *what services are* (base classes, lifecycle contracts). A project could use the base classes with a different DI framework (like the main process already does with Awilix).
@@ -171,7 +173,7 @@ export type {
 
 ```
 packages/prismgb-devices/
-├── package.json          # depends on @prismgb/core
+├── package.json          # depends on @prismgb/core, @prismgb/ipc
 ├── tsconfig.json
 ├── vite.config.ts
 ├── vitest.config.ts
@@ -269,7 +271,7 @@ After package extractions, remaining `shared/` modules are application code that
 | `shared/base/dom-listener.utils.js` | `renderer/presentation/primitives/dom-listener.utils.ts` |
 | `shared/config/timing.config.ts` | `renderer/infrastructure/config/timing.config.ts` |
 | `shared/config/storage-keys.config.ts` | `renderer/infrastructure/config/storage-keys.config.ts` |
-| `shared/config/update-state.config.ts` | `renderer/infrastructure/services/settings/update-state.config.ts` |
+| `shared/config/update-state.config.ts` | `renderer/infrastructure/config/update-state.config.ts` |
 | `shared/events/event-channels.ts` | `renderer/infrastructure/events/event-channels.ts` |
 | `shared/lib/errors.utils.js` | `renderer/infrastructure/lib/errors.utils.ts` |
 | `shared/lib/file-download.utils.ts` | `renderer/presentation/lib/file-download.utils.ts` |
@@ -362,7 +364,7 @@ src/
     ├── infrastructure/
     │   ├── adapters/
     │   ├── browser/
-    │   ├── config/               # timing, storage-keys from shared/
+    │   ├── config/               # timing, storage-keys, update-state from shared/
     │   ├── events/               # event-channels now canonical here
     │   ├── factories/
     │   ├── lib/                  # errors from shared/
@@ -410,23 +412,23 @@ Create all 5 package directories with standard scaffolding. Add all aliases and 
 
 - Create `packages/prismgb-{core,di,ipc,devices,stream-source}/`
 - Add `package.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts`, `src/index.ts` to each
-- Add 5 aliases to `vite.config.js` and `vitest.config.js`
+- Add 5 aliases to every `vite.config.js` alias block (main, preload, root) and to `vitest.config.js`
 - Add 5 workspace deps to root `package.json`
+- Add `@prismgb/*` path mappings to `tsconfig.base.json` and `tsconfig.app.json`
 - Run `npm install` to link workspaces
 - **Commit checkpoint**
 
-### Stage 1: Independent Extractions (3 parallel agents)
+### Stage 1: Foundation Extractions (dependency-aware sequencing)
 
 | Agent | Package | Files Moved | Imports Updated | Model | Risk |
 |-------|---------|-------------|-----------------|-------|------|
-| A | `@prismgb/core` | 6 from `shared/base/` + `shared/interfaces/` | ~45 across main + renderer | sonnet | HIGH |
+| A | `@prismgb/core` | 6 from `shared/base/` + 2 from `shared/interfaces/` | ~45 across main + renderer | sonnet | HIGH |
 | B | `@prismgb/di` | 1 from `renderer/infrastructure/di/` | 1 in `container.ts` | haiku | LOW |
 | C | `@prismgb/ipc` | 3 from `shared/ipc/` | ~14 across main + preload + renderer | sonnet | MEDIUM |
 
-**File ownership (no overlap):**
-- Agent A: `shared/base/*`, `shared/interfaces/lifecycle*`, `shared/interfaces/infrastructure*`
-- Agent B: `renderer/infrastructure/di/service-container*`
-- Agent C: `shared/ipc/*`
+**Execution constraints:**
+- Agent A (`core`) and Agent C (`ipc`) both touch overlapping consumer files (for example `src/main/ipc/ipc-handler.registry.ts`, `src/main/infrastructure/window/window.service.ts`, `src/renderer/infrastructure/services/updates/update.service.ts`), so they must run sequentially.
+- Agent B (`di`) is independent and can run in parallel with either A or C.
 
 **Validation:** `npm run test:run && npm run lint`
 **Commit checkpoint**
@@ -460,9 +462,11 @@ Create all 5 package directories with standard scaffolding. Add all aliases and 
 ### Stage 5: Finalization (sequential)
 
 - Delete `shared/` directory
-- Remove `@shared/` alias from `vite.config.js`, `vitest.config.js`
-- Remove `@shared/` boundary rules from `eslint.config.js`
-- Final validation: `npm run test:run && npm run lint`
+- Remove `@shared/` alias from all `vite.config.js` alias blocks and from `vitest.config.js`
+- Remove shared-specific preload build wiring (`copy-ipc-channels` plugin) if still present
+- Remove `@shared/*` path mappings / includes from `tsconfig.base.json` and `tsconfig.app.json`; verify `@prismgb/*` mappings
+- Remove `@shared/` boundary rules from `eslint.config.js` and shared-layer handling from `scripts/check-layer-boundaries.js`
+- Final validation: package builds + package typechecks + app `npm run typecheck` + `npm run test:run` + `npm run lint`
 - **Final commit**
 
 ### Summary
@@ -470,10 +474,10 @@ Create all 5 package directories with standard scaffolding. Add all aliases and 
 | Stage | Agents | Parallelism | Commit |
 |-------|--------|-------------|--------|
 | 0 - Scaffold | 1 | Sequential | Yes |
-| 1 - core, di, ipc | 3 | Parallel | Yes |
+| 1 - core, di, ipc | 3 | `core -> ipc` sequential; `di` parallel-safe | Yes |
 | 2 - devices | 1 | Sequential | Yes |
 | 3 - stream-source | 1 | Sequential | Yes |
 | 4 - relocate | 2 | Parallel | Yes |
 | 5 - finalize | 1 | Sequential | Yes |
 
-**Total: 8 agents across 6 stages, 6 validation checkpoints, 6 commits.**
+**Total: 6 stages, 6 validation checkpoints, 6 commits.**

@@ -16,14 +16,15 @@
 
 ## Stage 0: Scaffolding
 
-### Task 0.1: Add package aliases to vite.config.js
+### Task 0.1: Add package aliases to vite.config.js and vitest.config.js
 
 **Files:**
-- Modify: `vite.config.js` (alias section, ~line 160)
+- Modify: `vite.config.js` (three alias blocks: main, preload, root resolve)
+- Modify: `vitest.config.js` (root alias block)
 
-**Step 1: Add 5 new aliases after the existing `@prismgb/gpu` alias**
+**Step 1: Add 5 new aliases to root `resolve.alias` in `vite.config.js`**
 
-In `vite.config.js`, find the resolve.alias block and add:
+In `vite.config.js`, find the root `resolve.alias` block and add:
 
 ```javascript
 '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
@@ -35,20 +36,34 @@ In `vite.config.js`, find the resolve.alias block and add:
 
 Place them after the `@prismgb/gpu` line and before the `url` line.
 
-**Step 2: Add the same 5 aliases to vitest.config.js**
+**Step 2: Add the same 5 aliases to the two nested alias blocks in `vite.config.js`**
+
+`vite.config.js` has separate alias maps for:
+- main process plugin (`electron[...] -> vite.resolve.alias`)
+- preload plugin (`electron[...] -> vite.resolve.alias`)
+
+Add the same package aliases to both maps so main/preload builds resolve package imports.
+
+**Step 3: Add the same 5 aliases to `vitest.config.js`**
 
 In `vitest.config.js`, find the resolve.alias block (~line 15) and add the same 5 aliases after `@prismgb/gpu`.
 
-**Step 3: Verify no syntax errors**
+**Step 4: Verify no syntax errors**
 
-Run: `node -e "require('./vite.config.js')"` — should not error (or just visually verify).
+Run:
+- `node -e "import('./vite.config.js').catch((e) => { console.error(e); process.exit(1); })"`
+- `node -e "import('./vitest.config.js').catch((e) => { console.error(e); process.exit(1); })"`
+
+Both should succeed.
 
 ---
 
-### Task 0.2: Add workspace dependencies to package.json
+### Task 0.2: Add workspace dependencies and TypeScript path mappings
 
 **Files:**
 - Modify: `package.json` (dependencies section, ~line 57)
+- Modify: `tsconfig.base.json` (paths)
+- Modify: `tsconfig.app.json` (paths + include)
 
 **Step 1: Add 5 new workspace dependencies**
 
@@ -61,6 +76,14 @@ In the `"dependencies"` block, add after `"@prismgb/gpu": "*"`:
 "@prismgb/devices": "*",
 "@prismgb/stream-source": "*",
 ```
+
+**Step 2: Add package path mappings to `tsconfig.base.json`**
+
+Add `@prismgb/{core,di,ipc,devices,stream-source}` and wildcard mappings to package `src/` directories (same pattern already used for `@prismgb/gpu`).
+
+**Step 3: Add package path mappings to `tsconfig.app.json`**
+
+Add `@prismgb/{core,di,ipc,devices,stream-source}` and wildcard mappings to package `dist/` directories (same pattern already used for `@prismgb/gpu`) so app strict typecheck resolves emitted declarations.
 
 ---
 
@@ -264,11 +287,11 @@ Same pattern as Task 0.3, with these differences:
 
 **package.json**:
 - `name`: `"@prismgb/devices"`
-- Add to dependencies: `"@prismgb/core": "*"`
+- Add to dependencies: `"@prismgb/core": "*"`, `"@prismgb/ipc": "*"`
 
 **vite.config.ts**:
 - `name`: `'PrismGBDevices'`
-- Add `@prismgb/core` to rollupOptions.external: `external: ['@prismgb/core']`
+- Add `@prismgb/core` and `@prismgb/ipc` to rollupOptions.external: `external: ['@prismgb/core', '@prismgb/ipc']`
 
 **src/index.ts placeholder:**
 
@@ -315,13 +338,18 @@ Same pattern as Task 0.3, with these differences:
 
 Run: `npm install`
 
-**Step 2: Verify all packages are linked**
+**Step 2: Build all new package shells once to generate declaration outputs**
+
+Run:
+`npm run build --workspace=@prismgb/core --workspace=@prismgb/di --workspace=@prismgb/ipc --workspace=@prismgb/devices --workspace=@prismgb/stream-source`
+
+**Step 3: Verify all packages are linked**
 
 Run: `npm ls @prismgb/core @prismgb/di @prismgb/ipc @prismgb/devices @prismgb/stream-source`
 
 Expected: All 5 packages listed as linked workspace dependencies.
 
-**Step 3: Commit checkpoint**
+**Step 4: Commit checkpoint**
 
 ```bash
 git add -A
@@ -335,9 +363,11 @@ Add workspace dependencies to root package.json."
 
 ---
 
-## Stage 1: Independent Package Extractions (Parallel)
+## Stage 1: Foundation Package Extractions (overlap-aware sequencing)
 
-Stage 1 extracts 3 independent packages simultaneously. Each task is self-contained with no file overlap.
+Stage 1 extracts 3 packages with dependency-aware sequencing:
+- `Task 1.1` (`@prismgb/core`) and `Task 1.3` (`@prismgb/ipc`) must run sequentially because they update overlapping consumer files.
+- `Task 1.2` (`@prismgb/di`) is independent and can run in parallel with either `1.1` or `1.3`.
 
 ### Task 1.1: Extract @prismgb/core
 
@@ -353,7 +383,7 @@ Stage 1 extracts 3 independent packages simultaneously. Each task is self-contai
 
 **Files to modify (update imports from `@shared/base/*` and `@shared/interfaces/{lifecycle,infrastructure}` → `@prismgb/core`):**
 
-Replace `import { BaseService } from '@shared/base/service.base.js'` with `import { BaseService } from '@prismgb/core'` in these 31 files:
+Replace `import { BaseService } from '@shared/base/service.base.js'` with `import { BaseService } from '@prismgb/core'` in these 30 files:
 1. `src/main/infrastructure/devices/device-bridge.service.ts`
 2. `src/main/infrastructure/devices/device-lifecycle.service.ts`
 3. `src/main/infrastructure/devices/device.service.ts`
@@ -384,7 +414,6 @@ Replace `import { BaseService } from '@shared/base/service.base.js'` with `impor
 28. `src/renderer/infrastructure/services/capture/gpu-recording.service.ts`
 29. `src/renderer/infrastructure/services/capture/capture-save.service.ts`
 30. `src/renderer/infrastructure/services/capture/capture.service.ts`
-31. `src/renderer/renderer-app.orchestrator.ts` (imports `LoggerLike` type)
 
 Replace `import { LifecycleService } from '@shared/base/lifecycle-service.base'` with `import { LifecycleService } from '@prismgb/core'` in these 7 files:
 1. `src/renderer/presentation/bridges/transcode-ui.bridge.ts`
@@ -438,8 +467,18 @@ export type { LoggerLike, LoggerFactoryLike, EventBusLike } from './interfaces/i
 
 **Update internal imports within the moved files:**
 - `service.base.ts`: Change `import { validateDependencies } from './validate-deps.utils.js'` → `'./validate-deps'`
-- `lifecycle-service.base.ts`: Change `import { BaseService } from './service.base.js'` → `'./service.base'`, change `from '../../interfaces/lifecycle.interface'` → `'../interfaces/lifecycle.interface'`, change `from '../../interfaces/infrastructure.types'` → `'../interfaces/infrastructure.types'`
-- `orchestrator.base.ts`: Change `import { LifecycleService } from './lifecycle-service.base'` → keep as-is (same relative path)
+- `lifecycle-service.base.ts`: Change `import { BaseService } from './service.base.js'` → `'./service.base'`
+- `orchestrator.base.ts`: Change `import { LifecycleService } from './lifecycle-service.base.ts'` → `'./lifecycle-service.base'`
+
+**Preserve type contracts from `.d.ts` sidecars when converting JS → TS:**
+- `service.base.ts` must carry forward:
+  - `LoggerLike` interface
+  - `ServiceDependencies` type alias
+  - generic `BaseService<TDependencies extends ServiceDependencies = ServiceDependencies>`
+  - declaration-merging behavior that exposes dependency properties on service instances
+- `orchestrator.base.ts` must carry forward:
+  - generic `BaseOrchestrator<TDependencies extends ServiceDependencies = ServiceDependencies>`
+  - declaration-merging behavior that exposes dependency properties on orchestrator instances
 
 **Delete originals:** Remove the 8 source files from `src/shared/base/` and `src/shared/interfaces/` that were moved. Keep `dom-listener.utils.js` in `shared/base/` (it moves later in Stage 4).
 
@@ -507,6 +546,11 @@ Replace `import IPC_CHANNELS from '@shared/ipc/channels.json'` with `import { ch
 1. `src/preload/index.js` (remove import assertion if present)
 2. `src/main/infrastructure/window/window.service.ts` (remove `with { type: 'json' }` assertion)
 
+**Files to modify — preload build config cleanup (1 file):**
+
+`vite.config.js` currently has a `copy-ipc-channels` preload plugin that copies `src/shared/ipc/channels.json` to `dist/shared/ipc`.
+After moving IPC channels into `@prismgb/ipc`, remove that plugin (and remove `fs` import from `vite.config.js` if it becomes unused).
+
 **Files to modify — `@shared/ipc/preload-api.contract` consumers (14 files):**
 
 Replace `import type { ... } from '@shared/ipc/preload-api.contract.js'` with `import type { ... } from '@prismgb/ipc'` in:
@@ -564,23 +608,35 @@ NOTE: Verify the exact type names by reading `preload-api.contract.ts` — expor
 
 **Delete originals:** Remove `src/shared/ipc/` directory entirely.
 
-**Validation:** `npm run test:run && npm run lint`
+**Validation:** `npm run build --workspace=@prismgb/ipc && npm run typecheck --workspace=@prismgb/ipc`
 
 ---
 
 ### Task 1.4: Stage 1 validation and commit
 
-**Step 1: Run full test suite**
+**Step 1: Build touched packages and emit declarations**
+
+Run: `npm run build --workspace=@prismgb/core --workspace=@prismgb/di --workspace=@prismgb/ipc`
+
+**Step 2: Typecheck touched packages**
+
+Run: `npm run typecheck --workspace=@prismgb/core --workspace=@prismgb/di --workspace=@prismgb/ipc`
+
+**Step 3: Run app-level strict typecheck**
+
+Run: `npm run typecheck`
+
+**Step 4: Run full test suite**
 
 Run: `npm run test:run`
-Expected: 128 test files, 2731 tests passing.
+Expected: all existing tests pass.
 
-**Step 2: Run linter**
+**Step 5: Run linter**
 
 Run: `npm run lint`
 Expected: No errors.
 
-**Step 3: Commit**
+**Step 6: Commit**
 
 ```bash
 git add -A
@@ -676,9 +732,12 @@ export { formatDeviceInfo } from './utils/formatters';
 
 ### Task 2.3: Stage 2 validation and commit
 
-**Step 1:** Run: `npm run test:run` — Expected: 128 files, 2731 tests passing.
-**Step 2:** Run: `npm run lint` — Expected: No errors.
-**Step 3: Commit**
+**Step 1:** Run: `npm run build --workspace=@prismgb/devices`
+**Step 2:** Run: `npm run typecheck --workspace=@prismgb/devices`
+**Step 3:** Run: `npm run typecheck`
+**Step 4:** Run: `npm run test:run` — Expected: all existing tests pass.
+**Step 5:** Run: `npm run lint` — Expected: No errors.
+**Step 6: Commit**
 
 ```bash
 git add -A
@@ -686,7 +745,7 @@ git commit -m "refactor(devices): extract @prismgb/devices package
 
 Extract device registry, profiles, detection utilities, device
 interfaces, and formatters into @prismgb/devices. Depends on
-@prismgb/core for type contracts."
+@prismgb/core and @prismgb/ipc for type contracts."
 ```
 
 ---
@@ -743,9 +802,12 @@ export { BaseStreamLifecycle } from './infrastructure/stream-lifecycle.base';
 
 ### Task 3.3: Stage 3 validation and commit
 
-**Step 1:** Run: `npm run test:run` — Expected: 128 files, 2731 tests passing.
-**Step 2:** Run: `npm run lint` — Expected: No errors.
-**Step 3: Commit**
+**Step 1:** Run: `npm run build --workspace=@prismgb/stream-source`
+**Step 2:** Run: `npm run typecheck --workspace=@prismgb/stream-source`
+**Step 3:** Run: `npm run typecheck`
+**Step 4:** Run: `npm run test:run` — Expected: all existing tests pass.
+**Step 5:** Run: `npm run lint` — Expected: No errors.
+**Step 6: Commit**
 
 ```bash
 git add -A
@@ -760,6 +822,18 @@ fallback strategy, lifecycle, orchestrator) into
 ---
 
 ## Stage 4: Relocate Remaining shared/ Modules
+
+### Task 4.0: Create destination directories and keep barrel exports coherent
+
+Create destination directories before moving files (some do not exist yet):
+- `src/renderer/infrastructure/config/`
+- `src/renderer/infrastructure/lib/`
+- `src/renderer/infrastructure/utils/`
+- `src/main/infrastructure/config/`
+- `src/main/infrastructure/transcode/config/`
+- `src/main/infrastructure/utils/`
+
+If any moved module should be re-exported from an existing `index.ts` barrel, update that barrel in the same commit.
 
 ### Task 4.1: Relocate renderer-bound modules
 
@@ -823,7 +897,7 @@ Update 2 imports from `@shared/config/update-state.config` → `@renderer/infras
 
 Move: `src/shared/events/event-channels.ts` → `src/renderer/infrastructure/events/event-channels.ts`
 
-Delete the old re-export shim `src/renderer/infrastructure/events/event-channels.config.js` (it just re-exported from @shared).
+Keep compatibility shim `src/renderer/infrastructure/events/event-channels.config.js`, but rewrite it to re-export from the new local canonical file (`./event-channels` or `@renderer/infrastructure/events/event-channels`) instead of `@shared`.
 
 Update 20 imports from `@shared/events/event-channels.js` → `@renderer/infrastructure/events/event-channels`:
 1. `src/renderer/presentation/features/notes/notes-panel.component.js`
@@ -847,7 +921,7 @@ Update 20 imports from `@shared/events/event-channels.js` → `@renderer/infrast
 19. `src/renderer/presentation/features/toolbar/components/shader-preset-list.component.js`
 20. `src/renderer/infrastructure/events/event-bus.class.js` (was importing via re-export shim — now use direct import)
 
-Also check any files that imported from `@renderer/infrastructure/events/event-channels.config.js` and update to `@renderer/infrastructure/events/event-channels`.
+Optional cleanup: migrate `@renderer/infrastructure/events/event-channels.config.js` consumers to `@renderer/infrastructure/events/event-channels` incrementally; not required for correctness in this extraction.
 
 **4.1f: `errors.utils.js` → `renderer/infrastructure/lib/`**
 
@@ -920,9 +994,10 @@ Update 1 import from `@shared/utils/safe-disposer.utils.js` → `@main/infrastru
 
 ### Task 4.3: Stage 4 validation and commit
 
-**Step 1:** Run: `npm run test:run` — Expected: 128 files, 2731 tests passing.
-**Step 2:** Run: `npm run lint` — Expected: No errors.
-**Step 3: Commit**
+**Step 1:** Run: `npm run typecheck`
+**Step 2:** Run: `npm run test:run` — Expected: all existing tests pass.
+**Step 3:** Run: `npm run lint` — Expected: No errors.
+**Step 4: Commit**
 
 ```bash
 git add -A
@@ -939,36 +1014,39 @@ config, safe-disposer)."
 
 ## Stage 5: Finalization
 
-### Task 5.1: Delete shared/ and clean up configuration
+### Task 5.1: Delete shared/ and clean up configuration/tooling
 
-**Step 1: Verify shared/ is empty**
+**Step 1: Remove `@shared` aliases everywhere**
 
-Run: `ls -R src/shared/` — should show empty directories or nothing meaningful remaining.
+- Remove `@shared` from all three alias blocks in `vite.config.js` (main plugin alias, preload plugin alias, root alias).
+- Remove `@shared` from `vitest.config.js`.
 
-If any files remain that were missed, identify and relocate them.
+**Step 2: Remove shared-specific build wiring**
 
-**Step 2: Delete shared/ directory**
+- Ensure the preload `copy-ipc-channels` plugin is removed from `vite.config.js` (if not already removed in Stage 1.3).
+- Remove any now-unused imports (for example `fs`) from `vite.config.js`.
 
-Run: `rm -rf src/shared/`
+**Step 3: Update TypeScript path mappings and includes**
 
-**Step 3: Remove @shared/ alias from vite.config.js**
+- Remove `@shared/*` mappings from `tsconfig.base.json` and `tsconfig.app.json`.
+- Verify `@prismgb/{core,di,ipc,devices,stream-source}` mappings exist in both files.
+- Remove `src/shared/**/*.ts` from `tsconfig.app.json` `include`.
 
-Delete this line from the resolve.alias block:
-```javascript
-'@shared': path.resolve(__dirname, 'src/shared'),
-```
+**Step 4: Update architecture/lint rules that hard-code shared**
 
-**Step 4: Remove @shared/ alias from vitest.config.js**
+- Remove the `src/shared/**/*.{js,ts}` rule block in `eslint.config.js`.
+- Update `scripts/check-layer-boundaries.js` to remove `shared`-layer special handling (`LayerIds.SHARED`, layer sequence entry, forbidden-layer map entry, and `@shared/` alias resolution).
+- Update boundary-script fixtures/tests accordingly so architecture tests continue to validate intended constraints.
 
-Delete the same `@shared` line from the resolve.alias block.
+**Step 5: Update tests, mocks, and scripts that reference shared paths**
 
-**Step 5: Update eslint.config.js boundary rules**
+Search and fix all remaining references for:
+- `@shared/`
+- `@/shared/`
+- relative `src/shared/...` imports in tests/scripts
 
-Remove all `@shared/*` boundary rules. The ESLint config enforces layer boundaries — with `shared/` gone, those rules are dead. Review if any new rules are needed for `@prismgb/*` imports (packages are external dependencies, ESLint doesn't restrict those by default).
-
-**Step 6: Update tests that reference @shared/**
-
-Search for any remaining `@shared/` references in `tests/` directory. Update test imports and `vi.mock()` calls to use new package paths or new file locations.
+Use:
+`rg -n "@shared/|@/shared/|src/shared/" src tests scripts vite.config.js vitest.config.js eslint.config.js tsconfig.base.json tsconfig.app.json package.json --glob '!tests/coverage/**'`
 
 Key test files to check:
 - `tests/unit/shared/base/service.test.js` → may need to import from `@prismgb/core`
@@ -981,7 +1059,7 @@ Key test files to check:
 - `tests/unit/shared/ipc/channels.test.js` → import from `@prismgb/ipc`
 - `tests/unit/shared/ipc/channels.contract.test.js` → import from `@prismgb/ipc`
 - `tests/unit/shared/lib/errors.test.js` → update to new renderer path
-- `tests/unit/renderer/di/service-container.test.js` → import from `@prismgb/di`
+- `tests/unit/renderer/infrastructure/di/service-container.test.js` → import from `@prismgb/di`
 - `tests/unit/features/devices/shared/device-profile.test.js` → import from `@prismgb/devices`
 - `tests/unit/features/devices/shared/device-registry.test.js` → import from `@prismgb/devices`
 - `tests/unit/features/devices/shared/device-detection.test.js` → import from `@prismgb/devices`
@@ -989,32 +1067,59 @@ Key test files to check:
 - `tests/unit/features/streaming/acquisition/*` → update if referencing @renderer/infrastructure/streaming/acquisition
 - `tests/unit/preload/preload-api.contract.test.js` → import types from `@prismgb/ipc`
 
-Also update all `vi.mock('@shared/...')` calls in any test file. Search: `grep -r "@shared/" tests/`
+Also update:
+- all `vi.mock('@shared/...')` calls
+- script/data references such as `scripts/type-debt-allowlist.json` entries that still point to `src/shared/*`
+- comments/docs that claim canonical files live in `src/shared/*` (for example preload/e2e fixture notes)
 
-**Step 7: Update src/types/preload-api.d.ts**
+**Step 6: Update src/types/preload-api.d.ts**
 
 This file was updated in Task 1.3 to import from `@prismgb/ipc`. Verify it's correct.
+
+**Step 7: Delete `src/shared/` once all references are removed**
+
+Run: `rm -rf src/shared/`
+
+**Step 8: Verify no shared references remain**
+
+Run:
+`rg -n "@shared/|@/shared/|src/shared/" src tests scripts vite.config.js vitest.config.js eslint.config.js tsconfig.base.json tsconfig.app.json package.json --glob '!tests/coverage/**'`
+
+Expected: zero matches.
 
 ---
 
 ### Task 5.2: Final validation and commit
 
-**Step 1: Full test suite**
+**Step 1: Build and typecheck all extracted packages**
+
+Run:
+`npm run build --workspace=@prismgb/core --workspace=@prismgb/di --workspace=@prismgb/ipc --workspace=@prismgb/devices --workspace=@prismgb/stream-source`
+
+Run:
+`npm run typecheck --workspace=@prismgb/core --workspace=@prismgb/di --workspace=@prismgb/ipc --workspace=@prismgb/devices --workspace=@prismgb/stream-source`
+
+**Step 2: App strict typecheck**
+
+Run: `npm run typecheck`
+
+**Step 3: Full test suite**
 
 Run: `npm run test:run`
-Expected: 128 test files, 2731 tests passing.
+Expected: all existing tests pass.
 
-**Step 2: Lint**
+**Step 4: Lint**
 
 Run: `npm run lint`
 Expected: No errors.
 
-**Step 3: Verify no @shared/ references remain**
+**Step 5: Verify no shared references remain**
 
-Run: `grep -r "@shared/" src/ tests/ vite.config.js vitest.config.js eslint.config.js`
-Expected: Zero matches.
+Run:
+`rg -n "@shared/|@/shared/|src/shared/" src tests scripts vite.config.js vitest.config.js eslint.config.js tsconfig.base.json tsconfig.app.json package.json --glob '!tests/coverage/**'`
+Expected: zero matches.
 
-**Step 4: Commit**
+**Step 6: Commit**
 
 ```bash
 git add -A
@@ -1033,12 +1138,12 @@ vite, vitest, and eslint configs. Update all test imports."
 | Stage | Tasks | Description | Parallelizable |
 |-------|-------|-------------|----------------|
 | 0 | 0.1-0.8 | Scaffolding + aliases + deps | Sequential |
-| 1 | 1.1-1.4 | Extract core, di, ipc | Tasks 1.1/1.2/1.3 parallel |
+| 1 | 1.1-1.4 | Extract core, di, ipc | `1.1 -> 1.3` sequential; `1.2` parallel-safe |
 | 2 | 2.1-2.3 | Extract devices | Sequential |
 | 3 | 3.1-3.3 | Extract stream-source | Sequential |
-| 4 | 4.1-4.3 | Relocate remaining modules | Tasks 4.1/4.2 parallel |
+| 4 | 4.0-4.3 | Relocate remaining modules | `4.0` sequential setup; tasks 4.1/4.2 parallel |
 | 5 | 5.1-5.2 | Delete shared/, clean config | Sequential |
 
 **Total import updates:** ~130 across 90+ files
-**Test baseline:** 128 files, 2731 tests
+**Test baseline:** use the current main-branch baseline at execution time (do not hardcode counts)
 **Validation checkpoints:** 6 (one per stage)
