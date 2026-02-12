@@ -12,7 +12,7 @@
  * - 'transcode:cancelled' - Transcoding was cancelled
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import type {
   TranscodeCancelResponse,
@@ -23,7 +23,7 @@ import type {
   TranscodeProgressPayload,
   TranscodeStartOptions,
   TranscodeStartResponse
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 
 class TranscodeService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;

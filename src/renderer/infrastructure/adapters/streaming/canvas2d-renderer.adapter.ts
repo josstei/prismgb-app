@@ -10,7 +10,7 @@
  * - Handle canvas context state
  */
 
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
 

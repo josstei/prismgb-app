@@ -4,7 +4,7 @@
  * Coordinates fullscreen, cinematic, and minimalist visual state.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 export class PresentationModeService extends BaseService {
   static readonly dependencies = ['uiController', 'appState', 'loggerFactory'] as const;

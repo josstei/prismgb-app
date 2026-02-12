@@ -8,8 +8,8 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
-import { BaseService } from '@shared/base/service.base.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import { BaseService } from '@prismgb/core';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { TRANSCODE_CONFIG, TranscodeState } from '@shared/features/transcode/transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
 import {

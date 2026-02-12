@@ -6,8 +6,8 @@
 
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater';
-import { BaseService } from '@shared/base/service.base.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import { BaseService } from '@prismgb/core';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 
 /**

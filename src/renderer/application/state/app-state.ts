@@ -8,7 +8,7 @@
 
 import { EventChannels } from '@shared/events/event-channels.js';
 
-import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { EventBusLike } from '@prismgb/core';
 
 interface StreamingServiceLike {
   readonly isStreaming: boolean;

@@ -12,7 +12,7 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 

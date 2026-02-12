@@ -11,7 +11,7 @@
  * - Coordinate canvas lifecycle and stream health
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 export class StreamingRenderPipelineService extends BaseService {

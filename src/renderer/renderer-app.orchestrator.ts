@@ -17,7 +17,7 @@ import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.
 import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import type { UpdateUIBridge } from '@renderer/presentation/bridges/update-ui.bridge';
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
-import type { LoggerLike } from '@shared/base/service.base.js';
+import type { LoggerLike } from '@prismgb/core';
 
 /**
  * Retry a dynamic import with exponential backoff

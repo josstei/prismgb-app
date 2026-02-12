@@ -11,7 +11,7 @@
  * - Manage file saving
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class CaptureOrchestrator extends BaseOrchestrator {

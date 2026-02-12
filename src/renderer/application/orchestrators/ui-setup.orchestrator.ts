@@ -10,7 +10,7 @@
  * - Toggle settings menu
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';

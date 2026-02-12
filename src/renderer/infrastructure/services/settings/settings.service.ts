@@ -5,7 +5,7 @@
  * 100% UI-agnostic - emits events when settings change
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
 

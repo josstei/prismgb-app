@@ -4,7 +4,7 @@
  * Translates update events into UI notifications and badge visibility.
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 class UpdateUIBridge extends LifecycleService {

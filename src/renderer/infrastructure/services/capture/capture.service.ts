@@ -12,7 +12,7 @@
  * - 'capture:recording-error' - Recording failed (codec error, disk full, etc.)
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 

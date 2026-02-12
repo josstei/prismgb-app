@@ -5,7 +5,7 @@
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 class PerformanceAnimationService extends BaseService {
   static readonly dependencies = ['loggerFactory'] as const;

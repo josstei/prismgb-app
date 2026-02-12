@@ -5,7 +5,7 @@
  * Emits state updates through provided callbacks.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 const DEFAULT_STATE = Object.freeze({
   performanceModeEnabled: false,

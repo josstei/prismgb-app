@@ -4,8 +4,8 @@
  * Bridges device connection events to tray updates and renderer IPC.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import { BaseService } from '@prismgb/core';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceService } from './device.service.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';

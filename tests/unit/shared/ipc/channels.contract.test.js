@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import channelsJson from '@shared/ipc/channels.json';
-import { channels as channelsConfig } from '@shared/ipc/channels.config.js';
+import channelsJson from '../../../../packages/prismgb-ipc/src/channels.json';
+import { channels as channelsConfig } from '@prismgb/ipc';
 
 function flattenChannelValues(node) {
   const values = [];

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import { ServiceContainer, asValue } from '@prismgb/di';
 
 class MockService {
   static readonly dependencies = ['depA', 'depB'] as const;

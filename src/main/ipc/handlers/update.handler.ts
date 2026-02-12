@@ -4,14 +4,14 @@
  */
 
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateGetStatusResponse,
   UpdateInstallResponse,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 import {
   getErrorMessage,
   registerWrappedHandler,

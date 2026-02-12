@@ -4,8 +4,8 @@
  */
 
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
-import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
+import type { DeviceStatusPayload } from '@prismgb/ipc';
 import {
   getErrorMessage,
   registerWrappedHandler,

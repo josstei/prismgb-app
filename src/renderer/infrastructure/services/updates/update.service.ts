@@ -13,7 +13,7 @@
  * - 'update:state-changed' - State transition
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { UpdateState } from '@shared/config/update-state.config';
 import type {
@@ -24,7 +24,7 @@ import type {
   UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 
 // Re-export for backward compatibility
 export { UpdateState };

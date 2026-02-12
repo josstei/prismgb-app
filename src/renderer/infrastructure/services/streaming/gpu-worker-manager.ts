@@ -12,7 +12,7 @@ import {
   createWorkerMessage
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
-import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, EventBusLike } from '@prismgb/core';
 
 export type WorkerCapabilities = Record<string, unknown>;
 

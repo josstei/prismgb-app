@@ -4,9 +4,9 @@
  */
 
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
-import type { GpuPolicyResponse } from '@shared/ipc/preload-api.contract.js';
+import type { GpuPolicyResponse } from '@prismgb/ipc';
 import {
   getErrorMessage,
   registerWrappedHandler,

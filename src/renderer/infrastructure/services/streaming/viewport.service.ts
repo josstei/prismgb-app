@@ -13,7 +13,7 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { TIMING } from '@shared/config/timing.config';
 
 export class StreamingViewportService extends BaseService {

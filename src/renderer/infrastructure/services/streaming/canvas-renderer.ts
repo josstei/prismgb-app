@@ -22,7 +22,7 @@ type AnimationCacheLike = {
   cancelAllAnimations: () => void;
 };
 
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 export class StreamingCanvasRenderer {
   logger: LoggerLike;

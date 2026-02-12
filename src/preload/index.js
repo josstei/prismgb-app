@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
 import { MAX_LISTENERS_PER_CHANNEL, createListenerRegistry } from '@preload/listener-registry.js';
 import {
   isValidCallback,

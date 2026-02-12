@@ -8,7 +8,7 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 type AudioWarmupResult = {

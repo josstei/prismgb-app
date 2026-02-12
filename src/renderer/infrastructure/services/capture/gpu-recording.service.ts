@@ -5,7 +5,7 @@
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class CaptureGpuRecordingService extends BaseService {

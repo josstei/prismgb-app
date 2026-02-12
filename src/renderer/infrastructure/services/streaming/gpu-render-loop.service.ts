@@ -4,7 +4,7 @@
  * Owns requestVideoFrameCallback loop lifecycle.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 class StreamingGpuRenderLoopService extends BaseService {
   static readonly dependencies = ['loggerFactory'] as const;

@@ -2,7 +2,7 @@
  * Renderer DI container composition shell.
  */
 
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import { ServiceContainer, asValue } from '@prismgb/di';
 import { PresetRegistry } from '@prismgb/gpu';
 import { registerInfrastructure } from '@renderer/application/di/register-infrastructure';
 import { registerDevices } from '@renderer/application/di/register-devices';

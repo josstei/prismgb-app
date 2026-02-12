@@ -7,7 +7,7 @@
  * Follows the operation promise pattern established in StreamingService.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 /**
  * Operation types for logging and debugging

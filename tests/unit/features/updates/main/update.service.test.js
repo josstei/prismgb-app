@@ -25,7 +25,7 @@ vi.mock('electron-updater', () => ({
   }
 }));
 
-vi.mock('@shared/ipc/channels.js', () => ({
+vi.mock('@prismgb/ipc', () => ({
   channels: {
     UPDATE: {
       AVAILABLE: 'update:available',

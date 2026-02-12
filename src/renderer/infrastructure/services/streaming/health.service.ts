@@ -1,4 +1,4 @@
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 /**
  * Stream Health Service

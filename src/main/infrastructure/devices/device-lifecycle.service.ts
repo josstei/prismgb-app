@@ -3,7 +3,7 @@
  * Owns the device auto-launch sequence, decoupling device detection from window management
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { appConfig } from '@shared/config/config-loader.utils.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceService } from './device.service.js';

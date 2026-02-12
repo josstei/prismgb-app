@@ -5,8 +5,8 @@
 
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
-import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
+import type { WindowSetFullscreenResponse } from '@prismgb/ipc';
 import {
   getErrorMessage,
   registerWrappedHandler,

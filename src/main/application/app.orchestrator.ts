@@ -10,7 +10,7 @@
 import { app } from 'electron';
 import path from 'path';
 import type { AwilixContainer } from 'awilix';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
 import { createAppContainer, type ContainerDependencies } from './container.js';
 import { MainLogger } from '@main/infrastructure/logging/index.js';

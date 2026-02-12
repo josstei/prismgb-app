@@ -4,7 +4,7 @@
  * Owns fullscreen event listeners and UI state updates.
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 class SettingsFullscreenService extends LifecycleService {

@@ -9,7 +9,7 @@
  * - Publish preference events for UI updates
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {

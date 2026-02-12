@@ -1,5 +1,5 @@
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
-import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import type { DeviceStatusPayload } from '@prismgb/ipc';
 
 export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {
   static readonly dependencies = ['ipcClient'] as const;

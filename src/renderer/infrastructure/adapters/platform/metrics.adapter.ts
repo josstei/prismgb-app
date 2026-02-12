@@ -5,7 +5,7 @@
  * This adapter isolates the PerformanceMetricsService from direct global access.
  */
 
-import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
+import type { ProcessMetricsResponse } from '@prismgb/ipc';
 
 type MetricsApiLike = {
   getProcessMetrics: () => Promise<ProcessMetricsResponse>;

@@ -16,7 +16,7 @@ import { DeviceDetectionHelper } from '@shared/features/devices/device-detection
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
-import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 
 type AdapterMetadata = {
   deviceType?: string;

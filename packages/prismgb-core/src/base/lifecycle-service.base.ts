@@ -1,4 +1,4 @@
-import { BaseService } from './service.base.js';
+import { BaseService } from './service.base';
 import type { ILifecycle, IEventSubscriber } from '../interfaces/lifecycle.interface';
 import type { EventBusLike } from '../interfaces/infrastructure.types';
 

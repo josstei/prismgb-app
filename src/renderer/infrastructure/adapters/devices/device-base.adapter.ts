@@ -1,7 +1,7 @@
 import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 
-import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, EventBusLike } from '@prismgb/core';
 
 interface ConstraintBuilderLike {
   build(context: AcquisitionContext, detailLevel: string, options?: Record<string, unknown>): MediaStreamConstraints;

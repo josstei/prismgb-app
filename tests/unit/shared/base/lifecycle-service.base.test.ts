@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 
 type TestDependencies = {
   eventBus?: {

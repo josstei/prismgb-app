@@ -10,7 +10,7 @@
  * - Common dependencies reused across adapters
  */
 
-import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 
 type RendererConstructor = new (deps: Record<string, unknown>) => unknown;
 

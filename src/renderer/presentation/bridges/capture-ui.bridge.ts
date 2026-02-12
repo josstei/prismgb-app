@@ -4,7 +4,7 @@
  * Translates capture events into UI feedback.
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { TIMING } from '@shared/config/timing.config';
 

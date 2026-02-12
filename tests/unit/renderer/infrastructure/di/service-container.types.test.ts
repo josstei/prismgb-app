@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import { ServiceContainer, asValue } from '@prismgb/di';
 import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
 
 class LoggerService {

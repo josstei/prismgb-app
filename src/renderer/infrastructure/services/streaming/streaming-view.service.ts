@@ -5,7 +5,7 @@
  * Keeps streaming orchestration free of direct DOM manipulation.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 class StreamingViewService extends BaseService {
   static readonly dependencies = ['uiController', 'loggerFactory'] as const;

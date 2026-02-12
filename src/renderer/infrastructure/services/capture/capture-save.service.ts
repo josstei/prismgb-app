@@ -8,7 +8,7 @@
  * Note: UI status feedback for transcode events is handled by TranscodeUIBridge.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { downloadFile } from '@shared/lib/file-download.utils';
 

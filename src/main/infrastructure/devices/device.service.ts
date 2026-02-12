@@ -4,7 +4,7 @@
  * Integrates with ProfileRegistry for profile-based device matching
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import usbDetection, { type Device as USBDetectionDevice } from 'usb-detection';
 import { appConfig } from '@shared/config/config-loader.utils.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';

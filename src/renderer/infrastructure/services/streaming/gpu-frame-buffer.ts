@@ -5,7 +5,7 @@
  * Prevents frame drops by throttling submission when the queue is full.
  * Tracks metrics for performance monitoring.
  */
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 export class GpuFrameBuffer {
   static readonly dependencies = ['loggerFactory'] as const;

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import { ServiceContainer, asValue } from '@prismgb/di';
 
 describe('ServiceContainer', () => {
   let container;

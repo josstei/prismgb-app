@@ -8,8 +8,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@shared/config/config-loader.utils.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json' with { type: 'json' };
-import { BaseService } from '@shared/base/service.base.js';
+import { channels as IPC_CHANNELS } from '@prismgb/ipc';
+import { BaseService } from '@prismgb/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;

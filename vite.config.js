@@ -3,7 +3,6 @@ import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -100,23 +99,6 @@ export default defineConfig({
                   fileName: 'package.json',
                   source: JSON.stringify({ type: 'commonjs' }, null, 2)
                 });
-              }
-            },
-            {
-              // Copy IPC channels.json for preload access
-              name: 'copy-ipc-channels',
-              writeBundle() {
-                const srcPath = path.resolve(__dirname, 'src/shared/ipc/channels.json');
-                const destDir = path.resolve(__dirname, 'dist/shared/ipc');
-                const destPath = path.join(destDir, 'channels.json');
-
-                // Create directory if it doesn't exist
-                if (!fs.existsSync(destDir)) {
-                  fs.mkdirSync(destDir, { recursive: true });
-                }
-
-                // Copy the file
-                fs.copyFileSync(srcPath, destPath);
               }
             }
           ],

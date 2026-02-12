@@ -22,7 +22,7 @@ import type {
   UpdateProgressPayload,
   WindowIsFullscreenResponse,
   WindowSetFullscreenResponse
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 
 export {};
 

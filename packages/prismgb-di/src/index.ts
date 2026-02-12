@@ -1,2 +1,2 @@
-// @prismgb/di - Dependency injection container
-// Populated in Stage 1
+export { ServiceContainer, asValue } from './service-container';
+export type { ValueRegistration } from './service-container';

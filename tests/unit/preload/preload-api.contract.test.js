@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect } from 'vitest';
-import channelsJson from '@shared/ipc/channels.json';
+import channelsJson from '../../../packages/prismgb-ipc/src/channels.json';
 
 function readPreloadSource() {
   const preloadPath = path.resolve(process.cwd(), 'src/preload/index.js');
@@ -79,7 +79,7 @@ describe('Preload API contract', () => {
   it('keeps preload declaration contract typed (no Promise<unknown>)', () => {
     const typeSource = readPreloadTypeSource();
 
-    expect(typeSource).toContain("from '@shared/ipc/preload-api.contract.js'");
+    expect(typeSource).toContain("from '@prismgb/ipc'");
     expect(typeSource).not.toContain('Promise<unknown>');
     expect(typeSource).not.toMatch(/callback:\s*\([^)]*unknown/);
   });

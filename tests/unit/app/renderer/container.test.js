@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@renderer/infrastructure/di/service-container.factory.js', () => ({
+vi.mock('@prismgb/di', () => ({
   ServiceContainer: mocks.MockServiceContainer,
   asValue: mocks.asValue
 }));

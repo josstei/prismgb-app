@@ -4,7 +4,7 @@
  * Manages persisted device IDs per device type.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 
 function getDeviceStorageKey(deviceType) {

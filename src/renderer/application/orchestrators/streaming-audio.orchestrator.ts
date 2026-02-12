@@ -5,7 +5,7 @@
  * Keeps audio warm-up and fallback handling isolated from streaming orchestration.
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class StreamingAudioOrchestrator extends BaseOrchestrator {

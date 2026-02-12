@@ -4,7 +4,7 @@
  * Owns process metrics snapshot scheduling and logging.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 export class PerformanceMetricsService extends BaseService {
   static readonly dependencies = ['loggerFactory', 'metricsAdapter'] as const;

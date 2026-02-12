@@ -66,7 +66,6 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
     classOrFactory: ServiceFactory<TService>,
     dependencies: string[] = []
   ): ServiceContainer<TServices & Record<TKey, TService>> {
-    // Backward-compatible pathway that preserves historical "constructor-first" behavior.
     return this._register(name, classOrFactory, dependencies, true);
   }
 
