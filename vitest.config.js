@@ -18,7 +18,12 @@ export default defineConfig({
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@preload': path.resolve(__dirname, 'src/preload'),
       '@shared': path.resolve(__dirname, 'src/shared'),
-      '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+      '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
+      '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
+      '@prismgb/di': path.resolve(__dirname, 'packages/prismgb-di/src/index.ts'),
+      '@prismgb/ipc': path.resolve(__dirname, 'packages/prismgb-ipc/src/index.ts'),
+      '@prismgb/devices': path.resolve(__dirname, 'packages/prismgb-devices/src/index.ts'),
+      '@prismgb/stream-source': path.resolve(__dirname, 'packages/prismgb-stream-source/src/index.ts')
     }
   },
   test: {

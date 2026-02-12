@@ -25,6 +25,36 @@
       ],
       "@prismgb/gpu/*": [
         "packages/prismgb-gpu/dist/*"
+      ],
+      "@prismgb/core": [
+        "packages/prismgb-core/dist/index.d.ts"
+      ],
+      "@prismgb/core/*": [
+        "packages/prismgb-core/dist/*"
+      ],
+      "@prismgb/di": [
+        "packages/prismgb-di/dist/index.d.ts"
+      ],
+      "@prismgb/di/*": [
+        "packages/prismgb-di/dist/*"
+      ],
+      "@prismgb/ipc": [
+        "packages/prismgb-ipc/dist/index.d.ts"
+      ],
+      "@prismgb/ipc/*": [
+        "packages/prismgb-ipc/dist/*"
+      ],
+      "@prismgb/devices": [
+        "packages/prismgb-devices/dist/index.d.ts"
+      ],
+      "@prismgb/devices/*": [
+        "packages/prismgb-devices/dist/*"
+      ],
+      "@prismgb/stream-source": [
+        "packages/prismgb-stream-source/dist/index.d.ts"
+      ],
+      "@prismgb/stream-source/*": [
+        "packages/prismgb-stream-source/dist/*"
       ]
     },
     "strict": true,
