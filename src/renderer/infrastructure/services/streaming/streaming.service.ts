@@ -13,7 +13,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
+import { DeviceDetectionHelper } from '@prismgb/devices';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 
 /**

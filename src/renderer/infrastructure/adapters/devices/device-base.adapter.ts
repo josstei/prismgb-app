@@ -1,4 +1,4 @@
-import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
+import { IDeviceAdapter } from '@prismgb/devices';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
 
 import type { LoggerLike, EventBusLike } from '@prismgb/core';

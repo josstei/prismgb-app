@@ -5,8 +5,8 @@
  * Acts as the single source of truth for all supported devices.
  */
 
-import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
-import type { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
+import { formatDeviceInfo } from '@prismgb/devices';
+import type { DeviceProfile } from '@prismgb/devices';
 import type { Logger, LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 
 interface USBDevice {

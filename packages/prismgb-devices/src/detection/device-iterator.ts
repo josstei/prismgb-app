@@ -4,7 +4,7 @@
  * Used by both main process (DeviceServiceMain) and renderer process (StreamingAdapterFactory).
  */
 
-import { DeviceRegistry } from './device.registry.js';
+import { DeviceRegistry } from '../registry/device.registry';
 
 /**
  * Iterate over enabled devices that have the specified module type

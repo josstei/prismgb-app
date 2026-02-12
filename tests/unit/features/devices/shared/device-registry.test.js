@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DeviceRegistry, DEVICE_REGISTRY } from '@shared/features/devices/device.registry.js';
-import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
+import { DeviceRegistry, DEVICE_REGISTRY, DeviceChromaticProfile } from '@prismgb/devices';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
 
 describe('DeviceRegistry', () => {

@@ -17,28 +17,23 @@ vi.mock('usb-detection', () => ({
 }));
 
 // Mock DeviceRegistry
-vi.mock('@shared/features/devices/device.registry.js', () => ({
-  DeviceRegistry: {
-    registerProfileClass: vi.fn(),
-    getProfileClass: vi.fn(),
-    getAll: vi.fn(() => [])
-  }
-}));
-
-// Mock device iterator
-vi.mock('@shared/features/devices/device-iterator.utils.js', () => ({
-  forEachDeviceWithModule: vi.fn((moduleKey, callback, options) => {
-    // Simulate iterating over a test device
-    if (moduleKey === 'profileModule') {
-      callback({ id: 'test-device', name: 'Test Device' });
-    }
-  })
-}));
-
-// Mock formatters
-vi.mock('@shared/utils/formatters.utils.js', () => ({
-  formatDeviceInfo: vi.fn((device) => ({ formatted: true, ...device }))
-}));
+vi.mock('@prismgb/devices', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    DeviceRegistry: {
+      registerProfileClass: vi.fn(),
+      getProfileClass: vi.fn(),
+      getAll: vi.fn(() => [])
+    },
+    forEachDeviceWithModule: vi.fn((moduleKey, callback, options) => {
+      if (moduleKey === 'profileModule') {
+        callback({ id: 'test-device', name: 'Test Device' });
+      }
+    }),
+    formatDeviceInfo: vi.fn((device) => ({ formatted: true, ...device }))
+  };
+});
 
 // Mock config loader
 vi.mock('@shared/config/config-loader.utils.js', () => ({
@@ -58,8 +53,7 @@ vi.mock('@main/infrastructure/events/event-channels.config.js', () => ({
 }));
 
 import { DeviceService } from '@main/infrastructure/devices/device.service.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
+import { DeviceRegistry, forEachDeviceWithModule } from '@prismgb/devices';
 
 describe('DeviceService (Main Process)', () => {
   let deviceService;

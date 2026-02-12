@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts';
-import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
+import { IDeviceStatusProvider } from '@prismgb/devices';
 
 describe('DeviceIpcStatusAdapter', () => {
   let adapter;

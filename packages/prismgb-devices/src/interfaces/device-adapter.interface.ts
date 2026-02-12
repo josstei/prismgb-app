@@ -8,7 +8,7 @@ export class IDeviceAdapter {
    * @param {Object} _deviceInfo - Device information
    * @returns {Promise<void>}
    */
-  async initialize(_deviceInfo) {
+  async initialize(_deviceInfo: unknown): Promise<void> {
     throw new Error('initialize() must be implemented');
   }
 
@@ -17,7 +17,7 @@ export class IDeviceAdapter {
    * @param {Object} _options - Stream options
    * @returns {Promise<MediaStream>}
    */
-  async getStream(_options = {}) {
+  async getStream(_options: Record<string, unknown> = {}): Promise<MediaStream> {
     throw new Error('getStream() must be implemented');
   }
 
@@ -26,7 +26,7 @@ export class IDeviceAdapter {
    * @param {MediaStream} _stream - Stream to release
    * @returns {Promise<void>}
    */
-  async releaseStream(_stream) {
+  async releaseStream(_stream: MediaStream): Promise<void> {
     throw new Error('releaseStream() must be implemented');
   }
 
@@ -34,7 +34,7 @@ export class IDeviceAdapter {
    * Get adapter capabilities
    * @returns {Object} Capabilities object
    */
-  getCapabilities() {
+  getCapabilities(): Record<string, unknown> {
     throw new Error('getCapabilities() must be implemented');
   }
 
@@ -42,7 +42,7 @@ export class IDeviceAdapter {
    * Get device profile
    * @returns {Object} Device profile
    */
-  getProfile() {
+  getProfile(): unknown {
     throw new Error('getProfile() must be implemented');
   }
 
@@ -50,7 +50,7 @@ export class IDeviceAdapter {
    * Cleanup adapter resources
    * @returns {Promise<void>}
    */
-  async cleanup() {
+  async cleanup(): Promise<void> {
     throw new Error('cleanup() must be implemented');
   }
 }

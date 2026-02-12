@@ -1,4 +1,4 @@
-import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
+import { IDeviceStatusProvider } from '@prismgb/devices';
 import type { DeviceStatusPayload } from '@prismgb/ipc';
 
 export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {

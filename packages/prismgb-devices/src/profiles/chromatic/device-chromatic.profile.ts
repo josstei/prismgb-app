@@ -8,8 +8,8 @@
  * while being self-contained within the chromatic domain.
  */
 
-import { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
-import { chromaticConfig, chromaticHelpers as chromaticConfigHelpers, mediaConfig } from './device-chromatic.config.js';
+import { DeviceProfile } from '../../registry/device-profile.base';
+import { chromaticConfig, chromaticHelpers as chromaticConfigHelpers, mediaConfig } from './device-chromatic.config';
 
 export class DeviceChromaticProfile extends DeviceProfile {
   constructor(logger = null) {

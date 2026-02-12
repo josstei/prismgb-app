@@ -7,14 +7,12 @@
 import { BaseService } from '@prismgb/core';
 import usbDetection, { type Device as USBDetectionDevice } from 'usb-detection';
 import { appConfig } from '@shared/config/config-loader.utils.js';
-import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { formatDeviceInfo, forEachDeviceWithModule, DeviceRegistry } from '@prismgb/devices';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
-import type { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
+import type { DeviceProfile } from '@prismgb/devices';
 
 const { USB_SCAN_DELAY } = appConfig;
 

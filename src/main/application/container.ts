@@ -20,7 +20,7 @@ import {
 } from '@main/infrastructure/devices/index.js';
 import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
 import { TranscodeService } from '@main/infrastructure/transcode/index.js';
-import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
+import { DeviceChromaticProfile } from '@prismgb/devices';
 import type { MainLogger } from '@main/infrastructure/logging/index.js';
 
 /**

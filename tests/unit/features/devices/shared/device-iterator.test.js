@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { forEachDeviceWithModule, DeviceRegistry } from '@prismgb/devices';
 
 describe('Device Iterator', () => {
   let mockDevices;

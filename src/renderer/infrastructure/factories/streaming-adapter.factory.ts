@@ -12,9 +12,7 @@
 
 import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceDetectionHelper, forEachDeviceWithModule, DeviceRegistry } from '@prismgb/devices';
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 

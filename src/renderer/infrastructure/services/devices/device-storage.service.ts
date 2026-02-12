@@ -5,7 +5,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry } from '@prismgb/devices';
 
 function getDeviceStorageKey(deviceType) {
   return `${deviceType || 'device'}_id`;

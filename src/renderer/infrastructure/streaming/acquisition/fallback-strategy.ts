@@ -1,5 +1,5 @@
-import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
-import type { FallbackConfig } from '@shared/interfaces/fallback-strategy.interface.js';
+import { IFallbackStrategy } from '@prismgb/devices';
+import type { FallbackConfig } from '@prismgb/devices';
 import type { AcquisitionContextLike } from './acquisition.types';
 
 /**

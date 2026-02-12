@@ -9,7 +9,7 @@
  * Uses DEVICE_REGISTRY for detection patterns - no device-specific imports needed.
  */
 
-import { DeviceRegistry } from './device.registry.js';
+import { DeviceRegistry } from '../registry/device.registry';
 
 /**
  * Match a device label against registered label patterns

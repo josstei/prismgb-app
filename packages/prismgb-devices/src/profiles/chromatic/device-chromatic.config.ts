@@ -212,4 +212,3 @@ export const chromaticHelpers = Object.freeze({
     };
   }
 });
-
