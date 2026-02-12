@@ -5,7 +5,7 @@
  * Shows transcode progress toast and manages record button state.
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
+import { LifecycleService } from '@shared/base/lifecycle-service.base';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 class TranscodeUIBridge extends LifecycleService {

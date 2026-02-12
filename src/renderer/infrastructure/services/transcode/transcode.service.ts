@@ -12,7 +12,7 @@
  * - 'transcode:cancelled' - Transcoding was cancelled
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
+import { LifecycleService } from '@shared/base/lifecycle-service.base';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import type {
   TranscodeCancelResponse,

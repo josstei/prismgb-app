@@ -13,7 +13,7 @@
  * - 'update:state-changed' - State transition
  */
 
-import { LifecycleService } from '@shared/base/lifecycle-service.base.ts';
+import { LifecycleService } from '@shared/base/lifecycle-service.base';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { UpdateState } from '@shared/config/update-state.config';
 import type {
