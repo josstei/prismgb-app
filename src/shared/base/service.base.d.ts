@@ -5,14 +5,19 @@ export interface LoggerLike {
   error(...args: unknown[]): void;
 }
 
-export type ServiceDependencies = Record<string, unknown>;
+export type ServiceDependencies = Record<string, any>;
 
-export class BaseService {
+export class BaseService<TDependencies extends ServiceDependencies = ServiceDependencies> {
   protected logger: LoggerLike;
   protected readonly _serviceName: string;
-  constructor(dependencies: object, requiredDeps?: string[], serviceName?: string | null);
+  constructor(
+    dependencies: TDependencies,
+    requiredDeps?: ReadonlyArray<Extract<keyof TDependencies, string>>,
+    serviceName?: string | null
+  );
 }
 
 /* eslint-disable no-redeclare */
-export interface BaseService extends ServiceDependencies {}
+export interface BaseService<TDependencies extends ServiceDependencies = ServiceDependencies>
+  extends TDependencies {}
 /* eslint-enable no-redeclare */

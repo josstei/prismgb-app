@@ -49,9 +49,13 @@ function getContainer(): RendererServiceContainer {
   return container;
 }
 
-function resetContainer() {
+async function resetContainer() {
   if (container) {
-    container.dispose();
+    if (typeof container.disposeAsync === 'function') {
+      await container.disposeAsync();
+    } else {
+      container.dispose();
+    }
     container = null;
   }
 }

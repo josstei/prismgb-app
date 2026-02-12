@@ -12,12 +12,8 @@ const { MockUIController } = vi.hoisted(() => ({
   })
 }));
 
-vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
-  UIController: MockUIController
-}));
-
-vi.mock('@renderer/application/container.ts', () => ({
-  initializeContainer: vi.fn(() => ({
+const { mockRendererContainer, mockResetContainer } = vi.hoisted(() => {
+  const mockRendererContainer = {
     resolve: vi.fn((name) => {
       if (name === 'appOrchestrator') {
         return {
@@ -48,31 +44,31 @@ vi.mock('@renderer/application/container.ts', () => ({
       }
       if (name === 'uiEventBridge') {
         return {
-          initialize: vi.fn(),
+          initialize: vi.fn().mockResolvedValue(),
           dispose: vi.fn()
         };
       }
       if (name === 'captureUiBridge') {
         return {
-          initialize: vi.fn(),
+          initialize: vi.fn().mockResolvedValue(),
           dispose: vi.fn()
         };
       }
       if (name === 'transcodeUiBridge') {
         return {
-          initialize: vi.fn(),
+          initialize: vi.fn().mockResolvedValue(),
           dispose: vi.fn()
         };
       }
       if (name === 'updateUiBridge') {
         return {
-          initialize: vi.fn(),
+          initialize: vi.fn().mockResolvedValue(),
           dispose: vi.fn()
         };
       }
       if (name === 'transcodeService') {
         return {
-          initialize: vi.fn(),
+          initialize: vi.fn().mockResolvedValue(),
           dispose: vi.fn()
         };
       }
@@ -89,8 +85,27 @@ vi.mock('@renderer/application/container.ts', () => ({
       return {};
     }),
     register: vi.fn(),
-    dispose: vi.fn()
-  })),
+    dispose: vi.fn(),
+    disposeAsync: vi.fn().mockResolvedValue()
+  };
+
+  const mockResetContainer = vi.fn(async () => {
+    await mockRendererContainer.disposeAsync();
+  });
+
+  return {
+    mockRendererContainer,
+    mockResetContainer
+  };
+});
+
+vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
+  UIController: MockUIController
+}));
+
+vi.mock('@renderer/application/container.ts', () => ({
+  initializeContainer: vi.fn(() => mockRendererContainer),
+  resetContainer: mockResetContainer,
   asValue: vi.fn((val) => ({ __asValue: true, value: val }))
 }));
 
@@ -176,18 +191,12 @@ describe('RendererAppOrchestrator', () => {
   });
 
   describe('cleanup', () => {
-    it('should cleanup orchestrator', async () => {
+    it('should dispose container asynchronously via resetContainer', async () => {
       await app.initialize();
       await app.cleanup();
 
-      expect(app.orchestrator.cleanup).toHaveBeenCalled();
-    });
-
-    it('should dispose container', async () => {
-      await app.initialize();
-      await app.cleanup();
-
-      expect(app.container.dispose).toHaveBeenCalled();
+      expect(mockResetContainer).toHaveBeenCalled();
+      expect(mockRendererContainer.disposeAsync).toHaveBeenCalled();
     });
 
     it('should set isInitialized to false', async () => {

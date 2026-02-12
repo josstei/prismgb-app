@@ -10,7 +10,6 @@
 
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose } from '@shared/utils/safe-disposer.utils.js';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
 import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
@@ -147,39 +146,23 @@ class RendererAppOrchestrator {
   async cleanup() {
     this.logger.info('Cleaning up renderer application...');
 
-    // Cleanup orchestrator first
-    if (this.orchestrator) {
-      await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
+    try {
+      const { resetContainer } = await importWithRetry(
+        () => import('./application/container')
+      );
+      await resetContainer();
+    } catch (error) {
+      this.logger.error('Failed to cleanup renderer container:', error);
     }
 
-    // Cleanup UI bridges, services, and controllers
-    if (this._transcodeService) {
-      await safeDispose(this.logger, 'TranscodeService', this._transcodeService as Object);
-    }
-    if (this._transcodeUiBridge) {
-      await safeDispose(this.logger, 'TranscodeUIBridge', this._transcodeUiBridge as Object);
-    }
-    if (this._captureUiBridge) {
-      await safeDispose(this.logger, 'CaptureUIBridge', this._captureUiBridge as Object);
-    }
-    if (this._updateUiBridge) {
-      await safeDispose(this.logger, 'UpdateUIBridge', this._updateUiBridge as Object);
-    }
-    if (this._uiController) {
-      await safeDispose(this.logger, 'UIController', this._uiController as Object);
-    }
-
-    // Cleanup AppState (resolved from container)
-    const appState = this.container?.resolve?.('appState');
-    if (appState) {
-      await safeDispose(this.logger, 'AppState', appState as Object);
-    }
-
-    // Cleanup container last
-    if (this.container) {
-      await safeDispose(this.logger, 'container', this.container as Object);
-    }
-
+    this.container = null;
+    this.orchestrator = null;
+    this._uiController = null;
+    this._uiEventBridge = null;
+    this._captureUiBridge = null;
+    this._transcodeUiBridge = null;
+    this._updateUiBridge = null;
+    this._transcodeService = null;
     this.isInitialized = false;
     this.logger.info('Renderer application cleanup complete');
   }
@@ -237,24 +220,24 @@ class RendererAppOrchestrator {
     try {
       const container = this._requireContainer();
       const uiEventBridge = container.resolve('uiEventBridge');
-      uiEventBridge.initialize();
+      await uiEventBridge.initialize();
       this._uiEventBridge = uiEventBridge;
 
       const captureUiBridge = container.resolve('captureUiBridge');
-      captureUiBridge.initialize();
+      await captureUiBridge.initialize();
       this._captureUiBridge = captureUiBridge;
 
       const transcodeUiBridge = container.resolve('transcodeUiBridge');
-      transcodeUiBridge.initialize();
+      await transcodeUiBridge.initialize();
       this._transcodeUiBridge = transcodeUiBridge;
 
       const updateUiBridge = container.resolve('updateUiBridge');
-      updateUiBridge.initialize();
+      await updateUiBridge.initialize();
       this._updateUiBridge = updateUiBridge;
 
       // Initialize TranscodeService to set up IPC event listeners
       const transcodeService = container.resolve('transcodeService');
-      transcodeService.initialize();
+      await transcodeService.initialize();
       this._transcodeService = transcodeService;
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);

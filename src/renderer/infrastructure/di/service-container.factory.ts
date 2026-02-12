@@ -28,7 +28,7 @@ interface ServiceDefinition {
 }
 
 interface DisposableLike {
-  dispose?: () => void;
+  dispose?: () => void | Promise<void>;
 }
 
 interface ResolutionErrorLike {
@@ -164,6 +164,25 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
 
       try {
         disposable.dispose();
+      } catch (error) {
+        console.error(`[ServiceContainer] Error disposing "${name}":`, error);
+      }
+    }
+
+    this._instances.clear();
+    this._definitions.clear();
+    this._resolutionStack = [];
+  }
+
+  async disposeAsync(): Promise<void> {
+    for (const [name, instance] of this._instances.entries()) {
+      const disposable = instance as DisposableLike;
+      if (!disposable || typeof disposable.dispose !== 'function') {
+        continue;
+      }
+
+      try {
+        await disposable.dispose();
       } catch (error) {
         console.error(`[ServiceContainer] Error disposing "${name}":`, error);
       }

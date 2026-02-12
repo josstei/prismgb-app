@@ -1,13 +1,12 @@
 import { BaseService } from './service.base.js';
 import type { ILifecycle, IEventSubscriber } from '../interfaces/lifecycle.interface';
-import type { EventBusLike, LoggerLike } from '../interfaces/infrastructure.types';
+import type { EventBusLike } from '../interfaces/infrastructure.types';
 
-type ServiceContext = {
-  logger?: LoggerLike;
-  eventBus?: EventBusLike;
-};
+type LifecycleDependencies = Record<string, any>;
 
-export abstract class LifecycleService extends BaseService implements ILifecycle, IEventSubscriber {
+export abstract class LifecycleService<
+  TDependencies extends LifecycleDependencies = LifecycleDependencies
+> extends BaseService<TDependencies> implements ILifecycle, IEventSubscriber {
   protected _subscriptions: (() => void)[] = [];
   private _isInitialized = false;
   private _isDisposed = false;
@@ -22,53 +21,37 @@ export abstract class LifecycleService extends BaseService implements ILifecycle
 
   async initialize(): Promise<void> {
     if (this._isInitialized) {
-      (this as unknown as ServiceContext).logger?.warn(
-        `${this._serviceName} already initialized`
-      );
+      this.logger?.warn(`${this._serviceName} already initialized`);
       return;
     }
 
-    (this as unknown as ServiceContext).logger?.info(
-      `Initializing ${this._serviceName}`
-    );
+    this.logger?.info(`Initializing ${this._serviceName}`);
 
     try {
       await this.onInitialize();
       this._isInitialized = true;
       this._isDisposed = false;
-      (this as unknown as ServiceContext).logger?.info(
-        `${this._serviceName} initialized`
-      );
+      this.logger?.info(`${this._serviceName} initialized`);
     } catch (error) {
-      (this as unknown as ServiceContext).logger?.error(
-        `${this._serviceName} initialization failed`,
-        error
-      );
+      this.logger?.error(`${this._serviceName} initialization failed`, error);
       throw error;
     }
   }
 
   async dispose(): Promise<void> {
     if (this._isDisposed) {
-      (this as unknown as ServiceContext).logger?.debug(
-        `${this._serviceName} already disposed`
-      );
+      this.logger?.debug(`${this._serviceName} already disposed`);
       return;
     }
 
-    (this as unknown as ServiceContext).logger?.info(
-      `Disposing ${this._serviceName}`
-    );
+    this.logger?.info(`Disposing ${this._serviceName}`);
 
     this._cleanupSubscriptions();
 
     try {
       await this.onDispose();
     } catch (error) {
-      (this as unknown as ServiceContext).logger?.error(
-        `${this._serviceName} dispose failed`,
-        error
-      );
+      this.logger?.error(`${this._serviceName} dispose failed`, error);
     }
 
     this._isInitialized = false;
@@ -76,11 +59,9 @@ export abstract class LifecycleService extends BaseService implements ILifecycle
   }
 
   subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void>): void {
-    const eventBus = (this as unknown as ServiceContext).eventBus;
+    const eventBus = this.eventBus as EventBusLike | undefined;
     if (!eventBus) {
-      (this as unknown as ServiceContext).logger?.warn(
-        'Cannot subscribe - eventBus not available'
-      );
+      this.logger?.warn('Cannot subscribe - eventBus not available');
       return;
     }
 

@@ -28,7 +28,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
    * Initialize the orchestrator - setup fullscreen listeners
    */
   async onInitialize() {
-    this.fullscreenService.initialize();
+    await this.fullscreenService.initialize();
 
     this.subscribeWithCleanup({
       [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors(),
@@ -48,7 +48,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
    * Cleanup - remove fullscreen listeners
    */
   async onCleanup() {
-    this.fullscreenService.dispose();
+    await this.fullscreenService.dispose();
   }
 
   /**
