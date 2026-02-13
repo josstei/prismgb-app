@@ -11,6 +11,7 @@ describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
   let mockUiController;
+  let mockUiEffects;
   let mockPresentationModeService;
   let mockLogger;
   let mockLoggerFactory;
@@ -33,15 +34,18 @@ describe('UIEventBridge', () => {
       updateOverlayMessage: vi.fn(),
       showErrorOverlay: vi.fn(),
       updateStreamInfo: vi.fn(),
-      triggerShutterFlash: vi.fn(),
-      triggerRecordButtonPop: vi.fn(),
-      triggerRecordButtonPress: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
       updateRecordingButtonState: vi.fn(),
       setRecordButtonDisabled: vi.fn(),
       deviceStatus: {
         setOverlayVisible: vi.fn()
       }
+    };
+
+    mockUiEffects = {
+      triggerShutterFlash: vi.fn(),
+      triggerRecordButtonPop: vi.fn(),
+      triggerRecordButtonPress: vi.fn(),
+      triggerButtonFeedback: vi.fn()
     };
 
     mockPresentationModeService = {
@@ -65,6 +69,7 @@ describe('UIEventBridge', () => {
     handler = new UIEventBridge({
       eventBus: mockEventBus,
       uiController: mockUiController,
+      uiEffects: mockUiEffects,
       presentationModeService: mockPresentationModeService,
       loggerFactory: mockLoggerFactory
     });
@@ -78,6 +83,7 @@ describe('UIEventBridge', () => {
     it('should store dependencies', () => {
       expect(handler.eventBus).toBe(mockEventBus);
       expect(handler.uiController).toBe(mockUiController);
+      expect(handler.uiEffects).toBe(mockUiEffects);
       expect(handler.presentationModeService).toBe(mockPresentationModeService);
     });
 
@@ -187,9 +193,9 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_POP]();
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_PRESS]();
 
-      expect(mockUiController.triggerShutterFlash).toHaveBeenCalled();
-      expect(mockUiController.triggerRecordButtonPop).toHaveBeenCalled();
-      expect(mockUiController.triggerRecordButtonPress).toHaveBeenCalled();
+      expect(mockUiEffects.triggerShutterFlash).toHaveBeenCalled();
+      expect(mockUiEffects.triggerRecordButtonPop).toHaveBeenCalled();
+      expect(mockUiEffects.triggerRecordButtonPress).toHaveBeenCalled();
     });
 
     it('routes button feedback events', () => {
@@ -199,7 +205,7 @@ describe('UIEventBridge', () => {
         duration: 200
       });
 
-      expect(mockUiController.triggerButtonFeedback).toHaveBeenCalledWith(
+      expect(mockUiEffects.triggerButtonFeedback).toHaveBeenCalledWith(
         'screenshotBtn',
         'capturing',
         200
@@ -272,6 +278,7 @@ describe('UIEventBridge', () => {
       const handlerWithoutDeviceStatus = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: { ...mockUiController, deviceStatus: null },
+        uiEffects: mockUiEffects,
         presentationModeService: mockPresentationModeService,
         loggerFactory: mockLoggerFactory
       });
@@ -286,6 +293,7 @@ describe('UIEventBridge', () => {
       expect(() => new UIEventBridge({
         eventBus: mockEventBus,
         uiController: mockUiController,
+        uiEffects: mockUiEffects,
         presentationModeService: mockPresentationModeService
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });

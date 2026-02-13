@@ -195,44 +195,6 @@ class UIController {
     }
   }
 
-  /**
-   * Update fullscreen mode visual state (body class)
-   * @param {boolean} isActive - Whether fullscreen mode is active
-   */
-  updateFullscreenMode(isActive) {
-    this.effects?.setFullscreenMode(isActive);
-  }
-
-  /**
-   * Trigger shutter flash effect
-   */
-  triggerShutterFlash() {
-    this.effects?.triggerShutterFlash();
-  }
-
-  /**
-   * Trigger record button pop animation
-   */
-  triggerRecordButtonPop() {
-    this.effects?.triggerRecordButtonPop();
-  }
-
-  /**
-   * Trigger record button press animation
-   */
-  triggerRecordButtonPress() {
-    this.effects?.triggerRecordButtonPress();
-  }
-
-  /**
-   * Trigger button feedback animation
-   * @param {string} elementKey - Element key from elements map
-   * @param {string} className - CSS class to apply
-   * @param {number} duration - Animation duration in milliseconds
-   */
-  triggerButtonFeedback(elementKey, className, duration) {
-    this.effects?.triggerButtonFeedback(elementKey, className, duration);
-  }
 
   /**
    * Update recording button state
@@ -261,35 +223,6 @@ class UIController {
     }
   }
 
-  /**
-   * Update cinematic mode visual state
-   * @param {boolean} isActive - Whether cinematic mode should be visually active
-   */
-  updateCinematicMode(isActive) {
-    this.effects?.setCinematicMode(isActive);
-  }
-
-  /**
-   * Update minimalist fullscreen visual state
-   * @param {boolean} isActive - Whether minimalist fullscreen should be visually active
-   */
-  updateMinimalistFullscreen(isActive) {
-    this.effects?.setMinimalistFullscreen(isActive);
-  }
-
-  /**
-   * Enable fullscreen controls auto-hide
-   */
-  enableControlsAutoHide() {
-    this.effects?.enableControlsAutoHide(this.elements.fullscreenControls);
-  }
-
-  /**
-   * Disable fullscreen controls auto-hide
-   */
-  disableControlsAutoHide() {
-    this.effects?.disableControlsAutoHide();
-  }
 
   /**
    * Get fullscreen controls element

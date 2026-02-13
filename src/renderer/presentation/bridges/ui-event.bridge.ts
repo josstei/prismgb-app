@@ -13,7 +13,7 @@ import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
 export class UIEventBridge extends LifecycleService {
-  static readonly dependencies = ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'] as const;
+  static readonly dependencies = ['eventBus', 'uiController', 'uiEffects', 'presentationModeService', 'loggerFactory'] as const;
 
   constructor(dependencies) {
     super(dependencies, [...UIEventBridge.dependencies], 'UIEventBridge');
@@ -95,20 +95,20 @@ export class UIEventBridge extends LifecycleService {
   }
 
   _handleShutterFlash() {
-    this.uiController.triggerShutterFlash();
+    this.uiEffects?.triggerShutterFlash();
   }
 
   _handleRecordButtonPop() {
-    this.uiController.triggerRecordButtonPop();
+    this.uiEffects?.triggerRecordButtonPop();
   }
 
   _handleRecordButtonPress() {
-    this.uiController.triggerRecordButtonPress();
+    this.uiEffects?.triggerRecordButtonPress();
   }
 
   _handleButtonFeedback(data) {
     const { elementKey, className, duration } = data;
-    this.uiController.triggerButtonFeedback(elementKey, className, duration);
+    this.uiEffects?.triggerButtonFeedback(elementKey, className, duration);
   }
 
   _handleRecordingState(data) {

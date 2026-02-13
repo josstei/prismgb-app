@@ -7,7 +7,7 @@
 import { BaseService } from '@prismgb/core';
 
 export class PresentationModeService extends BaseService {
-  static readonly dependencies = ['uiController', 'appState', 'loggerFactory'] as const;
+  static readonly dependencies = ['uiController', 'uiEffects', 'appState', 'loggerFactory'] as const;
 
   constructor(dependencies) {
     super(dependencies, [...PresentationModeService.dependencies], 'PresentationModeService');
@@ -28,13 +28,13 @@ export class PresentationModeService extends BaseService {
   handleFullscreenState(active) {
     this._isFullscreenActive = Boolean(active);
     this.uiController.updateFullscreenButton(active);
-    this.uiController.updateFullscreenMode(active);
+    this.uiEffects?.setFullscreenMode(active);
     this._updateMinimalistVisual();
 
     if (active) {
-      this.uiController.enableControlsAutoHide();
+      this.uiEffects?.enableControlsAutoHide(this.uiController.getFullscreenControls());
     } else {
-      this.uiController.disableControlsAutoHide();
+      this.uiEffects?.disableControlsAutoHide();
     }
   }
 
@@ -51,11 +51,11 @@ export class PresentationModeService extends BaseService {
   _updateCinematicVisual(streamingOverride?) {
     const streamingActive = streamingOverride !== undefined ? streamingOverride : this._isStreamingActive;
     const isActive = this._cinematicEnabled && streamingActive;
-    this.uiController.updateCinematicMode(isActive);
+    this.uiEffects?.setCinematicMode(isActive);
   }
 
   _updateMinimalistVisual() {
     const shouldEnable = this._minimalistEnabled && this._isFullscreenActive && this._isStreamingActive;
-    this.uiController.updateMinimalistFullscreen(shouldEnable);
+    this.uiEffects?.setMinimalistFullscreen(shouldEnable);
   }
 }

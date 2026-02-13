@@ -8,16 +8,21 @@ import { PresentationModeService } from '@renderer/infrastructure/services/setti
 describe('PresentationModeService', () => {
   let service;
   let mockUiController;
+  let mockUiEffects;
   let mockAppState;
   let mockLoggerFactory;
 
   beforeEach(() => {
     mockUiController = {
       setStreamingMode: vi.fn(),
-      updateCinematicMode: vi.fn(),
-      updateMinimalistFullscreen: vi.fn(),
       updateFullscreenButton: vi.fn(),
-      updateFullscreenMode: vi.fn(),
+      getFullscreenControls: vi.fn(() => ({ classList: { add: vi.fn(), remove: vi.fn() } }))
+    };
+
+    mockUiEffects = {
+      setCinematicMode: vi.fn(),
+      setMinimalistFullscreen: vi.fn(),
+      setFullscreenMode: vi.fn(),
       enableControlsAutoHide: vi.fn(),
       disableControlsAutoHide: vi.fn()
     };
@@ -44,6 +49,7 @@ describe('PresentationModeService', () => {
 
     service = new PresentationModeService({
       uiController: mockUiController,
+      uiEffects: mockUiEffects,
       appState: mockAppState,
       loggerFactory: mockLoggerFactory
     });
@@ -57,36 +63,36 @@ describe('PresentationModeService', () => {
     service.handleStreamingMode(true);
 
     expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(true);
-    expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(true);
+    expect(mockUiEffects.setCinematicMode).toHaveBeenCalledWith(true);
 
     service.handleStreamingMode(false);
 
     expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(false);
-    expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
+    expect(mockUiEffects.setCinematicMode).toHaveBeenCalledWith(false);
   });
 
   it('updates fullscreen UI and controls auto-hide state', () => {
     service.handleFullscreenState(true);
 
     expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
-    expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(true);
-    expect(mockUiController.enableControlsAutoHide).toHaveBeenCalled();
+    expect(mockUiEffects.setFullscreenMode).toHaveBeenCalledWith(true);
+    expect(mockUiEffects.enableControlsAutoHide).toHaveBeenCalled();
 
     service.handleFullscreenState(false);
 
     expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(false);
-    expect(mockUiController.updateFullscreenMode).toHaveBeenCalledWith(false);
-    expect(mockUiController.disableControlsAutoHide).toHaveBeenCalled();
+    expect(mockUiEffects.setFullscreenMode).toHaveBeenCalledWith(false);
+    expect(mockUiEffects.disableControlsAutoHide).toHaveBeenCalled();
   });
 
   it('applies minimalist fullscreen only when all conditions are met', () => {
     service.handleStreamingMode(true);
     service.handleFullscreenState(true);
-    mockUiController.updateMinimalistFullscreen.mockClear();
+    mockUiEffects.setMinimalistFullscreen.mockClear();
 
     service.handleMinimalistFullscreenChanged(true);
 
-    expect(mockUiController.updateMinimalistFullscreen).toHaveBeenCalledWith(true);
+    expect(mockUiEffects.setMinimalistFullscreen).toHaveBeenCalledWith(true);
   });
 
   it('removes minimalist fullscreen when any condition becomes false', () => {
@@ -94,19 +100,19 @@ describe('PresentationModeService', () => {
     service.handleFullscreenState(true);
     service.handleMinimalistFullscreenChanged(true);
 
-    mockUiController.updateMinimalistFullscreen.mockClear();
+    mockUiEffects.setMinimalistFullscreen.mockClear();
 
     service.handleFullscreenState(false);
 
-    expect(mockUiController.updateMinimalistFullscreen).toHaveBeenCalledWith(false);
+    expect(mockUiEffects.setMinimalistFullscreen).toHaveBeenCalledWith(false);
   });
 
   it('respects cinematic mode toggles while streaming', () => {
     service.handleStreamingMode(true);
-    mockUiController.updateCinematicMode.mockClear();
+    mockUiEffects.setCinematicMode.mockClear();
 
     service.handleCinematicModeChanged(false);
 
-    expect(mockUiController.updateCinematicMode).toHaveBeenCalledWith(false);
+    expect(mockUiEffects.setCinematicMode).toHaveBeenCalledWith(false);
   });
 });
