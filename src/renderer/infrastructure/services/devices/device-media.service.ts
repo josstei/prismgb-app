@@ -45,24 +45,19 @@ class DeviceMediaService extends BaseService {
   }
 
   async updateConnectionStatus() {
-    try {
-      const status = await this.deviceStatusProvider.getDeviceStatus();
-      const connected = Boolean(status.connected);
-      const changed = this._isConnected !== connected;
+    const status = await this.deviceStatusProvider.getDeviceStatus();
+    const connected = Boolean(status.connected);
+    const changed = this._isConnected !== connected;
 
-      this._isConnected = connected;
+    this._isConnected = connected;
 
-      if (changed) {
-        this.logger.info(`Device status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
-        this.invalidateEnumerationCache();
-        this.eventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, status);
-      }
-
-      return { status, changed };
-    } catch (error) {
-      this.logger.error('Error updating device status:', error);
-      throw error;
+    if (changed) {
+      this.logger.info(`Device status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+      this.invalidateEnumerationCache();
+      this.eventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, status);
     }
+
+    return { status, changed };
   }
 
   invalidateEnumerationCache() {

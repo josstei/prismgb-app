@@ -94,20 +94,15 @@ export class StreamingAdapterFactory {
       return;
     }
 
-    try {
-      // Register adapter classes with DeviceRegistry (injected via DI bootstrap)
-      for (const [deviceId, AdapterClass] of this._adapterClasses) {
-        DeviceRegistry.registerAdapterClass(deviceId, AdapterClass);
-      }
-
-      const loadedCount = this._registerBuiltInAdapters();
-      this.initialized = true;
-
-      this.logger.info(`Loaded ${loadedCount} adapter(s) from registry`);
-    } catch (error) {
-      this.logger.error('Failed to initialize adapter registry', error);
-      throw error;
+    // Register adapter classes with DeviceRegistry (injected via DI bootstrap)
+    for (const [deviceId, AdapterClass] of this._adapterClasses) {
+      DeviceRegistry.registerAdapterClass(deviceId, AdapterClass);
     }
+
+    const loadedCount = this._registerBuiltInAdapters();
+    this.initialized = true;
+
+    this.logger.info(`Loaded ${loadedCount} adapter(s) from registry`);
   }
 
   /**

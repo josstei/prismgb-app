@@ -83,37 +83,31 @@ class RendererAppOrchestrator {
 
     this.logger.info('Initializing renderer application...');
 
-    try {
-      // 1. Create DI container with retry for resilience
-      const { initializeContainer } = await importWithRetry(
-        () => import('./application/container')
-      );
-      const container = initializeContainer();
-      this.container = container;
+    // 1. Create DI container with retry for resilience
+    const { initializeContainer } = await importWithRetry(
+      () => import('./application/container')
+    );
+    const container = initializeContainer();
+    this.container = container;
 
-      // 2. Initialize UI components (not managed by DI)
-      await this._initializeUI();
+    // 2. Initialize UI components (not managed by DI)
+    await this._initializeUI();
 
-      // 3. Register UI components in container
-      await this._registerUIComponents();
+    // 3. Register UI components in container
+    await this._registerUIComponents();
 
-      // 4. Initialize UI event bridge (bridges events to UIController)
-      await this._initializeUIEventBridge();
+    // 4. Initialize UI event bridge (bridges events to UIController)
+    await this._initializeUIEventBridge();
 
-      // 5. Resolve orchestrator (this will wire everything up)
-      const orchestrator = container.resolve('appOrchestrator');
-      this.orchestrator = orchestrator;
+    // 5. Resolve orchestrator (this will wire everything up)
+    const orchestrator = container.resolve('appOrchestrator');
+    this.orchestrator = orchestrator;
 
-      // 6. Initialize orchestrator
-      await orchestrator.initialize();
+    // 6. Initialize orchestrator
+    await orchestrator.initialize();
 
-      this.isInitialized = true;
-      this.logger.info('Renderer application initialized successfully');
-
-    } catch (error) {
-      this.logger.error('Failed to initialize renderer application:', error);
-      throw error;
-    }
+    this.isInitialized = true;
+    this.logger.info('Renderer application initialized successfully');
   }
 
   /**
@@ -125,19 +119,13 @@ class RendererAppOrchestrator {
       throw new Error('Renderer application not initialized. Call initialize() first.');
     }
 
-    try {
-      // Start the orchestrator
-      if (!this.orchestrator) {
-        throw new Error('App orchestrator not initialized');
-      }
-      await this.orchestrator.start();
-
-      this.logger.info('Renderer application started successfully');
-
-    } catch (error) {
-      this.logger.error('Failed to start renderer application:', error);
-      throw error;
+    // Start the orchestrator
+    if (!this.orchestrator) {
+      throw new Error('App orchestrator not initialized');
     }
+    await this.orchestrator.start();
+
+    this.logger.info('Renderer application started successfully');
   }
 
   /**
@@ -217,32 +205,27 @@ class RendererAppOrchestrator {
    * @private
    */
   async _initializeUIEventBridge() {
-    try {
-      const container = this._requireContainer();
-      const uiEventBridge = container.resolve('uiEventBridge');
-      await uiEventBridge.initialize();
-      this._uiEventBridge = uiEventBridge;
+    const container = this._requireContainer();
+    const uiEventBridge = container.resolve('uiEventBridge');
+    await uiEventBridge.initialize();
+    this._uiEventBridge = uiEventBridge;
 
-      const captureUiBridge = container.resolve('captureUiBridge');
-      await captureUiBridge.initialize();
-      this._captureUiBridge = captureUiBridge;
+    const captureUiBridge = container.resolve('captureUiBridge');
+    await captureUiBridge.initialize();
+    this._captureUiBridge = captureUiBridge;
 
-      const transcodeUiBridge = container.resolve('transcodeUiBridge');
-      await transcodeUiBridge.initialize();
-      this._transcodeUiBridge = transcodeUiBridge;
+    const transcodeUiBridge = container.resolve('transcodeUiBridge');
+    await transcodeUiBridge.initialize();
+    this._transcodeUiBridge = transcodeUiBridge;
 
-      const updateUiBridge = container.resolve('updateUiBridge');
-      await updateUiBridge.initialize();
-      this._updateUiBridge = updateUiBridge;
+    const updateUiBridge = container.resolve('updateUiBridge');
+    await updateUiBridge.initialize();
+    this._updateUiBridge = updateUiBridge;
 
-      // Initialize TranscodeService to set up IPC event listeners
-      const transcodeService = container.resolve('transcodeService');
-      await transcodeService.initialize();
-      this._transcodeService = transcodeService;
-    } catch (error) {
-      this.logger.error('Failed to initialize UI event bridge:', error);
-      throw error;
-    }
+    // Initialize TranscodeService to set up IPC event listeners
+    const transcodeService = container.resolve('transcodeService');
+    await transcodeService.initialize();
+    this._transcodeService = transcodeService;
   }
 
   _requireContainer(): RendererServiceContainer {

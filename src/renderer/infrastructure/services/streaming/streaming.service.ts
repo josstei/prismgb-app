@@ -175,7 +175,7 @@ export class StreamingService extends LifecycleService {
 
       return { stream: this.currentStream, device: this.currentDevice, settings, capabilities };
     } catch (error) {
-      this.logger.error('Failed to start stream:', error);
+      // Publish error event for UI feedback, then propagate
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
         error,
         operation: 'start',

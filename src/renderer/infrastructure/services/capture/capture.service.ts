@@ -75,56 +75,51 @@ class CaptureService extends LifecycleService {
       throw new Error('Invalid source type');
     }
 
-    try {
-      // Determine dimensions based on source type
-      let width, height;
-      if (isVideo) {
-        width = source.videoWidth;
-        height = source.videoHeight;
-      } else {
-        // Both canvas and ImageBitmap have width/height properties
-        width = source.width;
-        height = source.height;
-      }
-
-      // Note: Canvas is created here for image processing (pixel extraction and PNG encoding),
-      // not for UI rendering. This is a legitimate DOM operation in a service layer for
-      // converting video frames/bitmaps to exportable image blobs.
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(source, 0, 0);
-
-      // Close ImageBitmap after drawing to release memory
-      if (isBitmap) {
-        source.close();
-      }
-
-      // Convert to blob
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create screenshot blob'));
-            return;
-          }
-          resolve(blob);
-        }, 'image/png');
-      });
-
-      const filename = FilenameGenerator.forScreenshot();
-
-      this.logger.info('Screenshot captured:', filename);
-
-      // Emit event
-      this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_READY, { blob, filename });
-
-      return { blob, filename };
-    } catch (error) {
-      this.logger.error('Error taking screenshot:', error);
-      throw error;
+    // Determine dimensions based on source type
+    let width, height;
+    if (isVideo) {
+      width = source.videoWidth;
+      height = source.videoHeight;
+    } else {
+      // Both canvas and ImageBitmap have width/height properties
+      width = source.width;
+      height = source.height;
     }
+
+    // Note: Canvas is created here for image processing (pixel extraction and PNG encoding),
+    // not for UI rendering. This is a legitimate DOM operation in a service layer for
+    // converting video frames/bitmaps to exportable image blobs.
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0);
+
+    // Close ImageBitmap after drawing to release memory
+    if (isBitmap) {
+      source.close();
+    }
+
+    // Convert to blob
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create screenshot blob'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/png');
+    });
+
+    const filename = FilenameGenerator.forScreenshot();
+
+    this.logger.info('Screenshot captured:', filename);
+
+    // Emit event
+    this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_READY, { blob, filename });
+
+    return { blob, filename };
   }
 
   /**
@@ -145,44 +140,39 @@ class CaptureService extends LifecycleService {
       throw new Error('Already recording');
     }
 
-    try {
-      // Create media recorder - try codecs in order of preference (vp9 preferred per config)
-      const codecs = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-      const mimeType = codecs.find(codec => MediaRecorder.isTypeSupported(codec)) || 'video/webm';
+    // Create media recorder - try codecs in order of preference (vp9 preferred per config)
+    const codecs = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const mimeType = codecs.find(codec => MediaRecorder.isTypeSupported(codec)) || 'video/webm';
 
-      const options = { mimeType };
+    const options = { mimeType };
 
-      this.mediaRecorder = new MediaRecorder(stream, options);
-      this.recordedChunks = [];
+    this.mediaRecorder = new MediaRecorder(stream, options);
+    this.recordedChunks = [];
 
-      // Collect recorded chunks
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.recordedChunks.push(event.data);
-        }
-      };
+    // Collect recorded chunks
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
 
-      // Handle recording stop
-      this.mediaRecorder.onstop = () => {
-        this._handleRecordingStop();
-      };
+    // Handle recording stop
+    this.mediaRecorder.onstop = () => {
+      this._handleRecordingStop();
+    };
 
-      // Handle recording errors (disk full, codec failure, etc.)
-      this.mediaRecorder.onerror = (event) => {
-        this._handleRecordingError(event);
-      };
+    // Handle recording errors (disk full, codec failure, etc.)
+    this.mediaRecorder.onerror = (event) => {
+      this._handleRecordingError(event);
+    };
 
-      this.mediaRecorder.start(1000);
-      this.isRecording = true;
+    this.mediaRecorder.start(1000);
+    this.isRecording = true;
 
-      this.logger.info('Recording started');
+    this.logger.info('Recording started');
 
-      // Emit event
-      this.eventBus.publish(EventChannels.CAPTURE.RECORDING_STARTED);
-    } catch (error) {
-      this.logger.error('Error starting recording:', error);
-      throw error;
-    }
+    // Emit event
+    this.eventBus.publish(EventChannels.CAPTURE.RECORDING_STARTED);
   }
 
   /**
@@ -197,18 +187,13 @@ class CaptureService extends LifecycleService {
       throw new Error('Not recording');
     }
 
-    try {
-      this.mediaRecorder.stop();
-      this.isRecording = false;
+    this.mediaRecorder.stop();
+    this.isRecording = false;
 
-      this.logger.info('Recording stopped');
+    this.logger.info('Recording stopped');
 
-      // Emit event
-      this.eventBus.publish(EventChannels.CAPTURE.RECORDING_STOPPED);
-    } catch (error) {
-      this.logger.error('Error stopping recording:', error);
-      throw error;
-    }
+    // Emit event
+    this.eventBus.publish(EventChannels.CAPTURE.RECORDING_STOPPED);
   }
 
   /**

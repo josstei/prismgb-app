@@ -60,17 +60,12 @@ export class StreamingRendererFactory {
       return;
     }
 
-    try {
-      for (const [typeId, RendererClass] of this._rendererClasses) {
-        this._register(typeId, RendererClass);
-      }
-
-      this._initialized = true;
-      this.logger.info(`Loaded ${this.rendererRegistry.size} renderer(s)`);
-    } catch (error) {
-      this.logger.error('Failed to initialize renderer registry', error);
-      throw error;
+    for (const [typeId, RendererClass] of this._rendererClasses) {
+      this._register(typeId, RendererClass);
     }
+
+    this._initialized = true;
+    this.logger.info(`Loaded ${this.rendererRegistry.size} renderer(s)`);
   }
 
   /**
