@@ -121,3 +121,175 @@ export const EventChannels = {
     CANCELLED: 'transcode:cancelled'
   }
 } as const;
+
+/**
+ * Type-safe event payload mapping for EventBus
+ * Maps each event channel string to its expected payload type
+ */
+export type EventPayloadMap = {
+  // SYSTEM
+  [EventChannels.SYSTEM.HANDLER_ERROR]: {
+    eventName: string;
+    error: { name: string; message: string; stack?: string };
+  };
+
+  // DEVICE
+  [EventChannels.DEVICE.STATUS_CHANGED]: {
+    connected: boolean;
+    deviceName?: string;
+  };
+  [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: {
+    deviceId: string;
+    label: string;
+  };
+  [EventChannels.DEVICE.ENUMERATION_FAILED]: {
+    error: string;
+    reason: string;
+  };
+  [EventChannels.DEVICE.DISCONNECTED_DURING_SESSION]: void;
+
+  // STREAM
+  [EventChannels.STREAM.STARTED]: {
+    stream: MediaStream;
+    device: MediaDeviceInfo;
+    settings: MediaTrackSettings;
+    capabilities: MediaTrackCapabilities;
+  };
+  [EventChannels.STREAM.STOPPED]: void;
+  [EventChannels.STREAM.ERROR]: {
+    error: Error | unknown;
+    operation: string;
+    deviceId: string;
+  };
+  [EventChannels.STREAM.HEALTH_OK]: unknown;
+  [EventChannels.STREAM.HEALTH_TIMEOUT]: unknown;
+
+  // CAPTURE
+  [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED]: void;
+  [EventChannels.CAPTURE.SCREENSHOT_READY]: {
+    blob: Blob;
+    filename: string;
+  };
+  [EventChannels.CAPTURE.RECORDING_STARTED]: void;
+  [EventChannels.CAPTURE.RECORDING_STOPPED]: void;
+  [EventChannels.CAPTURE.RECORDING_READY]: {
+    blob: Blob;
+    filename: string;
+  };
+  [EventChannels.CAPTURE.RECORDING_ERROR]: {
+    error: Error | unknown;
+    message?: string;
+  };
+  [EventChannels.CAPTURE.RECORDING_DEGRADED]: {
+    droppedFrames: number;
+  };
+
+  // SETTINGS
+  [EventChannels.SETTINGS.VOLUME_CHANGED]: number;
+  [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: string;
+  [EventChannels.SETTINGS.BRIGHTNESS_CHANGED]: number;
+  [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: boolean;
+  [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: {
+    enabled: boolean;
+  };
+  [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: boolean;
+  [EventChannels.SETTINGS.PREFERENCES_LOADED]: unknown;
+  [EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED]: string;
+
+  // PERFORMANCE
+  [EventChannels.PERFORMANCE.STATE_CHANGED]: unknown;
+  [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: string;
+  [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: boolean;
+  [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: {
+    label: string;
+    delayMs?: number;
+  };
+
+  // RENDER
+  [EventChannels.RENDER.CAPABILITY_DETECTED]: unknown;
+  [EventChannels.RENDER.PIPELINE_READY]: {
+    api: string;
+  };
+  [EventChannels.RENDER.PIPELINE_ERROR]: {
+    message: string;
+    code?: string;
+  };
+  [EventChannels.RENDER.STATS_UPDATE]: unknown;
+  [EventChannels.RENDER.CANVAS_EXPIRED]: void;
+  [EventChannels.RENDER.CANVAS_RECREATED]: {
+    oldCanvas: HTMLCanvasElement;
+    newCanvas: HTMLCanvasElement;
+  };
+
+  // UI
+  [EventChannels.UI.STATUS_MESSAGE]: {
+    message: string;
+    type?: 'error' | 'warning' | 'info';
+  };
+  [EventChannels.UI.DEVICE_STATUS]: {
+    status: unknown;
+  };
+  [EventChannels.UI.OVERLAY_MESSAGE]: {
+    deviceConnected: boolean;
+  };
+  [EventChannels.UI.OVERLAY_VISIBLE]: {
+    visible: boolean;
+  };
+  [EventChannels.UI.OVERLAY_ERROR]: {
+    message: string;
+  };
+  [EventChannels.UI.STREAMING_MODE]: {
+    enabled: boolean;
+  };
+  [EventChannels.UI.STREAM_INFO]: {
+    settings: MediaTrackSettings;
+  };
+  [EventChannels.UI.SHUTTER_FLASH]: void;
+  [EventChannels.UI.RECORD_BUTTON_POP]: void;
+  [EventChannels.UI.RECORD_BUTTON_PRESS]: void;
+  [EventChannels.UI.BUTTON_FEEDBACK]: {
+    buttonId?: string;
+  };
+  [EventChannels.UI.RECORDING_STATE]: {
+    active: boolean;
+  };
+  [EventChannels.UI.RECORD_BUTTON_DISABLED]: void;
+  [EventChannels.UI.RECORD_BUTTON_ENABLED]: void;
+  [EventChannels.UI.FULLSCREEN_STATE]: {
+    active: boolean;
+  };
+  [EventChannels.UI.WINDOW_RESIZED]: void;
+  [EventChannels.UI.SCREENSHOT_REQUESTED]: void;
+  [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: void;
+  [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: void;
+  [EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED]: void;
+  [EventChannels.UI.STREAM_START_REQUESTED]: void;
+  [EventChannels.UI.STREAM_STOP_REQUESTED]: void;
+
+  // UPDATE
+  [EventChannels.UPDATE.AVAILABLE]: unknown;
+  [EventChannels.UPDATE.NOT_AVAILABLE]: unknown;
+  [EventChannels.UPDATE.PROGRESS]: unknown;
+  [EventChannels.UPDATE.DOWNLOADED]: unknown;
+  [EventChannels.UPDATE.ERROR]: unknown;
+  [EventChannels.UPDATE.STATE_CHANGED]: unknown;
+  [EventChannels.UPDATE.BADGE_SHOW]: void;
+  [EventChannels.UPDATE.BADGE_HIDE]: void;
+
+  // NOTES
+  [EventChannels.NOTES.NOTE_CREATED]: unknown;
+  [EventChannels.NOTES.NOTE_UPDATED]: unknown;
+  [EventChannels.NOTES.NOTE_DELETED]: {
+    id: string;
+  };
+
+  // TRANSCODE
+  [EventChannels.TRANSCODE.STARTED]: {
+    jobId: string;
+    format: string;
+  };
+  [EventChannels.TRANSCODE.PROGRESS]: unknown;
+  [EventChannels.TRANSCODE.COMPLETED]: unknown;
+  [EventChannels.TRANSCODE.ERROR]: unknown;
+  [EventChannels.TRANSCODE.CANCELLED]: unknown;
+};
