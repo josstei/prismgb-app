@@ -114,6 +114,7 @@ describe('CaptureOrchestrator', () => {
       canvasRenderer: mockStreamingCanvasRenderer,
       transcodeService: mockTranscodeService,
       captureSaveService: mockCaptureSaveService,
+      uiEffects: { triggerShutterFlash: vi.fn() },
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });

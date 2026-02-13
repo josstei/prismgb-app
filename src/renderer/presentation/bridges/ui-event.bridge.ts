@@ -37,17 +37,6 @@ export class UIEventBridge extends LifecycleService {
       [EventChannels.UI.STREAMING_MODE]: (data) => this._handleStreamingMode(data),
       [EventChannels.UI.STREAM_INFO]: (data) => this._handleStreamInfo(data),
 
-      // Visual effects
-      [EventChannels.UI.SHUTTER_FLASH]: () => this._handleShutterFlash(),
-      [EventChannels.UI.RECORD_BUTTON_POP]: () => this._handleRecordButtonPop(),
-      [EventChannels.UI.RECORD_BUTTON_PRESS]: () => this._handleRecordButtonPress(),
-      [EventChannels.UI.BUTTON_FEEDBACK]: (data) => this._handleButtonFeedback(data),
-
-      // Recording state
-      [EventChannels.UI.RECORDING_STATE]: (data) => this._handleRecordingState(data),
-      [EventChannels.UI.RECORD_BUTTON_DISABLED]: () => this._handleRecordButtonDisabled(),
-      [EventChannels.UI.RECORD_BUTTON_ENABLED]: () => this._handleRecordButtonEnabled(),
-
       // Settings events (translated to UI updates)
       [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: (data) => this._handleCinematicMode(data),
       [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: (enabled) => this._handleMinimalistFullscreenChanged(enabled),
@@ -92,36 +81,6 @@ export class UIEventBridge extends LifecycleService {
   _handleStreamInfo(data) {
     const { settings } = data;
     this.uiController.updateStreamInfo(settings);
-  }
-
-  _handleShutterFlash() {
-    this.uiEffects?.triggerShutterFlash();
-  }
-
-  _handleRecordButtonPop() {
-    this.uiEffects?.triggerRecordButtonPop();
-  }
-
-  _handleRecordButtonPress() {
-    this.uiEffects?.triggerRecordButtonPress();
-  }
-
-  _handleButtonFeedback(data) {
-    const { elementKey, className, duration } = data;
-    this.uiEffects?.triggerButtonFeedback(elementKey, className, duration);
-  }
-
-  _handleRecordingState(data) {
-    const { active } = data;
-    this.uiController.updateRecordingButtonState(active);
-  }
-
-  _handleRecordButtonDisabled() {
-    this.uiController.setRecordButtonDisabled(true);
-  }
-
-  _handleRecordButtonEnabled() {
-    this.uiController.setRecordButtonDisabled(false);
   }
 
   _handleCinematicMode(data) {

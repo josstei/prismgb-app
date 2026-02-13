@@ -109,13 +109,6 @@ describe('UIEventBridge', () => {
         EventChannels.UI.OVERLAY_ERROR,
         EventChannels.UI.STREAMING_MODE,
         EventChannels.UI.STREAM_INFO,
-        EventChannels.UI.SHUTTER_FLASH,
-        EventChannels.UI.RECORD_BUTTON_POP,
-        EventChannels.UI.RECORD_BUTTON_PRESS,
-        EventChannels.UI.BUTTON_FEEDBACK,
-        EventChannels.UI.RECORDING_STATE,
-        EventChannels.UI.RECORD_BUTTON_DISABLED,
-        EventChannels.UI.RECORD_BUTTON_ENABLED,
         EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
         EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
         EventChannels.UI.FULLSCREEN_STATE
@@ -186,44 +179,6 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.UI.STREAM_INFO]({ settings });
 
       expect(mockUiController.updateStreamInfo).toHaveBeenCalledWith(settings);
-    });
-
-    it('routes visual effects events', () => {
-      subscribedHandlers[EventChannels.UI.SHUTTER_FLASH]();
-      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_POP]();
-      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_PRESS]();
-
-      expect(mockUiEffects.triggerShutterFlash).toHaveBeenCalled();
-      expect(mockUiEffects.triggerRecordButtonPop).toHaveBeenCalled();
-      expect(mockUiEffects.triggerRecordButtonPress).toHaveBeenCalled();
-    });
-
-    it('routes button feedback events', () => {
-      subscribedHandlers[EventChannels.UI.BUTTON_FEEDBACK]({
-        elementKey: 'screenshotBtn',
-        className: 'capturing',
-        duration: 200
-      });
-
-      expect(mockUiEffects.triggerButtonFeedback).toHaveBeenCalledWith(
-        'screenshotBtn',
-        'capturing',
-        200
-      );
-    });
-
-    it('routes recording state updates', () => {
-      subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: true });
-
-      expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(true);
-    });
-
-    it('disables and enables record button when requested', () => {
-      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_DISABLED]();
-      subscribedHandlers[EventChannels.UI.RECORD_BUTTON_ENABLED]();
-
-      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(true);
-      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(false);
     });
 
     it('routes cinematic mode changes to presentation service', () => {

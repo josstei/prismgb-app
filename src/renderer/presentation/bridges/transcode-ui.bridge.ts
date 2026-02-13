@@ -52,7 +52,7 @@ class TranscodeUIBridge extends LifecycleService {
     this._currentFormat = data?.format?.toUpperCase() || 'MP4';
 
     // Disable record button during transcode
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_DISABLED);
+    this.uiController.setRecordButtonDisabled(true);
 
     // Show toast
     this._toast?.show(this._currentFormat);
@@ -76,7 +76,7 @@ class TranscodeUIBridge extends LifecycleService {
     this.logger.info('Transcode completed', data);
 
     // Re-enable record button
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
+    this.uiController.setRecordButtonDisabled(false);
 
     // Show success state
     this._toast?.showSuccess();
@@ -93,7 +93,7 @@ class TranscodeUIBridge extends LifecycleService {
     this.logger.error('Transcode error', data);
 
     // Re-enable record button
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
+    this.uiController.setRecordButtonDisabled(false);
 
     const errorMessage = data?.message || data?.error || 'Conversion failed';
     this._toast?.showError(errorMessage);
@@ -109,7 +109,7 @@ class TranscodeUIBridge extends LifecycleService {
     this.logger.info('Transcode cancelled');
 
     // Re-enable record button
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
+    this.uiController.setRecordButtonDisabled(false);
 
     // Hide toast
     this._toast?.hide();

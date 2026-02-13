@@ -24,6 +24,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     'canvasRenderer',
     'transcodeService',
     'captureSaveService',
+    'uiEffects',
     'eventBus',
     'loggerFactory'
   ] as const;
@@ -63,8 +64,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    // Trigger immediate visual feedback via events
-    this.eventBus.publish(EventChannels.UI.SHUTTER_FLASH);
+    // Trigger immediate visual feedback
+    this.uiEffects?.triggerShutterFlash();
     this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED);
 
     try {

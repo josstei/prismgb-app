@@ -11,6 +11,7 @@ describe('CaptureUIBridge', () => {
   let bridge;
   let mockEventBus;
   let mockUIController;
+  let mockUiEffects;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
@@ -30,7 +31,15 @@ describe('CaptureUIBridge', () => {
 
     // Create mock UIController
     mockUIController = {
-      triggerDownload: vi.fn()
+      triggerDownload: vi.fn(),
+      updateRecordingButtonState: vi.fn()
+    };
+
+    // Create mock UIEffects
+    mockUiEffects = {
+      triggerButtonFeedback: vi.fn(),
+      triggerRecordButtonPop: vi.fn(),
+      triggerRecordButtonPress: vi.fn()
     };
 
     // Create mock logger
@@ -58,6 +67,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
 
@@ -68,16 +78,29 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
 
       expect(bridge.uiController).toBe(mockUIController);
     });
 
+    it('should store uiEffects', () => {
+      bridge = new CaptureUIBridge({
+        eventBus: mockEventBus,
+        uiController: mockUIController,
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
+      });
+
+      expect(bridge.uiEffects).toBe(mockUiEffects);
+    });
+
     it('should create logger from loggerFactory', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
 
@@ -88,7 +111,8 @@ describe('CaptureUIBridge', () => {
     it('should throw when loggerFactory is missing (undefined)', () => {
       expect(() => new CaptureUIBridge({
         eventBus: mockEventBus,
-        uiController: mockUIController
+        uiController: mockUIController,
+        uiEffects: mockUiEffects
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
@@ -96,6 +120,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
 
@@ -108,6 +133,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
+        uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -156,7 +182,8 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
     });
 
@@ -206,21 +233,19 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
 
-    it('should publish button feedback event when screenshot is triggered', () => {
+    it('should call uiEffects triggerButtonFeedback when screenshot is triggered', () => {
       subscribedHandlers[EventChannels.CAPTURE.SCREENSHOT_TRIGGERED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.BUTTON_FEEDBACK,
-        {
-          elementKey: 'screenshotBtn',
-          className: 'capturing',
-          duration: expect.any(Number)
-        }
+      expect(mockUiEffects.triggerButtonFeedback).toHaveBeenCalledWith(
+        'screenshotBtn',
+        'capturing',
+        expect.any(Number)
       );
     });
 
@@ -272,17 +297,16 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
 
-    it('should publish record button pop event', () => {
+    it('should call uiEffects triggerRecordButtonPop', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORD_BUTTON_POP
-      );
+      expect(mockUiEffects.triggerRecordButtonPop).toHaveBeenCalled();
     });
 
     it('should publish status message', () => {
@@ -294,27 +318,27 @@ describe('CaptureUIBridge', () => {
       );
     });
 
-    it('should publish recording state as active', () => {
+    it('should call uiController updateRecordingButtonState with true', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: true }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(true);
     });
 
-    it('should publish exactly 3 events', () => {
+    it('should publish exactly 1 event', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledTimes(3);
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
     });
 
-    it('should publish events in correct order', () => {
+    it('should call methods in correct order', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
 
-      expect(mockEventBus.publish.mock.calls[0][0]).toBe(EventChannels.UI.RECORD_BUTTON_POP);
-      expect(mockEventBus.publish.mock.calls[1][0]).toBe(EventChannels.UI.STATUS_MESSAGE);
-      expect(mockEventBus.publish.mock.calls[2][0]).toBe(EventChannels.UI.RECORDING_STATE);
+      const popCallIndex = mockUiEffects.triggerRecordButtonPop.mock.invocationCallOrder[0];
+      const publishCallIndex = mockEventBus.publish.mock.invocationCallOrder[0];
+      const stateCallIndex = mockUIController.updateRecordingButtonState.mock.invocationCallOrder[0];
+
+      expect(popCallIndex).toBeLessThan(publishCallIndex);
+      expect(publishCallIndex).toBeLessThan(stateCallIndex);
     });
   });
 
@@ -323,39 +347,37 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
 
-    it('should publish record button press event', () => {
+    it('should call uiEffects triggerRecordButtonPress', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STOPPED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORD_BUTTON_PRESS
-      );
+      expect(mockUiEffects.triggerRecordButtonPress).toHaveBeenCalled();
     });
 
-    it('should publish recording state as inactive', () => {
+    it('should call uiController updateRecordingButtonState with false', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STOPPED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: false }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(false);
     });
 
-    it('should publish exactly 2 events', () => {
+    it('should not publish any events', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STOPPED]();
 
-      expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
 
-    it('should publish events in correct order', () => {
+    it('should call methods in correct order', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STOPPED]();
 
-      expect(mockEventBus.publish.mock.calls[0][0]).toBe(EventChannels.UI.RECORD_BUTTON_PRESS);
-      expect(mockEventBus.publish.mock.calls[1][0]).toBe(EventChannels.UI.RECORDING_STATE);
+      const pressCallIndex = mockUiEffects.triggerRecordButtonPress.mock.invocationCallOrder[0];
+      const stateCallIndex = mockUIController.updateRecordingButtonState.mock.invocationCallOrder[0];
+
+      expect(pressCallIndex).toBeLessThan(stateCallIndex);
     });
   });
 
@@ -364,7 +386,8 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -379,15 +402,12 @@ describe('CaptureUIBridge', () => {
       expect(mockLogger.error).toHaveBeenCalledWith('Recording error:', errorMessage);
     });
 
-    it('should publish recording state as inactive', () => {
+    it('should call uiController updateRecordingButtonState with false', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({
         error: 'Some error'
       });
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: false }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(false);
     });
 
     it('should publish error status message', () => {
@@ -406,21 +426,23 @@ describe('CaptureUIBridge', () => {
       );
     });
 
-    it('should publish exactly 2 events', () => {
+    it('should publish exactly 1 event', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({
         error: 'Some error'
       });
 
-      expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
     });
 
-    it('should publish events in correct order', () => {
+    it('should call methods in correct order', () => {
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({
         error: 'Some error'
       });
 
-      expect(mockEventBus.publish.mock.calls[0][0]).toBe(EventChannels.UI.RECORDING_STATE);
-      expect(mockEventBus.publish.mock.calls[1][0]).toBe(EventChannels.UI.STATUS_MESSAGE);
+      const stateCallIndex = mockUIController.updateRecordingButtonState.mock.invocationCallOrder[0];
+      const publishCallIndex = mockEventBus.publish.mock.invocationCallOrder[0];
+
+      expect(stateCallIndex).toBeLessThan(publishCallIndex);
     });
 
     it('should handle error objects', () => {
@@ -461,7 +483,8 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -505,7 +528,8 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -529,19 +553,13 @@ describe('CaptureUIBridge', () => {
     it('should handle complete recording workflow', () => {
       // Start recording
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: true }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(true);
 
-      mockEventBus.publish.mockClear();
+      mockUIController.updateRecordingButtonState.mockClear();
 
       // Stop recording
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STOPPED]();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: false }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(false);
       // Note: RECORDING_READY is now handled by CaptureOrchestrator, not the UI bridge
     });
 
@@ -550,13 +568,11 @@ describe('CaptureUIBridge', () => {
 
       // Start recording
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_STARTED]();
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: true }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(true);
 
       mockEventBus.publish.mockClear();
       mockLogger.error.mockClear();
+      mockUIController.updateRecordingButtonState.mockClear();
 
       // Error occurs
       subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({
@@ -564,10 +580,7 @@ describe('CaptureUIBridge', () => {
       });
 
       expect(mockLogger.error).toHaveBeenCalledWith('Recording error:', errorMessage);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.RECORDING_STATE,
-        { active: false }
-      );
+      expect(mockUIController.updateRecordingButtonState).toHaveBeenCalledWith(false);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.STATUS_MESSAGE,
         {
@@ -583,7 +596,8 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        uiEffects: mockUiEffects,
+        loggerFactory: mockLoggerFactory
       });
     });
 

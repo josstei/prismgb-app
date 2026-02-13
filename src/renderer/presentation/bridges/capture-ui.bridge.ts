@@ -9,7 +9,7 @@ import { EventChannels } from '@renderer/common/config/event-channels';
 import { TIMING } from '@renderer/common/config/timing.config';
 
 class CaptureUIBridge extends LifecycleService {
-  static readonly dependencies = ['eventBus', 'uiController', 'loggerFactory'] as const;
+  static readonly dependencies = ['eventBus', 'uiController', 'uiEffects', 'loggerFactory'] as const;
 
   constructor(dependencies) {
     super(dependencies, [...CaptureUIBridge.dependencies], 'CaptureUIBridge');
@@ -33,11 +33,7 @@ class CaptureUIBridge extends LifecycleService {
   }
 
   _handleScreenshotTriggered() {
-    this.eventBus.publish(EventChannels.UI.BUTTON_FEEDBACK, {
-      elementKey: 'screenshotBtn',
-      className: 'capturing',
-      duration: TIMING.BUTTON_FEEDBACK_MS
-    });
+    this.uiEffects?.triggerButtonFeedback('screenshotBtn', 'capturing', TIMING.BUTTON_FEEDBACK_MS);
   }
 
   _handleScreenshotReady(data) {
@@ -47,20 +43,20 @@ class CaptureUIBridge extends LifecycleService {
   }
 
   _handleRecordingStarted() {
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_POP);
+    this.uiEffects?.triggerRecordButtonPop();
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording started' });
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: true });
+    this.uiController.updateRecordingButtonState(true);
   }
 
   _handleRecordingStopped() {
-    this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_PRESS);
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
+    this.uiEffects?.triggerRecordButtonPress();
+    this.uiController.updateRecordingButtonState(false);
   }
 
   _handleRecordingError(data) {
     const { error } = data;
     this.logger.error('Recording error:', error);
-    this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
+    this.uiController.updateRecordingButtonState(false);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: `Recording failed: ${error}`,
       type: 'error'
