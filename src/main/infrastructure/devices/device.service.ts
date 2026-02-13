@@ -257,13 +257,13 @@ class DeviceService extends BaseService {
   }
 
   /**
-   * Scan for already-connected devices and manually trigger connection events
+   * Find all connected USB devices
+   * Handles both async and sync variants of usb-detection.find()
+   * @returns Array of USB devices
    */
-  private async _scanAlreadyConnectedDevices(): Promise<void> {
+  private async _findAllConnectedDevices(): Promise<USBDetectionDevice[]> {
     try {
-      this.logger.debug('Scanning for already-connected devices...');
-
-      // Try to get device list
+      // Try async version first
       const devicesObj = await new Promise<USBDetectionDevice[] | Record<string, USBDetectionDevice>>((resolve) => {
         try {
           this._usbDetection.find((error, devices) => {
@@ -277,7 +277,7 @@ class DeviceService extends BaseService {
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           this.logger.warn('find() async attempt failed, trying synchronous version:', errorMessage);
-          // Synchronous version
+          // Synchronous version fallback
           try {
             const result = this._usbDetection.find();
             resolve(Object.values(result || {}));
@@ -289,7 +289,22 @@ class DeviceService extends BaseService {
         }
       });
 
-      const devices = Array.isArray(devicesObj) ? devicesObj : Object.values(devicesObj || {});
+      // Convert object to array if needed
+      return Array.isArray(devicesObj) ? devicesObj : Object.values(devicesObj || {});
+    } catch (error) {
+      this.logger.warn('USB detection find() failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Scan for already-connected devices and manually trigger connection events
+   */
+  private async _scanAlreadyConnectedDevices(): Promise<void> {
+    try {
+      this.logger.debug('Scanning for already-connected devices...');
+
+      const devices = await this._findAllConnectedDevices();
 
       if (devices.length === 0) {
         this.logger.debug('No devices found in initial scan');
@@ -299,7 +314,6 @@ class DeviceService extends BaseService {
       this.logger.debug(`Found ${devices.length} device(s) in initial scan`);
 
       // Trigger connection events for matching devices
-      // Note: matchDevice and onDeviceConnected are synchronous, no await needed
       for (const device of devices) {
         const match = this.matchDevice(device);
         if (match.matched) {
@@ -408,26 +422,9 @@ class DeviceService extends BaseService {
    */
   private async _performDeviceCheck(): Promise<boolean> {
     try {
-      // Get list of all connected USB devices
-      let findResult: unknown = null;
-      try {
-        findResult = this._usbDetection.find();
-        const keyCount = (findResult && typeof findResult === 'object') ? Object.keys(findResult as object).length : 0;
-        this.logger.debug(`find() returned ${keyCount} device(s)`);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`USB detection find() failed: ${errorMessage}`);
-        findResult = null;
-      }
+      const devices = await this._findAllConnectedDevices();
 
-      // Convert object to array - usb-detection returns { deviceId: device, ... }
-      let devices: USBDetectionDevice[] = [];
-      if (findResult && typeof findResult === 'object') {
-        devices = Object.values(findResult as Record<string, USBDetectionDevice>);
-      }
-
-      // Handle undefined/null/empty
-      if (!devices || devices.length === 0) {
+      if (devices.length === 0) {
         this.logger.info('No USB devices found');
         this.isDeviceConnected = false;
         this.connectedDeviceInfo = null;

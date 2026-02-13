@@ -83,26 +83,35 @@ export async function writeTempFile(sessionDir: string, filename: string, buffer
 }
 
 /**
- * Clean up a specific session directory
- * @param sessionId - Session ID to clean up
- * @param sessionDir - Session directory path
+ * Clean up a path (file or directory) with error handling
+ * @param targetPath - Path to clean up
  * @param logger - Optional logger for structured logging
+ * @param errorContext - Context message for error logging
  */
-export function cleanupSession(sessionId: string, sessionDir: string, logger: Logger | null = null): void {
+function _cleanupPath(targetPath: string, logger: Logger | null, errorContext: string): void {
   try {
-    if (fs.existsSync(sessionDir)) {
-      fs.rmSync(sessionDir, { recursive: true, force: true });
+    if (fs.existsSync(targetPath)) {
+      fs.rmSync(targetPath, { recursive: true, force: true });
     }
-    activeSessions.delete(sessionId);
   } catch (error) {
-    // Log but don't throw - cleanup should be best-effort
-    const message = `Failed to cleanup session ${sessionId}: ${(error as Error).message}`;
+    const message = `${errorContext}: ${(error as Error).message}`;
     if (logger?.error) {
       logger.error(message);
     } else {
       console.error(message);
     }
   }
+}
+
+/**
+ * Clean up a specific session directory
+ * @param sessionId - Session ID to clean up
+ * @param sessionDir - Session directory path
+ * @param logger - Optional logger for structured logging
+ */
+export function cleanupSession(sessionId: string, sessionDir: string, logger: Logger | null = null): void {
+  _cleanupPath(sessionDir, logger, `Failed to cleanup session ${sessionId}`);
+  activeSessions.delete(sessionId);
 }
 
 /**
@@ -116,18 +125,7 @@ export function cleanupAllSessions(logger: Logger | null = null): void {
   // Clean up tracked sessions
   for (const sessionId of activeSessions) {
     const sessionDir = path.join(baseDir, sessionId);
-    try {
-      if (fs.existsSync(sessionDir)) {
-        fs.rmSync(sessionDir, { recursive: true, force: true });
-      }
-    } catch (error) {
-      const message = `Failed to cleanup session ${sessionId}: ${(error as Error).message}`;
-      if (logger?.error) {
-        logger.error(message);
-      } else {
-        console.error(message);
-      }
-    }
+    _cleanupPath(sessionDir, logger, `Failed to cleanup session ${sessionId}`);
   }
   activeSessions.clear();
 

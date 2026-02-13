@@ -322,7 +322,7 @@ describe('WindowService', () => {
 
       // Verify webContents listener was removed during close (before destroy)
       expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
-      expect(windowService._consoleMessageListener).toBeNull();
+      expect(windowService._listeners.size).toBe(0);
     });
 
     it('should null window reference on closed event', () => {

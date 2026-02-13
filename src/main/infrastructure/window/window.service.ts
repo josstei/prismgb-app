@@ -44,11 +44,7 @@ type AppWithQuitFlag = typeof app & {
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
-  private _consoleMessageListener: ConsoleMessageListener | null = null;
-  private _downloadHandler: DownloadHandler | null = null;
-  private _enterFullscreenListener: FullscreenListener | null = null;
-  private _leaveFullscreenListener: FullscreenListener | null = null;
-  private _resizedListener: (() => void) | null = null;
+  private readonly _listeners: Map<string, Function> = new Map();
 
   constructor(dependencies: WindowServiceDependencies) {
     super(dependencies, ['loggerFactory'], 'WindowService');
@@ -96,7 +92,7 @@ class WindowService extends BaseService {
       show: false // Don't show until ready
     });
 
-    this._downloadHandler = (event: Event, item: DownloadItem) => {
+    const downloadHandler = (event: Event, item: DownloadItem) => {
       const downloadsPath = app.getPath('downloads');
       const rawFilename = item.getFilename();
 
@@ -125,7 +121,8 @@ class WindowService extends BaseService {
         }
       });
     };
-    this.mainWindow.webContents.session.on('will-download', this._downloadHandler);
+    this._listeners.set('will-download', downloadHandler);
+    this.mainWindow.webContents.session.on('will-download', downloadHandler);
 
     if (isDev) {
       this.mainWindow.loadURL('http://localhost:3000/src/renderer/index.html');
@@ -135,9 +132,9 @@ class WindowService extends BaseService {
       this.logger.info('Loading built files');
     }
 
-    // Log renderer console to terminal (dev only) - store reference for cleanup
+    // Log renderer console to terminal (dev only)
     if (isDev) {
-      this._consoleMessageListener = (
+      const consoleListener = (
         event: Event,
         level: number,
         message: string,
@@ -147,25 +144,29 @@ class WindowService extends BaseService {
         const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
         console.log(`[Renderer ${levels[level] || level}] ${message}`);
       };
-      this.mainWindow.webContents.on('console-message', this._consoleMessageListener);
+      this._listeners.set('console-message', consoleListener);
+      this.mainWindow.webContents.on('console-message', consoleListener);
     }
 
     this.mainWindow.once('ready-to-show', () => {
       this._forceWindowToForeground();
     });
 
-    this._enterFullscreenListener = () => {
+    const enterFullscreenListener = () => {
       this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     };
-    this._leaveFullscreenListener = () => {
+    const leaveFullscreenListener = () => {
       this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
     };
-    this._resizedListener = () => {
+    const resizedListener = () => {
       this.send(IPC_CHANNELS.WINDOW.RESIZED);
     };
-    this.mainWindow.on('enter-full-screen', this._enterFullscreenListener);
-    this.mainWindow.on('leave-full-screen', this._leaveFullscreenListener);
-    this.mainWindow.on('resized', this._resizedListener);
+    this._listeners.set('enter-full-screen', enterFullscreenListener);
+    this._listeners.set('leave-full-screen', leaveFullscreenListener);
+    this._listeners.set('resized', resizedListener);
+    this.mainWindow.on('enter-full-screen', enterFullscreenListener);
+    this.mainWindow.on('leave-full-screen', leaveFullscreenListener);
+    this.mainWindow.on('resized', resizedListener);
 
     // Handle window close - clean up listeners before window is destroyed
     this.mainWindow.on('close', (event: Event) => {
@@ -175,27 +176,34 @@ class WindowService extends BaseService {
         return;
       }
 
-      // Clean up console message listener
-      if (this._consoleMessageListener && this.mainWindow!.webContents) {
-        this.mainWindow!.webContents.off('console-message', this._consoleMessageListener);
+      // Clean up all tracked listeners
+      const consoleListener = this._listeners.get('console-message');
+      if (consoleListener && this.mainWindow!.webContents) {
+        this.mainWindow!.webContents.off('console-message', consoleListener as ConsoleMessageListener);
       }
-      this._consoleMessageListener = null;
 
-      // Clean up download handler from session
-      if (this._downloadHandler && this.mainWindow?.webContents?.session) {
-        this.mainWindow.webContents.session.off('will-download', this._downloadHandler);
+      const downloadListener = this._listeners.get('will-download');
+      if (downloadListener && this.mainWindow?.webContents?.session) {
+        this.mainWindow.webContents.session.off('will-download', downloadListener as DownloadHandler);
       }
-      this._downloadHandler = null;
 
-      // Clean up fullscreen and resize listeners
-      if (this._enterFullscreenListener && this.mainWindow) {
-        this.mainWindow.off('enter-full-screen', this._enterFullscreenListener);
-        this.mainWindow.off('leave-full-screen', this._leaveFullscreenListener);
-        this.mainWindow.off('resized', this._resizedListener);
+      if (this.mainWindow) {
+        const enterFullscreenListener = this._listeners.get('enter-full-screen');
+        const leaveFullscreenListener = this._listeners.get('leave-full-screen');
+        const resizedListener = this._listeners.get('resized');
+
+        if (enterFullscreenListener) {
+          this.mainWindow.off('enter-full-screen', enterFullscreenListener as FullscreenListener);
+        }
+        if (leaveFullscreenListener) {
+          this.mainWindow.off('leave-full-screen', leaveFullscreenListener as FullscreenListener);
+        }
+        if (resizedListener) {
+          this.mainWindow.off('resized', resizedListener as () => void);
+        }
       }
-      this._enterFullscreenListener = null;
-      this._leaveFullscreenListener = null;
-      this._resizedListener = null;
+
+      this._listeners.clear();
     });
 
     this.mainWindow.on('closed', () => {
