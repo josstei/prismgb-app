@@ -3,8 +3,7 @@ import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.o
 import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
-import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator';
-import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
+import { SettingsOrchestrator } from '@renderer/application/orchestrators/settings.orchestrator';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
 import { PerformanceOrchestrator } from '@renderer/application/orchestrators/performance.orchestrator';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service';
@@ -24,8 +23,7 @@ export function registerOrchestrators(container: RegistrableContainer<RendererCo
   container.autoRegister('streamingAudioOrchestrator', StreamingAudioOrchestrator);
   container.autoRegister('streamingOrchestrator', StreamingOrchestrator);
   container.autoRegister('captureOrchestrator', CaptureOrchestrator);
-  container.autoRegister('preferencesOrchestrator', SettingsPreferencesOrchestrator);
-  container.autoRegister('displayModeOrchestrator', SettingsDisplayModeOrchestrator);
+  container.autoRegister('settingsOrchestrator', SettingsOrchestrator);
   container.autoRegister('performanceOrchestrator', PerformanceOrchestrator);
   container.autoRegister('uiSetupOrchestrator', UISetupOrchestrator);
   container.autoRegister('appOrchestrator', AppOrchestrator);

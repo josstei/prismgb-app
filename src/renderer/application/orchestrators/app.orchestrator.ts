@@ -18,8 +18,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     'streamingOrchestrator',
     'streamingAudioOrchestrator',
     'captureOrchestrator',
-    'preferencesOrchestrator',
-    'displayModeOrchestrator',
+    'settingsOrchestrator',
     'updateService',
     'uiSetupOrchestrator',
     'performanceOrchestrator',
@@ -33,11 +32,10 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {StreamingOrchestrator} dependencies.streamingOrchestrator - Stream management
    * @param {StreamingAudioOrchestrator} dependencies.streamingAudioOrchestrator - Audio stream lifecycle
    * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
-   * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
-   * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
- * @param {UpdateService} dependencies.updateService - Auto-updates
- * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
- * @param {PerformanceOrchestrator} dependencies.performanceOrchestrator - Performance state + animation + metrics
+   * @param {SettingsOrchestrator} dependencies.settingsOrchestrator - Settings and display modes
+   * @param {UpdateService} dependencies.updateService - Auto-updates
+   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
+   * @param {PerformanceOrchestrator} dependencies.performanceOrchestrator - Performance state + animation + metrics
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
@@ -66,8 +64,7 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     // Initialize application orchestrators
     await this.performanceOrchestrator.initialize();
-    await this.displayModeOrchestrator.initialize();
-    await this.preferencesOrchestrator.initialize();
+    await this.settingsOrchestrator.initialize();
     await this.updateService.initialize();
     await this.uiSetupOrchestrator.initialize();
   }
@@ -86,7 +83,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.uiSetupOrchestrator.setupOverlayClickHandlers();
     this.uiSetupOrchestrator.setupUIEventListeners();
 
-    // Note: Preferences are loaded in PreferencesOrchestrator.onInitialize()
+    // Note: Preferences are loaded in SettingsOrchestrator.onInitialize()
 
     this.logger.info('Application orchestrator started');
   }
@@ -145,8 +142,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
       ['performanceOrchestrator', this.performanceOrchestrator],
       ['updateService', this.updateService],
-      ['displayModeOrchestrator', this.displayModeOrchestrator],
-      ['preferencesOrchestrator', this.preferencesOrchestrator],
+      ['settingsOrchestrator', this.settingsOrchestrator],
       ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],

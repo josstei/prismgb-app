@@ -12,8 +12,7 @@ describe('AppOrchestrator', () => {
   let mockStreamingOrchestrator;
   let mockStreamingAudioOrchestrator;
   let mockCaptureOrchestrator;
-  let mockPreferencesOrchestrator;
-  let mockDisplayModeOrchestrator;
+  let mockSettingsOrchestrator;
   let mockUpdateService;
   let mockUiSetupOrchestrator;
   let mockPerformanceOrchestrator;
@@ -41,12 +40,7 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockPreferencesOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(undefined),
-      cleanup: vi.fn().mockResolvedValue(undefined)
-    };
-
-    mockDisplayModeOrchestrator = {
+    mockSettingsOrchestrator = {
       initialize: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
@@ -88,8 +82,7 @@ describe('AppOrchestrator', () => {
       streamingOrchestrator: mockStreamingOrchestrator,
       streamingAudioOrchestrator: mockStreamingAudioOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
-      preferencesOrchestrator: mockPreferencesOrchestrator,
-      displayModeOrchestrator: mockDisplayModeOrchestrator,
+      settingsOrchestrator: mockSettingsOrchestrator,
       updateService: mockUpdateService,
       uiSetupOrchestrator: mockUiSetupOrchestrator,
       performanceOrchestrator: mockPerformanceOrchestrator,
@@ -123,8 +116,7 @@ describe('AppOrchestrator', () => {
     expect(mockDeviceOrchestrator.initialize).toHaveBeenCalled();
     expect(mockCaptureOrchestrator.initialize).toHaveBeenCalled();
     expect(mockPerformanceOrchestrator.initialize).toHaveBeenCalled();
-    expect(mockDisplayModeOrchestrator.initialize).toHaveBeenCalled();
-    expect(mockPreferencesOrchestrator.initialize).toHaveBeenCalled();
+    expect(mockSettingsOrchestrator.initialize).toHaveBeenCalled();
     expect(mockUpdateService.initialize).toHaveBeenCalled();
     expect(mockUiSetupOrchestrator.initialize).toHaveBeenCalled();
   });

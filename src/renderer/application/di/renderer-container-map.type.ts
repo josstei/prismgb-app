@@ -1,9 +1,8 @@
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
 import type { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator';
-import type { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
 import type { PerformanceOrchestrator } from '@renderer/application/orchestrators/performance.orchestrator';
-import type { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator';
+import type { SettingsOrchestrator } from '@renderer/application/orchestrators/settings.orchestrator';
 import type { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator';
 import type { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
 import type { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
@@ -105,9 +104,8 @@ export interface RendererContainerMap {
   streamingAudioOrchestrator: StreamingAudioOrchestrator;
   streamingOrchestrator: StreamingOrchestrator;
   captureOrchestrator: CaptureOrchestrator;
-  preferencesOrchestrator: SettingsPreferencesOrchestrator;
+  settingsOrchestrator: SettingsOrchestrator;
   fullscreenService: SettingsFullscreenService;
-  displayModeOrchestrator: SettingsDisplayModeOrchestrator;
   performanceOrchestrator: PerformanceOrchestrator;
   performanceMetricsService: PerformanceMetricsService;
   performanceStateService: PerformanceStateService;
