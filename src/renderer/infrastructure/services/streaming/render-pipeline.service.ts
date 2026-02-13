@@ -20,7 +20,8 @@ export class StreamingRenderPipelineService extends BaseService {
     'streamViewService',
     'canvasLifecycleService',
     'streamHealthService',
-    'streamingRendererFactory',
+    'createGpuRenderer',
+    'createCanvasRenderer',
     'gpuRendererService',
     'canvasRenderer',
     'eventBus',
@@ -152,20 +153,89 @@ export class StreamingRenderPipelineService extends BaseService {
   // Private methods
   // ============================
 
-  _handleVisible() {
+  /**
+   * Helper: Recreate canvas and setup size
+   * @param {Object} nativeRes - Native resolution
+   * @param {boolean} isGpu - Whether canvas is for GPU
+   * @returns {HTMLCanvasElement} Fresh canvas reference
+   */
+  _ensureFreshCanvas(nativeRes, isGpu) {
+    this.canvasLifecycleService.recreateCanvas();
+    this.canvasLifecycleService.setupCanvasSize(nativeRes, isGpu);
+    this._canvas2dContextCreated = false;
+    return this.streamViewService.getCanvas();
+  }
+
+  /**
+   * Helper: Toggle renderer pause/resume based on visibility
+   * @param {boolean} shouldPause - True to pause, false to resume
+   */
+  _toggleRendererPause(shouldPause) {
     if (this.appState.isStreaming && this._activeRenderer) {
       const video = this.streamViewService.getVideo();
-      this._activeRenderer.resume(video);
-      this.logger.debug(`${this._activeRendererType} rendering resumed (window visible)`);
+      if (shouldPause) {
+        this._activeRenderer.pause(video);
+        this.logger.debug(`${this._activeRendererType} rendering paused (window hidden)`);
+      } else {
+        this._activeRenderer.resume(video);
+        this.logger.debug(`${this._activeRendererType} rendering resumed (window visible)`);
+      }
     }
   }
 
-  _handleHidden() {
-    if (this.appState.isStreaming && this._activeRenderer) {
-      const video = this.streamViewService.getVideo();
-      this._activeRenderer.pause(video);
-      this.logger.debug(`${this._activeRendererType} rendering paused (window hidden)`);
+  /**
+   * Helper: Create and initialize GPU renderer
+   * @param {HTMLCanvasElement} canvas
+   * @param {Object} nativeRes
+   * @returns {Object} Initialized renderer or null if failed
+   */
+  async _tryInitializeGpuRenderer(canvas, nativeRes) {
+    const renderer = this.createGpuRenderer({
+      gpuRendererService: this.gpuRendererService,
+      gpuRenderLoopService: this.gpuRenderLoopService,
+      appState: this.appState
+    });
+
+    renderer.setHiddenStateFn(() => this._isHidden);
+
+    try {
+      const gpuAvailable = await renderer.initialize(canvas, nativeRes);
+      return gpuAvailable ? renderer : null;
+    } catch (error) {
+      this.logger.warn('GPU renderer initialization failed:', error.message);
+      return null;
     }
+  }
+
+  /**
+   * Select renderer type based on capabilities and performance mode
+   * @param {Object} capabilities - Device capabilities
+   * @returns {string} Renderer type ('gpu' or 'canvas2d')
+   */
+  _selectRendererType(capabilities) {
+    // Performance mode forces Canvas2D
+    if (this._performanceModeEnabled) {
+      this.logger.debug('Performance mode active - selecting Canvas2D');
+      return 'canvas2d';
+    }
+
+    // Use GPU only if explicitly supported
+    if (capabilities?.supportsGPU === true) {
+      this.logger.debug('GPU supported - selecting GPU');
+      return 'gpu';
+    }
+
+    // Default to Canvas2D
+    this.logger.debug('GPU not supported - selecting Canvas2D');
+    return 'canvas2d';
+  }
+
+  _handleVisible() {
+    this._toggleRendererPause(false);
+  }
+
+  _handleHidden() {
+    this._toggleRendererPause(true);
   }
 
   _handlePerformanceModeEnabled() {
@@ -247,12 +317,7 @@ export class StreamingRenderPipelineService extends BaseService {
     const video = this.streamViewService.getVideo();
 
     // Determine renderer type
-    const gpuAvailable = !this._performanceModeEnabled;
-    const rendererType = this.streamingRendererFactory.selectRendererType(
-      capabilities,
-      this._performanceModeEnabled,
-      gpuAvailable
-    );
+    const rendererType = this._selectRendererType(capabilities);
 
     // Setup canvas size
     this.canvasLifecycleService.setupCanvasSize(nativeRes, rendererType === 'gpu');
@@ -265,9 +330,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
     if (rendererType === 'gpu' && canvasHasContext) {
       this.logger.info('Recreating canvas before GPU init (canvas has 2D context)');
-      this.canvasLifecycleService.recreateCanvas();
-      this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
-      this._canvas2dContextCreated = false;
+      this._ensureFreshCanvas(nativeRes, true);
     }
 
     // Get canvas AFTER potential recreation to avoid stale reference
@@ -293,55 +356,38 @@ export class StreamingRenderPipelineService extends BaseService {
     let currentCanvas = canvas;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const renderer = this.streamingRendererFactory.createRenderer('gpu', {
-        gpuRendererService: this.gpuRendererService,
-        gpuRenderLoopService: this.gpuRenderLoopService,
-        appState: this.appState
-      });
+      const renderer = await this._tryInitializeGpuRenderer(currentCanvas, nativeRes);
 
-      renderer.setHiddenStateFn(() => this._isHidden);
+      if (renderer) {
+        this._activeRenderer = renderer;
+        this._activeRendererType = 'gpu';
+        this.logger.info('Using GPU renderer for HD rendering');
 
-      try {
-        const gpuAvailable = await renderer.initialize(currentCanvas, nativeRes);
+        renderer.resume(video);
 
-        if (gpuAvailable) {
-          this._activeRenderer = renderer;
-          this._activeRendererType = 'gpu';
-          this.logger.info('Using GPU renderer for HD rendering');
-
-          renderer.resume(video);
-
-          // Apply performance preset if needed
-          if (this._performanceModeEnabled) {
-            if (!this._userPresetId) {
-              const currentPresetId = renderer.getPresetId();
-              if (currentPresetId && currentPresetId !== 'performance') {
-                this._userPresetId = currentPresetId;
-              }
+        // Apply performance preset if needed
+        if (this._performanceModeEnabled) {
+          if (!this._userPresetId) {
+            const currentPresetId = renderer.getPresetId();
+            if (currentPresetId && currentPresetId !== 'performance') {
+              this._userPresetId = currentPresetId;
             }
-            renderer.setPreset('performance');
           }
-          return;
+          renderer.setPreset('performance');
         }
-
-        this.logger.warn('GPU renderer not available, falling back to Canvas2D');
-        break;
-      } catch (error) {
-        // Check if failure is due to canvas having a rendering context (e.g., from HMR)
-        const isContextError = error.message?.includes('rendering context');
-        const canRetry = attempt < MAX_RETRIES;
-
-        if (isContextError && canRetry) {
-          this.logger.warn('GPU init failed due to existing canvas context, recreating canvas and retrying');
-          this.canvasLifecycleService.recreateCanvas();
-          this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
-          currentCanvas = this.streamViewService.getCanvas();
-          continue; // Retry with fresh canvas
-        }
-
-        this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', error.message);
-        break;
+        return;
       }
+
+      // Check if we can retry with a fresh canvas
+      const canRetry = attempt < MAX_RETRIES;
+      if (canRetry && this.canvasRenderer.hasContextFor(currentCanvas)) {
+        this.logger.warn('GPU init failed, recreating canvas and retrying');
+        currentCanvas = this._ensureFreshCanvas(nativeRes, true);
+        continue;
+      }
+
+      this.logger.warn('GPU renderer not available, falling back to Canvas2D');
+      break;
     }
 
     // Fallback to Canvas2D
@@ -354,7 +400,7 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {HTMLVideoElement} video
    */
   async _startCanvas2DRendering(canvas, video) {
-    const renderer = this.streamingRendererFactory.createRenderer('canvas2d', {
+    const renderer = this.createCanvasRenderer({
       canvasRenderer: this.canvasRenderer,
       appState: this.appState
     });
@@ -391,10 +437,7 @@ export class StreamingRenderPipelineService extends BaseService {
     if (this.gpuRendererService.isCanvasTransferred()) {
       this.logger.warn('Canvas control was transferred to GPU. Recreating canvas for Canvas2D fallback.');
       this.gpuRendererService.terminateAndReset(false);
-      this.canvasLifecycleService.recreateCanvas();
-      this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
-      this._canvas2dContextCreated = false;
-      currentCanvas = this.streamViewService.getCanvas();
+      currentCanvas = this._ensureFreshCanvas(nativeRes, false);
     }
 
     await this._startCanvas2DRendering(currentCanvas, video);
@@ -405,6 +448,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   async _switchToCanvas2DMidStream() {
     const video = this.streamViewService.getVideo();
+    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
 
     // Stop GPU renderer
     if (this._activeRenderer) {
@@ -412,16 +456,8 @@ export class StreamingRenderPipelineService extends BaseService {
       this._activeRenderer.terminateAndReset(false);
     }
 
-    // Recreate canvas
-    this.canvasLifecycleService.recreateCanvas();
-    this._canvas2dContextCreated = false;
-
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
-    this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
-
-    const canvas = this.streamViewService.getCanvas();
-
-    // Start Canvas2D
+    // Recreate canvas and start Canvas2D
+    const canvas = this._ensureFreshCanvas(nativeRes, false);
     await this._startCanvas2DRendering(canvas, video);
   }
 
@@ -430,6 +466,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   async _switchToGPUMidStream() {
     const video = this.streamViewService.getVideo();
+    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
 
     // Stop Canvas2D renderer
     if (this._activeRenderer) {
@@ -437,43 +474,25 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Recreate canvas for GPU
-    this.canvasLifecycleService.recreateCanvas();
-    this._canvas2dContextCreated = false;
-
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
-    this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
-
-    const canvas = this.streamViewService.getCanvas();
+    const canvas = this._ensureFreshCanvas(nativeRes, true);
 
     // Try to initialize GPU
-    const renderer = this.streamingRendererFactory.createRenderer('gpu', {
-      gpuRendererService: this.gpuRendererService,
-      gpuRenderLoopService: this.gpuRenderLoopService,
-      appState: this.appState
-    });
+    const renderer = await this._tryInitializeGpuRenderer(canvas, nativeRes);
 
-    renderer.setHiddenStateFn(() => this._isHidden);
+    if (renderer) {
+      this._activeRenderer = renderer;
+      this._activeRendererType = 'gpu';
 
-    try {
-      const gpuAvailable = await renderer.initialize(canvas, nativeRes);
+      renderer.resume(video);
 
-      if (gpuAvailable) {
-        this._activeRenderer = renderer;
-        this._activeRendererType = 'gpu';
-
-        renderer.resume(video);
-
-        if (this._userPresetId) {
-          renderer.setPreset(this._userPresetId);
-          this.logger.info(`Performance mode disabled mid-stream - switched to GPU with ${this._userPresetId} preset`);
-          this._userPresetId = null;
-        } else {
-          this.logger.info('Performance mode disabled mid-stream - switched to GPU renderer');
-        }
-        return;
+      if (this._userPresetId) {
+        renderer.setPreset(this._userPresetId);
+        this.logger.info(`Performance mode disabled mid-stream - switched to GPU with ${this._userPresetId} preset`);
+        this._userPresetId = null;
+      } else {
+        this.logger.info('Performance mode disabled mid-stream - switched to GPU renderer');
       }
-    } catch (error) {
-      this.logger.warn('GPU initialization failed mid-stream, staying on Canvas2D:', error.message);
+      return;
     }
 
     // Stay on Canvas2D

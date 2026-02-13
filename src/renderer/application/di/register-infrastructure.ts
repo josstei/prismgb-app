@@ -12,7 +12,6 @@ import { StreamingViewportService } from '@renderer/infrastructure/services/stre
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
 import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
-import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory';
 import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter';
 import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter';
 import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service';
@@ -104,17 +103,23 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
   container.autoRegister('gpuRendererService', StreamingGpuRendererService);
 
   container.registerFactory(
-    'streamingRendererFactory',
-    function(eventBus, loggerFactory) {
-      const rendererClasses = new Map<string, unknown>([
-        ['gpu', StreamingGpuRendererAdapter],
-        ['canvas2d', StreamingCanvas2DRendererAdapter]
-      ]);
-      const rendererFactory = new StreamingRendererFactory(eventBus, loggerFactory, rendererClasses);
-      rendererFactory.initialize();
-      return rendererFactory;
+    'createGpuRenderer',
+    function(loggerFactory) {
+      return (context: Record<string, unknown>) => {
+        return new StreamingGpuRendererAdapter({ ...context, loggerFactory });
+      };
     },
-    ['eventBus', 'loggerFactory']
+    ['loggerFactory']
+  );
+
+  container.registerFactory(
+    'createCanvasRenderer',
+    function(loggerFactory) {
+      return (context: Record<string, unknown>) => {
+        return new StreamingCanvas2DRendererAdapter({ ...context, loggerFactory });
+      };
+    },
+    ['loggerFactory']
   );
 
   container.autoRegister('renderPipelineService', StreamingRenderPipelineService);
