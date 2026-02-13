@@ -16,11 +16,10 @@ import { createAppContainer, type ContainerDependencies } from './container.js';
 import { MainLogger } from '@main/infrastructure/logging/index.js';
 import type { WindowService } from '@main/infrastructure/window/index.js';
 import type { DeviceService } from '@main/infrastructure/devices/index.js';
-import type { DeviceLifecycleService } from '@main/infrastructure/devices/index.js';
+import type { DeviceEventHandler } from '@main/infrastructure/devices/index.js';
 import type { TrayService } from '@main/infrastructure/tray/index.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@main/infrastructure/updates/index.js';
-import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
 import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
 
 /**
@@ -35,11 +34,10 @@ class AppOrchestrator extends BaseOrchestrator {
   private container: AwilixContainer<ContainerDependencies> | null = null;
   private _windowService: WindowService | null = null;
   private _deviceService: DeviceService | null = null;
-  private _deviceLifecycleService: DeviceLifecycleService | null = null;
+  private _deviceEventHandler: DeviceEventHandler | null = null;
   private _trayService: TrayService | null = null;
   private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
   private _updateService: UpdateService | null = null;
-  private _deviceBridgeService: DeviceBridgeService | null = null;
   private _transcodeService: TranscodeService | null = null;
 
   constructor() {
@@ -63,15 +61,14 @@ class AppOrchestrator extends BaseOrchestrator {
     // Resolve and cache core services
     this._windowService = this.container.resolve('windowService');
     this._deviceService = this.container.resolve('deviceService');
-    this._deviceLifecycleService = this.container.resolve('deviceLifecycleService');
+    this._deviceEventHandler = this.container.resolve('deviceEventHandler');
     this._trayService = this.container.resolve('trayService');
     this._ipcHandlerRegistry = this.container.resolve('ipcHandlerRegistry');
     this._updateService = this.container.resolve('updateService');
-    this._deviceBridgeService = this.container.resolve('deviceBridgeService');
     this._transcodeService = this.container.resolve('transcodeService');
 
-    // Initialize device lifecycle service (handles auto-launch)
-    this._deviceLifecycleService.initialize();
+    // Initialize device event handler (handles auto-launch and event bridging)
+    this._deviceEventHandler.initialize();
 
     // Initialize update service and start auto-check (1 hour interval)
     this._updateService.initialize();
@@ -82,9 +79,6 @@ class AppOrchestrator extends BaseOrchestrator {
 
     // Start USB monitoring for hot-plug detection
     this._deviceService.startUSBMonitoring();
-
-    // Subscribe to device events via bridge
-    this._deviceBridgeService.initialize();
 
     // Create system tray
     this._trayService.createTray();
@@ -146,8 +140,7 @@ class AppOrchestrator extends BaseOrchestrator {
     // Dispose services using safe utility (eliminates repetitive try-catch)
     await safeDisposeAll(this.logger, [
       ['IPC handler registry', this._ipcHandlerRegistry],
-      ['device bridge service', this._deviceBridgeService],
-      ['device lifecycle service', this._deviceLifecycleService],
+      ['device event handler', this._deviceEventHandler],
       ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
       ['system tray', this._trayService, 'destroy'],
       ['update service', this._updateService],
@@ -159,11 +152,10 @@ class AppOrchestrator extends BaseOrchestrator {
     this.container = null;
     this._windowService = null;
     this._deviceService = null;
-    this._deviceLifecycleService = null;
+    this._deviceEventHandler = null;
     this._trayService = null;
     this._ipcHandlerRegistry = null;
     this._updateService = null;
-    this._deviceBridgeService = null;
     this._transcodeService = null;
 
     this.logger.info('PrismGB shutdown complete');

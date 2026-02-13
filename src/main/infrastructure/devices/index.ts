@@ -4,8 +4,7 @@
  */
 
 export { DeviceService } from './device.service.js';
-export { DeviceBridgeService } from './device-bridge.service.js';
-export { DeviceLifecycleService } from './device-lifecycle.service.js';
+export { DeviceEventHandler } from './device-event-handler.service.js';
 export { DeviceProfileRegistry } from './device-profile.registry.js';
 
 export type {
@@ -17,12 +16,8 @@ export type {
 } from './device.service.js';
 
 export type {
-  DeviceBridgeServiceDependencies
-} from './device-bridge.service.js';
-
-export type {
-  DeviceLifecycleServiceDependencies
-} from './device-lifecycle.service.js';
+  DeviceEventHandlerDependencies
+} from './device-event-handler.service.js';
 
 export type {
   DeviceProfileRegistryDependencies,

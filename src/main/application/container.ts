@@ -14,8 +14,7 @@ import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import {
   DeviceService,
   DeviceProfileRegistry,
-  DeviceLifecycleService,
-  DeviceBridgeService,
+  DeviceEventHandler,
   type ProfileClass
 } from '@main/infrastructure/devices/index.js';
 import { UpdateService } from '@main/infrastructure/updates/index.js';
@@ -44,8 +43,7 @@ export interface ContainerDependencies {
   ipcHandlerRegistry: IpcHandlerRegistry;
   deviceService: DeviceService;
   profileRegistry: DeviceProfileRegistry;
-  deviceLifecycleService: DeviceLifecycleService;
-  deviceBridgeService: DeviceBridgeService;
+  deviceEventHandler: DeviceEventHandler;
   updateService: UpdateService;
   transcodeService: TranscodeService;
 }
@@ -108,13 +106,12 @@ async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixCont
 
   container.register({
     deviceService: asValue(deviceService),
-    deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
+    deviceEventHandler: asClass(DeviceEventHandler).singleton()
   });
 
   // Register update components
   container.register({
-    updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridgeService).singleton()
+    updateService: asClass(UpdateService).singleton()
   });
 
   // Register transcode components
