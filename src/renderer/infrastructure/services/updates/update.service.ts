@@ -13,9 +13,10 @@
  * - 'update:state-changed' - State transition
  */
 
-import { LifecycleService } from '@prismgb/core';
+import { IPCBridgeBase } from '@renderer/infrastructure/bridges/ipc-bridge.base';
 import { EventChannels } from '@renderer/common/config/event-channels';
 import { UpdateState } from '@renderer/common/config/update-state.config';
+import type { IPCMapping, IPCApi } from '@renderer/infrastructure/bridges/ipc-bridge.base';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
@@ -26,10 +27,9 @@ import type {
   UpdateStatusPayload
 } from '@prismgb/ipc';
 
-// Re-export for backward compatibility
 export { UpdateState };
 
-class UpdateService extends LifecycleService {
+class UpdateService extends IPCBridgeBase {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
@@ -39,6 +39,37 @@ class UpdateService extends LifecycleService {
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
+  }
+
+  protected getIPCApi(): IPCApi | undefined {
+    return window.updateAPI;
+  }
+
+  protected getMappings(): IPCMapping[] {
+    return [
+      { apiMethod: 'onAvailable', eventChannel: EventChannels.UPDATE.AVAILABLE },
+      { apiMethod: 'onNotAvailable', eventChannel: EventChannels.UPDATE.NOT_AVAILABLE },
+      { apiMethod: 'onProgress', eventChannel: EventChannels.UPDATE.PROGRESS },
+      { apiMethod: 'onDownloaded', eventChannel: EventChannels.UPDATE.DOWNLOADED },
+      { apiMethod: 'onError', eventChannel: EventChannels.UPDATE.ERROR }
+    ];
+  }
+
+  protected createHandler(mapping: IPCMapping): (data: unknown) => void {
+    switch (mapping.apiMethod) {
+      case 'onAvailable':
+        return (data: unknown) => this._handleAvailable(data as UpdateInfoPayload);
+      case 'onNotAvailable':
+        return (data: unknown) => this._handleNotAvailable(data as UpdateInfoPayload);
+      case 'onProgress':
+        return (data: unknown) => this._handleProgress(data as UpdateProgressPayload);
+      case 'onDownloaded':
+        return (data: unknown) => this._handleDownloaded(data as UpdateInfoPayload);
+      case 'onError':
+        return (data: unknown) => this._handleError(data as UpdateErrorPayload);
+      default:
+        return super.createHandler(mapping);
+    }
   }
 
   async initialize() {
@@ -52,14 +83,7 @@ class UpdateService extends LifecycleService {
 
   async onInitialize() {
     await this._loadInitialStatus();
-
-    this._subscriptions.push(
-      window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
-      window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
-      window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
-      window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
-      window.updateAPI.onError((error) => this._handleError(error))
-    );
+    await super.onInitialize();
   }
 
   async _loadInitialStatus() {
@@ -76,33 +100,33 @@ class UpdateService extends LifecycleService {
     }
   }
 
-  _handleAvailable(info: UpdateInfoPayload) {
+  private _handleAvailable(info: UpdateInfoPayload) {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
   }
 
-  _handleNotAvailable(info: UpdateInfoPayload) {
+  private _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
   }
 
-  _handleProgress(progress: UpdateProgressPayload) {
+  private _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
     this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
   }
 
-  _handleDownloaded(info: UpdateInfoPayload) {
+  private _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
     this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
   }
 
-  _handleError(error: UpdateErrorPayload) {
+  private _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
@@ -205,7 +229,7 @@ class UpdateService extends LifecycleService {
   }
 
   async onDispose() {
-    window.updateAPI?.removeListeners();
+    await super.onDispose();
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
