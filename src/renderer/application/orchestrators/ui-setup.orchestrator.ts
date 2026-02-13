@@ -13,7 +13,7 @@
 import { BaseOrchestrator } from '@prismgb/core';
 import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@renderer/application/config/event-channels';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [

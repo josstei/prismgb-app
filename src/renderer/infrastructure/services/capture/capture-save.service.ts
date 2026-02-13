@@ -10,7 +10,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/application/lib/file-download.utils';
+import { downloadFile } from '@renderer/common/lib/file-download.utils';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;

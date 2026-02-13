@@ -63,9 +63,13 @@ This document captures the naming and organization conventions used throughout P
   - `@main` -> `src/main`
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
-  - `@shared` -> `src/shared`
   - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
-- `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.
+  - `@prismgb/core` -> `packages/prismgb-core/src/index.ts`
+  - `@prismgb/di` -> `packages/prismgb-di/src/index.ts`
+  - `@prismgb/ipc` -> `packages/prismgb-ipc/src/index.ts`
+  - `@prismgb/devices` -> `packages/prismgb-devices/src/index.ts`
+  - `@prismgb/stream-source` -> `packages/prismgb-stream-source/src/index.ts`
+- `src/core` and `src/shared` have been retired and removed; the `@core` and `@shared` aliases are not configured, so those imports will fail at build time.
 - Prefer extensionless TS imports (avoid `.ts` suffix in TS/JS import specifiers).
 
 ## Testing Conventions

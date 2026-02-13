@@ -17,7 +17,6 @@ export default defineConfig({
       '@main': path.resolve(__dirname, 'src/main'),
       '@renderer': path.resolve(__dirname, 'src/renderer'),
       '@preload': path.resolve(__dirname, 'src/preload'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
       '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
       '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
       '@prismgb/di': path.resolve(__dirname, 'packages/prismgb-di/src/index.ts'),
@@ -73,8 +72,6 @@ export default defineConfig({
         'src/renderer/presentation/icons/*.{js,ts}',
         'src/renderer/presentation/features/**/*.template.{js,ts}',
         // Interface and type-only files (abstract base classes, contracts, type definitions)
-        'src/shared/interfaces/**',
-        'src/shared/ipc/*.contract.ts',
         'src/**/*.interface.{js,ts}',
         'src/**/*.type.ts',
         'src/**/*.types.ts',

@@ -5,7 +5,7 @@
  * Provides Testing Library-style queries for element IDs.
  */
 
-import { DOMSelectors } from '../../src/shared/config/dom-selectors.config.js';
+import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config.js';
 
 /**
  * Get element by DOMSelector key

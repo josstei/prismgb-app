@@ -221,7 +221,7 @@ export async function getAppInfo(app) {
 
 /**
  * IPC channel names for test injection
- * Must match src/shared/ipc/channels.json
+ * Must match @prismgb/ipc channel definitions
  */
 const IPC_CHANNELS = {
   DEVICE: {

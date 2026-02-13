@@ -10,7 +10,7 @@
 
 import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@renderer/application/lib/string.utils';
+import { escapeHtml } from '@renderer/common/lib/string.utils';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // Autocomplete debounce

@@ -10,7 +10,7 @@
  */
 
 import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@renderer/application/config/event-channels';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 export class AppOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [

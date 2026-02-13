@@ -246,7 +246,7 @@ All JavaScript files follow the pattern: `{name}.{type}.js`
 ### Example Service
 
 ```javascript
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 export class MyService extends BaseService {
   constructor(dependencies) {

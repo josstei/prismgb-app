@@ -7,7 +7,7 @@
 import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresetRegistry } from '@prismgb/gpu';
-import { EventChannels } from '@renderer/application/config/event-channels';
+import { EventChannels } from '@renderer/common/config/event-channels';
 import { cleanupCallbacks } from '@renderer/presentation/lib/event-subscriptions.utils';
 
 class ShaderPresetListComponent {

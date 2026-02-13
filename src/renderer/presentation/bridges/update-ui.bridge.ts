@@ -5,7 +5,7 @@
  */
 
 import { LifecycleService } from '@prismgb/core';
-import { EventChannels } from '@renderer/application/config/event-channels';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 class UpdateUIBridge extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;

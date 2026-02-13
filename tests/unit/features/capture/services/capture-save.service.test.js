@@ -6,9 +6,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { downloadFile } from '@renderer/application/lib/file-download.utils';
+import { downloadFile } from '@renderer/common/lib/file-download.utils';
 
-vi.mock('@renderer/application/lib/file-download.utils', () => ({
+vi.mock('@renderer/common/lib/file-download.utils', () => ({
   downloadFile: vi.fn()
 }));
 

@@ -17,9 +17,6 @@
       "@preload/*": [
         "src/preload/*"
       ],
-      "@shared/*": [
-        "src/shared/*"
-      ],
       "@prismgb/gpu": [
         "packages/prismgb-gpu/dist/index.d.ts"
       ],
@@ -73,7 +70,6 @@
   "include": [
     "src/main/**/*.ts",
     "src/renderer/**/*.ts",
-    "src/shared/**/*.ts",
     "src/types/**/*.d.ts"
   ],
   "exclude": [

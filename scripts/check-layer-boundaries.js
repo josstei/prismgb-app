@@ -13,10 +13,10 @@ const LayerIds = {
   MAIN_IPC: 'main/ipc',
   RENDERER_ENTRY: 'renderer/entry',
   RENDERER_BOOTSTRAP: 'renderer/bootstrap',
+  RENDERER_COMMON: 'renderer/common',
   RENDERER_APPLICATION: 'renderer/application',
   RENDERER_INFRASTRUCTURE: 'renderer/infrastructure',
   RENDERER_PRESENTATION: 'renderer/presentation',
-  SHARED: 'shared',
   PRELOAD: 'preload'
 };
 
@@ -37,10 +37,10 @@ const LAYER_SEQUENCE = [
   LayerIds.MAIN_IPC,
   LayerIds.RENDERER_ENTRY,
   LayerIds.RENDERER_BOOTSTRAP,
+  LayerIds.RENDERER_COMMON,
   LayerIds.RENDERER_APPLICATION,
   LayerIds.RENDERER_INFRASTRUCTURE,
   LayerIds.RENDERER_PRESENTATION,
-  LayerIds.SHARED,
   LayerIds.PRELOAD
 ];
 
@@ -49,6 +49,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.CORE,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_COMMON,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -56,6 +57,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_APPLICATION]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.RENDERER_COMMON,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -63,6 +65,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_INFRASTRUCTURE]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.RENDERER_COMMON,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -70,6 +73,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_IPC]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.RENDERER_COMMON,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -87,6 +91,19 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
+  ]),
+  [LayerIds.RENDERER_COMMON]: new Set([
+    LayerIds.CORE,
+    LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_APPLICATION,
+    LayerIds.MAIN_INFRASTRUCTURE,
+    LayerIds.MAIN_IPC,
+    LayerIds.PRELOAD,
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
   ]),
   [LayerIds.RENDERER_APPLICATION]: new Set([
     LayerIds.CORE,
@@ -114,19 +131,6 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.MAIN_IPC,
     LayerIds.RENDERER_INFRASTRUCTURE
   ]),
-  [LayerIds.SHARED]: new Set([
-    LayerIds.CORE,
-    LayerIds.MAIN_ENTRY,
-    LayerIds.MAIN_APPLICATION,
-    LayerIds.MAIN_INFRASTRUCTURE,
-    LayerIds.MAIN_IPC,
-    LayerIds.RENDERER_ENTRY,
-    LayerIds.RENDERER_BOOTSTRAP,
-    LayerIds.RENDERER_APPLICATION,
-    LayerIds.RENDERER_INFRASTRUCTURE,
-    LayerIds.RENDERER_PRESENTATION,
-    LayerIds.PRELOAD
-  ]),
   [LayerIds.PRELOAD]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
@@ -135,6 +139,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.MAIN_IPC,
     LayerIds.RENDERER_ENTRY,
     LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_COMMON,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -229,10 +234,6 @@ function resolveAliasTarget(specifier) {
 
   if (specifier.startsWith('@renderer/')) {
     return classifyLayerFromSourceRelativePath(specifier.slice(1));
-  }
-
-  if (specifier.startsWith('@shared/')) {
-    return LayerIds.SHARED;
   }
 
   if (specifier.startsWith('@preload/')) {

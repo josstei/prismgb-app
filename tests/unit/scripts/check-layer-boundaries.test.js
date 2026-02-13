@@ -96,12 +96,4 @@ describe('check-layer-boundaries script', () => {
     });
   });
 
-  it('flags re-exports from shared to renderer', () => {
-    const report = runFixture('shared-reexports-renderer');
-    expect(report.violations).toHaveLength(1);
-    expect(report.violations[0]).toMatchObject({
-      sourceLayer: 'shared',
-      targetLayer: 'renderer/presentation'
-    });
-  });
 });

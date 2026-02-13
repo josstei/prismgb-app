@@ -7,8 +7,8 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@renderer/application/config/event-channels';
-import { UpdateState } from '@renderer/application/config/update-state.config';
+import { EventChannels } from '@renderer/common/config/event-channels';
+import { UpdateState } from '@renderer/common/config/update-state.config';
 import { cleanupCallbacks, cleanupTimeouts } from '@renderer/presentation/lib/event-subscriptions.utils';
 
 class UpdateSectionComponent {

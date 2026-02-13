@@ -12,7 +12,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { generateEntityId } from '@renderer/application/lib/string.utils';
+import { generateEntityId } from '@renderer/common/lib/string.utils';
 import { NotesStorageKeys } from '@renderer/infrastructure/config/storage-keys.config';
 
 class NotesService extends BaseService {

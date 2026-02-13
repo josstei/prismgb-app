@@ -118,6 +118,19 @@ export default [
     }
   },
   {
+    files: ['src/renderer/common/**/*.{js,ts}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          '@main/*',
+          '@renderer/application/*',
+          '@renderer/infrastructure/*',
+          '@renderer/presentation/*'
+        ]
+      }]
+    }
+  },
+  {
     files: ['src/renderer/presentation/**/*.{js,ts}'],
     rules: {
       'no-restricted-imports': ['error', {
@@ -138,14 +151,6 @@ export default [
     rules: {
       'no-restricted-imports': ['error', {
         patterns: ['@main/*']
-      }]
-    }
-  },
-  {
-    files: ['src/shared/**/*.{js,ts}'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: ['@main/*', '@renderer/*', '@preload/*']
       }]
     }
   },

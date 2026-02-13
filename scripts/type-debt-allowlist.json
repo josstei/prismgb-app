@@ -544,7 +544,7 @@
       "expiresOn": "2026-04-30"
     },
     {
-      "file": "src/shared/lib/file-download.utils.ts",
+      "file": "src/renderer/common/lib/file-download.utils.ts",
       "code": "TS7006",
       "maxCount": 2,
       "expiresOn": "2026-04-30"

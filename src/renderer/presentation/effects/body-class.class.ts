@@ -5,7 +5,7 @@
  * Responsible for DOM mutations; business logic lives in services/orchestrators.
  */
 
-import { TIMING } from '@renderer/application/config/timing.config';
+import { TIMING } from '@renderer/common/config/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 const APP_CSS_CLASSES = Object.freeze({

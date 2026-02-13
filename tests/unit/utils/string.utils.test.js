@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { escapeHtml, generateEntityId } from '@renderer/application/lib/string.utils';
+import { escapeHtml, generateEntityId } from '@renderer/common/lib/string.utils';
 
 describe('String Utils', () => {
   describe('escapeHtml', () => {

@@ -4,7 +4,7 @@
  */
 
 import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
-import { downloadFile } from '@renderer/application/lib/file-download.utils';
+import { downloadFile } from '@renderer/common/lib/file-download.utils';
 import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 class UIController {

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
-import { TIMING } from '@renderer/application/config/timing.config';
+import { TIMING } from '@renderer/common/config/timing.config';
 
 describe('UIEffects', () => {
   let uiEffects;

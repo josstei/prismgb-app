@@ -44,7 +44,7 @@ vi.mock('electron', () => {
 });
 
 // Mock ConfigLoader
-vi.mock('../../../src/shared/config/config-loader.js', () => ({
+vi.mock('@main/infrastructure/config/config-loader.utils', () => ({
   uiConfig: {
     WINDOW_CONFIG: {
       width: 1280,

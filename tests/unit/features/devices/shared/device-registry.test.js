@@ -170,7 +170,7 @@ describe('DeviceRegistry', () => {
         enabled: true,
         usb: { vendorId: 0x374e, productId: 0x0101 },
         labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101'],
-        profileModule: '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js',
+        profileModule: '@prismgb/devices/profiles/chromatic/device-chromatic.profile',
         adapterModule: '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts',
         ProfileClass: DeviceChromaticProfile,
         AdapterClass: DeviceChromaticAdapter

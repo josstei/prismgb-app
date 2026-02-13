@@ -5,7 +5,7 @@
  * Takes over cursor management when active.
  */
 
-import { TIMING } from '@renderer/application/config/timing.config';
+import { TIMING } from '@renderer/common/config/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { AutoHideBase, cancelRafThrottled, runRafThrottled } from './auto-hide.base';
 
