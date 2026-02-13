@@ -18,7 +18,7 @@ import {
   DeviceBridgeService,
   type ProfileClass
 } from '@main/infrastructure/devices/index.js';
-import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
+import { UpdateService } from '@main/infrastructure/updates/index.js';
 import { TranscodeService } from '@main/infrastructure/transcode/index.js';
 import { DeviceChromaticProfile } from '@prismgb/devices';
 import type { MainLogger } from '@main/infrastructure/logging/index.js';
@@ -47,7 +47,6 @@ export interface ContainerDependencies {
   deviceLifecycleService: DeviceLifecycleService;
   deviceBridgeService: DeviceBridgeService;
   updateService: UpdateService;
-  updateBridgeService: UpdateBridge;
   transcodeService: TranscodeService;
 }
 
@@ -115,8 +114,7 @@ async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixCont
   // Register update components
   container.register({
     updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
-    updateBridgeService: asClass(UpdateBridge).singleton()
+    deviceBridgeService: asClass(DeviceBridgeService).singleton()
   });
 
   // Register transcode components

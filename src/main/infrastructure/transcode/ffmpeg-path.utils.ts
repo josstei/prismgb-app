@@ -23,106 +23,45 @@ export interface FfmpegBinaryPaths {
 }
 
 /**
- * Get the path to the ffmpeg binary
- * @returns Absolute path to ffmpeg executable
+ * Configuration for binary resolution
  */
-export function getFfmpegPath(): string {
-  const isPackaged = app.isPackaged;
-  const platform = process.platform;
-  const executableName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-
-  const envPath = process.env.FFMPEG_PATH;
-  if (envPath && fs.existsSync(envPath)) {
-    return envPath;
-  }
-
-  if (isPackaged) {
-    // In packaged app, binaries are unpacked to app.asar.unpacked
-    const unpackedPath = path.join(
-      process.resourcesPath,
-      'app.asar.unpacked',
-      'node_modules',
-      'ffmpeg-static',
-      executableName
-    );
-
-    if (fs.existsSync(unpackedPath)) {
-      return unpackedPath;
-    }
-
-    // Fallback: try without .asar.unpacked (some build configs)
-    const fallbackPath = path.join(
-      process.resourcesPath,
-      'node_modules',
-      'ffmpeg-static',
-      executableName
-    );
-
-    if (fs.existsSync(fallbackPath)) {
-      return fallbackPath;
-    }
-  }
-
-  // Development mode: use the npm package directly
-  // ffmpeg-static exports the path to the binary
-  try {
-    // The ffmpeg-static package exports the binary path directly
-    const ffmpegStaticPath = require('ffmpeg-static');
-    if (ffmpegStaticPath && fs.existsSync(ffmpegStaticPath)) {
-      return ffmpegStaticPath;
-    }
-  } catch {
-    // Try manual path resolution as fallback
-  }
-
-  // Manual fallback path
-  const manualPath = path.join(
-    process.cwd(),
-    'node_modules',
-    'ffmpeg-static',
-    executableName
-  );
-
-  if (fs.existsSync(manualPath)) {
-    return manualPath;
-  }
-
-  const systemPath = resolveSystemBinary('ffmpeg');
-  if (systemPath) {
-    return systemPath;
-  }
-
-  throw new Error(`FFmpeg binary not found. Platform: ${platform}, Packaged: ${isPackaged}`);
+interface BinaryResolutionConfig {
+  envVar: string;
+  moduleName: string;
+  modulePathProperty?: string;
+  subdirectories?: string[];
+  binaryName: string;
+  friendlyName: string;
 }
 
 /**
- * Get the path to the ffprobe binary
- * @returns Absolute path to ffprobe executable
+ * Resolve a binary path using a standardized fallback chain
+ * @param config Configuration for binary resolution
+ * @returns Absolute path to the binary
+ * @throws Error if binary cannot be resolved
  */
-export function getFfprobePath(): string {
+function _resolveBinary(config: BinaryResolutionConfig): string {
   const isPackaged = app.isPackaged;
   const platform = process.platform;
-  const executableName = platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+  const executableName = platform === 'win32' ? `${config.binaryName}.exe` : config.binaryName;
 
-  const envPath = process.env.FFPROBE_PATH;
+  // Step 1: Check environment variable
+  const envPath = process.env[config.envVar];
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
   }
 
-  // Determine the correct subdirectories for the platform
-  // ffprobe-static uses: bin/<platform>/<arch>/ffprobe
-  const archDir = process.arch === 'arm64' ? 'arm64' : 'x64';
+  const modulePath = config.subdirectories || [];
 
+  // Step 2: Check packaged app locations
   if (isPackaged) {
-    // In packaged app, binaries are unpacked to app.asar.unpacked
+    // Try app.asar.unpacked location
     const unpackedPath = path.join(
       process.resourcesPath,
       'app.asar.unpacked',
       'node_modules',
-      'ffprobe-static',
-      'bin',
-      platform,
-      archDir,
+      config.moduleName,
+      ...modulePath,
       executableName
     );
 
@@ -134,10 +73,8 @@ export function getFfprobePath(): string {
     const fallbackPath = path.join(
       process.resourcesPath,
       'node_modules',
-      'ffprobe-static',
-      'bin',
-      platform,
-      archDir,
+      config.moduleName,
+      ...modulePath,
       executableName
     );
 
@@ -146,25 +83,26 @@ export function getFfprobePath(): string {
     }
   }
 
-  // Development mode: use the npm package directly
+  // Step 3: Check npm package export
   try {
-    // ffprobe-static exports a .path property with the binary location
-    const ffprobeStatic = require('ffprobe-static');
-    if (ffprobeStatic.path && fs.existsSync(ffprobeStatic.path)) {
-      return ffprobeStatic.path;
+    const moduleExport = require(config.moduleName);
+    const exportedPath = config.modulePathProperty
+      ? moduleExport[config.modulePathProperty]
+      : moduleExport;
+
+    if (exportedPath && fs.existsSync(exportedPath)) {
+      return exportedPath;
     }
   } catch {
-    // Try manual path resolution as fallback
+    // Continue to manual resolution
   }
 
-  // Manual fallback path
+  // Manual fallback: construct path to node_modules
   const manualPath = path.join(
     process.cwd(),
     'node_modules',
-    'ffprobe-static',
-    'bin',
-    platform,
-    archDir,
+    config.moduleName,
+    ...modulePath,
     executableName
   );
 
@@ -172,12 +110,46 @@ export function getFfprobePath(): string {
     return manualPath;
   }
 
-  const systemPath = resolveSystemBinary('ffprobe');
+  // Step 4: Check system PATH
+  const systemPath = resolveSystemBinary(config.binaryName);
   if (systemPath) {
     return systemPath;
   }
 
-  throw new Error(`FFprobe binary not found. Platform: ${platform}, Packaged: ${isPackaged}`);
+  throw new Error(
+    `${config.friendlyName} binary not found. Platform: ${platform}, Packaged: ${isPackaged}`
+  );
+}
+
+/**
+ * Get the path to the ffmpeg binary
+ * @returns Absolute path to ffmpeg executable
+ */
+export function getFfmpegPath(): string {
+  return _resolveBinary({
+    envVar: 'FFMPEG_PATH',
+    moduleName: 'ffmpeg-static',
+    binaryName: 'ffmpeg',
+    friendlyName: 'FFmpeg',
+  });
+}
+
+/**
+ * Get the path to the ffprobe binary
+ * @returns Absolute path to ffprobe executable
+ */
+export function getFfprobePath(): string {
+  const platform = process.platform;
+  const archDir = process.arch === 'arm64' ? 'arm64' : 'x64';
+
+  return _resolveBinary({
+    envVar: 'FFPROBE_PATH',
+    moduleName: 'ffprobe-static',
+    modulePathProperty: 'path',
+    subdirectories: ['bin', platform, archDir],
+    binaryName: 'ffprobe',
+    friendlyName: 'FFprobe',
+  });
 }
 
 /**

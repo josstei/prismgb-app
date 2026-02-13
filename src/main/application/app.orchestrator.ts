@@ -21,7 +21,6 @@ import type { TrayService } from '@main/infrastructure/tray/index.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@main/infrastructure/updates/index.js';
 import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
-import type { UpdateBridge } from '@main/infrastructure/updates/index.js';
 import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
 
 /**
@@ -41,7 +40,6 @@ class AppOrchestrator extends BaseOrchestrator {
   private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
   private _updateService: UpdateService | null = null;
   private _deviceBridgeService: DeviceBridgeService | null = null;
-  private _updateBridgeService: UpdateBridge | null = null;
   private _transcodeService: TranscodeService | null = null;
 
   constructor() {
@@ -70,14 +68,14 @@ class AppOrchestrator extends BaseOrchestrator {
     this._ipcHandlerRegistry = this.container.resolve('ipcHandlerRegistry');
     this._updateService = this.container.resolve('updateService');
     this._deviceBridgeService = this.container.resolve('deviceBridgeService');
-    this._updateBridgeService = this.container.resolve('updateBridgeService');
     this._transcodeService = this.container.resolve('transcodeService');
 
     // Initialize device lifecycle service (handles auto-launch)
     this._deviceLifecycleService.initialize();
 
-    // Initialize update bridge and start auto-check (1 hour interval)
-    this._updateBridgeService.initialize();
+    // Initialize update service and start auto-check (1 hour interval)
+    this._updateService.initialize();
+    this._updateService.startAutoCheck(60 * 60 * 1000);
 
     // Initialize transcode service (validates ffmpeg binaries)
     this._transcodeService.initialize();
@@ -152,7 +150,7 @@ class AppOrchestrator extends BaseOrchestrator {
       ['device lifecycle service', this._deviceLifecycleService],
       ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
       ['system tray', this._trayService, 'destroy'],
-      ['update bridge service', this._updateBridgeService],
+      ['update service', this._updateService],
       ['transcode service', this._transcodeService],
       ['DI container', this.container]
     ]);
@@ -166,7 +164,6 @@ class AppOrchestrator extends BaseOrchestrator {
     this._ipcHandlerRegistry = null;
     this._updateService = null;
     this._deviceBridgeService = null;
-    this._updateBridgeService = null;
     this._transcodeService = null;
 
     this.logger.info('PrismGB shutdown complete');
