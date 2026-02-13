@@ -590,8 +590,12 @@ class TranscodeService extends BaseService {
    * @private
    */
   private _cleanupJob(jobId: string, removeOutput = false): void {
-    // Remove process reference
-    this._processes.delete(jobId);
+    // Clean up process state
+    const state = this._processStates.get(jobId);
+    if (state?.forceKillTimeoutId) {
+      clearTimeout(state.forceKillTimeoutId);
+    }
+    this._processStates.delete(jobId);
 
     // Get session info
     const sessionInfo = this._sessions.get(jobId);
@@ -635,12 +639,12 @@ class TranscodeService extends BaseService {
   private _cleanupOnQuit(): void {
     this.logger.info('Cleaning up transcode resources on quit');
 
-    // Cancel all running processes - process.cancel() is synchronous (sends SIGTERM),
-    // so signals are sent in quick succession without blocking
-    for (const [jobId, process] of this._processes) {
-      if (process.isRunning) {
+    // Cancel all running processes
+    for (const [jobId, state] of this._processStates) {
+      if (!state.wasKilled && !state.hasCompleted) {
         this.logger.info('Cancelling running transcode on quit', { jobId });
-        process.cancel();
+        state.wasKilled = true;
+        state.process.kill('SIGTERM');
       }
     }
 
@@ -669,9 +673,13 @@ class TranscodeService extends BaseService {
     this.logger.info('Disposing TranscodeService');
 
     // Cancel any running processes
-    for (const process of this._processes.values()) {
-      if (process.isRunning) {
-        process.cancel();
+    for (const state of this._processStates.values()) {
+      if (!state.wasKilled && !state.hasCompleted) {
+        state.wasKilled = true;
+        state.process.kill('SIGTERM');
+      }
+      if (state.forceKillTimeoutId) {
+        clearTimeout(state.forceKillTimeoutId);
       }
     }
 
@@ -686,7 +694,7 @@ class TranscodeService extends BaseService {
 
     // Clear all maps
     this._jobs.clear();
-    this._processes.clear();
+    this._processStates.clear();
     this._sessions.clear();
 
     this._isInitialized = false;
