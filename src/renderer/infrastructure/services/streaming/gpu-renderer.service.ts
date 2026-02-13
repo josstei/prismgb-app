@@ -233,20 +233,14 @@ export class StreamingGpuRendererService extends BaseService {
         this.logger.error('Render worker error:', payload.message);
         this._pendingFrames = 0;
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
-        if (this._captureTimeoutId) {
-          clearTimeout(this._captureTimeoutId);
-          this._captureTimeoutId = null;
-        }
+        this._clearCaptureTimeout();
         this._resolvePendingCapture(null, new Error(payload.message));
       }),
 
       this._workerManager.onMessage(WorkerResponseType.CAPTURE_REQUESTED, () => {}),
 
       this._workerManager.onMessage(WorkerResponseType.CAPTURE_READY, (payload) => {
-        if (this._captureTimeoutId) {
-          clearTimeout(this._captureTimeoutId);
-          this._captureTimeoutId = null;
-        }
+        this._clearCaptureTimeout();
         this._resolvePendingCapture(payload.bitmap, null);
       }),
 
@@ -281,13 +275,7 @@ export class StreamingGpuRendererService extends BaseService {
   async renderFrame(videoElement) {
     if (!this._workerManager.isReady() || this._pendingFrames >= MAX_PENDING_FRAMES) {
       if (this._workerManager.isReady() && this._pendingFrames >= MAX_PENDING_FRAMES) {
-        this._skippedFrames++;
-        const now = performance.now();
-        if (now - this._lastBackpressureLog > 5000) {
-          this.logger.warn(`GPU backpressure: ${this._skippedFrames} frame(s) skipped (pending: ${this._pendingFrames})`);
-          this._skippedFrames = 0;
-          this._lastBackpressureLog = now;
-        }
+        this._handleBackpressure();
       }
       return;
     }
@@ -490,9 +478,7 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._workerManager.releaseResources();
     this._pendingFrames = 0;
-
-    this._skippedFrames = 0;
-    this._lastBackpressureLog = 0;
+    this._resetBackpressureTracking();
 
     this.logger.info('GPU resources released (worker kept alive for re-init)');
   }
@@ -525,10 +511,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @private
    */
   _resolvePendingCapture(result, error) {
-    if (this._captureTimeoutId !== null) {
-      clearTimeout(this._captureTimeoutId);
-      this._captureTimeoutId = null;
-    }
+    this._clearCaptureTimeout();
 
     if (error && this._pendingCaptureReject) {
       this._pendingCaptureReject(error);
@@ -538,6 +521,40 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
+  }
+
+  /**
+   * Clear capture timeout if active
+   * @private
+   */
+  _clearCaptureTimeout() {
+    if (this._captureTimeoutId !== null) {
+      clearTimeout(this._captureTimeoutId);
+      this._captureTimeoutId = null;
+    }
+  }
+
+  /**
+   * Reset backpressure tracking state
+   * @private
+   */
+  _resetBackpressureTracking() {
+    this._skippedFrames = 0;
+    this._lastBackpressureLog = 0;
+  }
+
+  /**
+   * Handle backpressure by tracking skipped frames and logging periodically
+   * @private
+   */
+  _handleBackpressure() {
+    this._skippedFrames++;
+    const now = performance.now();
+    if (now - this._lastBackpressureLog > 5000) {
+      this.logger.warn(`GPU backpressure: ${this._skippedFrames} frame(s) skipped (pending: ${this._pendingFrames})`);
+      this._skippedFrames = 0;
+      this._lastBackpressureLog = now;
+    }
   }
 
   /**
@@ -609,8 +626,7 @@ export class StreamingGpuRendererService extends BaseService {
     this._workerManager.terminate();
 
     this._pendingFrames = 0;
-    this._skippedFrames = 0;
-    this._lastBackpressureLog = 0;
+    this._resetBackpressureTracking();
 
     if (emitCanvasExpired && wasTransferred) {
       this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
