@@ -5,7 +5,7 @@
  * Emits state updates through provided callbacks.
  */
 
-import { BaseService } from '@prismgb/core';
+import { LifecycleService } from '@prismgb/core';
 
 const DEFAULT_STATE = Object.freeze({
   performanceModeEnabled: false,
@@ -19,7 +19,7 @@ interface PerformanceStateInitOptions {
   onStateChange?: (state: Record<string, boolean>) => void;
 }
 
-class PerformanceStateService extends BaseService {
+class PerformanceStateService extends LifecycleService {
   static readonly dependencies = [
     'loggerFactory',
     'visibilityAdapter',
@@ -46,8 +46,12 @@ class PerformanceStateService extends BaseService {
     this._motionCleanup = null;
   }
 
-  initialize({ onStateChange }: PerformanceStateInitOptions = {}) {
+  async initialize({ onStateChange }: PerformanceStateInitOptions = {}): Promise<void> {
     this._onStateChange = onStateChange;
+    await super.initialize();
+  }
+
+  async onInitialize() {
     this._setupVisibilityHandling();
     this._setupReducedMotionHandling();
     this._setupIdleHandling();
@@ -55,7 +59,7 @@ class PerformanceStateService extends BaseService {
     this._emitState();
   }
 
-  dispose() {
+  async onDispose() {
     this._clearIdleTimer();
     if (this._visibilityCleanup) {
       this._visibilityCleanup();

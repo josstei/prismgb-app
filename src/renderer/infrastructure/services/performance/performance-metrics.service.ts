@@ -4,9 +4,9 @@
  * Owns process metrics snapshot scheduling and logging.
  */
 
-import { BaseService } from '@prismgb/core';
+import { LifecycleService } from '@prismgb/core';
 
-export class PerformanceMetricsService extends BaseService {
+export class PerformanceMetricsService extends LifecycleService {
   static readonly dependencies = ['loggerFactory', 'metricsAdapter'] as const;
 
   constructor(dependencies) {
@@ -67,7 +67,7 @@ export class PerformanceMetricsService extends BaseService {
   /**
    * Cleanup all resources and stop all timers
    */
-  dispose() {
+  async onDispose() {
     this.stopPeriodicSnapshots();
     this.clearPendingRequests();
   }

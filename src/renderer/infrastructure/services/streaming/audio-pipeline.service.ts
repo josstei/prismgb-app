@@ -8,7 +8,7 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { BaseService } from '@prismgb/core';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
 type AudioWarmupResult = {
@@ -54,7 +54,7 @@ type StreamingAudioPipelineDependencies = {
   loggerFactory: { create(name: string): LoggerLike };
 };
 
-export class StreamingAudioPipelineService extends BaseService {
+export class StreamingAudioPipelineService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory', 'settingsService'] as const;
 
   declare eventBus: EventBusLike;
@@ -251,7 +251,7 @@ export class StreamingAudioPipelineService extends BaseService {
     this._audioTrack = null;
   }
 
-  cleanup(): void {
+  async onDispose(): Promise<void> {
     this.stop();
     if (this._unsubscribeVolume) {
       this._unsubscribeVolume();

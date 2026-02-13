@@ -12,7 +12,7 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@prismgb/core';
+import { LifecycleService } from '@prismgb/core';
 import { DeviceDetectionHelper } from '@prismgb/devices';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
@@ -29,7 +29,7 @@ const StreamState = {
   ERROR: 'error'
 };
 
-export class StreamingService extends BaseService {
+export class StreamingService extends LifecycleService {
   static readonly dependencies = [
     'deviceMediaService',
     'deviceStorageService',
@@ -451,7 +451,7 @@ export class StreamingService extends BaseService {
    * Dispose and release all resources
    * Called during application shutdown
    */
-  async dispose() {
+  async onDispose() {
     await this.stop();
     this.logger.info('StreamingService disposed');
   }

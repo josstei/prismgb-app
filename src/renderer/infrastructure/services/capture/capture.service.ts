@@ -12,11 +12,11 @@
  * - 'capture:recording-error' - Recording failed (codec error, disk full, etc.)
  */
 
-import { BaseService } from '@prismgb/core';
+import { LifecycleService } from '@prismgb/core';
 import { FilenameGenerator } from '@renderer/infrastructure/lib/filename-generator.utils';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
-class CaptureService extends BaseService {
+class CaptureService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   /**
@@ -285,7 +285,7 @@ class CaptureService extends BaseService {
    * Dispose of resources and stop any active recording
    * Called during cleanup to ensure no resources are leaked.
    */
-  dispose() {
+  async onDispose() {
     this.logger.debug('Disposing CaptureService');
 
     // Set disposing flag to prevent async onstop from processing
