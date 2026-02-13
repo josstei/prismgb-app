@@ -105,8 +105,8 @@ describe('DeviceOrchestrator', () => {
     const unsubscribe = vi.fn();
     mockDeviceIpcAdapter.subscribe.mockReturnValue(unsubscribe);
 
-    await orchestrator.onInitialize();
-    await orchestrator.onCleanup();
+    await orchestrator.initialize();
+    await orchestrator.dispose();
 
     expect(unsubscribe).toHaveBeenCalled();
     expect(mockDeviceOperationSequencer.flush).toHaveBeenCalled();

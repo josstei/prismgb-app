@@ -29,8 +29,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
       [...DeviceOrchestrator.dependencies],
       'DeviceOrchestrator'
     );
-    // Store unsubscribe function for IPC adapter
-    this._unsubscribeIPC = null;
   }
 
   /**
@@ -43,10 +41,13 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     });
 
     // Set up IPC event listeners for USB events via adapter
-    this._unsubscribeIPC = this.deviceIpcAdapter.subscribe(
+    const unsubscribeIPC = this.deviceIpcAdapter.subscribe(
       () => this._handleDeviceConnectedIPC(),
       () => this._handleDeviceDisconnectedIPC()
     );
+    this.addCleanup(() => {
+      unsubscribeIPC?.();
+    });
 
     // Queue initial status check through sequencer
     await this.deviceOperationSequencer.queueRefresh();
@@ -77,13 +78,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup() {
-    // Cleanup IPC adapter listeners
-    if (typeof this._unsubscribeIPC === 'function') {
-      this._unsubscribeIPC();
-      this._unsubscribeIPC = null;
-    }
-    this.logger.info('IPC device listeners removed');
-
     // Wait for pending operations before cleanup
     await this.deviceOperationSequencer.flush();
 
