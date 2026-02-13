@@ -11,9 +11,8 @@ import { StreamingRenderPipelineService } from '@renderer/infrastructure/service
 describe('StreamingRenderPipelineService', () => {
   let service;
   let mockAppState;
-  let mockStreamViewService;
+  let mockStreamingCanvasService;
   let mockCanvasRenderer;
-  let mockCanvasLifecycleService;
   let mockStreamHealthService;
   let mockGpuRendererService;
   let mockCreateGpuRenderer;
@@ -41,12 +40,21 @@ describe('StreamingRenderPipelineService', () => {
       isStreaming: false
     };
 
-    mockStreamViewService = {
+    // Combined mock for StreamingCanvasService (merged from StreamViewService + CanvasLifecycleService)
+    mockStreamingCanvasService = {
+      // DOM element access (from StreamViewService)
       getCanvas: vi.fn(() => canvas),
       getVideo: vi.fn(() => video),
       getCanvasContainer: vi.fn(() => container),
       getCanvasSection: vi.fn(() => section),
-      setCanvas: vi.fn()
+      setCanvas: vi.fn(),
+      // Canvas lifecycle (from CanvasLifecycleService)
+      initialize: vi.fn(),
+      handleCanvasExpired: vi.fn(),
+      handleFullscreenChange: vi.fn(),
+      setupCanvasSize: vi.fn(),
+      recreateCanvas: vi.fn(),
+      cleanup: vi.fn()
     };
 
     mockCanvasRenderer = {
@@ -57,15 +65,6 @@ describe('StreamingRenderPipelineService', () => {
       resetCanvasState: vi.fn(),
       cleanup: vi.fn(),
       hasContextFor: vi.fn().mockReturnValue(false)
-    };
-
-    mockCanvasLifecycleService = {
-      initialize: vi.fn(),
-      handleCanvasExpired: vi.fn(),
-      handleFullscreenChange: vi.fn(),
-      setupCanvasSize: vi.fn(),
-      recreateCanvas: vi.fn(),
-      cleanup: vi.fn()
     };
 
     mockStreamHealthService = {
@@ -143,9 +142,8 @@ describe('StreamingRenderPipelineService', () => {
 
     service = new StreamingRenderPipelineService({
       appState: mockAppState,
-      streamViewService: mockStreamViewService,
+      streamingCanvasService: mockStreamingCanvasService,
       canvasRenderer: mockCanvasRenderer,
-      canvasLifecycleService: mockCanvasLifecycleService,
       streamHealthService: mockStreamHealthService,
       createGpuRenderer: mockCreateGpuRenderer,
       createCanvasRenderer: mockCreateCanvasRenderer,
@@ -164,7 +162,7 @@ describe('StreamingRenderPipelineService', () => {
   describe('initialization', () => {
     it('initializes canvas lifecycle service', () => {
       service.initialize();
-      expect(mockCanvasLifecycleService.initialize).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.initialize).toHaveBeenCalled();
     });
   });
 
@@ -234,16 +232,16 @@ describe('StreamingRenderPipelineService', () => {
   });
 
   describe('handleCanvasExpired', () => {
-    it('delegates to canvasLifecycleService', () => {
+    it('delegates to streamingCanvasService', () => {
       service.handleCanvasExpired();
-      expect(mockCanvasLifecycleService.handleCanvasExpired).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.handleCanvasExpired).toHaveBeenCalled();
     });
   });
 
   describe('handleFullscreenChange', () => {
-    it('delegates to canvasLifecycleService', () => {
+    it('delegates to streamingCanvasService', () => {
       service.handleFullscreenChange();
-      expect(mockCanvasLifecycleService.handleFullscreenChange).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.handleFullscreenChange).toHaveBeenCalled();
     });
   });
 
@@ -398,8 +396,8 @@ describe('StreamingRenderPipelineService', () => {
 
         service.handlePerformanceModeChanged(false);
 
-        expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
-        expect(mockCanvasLifecycleService.setupCanvasSize).toHaveBeenCalled();
+        expect(mockStreamingCanvasService.recreateCanvas).toHaveBeenCalled();
+        expect(mockStreamingCanvasService.setupCanvasSize).toHaveBeenCalled();
       });
     });
   });
@@ -453,7 +451,7 @@ describe('StreamingRenderPipelineService', () => {
     it('uses default resolution when not provided', async () => {
       await service._startRendering({});
 
-      expect(mockCanvasLifecycleService.setupCanvasSize).toHaveBeenCalledWith(
+      expect(mockStreamingCanvasService.setupCanvasSize).toHaveBeenCalledWith(
         { width: 160, height: 144 },
         false
       );
@@ -468,7 +466,7 @@ describe('StreamingRenderPipelineService', () => {
       service._performanceModeEnabled = false;
       await service._startRendering({ nativeResolution: { width: 160, height: 144 }, supportsGPU: true });
 
-      expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.recreateCanvas).toHaveBeenCalled();
     });
   });
 
@@ -482,7 +480,7 @@ describe('StreamingRenderPipelineService', () => {
       await service._switchToGPUMidStream();
 
       expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
-      expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.recreateCanvas).toHaveBeenCalled();
     });
 
     it('switches to GPU successfully', async () => {
@@ -547,7 +545,7 @@ describe('StreamingRenderPipelineService', () => {
       expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
       expect(mockCanvas2DRendererAdapter.cleanup).toHaveBeenCalled();
       expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
-      expect(mockCanvasLifecycleService.cleanup).toHaveBeenCalled();
+      expect(mockStreamingCanvasService.cleanup).toHaveBeenCalled();
       expect(mockStreamHealthService.cleanup).toHaveBeenCalled();
     });
 

@@ -11,7 +11,7 @@ import { EventChannels } from '@renderer/common/config/event-channels';
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [
     'streamingAudioPipelineService',
-    'streamViewService',
+    'streamingCanvasService',
     'appState',
     'eventBus',
     'loggerFactory'
@@ -86,6 +86,6 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     if (this._fallbackUnmuted) return;
     this._fallbackUnmuted = true;
     this.logger.warn('Audio warm-up failed - falling back to video element audio');
-    this.streamViewService.setMuted(false);
+    this.streamingCanvasService.setMuted(false);
   }
 }

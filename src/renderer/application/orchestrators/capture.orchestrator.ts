@@ -18,7 +18,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [
     'captureService',
     'appState',
-    'streamViewService',
+    'streamingCanvasService',
     'gpuRendererService',
     'gpuRecordingService',
     'canvasRenderer',
@@ -93,11 +93,11 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     if (this.canvasRenderer.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      return this.streamViewService.getCanvas();
+      return this.streamingCanvasService.getCanvas();
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
-    return this.streamViewService.getVideo();
+    return this.streamingCanvasService.getVideo();
   }
 
   /**

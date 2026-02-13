@@ -2,7 +2,6 @@ import { AppState } from '@renderer/application/state/app-state';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service';
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
-import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
 import { UIComponentRegistry } from '@renderer/presentation/controller/component.registry.js';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
@@ -27,7 +26,6 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
   container.autoRegister('settingsService', SettingsService);
   container.autoRegister('notesService', NotesService);
   container.autoRegister('updateService', UpdateService);
-  container.autoRegister('streamViewService', StreamingViewService);
   container.autoRegister('streamingAudioPipelineService', StreamingAudioPipelineService);
   container.autoRegister('appState', AppState);
 

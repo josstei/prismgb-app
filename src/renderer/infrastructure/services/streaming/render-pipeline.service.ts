@@ -17,8 +17,7 @@ import { EventChannels } from '@renderer/common/config/event-channels';
 export class StreamingRenderPipelineService extends BaseService {
   static readonly dependencies = [
     'appState',
-    'streamViewService',
-    'canvasLifecycleService',
+    'streamingCanvasService',
     'streamHealthService',
     'createGpuRenderer',
     'createCanvasRenderer',
@@ -50,11 +49,11 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   initialize() {
-    this.canvasLifecycleService.initialize();
+    this.streamingCanvasService.initialize();
   }
 
   handleCanvasExpired() {
-    this.canvasLifecycleService.handleCanvasExpired();
+    this.streamingCanvasService.handleCanvasExpired();
   }
 
   handlePerformanceStateChanged(state) {
@@ -87,7 +86,7 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   handleFullscreenChange() {
-    this.canvasLifecycleService.handleFullscreenChange();
+    this.streamingCanvasService.handleFullscreenChange();
   }
 
   handlePerformanceModeChanged(enabled) {
@@ -101,13 +100,13 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   async startPipeline(capabilities) {
-    const video = this.streamViewService.getVideo();
+    const video = this.streamingCanvasService.getVideo();
     await this._waitForHealthyStream(video);
     await this._startRendering(capabilities);
   }
 
   stopPipeline() {
-    const video = this.streamViewService.getVideo();
+    const video = this.streamingCanvasService.getVideo();
 
     if (this._activeRenderer) {
       this._activeRenderer.pause(video);
@@ -137,7 +136,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this._userPresetId = null;
 
     if (this._activeRenderer) {
-      const video = this.streamViewService.getVideo();
+      const video = this.streamingCanvasService.getVideo();
       this._activeRenderer.pause(video);
       this._activeRenderer.cleanup();
       this._activeRenderer = null;
@@ -145,7 +144,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     this.canvasRenderer.cleanup();
-    this.canvasLifecycleService.cleanup();
+    this.streamingCanvasService.cleanup();
     this.streamHealthService.cleanup();
   }
 
@@ -160,10 +159,10 @@ export class StreamingRenderPipelineService extends BaseService {
    * @returns {HTMLCanvasElement} Fresh canvas reference
    */
   _ensureFreshCanvas(nativeRes, isGpu) {
-    this.canvasLifecycleService.recreateCanvas();
-    this.canvasLifecycleService.setupCanvasSize(nativeRes, isGpu);
+    this.streamingCanvasService.recreateCanvas();
+    this.streamingCanvasService.setupCanvasSize(nativeRes, isGpu);
     this._canvas2dContextCreated = false;
-    return this.streamViewService.getCanvas();
+    return this.streamingCanvasService.getCanvas();
   }
 
   /**
@@ -172,7 +171,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   _toggleRendererPause(shouldPause) {
     if (this.appState.isStreaming && this._activeRenderer) {
-      const video = this.streamViewService.getVideo();
+      const video = this.streamingCanvasService.getVideo();
       if (shouldPause) {
         this._activeRenderer.pause(video);
         this.logger.debug(`${this._activeRendererType} rendering paused (window hidden)`);
@@ -278,8 +277,8 @@ export class StreamingRenderPipelineService extends BaseService {
     // Recreate canvas for GPU if Canvas2D context was active
     if (this._canvas2dContextCreated && !this.appState.isStreaming) {
       this.logger.info('Performance mode disabled - recreating canvas for GPU');
-      this.canvasLifecycleService.recreateCanvas();
-      this.canvasLifecycleService.setupCanvasSize();
+      this.streamingCanvasService.recreateCanvas();
+      this.streamingCanvasService.setupCanvasSize();
       this._activeRenderer = null;
       this._activeRendererType = null;
       this._canvas2dContextCreated = false;
@@ -314,17 +313,17 @@ export class StreamingRenderPipelineService extends BaseService {
   async _startRendering(capabilities) {
     this._currentCapabilities = capabilities;
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
-    const video = this.streamViewService.getVideo();
+    const video = this.streamingCanvasService.getVideo();
 
     // Determine renderer type
     const rendererType = this._selectRendererType(capabilities);
 
     // Setup canvas size
-    this.canvasLifecycleService.setupCanvasSize(nativeRes, rendererType === 'gpu');
+    this.streamingCanvasService.setupCanvasSize(nativeRes, rendererType === 'gpu');
 
     // Check if canvas needs recreation before GPU init
     // This handles both: 1) explicit Canvas2D usage, 2) HMR scenarios where canvas persists with context
-    const currentCanvas = this.streamViewService.getCanvas();
+    const currentCanvas = this.streamingCanvasService.getCanvas();
     const canvasHasContext = this._canvas2dContextCreated ||
       this.canvasRenderer.hasContextFor(currentCanvas);
 
@@ -334,7 +333,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Get canvas AFTER potential recreation to avoid stale reference
-    const canvas = this.streamViewService.getCanvas();
+    const canvas = this.streamingCanvasService.getCanvas();
 
     // Create renderer if needed
     if (rendererType === 'gpu') {
@@ -447,7 +446,7 @@ export class StreamingRenderPipelineService extends BaseService {
    * Switch from GPU to Canvas2D mid-stream
    */
   async _switchToCanvas2DMidStream() {
-    const video = this.streamViewService.getVideo();
+    const video = this.streamingCanvasService.getVideo();
     const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
 
     // Stop GPU renderer
@@ -465,7 +464,7 @@ export class StreamingRenderPipelineService extends BaseService {
    * Switch from Canvas2D to GPU mid-stream
    */
   async _switchToGPUMidStream() {
-    const video = this.streamViewService.getVideo();
+    const video = this.streamingCanvasService.getVideo();
     const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
 
     // Stop Canvas2D renderer

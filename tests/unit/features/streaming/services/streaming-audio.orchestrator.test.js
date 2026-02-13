@@ -41,7 +41,7 @@ describe('StreamingAudioOrchestrator', () => {
 
     orchestrator = new StreamingAudioOrchestrator({
       streamingAudioPipelineService: mockStreamingAudioPipelineService,
-      streamViewService: mockStreamViewService,
+      streamingCanvasService: mockStreamViewService,
       appState: mockAppState,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }

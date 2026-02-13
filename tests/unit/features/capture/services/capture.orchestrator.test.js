@@ -108,7 +108,7 @@ describe('CaptureOrchestrator', () => {
     orchestrator = new CaptureOrchestrator({
       captureService: mockCaptureService,
       appState: mockAppState,
-      streamViewService: mockStreamingViewService,
+      streamingCanvasService: mockStreamingViewService,
       gpuRendererService: mockGpuRendererService,
       gpuRecordingService: mockCaptureGpuRecordingService,
       canvasRenderer: mockStreamingCanvasRenderer,

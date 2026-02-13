@@ -41,7 +41,7 @@ type AppStateLike = {
   isStreaming: boolean;
 };
 
-type StreamViewServiceLike = {
+type StreamingCanvasServiceLike = {
   attachMutedStream(stream: MediaStream): void;
   clearStream(): void;
 };
@@ -74,7 +74,7 @@ type EventBusLike = {
 type StreamingOrchestratorDependencies = {
   streamingService: StreamingServiceLike;
   appState: AppStateLike;
-  streamViewService: StreamViewServiceLike;
+  streamingCanvasService: StreamingCanvasServiceLike;
   renderPipelineService: RenderPipelineServiceLike;
   gpuRecordingService: GpuRecordingServiceLike;
   settingsService: SettingsServiceLike;
@@ -86,7 +86,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   static readonly dependencies = [
     'streamingService',
     'appState',
-    'streamViewService',
+    'streamingCanvasService',
     'renderPipelineService',
     'gpuRecordingService',
     'settingsService',
@@ -96,7 +96,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
   declare streamingService: StreamingServiceLike;
   declare appState: AppStateLike;
-  declare streamViewService: StreamViewServiceLike;
+  declare streamingCanvasService: StreamingCanvasServiceLike;
   declare renderPipelineService: RenderPipelineServiceLike;
   declare gpuRecordingService: GpuRecordingServiceLike;
   declare settingsService: SettingsServiceLike;
@@ -250,7 +250,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Note: App state automatically derives isStreaming from StreamingService
     // No need to manually update appState.setStreaming() anymore
 
-    this.streamViewService.attachMutedStream(stream);
+    this.streamingCanvasService.attachMutedStream(stream);
 
     // Update UI for streaming mode via event
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
@@ -302,7 +302,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
     // Stop rendering (GPU or Canvas2D)
     this.renderPipelineService.stopPipeline();
-    this.streamViewService.clearStream();
+    this.streamingCanvasService.clearStream();
 
     // Note: App state automatically derives isStreaming from StreamingService
     // No need to manually update appState.setStreaming() anymore

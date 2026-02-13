@@ -71,7 +71,7 @@ describe('StreamingOrchestrator', () => {
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
       appState: mockAppState,
-      streamViewService: mockStreamingViewService,
+      streamingCanvasService: mockStreamingViewService,
       renderPipelineService: mockStreamingRenderPipelineService,
       gpuRecordingService: mockCaptureGpuRecordingService,
       settingsService: mockSettingsService,

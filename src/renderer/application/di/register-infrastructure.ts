@@ -8,8 +8,7 @@ import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter';
 import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
-import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service';
-import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
+import { StreamingCanvasService } from '@renderer/infrastructure/services/streaming/streaming-canvas.service';
 import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
 import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter';
@@ -95,8 +94,9 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
     ['loggerFactory', 'animationCache']
   );
 
-  container.autoRegister('viewportService', StreamingViewportService);
-  container.autoRegister('canvasLifecycleService', StreamingCanvasLifecycleService);
+  // Streaming canvas service (consolidates viewport, canvas lifecycle, and stream view)
+  container.autoRegister('streamingCanvasService', StreamingCanvasService);
+
   container.autoRegister('streamHealthService', StreamingHealthService);
   container.autoRegister('gpuFrameBuffer', GpuFrameBuffer);
   container.autoRegister('gpuWorkerManager', GpuWorkerManager);

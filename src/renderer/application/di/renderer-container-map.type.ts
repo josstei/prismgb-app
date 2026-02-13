@@ -31,7 +31,7 @@ import type { SettingsFullscreenService } from '@renderer/infrastructure/service
 import type { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service';
 import type { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import type { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
-import type { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
+import type { StreamingCanvasService } from '@renderer/infrastructure/services/streaming/streaming-canvas.service';
 import type { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
 import type { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer';
 import type { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
@@ -39,8 +39,6 @@ import type { GpuWorkerManager } from '@renderer/infrastructure/services/streami
 import type { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service';
 import type { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service';
 import type { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
-import type { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
-import type { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service';
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import type { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
 import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
@@ -72,8 +70,7 @@ export interface RendererContainerMap {
   deviceChangeDebounceAdapter: DeviceChangeDebounceAdapter;
   animationCache: AnimationCache;
   canvasRenderer: StreamingCanvasRenderer;
-  viewportService: StreamingViewportService;
-  canvasLifecycleService: StreamingCanvasLifecycleService;
+  streamingCanvasService: StreamingCanvasService;
   streamHealthService: StreamingHealthService;
   gpuFrameBuffer: GpuFrameBuffer;
   gpuWorkerManager: GpuWorkerManager;
@@ -95,7 +92,6 @@ export interface RendererContainerMap {
   settingsService: SettingsService;
   notesService: NotesService;
   updateService: UpdateService;
-  streamViewService: StreamingViewService;
   streamingAudioPipelineService: StreamingAudioPipelineService;
   appState: AppState;
   uiComponentRegistry: UIComponentRegistry;
