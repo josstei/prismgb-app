@@ -15,14 +15,6 @@ import { DeviceDetectionHelper, forEachDeviceWithModule, DeviceRegistry } from '
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 
-type AdapterMetadata = {
-  deviceType?: string;
-  requiresIPC?: boolean;
-  requiresProfile?: boolean;
-  dependencies?: string[];
-  capabilities?: Record<string, unknown>;
-};
-
 type DependencyBag = Record<string, unknown>;
 
 type AdapterConstructor = new (deps: DependencyBag) => unknown;
@@ -44,8 +36,6 @@ export class StreamingAdapterFactory {
   logger: LoggerLike;
   _adapterClasses: Map<string, AdapterConstructor>;
   commonDependencies: DependencyBag;
-  adapterRegistry: Map<string, AdapterConstructor>;
-  metadataRegistry: Map<string, AdapterMetadata>;
   initialized: boolean;
 
   /**
@@ -75,10 +65,6 @@ export class StreamingAdapterFactory {
       streamLifecycle: new BaseStreamLifecycle(this.logger, this.browserMediaService),
       browserMediaService: this.browserMediaService
     };
-
-    // Adapter and metadata registries (previously in StreamingAdapterFactory)
-    this.adapterRegistry = new Map();
-    this.metadataRegistry = new Map();
 
     // Track initialization
     this.initialized = false;
@@ -120,7 +106,7 @@ export class StreamingAdapterFactory {
       devices.push(device);
     }, { logger: this.logger });
 
-    // Load adapters from registry
+    // Verify adapters are registered in DeviceRegistry
     for (const device of devices) {
       try {
         const AdapterClass = DeviceRegistry.getAdapterClass(device.id) as AdapterConstructor | null;
@@ -128,13 +114,6 @@ export class StreamingAdapterFactory {
           this.logger.error(`No adapter class found for device: ${device.id}`);
           continue;
         }
-
-        // Register adapter with metadata
-        this._register(device.id, AdapterClass, {
-          requiresIPC: true,
-          requiresProfile: true,
-          capabilities: { hasAudio: true, hasVideo: true }
-        });
 
         registeredCount++;
         this.logger.info(`Registered adapter for ${device.name} (${device.id})`);
@@ -147,25 +126,6 @@ export class StreamingAdapterFactory {
   }
 
   /**
-   * Register an adapter class with metadata
-   * @param {string} deviceType - Device type identifier
-   * @param {class} AdapterClass - Adapter class constructor
-   * @param {Object} metadata - Adapter metadata
-   * @private
-   */
-  _register(deviceType: string, AdapterClass: AdapterConstructor, metadata: AdapterMetadata = {}) {
-    this.adapterRegistry.set(deviceType, AdapterClass);
-    this.metadataRegistry.set(deviceType, {
-      deviceType,
-      requiresIPC: metadata.requiresIPC || false,
-      requiresProfile: metadata.requiresProfile || false,
-      dependencies: metadata.dependencies || [],
-      capabilities: metadata.capabilities || {},
-      ...metadata
-    });
-  }
-
-  /**
    * Get adapter for device type
    */
   getAdapter(deviceType: string, dependencies: DependencyBag = {}) {
@@ -175,13 +135,12 @@ export class StreamingAdapterFactory {
 
     this.logger.debug(`Creating adapter for device type: ${deviceType}`);
 
-    const AdapterClass = this.adapterRegistry.get(deviceType);
+    const AdapterClass = DeviceRegistry.getAdapterClass(deviceType) as AdapterConstructor | null;
     if (!AdapterClass) {
       throw new Error(`No adapter registered for device type: ${deviceType}`);
     }
 
-    const metadata = (this.metadataRegistry.get(deviceType) || {}) as AdapterMetadata;
-    const resolvedDeps = this._resolveDependencies(metadata, {
+    const resolvedDeps = this._resolveDependencies({
       logger: this.loggerFactory.create(deviceType),
       ...dependencies
     });
@@ -193,13 +152,13 @@ export class StreamingAdapterFactory {
    * Resolve dependencies for adapter
    * @private
    */
-  _resolveDependencies(metadata: AdapterMetadata, additionalDeps: DependencyBag) {
+  _resolveDependencies(additionalDeps: DependencyBag) {
     const resolved = { ...this.commonDependencies, ...additionalDeps };
 
-    // Validate IPC client if required
-    if (metadata.requiresIPC && !resolved.ipcClient) {
+    // Validate IPC client for device adapters (all device adapters require IPC)
+    if (!resolved.ipcClient) {
       throw new Error(
-        `Adapter "${metadata.deviceType}" requires IPC client but none was provided. ` +
+        'Device adapter requires IPC client but none was provided. ' +
         'Pass ipcClient in dependencies.'
       );
     }
@@ -243,51 +202,5 @@ export class StreamingAdapterFactory {
       throw new Error(`Unsupported device: ${device?.label || 'unknown'}`);
     }
     return this.getAdapter(deviceId, dependencies);
-  }
-
-  /**
-   * Register a custom adapter type
-   */
-  registerAdapter(deviceType: string, AdapterClass: AdapterConstructor, metadata: AdapterMetadata = {}) {
-    this._register(deviceType, AdapterClass, metadata);
-    this.logger.info(`Registered adapter for device type: ${deviceType}`);
-  }
-
-  /**
-   * Check if adapter exists for device type
-   */
-  hasAdapter(deviceType) {
-    return this.adapterRegistry.has(deviceType);
-  }
-
-  /**
-   * Get all registered device types
-   */
-  getRegisteredTypes() {
-    return Array.from(this.adapterRegistry.keys());
-  }
-
-  /**
-   * Get adapter metadata
-   */
-  getMetadata(deviceType) {
-    return this.metadataRegistry.get(deviceType);
-  }
-
-  /**
-   * Unregister an adapter
-   */
-  unregister(deviceType) {
-    this.adapterRegistry.delete(deviceType);
-    this.metadataRegistry.delete(deviceType);
-  }
-
-  /**
-   * Clear all registrations
-   */
-  clear() {
-    this.adapterRegistry.clear();
-    this.metadataRegistry.clear();
-    this.initialized = false;
   }
 }

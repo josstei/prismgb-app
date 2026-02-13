@@ -249,11 +249,8 @@ export class StreamingService extends LifecycleService {
       }
     }
 
-    // Clear state (always, even if release failed)
-    this.currentStream = null;
-    this.currentAdapter = null;
-    this.currentDevice = null;
-    this.currentCapabilities = null;
+    // Clear all stream state
+    this._clearStreamState();
 
     // Emit event
     this.eventBus.publish(EventChannels.STREAM.STOPPED);
@@ -267,9 +264,7 @@ export class StreamingService extends LifecycleService {
    * @private
    */
   _setupTrackMonitoring() {
-    if (!this.currentStream) return;
-
-    const videoTrack = this.currentStream.getVideoTracks()[0];
+    const videoTrack = this.currentStream?.getVideoTracks()[0];
     if (!videoTrack) return;
 
     // Create handler that stops the stream when track ends
@@ -305,11 +300,9 @@ export class StreamingService extends LifecycleService {
     if (!handler) return;
 
     // Only try to remove from track if stream exists
-    if (this.currentStream) {
-      const videoTrack = this.currentStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.removeEventListener('ended', handler);
-      }
+    const videoTrack = this.currentStream?.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.removeEventListener('ended', handler);
     }
 
     this.logger.debug('Track monitoring removed');
@@ -335,10 +328,7 @@ export class StreamingService extends LifecycleService {
       this.logger.warn('Error releasing stream during partial cleanup:', error);
     } finally {
       // Always clear all state, even if release failed
-      this.currentStream = null;
-      this.currentAdapter = null;
-      this.currentDevice = null;
-      this.currentCapabilities = null;
+      this._clearStreamState();
     }
   }
 
@@ -443,6 +433,17 @@ export class StreamingService extends LifecycleService {
       audio: audioTracks.length > 0 ? audioTracks[0].getSettings() : null,
       hasAudio: audioTracks.length > 0
     };
+  }
+
+  /**
+   * Clear all stream-related state
+   * @private
+   */
+  _clearStreamState() {
+    this.currentStream = null;
+    this.currentAdapter = null;
+    this.currentDevice = null;
+    this.currentCapabilities = null;
   }
 
   /**

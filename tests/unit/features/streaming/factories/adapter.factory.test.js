@@ -77,28 +77,12 @@ describe('StreamingAdapterFactory', () => {
       expect(factory.logger).toBe(mockLogger);
     });
 
-    it('should initialize adapter and metadata registries', () => {
-      expect(factory.adapterRegistry).toBeInstanceOf(Map);
-      expect(factory.metadataRegistry).toBeInstanceOf(Map);
-    });
-
     it('should initialize as not initialized', () => {
       expect(factory.initialized).toBe(false);
     });
   });
 
   describe('initialize', () => {
-    it('should register chromatic adapter', async () => {
-      await factory.initialize();
-
-      // Debug: check if any errors were logged
-      if (mockLogger.error.mock.calls.length > 0) {
-        console.log('Errors during initialization:', mockLogger.error.mock.calls);
-      }
-
-      expect(factory.hasAdapter('chromatic-mod-retro')).toBe(true);
-    });
-
     it('should set initialized to true', async () => {
       await factory.initialize();
 
@@ -240,90 +224,6 @@ describe('StreamingAdapterFactory', () => {
       const device = { deviceId: '123' };
 
       expect(() => factory.getAdapterForDevice(device)).toThrow('Unsupported device: unknown');
-    });
-  });
-
-  describe('registerAdapter', () => {
-    it('should register custom adapter', () => {
-      const CustomAdapter = class {};
-
-      factory.registerAdapter('custom-device', CustomAdapter, { custom: true });
-
-      expect(factory.hasAdapter('custom-device')).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Registered adapter for device type: custom-device')
-      );
-    });
-  });
-
-  describe('hasAdapter', () => {
-    beforeEach(async () => {
-      await factory.initialize();
-    });
-
-    it('should return true for registered adapter', () => {
-      expect(factory.hasAdapter('chromatic-mod-retro')).toBe(true);
-    });
-
-    it('should return false for non-existent adapter', () => {
-      expect(factory.hasAdapter('unknown-device')).toBe(false);
-    });
-  });
-
-  describe('getRegisteredTypes', () => {
-    beforeEach(async () => {
-      await factory.initialize();
-    });
-
-    it('should return registered types', () => {
-      const result = factory.getRegisteredTypes();
-
-      expect(result).toContain('chromatic-mod-retro');
-    });
-  });
-
-  describe('getMetadata', () => {
-    beforeEach(async () => {
-      await factory.initialize();
-    });
-
-    it('should return metadata for registered adapter', () => {
-      const metadata = factory.getMetadata('chromatic-mod-retro');
-
-      expect(metadata).toBeDefined();
-      expect(metadata.requiresIPC).toBe(true);
-      expect(metadata.requiresProfile).toBe(true);
-    });
-
-    it('should return undefined for non-existent adapter', () => {
-      const metadata = factory.getMetadata('unknown-device');
-
-      expect(metadata).toBeUndefined();
-    });
-  });
-
-  describe('unregister', () => {
-    beforeEach(async () => {
-      await factory.initialize();
-    });
-
-    it('should unregister adapter', () => {
-      factory.unregister('chromatic-mod-retro');
-
-      expect(factory.hasAdapter('chromatic-mod-retro')).toBe(false);
-    });
-  });
-
-  describe('clear', () => {
-    beforeEach(async () => {
-      await factory.initialize();
-    });
-
-    it('should clear all registrations', () => {
-      factory.clear();
-
-      expect(factory.hasAdapter('chromatic-mod-retro')).toBe(false);
-      expect(factory.initialized).toBe(false);
     });
   });
 });
