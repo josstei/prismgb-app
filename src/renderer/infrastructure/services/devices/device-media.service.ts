@@ -5,9 +5,13 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { DeviceDetectionHelper } from '@prismgb/devices';
+import { DeviceDetectionHelper, DeviceRegistry } from '@prismgb/devices';
 import { TIMING } from '@renderer/common/config/timing.config';
 import { EventChannels } from '@renderer/common/config/event-channels';
+
+function getDeviceStorageKey(deviceType) {
+  return `${deviceType || 'device'}_id`;
+}
 
 class DeviceMediaService extends BaseService {
   static readonly dependencies = [
@@ -15,7 +19,7 @@ class DeviceMediaService extends BaseService {
     'loggerFactory',
     'browserMediaService',
     'deviceStatusProvider',
-    'deviceStorageService',
+    'storageService',
     'deviceChangeDebounceAdapter'
   ] as const;
 
@@ -102,7 +106,7 @@ class DeviceMediaService extends BaseService {
           if (videoDevices.length > 0) {
             this.hasMediaPermission = true;
             const deviceId = DeviceDetectionHelper.detectDeviceId(videoDevices[0]);
-            this.deviceStorageService.storeDeviceId(videoDevices[0].deviceId, deviceId);
+            this.storeDeviceId(videoDevices[0].deviceId, deviceId);
           } else if (allVideos.length > 0 && allVideos.every(d => !d.label)) {
             this.logger.debug('Devices found but no labels - permission pending');
           }
@@ -153,7 +157,7 @@ class DeviceMediaService extends BaseService {
       return null;
     }
 
-    const storedIds = this.deviceStorageService.getRegisteredStoredDeviceIds();
+    const storedIds = this.getRegisteredStoredDeviceIds();
     if (storedIds.length > 0 && this.hasMediaPermission && this.videoDevices.length > 0) {
       const device = this.videoDevices.find(d => storedIds.includes(d.deviceId));
       if (device) return device;
@@ -249,7 +253,7 @@ class DeviceMediaService extends BaseService {
       return false;
     }
 
-    this.deviceStorageService.storeDeviceId(device.deviceId, deviceId);
+    this.storeDeviceId(device.deviceId, deviceId);
     this.hasMediaPermission = true;
     this.videoDevices = [device];
     return true;
@@ -282,6 +286,33 @@ class DeviceMediaService extends BaseService {
         });
       }
     }
+  }
+
+  getStoredDeviceId(deviceType) {
+    try {
+      const key = getDeviceStorageKey(deviceType);
+      return this.storageService?.getItem(key) ?? null;
+    } catch (error) {
+      this.logger.debug('Failed to get stored device ID:', error.message);
+      return null;
+    }
+  }
+
+  storeDeviceId(deviceId, deviceType) {
+    try {
+      const key = getDeviceStorageKey(deviceType);
+      this.storageService?.setItem(key, deviceId);
+    } catch (error) {
+      this.logger.debug('Storage not available:', error.message);
+    }
+  }
+
+  getRegisteredStoredDeviceIds() {
+    const registeredIds = DeviceRegistry.getAll().map(device => device.id);
+    const storedIds = registeredIds
+      .map(id => this.getStoredDeviceId(id))
+      .filter(Boolean);
+    return Array.from(new Set(storedIds));
   }
 
   dispose() {

@@ -32,7 +32,6 @@ const StreamState = {
 export class StreamingService extends LifecycleService {
   static readonly dependencies = [
     'deviceMediaService',
-    'deviceStorageService',
     'eventBus',
     'loggerFactory',
     'adapterFactory',
@@ -41,8 +40,7 @@ export class StreamingService extends LifecycleService {
 
   /**
    * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceMediaService} dependencies.deviceMediaService - Device enumeration service
-   * @param {DeviceStorageService} dependencies.deviceStorageService - Device storage service
+   * @param {DeviceMediaService} dependencies.deviceMediaService - Device enumeration and storage service
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    * @param {StreamingAdapterFactory} dependencies.adapterFactory - Creates device adapters
@@ -387,7 +385,7 @@ export class StreamingService extends LifecycleService {
   async _autoSelectDevice() {
     this.logger.info('Auto-selecting device');
 
-    const storedIds = this.deviceStorageService.getRegisteredStoredDeviceIds();
+    const storedIds = this.deviceMediaService.getRegisteredStoredDeviceIds();
     if (storedIds.length > 0) {
       // Try all stored device IDs in parallel for faster restoration when first IDs are stale
       try {

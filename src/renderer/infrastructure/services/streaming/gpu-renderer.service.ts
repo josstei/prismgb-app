@@ -99,6 +99,9 @@ export class StreamingGpuRendererService extends BaseService {
     this._lastBackpressureLog = 0;
 
     this._messageUnsubscribers = [];
+
+    this._rvfcHandle = null;
+    this._renderLoopActive = false;
   }
 
   /**
@@ -535,6 +538,54 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
+  }
+
+  /**
+   * Start requestVideoFrameCallback render loop
+   * @param {Object} config - Render loop configuration
+   * @param {HTMLVideoElement} config.videoElement - Video element for frame callback
+   * @param {Function} config.renderFrame - Frame rendering function
+   * @param {Function} config.shouldContinue - Function returning true if loop should continue
+   */
+  startRenderLoop({ videoElement, renderFrame, shouldContinue }) {
+    if (!videoElement?.requestVideoFrameCallback) {
+      this.logger.warn('requestVideoFrameCallback not available');
+      return;
+    }
+
+    this._renderLoopActive = true;
+    let lastFrameTime = -1;
+
+    const renderLoop = (now, metadata) => {
+      if (!this._renderLoopActive) return;
+
+      const frameTime = metadata?.mediaTime ?? now;
+      if (frameTime !== lastFrameTime && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) {
+        renderFrame();
+        lastFrameTime = frameTime;
+      }
+
+      if (shouldContinue()) {
+        this._rvfcHandle = videoElement.requestVideoFrameCallback(renderLoop);
+      }
+    };
+
+    this._rvfcHandle = videoElement.requestVideoFrameCallback(renderLoop);
+  }
+
+  /**
+   * Stop requestVideoFrameCallback render loop
+   * @param {HTMLVideoElement} videoElement - Video element for callback cancellation
+   */
+  stopRenderLoop(videoElement) {
+    this._renderLoopActive = false;
+
+    if (this._rvfcHandle !== null) {
+      if (videoElement?.cancelVideoFrameCallback) {
+        videoElement.cancelVideoFrameCallback(this._rvfcHandle);
+      }
+      this._rvfcHandle = null;
+    }
   }
 
   /**

@@ -22,7 +22,6 @@ export class StreamingRenderPipelineService extends BaseService {
     'streamHealthService',
     'streamingRendererFactory',
     'gpuRendererService',
-    'gpuRenderLoopService',
     'canvasRenderer',
     'eventBus',
     'loggerFactory'

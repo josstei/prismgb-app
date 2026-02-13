@@ -28,18 +28,12 @@ interface GpuRendererServiceLike {
   cleanup(): void;
 }
 
-interface GpuRenderLoopServiceLike {
-  start(config: { videoElement: HTMLVideoElement; renderFrame: () => Promise<void>; shouldContinue: () => boolean }): void;
-  stop(videoElement: HTMLVideoElement): void;
-}
-
 interface AppStateLike {
   readonly isStreaming: boolean;
 }
 
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   gpuRendererService: GpuRendererServiceLike;
-  gpuRenderLoopService: GpuRenderLoopServiceLike;
   appState: AppStateLike;
   logger: LoggerLike;
   _videoElement: HTMLVideoElement | null;
@@ -49,14 +43,12 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   /**
    * @param {Object} dependencies - Injected dependencies
    * @param {Object} dependencies.gpuRendererService - GPU renderer service
-   * @param {Object} dependencies.gpuRenderLoopService - GPU render loop service
    * @param {Object} dependencies.appState - Application state for streaming status
    * @param {Object} dependencies.loggerFactory - Logger factory
    */
-  constructor({ gpuRendererService, gpuRenderLoopService, appState, loggerFactory }) {
+  constructor({ gpuRendererService, appState, loggerFactory }) {
     super();
     this.gpuRendererService = gpuRendererService;
-    this.gpuRenderLoopService = gpuRenderLoopService;
     this.appState = appState;
     this.logger = loggerFactory.create('StreamingGpuRendererAdapter');
 
@@ -131,7 +123,7 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     this._videoElement = videoElement;
     this._renderLoopActive = true;
 
-    this.gpuRenderLoopService.start({
+    this.gpuRendererService.startRenderLoop({
       videoElement,
       renderFrame: async () => this.gpuRendererService.renderFrame(videoElement),
       shouldContinue: () => this.appState.isStreaming && !this._isHiddenFn()
@@ -150,7 +142,7 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     }
 
     this._renderLoopActive = false;
-    this.gpuRenderLoopService.stop(videoElement || this._videoElement);
+    this.gpuRendererService.stopRenderLoop(videoElement || this._videoElement);
     this.logger.debug('GPU render loop stopped');
   }
 
@@ -159,7 +151,7 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
    */
   cleanup() {
     if (this._videoElement) {
-      this.gpuRenderLoopService.stop(this._videoElement);
+      this.gpuRendererService.stopRenderLoop(this._videoElement);
     }
     this._renderLoopActive = false;
     this._videoElement = null;
@@ -217,7 +209,7 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
    */
   terminateAndReset(emitCanvasExpired = true) {
     if (this._videoElement) {
-      this.gpuRenderLoopService.stop(this._videoElement);
+      this.gpuRendererService.stopRenderLoop(this._videoElement);
     }
     this._renderLoopActive = false;
     this._videoElement = null;

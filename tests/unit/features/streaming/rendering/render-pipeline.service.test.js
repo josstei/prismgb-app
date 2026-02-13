@@ -16,7 +16,6 @@ describe('StreamingRenderPipelineService', () => {
   let mockCanvasLifecycleService;
   let mockStreamHealthService;
   let mockGpuRendererService;
-  let mockGpuRenderLoopService;
   let mockStreamingRendererFactory;
   let mockEventBus;
   let mockLogger;
@@ -85,12 +84,9 @@ describe('StreamingRenderPipelineService', () => {
       terminateAndReset: vi.fn(),
       releaseGpuResources: vi.fn(),
       resize: vi.fn(),
-      cleanup: vi.fn()
-    };
-
-    mockGpuRenderLoopService = {
-      start: vi.fn(),
-      stop: vi.fn()
+      cleanup: vi.fn(),
+      startRenderLoop: vi.fn(),
+      stopRenderLoop: vi.fn()
     };
 
     // Create mock renderer adapters
@@ -159,7 +155,6 @@ describe('StreamingRenderPipelineService', () => {
       streamHealthService: mockStreamHealthService,
       streamingRendererFactory: mockStreamingRendererFactory,
       gpuRendererService: mockGpuRendererService,
-      gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });

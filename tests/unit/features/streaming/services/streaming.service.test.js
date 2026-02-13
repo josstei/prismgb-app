@@ -10,7 +10,6 @@ describe('StreamingService', () => {
   let mockDependencies;
   let mockEventBus;
   let mockDeviceMediaService;
-  let mockDeviceStorageService;
   let mockAdapterRegistry;
   let mockIpcClient;
   let mockLogger;
@@ -25,10 +24,7 @@ describe('StreamingService', () => {
     mockDeviceMediaService = {
       enumerateDevices: vi.fn(),
       discoverSupportedDevice: vi.fn(),
-      registerSupportedDevice: vi.fn()
-    };
-
-    mockDeviceStorageService = {
+      registerSupportedDevice: vi.fn(),
       getRegisteredStoredDeviceIds: vi.fn()
     };
 
@@ -55,7 +51,6 @@ describe('StreamingService', () => {
 
     mockDependencies = {
       deviceMediaService: mockDeviceMediaService,
-      deviceStorageService: mockDeviceStorageService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) },
       adapterFactory: mockAdapterRegistry,
@@ -107,7 +102,7 @@ describe('StreamingService', () => {
     });
 
     it('should auto-select device when no ID provided', async () => {
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['device-1']);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue(['device-1']);
 
       const result = await service.start();
 
@@ -141,7 +136,7 @@ describe('StreamingService', () => {
     });
 
     it('should throw when no device available for auto-select', async () => {
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
         connected: true
@@ -269,7 +264,7 @@ describe('StreamingService', () => {
   describe('_autoSelectDevice', () => {
     it('should use device from DeviceMediaService first', async () => {
       const mockDevice = { deviceId: 'selected-dev', kind: 'videoinput', label: 'Chromatic' };
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['selected-dev']);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue(['selected-dev']);
       mockDeviceMediaService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
 
       const result = await service._autoSelectDevice();
@@ -278,7 +273,7 @@ describe('StreamingService', () => {
     });
 
     it('should fallback to label matching when stored IDs missing', async () => {
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'chromatic-dev', kind: 'videoinput', label: 'ModRetro Chromatic' }],
         connected: true
@@ -290,7 +285,7 @@ describe('StreamingService', () => {
     });
 
     it('should throw when labels are hidden', async () => {
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue([]);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
         connected: true
@@ -302,7 +297,7 @@ describe('StreamingService', () => {
 
     it('should use discoverSupportedDevice when stored IDs not in enumerated devices', async () => {
       const discoveredDevice = { deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' };
-      mockDeviceStorageService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
+      mockDeviceMediaService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
       mockDeviceMediaService.enumerateDevices.mockResolvedValue({
         devices: [{ deviceId: 'other-dev', kind: 'videoinput', label: '' }],
         connected: true

@@ -26,7 +26,6 @@ import type { CaptureService } from '@renderer/infrastructure/services/capture/c
 import type { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service';
 import type { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
 import type { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service';
-import type { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service';
 import type { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 import type { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service';
@@ -38,7 +37,6 @@ import type { StreamingAudioPipelineService } from '@renderer/infrastructure/ser
 import type { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
 import type { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
 import type { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer';
-import type { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service';
 import type { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
 import type { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager';
 import type { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service';
@@ -73,7 +71,6 @@ export interface RendererContainerMap {
   canvasRenderer: StreamingCanvasRenderer;
   viewportService: StreamingViewportService;
   canvasLifecycleService: StreamingCanvasLifecycleService;
-  gpuRenderLoopService: StreamingGpuRenderLoopService;
   streamHealthService: StreamingHealthService;
   gpuFrameBuffer: GpuFrameBuffer;
   gpuWorkerManager: GpuWorkerManager;
@@ -83,7 +80,6 @@ export interface RendererContainerMap {
   ipcClient: unknown;
   deviceStatusProvider: DeviceIpcStatusAdapter;
   adapterFactory: StreamingAdapterFactory;
-  deviceStorageService: DeviceStorageService;
   deviceMediaService: DeviceMediaService;
   deviceOperationSequencer: DeviceOperationSequencerService;
   streamingService: StreamingService;

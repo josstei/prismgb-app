@@ -13,7 +13,6 @@ import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/device
 import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
-import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service';
 import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
 import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory';
@@ -79,7 +78,6 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
 
   container.autoRegister('viewportService', StreamingViewportService);
   container.autoRegister('canvasLifecycleService', StreamingCanvasLifecycleService);
-  container.autoRegister('gpuRenderLoopService', StreamingGpuRenderLoopService);
   container.autoRegister('streamHealthService', StreamingHealthService);
   container.autoRegister('gpuFrameBuffer', GpuFrameBuffer);
   container.autoRegister('gpuWorkerManager', GpuWorkerManager);

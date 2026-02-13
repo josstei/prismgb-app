@@ -2,7 +2,6 @@ export { StreamingService } from './streaming.service';
 export { StreamingCanvasRenderer } from './canvas-renderer';
 export { StreamingRenderPipelineService } from './render-pipeline.service';
 export { StreamingCanvasLifecycleService } from './canvas-lifecycle.service';
-export { StreamingGpuRenderLoopService } from './gpu-render-loop.service';
 export { StreamingViewportService } from './viewport.service';
 export { StreamingHealthService } from './health.service';
 export { StreamingGpuRendererService } from './gpu-renderer.service';

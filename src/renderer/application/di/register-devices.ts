@@ -1,6 +1,5 @@
 import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter';
-import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service';
 import type { RegistrableContainer } from './registrable-container.type';
@@ -20,7 +19,6 @@ export function registerDevices(container: RegistrableContainer<RendererContaine
     ['eventBus', 'loggerFactory', 'browserMediaService']
   );
 
-  container.autoRegister('deviceStorageService', DeviceStorageService);
   container.autoRegister('deviceMediaService', DeviceMediaService);
   container.autoRegister('deviceOperationSequencer', DeviceOperationSequencerService);
 }
