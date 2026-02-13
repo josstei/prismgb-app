@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 import { NotesStorageKeys } from '@renderer/infrastructure/config/storage-keys.config';
 
 describe('NotesService', () => {

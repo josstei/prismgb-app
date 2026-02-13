@@ -14,7 +14,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { FilenameGenerator } from '@renderer/infrastructure/lib/filename-generator.utils';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 class CaptureService extends BaseService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;

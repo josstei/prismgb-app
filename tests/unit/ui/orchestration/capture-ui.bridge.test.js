@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 describe('CaptureUIBridge', () => {
   let bridge;

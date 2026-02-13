@@ -9,7 +9,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 import { downloadFile } from '@renderer/common/lib/file-download.utils';
 
 interface RecordingSaveOptions {

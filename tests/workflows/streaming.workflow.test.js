@@ -18,7 +18,7 @@ import {
 } from '../mocks/MockDeviceStateMachine.js';
 import { CHROMATIC_DEVICE, CHROMATIC_CAPABILITIES } from '../fixtures/devices.fixture.js';
 import { STREAM_EVENTS } from '../fixtures/streams.fixture.js';
-import { EventChannels } from '../../src/renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '../../src/renderer/common/config/event-channels';
 
 describe('Streaming Workflow Integration', () => {
   let eventBus;

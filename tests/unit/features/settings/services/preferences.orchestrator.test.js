@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;

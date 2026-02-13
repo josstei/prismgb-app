@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;

@@ -17,7 +17,7 @@ import {
   createScreenshotBlob,
   createRecordingBlob,
 } from '../fixtures/capture.fixture.js';
-import { EventChannels } from '../../src/renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '../../src/renderer/common/config/event-channels';
 
 describe('Capture Workflow Integration', () => {
   let eventBus;

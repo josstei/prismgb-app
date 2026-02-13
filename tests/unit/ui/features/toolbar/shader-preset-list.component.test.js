@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 vi.mock('@prismgb/gpu', () => ({
   PresetRegistry: {

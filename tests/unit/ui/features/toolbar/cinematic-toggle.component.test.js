@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/components/cinematic-toggle.component.js';
 import { createMockEventBus, createMockAppState, createMockLogger } from '../../../../mocks/index.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 describe('CinematicToggleComponent', () => {
   let component;

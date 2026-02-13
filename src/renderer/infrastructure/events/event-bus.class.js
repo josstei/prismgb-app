@@ -5,7 +5,7 @@
  */
 
 import EventEmitter from 'eventemitter3';
-import { EventChannels } from './event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 /**
  * EventBus provides a global publish/subscribe mechanism for application events

@@ -14,7 +14,7 @@
 
 import { BaseService } from '@prismgb/core';
 import { DeviceDetectionHelper } from '@prismgb/devices';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 /**
  * Stream lifecycle states for the state machine

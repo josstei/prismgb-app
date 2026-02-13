@@ -12,7 +12,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 
 export class StreamingRenderPipelineService extends BaseService {
   static readonly dependencies = [

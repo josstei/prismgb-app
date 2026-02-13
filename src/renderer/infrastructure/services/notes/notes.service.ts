@@ -11,7 +11,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@renderer/common/config/event-channels';
 import { generateEntityId } from '@renderer/common/lib/string.utils';
 import { NotesStorageKeys } from '@renderer/infrastructure/config/storage-keys.config';
 
