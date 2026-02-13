@@ -4,30 +4,24 @@
  * Translates update events into UI notifications and badge visibility.
  */
 
-import { LifecycleService } from '@prismgb/core';
+import { EventBridgeBase } from './event-bridge.base';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
-class UpdateUIBridge extends LifecycleService {
+class UpdateUIBridge extends EventBridgeBase {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
     super(dependencies, [...UpdateUIBridge.dependencies], 'UpdateUIBridge');
   }
 
-  async onInitialize() {
-    this.subscribeWithCleanup({
+  protected getEventMappings() {
+    return {
       [EventChannels.UPDATE.AVAILABLE]: (info) => this._handleUpdateAvailable(info),
       [EventChannels.UPDATE.NOT_AVAILABLE]: () => this._handleNoUpdate(),
       [EventChannels.UPDATE.PROGRESS]: (progress) => this._handleProgress(progress),
       [EventChannels.UPDATE.DOWNLOADED]: (info) => this._handleDownloaded(info),
       [EventChannels.UPDATE.ERROR]: (error) => this._handleError(error)
-    });
-
-    this.logger.info('UpdateUIBridge initialized');
-  }
-
-  async onDispose() {
-    this.logger.info('UpdateUIBridge disposed');
+    };
   }
 
   _handleUpdateAvailable(info) {
