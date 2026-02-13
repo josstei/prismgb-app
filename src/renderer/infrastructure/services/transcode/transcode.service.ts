@@ -12,9 +12,8 @@
  * - 'transcode:cancelled' - Transcoding was cancelled
  */
 
-import { IPCBridgeBase } from '@renderer/infrastructure/bridges/ipc-bridge.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
-import type { IPCMapping, IPCApi } from '@renderer/infrastructure/bridges/ipc-bridge.base';
 import type {
   TranscodeCancelResponse,
   TranscodeCancelledPayload,
@@ -26,7 +25,7 @@ import type {
   TranscodeStartResponse
 } from '@prismgb/ipc';
 
-class TranscodeService extends IPCBridgeBase {
+class TranscodeService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
@@ -36,32 +35,9 @@ class TranscodeService extends IPCBridgeBase {
     this._activeJobId = null;
   }
 
-  protected getIPCApi(): IPCApi | undefined {
-    return window.transcodeAPI;
-  }
-
-  protected getMappings(): IPCMapping[] {
-    return [
-      { apiMethod: 'onProgress', eventChannel: EventChannels.TRANSCODE.PROGRESS },
-      { apiMethod: 'onCompleted', eventChannel: EventChannels.TRANSCODE.COMPLETED },
-      { apiMethod: 'onError', eventChannel: EventChannels.TRANSCODE.ERROR },
-      { apiMethod: 'onCancelled', eventChannel: EventChannels.TRANSCODE.CANCELLED }
-    ];
-  }
-
-  protected createHandler(mapping: IPCMapping): (data: unknown) => void {
-    switch (mapping.apiMethod) {
-      case 'onCompleted':
-        return (data: unknown) => this._handleCompleted(data as TranscodeCompletedPayload);
-      case 'onError':
-        return (data: unknown) => this._handleError(data as TranscodeErrorPayload);
-      case 'onCancelled':
-        return (data: unknown) => this._handleCancelled(data as TranscodeCancelledPayload);
-      default:
-        return super.createHandler(mapping);
-    }
-  }
-
+  /**
+   * Initialize the service - subscribe to IPC events via window.transcodeAPI
+   */
   async initialize() {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available - transcoding disabled');
@@ -69,6 +45,18 @@ class TranscodeService extends IPCBridgeBase {
     }
 
     await super.initialize();
+  }
+
+  async onInitialize() {
+    // Subscribe to IPC events and republish on eventBus
+    // Note: No onStarted handler - the main process doesn't emit a STARTED event.
+    // The started state is determined by the successful return of transcode() call.
+    this._subscriptions.push(
+      window.transcodeAPI.onProgress((data) => this._handleProgress(data)),
+      window.transcodeAPI.onCompleted((data) => this._handleCompleted(data)),
+      window.transcodeAPI.onError((data) => this._handleError(data)),
+      window.transcodeAPI.onCancelled((data) => this._handleCancelled(data))
+    );
   }
 
   /**
@@ -168,29 +156,56 @@ class TranscodeService extends IPCBridgeBase {
     return Boolean(window.transcodeAPI);
   }
 
-  private _handleCompleted(data: TranscodeCompletedPayload) {
+  /**
+   * Handle transcode progress event from IPC
+   * @param {Object} data - Progress data (percent, timeRemaining, etc.)
+   * @private
+   */
+  _handleProgress(data: TranscodeProgressPayload) {
+    this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
+  }
+
+  /**
+   * Handle transcode completed event from IPC
+   * @param {Object} data - Completion data (outputPath, duration, etc.)
+   * @private
+   */
+  _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
     this._activeJobId = null;
     this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
   }
 
-  private _handleError(data: TranscodeErrorPayload) {
+  /**
+   * Handle transcode error event from IPC
+   * @param {Object} data - Error data
+   * @private
+   */
+  _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
     this._activeJobId = null;
     this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
   }
 
-  private _handleCancelled(data: TranscodeCancelledPayload) {
+  /**
+   * Handle transcode cancelled event from IPC
+   * @param {Object} data - Cancellation data
+   * @private
+   */
+  _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
     this._activeJobId = null;
     this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
   }
 
+  /**
+   * Cleanup subscriptions and reset state
+   */
   async onDispose() {
-    await super.onDispose();
+    window.transcodeAPI?.removeListeners?.();
 
     this._isTranscoding = false;
     this._activeJobId = null;

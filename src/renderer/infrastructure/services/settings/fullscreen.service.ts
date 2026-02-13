@@ -4,11 +4,10 @@
  * Owns fullscreen event listeners and UI state updates.
  */
 
-import { IPCBridgeBase } from '@renderer/infrastructure/bridges/ipc-bridge.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
-import type { IPCMapping, IPCApi } from '@renderer/infrastructure/bridges/ipc-bridge.base';
 
-class SettingsFullscreenService extends IPCBridgeBase {
+class SettingsFullscreenService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
@@ -18,43 +17,29 @@ class SettingsFullscreenService extends IPCBridgeBase {
     this._isFullscreenActive = false;
   }
 
-  protected getIPCApi(): IPCApi | undefined {
-    return window.windowAPI;
-  }
-
-  protected getMappings(): IPCMapping[] {
-    return [
-      { apiMethod: 'onEnterFullscreen', eventChannel: EventChannels.UI.FULLSCREEN_STATE },
-      { apiMethod: 'onLeaveFullscreen', eventChannel: EventChannels.UI.FULLSCREEN_STATE },
-      { apiMethod: 'onResized', eventChannel: EventChannels.UI.WINDOW_RESIZED }
-    ];
-  }
-
-  protected createHandler(mapping: IPCMapping): (data: unknown) => void {
-    switch (mapping.apiMethod) {
-      case 'onEnterFullscreen':
-        return () => this._handleNativeFullscreen(true);
-      case 'onLeaveFullscreen':
-        return () => this._handleNativeFullscreen(false);
-      case 'onResized':
-        return () => {
-          this._syncFullscreenState();
-          this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
-        };
-      default:
-        return super.createHandler(mapping);
-    }
-  }
-
   async onInitialize() {
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
-    await super.onInitialize();
+
+    if (window.windowAPI) {
+      this._subscriptions.push(
+        window.windowAPI.onEnterFullscreen(() => {
+          this._handleNativeFullscreen(true);
+        }),
+        window.windowAPI.onLeaveFullscreen(() => {
+          this._handleNativeFullscreen(false);
+        }),
+        window.windowAPI.onResized(() => {
+          this._syncFullscreenState();
+          this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
+        })
+      );
+    }
+
     await this._syncFullscreenState();
   }
 
   async onDispose() {
     document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange);
-    await super.onDispose();
   }
 
   async toggleFullscreen() {

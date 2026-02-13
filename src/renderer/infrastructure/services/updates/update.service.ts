@@ -13,10 +13,9 @@
  * - 'update:state-changed' - State transition
  */
 
-import { IPCBridgeBase } from '@renderer/infrastructure/bridges/ipc-bridge.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
 import { UpdateState } from '@renderer/common/config/update-state.config';
-import type { IPCMapping, IPCApi } from '@renderer/infrastructure/bridges/ipc-bridge.base';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
@@ -27,9 +26,10 @@ import type {
   UpdateStatusPayload
 } from '@prismgb/ipc';
 
+// Re-export for backward compatibility
 export { UpdateState };
 
-class UpdateService extends IPCBridgeBase {
+class UpdateService extends LifecycleService {
   static readonly dependencies = ['eventBus', 'loggerFactory'] as const;
 
   constructor(dependencies) {
@@ -39,37 +39,6 @@ class UpdateService extends IPCBridgeBase {
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-  }
-
-  protected getIPCApi(): IPCApi | undefined {
-    return window.updateAPI;
-  }
-
-  protected getMappings(): IPCMapping[] {
-    return [
-      { apiMethod: 'onAvailable', eventChannel: EventChannels.UPDATE.AVAILABLE },
-      { apiMethod: 'onNotAvailable', eventChannel: EventChannels.UPDATE.NOT_AVAILABLE },
-      { apiMethod: 'onProgress', eventChannel: EventChannels.UPDATE.PROGRESS },
-      { apiMethod: 'onDownloaded', eventChannel: EventChannels.UPDATE.DOWNLOADED },
-      { apiMethod: 'onError', eventChannel: EventChannels.UPDATE.ERROR }
-    ];
-  }
-
-  protected createHandler(mapping: IPCMapping): (data: unknown) => void {
-    switch (mapping.apiMethod) {
-      case 'onAvailable':
-        return (data: unknown) => this._handleAvailable(data as UpdateInfoPayload);
-      case 'onNotAvailable':
-        return (data: unknown) => this._handleNotAvailable(data as UpdateInfoPayload);
-      case 'onProgress':
-        return (data: unknown) => this._handleProgress(data as UpdateProgressPayload);
-      case 'onDownloaded':
-        return (data: unknown) => this._handleDownloaded(data as UpdateInfoPayload);
-      case 'onError':
-        return (data: unknown) => this._handleError(data as UpdateErrorPayload);
-      default:
-        return super.createHandler(mapping);
-    }
   }
 
   async initialize() {
@@ -83,7 +52,14 @@ class UpdateService extends IPCBridgeBase {
 
   async onInitialize() {
     await this._loadInitialStatus();
-    await super.onInitialize();
+
+    this._subscriptions.push(
+      window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
+      window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
+      window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
+      window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
+      window.updateAPI.onError((error) => this._handleError(error))
+    );
   }
 
   async _loadInitialStatus() {
@@ -100,33 +76,33 @@ class UpdateService extends IPCBridgeBase {
     }
   }
 
-  private _handleAvailable(info: UpdateInfoPayload) {
+  _handleAvailable(info: UpdateInfoPayload) {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
   }
 
-  private _handleNotAvailable(info: UpdateInfoPayload) {
+  _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
     this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
   }
 
-  private _handleProgress(progress: UpdateProgressPayload) {
+  _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
     this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
   }
 
-  private _handleDownloaded(info: UpdateInfoPayload) {
+  _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
     this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
   }
 
-  private _handleError(error: UpdateErrorPayload) {
+  _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
@@ -229,7 +205,7 @@ class UpdateService extends IPCBridgeBase {
   }
 
   async onDispose() {
-    await super.onDispose();
+    window.updateAPI?.removeListeners();
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
