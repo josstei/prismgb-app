@@ -8,7 +8,7 @@
  * - Item selection
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@renderer/common/lib/string.utils';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
@@ -16,10 +16,10 @@ import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.conf
 // Autocomplete debounce
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 
-class GameAutocompleteComponent {
+class GameAutocompleteComponent extends BaseComponent {
   constructor({ notesService, logger }) {
+    super({ logger });
     this.notesService = notesService;
-    this.logger = logger;
 
     // Autocomplete state
     this.autocompleteHighlightIndex = -1;
@@ -29,9 +29,6 @@ class GameAutocompleteComponent {
 
     // Blur timer (tracked for cleanup)
     this._blurTimerId = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.gameInput = null;
@@ -153,13 +150,13 @@ class GameAutocompleteComponent {
     this.gameInput.setAttribute('aria-controls', 'notesGameAutocomplete');
 
     // Autocomplete on input
-    this._domListeners.add(this.gameInput, 'input', () => {
+    this.addDomListener(this.gameInput, 'input', () => {
       this._scheduleAutocomplete();
       this.onInput?.();
     });
 
     // Keyboard navigation
-    this._domListeners.add(this.gameInput, 'keydown', (e) => {
+    this.addDomListener(this.gameInput, 'keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         // Check if autocomplete has a highlighted item to select
@@ -188,7 +185,7 @@ class GameAutocompleteComponent {
     // to fire before the dropdown is hidden. 150ms is sufficient for most click
     // interactions while still feeling responsive.
     // See: https://stackoverflow.com/questions/17769005/onclick-and-onblur-ordering-issue
-    this._domListeners.add(this.gameInput, 'blur', () => {
+    this.addDomListener(this.gameInput, 'blur', () => {
       this._blurTimerId = setTimeout(() => {
         this._blurTimerId = null;
         this._hideAutocomplete();
@@ -197,7 +194,7 @@ class GameAutocompleteComponent {
     });
 
     // Show autocomplete on focus (cancel any pending blur timer to prevent race condition)
-    this._domListeners.add(this.gameInput, 'focus', () => {
+    this.addDomListener(this.gameInput, 'focus', () => {
       if (this._blurTimerId) {
         clearTimeout(this._blurTimerId);
         this._blurTimerId = null;
@@ -218,8 +215,8 @@ class GameAutocompleteComponent {
         this._selectAutocompleteItem(item.dataset.value);
       };
 
-      this._domListeners.add(this.autocompleteDropdown, 'pointerdown', handleAutocompleteSelect);
-      this._domListeners.add(this.autocompleteDropdown, 'click', handleAutocompleteSelect);
+      this.addDomListener(this.autocompleteDropdown, 'pointerdown', handleAutocompleteSelect);
+      this.addDomListener(this.autocompleteDropdown, 'click', handleAutocompleteSelect);
     }
   }
 
@@ -368,8 +365,8 @@ class GameAutocompleteComponent {
       this._blurTimerId = null;
     }
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    // Base cleanup (DOM listeners)
+    super.dispose();
 
     // Clear references
     this.gameInput = null;

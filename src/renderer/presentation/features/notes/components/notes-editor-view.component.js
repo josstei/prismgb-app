@@ -8,16 +8,16 @@
  * - Editor state management
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // Timing constants
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;
 
-class NotesEditorViewComponent {
+class NotesEditorViewComponent extends BaseComponent {
   constructor({ notesService, logger }) {
+    super({ logger });
     this.notesService = notesService;
-    this.logger = logger;
 
     // Editor state
     this.currentNoteId = null;
@@ -25,9 +25,6 @@ class NotesEditorViewComponent {
 
     // Debounce timers
     this._saveTimeout = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.editorElement = null;
@@ -213,14 +210,14 @@ class NotesEditorViewComponent {
   _setupEditor() {
     // Auto-save on title change
     if (this.titleInput) {
-      this._domListeners.add(this.titleInput, 'input', () => {
+      this.addDomListener(this.titleInput, 'input', () => {
         this._scheduleSave();
       });
     }
 
     // Auto-save on content change
     if (this.contentArea) {
-      this._domListeners.add(this.contentArea, 'input', () => {
+      this.addDomListener(this.contentArea, 'input', () => {
         this._scheduleSave();
       });
     }
@@ -233,14 +230,14 @@ class NotesEditorViewComponent {
   _setupGameTagUI() {
     // Add game button - show game input
     if (this.gameAddBtn) {
-      this._domListeners.add(this.gameAddBtn, 'click', () => {
+      this.addDomListener(this.gameAddBtn, 'click', () => {
         this.onShowGameInput?.();
       });
     }
 
     // Game tag click - edit game
     if (this.gameTag) {
-      this._domListeners.add(this.gameTag, 'click', () => {
+      this.addDomListener(this.gameTag, 'click', () => {
         this.onShowGameInput?.();
       });
     }
@@ -297,12 +294,12 @@ class NotesEditorViewComponent {
       this._cancelDeleteHold();
     };
 
-    this._domListeners.add(this.deleteBtn, 'mousedown', startHold);
-    this._domListeners.add(this.deleteBtn, 'touchstart', startHold);
-    this._domListeners.add(this.deleteBtn, 'mouseup', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'mouseleave', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'touchend', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'touchcancel', cancelHold);
+    this.addDomListener(this.deleteBtn, 'mousedown', startHold);
+    this.addDomListener(this.deleteBtn, 'touchstart', startHold);
+    this.addDomListener(this.deleteBtn, 'mouseup', cancelHold);
+    this.addDomListener(this.deleteBtn, 'mouseleave', cancelHold);
+    this.addDomListener(this.deleteBtn, 'touchend', cancelHold);
+    this.addDomListener(this.deleteBtn, 'touchcancel', cancelHold);
   }
 
   /**
@@ -346,8 +343,8 @@ class NotesEditorViewComponent {
       this._deleteHoldTimeout = null;
     }
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    // Base cleanup (DOM listeners)
+    super.dispose();
 
     // Clear references
     this.editorElement = null;

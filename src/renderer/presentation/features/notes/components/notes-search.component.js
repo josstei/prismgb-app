@@ -7,23 +7,20 @@
  * - Search query management
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 
 // Timing constant
 const SEARCH_DEBOUNCE_MS = 200;
 
-class NotesSearchComponent {
+class NotesSearchComponent extends BaseComponent {
   constructor({ logger }) {
-    this.logger = logger;
+    super({ logger });
 
     // Search state
     this.currentQuery = '';
 
     // Debounce timer
     this._searchTimeout = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.searchInput = null;
@@ -79,7 +76,7 @@ class NotesSearchComponent {
   _setupSearch() {
     if (!this.searchInput) return;
 
-    this._domListeners.add(this.searchInput, 'input', () => {
+    this.addDomListener(this.searchInput, 'input', () => {
       this._scheduleSearch();
     });
   }
@@ -119,8 +116,7 @@ class NotesSearchComponent {
       this._searchTimeout = null;
     }
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
 
     // Clear references
     this.searchInput = null;

@@ -5,10 +5,9 @@
  * Orchestrates sub-components for search, filtering, editing, and list management.
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@renderer/common/config/event-channels';
-import { cleanupCallbacks } from '@renderer/presentation/lib/event-subscriptions.utils';
 import { NotesListViewComponent } from './components/notes-list-view.component.js';
 import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
 import { NotesSearchComponent } from './components/notes-search.component.js';
@@ -17,11 +16,10 @@ import { GameAutocompleteComponent } from './components/game-autocomplete.compon
 import { NotesResizeHandlerComponent } from './components/notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './components/notes-panel-layout.component.js';
 
-class NotesPanelComponent {
+class NotesPanelComponent extends BaseComponent {
   constructor({ notesService, eventBus, logger }) {
+    super({ eventBus, logger });
     this.notesService = notesService;
-    this.eventBus = eventBus;
-    this.logger = logger;
 
     // Panel state
     this.isVisible = false;
@@ -35,10 +33,6 @@ class NotesPanelComponent {
     this.gameAutocomplete = new GameAutocompleteComponent({ notesService, logger });
     this.resizeHandler = new NotesResizeHandlerComponent({ logger });
     this.layout = new NotesPanelLayoutComponent({ logger });
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
-    this._eventSubscriptions = [];
   }
 
   /**
@@ -219,7 +213,7 @@ class NotesPanelComponent {
   _setupToggleButton() {
     if (!this.elements.notesBtn) return;
 
-    this._domListeners.add(this.elements.notesBtn, 'click', () => {
+    this.addDomListener(this.elements.notesBtn, 'click', () => {
       this.toggle();
     });
   }
@@ -337,7 +331,7 @@ class NotesPanelComponent {
   _setupNewButton() {
     if (!this.elements.notesNewBtn) return;
 
-    this._domListeners.add(this.elements.notesNewBtn, 'click', () => {
+    this.addDomListener(this.elements.notesNewBtn, 'click', () => {
       this._createNewNote();
     });
   }
@@ -419,7 +413,7 @@ class NotesPanelComponent {
    * @private
    */
   _setupEscapeKey() {
-    this._domListeners.add(document, 'keydown', (e) => {
+    this.addDomListener(document, 'keydown', (e) => {
       if (e.key === 'Escape' && this.isVisible) {
         // Check if game filter is open
         if (this.gameFilter && this.gameFilter.isGameFilterOpen) {
@@ -438,7 +432,7 @@ class NotesPanelComponent {
    */
   _subscribeToEvents() {
     // Listen for note changes from other sources (e.g., sync, import)
-    const unsubscribeCreated = this.eventBus.subscribe(
+    this.subscribe(
       EventChannels.NOTES.NOTE_CREATED,
       (note) => {
         // Only re-render if note was created externally (not by this component)
@@ -447,17 +441,15 @@ class NotesPanelComponent {
         }
       }
     );
-    this._eventSubscriptions.push(unsubscribeCreated);
 
-    const unsubscribeDeleted = this.eventBus.subscribe(
+    this.subscribe(
       EventChannels.NOTES.NOTE_DELETED,
       () => {
         this.listView.render(this.searchComponent.getQuery());
       }
     );
-    this._eventSubscriptions.push(unsubscribeDeleted);
 
-    const unsubscribeUpdated = this.eventBus.subscribe(
+    this.subscribe(
       EventChannels.NOTES.NOTE_UPDATED,
       (note) => {
         if (note && note.id !== this.currentNoteId) {
@@ -465,7 +457,6 @@ class NotesPanelComponent {
         }
       }
     );
-    this._eventSubscriptions.push(unsubscribeUpdated);
   }
 
   /**
@@ -481,14 +472,8 @@ class NotesPanelComponent {
     this.resizeHandler?.dispose();
     this.layout?.dispose();
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
-
-    // Unsubscribe from events (with error protection)
-    cleanupCallbacks(this._eventSubscriptions, (error) => {
-      this.logger?.warn('Error unsubscribing from event', error);
-    });
-    this._eventSubscriptions = [];
+    // Base cleanup (DOM listeners, event subscriptions)
+    super.dispose();
 
     // Nullify references to allow GC
     this.elements = null;

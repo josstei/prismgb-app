@@ -5,24 +5,19 @@
  * Implements standard popup behavior (click-outside-to-close, escape key).
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
 import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 
-class SettingsMenuComponent {
+class SettingsMenuComponent extends BaseComponent {
   constructor({ settingsService, updateSectionComponent, eventBus, loggerFactory, logger }) {
+    super({ eventBus, logger, loggerFactory });
     this.settingsService = settingsService;
-    this.eventBus = eventBus;
-    this.loggerFactory = loggerFactory;
-    this.logger = logger;
     this.isVisible = false;
     this.disclaimerExpanded = false;
     this._menuDisclosure = null;
     this.recordingFormatDropdown = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Update section component (composed externally)
     this._updateSection = updateSectionComponent || null;
@@ -106,7 +101,7 @@ class SettingsMenuComponent {
   _bindEvents() {
     // Status strip toggle
     if (this.statusStripCheckbox) {
-      this._domListeners.add(this.statusStripCheckbox, 'change', () => {
+      this.addDomListener(this.statusStripCheckbox, 'change', () => {
         const visible = this.statusStripCheckbox.checked;
         this.settingsService.setStatusStripVisible(visible);
         this._applyStatusStripVisibility(visible);
@@ -115,7 +110,7 @@ class SettingsMenuComponent {
 
     // Fullscreen on startup toggle
     if (this.fullscreenOnStartupCheckbox) {
-      this._domListeners.add(this.fullscreenOnStartupCheckbox, 'change', () => {
+      this.addDomListener(this.fullscreenOnStartupCheckbox, 'change', () => {
         const enabled = this.fullscreenOnStartupCheckbox.checked;
         this.settingsService.setFullscreenOnStartup(enabled);
       });
@@ -123,14 +118,14 @@ class SettingsMenuComponent {
 
     // Auto-stream on connect toggle
     if (this.autoStreamOnConnectCheckbox) {
-      this._domListeners.add(this.autoStreamOnConnectCheckbox, 'change', () => {
+      this.addDomListener(this.autoStreamOnConnectCheckbox, 'change', () => {
         this.settingsService.setAutoStreamOnConnect(this.autoStreamOnConnectCheckbox.checked);
       });
     }
 
     // Minimalist fullscreen toggle
     if (this.minimalistFullscreenCheckbox) {
-      this._domListeners.add(this.minimalistFullscreenCheckbox, 'change', () => {
+      this.addDomListener(this.minimalistFullscreenCheckbox, 'change', () => {
         const enabled = this.minimalistFullscreenCheckbox.checked;
         this.settingsService.setMinimalistFullscreen(enabled);
       });
@@ -138,7 +133,7 @@ class SettingsMenuComponent {
 
     // Animation power saver toggle
     if (this.animationSaverCheckbox) {
-      this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
+      this.addDomListener(this.animationSaverCheckbox, 'change', () => {
         const enabled = this.animationSaverCheckbox.checked;
         this.settingsService.setPerformanceMode(enabled);
       });
@@ -146,7 +141,7 @@ class SettingsMenuComponent {
 
     // Disclaimer expand/collapse
     if (this.disclaimerBtn && this.disclaimerContent) {
-      this._domListeners.add(this.disclaimerBtn, 'click', () => {
+      this.addDomListener(this.disclaimerBtn, 'click', () => {
         this._toggleDisclaimer();
       });
     }
@@ -298,31 +293,31 @@ class SettingsMenuComponent {
     };
 
     if (this.linkGithub) {
-      this._domListeners.add(this.linkGithub, 'click', (e) => {
+      this.addDomListener(this.linkGithub, 'click', (e) => {
         handleExternalLink(e, 'https://github.com/josstei/prismgb-app');
       });
     }
 
     if (this.linkWebsite) {
-      this._domListeners.add(this.linkWebsite, 'click', (e) => {
+      this.addDomListener(this.linkWebsite, 'click', (e) => {
         handleExternalLink(e, 'https://prismgb.com');
       });
     }
 
     if (this.linkX) {
-      this._domListeners.add(this.linkX, 'click', (e) => {
+      this.addDomListener(this.linkX, 'click', (e) => {
         handleExternalLink(e, 'https://x.com/prism_gb');
       });
     }
 
     if (this.linkKofi) {
-      this._domListeners.add(this.linkKofi, 'click', (e) => {
+      this.addDomListener(this.linkKofi, 'click', (e) => {
         handleExternalLink(e, 'https://ko-fi.com/josstei');
       });
     }
 
     if (this.linkModRetro) {
-      this._domListeners.add(this.linkModRetro, 'click', (e) => {
+      this.addDomListener(this.linkModRetro, 'click', (e) => {
         handleExternalLink(e, 'https://modretro.com');
       });
     }
@@ -368,7 +363,7 @@ class SettingsMenuComponent {
    * Dispose and cleanup event listeners
    */
   dispose() {
-    this._domListeners.removeAll();
+    super.dispose();
     this._menuDisclosure?.dispose();
     this._menuDisclosure = null;
     this.recordingFormatDropdown?.dispose();

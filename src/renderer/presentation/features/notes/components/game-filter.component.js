@@ -8,23 +8,20 @@
  * - Keyboard navigation
  */
 
-import { createDomListenerManager } from '@renderer/presentation/primitives/dom-listener.utils.js';
+import { BaseComponent } from '@renderer/presentation/base/base-component.class.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
 import { renderListboxOptions, updateListboxActiveState } from '@renderer/presentation/primitives/listbox.utils.js';
 
-class GameFilterComponent {
+class GameFilterComponent extends BaseComponent {
   constructor({ notesService, logger }) {
+    super({ logger });
     this.notesService = notesService;
-    this.logger = logger;
 
     // Filter state
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
     this._menuDisclosure = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.filterButton = null;
@@ -116,13 +113,13 @@ class GameFilterComponent {
     this._setupFilterDisclosure();
 
     // Button click
-    this._domListeners.add(this.filterButton, 'click', (event) => {
+    this.addDomListener(this.filterButton, 'click', (event) => {
       event.preventDefault();
       this._toggleGameFilterMenu();
     });
 
     // Button keyboard
-    this._domListeners.add(this.filterButton, 'keydown', (event) => {
+    this.addDomListener(this.filterButton, 'keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         this._toggleGameFilterMenu();
@@ -137,7 +134,7 @@ class GameFilterComponent {
     });
 
     // Menu click
-    this._domListeners.add(this.filterMenu, 'click', (event) => {
+    this.addDomListener(this.filterMenu, 'click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const option = target?.closest('.notes-game-filter-option');
       if (!option) return;
@@ -279,8 +276,7 @@ class GameFilterComponent {
    * Cleanup resources
    */
   dispose() {
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
     this._menuDisclosure?.dispose();
     this._menuDisclosure = null;
 
