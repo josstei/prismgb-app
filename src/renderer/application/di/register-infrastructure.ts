@@ -3,13 +3,10 @@ import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
-import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
-import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter';
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter';
-import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter';
 import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
@@ -43,7 +40,17 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
   }, []);
 
   container.registerFactory('visibilityAdapter', function() {
-    return new VisibilityAdapter();
+    return {
+      isHidden: () => typeof document !== 'undefined' ? Boolean(document.hidden) : false,
+      onVisibilityChange: (callback: (hidden: boolean) => void) => {
+        if (typeof document === 'undefined') {
+          return () => {};
+        }
+        const handler = () => callback(Boolean(document.hidden));
+        document.addEventListener('visibilitychange', handler);
+        return () => document.removeEventListener('visibilitychange', handler);
+      }
+    };
   }, []);
 
   container.registerFactory('userActivityAdapter', function() {
@@ -55,7 +62,20 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
   }, []);
 
   container.registerFactory('metricsAdapter', function() {
-    return new MetricsAdapter();
+    const metricsAPI = (globalThis.metricsAPI || window.metricsAPI) as any;
+    return {
+      isAvailable: () => !!(metricsAPI && typeof metricsAPI.getProcessMetrics === 'function'),
+      getProcessMetrics: async () => {
+        if (!metricsAPI || typeof metricsAPI.getProcessMetrics !== 'function') {
+          return { success: false, error: 'Metrics API not available' };
+        }
+        try {
+          return await metricsAPI.getProcessMetrics();
+        } catch (error: any) {
+          return { success: false, error: error?.message || String(error) };
+        }
+      }
+    };
   }, []);
 
   container.autoRegister('deviceIpcAdapter', DeviceIpcAdapter);
@@ -106,5 +126,9 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
     return window.deviceAPI;
   }, []);
 
-  container.autoRegister('deviceStatusProvider', DeviceIpcStatusAdapter);
+  container.registerFactory('deviceStatusProvider', function (ipcClient: any) {
+    return {
+      getDeviceStatus: async () => ipcClient.getDeviceStatus()
+    };
+  }, ['ipcClient']);
 }

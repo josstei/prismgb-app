@@ -9,11 +9,9 @@ import type { UISetupOrchestrator } from '@renderer/application/orchestrators/ui
 import type { AppState } from '@renderer/application/state/app-state';
 import type { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter';
 import type { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter';
-import type { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter';
-import type { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter';
 import type { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter';
 import type { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter';
-import type { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter';
+import type { ProcessMetricsResponse, DeviceStatusPayload } from '@prismgb/ipc';
 import type { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import type { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
 import type { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
@@ -60,10 +58,16 @@ export interface RendererContainerMap {
   loggerFactory: RendererLogger;
   storageService: BrowserStorageAdapter;
   browserMediaService: BrowserMediaAdapter;
-  visibilityAdapter: VisibilityAdapter;
+  visibilityAdapter: {
+    isHidden: () => boolean;
+    onVisibilityChange: (callback: (hidden: boolean) => void) => () => void;
+  };
   userActivityAdapter: UserActivityAdapter;
   reducedMotionAdapter: ReducedMotionAdapter;
-  metricsAdapter: MetricsAdapter;
+  metricsAdapter: {
+    isAvailable: () => boolean;
+    getProcessMetrics: () => Promise<ProcessMetricsResponse>;
+  };
   deviceIpcAdapter: DeviceIpcAdapter;
   deviceChangeDebounceAdapter: DeviceChangeDebounceAdapter;
   animationCache: AnimationCache;
@@ -77,7 +81,9 @@ export interface RendererContainerMap {
   streamingRendererFactory: StreamingRendererFactory;
   renderPipelineService: StreamingRenderPipelineService;
   ipcClient: unknown;
-  deviceStatusProvider: DeviceIpcStatusAdapter;
+  deviceStatusProvider: {
+    getDeviceStatus: () => Promise<DeviceStatusPayload>;
+  };
   adapterFactory: StreamingAdapterFactory;
   deviceMediaService: DeviceMediaService;
   deviceOperationSequencer: DeviceOperationSequencerService;
