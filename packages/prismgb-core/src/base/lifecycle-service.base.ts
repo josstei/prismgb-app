@@ -8,6 +8,7 @@ export abstract class LifecycleService<
   TDependencies extends LifecycleDependencies = LifecycleDependencies
 > extends BaseService<TDependencies> implements ILifecycle, IEventSubscriber {
   protected _subscriptions: (() => void)[] = [];
+  private _cleanups: (() => void | Promise<void>)[] = [];
   private _isInitialized = false;
   private _isDisposed = false;
 
@@ -38,6 +39,10 @@ export abstract class LifecycleService<
     }
   }
 
+  addCleanup(fn: () => void | Promise<void>): void {
+    this._cleanups.push(fn);
+  }
+
   async dispose(): Promise<void> {
     if (this._isDisposed) {
       this.logger?.debug(`${this._serviceName} already disposed`);
@@ -45,6 +50,15 @@ export abstract class LifecycleService<
     }
 
     this.logger?.info(`Disposing ${this._serviceName}`);
+
+    for (const cleanup of this._cleanups) {
+      try {
+        await cleanup();
+      } catch (error) {
+        this.logger?.error?.(`Cleanup error in ${this._serviceName}:`, error);
+      }
+    }
+    this._cleanups = [];
 
     this._cleanupSubscriptions();
 
