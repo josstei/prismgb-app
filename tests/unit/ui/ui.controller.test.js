@@ -79,6 +79,7 @@ describe('UIController', () => {
     mockRegistry = {
       initialize: vi.fn(),
       initializeComponent: vi.fn(),
+      initializeDeferred: vi.fn(),
       get: vi.fn((name) => {
         switch (name) {
           case 'statusNotificationComponent': return mockStatusManager;
@@ -164,33 +165,16 @@ describe('UIController', () => {
     });
   });
 
-  describe('initSettingsMenu', () => {
-    it('should call registry.initializeComponent with dependencies', () => {
-      const deps = { settingsService: {}, eventBus: {}, logger: {} };
+  describe('initializeDeferredComponents', () => {
+    it('should call registry.initializeDeferred with dom and dependencies', () => {
+      const deps = { settingsService: {}, eventBus: {}, logger: {}, notesService: {}, appState: {} };
 
-      controller.initSettingsMenu(deps);
+      controller.initializeDeferredComponents(deps);
 
-      expect(mockRegistry.initializeComponent).toHaveBeenCalledWith(
-        'settingsMenuComponent',
-        expect.objectContaining({
-          dependencies: deps
-        })
+      expect(mockRegistry.initializeDeferred).toHaveBeenCalledWith(
+        controller.dom,
+        deps
       );
-    });
-
-    it('should initialize settings menu component with settings and updates elements', () => {
-      const deps = { settingsService: {}, eventBus: {}, logger: {} };
-
-      controller.initSettingsMenu(deps);
-
-      // Settings menu receives merged settings + updates elements from dom
-      const call = mockRegistry.initializeComponent.mock.calls.find(
-        ([id]) => id === 'settingsMenuComponent'
-      );
-      expect(call?.[1]?.elements).toEqual({
-        ...controller.dom?.settings,
-        ...controller.dom?.updates
-      });
     });
   });
 

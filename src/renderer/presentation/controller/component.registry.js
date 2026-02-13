@@ -57,6 +57,72 @@ export class UIComponentRegistry {
   }
 
   /**
+   * Initialize all deferred UI components with their specific dependencies
+   * @param {Object} elements - DOM element references
+   * @param {Object} dependencies - Shared dependencies for components
+   */
+  initializeDeferred(elements, dependencies = {}) {
+    this.logger?.debug('Initializing deferred UI components');
+
+    const deferredDefinitions = Array.from(this.definitions.values())
+      .filter(definition => definition.stage === 'deferred');
+
+    // Initialize settings menu with merged elements
+    const settingsMenuDef = deferredDefinitions.find(def => def.id === 'settingsMenuComponent');
+    if (settingsMenuDef) {
+      const settingsElements = {
+        ...elements.settings,
+        ...elements.updates
+      };
+      this.initializeComponent('settingsMenuComponent', {
+        elements: settingsElements,
+        dependencies
+      });
+    }
+
+    // Initialize shader selector with streaming elements
+    const shaderSelectorDef = deferredDefinitions.find(def => def.id === 'shaderSelectorComponent');
+    if (shaderSelectorDef) {
+      const streamingElements = elements.streaming;
+      const shaderElements = {
+        shaderBtn: streamingElements?.shaderBtn,
+        shaderDropdown: streamingElements?.shaderDropdown,
+        shaderOptions: streamingElements?.shaderOptions,
+        shaderUnavailableMessage: streamingElements?.shaderUnavailableMessage,
+        cinematicToggle: streamingElements?.cinematicToggle,
+        cinematicPillText: streamingElements?.cinematicPillText,
+        streamToolbar: streamingElements?.streamToolbar,
+        brightnessSlider: streamingElements?.brightnessSlider,
+        brightnessPercentage: streamingElements?.brightnessPercentage,
+        brightnessControl: streamingElements?.brightnessControl,
+        volumeSlider: streamingElements?.volumeSliderVertical,
+        volumePercentage: streamingElements?.volumePercentageVertical,
+        streamVideo: streamingElements?.streamVideo
+      };
+      this.initializeComponent('shaderSelectorComponent', {
+        elements: shaderElements,
+        dependencies
+      });
+    }
+
+    // Initialize notes panel with merged elements
+    const notesPanelDef = deferredDefinitions.find(def => def.id === 'notesPanelComponent');
+    if (notesPanelDef) {
+      const notesElements = {
+        ...elements.notes,
+        streamContainer: elements.streaming?.streamContainer,
+        streamToolbar: elements.streaming?.streamToolbar
+      };
+      this.initializeComponent('notesPanelComponent', {
+        elements: notesElements,
+        dependencies
+      });
+    }
+
+    this.logger?.info('Deferred UI components initialized');
+  }
+
+  /**
    * Initialize a specific component by ID
    * @param {string} id
    * @param {Object} options

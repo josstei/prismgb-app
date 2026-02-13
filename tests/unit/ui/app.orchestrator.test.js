@@ -16,6 +16,10 @@ describe('AppOrchestrator', () => {
   let mockUpdateService;
   let mockUiSetupOrchestrator;
   let mockPerformanceOrchestrator;
+  let mockUiController;
+  let mockAppState;
+  let mockSettingsService;
+  let mockNotesService;
   let mockEventBus;
   let mockLogger;
 
@@ -52,11 +56,7 @@ describe('AppOrchestrator', () => {
 
     mockUiSetupOrchestrator = {
       initialize: vi.fn().mockResolvedValue(undefined),
-      initializeSettingsMenu: vi.fn(),
-      initializeShaderSelector: vi.fn(),
-      initializeNotesPanel: vi.fn(),
       setupOverlayClickHandlers: vi.fn(),
-      setupUIEventListeners: vi.fn(),
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
@@ -64,6 +64,25 @@ describe('AppOrchestrator', () => {
       initialize: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
+
+    mockUiController = {
+      initializeDeferredComponents: vi.fn(),
+      on: vi.fn(),
+      toggleSettingsMenu: vi.fn(),
+      toggleShaderSelector: vi.fn(),
+      elements: {
+        streamOverlay: {},
+        streamVideo: {},
+        streamCanvas: {}
+      }
+    };
+
+    mockAppState = {
+      isStreaming: false
+    };
+
+    mockSettingsService = {};
+    mockNotesService = {};
 
     mockEventBus = {
       publish: vi.fn(),
@@ -86,6 +105,10 @@ describe('AppOrchestrator', () => {
       updateService: mockUpdateService,
       uiSetupOrchestrator: mockUiSetupOrchestrator,
       performanceOrchestrator: mockPerformanceOrchestrator,
+      uiController: mockUiController,
+      appState: mockAppState,
+      settingsService: mockSettingsService,
+      notesService: mockNotesService,
       eventBus: mockEventBus,
       loggerFactory: { create: vi.fn(() => mockLogger) }
     });
@@ -121,14 +144,25 @@ describe('AppOrchestrator', () => {
     expect(mockUiSetupOrchestrator.initialize).toHaveBeenCalled();
   });
 
-  it('delegates start work to ui setup orchestrator', async () => {
+  it('delegates start work to ui controller and ui setup orchestrator', async () => {
     await orchestrator.start();
 
-    expect(mockUiSetupOrchestrator.initializeSettingsMenu).toHaveBeenCalled();
-    expect(mockUiSetupOrchestrator.initializeShaderSelector).toHaveBeenCalled();
-    expect(mockUiSetupOrchestrator.initializeNotesPanel).toHaveBeenCalled();
-    expect(mockUiSetupOrchestrator.setupOverlayClickHandlers).toHaveBeenCalled();
-    expect(mockUiSetupOrchestrator.setupUIEventListeners).toHaveBeenCalled();
+    // Should initialize deferred components via UIController
+    expect(mockUiController.initializeDeferredComponents).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settingsService: mockSettingsService,
+        updateService: mockUpdateService,
+        notesService: mockNotesService,
+        appState: mockAppState,
+        eventBus: mockEventBus
+      })
+    );
+
+    // Should set up overlay click handlers
+    expect(mockUiSetupOrchestrator.setupOverlayClickHandlers).toHaveBeenCalledWith(mockUiController.elements);
+
+    // Should set up UI event listeners
+    expect(mockUiController.on).toHaveBeenCalled();
   });
 
   it('publishes connected device UI events', () => {

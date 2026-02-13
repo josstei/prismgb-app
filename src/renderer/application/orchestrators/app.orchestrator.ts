@@ -22,6 +22,10 @@ export class AppOrchestrator extends BaseOrchestrator {
     'updateService',
     'uiSetupOrchestrator',
     'performanceOrchestrator',
+    'uiController',
+    'appState',
+    'settingsService',
+    'notesService',
     'eventBus',
     'loggerFactory'
   ] as const;
@@ -34,8 +38,12 @@ export class AppOrchestrator extends BaseOrchestrator {
    * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
    * @param {SettingsOrchestrator} dependencies.settingsOrchestrator - Settings and display modes
    * @param {UpdateService} dependencies.updateService - Auto-updates
-   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
+   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - Canvas lifecycle management
    * @param {PerformanceOrchestrator} dependencies.performanceOrchestrator - Performance state + animation + metrics
+   * @param {UIController} dependencies.uiController - UI controller
+   * @param {AppState} dependencies.appState - Application state
+   * @param {SettingsService} dependencies.settingsService - Settings service
+   * @param {NotesService} dependencies.notesService - Notes service
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */
@@ -76,16 +84,85 @@ export class AppOrchestrator extends BaseOrchestrator {
   async start() {
     this.logger.info('Starting application orchestrator...');
 
-    // Delegate UI setup to UISetupOrchestrator
-    this.uiSetupOrchestrator.initializeSettingsMenu();
-    this.uiSetupOrchestrator.initializeShaderSelector();
-    this.uiSetupOrchestrator.initializeNotesPanel();
-    this.uiSetupOrchestrator.setupOverlayClickHandlers();
-    this.uiSetupOrchestrator.setupUIEventListeners();
+    // Initialize deferred UI components (settings menu, shader selector, notes panel)
+    this.uiController.initializeDeferredComponents({
+      settingsService: this.settingsService,
+      updateService: this.updateService,
+      notesService: this.notesService,
+      appState: this.appState,
+      eventBus: this.eventBus,
+      loggerFactory: this.loggerFactory,
+      logger: this.logger
+    });
+
+    // Set up overlay click handlers
+    this.uiSetupOrchestrator.setupOverlayClickHandlers(this.uiController.elements);
+
+    // Set up UI event listeners
+    this._setupUIEventListeners();
 
     // Note: Preferences are loaded in SettingsOrchestrator.onInitialize()
 
     this.logger.info('Application orchestrator started');
+  }
+
+  /**
+   * Set up UI event listeners
+   * Uses event-based communication instead of direct orchestrator calls
+   * @private
+   */
+  _setupUIEventListeners() {
+    // Header controls - publish events instead of direct orchestrator calls
+    [
+      ['screenshotBtn', 'click', () => this.eventBus.publish(EventChannels.UI.SCREENSHOT_REQUESTED)],
+      ['recordBtn', 'click', () => this.eventBus.publish(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)],
+      ['fullscreenBtn', 'click', (e) => this._handleFullscreenClick(e)],
+      ['settingsBtn', 'click', (e) => this._toggleSettingsMenu(e)],
+      ['shaderBtn', 'click', (e) => this._toggleShaderSelector(e)]
+    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
+
+    // Clear tooltip on mousedown to prevent it persisting through fullscreen transition
+    [
+      ['fullscreenBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }],
+      ['fsExitBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }]
+    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
+
+    // Fullscreen controls
+    [
+      ['fsExitBtn', 'click', (e) => this._handleFullscreenClick(e)]
+    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
+
+    this.logger.info('UI event listeners set up');
+  }
+
+  /**
+   * Handle fullscreen button click
+   * @param {Event} e - Click event
+   * @private
+   */
+  _handleFullscreenClick(e) {
+    e.currentTarget.blur();
+    this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
+  }
+
+  /**
+   * Toggle settings menu
+   * @param {Event} e - Click event
+   * @private
+   */
+  _toggleSettingsMenu(e) {
+    e.stopPropagation();
+    this.uiController.toggleSettingsMenu();
+  }
+
+  /**
+   * Toggle shader selector
+   * @param {Event} e - Click event
+   * @private
+   */
+  _toggleShaderSelector(e) {
+    e.stopPropagation();
+    this.uiController.toggleShaderSelector();
   }
 
   /**

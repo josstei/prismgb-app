@@ -51,22 +51,12 @@ class UIController {
   }
 
   /**
-   * Initialize settings menu component
-   * @param {Object} dependencies - Dependencies object
-   * @param {SettingsService} dependencies.settingsService - Settings service
-   * @param {EventBus} dependencies.eventBus - Event bus instance
-   * @param {Logger} dependencies.logger - Logger instance
+   * Initialize deferred components (settings, shader selector, notes panel)
+   * @param {Object} dependencies - Shared dependencies for deferred components
    */
-  initSettingsMenu(dependencies) {
+  initializeDeferredComponents(dependencies) {
     if (this.registry) {
-      const settingsElements = {
-        ...this.dom?.settings,
-        ...this.dom?.updates
-      };
-      this.registry.initializeComponent('settingsMenuComponent', {
-        elements: settingsElements,
-        dependencies
-      });
+      this.registry.initializeDeferred(this.dom, dependencies);
     }
   }
 
@@ -79,37 +69,11 @@ class UIController {
   }
 
   /**
-   * Initialize shader selector component
-   * @param {Object} dependencies - Dependencies object
-   * @param {SettingsService} dependencies.settingsService - Settings service
-   * @param {Logger} dependencies.logger - Logger instance
-   * @param {Object} elements - DOM element references for the shader panel
-   */
-  initShaderSelector(dependencies, elements) {
-    if (this.registry) {
-      this.registry.initializeComponent('shaderSelectorComponent', { elements, dependencies });
-    }
-  }
-
-  /**
    * Toggle shader selector visibility
    */
   toggleShaderSelector() {
     const shaderSelector = this.registry?.get('shaderSelectorComponent');
     shaderSelector?.toggle();
-  }
-
-  /**
-   * Initialize notes panel component
-   * @param {Object} dependencies - Dependencies object
-   * @param {NotesService} dependencies.notesService - Notes service
-   * @param {Logger} dependencies.logger - Logger instance
-   * @param {Object} elements - DOM element references for the notes panel
-   */
-  initNotesPanel(dependencies, elements) {
-    if (this.registry) {
-      this.registry.initializeComponent('notesPanelComponent', { elements, dependencies });
-    }
   }
 
   /**
