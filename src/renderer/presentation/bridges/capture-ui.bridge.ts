@@ -4,26 +4,32 @@
  * Translates capture events into UI feedback.
  */
 
-import { EventBridgeBase } from './event-bridge.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
 import { TIMING } from '@renderer/common/config/timing.config';
 
-class CaptureUIBridge extends EventBridgeBase {
+class CaptureUIBridge extends LifecycleService {
   static readonly dependencies = ['eventBus', 'uiController', 'loggerFactory'] as const;
 
   constructor(dependencies) {
     super(dependencies, [...CaptureUIBridge.dependencies], 'CaptureUIBridge');
   }
 
-  protected getEventMappings() {
-    return {
+  async onInitialize() {
+    this.subscribeWithCleanup({
       [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED]: () => this._handleScreenshotTriggered(),
       [EventChannels.CAPTURE.SCREENSHOT_READY]: (data) => this._handleScreenshotReady(data),
       [EventChannels.CAPTURE.RECORDING_STARTED]: () => this._handleRecordingStarted(),
       [EventChannels.CAPTURE.RECORDING_STOPPED]: () => this._handleRecordingStopped(),
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
       [EventChannels.CAPTURE.RECORDING_DEGRADED]: (data) => this._handleRecordingDegraded(data)
-    };
+    });
+
+    this.logger.info('CaptureUIBridge initialized');
+  }
+
+  async onDispose() {
+    this.logger.info('CaptureUIBridge disposed');
   }
 
   _handleScreenshotTriggered() {

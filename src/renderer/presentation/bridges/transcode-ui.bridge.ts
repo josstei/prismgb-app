@@ -5,10 +5,10 @@
  * Shows transcode progress toast and manages record button state.
  */
 
-import { EventBridgeBase } from './event-bridge.base';
+import { LifecycleService } from '@prismgb/core';
 import { EventChannels } from '@renderer/common/config/event-channels';
 
-class TranscodeUIBridge extends EventBridgeBase {
+class TranscodeUIBridge extends LifecycleService {
   static readonly dependencies = ['eventBus', 'uiController', 'loggerFactory'] as const;
 
   constructor(dependencies) {
@@ -25,19 +25,21 @@ class TranscodeUIBridge extends EventBridgeBase {
     return this.uiController?.registry?.get('transcodeToastComponent');
   }
 
-  protected getEventMappings() {
-    return {
+  async onInitialize() {
+    this.subscribeWithCleanup({
       [EventChannels.TRANSCODE.STARTED]: (data) => this._handleStarted(data),
       [EventChannels.TRANSCODE.PROGRESS]: (data) => this._handleProgress(data),
       [EventChannels.TRANSCODE.COMPLETED]: (data) => this._handleCompleted(data),
       [EventChannels.TRANSCODE.ERROR]: (data) => this._handleError(data),
       [EventChannels.TRANSCODE.CANCELLED]: () => this._handleCancelled()
-    };
+    });
+
+    this.logger.info('TranscodeUIBridge initialized');
   }
 
   async onDispose() {
     this._toast?.dispose();
-    await super.onDispose();
+    this.logger.info('TranscodeUIBridge disposed');
   }
 
   /**
