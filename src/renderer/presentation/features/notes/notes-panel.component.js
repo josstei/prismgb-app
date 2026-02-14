@@ -40,30 +40,7 @@ class NotesPanelComponent extends BaseComponent {
    * @param {Object} elements - DOM element references
    */
   initialize(elements) {
-    this.elements = {
-      notesBtn: elements.notesBtn,
-      notesPanel: elements.notesPanel,
-      notesPanelContent: elements.notesPanelContent,
-      notesListWrapper: elements.notesListWrapper,
-      notesSearchInput: elements.notesSearchInput,
-      notesGameFilter: elements.notesGameFilter,
-      notesGameFilterLabel: elements.notesGameFilterLabel,
-      notesGameFilterMenu: elements.notesGameFilterMenu,
-      notesListToggle: elements.notesListToggle,
-      notesList: elements.notesList,
-      notesEditor: elements.notesEditor,
-      notesGameAddBtn: elements.notesGameAddBtn,
-      notesGameTagRow: elements.notesGameTagRow,
-      notesGameTag: elements.notesGameTag,
-      notesGameInput: elements.notesGameInput,
-      notesGameAutocomplete: elements.notesGameAutocomplete,
-      notesTitleInput: elements.notesTitleInput,
-      notesContentArea: elements.notesContentArea,
-      streamContainer: elements.streamContainer,
-      streamToolbar: elements.streamToolbar,
-      notesNewBtn: elements.notesNewBtn,
-      notesDeleteBtn: elements.notesDeleteBtn
-    };
+    this.elements = elements;
 
     if (!this.elements.notesBtn || !this.elements.notesPanel) {
       this.logger?.warn('Notes panel elements not found');
@@ -133,9 +110,9 @@ class NotesPanelComponent extends BaseComponent {
       gameInput: this.elements.notesGameInput,
       autocompleteDropdown: this.elements.notesGameAutocomplete,
       onInput: () => this._handleGameInputChange(),
-      onSelect: (value) => this._handleAutocompleteSelect(value),
-      onEnter: () => this._handleAutocompleteEnter(),
-      onEscape: () => this._handleAutocompleteEscape(),
+      onSelect: () => this._confirmGameInput(),
+      onEnter: () => this._confirmGameInput(),
+      onEscape: () => this.editorView.hideGameInput(),
       onBlur: () => this.editorView.hideGameInput(),
       onFocus: () => {}
     });
@@ -234,7 +211,7 @@ class NotesPanelComponent extends BaseComponent {
    */
   _handleGameFilterChange(value) {
     this.listView.setGameFilter(value);
-    this.listView.render(this.searchComponent.getQuery());
+    this._refreshList();
   }
 
   /**
@@ -267,31 +244,9 @@ class NotesPanelComponent extends BaseComponent {
     this.gameAutocomplete.select();
   }
 
-  /**
-   * Handle autocomplete item selection
-   * @param {string} _value
-   * @private
-   */
-  _handleAutocompleteSelect(_value) {
+  _confirmGameInput() {
     this.editorView.hideGameInput();
     this.editorView.flushSave();
-  }
-
-  /**
-   * Handle autocomplete Enter key (no selection)
-   * @private
-   */
-  _handleAutocompleteEnter() {
-    this.editorView.hideGameInput();
-    this.editorView.flushSave();
-  }
-
-  /**
-   * Handle autocomplete Escape key
-   * @private
-   */
-  _handleAutocompleteEscape() {
-    this.editorView.hideGameInput();
   }
 
   /**
@@ -317,7 +272,7 @@ class NotesPanelComponent extends BaseComponent {
     // If game changed, update filter options and re-render list for proper grouping
     if (result.gameChanged) {
       this.gameFilter.updateOptions();
-      this.listView.render(this.searchComponent.getQuery());
+      this._refreshList();
     } else {
       // Update only the current item in the list (not full rebuild)
       this.listView.updateItemDisplay(this.currentNoteId, title, gameName);
@@ -431,32 +386,19 @@ class NotesPanelComponent extends BaseComponent {
    * @private
    */
   _subscribeToEvents() {
-    // Listen for note changes from other sources (e.g., sync, import)
-    this.subscribe(
-      EventChannels.NOTES.NOTE_CREATED,
-      (note) => {
-        // Only re-render if note was created externally (not by this component)
-        if (note && note.id !== this.currentNoteId) {
-          this.listView.render(this.searchComponent.getQuery());
-        }
+    const refreshIfExternal = (note) => {
+      if (!note || note.id !== this.currentNoteId) {
+        this._refreshList();
       }
-    );
+    };
 
-    this.subscribe(
-      EventChannels.NOTES.NOTE_DELETED,
-      () => {
-        this.listView.render(this.searchComponent.getQuery());
-      }
-    );
+    this.subscribe(EventChannels.NOTES.NOTE_CREATED, refreshIfExternal);
+    this.subscribe(EventChannels.NOTES.NOTE_DELETED, () => this._refreshList());
+    this.subscribe(EventChannels.NOTES.NOTE_UPDATED, refreshIfExternal);
+  }
 
-    this.subscribe(
-      EventChannels.NOTES.NOTE_UPDATED,
-      (note) => {
-        if (note && note.id !== this.currentNoteId) {
-          this.listView.render(this.searchComponent.getQuery());
-        }
-      }
-    );
+  _refreshList() {
+    this.listView.render(this.searchComponent.getQuery());
   }
 
   /**
