@@ -131,13 +131,9 @@ export class StreamingService extends LifecycleService {
    */
   async _performStart(deviceId) {
     try {
-      // Get device
-      let device;
-      if (deviceId) {
-        device = await this._getDeviceById(deviceId);
-      } else {
-        device = await this._autoSelectDevice();
-      }
+      const device = deviceId
+        ? await this._getDeviceById(deviceId)
+        : await this._autoSelectDevice();
 
       if (!device) {
         throw new Error('No device available for streaming');
@@ -235,26 +231,8 @@ export class StreamingService extends LifecycleService {
    */
   async _performStop() {
     this.logger.info('Stopping stream');
-
-    // Remove track monitoring before releasing stream
-    this._removeTrackMonitoring();
-
-    // Release stream via adapter (with error handling to ensure cleanup)
-    if (this.currentAdapter && this.currentStream) {
-      try {
-        await this.currentAdapter.releaseStream(this.currentStream);
-      } catch (error) {
-        this.logger.error('Error releasing stream:', error);
-        // Continue with cleanup even if release fails
-      }
-    }
-
-    // Clear all stream state
-    this._clearStreamState();
-
-    // Emit event
+    await this._releaseResources();
     this.eventBus.publish(EventChannels.STREAM.STOPPED);
-
     this.logger.info('Stream stopped');
   }
 
@@ -315,21 +293,7 @@ export class StreamingService extends LifecycleService {
    */
   async _cleanupPartialState() {
     this.logger.debug('Cleaning up partial state from ERROR');
-
-    // Remove any track monitoring that might have been set up
-    this._removeTrackMonitoring();
-
-    try {
-      // Release stream if it was acquired - await to prevent race conditions
-      if (this.currentAdapter && this.currentStream) {
-        await this.currentAdapter.releaseStream(this.currentStream);
-      }
-    } catch (error) {
-      this.logger.warn('Error releasing stream during partial cleanup:', error);
-    } finally {
-      // Always clear all state, even if release failed
-      this._clearStreamState();
-    }
+    await this._releaseResources();
   }
 
   /**
@@ -435,10 +399,20 @@ export class StreamingService extends LifecycleService {
     };
   }
 
-  /**
-   * Clear all stream-related state
-   * @private
-   */
+  async _releaseResources() {
+    this._removeTrackMonitoring();
+
+    if (this.currentAdapter && this.currentStream) {
+      try {
+        await this.currentAdapter.releaseStream(this.currentStream);
+      } catch (error) {
+        this.logger.error('Error releasing stream:', error);
+      }
+    }
+
+    this._clearStreamState();
+  }
+
   _clearStreamState() {
     this.currentStream = null;
     this.currentAdapter = null;
