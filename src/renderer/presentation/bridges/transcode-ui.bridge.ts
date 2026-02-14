@@ -34,12 +34,7 @@ class TranscodeUIBridge extends LifecycleService {
       [EventChannels.TRANSCODE.CANCELLED]: () => this._handleCancelled()
     });
 
-    this.logger.info('TranscodeUIBridge initialized');
-  }
-
-  async onDispose() {
-    this._toast?.dispose();
-    this.logger.info('TranscodeUIBridge disposed');
+    this.addCleanup(() => this._toast?.dispose());
   }
 
   /**

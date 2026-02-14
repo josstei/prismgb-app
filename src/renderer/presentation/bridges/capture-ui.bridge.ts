@@ -24,12 +24,6 @@ class CaptureUIBridge extends LifecycleService {
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
       [EventChannels.CAPTURE.RECORDING_DEGRADED]: (data) => this._handleRecordingDegraded(data)
     });
-
-    this.logger.info('CaptureUIBridge initialized');
-  }
-
-  async onDispose() {
-    this.logger.info('CaptureUIBridge disposed');
   }
 
   _handleScreenshotTriggered() {

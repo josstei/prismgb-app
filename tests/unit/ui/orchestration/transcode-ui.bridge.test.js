@@ -165,8 +165,8 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should subscribe to all transcode events', () => {
-      bridge.initialize();
+    it('should subscribe to all transcode events', async () => {
+      await bridge.initialize();
 
       const expectedEvents = [
         EventChannels.TRANSCODE.STARTED,
@@ -181,13 +181,13 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should subscribe to exactly 5 events', () => {
-      bridge.initialize();
+    it('should subscribe to exactly 5 events', async () => {
+      await bridge.initialize();
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
     });
 
-    it('should store unsubscribe functions', () => {
-      bridge.initialize();
+    it('should store unsubscribe functions', async () => {
+      await bridge.initialize();
 
       expect(bridge._subscriptions.length).toBe(5);
       bridge._subscriptions.forEach(unsub => {
@@ -195,8 +195,8 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should log initialization', () => {
-      bridge.initialize();
+    it('should log initialization', async () => {
+      await bridge.initialize();
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeUIBridge initialized');
     });
   });
@@ -210,63 +210,63 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should call all unsubscribe functions', () => {
-      bridge.initialize();
+    it('should call all unsubscribe functions', async () => {
+      await bridge.initialize();
       const unsubscribeFns = bridge._subscriptions;
 
-      bridge.dispose();
+      await bridge.dispose();
 
       unsubscribeFns.forEach(fn => {
         expect(fn).toHaveBeenCalled();
       });
     });
 
-    it('should clear subscriptions array', () => {
-      bridge.initialize();
-      bridge.dispose();
+    it('should clear subscriptions array', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should dispose toast component', () => {
-      bridge.initialize();
-      bridge.dispose();
+    it('should dispose toast component', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
       expect(mockTranscodeToast.dispose).toHaveBeenCalled();
     });
 
-    it('should log disposal', () => {
-      bridge.initialize();
-      bridge.dispose();
+    it('should log disposal', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeUIBridge disposed');
     });
 
-    it('should handle non-function items in subscriptions array gracefully', () => {
-      bridge.initialize();
+    it('should handle non-function items in subscriptions array gracefully', async () => {
+      await bridge.initialize();
       bridge._subscriptions.push(null, undefined, 'not-a-function');
-      expect(() => bridge.dispose()).not.toThrow();
+      expect(async () => await bridge.dispose()).not.toThrow();
     });
 
-    it('should work when called multiple times', () => {
-      bridge.initialize();
-      bridge.dispose();
-      bridge.dispose();
+    it('should work when called multiple times', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
+      await bridge.dispose();
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should not throw when toast is unavailable', () => {
+    it('should not throw when toast is unavailable', async () => {
       mockUIController.registry.get = vi.fn().mockReturnValue(null);
-      bridge.initialize();
-      expect(() => bridge.dispose()).not.toThrow();
+      await bridge.initialize();
+      expect(async () => await bridge.dispose()).not.toThrow();
     });
   });
 
   describe('Event Handlers - Started', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should log transcode started', () => {
@@ -308,13 +308,13 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Event Handlers - Progress', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should update toast progress', () => {
@@ -351,13 +351,13 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Event Handlers - Completed', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
       // Simulate a started transcode
       bridge._currentFormat = 'MP4';
     });
@@ -391,13 +391,13 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Event Handlers - Error', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
       // Simulate a started transcode
       bridge._currentFormat = 'MP4';
     });
@@ -442,13 +442,13 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Event Handlers - Cancelled', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
       // Simulate a started transcode
       bridge._currentFormat = 'MP4';
     });
@@ -482,13 +482,13 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Integration - Full Workflow', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should handle complete successful transcode workflow', () => {
@@ -546,13 +546,13 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should not throw when disposing before initialization', () => {
-      expect(() => bridge.dispose()).not.toThrow();
+    it('should not throw when disposing before initialization', async () => {
+      expect(async () => await bridge.dispose()).not.toThrow();
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should handle indeterminate progress (-1)', () => {
-      bridge.initialize();
+    it('should handle indeterminate progress (-1)', async () => {
+      await bridge.initialize();
       subscribedHandlers[EventChannels.TRANSCODE.PROGRESS]({ percent: -1 });
       expect(mockTranscodeToast.updateProgress).toHaveBeenCalledWith(-1);
     });

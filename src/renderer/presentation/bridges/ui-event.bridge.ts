@@ -44,8 +44,6 @@ export class UIEventBridge extends LifecycleService {
       // Fullscreen
       [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)
     });
-
-    this.logger.info('UIEventBridge initialized');
   }
 
   _handleStatusMessage(data) {
@@ -97,9 +95,5 @@ export class UIEventBridge extends LifecycleService {
   _handleFullscreenState(data) {
     const { active } = data;
     this.presentationModeService.handleFullscreenState(active);
-  }
-
-  async onDispose() {
-    this.logger.info('UIEventBridge disposed');
   }
 }

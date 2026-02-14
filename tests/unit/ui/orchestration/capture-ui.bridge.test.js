@@ -138,8 +138,8 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should subscribe to all capture events', () => {
-      bridge.initialize();
+    it('should subscribe to all capture events', async () => {
+      await bridge.initialize();
 
       const expectedEvents = [
         EventChannels.CAPTURE.SCREENSHOT_TRIGGERED,
@@ -155,14 +155,14 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should subscribe to all capture events', () => {
-      bridge.initialize();
+    it('should subscribe to all capture events', async () => {
+      await bridge.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
     });
 
-    it('should store unsubscribe functions', () => {
-      bridge.initialize();
+    it('should store unsubscribe functions', async () => {
+      await bridge.initialize();
 
       expect(bridge._subscriptions.length).toBe(6);
       bridge._subscriptions.forEach(unsub => {
@@ -170,8 +170,8 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should log initialization', () => {
-      bridge.initialize();
+    it('should log initialization', async () => {
+      await bridge.initialize();
 
       expect(mockLogger.info).toHaveBeenCalledWith('CaptureUIBridge initialized');
     });
@@ -187,56 +187,56 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should call all unsubscribe functions', () => {
-      bridge.initialize();
+    it('should call all unsubscribe functions', async () => {
+      await bridge.initialize();
 
       const unsubscribeFns = bridge._subscriptions;
-      bridge.dispose();
+      await bridge.dispose();
 
       unsubscribeFns.forEach(fn => {
         expect(fn).toHaveBeenCalled();
       });
     });
 
-    it('should clear subscriptions array', () => {
-      bridge.initialize();
-      bridge.dispose();
+    it('should clear subscriptions array', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
 
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should log disposal', () => {
-      bridge.initialize();
-      bridge.dispose();
+    it('should log disposal', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('CaptureUIBridge disposed');
     });
 
-    it('should handle non-function items in subscriptions array gracefully', () => {
-      bridge.initialize();
+    it('should handle non-function items in subscriptions array gracefully', async () => {
+      await bridge.initialize();
       bridge._subscriptions.push(null, undefined, 'not-a-function');
 
-      expect(() => bridge.dispose()).not.toThrow();
+      expect(async () => await bridge.dispose()).not.toThrow();
     });
 
-    it('should work when called multiple times', () => {
-      bridge.initialize();
-      bridge.dispose();
-      bridge.dispose();
+    it('should work when called multiple times', async () => {
+      await bridge.initialize();
+      await bridge.dispose();
+      await bridge.dispose();
 
       expect(bridge._subscriptions).toEqual([]);
     });
   });
 
   describe('Event Handlers - Screenshot', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should call uiEffects triggerButtonFeedback when screenshot is triggered', () => {
@@ -293,14 +293,14 @@ describe('CaptureUIBridge', () => {
   });
 
   describe('Event Handlers - Recording Started', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should call uiEffects triggerRecordButtonPop', () => {
@@ -343,14 +343,14 @@ describe('CaptureUIBridge', () => {
   });
 
   describe('Event Handlers - Recording Stopped', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should call uiEffects triggerRecordButtonPress', () => {
@@ -382,14 +382,14 @@ describe('CaptureUIBridge', () => {
   });
 
   describe('Event Handlers - Recording Error', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should log error message', () => {
@@ -479,14 +479,14 @@ describe('CaptureUIBridge', () => {
   });
 
   describe('Event Handlers - Recording Degraded', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should log warning message with dropped frames', () => {
@@ -524,14 +524,14 @@ describe('CaptureUIBridge', () => {
   });
 
   describe('Integration - Full Workflow', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         uiEffects: mockUiEffects,
         loggerFactory: mockLoggerFactory
       });
-      bridge.initialize();
+      await bridge.initialize();
     });
 
     it('should handle complete screenshot workflow', () => {
@@ -601,13 +601,13 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should not throw when disposing before initialization', () => {
-      expect(() => bridge.dispose()).not.toThrow();
+    it('should not throw when disposing before initialization', async () => {
+      expect(async () => await bridge.dispose()).not.toThrow();
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should handle missing blob in screenshot ready', () => {
-      bridge.initialize();
+    it('should handle missing blob in screenshot ready', async () => {
+      await bridge.initialize();
 
       expect(() => {
         subscribedHandlers[EventChannels.CAPTURE.SCREENSHOT_READY]({
@@ -617,8 +617,8 @@ describe('CaptureUIBridge', () => {
       }).not.toThrow();
     });
 
-    it('should handle missing filename in screenshot ready', () => {
-      bridge.initialize();
+    it('should handle missing filename in screenshot ready', async () => {
+      await bridge.initialize();
       const mockBlob = new Blob(['test'], { type: 'image/png' });
 
       expect(() => {
@@ -629,8 +629,8 @@ describe('CaptureUIBridge', () => {
       }).not.toThrow();
     });
 
-    it('should handle missing error in recording error', () => {
-      bridge.initialize();
+    it('should handle missing error in recording error', async () => {
+      await bridge.initialize();
 
       expect(() => {
         subscribedHandlers[EventChannels.CAPTURE.RECORDING_ERROR]({});

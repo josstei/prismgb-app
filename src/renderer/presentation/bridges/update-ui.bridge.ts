@@ -22,12 +22,6 @@ class UpdateUIBridge extends LifecycleService {
       [EventChannels.UPDATE.DOWNLOADED]: (info) => this._handleDownloaded(info),
       [EventChannels.UPDATE.ERROR]: (error) => this._handleError(error)
     });
-
-    this.logger.info('UpdateUIBridge initialized');
-  }
-
-  async onDispose() {
-    this.logger.info('UpdateUIBridge disposed');
   }
 
   _handleUpdateAvailable(info) {

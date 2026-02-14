@@ -98,8 +98,8 @@ describe('UIEventBridge', () => {
   });
 
   describe('initialize', () => {
-    it('should subscribe to all UI events', () => {
-      handler.initialize();
+    it('should subscribe to all UI events', async () => {
+      await handler.initialize();
 
       const expectedEvents = [
         EventChannels.UI.STATUS_MESSAGE,
@@ -119,16 +119,16 @@ describe('UIEventBridge', () => {
       });
     });
 
-    it('should log initialization', () => {
-      handler.initialize();
+    it('should log initialization', async () => {
+      await handler.initialize();
 
       expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge initialized');
     });
   });
 
   describe('Event Handlers', () => {
-    beforeEach(() => {
-      handler.initialize();
+    beforeEach(async () => {
+      await handler.initialize();
     });
 
     it('routes status messages to UIController', () => {
@@ -202,34 +202,34 @@ describe('UIEventBridge', () => {
   });
 
   describe('dispose', () => {
-    it('should call all unsubscribe functions', () => {
-      handler.initialize();
+    it('should call all unsubscribe functions', async () => {
+      await handler.initialize();
 
       const unsubscribeFns = handler._subscriptions;
-      handler.dispose();
+      await handler.dispose();
 
       unsubscribeFns.forEach(fn => {
         expect(fn).toHaveBeenCalled();
       });
     });
 
-    it('should clear subscriptions array', () => {
-      handler.initialize();
-      handler.dispose();
+    it('should clear subscriptions array', async () => {
+      await handler.initialize();
+      await handler.dispose();
 
       expect(handler._subscriptions).toEqual([]);
     });
 
-    it('should log disposal', () => {
-      handler.initialize();
-      handler.dispose();
+    it('should log disposal', async () => {
+      await handler.initialize();
+      await handler.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge disposed');
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle missing deviceStatus gracefully', () => {
+    it('should handle missing deviceStatus gracefully', async () => {
       const handlerWithoutDeviceStatus = new UIEventBridge({
         eventBus: mockEventBus,
         uiController: { ...mockUiController, deviceStatus: null },
@@ -237,7 +237,7 @@ describe('UIEventBridge', () => {
         presentationModeService: mockPresentationModeService,
         loggerFactory: mockLoggerFactory
       });
-      handlerWithoutDeviceStatus.initialize();
+      await handlerWithoutDeviceStatus.initialize();
 
       expect(() => {
         subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
