@@ -82,8 +82,6 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._uniformContext = null;
 
-    this._lastStats = null;
-
     this._isUsingFallback = false;
 
     this._pendingCaptureResolve = null;
@@ -147,12 +145,7 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     try {
-      this._scaleFactor = Math.max(1, Math.floor(Math.min(
-        canvasElement.clientWidth / nativeResolution.width,
-        canvasElement.clientHeight / nativeResolution.height
-      )));
-      this._targetWidth = nativeResolution.width * this._scaleFactor;
-      this._targetHeight = nativeResolution.height * this._scaleFactor;
+      this._updateScale(canvasElement.clientWidth, canvasElement.clientHeight, nativeResolution.width, nativeResolution.height);
 
       const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
@@ -221,7 +214,6 @@ export class StreamingGpuRendererService extends BaseService {
       }),
 
       this._workerManager.onMessage(WorkerResponseType.STATS, (payload) => {
-        this._lastStats = payload;
         this.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, payload);
       }),
 
@@ -273,10 +265,10 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {Promise<void>}
    */
   async renderFrame(videoElement) {
-    if (!this._workerManager.isReady() || this._pendingFrames >= MAX_PENDING_FRAMES) {
-      if (this._workerManager.isReady() && this._pendingFrames >= MAX_PENDING_FRAMES) {
-        this._handleBackpressure();
-      }
+    if (!this._workerManager.isReady()) return;
+
+    if (this._pendingFrames >= MAX_PENDING_FRAMES) {
+      this._handleBackpressure();
       return;
     }
 
@@ -363,13 +355,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {number} height - New height in CSS pixels
    */
   resize(width, height) {
-    this._scaleFactor = Math.max(1, Math.floor(Math.min(
-      width / NATIVE_WIDTH,
-      height / NATIVE_HEIGHT
-    )));
-
-    this._targetWidth = NATIVE_WIDTH * this._scaleFactor;
-    this._targetHeight = NATIVE_HEIGHT * this._scaleFactor;
+    this._updateScale(width, height);
 
     if (this._uniformContext) {
       this._uniformContext.setOutputSize(this._targetWidth, this._targetHeight);
@@ -532,6 +518,15 @@ export class StreamingGpuRendererService extends BaseService {
       clearTimeout(this._captureTimeoutId);
       this._captureTimeoutId = null;
     }
+  }
+
+  _updateScale(viewportWidth, viewportHeight, nativeWidth = NATIVE_WIDTH, nativeHeight = NATIVE_HEIGHT) {
+    this._scaleFactor = Math.max(1, Math.floor(Math.min(
+      viewportWidth / nativeWidth,
+      viewportHeight / nativeHeight
+    )));
+    this._targetWidth = nativeWidth * this._scaleFactor;
+    this._targetHeight = nativeHeight * this._scaleFactor;
   }
 
   /**
