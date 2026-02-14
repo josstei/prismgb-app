@@ -70,6 +70,7 @@ export abstract class LifecycleService<
 
     this._isInitialized = false;
     this._isDisposed = true;
+    this.logger?.info(`${this._serviceName} disposed`);
   }
 
   subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void>): void {
