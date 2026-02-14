@@ -66,11 +66,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     this._isHidden = state.hidden;
-    if (this._isHidden) {
-      this._handleHidden();
-    } else {
-      this._handleVisible();
-    }
+    this._toggleRendererPause(this._isHidden);
   }
 
   handleRenderPresetChanged(presetId) {
@@ -152,6 +148,10 @@ export class StreamingRenderPipelineService extends BaseService {
   // Private methods
   // ============================
 
+  _getNativeResolution() {
+    return this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+  }
+
   /**
    * Helper: Recreate canvas and setup size
    * @param {Object} nativeRes - Native resolution
@@ -229,14 +229,6 @@ export class StreamingRenderPipelineService extends BaseService {
     return 'canvas2d';
   }
 
-  _handleVisible() {
-    this._toggleRendererPause(false);
-  }
-
-  _handleHidden() {
-    this._toggleRendererPause(true);
-  }
-
   _handlePerformanceModeEnabled() {
     // Cache user preset if GPU is active
     if (this.appState.isStreaming && this._activeRendererType === 'gpu' && this._activeRenderer?.isActive()) {
@@ -312,7 +304,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   async _startRendering(capabilities) {
     this._currentCapabilities = capabilities;
-    const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = this._getNativeResolution();
     const video = this.streamingCanvasService.getVideo();
 
     // Determine renderer type
@@ -447,7 +439,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   async _switchToCanvas2DMidStream() {
     const video = this.streamingCanvasService.getVideo();
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = this._getNativeResolution();
 
     // Stop GPU renderer
     if (this._activeRenderer) {
@@ -465,7 +457,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   async _switchToGPUMidStream() {
     const video = this.streamingCanvasService.getVideo();
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = this._getNativeResolution();
 
     // Stop Canvas2D renderer
     if (this._activeRenderer) {
