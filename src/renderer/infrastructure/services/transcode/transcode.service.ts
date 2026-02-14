@@ -48,15 +48,12 @@ class TranscodeService extends LifecycleService {
   }
 
   async onInitialize() {
-    // Subscribe to IPC events and republish on eventBus
-    // Note: No onStarted handler - the main process doesn't emit a STARTED event.
-    // The started state is determined by the successful return of transcode() call.
-    this._subscriptions.push(
-      window.transcodeAPI.onProgress((data) => this._handleProgress(data)),
-      window.transcodeAPI.onCompleted((data) => this._handleCompleted(data)),
-      window.transcodeAPI.onError((data) => this._handleError(data)),
-      window.transcodeAPI.onCancelled((data) => this._handleCancelled(data))
-    );
+    window.transcodeAPI.onProgress((data: TranscodeProgressPayload) => this._handleProgress(data));
+    window.transcodeAPI.onCompleted((data: TranscodeCompletedPayload) => this._handleCompleted(data));
+    window.transcodeAPI.onError((data: TranscodeErrorPayload) => this._handleError(data));
+    window.transcodeAPI.onCancelled((data: TranscodeCancelledPayload) => this._handleCancelled(data));
+
+    this.addCleanup(() => window.transcodeAPI?.removeListeners?.());
   }
 
   /**
@@ -205,11 +202,8 @@ class TranscodeService extends LifecycleService {
    * Cleanup subscriptions and reset state
    */
   async onDispose() {
-    window.transcodeAPI?.removeListeners?.();
-
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.logger.info('TranscodeService disposed');
   }
 }
 

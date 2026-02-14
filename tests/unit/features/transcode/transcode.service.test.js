@@ -117,11 +117,6 @@ describe('TranscodeService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService initialized');
     });
 
-    it('should store cleanup functions', async () => {
-      await service.initialize();
-      expect(service._subscriptions.length).toBe(4);
-    });
-
     it('should warn and skip if already initialized', async () => {
       await service.initialize();
       mockLogger.warn.mockClear();
@@ -476,17 +471,13 @@ describe('TranscodeService', () => {
       });
     });
 
-    it('should call all cleanup functions', async () => {
-      const cleanup1 = vi.fn();
-      const cleanup2 = vi.fn();
-      mockTranscodeAPI.onProgress.mockReturnValue(cleanup1);
-      mockTranscodeAPI.onCompleted.mockReturnValue(cleanup2);
-
+    it('should register IPC listeners during initialization', async () => {
       await service.initialize();
-      await service.dispose();
 
-      expect(cleanup1).toHaveBeenCalled();
-      expect(cleanup2).toHaveBeenCalled();
+      expect(mockTranscodeAPI.onProgress).toHaveBeenCalled();
+      expect(mockTranscodeAPI.onCompleted).toHaveBeenCalled();
+      expect(mockTranscodeAPI.onError).toHaveBeenCalled();
+      expect(mockTranscodeAPI.onCancelled).toHaveBeenCalled();
     });
 
     it('should clear cleanup array', async () => {
