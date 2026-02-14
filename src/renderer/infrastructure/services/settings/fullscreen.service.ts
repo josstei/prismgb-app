@@ -13,33 +13,30 @@ class SettingsFullscreenService extends LifecycleService {
   constructor(dependencies) {
     super(dependencies, [...SettingsFullscreenService.dependencies], 'SettingsFullscreenService');
 
-    this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
   }
 
   async onInitialize() {
-    document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
+    const boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
+    document.addEventListener('fullscreenchange', boundHandleFullscreenChange);
+    this.addCleanup(() => document.removeEventListener('fullscreenchange', boundHandleFullscreenChange));
 
     if (window.windowAPI) {
-      this._subscriptions.push(
-        window.windowAPI.onEnterFullscreen(() => {
-          this._handleNativeFullscreen(true);
-        }),
-        window.windowAPI.onLeaveFullscreen(() => {
-          this._handleNativeFullscreen(false);
-        }),
-        window.windowAPI.onResized(() => {
-          this._syncFullscreenState();
-          this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
-        })
-      );
+      window.windowAPI.onEnterFullscreen(() => {
+        this._handleNativeFullscreen(true);
+      });
+      window.windowAPI.onLeaveFullscreen(() => {
+        this._handleNativeFullscreen(false);
+      });
+      window.windowAPI.onResized(() => {
+        this._syncFullscreenState();
+        this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
+      });
+
+      this.addCleanup(() => window.windowAPI?.removeListeners?.());
     }
 
     await this._syncFullscreenState();
-  }
-
-  async onDispose() {
-    document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange);
   }
 
   async toggleFullscreen() {

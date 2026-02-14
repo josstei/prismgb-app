@@ -49,7 +49,8 @@ describe('SettingsFullscreenService', () => {
       }),
       onResized: vi.fn(() => {
         return vi.fn(); // Returns unsubscribe function
-      })
+      }),
+      removeListeners: vi.fn()
     };
 
     // Mock document and document.documentElement
@@ -96,8 +97,6 @@ describe('SettingsFullscreenService', () => {
 
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
-      expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
-      expect(service._subscriptions).toEqual([]);
     });
 
     it('should throw if missing required dependencies', () => {
@@ -113,7 +112,7 @@ describe('SettingsFullscreenService', () => {
 
       expect(mockDocument.addEventListener).toHaveBeenCalledWith(
         'fullscreenchange',
-        service._boundHandleFullscreenChange
+        expect.any(Function)
       );
     });
 
@@ -122,10 +121,6 @@ describe('SettingsFullscreenService', () => {
 
       expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
       expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
-      expect(service._subscriptions.length).toBe(3);
-      service._subscriptions.forEach((unsubscribe) => {
-        expect(typeof unsubscribe).toBe('function');
-      });
     });
 
     it('should handle missing windowAPI gracefully', async () => {
@@ -136,7 +131,6 @@ describe('SettingsFullscreenService', () => {
       });
 
       await expect(serviceWithoutAPI.initialize()).resolves.toBeUndefined();
-      expect(serviceWithoutAPI._subscriptions).toEqual([]);
     });
   });
 
@@ -150,19 +144,14 @@ describe('SettingsFullscreenService', () => {
 
       expect(mockDocument.removeEventListener).toHaveBeenCalledWith(
         'fullscreenchange',
-        service._boundHandleFullscreenChange
+        expect.any(Function)
       );
     });
 
-    it('should unsubscribe from native fullscreen events', async () => {
-      const [unsubscribeEnter, unsubscribeLeave, unsubscribeResized] = service._subscriptions;
-
+    it('should call removeListeners on windowAPI', async () => {
       await service.dispose();
 
-      expect(unsubscribeEnter).toHaveBeenCalled();
-      expect(unsubscribeLeave).toHaveBeenCalled();
-      expect(unsubscribeResized).toHaveBeenCalled();
-      expect(service._subscriptions).toEqual([]);
+      expect(mockWindowAPI.removeListeners).toHaveBeenCalled();
     });
 
     it('should handle dispose when not initialized', async () => {
