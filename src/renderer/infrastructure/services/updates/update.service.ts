@@ -53,13 +53,13 @@ class UpdateService extends LifecycleService {
   async onInitialize() {
     await this._loadInitialStatus();
 
-    this._subscriptions.push(
-      window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
-      window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
-      window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
-      window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
-      window.updateAPI.onError((error) => this._handleError(error))
-    );
+    window.updateAPI.onAvailable((info: UpdateInfoPayload) => this._handleAvailable(info));
+    window.updateAPI.onNotAvailable((info: UpdateInfoPayload) => this._handleNotAvailable(info));
+    window.updateAPI.onProgress((progress: UpdateProgressPayload) => this._handleProgress(progress));
+    window.updateAPI.onDownloaded((info: UpdateInfoPayload) => this._handleDownloaded(info));
+    window.updateAPI.onError((error: UpdateErrorPayload) => this._handleError(error));
+
+    this.addCleanup(() => window.updateAPI?.removeListeners?.());
   }
 
   async _loadInitialStatus() {
@@ -205,13 +205,10 @@ class UpdateService extends LifecycleService {
   }
 
   async onDispose() {
-    window.updateAPI?.removeListeners();
-
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this.logger.info('UpdateService disposed');
   }
 }
 

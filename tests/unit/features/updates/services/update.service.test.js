@@ -71,7 +71,7 @@ describe('UpdateService', () => {
   });
 
   describe('initialize', () => {
-    it('should set up IPC listeners', async () => {
+    it('should register IPC listeners during initialization', async () => {
       mockUpdateAPI.getStatus.mockResolvedValue({
         state: UpdateState.IDLE,
         updateInfo: null
@@ -370,17 +370,6 @@ describe('UpdateService', () => {
     beforeEach(async () => {
       mockUpdateAPI.getStatus.mockResolvedValue({ state: UpdateState.IDLE });
       await service.initialize();
-    });
-
-    it('should call cleanup functions', async () => {
-      const cleanup1 = vi.fn();
-      const cleanup2 = vi.fn();
-      service._subscriptions = [cleanup1, cleanup2];
-
-      await service.dispose();
-
-      expect(cleanup1).toHaveBeenCalled();
-      expect(cleanup2).toHaveBeenCalled();
     });
 
     it('should call removeListeners', async () => {
