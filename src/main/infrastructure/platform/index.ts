@@ -6,3 +6,5 @@ export {
   type PlatformInfo,
   type GpuPolicy
 } from './gpu-policy.js';
+
+export { LoginItemService, type LoginItemServiceDependencies } from './login-item.service.js';

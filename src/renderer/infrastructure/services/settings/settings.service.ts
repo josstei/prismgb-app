@@ -29,7 +29,8 @@ class SettingsService extends BaseService {
       fullscreenOnStartup: false,
       minimalistFullscreen: false,
       autoStreamOnConnect: false,
-      recordingFormat: 'webm'
+      recordingFormat: 'webm',
+      launchOnLogin: false
     };
 
     // Valid recording formats
@@ -226,6 +227,44 @@ class SettingsService extends BaseService {
     this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
 
     this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Get launch on login preference
+   * Queries main process for OS-level state, falls back to localStorage cache
+   * @returns {Promise<boolean>} True if launch on login is enabled
+   */
+  async getLaunchOnLogin() {
+    try {
+      if (window.loginItemAPI?.get) {
+        const enabled = await window.loginItemAPI.get();
+        this.storageService?.setItem(this.keys.LAUNCH_ON_LOGIN, enabled.toString());
+        return enabled;
+      }
+    } catch (error) {
+      this.logger.warn('Failed to query login item state from main process');
+    }
+
+    const saved = this.storageService?.getItem(this.keys.LAUNCH_ON_LOGIN);
+    return saved !== null ? saved === 'true' : this.defaults.launchOnLogin;
+  }
+
+  /**
+   * Set launch on login preference
+   * Updates OS-level login item via main process and caches locally
+   * @param {boolean} enabled - Enable launch on login
+   */
+  async setLaunchOnLogin(enabled) {
+    try {
+      if (window.loginItemAPI?.set) {
+        await window.loginItemAPI.set(enabled);
+      }
+    } catch (error) {
+      this.logger.error('Failed to set login item state in main process');
+    }
+
+    this.storageService?.setItem(this.keys.LAUNCH_ON_LOGIN, enabled.toString());
+    this.logger.debug(`Launch on login ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**

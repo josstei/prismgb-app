@@ -33,7 +33,15 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
 
   _applyStartupBehaviors() {
     if (this.settingsService.getFullscreenOnStartup()) {
-      this.fullscreenService.enterFullscreen();
+      if (document.hidden) {
+        const onVisible = () => {
+          document.removeEventListener('visibilitychange', onVisible);
+          this.fullscreenService.enterFullscreen();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+      } else {
+        this.fullscreenService.enterFullscreen();
+      }
     }
   }
 

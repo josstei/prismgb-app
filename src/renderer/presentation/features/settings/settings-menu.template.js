@@ -16,6 +16,16 @@ export function createSettingsMenuTemplate() {
       <div class="settings-menu" role="menu" aria-label="Settings">
         <!-- Settings Section -->
         <section class="settings-section settings-main">
+          <label class="settings-item toggle settings-item-with-hint">
+            <span class="settings-item-text">
+              <span class="settings-item-title">Launch on startup</span>
+              <span class="settings-item-hint" id="launchOnLoginHint">
+                Start PrismGB when your computer turns on.
+              </span>
+            </span>
+            <input type="checkbox" id="settingLaunchOnLogin" aria-describedby="launchOnLoginHint">
+            <span class="toggle-slider"></span>
+          </label>
           <label class="settings-item toggle">
             <span>Show Status Bar</span>
             <input type="checkbox" id="settingStatusStrip">

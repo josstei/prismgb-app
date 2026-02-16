@@ -21,7 +21,8 @@ import {
   registerPerformanceHandlers,
   registerWindowHandlers,
   registerTranscodeHandlers,
-  registerGpuHandlers
+  registerGpuHandlers,
+  registerLoginItemHandlers
 } from './handlers/index.js';
 
 interface DeviceService {
@@ -38,6 +39,11 @@ interface UpdateService {
 interface WindowService {
   setFullScreen(enabled: boolean): void;
   isFullScreen(): boolean;
+}
+
+interface LoginItemService {
+  isEnabled(): boolean;
+  setEnabled(enabled: boolean): void;
 }
 
 interface TranscodeService {
@@ -57,6 +63,7 @@ export interface IpcHandlerRegistryDependencies {
   updateService: UpdateService;
   windowService: WindowService;
   transcodeService: TranscodeService;
+  loginItemService: LoginItemService;
   loggerFactory: LoggerFactory;
 }
 
@@ -66,14 +73,16 @@ class IpcHandlerRegistry extends BaseService {
   private readonly updateService: UpdateService;
   private readonly windowService: WindowService;
   private readonly transcodeService: TranscodeService;
+  private readonly loginItemService: LoginItemService;
   private _registeredChannels: string[];
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
-    super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loggerFactory'], 'IpcHandlerRegistry');
+    super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loginItemService', 'loggerFactory'], 'IpcHandlerRegistry');
     this.deviceService = dependencies.deviceService;
     this.updateService = dependencies.updateService;
     this.windowService = dependencies.windowService;
     this.transcodeService = dependencies.transcodeService;
+    this.loginItemService = dependencies.loginItemService;
     this._registeredChannels = [];
   }
 
@@ -121,6 +130,12 @@ class IpcHandlerRegistry extends BaseService {
 
     registerGpuHandlers({
       registerHandler: this._registerHandler.bind(this),
+      logger: this.logger
+    });
+
+    registerLoginItemHandlers({
+      registerHandler: this._registerHandler.bind(this),
+      loginItemService: this.loginItemService,
       logger: this.logger
     });
   }

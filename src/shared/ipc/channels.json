@@ -28,6 +28,10 @@
     "DOWNLOADED": "update:downloaded",
     "ERROR": "update:error"
   },
+  "LOGIN_ITEM": {
+    "GET": "login-item:get",
+    "SET": "login-item:set"
+  },
   "PERFORMANCE": {
     "GET_METRICS": "performance:get-metrics"
   },

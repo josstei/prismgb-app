@@ -69,6 +69,7 @@ describe('IpcHandlerRegistry', () => {
       updateService: mockUpdateService,
       windowService: mockWindowService,
       transcodeService: mockTranscodeService,
+      loginItemService: { isEnabled: vi.fn(), setEnabled: vi.fn() },
       loggerFactory: mockLoggerFactory
     });
   });

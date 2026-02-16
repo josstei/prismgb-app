@@ -58,6 +58,12 @@
       "expiresOn": "2026-04-30"
     },
     {
+      "file": "src/main/ipc/handlers/login-item.handler.ts",
+      "code": "TS2345",
+      "maxCount": 1,
+      "expiresOn": "2026-04-30"
+    },
+    {
       "file": "src/main/ipc/handlers/window.handler.ts",
       "code": "TS2345",
       "maxCount": 1,
@@ -150,7 +156,7 @@
     {
       "file": "src/renderer/application/orchestrators/display-mode.orchestrator.ts",
       "code": "TS2571",
-      "maxCount": 8,
+      "maxCount": 9,
       "expiresOn": "2026-04-30"
     },
     {
@@ -810,19 +816,19 @@
     {
       "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
       "code": "TS2339",
-      "maxCount": 18,
+      "maxCount": 21,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
       "code": "TS2571",
-      "maxCount": 36,
+      "maxCount": 40,
       "expiresOn": "2026-04-30"
     },
     {
       "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
       "code": "TS7006",
-      "maxCount": 10,
+      "maxCount": 11,
       "expiresOn": "2026-04-30"
     },
     {

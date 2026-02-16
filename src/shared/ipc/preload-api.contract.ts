@@ -127,6 +127,9 @@ export type WindowSetFullscreenResponse = IpcActionResult;
 export type WindowIsFullscreenResponse = boolean;
 export type ShellOpenExternalResponse = IpcActionResult;
 
+export type LoginItemGetResponse = boolean;
+export type LoginItemSetResponse = IpcActionResult;
+
 export interface ProcessMetricPayload {
   type: string;
   pid: number;

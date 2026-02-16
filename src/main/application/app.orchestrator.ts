@@ -23,6 +23,7 @@ import type { UpdateService } from '@main/infrastructure/updates/index.js';
 import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
 import type { UpdateBridge } from '@main/infrastructure/updates/index.js';
 import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
+import type { LoginItemService } from '@main/infrastructure/platform/index.js';
 
 /**
  * Dependencies required by AppOrchestrator
@@ -43,6 +44,7 @@ class AppOrchestrator extends BaseOrchestrator {
   private _deviceBridgeService: DeviceBridgeService | null = null;
   private _updateBridgeService: UpdateBridge | null = null;
   private _transcodeService: TranscodeService | null = null;
+  private _loginItemService: LoginItemService | null = null;
 
   constructor() {
     // Create logger factory before calling super (bootstrap pattern)
@@ -72,6 +74,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._deviceBridgeService = this.container.resolve('deviceBridgeService');
     this._updateBridgeService = this.container.resolve('updateBridgeService');
     this._transcodeService = this.container.resolve('transcodeService');
+    this._loginItemService = this.container.resolve('loginItemService');
 
     // Initialize device lifecycle service (handles auto-launch)
     this._deviceLifecycleService.initialize();
@@ -106,8 +109,14 @@ class AppOrchestrator extends BaseOrchestrator {
     // usb-detection needs time to populate its device cache after startMonitoring()
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Create main window immediately
-    this._windowService.createWindow();
+    // Detect hidden launch (login item / auto-start)
+    const isHiddenLaunch = this._loginItemService.wasLaunchedAsHidden();
+    if (isHiddenLaunch) {
+      this.logger.info('Hidden launch detected - starting in system tray');
+    }
+
+    // Create main window (hidden if launched as login item)
+    this._windowService.createWindow({ hidden: isHiddenLaunch });
 
     // Check for already connected devices
     const deviceFound = await this._deviceService.refreshDeviceStatus();
@@ -168,6 +177,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this._deviceBridgeService = null;
     this._updateBridgeService = null;
     this._transcodeService = null;
+    this._loginItemService = null;
 
     this.logger.info('PrismGB shutdown complete');
   }

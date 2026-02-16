@@ -23,3 +23,6 @@ export type { PerformanceHandlerDependencies } from './performance.handler.js';
 
 export { registerGpuHandlers } from './gpu.handler.js';
 export type { GpuHandlerDependencies } from './gpu.handler.js';
+
+export { registerLoginItemHandlers } from './login-item.handler.js';
+export type { LoginItemHandlerDependencies } from './login-item.handler.js';
