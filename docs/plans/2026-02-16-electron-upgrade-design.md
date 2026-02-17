@@ -1,7 +1,7 @@
 # Electron 28 → 40 Upgrade + USB Library Migration
 
 **Date:** 2026-02-16
-**Status:** Approved (v2 — revised after quad-agent audit)
+**Status:** Approved (v3 — revised after two rounds of quad-agent audit)
 **Approach:** Combined upgrade (Electron bump + usb-detection → usb migration in single effort)
 
 ## Context
@@ -83,6 +83,19 @@ src/main/infrastructure/devices/adapters/
 
 String fields are nullable because reading them requires `device.open()` which can fail (permissions, device busy, udev rules on Linux). Matching only needs vendorId/productId. Display fields fall back explicitly: `device.productName ?? profile.name`.
 
+### Sync vs Async Semantics
+
+`getConnectedDevices()` is **synchronous** — it wraps `usb.getDeviceList()` which returns an in-memory snapshot. String descriptors require USB I/O (`device.open()` + `getStringDescriptor()`), so `getConnectedDevices()` returns descriptors with **`null` string fields** (`manufacturer`, `serialNumber`, `productName`). This is by design:
+
+- **`getConnectedDevices()`**: Returns immediately with numeric fields only (vendorId, productId, busNumber, deviceAddress, deviceClass). Used for initial scan and `refreshDeviceStatus()` — sufficient for profile matching since `detectDevice()` only needs vendorId/productId.
+- **`onAttach()` callback**: Receives **fully enriched** descriptors with string fields populated via async open/read/close cycle. The adapter performs string descriptor reading internally before emitting the attach event.
+- **`onDetach()` callback**: Receives descriptors with `null` string fields (device is already detached, cannot be opened).
+
+This means:
+1. On startup, `_scanAlreadyConnectedDevices()` matches devices but `ConnectedDeviceInfo` has empty string fields — acceptable because `configName` from the profile provides the display name.
+2. On hot-plug attach, full string descriptors are available for richer logging and display.
+3. `_performDeviceCheck()` (called by `refreshDeviceStatus()`) also gets null strings — again acceptable for matching.
+
 ### API Mapping
 
 | usb-detection | usb (node-usb) via adapter |
@@ -95,6 +108,77 @@ String fields are nullable because reading them requires `device.open()` which c
 | `find()` | `usb.getDeviceList()` (synchronous, returns `Device[]`) |
 
 Note: node-usb also emits `attachIds`/`detachIds` events (providing only `{ idVendor, idProduct }`), but `attach`/`detach` with full `Device` objects is preferred because we need `busNumber`/`deviceAddress` and the ability to read string descriptors.
+
+### Simplification of _scanAlreadyConnectedDevices
+
+The current implementation (lines 264-315 in `device.service.ts`) is deeply nested with try/catch/Promise/callback wrappers to handle `usb-detection.find()`'s inconsistent API (callback-based, synchronous fallback, Object.values conversion). With the adapter, this collapses to:
+
+```typescript
+private _scanAlreadyConnectedDevices(): void {
+  try {
+    const devices = this.usbMonitor.getConnectedDevices();
+    if (devices.length === 0) {
+      this.logger.debug('No devices found in initial scan');
+      return;
+    }
+    this.logger.debug(`Found ${devices.length} device(s) in initial scan`);
+    for (const device of devices) {
+      const match = this.matchDevice(device);
+      if (match.matched) {
+        this.onDeviceConnected(device);
+      }
+    }
+  } catch (error) {
+    this.logger.error('Failed to scan for already-connected devices:', error);
+  }
+}
+```
+
+No longer async. No `setTimeout` delay needed. The adapter's `getConnectedDevices()` is synchronous and returns descriptors with null string fields (sufficient for profile matching). The `USB_SCAN_DELAY` constant import and the `_scanTimeoutId` field can be removed.
+
+### Simplification of _performDeviceCheck
+
+Similarly, `_performDeviceCheck()` (lines 411-464) simplifies:
+
+```typescript
+private async _performDeviceCheck(): Promise<boolean> {
+  try {
+    const devices = this.usbMonitor.getConnectedDevices();
+    if (devices.length === 0) {
+      this.isDeviceConnected = false;
+      this.connectedDeviceInfo = null;
+      return false;
+    }
+    for (const device of devices) {
+      const match = this.matchDevice(device);
+      if (match.matched && match.config) {
+        this.isDeviceConnected = true;
+        this.connectedDeviceInfo = {
+          vendorId: device.vendorId,
+          productId: device.productId,
+          busNumber: device.busNumber,
+          deviceAddress: device.deviceAddress,
+          deviceName: device.productName ?? match.config.deviceName,
+          manufacturer: device.manufacturer ?? '',
+          serialNumber: device.serialNumber ?? '',
+          configName: match.config.deviceName
+        };
+        return true;
+      }
+    }
+    this.isDeviceConnected = false;
+    this.connectedDeviceInfo = null;
+    return false;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    this.logger.error('Error checking for device', error);
+    this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, { error: errorMessage });
+    return false;
+  }
+}
+```
+
+Key change: explicit `ConnectedDeviceInfo` construction at line `this.connectedDeviceInfo = { ... }` replaces the `{ ...device, configName }` spread pattern (previously at lines 448 and 479).
 
 ### Device Descriptor Mapping
 
@@ -220,14 +304,12 @@ interface USBDevice {
   deviceAddress?: number;
   deviceClass?: number;
   productName?: string | null;
-  deviceName?: string;
   manufacturer?: string | null;
   serialNumber?: string | null;
-  configName?: string;
 }
 ```
 
-This accepts both the old shape (for backward compatibility during migration) and the new `UsbDeviceDescriptor` shape. The `detectDevice()` method only uses `vendorId`/`productId` for matching, so the other fields are for logging only.
+No backward compatibility shim needed — the old `locationId` and `deviceName` fields are removed cleanly since both the type and all callers are updated in the same phase. The `detectDevice()` method only uses `vendorId`/`productId` for matching; other fields are for logging via `formatDeviceInfo()`.
 
 ### formatDeviceInfo Update
 
@@ -259,38 +341,66 @@ The `usb` package uses `node-gyp-build` to load prebuilt native `.node` binaries
 
 ### DI Container Wiring
 
-`DeviceService` is manually instantiated in `container.ts` (not auto-injected by Awilix) because its `initialize()` is async. The adapter must be explicitly resolved and passed:
+`DeviceService` is manually instantiated in `container.ts` (not auto-injected by Awilix) because its `initialize()` is async. The adapter must be explicitly resolved and passed.
+
+**Step 1: Update `ContainerDependencies` interface** (line 39-54 in `container.ts`):
+
+Add `usbMonitor` to the interface so Awilix can type-check the registration:
 
 ```typescript
-// Register adapter
-container.register({
-  usbMonitor: asClass(UsbMonitorAdapter).singleton()
-});
+export interface ContainerDependencies {
+  // ... existing fields ...
+  usbMonitor: IUsbMonitor;       // NEW — add before deviceService
+  deviceService: DeviceService;
+  // ... rest unchanged ...
+}
+```
 
-// Resolve and pass to manually-constructed DeviceService
+**Step 2: Register adapter** — insert after `profileRegistry` registration (line 96-97) and before the manual DeviceService instantiation (line 106):
+
+```typescript
+// Register device components
+container.register({
+  profileRegistry: asClass(DeviceProfileRegistry).singleton(),
+  usbMonitor: asClass(UsbMonitorAdapter).singleton()  // NEW
+});
+```
+
+**Step 3: Resolve and pass to DeviceService** — add to the manual construction (line 106-110):
+
+```typescript
 const deviceService = new DeviceService({
   profileRegistry: container.resolve('profileRegistry'),
   eventBus: container.resolve('eventBus'),
   loggerFactory: container.resolve('loggerFactory'),
-  usbMonitor: container.resolve('usbMonitor')  // explicitly resolved
+  usbMonitor: container.resolve('usbMonitor')  // NEW
 }, profileClasses);
+```
+
+**Step 4: Add imports** at top of `container.ts`:
+
+```typescript
+import { UsbMonitorAdapter } from '@main/infrastructure/devices/adapters/usb-monitor.adapter.js';
+import type { IUsbMonitor } from '@main/infrastructure/devices/adapters/usb-monitor.interface.js';
 ```
 
 ### Files Affected (Complete List)
 
 | File | Change |
 |------|--------|
-| `src/main/infrastructure/devices/device.service.ts` | Replace `usb-detection` import with `IUsbMonitor` dependency; update `ConnectedDeviceInfo` type; construct info explicitly instead of spread; remove `USBDetectionWithLegacyOff` type; remove `_cleanupUSBListeners` |
+| `src/main/infrastructure/devices/device.service.ts` | Replace `usb-detection` import with `IUsbMonitor` dependency; update `ConnectedDeviceInfo` type; construct info explicitly instead of spread (lines 448 and 479); simplify `_scanAlreadyConnectedDevices` and `_performDeviceCheck`; remove `_cleanupUSBListeners`, `USBDetectionWithLegacyOff`, `USBDetectionEvent`, `USB_SCAN_DELAY` import, `_scanTimeoutId` field |
 | `src/main/infrastructure/devices/adapters/usb-monitor.interface.ts` | New: `IUsbMonitor` interface + `UsbDeviceDescriptor` type |
 | `src/main/infrastructure/devices/adapters/usb-monitor.adapter.ts` | New: adapter implementation using `usb` package |
-| `src/main/infrastructure/devices/device-profile.registry.ts` | Update `USBDevice` interface to accept new descriptor shape |
-| `src/main/infrastructure/devices/index.ts` | Export new adapter types |
-| `src/main/application/container.ts` | Register `UsbMonitorAdapter`; resolve and inject into `DeviceService` |
-| `src/main/application/app.orchestrator.ts` | Remove 500ms usb-detection cache delay (line 108-110) |
+| `src/main/infrastructure/devices/device-profile.registry.ts` | Update `USBDevice` interface to accept new descriptor shape (remove `locationId`, `deviceName`; add `busNumber`, `deviceClass`, `productName`) |
+| `src/main/infrastructure/devices/index.ts` | Export new adapter types (`IUsbMonitor`, `UsbDeviceDescriptor`, `UsbMonitorAdapter`) |
+| `src/main/infrastructure/devices/device-bridge.service.ts` | Pass-through: no code changes needed. `DeviceStatus.device` is `Record<string, unknown>` (line 18), so the new `ConnectedDeviceInfo` shape flows through without modification |
+| `src/main/ipc/handlers/device.handler.ts` | Pass-through: no code changes needed. Calls `deviceService.getStatus()` which returns `DeviceStatusPayload` — payload shape change is handled at `DeviceService` level |
+| `src/main/application/container.ts` | Add `usbMonitor: IUsbMonitor` to `ContainerDependencies`; register `UsbMonitorAdapter` as singleton; resolve and inject into `DeviceService`; add imports |
+| `src/main/application/app.orchestrator.ts` | Remove 500ms usb-detection cache delay (lines 108-110) |
 | `src/shared/ipc/preload-api.contract.ts` | Update `DeviceInfoPayload`: replace `locationId` with `busNumber` + `deviceAddress` |
 | `src/shared/utils/formatters.utils.js` | Add `productName` to name fallback chain |
 | `vite.config.js` | Change `usb-detection` → `usb` in Rollup externals |
-| `package.json` | Remove `usb-detection`; add `usb`; add `usb` to `asarUnpack`; bump `electron`, `electron-builder`; add `@electron/rebuild` |
+| `package.json` | Add `usb@^2.17.0`; add `usb` to `asarUnpack`; bump `electron`, `electron-builder`; add `@electron/rebuild` (Phase 1 keeps `usb-detection` — it's removed in Phase 4 after all imports are updated) |
 | `tests/unit/features/devices/main/device.service.test.js` | Expand coverage for untested methods; mock `IUsbMonitor` instead of `vi.mock('usb-detection')` |
 | `tests/unit/features/devices/main/adapters/usb-monitor.adapter.test.js` | New: adapter tests (mirroring source directory structure) |
 
@@ -330,98 +440,186 @@ The renderer does not read `locationId` from the payload. No renderer code chang
 
 ## Testing Strategy
 
+### Mock IUsbMonitor Factory
+
+All DeviceService tests use a shared mock factory (no `vi.mock('usb-detection')` or `vi.mock('usb')`):
+
+```typescript
+function createMockUsbMonitor(): IUsbMonitor {
+  return {
+    startMonitoring: vi.fn(),
+    stopMonitoring: vi.fn(),
+    onAttach: vi.fn(),
+    onDetach: vi.fn(),
+    removeAllListeners: vi.fn(),
+    getConnectedDevices: vi.fn().mockReturnValue([])
+  };
+}
+```
+
+This mock is injected via the `DeviceServiceDependencies` constructor parameter, not via `vi.mock()`.
+
 ### Adapter Tests (`tests/unit/features/devices/main/adapters/usb-monitor.adapter.test.js`)
 
 Tests with `vi.mock('usb')` at the library boundary:
 
 **Mapping tests:**
-- Should map `deviceDescriptor.idVendor`/`idProduct` to `vendorId`/`productId`
+- Should map `deviceDescriptor.idVendor` to `vendorId` (assert `descriptor.vendorId === 0x1209`)
+- Should map `deviceDescriptor.idProduct` to `productId` (assert `descriptor.productId === 0x4F54`)
 - Should map `deviceDescriptor.bDeviceClass` to `deviceClass`
-- Should map `busNumber`/`deviceAddress` from Device object
-- Should read string descriptors via `getStringDescriptor()` for non-zero indices
-- Should set string fields to `null` for index 0 (not provided)
+- Should map `busNumber` and `deviceAddress` directly from Device object
+- Should call `device.open(false)` then `getStringDescriptor(iManufacturer)` for non-zero index
+- Should set `manufacturer` to `null` when `iManufacturer === 0`
+- Should set `productName` to `null` when `iProduct === 0`
+- Should set `serialNumber` to `null` when `iSerialNumber === 0`
 
 **Lifecycle tests:**
-- Should register `attach`/`detach` listeners on first `startMonitoring()` call
-- Should call `unrefHotplugEvents()` + `removeAllListeners()` on `stopMonitoring()`
-- Should be idempotent: calling `startMonitoring()` multiple times is safe
-- Should be safe: calling `stopMonitoring()` before `startMonitoring()` is a no-op
-- Should handle restart: `start → stop → start` produces clean state
+- Should call `usb.on('attach', ...)` on first `startMonitoring()` call
+- Should call `usb.unrefHotplugEvents()` and `usb.removeAllListeners()` on `stopMonitoring()`
+- Should not register duplicate listeners when `startMonitoring()` called twice
+- Should be a no-op when `stopMonitoring()` called before `startMonitoring()`
+- Should produce clean state after `start → stop → start` cycle
 
 **Error tests:**
-- Should degrade gracefully when `usb.INIT_ERROR` is set
-- Should emit descriptor with `null` strings when `device.open(false)` throws
-- Should emit descriptor with `null` for specific field when `getStringDescriptor()` fails
-- Should call `device.close()` even when `getStringDescriptor()` fails
-- Should return empty array when `getDeviceList()` throws
-- Should not crash monitoring when `attach` handler throws
+- Should set all methods to no-op when `usb.INIT_ERROR` is truthy
+- Should emit descriptor with `null` strings when `device.open(false)` throws `LIBUSB_ERROR_ACCESS`
+- Should emit descriptor with `manufacturer: null` when `getStringDescriptor(iManufacturer)` callback has error, while `productName` is still populated if its read succeeded
+- Should call `device.close()` in finally block even when all `getStringDescriptor()` calls fail
+- Should return empty array from `getConnectedDevices()` when `usb.getDeviceList()` throws
+- Should not crash monitoring when user-provided `attach` callback throws
+- Should handle device removed during string descriptor read (device.close() throws after open succeeded)
 
 ### DeviceService Tests (`tests/unit/features/devices/main/device.service.test.js`)
 
-Refactored to inject mock `IUsbMonitor` via constructor (no `vi.mock()` for USB library):
+Refactored to inject `createMockUsbMonitor()` via constructor:
 
 **Existing tests (preserved):**
 - Constructor, initialize, getStatus, isConnected, getConnectedDevice, DI pattern
 
 **New tests for previously untested methods:**
-- `startUSBMonitoring()` — calls adapter `onAttach`/`onDetach`; publishes `CHECK_ERROR` on failure
-- `stopUSBMonitoring()` — calls adapter `stopMonitoring`/`removeAllListeners`; cancels scan timeout
-- `onDeviceConnected()` — matches device via ProfileRegistry; publishes `CONNECTION_CHANGED`; constructs `ConnectedDeviceInfo` correctly
-- `onDeviceDisconnected()` — matches device; clears state; publishes `CONNECTION_CHANGED`
-- `matchDevice()` — delegates to ProfileRegistry; returns correct `DeviceMatch` shape
-- `refreshDeviceStatus()` — calls adapter `getConnectedDevices`; mutex prevents concurrent checks; publishes `CHECK_ERROR` on error
-- `_scanAlreadyConnectedDevices()` — iterates adapter results; triggers connection events for matches
+
+`startUSBMonitoring()`:
+- Should call `usbMonitor.onAttach()` and `usbMonitor.onDetach()` with callbacks
+- Should call `_scanAlreadyConnectedDevices()` synchronously (no setTimeout)
+- Should publish `DEVICE.CHECK_ERROR` with `{ type: 'usb-monitoring-failed', error: '...' }` when adapter throws
+- Should return `false` when monitoring fails to start
+- Should return `true` and set `isUsbMonitoring` flag on success
+- Should be idempotent — second call returns `true` without re-registering
+
+`stopUSBMonitoring()`:
+- Should call `usbMonitor.stopMonitoring()` and `usbMonitor.removeAllListeners()`
+- Should be a no-op when not monitoring (no calls to adapter)
+
+`onDeviceConnected(device)`:
+- Should construct `ConnectedDeviceInfo` with explicit field mapping (assert `info.deviceName === device.productName` when productName is set)
+- Should fall back to `match.config.deviceName` when `device.productName` is `null`
+- Should publish `DEVICE.CONNECTION_CHANGED` with `{ connected: true, device: info }`
+- Should ignore device when `matchDevice()` returns `{ matched: false }`
+
+`onDeviceDisconnected(device)`:
+- Should clear `connectedDeviceInfo` to `null`
+- Should publish `DEVICE.CONNECTION_CHANGED` with `{ connected: false, device: null }`
+- Should ignore device when `matchDevice()` returns `{ matched: false }`
+
+`matchDevice(device)`:
+- Should delegate to `profileRegistry.detectDevice(device)` with vendorId/productId
+- Should return `{ matched: true, config: { deviceName, vendorId, productId }, profile }` on match
+- Should return `{ matched: false, config: null, profile: null }` on no match
+
+`refreshDeviceStatus()`:
+- Should call `usbMonitor.getConnectedDevices()` (assert called once)
+- Should prevent concurrent checks (mutex: second call returns same promise)
+- Should publish `DEVICE.CHECK_ERROR` when adapter throws
+
+`_scanAlreadyConnectedDevices()`:
+- Should call `onDeviceConnected()` for each matching device from `getConnectedDevices()`
+- Should skip non-matching devices
+- Should handle empty device list gracefully
 
 ### Formatter Tests
 
-- Add test case to `tests/unit/utils/Formatters.test.js` for `productName` fallback
+Add test cases to `tests/unit/utils/Formatters.test.js` for the full fallback chain:
+
+```javascript
+it('should use productName when deviceName is absent', () => {
+  const result = formatDeviceInfo({ productName: 'Chromatic', configName: 'fallback' });
+  expect(result.name).toBe('Chromatic');
+});
+
+it('should prefer deviceName over productName', () => {
+  const result = formatDeviceInfo({ deviceName: 'Named', productName: 'Product' });
+  expect(result.name).toBe('Named');
+});
+
+it('should fall through to configName when both deviceName and productName are absent', () => {
+  const result = formatDeviceInfo({ configName: 'Config Name' });
+  expect(result.name).toBe('Config Name');
+});
+```
 
 ## Migration Sequence
 
+Phases are ordered so the codebase compiles after every phase. Key constraint: `usb-detection` stays in `package.json` until Phase 4 removes all imports of it.
+
 ```
-Phase 1: Package changes
-├── Remove usb-detection from dependencies
+Phase 1: Package additions (additive only — no removals)
 ├── Add usb@^2.17.0 to dependencies
 ├── Bump electron to ^40.0.0
 ├── Bump electron-builder to ^26.8.1
 ├── Add @electron/rebuild@^4.0.3 as devDependency
 ├── Add node_modules/usb/**/* to asarUnpack
-└── Update Rollup externals (usb-detection → usb) in vite.config.js
+├── Add 'usb' to Rollup externals in vite.config.js (keep 'usb-detection' too)
+├── npm install
+└── Verify: npm run typecheck (existing code still compiles)
+    NOTE: usb-detection stays — DeviceService still imports it
 
-Phase 2: USB adapter abstraction
+Phase 2: USB adapter abstraction (new files only — no existing code changes)
+├── Create adapters/ directory under src/main/infrastructure/devices/
 ├── Create usb-monitor.interface.ts (IUsbMonitor, UsbDeviceDescriptor)
 ├── Create usb-monitor.adapter.ts (implements IUsbMonitor using 'usb')
-└── Export from devices/index.ts barrel
+├── Export from devices/index.ts barrel
+└── Verify: npm run typecheck (new files compile, nothing references them yet)
 
-Phase 3: Type updates
-├── Update ConnectedDeviceInfo in device.service.ts (replace locationId with busNumber/deviceAddress)
-├── Update USBDevice in device-profile.registry.ts (accept new descriptor shape)
+Phase 3: Shared type updates (safe — only types and utilities, no DeviceService yet)
 ├── Update DeviceInfoPayload in preload-api.contract.ts (replace locationId)
-└── Update formatDeviceInfo in formatters.utils.js (add productName fallback)
+├── Update USBDevice in device-profile.registry.ts (accept new descriptor shape)
+├── Update formatDeviceInfo in formatters.utils.js (add productName fallback)
+└── Verify: npm run typecheck
+    NOTE: DeviceInfoPayload is optional fields — consumers won't break
 
-Phase 4: DeviceService refactor
+Phase 4: DeviceService refactor + usb-detection removal (single atomic phase)
 ├── Add usbMonitor to DeviceServiceDependencies interface
-├── Replace usb-detection import and _usbDetection field with IUsbMonitor dependency
+├── Replace usb-detection import with IUsbMonitor dependency
+├── Replace _usbDetection field with usbMonitor (injected)
+├── Update ConnectedDeviceInfo type (replace locationId with busNumber/deviceAddress)
+├── Construct ConnectedDeviceInfo explicitly in onDeviceConnected (line 479)
+├── Construct ConnectedDeviceInfo explicitly in _performDeviceCheck (line 448)
+├── Simplify _scanAlreadyConnectedDevices (sync, no setTimeout)
+├── Simplify _performDeviceCheck (sync getConnectedDevices, explicit construction)
 ├── Refactor startUSBMonitoring/stopUSBMonitoring to use adapter
-├── Refactor _scanAlreadyConnectedDevices to use adapter.getConnectedDevices()
-├── Refactor _performDeviceCheck to use adapter.getConnectedDevices()
-├── Construct ConnectedDeviceInfo explicitly in onDeviceConnected/onDeviceDisconnected
-├── Remove _cleanupUSBListeners (adapter owns listener lifecycle)
-└── Remove USBDetectionWithLegacyOff type
+├── Update matchDevice signature (UsbDeviceDescriptor instead of USBDetectionDevice)
+├── Update onDeviceConnected/onDeviceDisconnected signatures
+├── Remove: _cleanupUSBListeners, USBDetectionWithLegacyOff, USBDetectionEvent type
+├── Remove: USB_SCAN_DELAY import, _scanTimeoutId field, _onDeviceAdd/Remove fields
+├── Remove 'usb-detection' from Rollup externals in vite.config.js
+├── Remove usb-detection from package.json dependencies
+└── Verify: npm run typecheck (DeviceService now uses adapter exclusively)
 
-Phase 5: DI container update
-├── Register UsbMonitorAdapter as singleton
-├── Resolve and inject into DeviceService constructor
-└── Remove 500ms usb-detection cache delay from app.orchestrator.ts
+Phase 5: DI container + orchestrator update
+├── Add usbMonitor: IUsbMonitor to ContainerDependencies interface
+├── Add UsbMonitorAdapter import to container.ts
+├── Register UsbMonitorAdapter as singleton (alongside profileRegistry)
+├── Add usbMonitor to DeviceService manual construction resolve
+├── Remove 500ms usb-detection cache delay from app.orchestrator.ts (lines 108-110)
+└── Verify: npm run typecheck
 
 Phase 6: Test updates
 ├── Create usb-monitor.adapter.test.js (mapping, lifecycle, errors)
 ├── Refactor device.service.test.js (mock IUsbMonitor, add missing method coverage)
 ├── Add productName test case to Formatters.test.js
-└── Verify all existing tests pass
+└── Verify: npm run test:run (all tests pass)
 
-Phase 7: Validation
-├── npm install (rebuild native modules)
+Phase 7: Final validation
 ├── npm run lint
 ├── npm run typecheck
 ├── npm run test:run
@@ -435,7 +633,7 @@ Git commit after each phase. All work on a feature branch.
 
 **v1 (2026-02-16):** Initial design approved.
 
-**v2 (2026-02-16):** Revised after quad-agent audit (2 Opus + 2 Sonnet). Key additions:
+**v2 (2026-02-16):** Revised after quad-agent audit round 1 (2 Opus + 2 Sonnet). Key additions:
 - `ConnectedDeviceInfo` explicit construction (was using `...device` spread)
 - `DeviceInfoPayload` IPC contract update (was incorrectly listed as "no change")
 - `USBDevice` interface in ProfileRegistry update (was listed as "no change")
@@ -453,3 +651,26 @@ Git commit after each phase. All work on a feature branch.
 - Renderer impact analysis added (confirmed no renderer changes needed)
 - Package versions pinned: `electron-builder@^26.8.1`, `@electron/rebuild@^4.0.3`
 - `vite-plugin-electron` and `vite-plugin-electron-renderer` confirmed already at latest
+
+**v3 (2026-02-16):** Revised after quad-agent audit round 2 (2 Opus + 2 Sonnet). Key changes:
+
+Critical fixes:
+- `getConnectedDevices()` sync/async semantics documented: sync method returns null string fields, strings only populated via `onAttach` events. Added "Sync vs Async Semantics" section.
+- Phase ordering rewritten to prevent compilation failures: Phase 1 no longer removes `usb-detection` (kept until Phase 4 removes all imports); Phase 3 type updates and Phase 4 DeviceService refactor remain separate but Phase 3 only touches types with optional fields (won't break existing code); Phase 4 is atomic (types + code + removal together)
+- `ContainerDependencies` interface update explicitly added to Phase 5 with exact line references and step-by-step instructions
+- `_performDeviceCheck` explicit `ConnectedDeviceInfo` construction now shown with full code (previously only referenced)
+
+Medium fixes:
+- Pass-through files (`device-bridge.service.ts`, `device.handler.ts`) added to Files Affected table with "no change needed" rationale
+- `_scanAlreadyConnectedDevices` simplified implementation shown — no longer async, no setTimeout, no Promise wrapper
+- `_performDeviceCheck` simplified implementation shown — explicit construction replaces `{ ...device }` spread
+- `USBDevice` interface backward compatibility shim removed (unnecessary since types and callers update in same phase)
+- DI container insertion point specified with exact line numbers and step-by-step instructions
+
+Test improvements:
+- Mock `IUsbMonitor` factory documented with exact code
+- All test assertions made specific (exact values, exact event payloads, exact fallback behavior)
+- Adapter edge case added: device removed during string descriptor read
+- Formatter tests show exact test code for full fallback chain
+- `stopUSBMonitoring` test clarified: no `_scanTimeoutId` to cancel post-migration (field removed)
+- `package.json` change clarified: `usb-detection` removal deferred to Phase 4
