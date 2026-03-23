@@ -60,7 +60,7 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "joi": "^18.0.2",
+    "joi": "^18.1.1",
     "usb-detection": "^4.14.2",
     "winston": "^3.19.0"
   },
