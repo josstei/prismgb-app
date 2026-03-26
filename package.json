@@ -60,7 +60,7 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "joi": "^18.0.2",
+    "joi": "^18.1.1",
     "usb-detection": "^4.14.2",
     "winston": "^3.19.0"
   },
@@ -85,7 +85,7 @@
     "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.6",
     "vite-plugin-static-copy": "^3.2.0",
     "vitest": "^4.0.14"
