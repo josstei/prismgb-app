@@ -426,6 +426,118 @@ git commit -m "build(tsconfig): add decorator support to base config"
 
 ---
 
+## Task 4A: Configure SWC for Decorator Metadata
+
+**Discovered during Task 4 code review.** Vite uses esbuild for TypeScript transpilation. esbuild does NOT support `emitDecoratorMetadata` — it strips the flag silently. This means tsyringe's implicit type-based injection (`constructor(private foo: Foo)`) will fail at runtime in Phase 1 with `undefined` parameter resolution. We need SWC (Rust-based, supports decorator metadata) to transpile `.ts` files in the Vite pipeline.
+
+**Files:**
+- Modify: `package.json` (add `unplugin-swc`, `@swc/core` to devDependencies)
+- Modify: `vite.config.js` (add SWC plugin)
+- Create: `tests/regression/decorator-metadata-smoke.test.ts` (verify metadata is emitted at runtime)
+
+- [ ] **Step 1: Install SWC toolchain**
+
+Add to `devDependencies` in `package.json` (alphabetically):
+
+```json
+    "@swc/core": "^1.9.0",
+    "unplugin-swc": "^1.5.0",
+```
+
+Run: `npm install`
+Expected: exit 0.
+
+- [ ] **Step 2: Configure unplugin-swc in vite.config.js**
+
+Open `vite.config.js`. Add to the top-level imports:
+
+```javascript
+import swc from 'unplugin-swc';
+```
+
+Find the `plugins: [...]` array in the renderer or top-level Vite config. Add the SWC plugin entry:
+
+```javascript
+  swc.vite({
+    jsc: {
+      target: 'es2022',
+      parser: {
+        syntax: 'typescript',
+        decorators: true,
+      },
+      transform: {
+        legacyDecorator: true,
+        decoratorMetadata: true,
+      },
+    },
+  }),
+```
+
+SWC replaces esbuild only for `.ts` files. JavaScript continues through esbuild.
+
+- [ ] **Step 3: Write a decorator metadata smoke test**
+
+Create `tests/regression/decorator-metadata-smoke.test.ts`:
+
+```typescript
+import 'reflect-metadata';
+import { describe, it, expect } from 'vitest';
+
+class FakeDep {}
+
+function injectable(): ClassDecorator {
+  return () => {};
+}
+
+@injectable()
+class Consumer {
+  constructor(public readonly dep: FakeDep) {}
+}
+
+describe('decorator metadata emission', () => {
+  it('emits design:paramtypes metadata for decorated classes', () => {
+    const paramTypes = Reflect.getMetadata('design:paramtypes', Consumer);
+    expect(paramTypes).toBeDefined();
+    expect(Array.isArray(paramTypes)).toBe(true);
+    expect(paramTypes).toHaveLength(1);
+    expect(paramTypes[0]).toBe(FakeDep);
+  });
+});
+```
+
+This test must PASS. If it fails, SWC isn't transforming `.ts` files correctly — investigate before committing.
+
+- [ ] **Step 4: Run the smoke test in isolation**
+
+Run: `npx vitest run tests/regression/decorator-metadata-smoke.test.ts`
+Expected: 1 test passed. `Reflect.getMetadata('design:paramtypes', Consumer)` returns `[FakeDep]`.
+
+If it fails (returns undefined), the SWC plugin isn't active or isn't configured correctly. Fix before committing.
+
+- [ ] **Step 5: Run full test suite to verify no regression**
+
+Run: `npm test -- --run 2>&1 | tail -5`
+Expected: 2908 tests pass (2907 baseline + 1 new smoke test).
+
+- [ ] **Step 6: Verify build still works**
+
+Run: `npm run build:vite 2>&1 | tail -10`
+Expected: exit 0. Renderer bundle builds successfully with SWC in the pipeline.
+
+- [ ] **Step 7: Verify lint still works**
+
+Run: `npm run lint 2>&1 | tail -3`
+Expected: exit 0.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add package.json package-lock.json vite.config.js tests/regression/decorator-metadata-smoke.test.ts
+git commit -m "build(vite): configure SWC transpilation for decorator metadata"
+```
+
+---
+
 ## Task 5: Create turbo.json
 
 Define the Turborepo task pipeline. Phase 0 doesn't use Turbo yet for npm scripts, but the config must exist and be valid for Phase 1's platform packages to plug in.
