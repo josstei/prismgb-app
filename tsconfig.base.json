@@ -10,6 +10,8 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
