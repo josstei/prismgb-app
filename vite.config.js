@@ -7,24 +7,11 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { swcConfig } from './scripts/swc.config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
-
-const swcConfig = {
-  jsc: {
-    target: 'es2022',
-    parser: {
-      syntax: 'typescript',
-      decorators: true,
-    },
-    transform: {
-      legacyDecorator: true,
-      decoratorMetadata: true,
-    },
-  },
-};
 
 export default defineConfig({
   plugins: [
@@ -148,8 +135,8 @@ export default defineConfig({
   ],
 
   // Worker sub-build plugin chain — SWC must be applied here too because
-  // unplugin-swc disables esbuild globally (esbuild: false) and the worker
-  // sub-build runs in its own plugin context that doesn't inherit top-level plugins.
+  // unplugin-swc disables esbuild globally and the worker sub-build runs in its
+  // own plugin context that doesn't inherit top-level plugins.
   worker: {
     plugins: () => [swc.vite(swcConfig)],
   },
