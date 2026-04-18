@@ -1,0 +1,28 @@
+{
+  "capturedAt": "2026-04-18T02:01:33Z",
+  "gitSha": "831ee5b9ee47d7ae19883f60122de729eaefe10a",
+  "branch": "refactor/phase-0-tooling",
+  "loc": {
+    "srcTotal": 30752,
+    "srcTypescriptFiles": 168,
+    "srcJavascriptFiles": 71
+  },
+  "packages": {
+    "scaffoldedEmpty": [
+      "prismgb-chroma",
+      "prismgb-core",
+      "prismgb-devices",
+      "prismgb-di",
+      "prismgb-ipc",
+      "prismgb-shader-compiler",
+      "prismgb-shader-presets",
+      "prismgb-stream-source"
+    ],
+    "active": ["prismgb-gpu"]
+  },
+  "baselineValidation": {
+    "testsPassedInStep2": true,
+    "lintPassedInStep3": true,
+    "typecheckPassedInStep4": true
+  }
+}
