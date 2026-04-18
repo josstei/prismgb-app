@@ -150,8 +150,10 @@ Expected: file created, contents printed. `srcTypescriptFiles` should be around 
 
 - [ ] **Step 7: Commit baseline**
 
+`artifacts/` is in `.gitignore` (generated build outputs are excluded). The baseline JSON is a permanent historical record — commit it with `-f` to force-stage despite the ignore rule.
+
 ```bash
-git add artifacts/phase-0-baseline.json
+git add -f artifacts/phase-0-baseline.json
 git commit -m "chore(phase-0): capture baseline metrics before refactor"
 ```
 
