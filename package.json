@@ -55,14 +55,25 @@
   "license": "MIT",
   "dependencies": {
     "@prismgb/gpu": "*",
+    "@trpc/client": "^11.0.0",
+    "@trpc/server": "^11.0.0",
     "awilix": "^12.1.0",
+    "comlink": "^4.4.0",
+    "consola": "^3.3.0",
+    "electron-trpc": "^0.7.0",
     "electron-updater": "^6.8.3",
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
     "joi": "^18.1.2",
+    "mitt": "^3.0.1",
+    "pino": "^9.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "tsyringe": "^4.8.0",
     "usb-detection": "^4.14.2",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
