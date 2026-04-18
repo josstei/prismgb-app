@@ -4,12 +4,28 @@
  */
 
 import { defineConfig } from 'vitest/config';
+import swc from 'unplugin-swc';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  plugins: [
+    swc.vite({
+      jsc: {
+        target: 'es2022',
+        parser: {
+          syntax: 'typescript',
+          decorators: true,
+        },
+        transform: {
+          legacyDecorator: true,
+          decoratorMetadata: true,
+        },
+      },
+    }),
+  ],
   root: __dirname,
   resolve: {
     alias: {

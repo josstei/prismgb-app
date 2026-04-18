@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import swc from 'unplugin-swc';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -11,8 +12,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
+const swcConfig = {
+  jsc: {
+    target: 'es2022',
+    parser: {
+      syntax: 'typescript',
+      decorators: true,
+    },
+    transform: {
+      legacyDecorator: true,
+      decoratorMetadata: true,
+    },
+  },
+};
+
 export default defineConfig({
   plugins: [
+    swc.vite(swcConfig),
     // Copy assets and JSON files
     viteStaticCopy({
       targets: [
@@ -130,6 +146,13 @@ export default defineConfig({
       nodeIntegration: false
     })
   ],
+
+  // Worker sub-build plugin chain — SWC must be applied here too because
+  // unplugin-swc disables esbuild globally (esbuild: false) and the worker
+  // sub-build runs in its own plugin context that doesn't inherit top-level plugins.
+  worker: {
+    plugins: () => [swc.vite(swcConfig)],
+  },
 
   // Renderer build config
   build: {
