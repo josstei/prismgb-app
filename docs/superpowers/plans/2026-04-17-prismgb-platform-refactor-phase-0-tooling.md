@@ -428,11 +428,13 @@ git commit -m "build(tsconfig): add decorator support to base config"
 
 ## Task 4A: Configure SWC for Decorator Metadata
 
-**Discovered during Task 4 code review.** Vite uses esbuild for TypeScript transpilation. esbuild does NOT support `emitDecoratorMetadata` — it strips the flag silently. This means tsyringe's implicit type-based injection (`constructor(private foo: Foo)`) will fail at runtime in Phase 1 with `undefined` parameter resolution. We need SWC (Rust-based, supports decorator metadata) to transpile `.ts` files in the Vite pipeline.
+**Discovered during Task 4 code review.** Vite uses esbuild for TypeScript transpilation. esbuild does NOT support `emitDecoratorMetadata` — it strips the flag silently. This means tsyringe's implicit type-based injection (`constructor(private foo: Foo)`) will fail at runtime in Phase 1 with `undefined` parameter resolution. We need SWC (Rust-based, supports decorator metadata) to transpile both `.ts` and `.js` files in the Vite and Vitest pipelines.
 
 **Files:**
 - Modify: `package.json` (add `unplugin-swc`, `@swc/core` to devDependencies)
 - Modify: `vite.config.js` (add SWC plugin)
+- Modify: `vitest.config.js` (add SWC plugin)
+- Create: `scripts/swc.config.js` (shared SWC configuration)
 - Create: `tests/regression/decorator-metadata-smoke.test.ts` (verify metadata is emitted at runtime)
 
 - [ ] **Step 1: Install SWC toolchain**
@@ -473,7 +475,7 @@ Find the `plugins: [...]` array in the renderer or top-level Vite config. Add th
   }),
 ```
 
-SWC replaces esbuild only for `.ts` files. JavaScript continues through esbuild.
+unplugin-swc globally disables esbuild and transpiles both TypeScript and JavaScript. esbuild is not a fallback. This is required because esbuild does not emit decorator metadata.
 
 - [ ] **Step 3: Write a decorator metadata smoke test**
 
@@ -532,8 +534,8 @@ Expected: exit 0.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add package.json package-lock.json vite.config.js tests/regression/decorator-metadata-smoke.test.ts
-git commit -m "build(vite): configure SWC transpilation for decorator metadata"
+git add package.json package-lock.json scripts/swc.config.js vite.config.js vitest.config.js tests/regression/decorator-metadata-smoke.test.ts
+git commit -m "build(swc): configure SWC transpilation for decorator metadata"
 ```
 
 ---
@@ -631,14 +633,17 @@ Write the following to `vitest.workspace.ts`:
 
 ```typescript
 import { defineWorkspace } from 'vitest/config';
+import swc from 'unplugin-swc';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { swcConfig } from './scripts/swc.config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineWorkspace([
   'packages/*',
   {
+    plugins: [swc.vite(swcConfig)],
     test: {
       name: 'app-shell',
       root: __dirname,
