@@ -4,10 +4,14 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   license-check:
@@ -16,32 +20,32 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-deps
         with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+          skip-native-deps: 'true'
 
       - name: Check production licenses
         run: |
+          # ffmpeg-static bundles a GPL binary; its npm metadata reports GPL.
+          # The JS wrapper is MIT. Excluded because license-checker reads the
+          # reported metadata, not the wrapper's actual license. The binary
+          # licensing is handled separately via electron-builder asarUnpack.
           VERSION=$(node -p 'require("./package.json").version')
           npx license-checker \
             --production \
-            --excludePackages "prismgb@${VERSION},ffmpeg-static,ffprobe-static" \
+            --excludePackages "prismgb@${VERSION},ffmpeg-static" \
             --failOn "GPL;AGPL;LGPL;CDDL;EPL;OSL;SSPL"
 
-      - name: Generate license report
+      - name: Generate full license report (all production deps)
         if: always()
         run: npx license-checker --production --json > license-report.json
 
       - name: Upload license report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: license-report
           path: license-report.json
