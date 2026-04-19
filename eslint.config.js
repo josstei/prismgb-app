@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsEslintPlugin from '@typescript-eslint/eslint-plugin';
+import importPlugin from 'eslint-plugin-import';
 
 export default [
   js.configs.recommended,
@@ -146,6 +147,43 @@ export default [
     rules: {
       'no-restricted-imports': ['error', {
         patterns: ['@main/*', '@renderer/*', '@preload/*']
+      }]
+    }
+  },
+  {
+    files: ['src/**/*.{js,ts}', 'packages/**/*.{js,ts}'],
+    plugins: {
+      import: importPlugin
+    },
+    settings: {
+      'import/resolver': {
+        typescript: true
+      }
+    },
+    rules: {
+      'import/no-restricted-paths': ['error', {
+        zones: [
+          {
+            target: './src/renderer',
+            from: './src/main',
+            message: 'Renderer process cannot import from main process.'
+          },
+          {
+            target: './src/main',
+            from: './src/renderer',
+            message: 'Main process cannot import from renderer process.'
+          },
+          {
+            target: './src/preload',
+            from: './src/main',
+            message: 'Preload cannot import from main process.'
+          },
+          {
+            target: './src/preload',
+            from: './src/renderer',
+            message: 'Preload cannot import from renderer process.'
+          }
+        ]
       }]
     }
   },
