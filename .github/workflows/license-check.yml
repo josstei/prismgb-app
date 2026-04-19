@@ -1,0 +1,48 @@
+name: License Compliance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license-check:
+    name: Check Production License Compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check production licenses
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          npx license-checker \
+            --production \
+            --excludePackages "prismgb@${VERSION},ffmpeg-static,ffprobe-static" \
+            --failOn "GPL;AGPL;LGPL;CDDL;EPL;OSL;SSPL"
+
+      - name: Generate license report
+        if: always()
+        run: npx license-checker --production --json > license-report.json
+
+      - name: Upload license report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: license-report
+          path: license-report.json
+          retention-days: 30
