@@ -14,7 +14,6 @@ import { swcConfig } from './scripts/swc.config.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [swc.vite(swcConfig)],
   test: {
     projects: [
       'packages/*',

@@ -1256,6 +1256,18 @@
       "code": "TS7006",
       "maxCount": 2,
       "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "vitest.config.ts",
+      "code": "TS2345",
+      "maxCount": 1,
+      "expiresOn": "2026-04-30"
+    },
+    {
+      "file": "vitest.config.ts",
+      "code": "TS2769",
+      "maxCount": 1,
+      "expiresOn": "2026-04-30"
     }
   ]
 }

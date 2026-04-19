@@ -44,7 +44,8 @@
     "src/main/**/*.ts",
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",
-    "src/types/**/*.d.ts"
+    "src/types/**/*.d.ts",
+    "vitest.config.ts"
   ],
   "exclude": [
     "node_modules",
