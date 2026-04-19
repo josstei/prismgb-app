@@ -4,7 +4,7 @@
 
 **Goal:** Install every new dependency, delete empty scaffolded packages, and create every tooling config file the rest of the refactor depends on, with zero app behavior change.
 
-**Architecture:** Purely additive tooling changes. New deps are installed but no source code imports them yet. Configuration files (`turbo.json`, `vitest.workspace.ts`, `.changeset/config.json`, `.github/workflows/license-check.yml`, etc.) are created and validated but do not alter existing build/test/lint outputs. Existing app code, tests, and CI jobs continue to work exactly as before.
+**Architecture:** Purely additive tooling changes. New deps are installed but no source code imports them yet. Configuration files (`turbo.json`, `vitest.config.ts`, `.changeset/config.json`, `.github/workflows/license-check.yml`, etc.) are created and validated but do not alter existing build/test/lint outputs. Existing app code, tests, and CI jobs continue to work exactly as before.
 
 **Tech Stack:** Node 22, npm workspaces, Vite 7, Vitest 4, TypeScript 5.9, Electron 28, Turborepo, Changesets, license-checker, eslint-plugin-import.
 
@@ -30,7 +30,7 @@ Files created by this phase:
 | Path | Responsibility |
 |---|---|
 | `turbo.json` | Turborepo task pipeline configuration (build/test/lint/typecheck). |
-| `vitest.workspace.ts` | Vitest workspace config; replaces `vitest.config.js`, preserves behavior. |
+| `vitest.config.ts` | Vitest projects config (Vitest 4 API); replaces `vitest.config.js`, preserves behavior. |
 | `.changeset/config.json` | Changesets versioning config (Tier 1 linked, others independent, all private). |
 | `.changeset/README.md` | Standard Changesets readme. |
 | `.github/workflows/license-check.yml` | CI workflow failing on GPL-family license ingress. |
@@ -619,20 +619,22 @@ git commit -m "build(turbo): add turborepo task pipeline configuration"
 
 ---
 
-## Task 6: Migrate to Vitest Workspace Mode
+## Task 6: Migrate to Vitest Projects Mode
 
-Replace `vitest.config.js` with `vitest.workspace.ts` that preserves all current behavior (aliases, setup files, coverage config, pool settings) while adding support for per-package test configs in future phases.
+> **Note:** Vitest 4 removed `defineWorkspace`; this task uses the `test.projects` approach via `defineConfig` instead. The file is named `vitest.config.ts` (not `vitest.workspace.ts`).
+
+Replace `vitest.config.js` with `vitest.config.ts` that preserves all current behavior (aliases, setup files, coverage config, pool settings) while adding support for per-package test configs in future phases.
 
 **Files:**
-- Create: `vitest.workspace.ts`
+- Create: `vitest.config.ts`
 - Delete: `vitest.config.js`
 
-- [ ] **Step 1: Create vitest.workspace.ts preserving all existing behavior**
+- [x] **Step 1: Create vitest.config.ts preserving all existing behavior**
 
-Write the following to `vitest.workspace.ts`:
+Write the following to `vitest.config.ts`:
 
 ```typescript
-import { defineWorkspace } from 'vitest/config';
+import { defineConfig } from 'vitest/config';
 import swc from 'unplugin-swc';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -640,110 +642,117 @@ import { swcConfig } from './scripts/swc.config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineWorkspace([
-  'packages/*',
-  {
-    plugins: [swc.vite(swcConfig)],
-    test: {
-      name: 'app-shell',
-      root: __dirname,
-      environment: 'happy-dom',
-      globals: true,
-      include: [
-        'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
-        'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
-      ],
+export default defineConfig({
+  plugins: [swc.vite(swcConfig)],
+  test: {
+    projects: [
+      'packages/*',
+      {
+        plugins: [swc.vite(swcConfig)],
+        test: {
+          name: 'app-shell',
+          root: __dirname,
+          environment: 'happy-dom',
+          globals: true,
+          include: [
+            'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
+            'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
+          ],
+          exclude: [
+            'tests/e2e/**',
+            'tests/workflows/index.js',
+            'node_modules/**',
+            'packages/**',
+            '.worktrees/**'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/testing-library.setup.js')
+          ],
+          testTimeout: 10000,
+          pool: 'forks',
+          fileParallelism: true,
+          isolate: true,
+          alias: {
+            '@': path.resolve(__dirname, 'src'),
+            '@main': path.resolve(__dirname, 'src/main'),
+            '@renderer': path.resolve(__dirname, 'src/renderer'),
+            '@preload': path.resolve(__dirname, 'src/preload'),
+            '@shared': path.resolve(__dirname, 'src/shared'),
+            '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+          }
+        }
+      }
+    ],
+    maxWorkers: 2,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './tests/coverage',
+      all: true,
+      include: ['src/**/*.{js,ts}'],
       exclude: [
-        'tests/e2e/**',
-        'tests/workflows/index.js',
         'node_modules/**',
-        'packages/**'
+        'dist/**',
+        'build/**',
+        '**/*.test.{js,ts}',
+        '**/*.spec.{js,ts}',
+        '**/index.{js,ts}',
+        'scripts/**',
+        'assets/**',
+        'src/main/**',
+        'src/preload/**',
+        'src/renderer/infrastructure/services/updates/**',
+        'src/**/workers/*.{js,ts}',
+        'src/**/rendering/gpu/*.{js,ts}',
+        'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
+        'src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts',
+        'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
+        'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
+        'src/**/gpu-render-loop.service.{js,ts}',
+        'src/**/audio/*.{js,ts}',
+        'src/**/canvas-lifecycle.service.{js,ts}',
+        'src/renderer/presentation/shell/*.{js,ts}',
+        'src/renderer/presentation/icons/*.{js,ts}',
+        'src/renderer/presentation/features/**/*.template.{js,ts}',
+        'src/shared/interfaces/**',
+        'src/shared/ipc/*.contract.ts',
+        'src/**/*.interface.{js,ts}',
+        'src/**/*.type.ts',
+        'src/**/*.types.ts',
+        'src/**/*.d.ts',
+        '**/*.json'
       ],
-      setupFiles: [
-        path.resolve(__dirname, 'tests/setup.js'),
-        path.resolve(__dirname, 'tests/testing-library.setup.js')
-      ],
-      testTimeout: 10000,
-      pool: 'forks',
-      poolOptions: {
-        forks: {
-          maxForks: 2
-        }
-      },
-      fileParallelism: true,
-      isolate: true,
-      coverage: {
-        provider: 'v8',
-        reporter: ['text', 'json', 'html'],
-        reportsDirectory: './tests/coverage',
-        all: true,
-        include: ['src/**/*.{js,ts}'],
-        exclude: [
-          'node_modules/**',
-          'dist/**',
-          'build/**',
-          '**/*.test.{js,ts}',
-          '**/*.spec.{js,ts}',
-          '**/index.{js,ts}',
-          'scripts/**',
-          'assets/**',
-          'src/main/**',
-          'src/preload/**',
-          'src/renderer/infrastructure/services/updates/**',
-          'src/**/workers/*.{js,ts}',
-          'src/**/rendering/gpu/*.{js,ts}',
-          'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
-          'src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts',
-          'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
-          'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
-          'src/**/gpu-render-loop.service.{js,ts}',
-          'src/**/audio/*.{js,ts}',
-          'src/**/canvas-lifecycle.service.{js,ts}',
-          'src/renderer/presentation/shell/*.{js,ts}',
-          'src/renderer/presentation/icons/*.{js,ts}',
-          'src/renderer/presentation/features/**/*.template.{js,ts}',
-          'src/shared/interfaces/**',
-          'src/shared/ipc/*.contract.ts',
-          'src/**/*.interface.{js,ts}',
-          'src/**/*.type.ts',
-          'src/**/*.types.ts',
-          'src/**/*.d.ts',
-          '**/*.json'
-        ],
-        thresholds: {
-          lines: 80,
-          functions: 80,
-          branches: 75,
-          statements: 80
-        }
-      },
-      alias: {
-        '@': path.resolve(__dirname, 'src'),
-        '@main': path.resolve(__dirname, 'src/main'),
-        '@renderer': path.resolve(__dirname, 'src/renderer'),
-        '@preload': path.resolve(__dirname, 'src/preload'),
-        '@shared': path.resolve(__dirname, 'src/shared'),
-        '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80
       }
     }
   }
-]);
+});
 ```
 
-- [ ] **Step 2: Delete the old vitest.config.js**
+Key differences from the original `defineWorkspace` proposal:
+- Uses `defineConfig` (standard Vitest 4 API) not `defineWorkspace` (removed in Vitest 4)
+- `test.projects: [...]` replaces top-level workspace array
+- `maxWorkers: 2` stays at top-level `test` (not per-project `poolOptions.forks.maxForks` which is not a Vitest 4 user config option)
+- Coverage moves to top-level `test.coverage` (applies across all projects)
+- `'.worktrees/**'` exclusion prevents sibling-branch test discovery
+
+- [x] **Step 2: Delete the old vitest.config.js**
 
 ```bash
 rm vitest.config.js
 ```
 
-- [ ] **Step 3: Run full test suite to verify behavior is preserved**
+- [x] **Step 3: Run full test suite to verify behavior is preserved**
 
 Run: `npm test -- --run`
-Expected: same number of tests pass as in Task 0 baseline. Duration should be similar (±10%).
+Expected: app-shell project runs 2908 tests (same as baseline). Total with `@prismgb/gpu` is 2927 (2908 + 19 gpu tests now discovered via `packages/*` glob — this is intended).
 
-If any test fails now that passed before, the workspace config is missing something from the original. Compare against `artifacts/phase-0-baseline.json` and fix before continuing.
-
-- [ ] **Step 4: Verify path-filtered tests still work**
+- [x] **Step 4: Verify path-filtered tests still work**
 
 Run: `npm run test:unit`
 Expected: only unit tests run, exits 0.
@@ -751,22 +760,22 @@ Expected: only unit tests run, exits 0.
 Run: `npm run test:integration`
 Expected: only integration tests run, exits 0.
 
-- [ ] **Step 5: Verify coverage still works**
+- [x] **Step 5: Verify coverage still works**
 
 Run: `npm run test:coverage -- --run`
 Expected: exits 0. Coverage summary printed. Thresholds (80% lines/functions/statements, 75% branches) still enforced.
 
-- [ ] **Step 6: Verify @prismgb/gpu's own tests still run via workspace**
+- [x] **Step 6: Verify @prismgb/gpu's own tests still run via projects**
 
 Run: `npx vitest run --project=@prismgb/gpu 2>&1 | tail -10`
-Expected: GPU package tests run and pass. If the project name differs, use `npx vitest --list-projects` to see the actual names.
+Expected: 19 GPU package tests run and pass across 3 files.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
-git add vitest.workspace.ts
+git add vitest.config.ts docs/superpowers/plans/2026-04-17-prismgb-platform-refactor-phase-0-tooling.md
 git rm vitest.config.js
-git commit -m "test(vitest): migrate to workspace mode preserving app-shell behavior"
+git commit -m "test(vitest): migrate to vitest 4 projects mode preserving app-shell behavior"
 ```
 
 ---
@@ -1212,7 +1221,7 @@ Phase 0 of the platform refactor (spec: `docs/superpowers/specs/2026-04-17-prism
 Old deps (`awilix`, `eventemitter3`, `joi`, `winston`) remain during migration; removed in Phase 6.
 
 ### Testing
-- Vitest runs in **workspace mode** (`vitest.workspace.ts` replaces `vitest.config.js`). Existing test commands (`npm test`, `npm run test:unit`, etc.) behave identically.
+- Vitest runs in **projects mode** (`vitest.config.ts` replaces `vitest.config.js`, using `test.projects` in Vitest 4 API). Existing test commands (`npm test`, `npm run test:unit`, etc.) behave identically.
 
 ### License compliance
 - CI workflow `.github/workflows/license-check.yml` fails PRs that introduce GPL/AGPL/LGPL/CDDL/EPL/OSL/SSPL licenses in production deps.
@@ -1351,7 +1360,7 @@ Phase 0 is **complete** when ALL of the following hold:
 | P0-3 | 8 empty scaffolded packages removed | `ls packages/` lists only `prismgb-gpu` |
 | P0-4 | `tsconfig.base.json` has decorator support | `grep "experimentalDecorators" tsconfig.base.json` matches |
 | P0-5 | `turbo.json` valid and invocable | `npx turbo run test --dry-run` succeeds |
-| P0-6 | `vitest.workspace.ts` preserves behavior | `npm test -- --run` produces same passing count as baseline |
+| P0-6 | `vitest.config.ts` preserves behavior | `npm test -- --run` produces same passing count as baseline (2908 app-shell + 19 @prismgb/gpu = 2927 total) |
 | P0-7 | `.changeset/config.json` valid | `npx changeset status` succeeds |
 | P0-8 | License check workflow present | `.github/workflows/license-check.yml` exists, YAML valid |
 | P0-9 | `eslint-plugin-import` active | `npm run lint` passes; `import/no-restricted-paths` rule catches planted violations |
@@ -1397,7 +1406,7 @@ If the executor is tempted to do any of these, stop — they belong in a later p
 | Task 3: Remove empty scaffolding | 5 min |
 | Task 4: tsconfig decorator flags | 10 min |
 | Task 5: turbo.json | 20 min |
-| Task 6: vitest workspace migration | 30–45 min (most brittle — preserve exact behavior) |
+| Task 6: vitest projects migration | 30–45 min (most brittle — preserve exact behavior) |
 | Task 7: Changesets init | 15 min |
 | Task 8: License CI workflow | 20 min |
 | Task 9: eslint-plugin-import | 20 min |
