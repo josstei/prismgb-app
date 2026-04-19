@@ -804,9 +804,7 @@ Write the following to `.changeset/config.json`:
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [
-    ["@prismgb/core", "@prismgb/transport", "@prismgb/runtime"]
-  ],
+  "linked": [],
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
@@ -814,7 +812,7 @@ Write the following to `.changeset/config.json`:
 }
 ```
 
-Note: `@prismgb/core`, `@prismgb/transport`, `@prismgb/runtime` don't exist yet — they're created in Phase 1. Changesets tolerates unknown packages in `linked` entries and activates them once they exist.
+Note: `linked` is empty here. Changesets validates package names in `linked` against the workspace's actual packages and **rejects unknown packages**, so the plan-time intent of linking `@prismgb/core`, `@prismgb/transport`, `@prismgb/runtime` cannot be encoded until those packages exist. **Phase 1 must populate `linked` once Tier 1 packages are created**: change `"linked": []` to `"linked": [["@prismgb/core", "@prismgb/transport", "@prismgb/runtime"]]` and run `npx changeset status` to confirm.
 
 - [ ] **Step 3: Write .changeset/README.md**
 
