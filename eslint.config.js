@@ -84,6 +84,29 @@ export default [
     }
   },
   {
+    files: ['packages/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      ecmaVersion: 2025,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: { jsx: false }
+      },
+      globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly'
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tsEslintPlugin
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off'
+    }
+  },
+  {
     files: ['src/main/application/**/*.{js,ts}'],
     rules: {
       'no-restricted-imports': ['error', {
@@ -157,7 +180,9 @@ export default [
     },
     settings: {
       'import/resolver': {
-        typescript: true
+        typescript: {
+          project: './tsconfig.base.json'
+        }
       }
     },
     rules: {
@@ -190,7 +215,7 @@ export default [
   {
     ignores: [
       'node_modules/**',
-      'dist/**',
+      '**/dist/**',
       'out/**',
       'coverage/**',
       '**/*.test.js',
