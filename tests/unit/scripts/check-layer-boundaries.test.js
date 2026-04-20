@@ -104,4 +104,57 @@ describe('check-layer-boundaries script', () => {
       targetLayer: 'renderer/presentation'
     });
   });
+
+  it('flags Tier 2 capability package importing another Tier 2 package', () => {
+    const report = runFixture('package-tier2-cross-import-violation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      ruleId: 'tier2-no-cross-import'
+    });
+  });
+
+  it('flags src/ importing an internal package path', () => {
+    const report = runFixture('package-src-internal-path-violation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      ruleId: 'src-no-internal-package-paths'
+    });
+  });
+
+  it('flags renderer importing a package main subpath', () => {
+    const report = runFixture('package-renderer-imports-main-violation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      ruleId: 'renderer-no-main-or-worker-package'
+    });
+  });
+
+  it('flags main importing a package renderer subpath', () => {
+    const report = runFixture('package-main-imports-renderer-violation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      ruleId: 'main-no-renderer-or-worker-package'
+    });
+  });
+
+  it('flags worker importing a package main subpath', () => {
+    const report = runFixture('package-worker-imports-main-violation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      ruleId: 'worker-no-main-or-renderer-package'
+    });
+  });
+
+  it('flags presentation importing transport/main and also fires renderer rule', () => {
+    const report = runFixture('package-presentation-imports-transport-main-violation');
+    expect(report.violations).toHaveLength(2);
+    const ruleIds = report.violations.map((v) => v.ruleId);
+    expect(ruleIds).toContain('renderer-no-main-or-worker-package');
+    expect(ruleIds).toContain('presentation-no-transport-main');
+  });
+
+  it('accepts gpu importing its own shared subpath without triggering Tier 2 cross-import rule', () => {
+    const report = runFixture('package-gpu-self-import-ok');
+    expect(report.violations).toHaveLength(0);
+  });
 });

@@ -141,7 +141,24 @@ const FORBIDDEN_LAYER_MAP = {
   ])
 };
 
-// Package-level rules (activate as capability packages are added in Phase 1+)
+/**
+ * Package-level boundary rules. Distinct from LayerIds/FORBIDDEN_LAYER_MAP
+ * which enforce process/layer boundaries within src/.
+ *
+ * Each rule is { id, fromPattern (RegExp), forbiddenPattern (RegExp), message }.
+ * - fromPattern matches OS-native file paths (supports POSIX and Windows separators).
+ * - forbiddenPattern matches module specifiers (always POSIX-style).
+ *
+ * Rule 1 (tier2-no-cross-import) has asymmetric gpu exclusion:
+ * - fromPattern excludes gpu because it is currently the only Tier 2 package
+ *   (no cross-imports possible). When additional Tier 2 packages are added in
+ *   Phase 1+, gpu must be removed from the fromPattern exclusion.
+ * - forbiddenPattern does NOT exclude gpu because future Tier 2 packages must
+ *   not import from gpu either — they should share types via @prismgb/contracts.
+ *
+ * Rules are inert until Phase 1+ creates capability packages. They activate
+ * automatically as new packages are added.
+ */
 const PACKAGE_RULES = [
   {
     id: 'tier2-no-cross-import',
@@ -395,7 +412,8 @@ function runCli() {
     console.error('Architecture boundary violations:');
     for (const violation of violations) {
       const relativePath = path.relative(projectRoot, violation.filePath);
-      console.error(`- ${relativePath}: ${violation.message} (${violation.specifier})`);
+      const ruleTag = violation.ruleId ? ` [${violation.ruleId}]` : '';
+      console.error(`- ${relativePath}:${ruleTag} ${violation.message} (${violation.specifier})`);
     }
     process.exit(1);
   }
