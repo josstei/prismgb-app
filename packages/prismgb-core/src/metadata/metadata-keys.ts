@@ -6,7 +6,5 @@ export const METADATA_KEYS = {
   SUBSCRIBE_HANDLERS: Symbol('prismgb:subscribe-handlers'),
   PUSH_PROPERTIES: Symbol('prismgb:push-properties'),
   ON_INIT: Symbol('prismgb:on-init'),
-  ON_DESTROY: Symbol('prismgb:on-destroy')
+  ON_DESTROY: Symbol('prismgb:on-destroy'),
 } as const;
-
-export type MetadataKey = typeof METADATA_KEYS[keyof typeof METADATA_KEYS];
