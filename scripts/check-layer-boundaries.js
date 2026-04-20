@@ -141,6 +141,46 @@ const FORBIDDEN_LAYER_MAP = {
   ])
 };
 
+// Package-level rules (activate as capability packages are added in Phase 1+)
+const PACKAGE_RULES = [
+  {
+    id: 'tier2-no-cross-import',
+    fromPattern: /[/\\]packages[/\\]prismgb-(?!core|transport|runtime|contracts|testing|gpu)[^/\\]+[/\\]/,
+    forbiddenPattern: /^@prismgb\/(?!core|transport|runtime|contracts|testing)[\w-]+(\/|$)/,
+    message: 'Tier 2 capability packages must not import from each other; share contracts via @prismgb/contracts or communicate via events.'
+  },
+  {
+    id: 'src-no-internal-package-paths',
+    fromPattern: /[/\\]src[/\\]/,
+    forbiddenPattern: /^@prismgb\/[\w-]+\/src\//,
+    message: 'src/ must only import from package public subpath exports (./shared, ./main, ./renderer, ./worker), not internal src/ paths.'
+  },
+  {
+    id: 'renderer-no-main-or-worker-package',
+    fromPattern: /[/\\]src[/\\]renderer[/\\]/,
+    forbiddenPattern: /^@prismgb\/[\w-]+\/(main|worker)(\/|$)/,
+    message: 'Renderer process cannot import main-side or worker-side package code.'
+  },
+  {
+    id: 'main-no-renderer-or-worker-package',
+    fromPattern: /[/\\]src[/\\]main[/\\]/,
+    forbiddenPattern: /^@prismgb\/[\w-]+\/(renderer|worker)(\/|$)/,
+    message: 'Main process cannot import renderer-side or worker-side package code.'
+  },
+  {
+    id: 'worker-no-main-or-renderer-package',
+    fromPattern: /[/\\]packages[/\\][^/\\]+[/\\]src[/\\]worker[/\\]/,
+    forbiddenPattern: /^@prismgb\/[\w-]+\/(main|renderer)(\/|$)/,
+    message: 'Worker code cannot import main-side or renderer-side package code.'
+  },
+  {
+    id: 'presentation-no-transport-main',
+    fromPattern: /[/\\]src[/\\]renderer[/\\]presentation[/\\]/,
+    forbiddenPattern: /^@prismgb\/transport\/main(\/|$)/,
+    message: 'Presentation layer cannot directly use transport/main. Go through a service.'
+  }
+];
+
 function normalizePath(value) {
   return value.split(path.sep).join('/');
 }
@@ -264,46 +304,72 @@ function buildViolationMessage(sourceLayer, targetLayer) {
   return `${sourceLayer} cannot depend on ${targetLayer}.`;
 }
 
+function checkPackageRules(filePath, specifiers) {
+  const violations = [];
+
+  for (const rule of PACKAGE_RULES) {
+    if (!rule.fromPattern.test(filePath)) {
+      continue;
+    }
+
+    for (const specifier of specifiers) {
+      if (rule.forbiddenPattern.test(specifier)) {
+        violations.push({
+          filePath,
+          sourceLayer: null,
+          targetLayer: null,
+          specifier,
+          message: rule.message,
+          ruleId: rule.id
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
 export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
   const srcRoot = path.join(projectRoot, 'src');
+  const packagesRoot = path.join(projectRoot, 'packages');
   const violations = [];
 
   if (!fs.existsSync(srcRoot)) {
     return { violations, fileCount: 0 };
   }
 
-  const allFiles = walkCodeFiles(srcRoot);
+  const srcFiles = walkCodeFiles(srcRoot);
+  const packageFiles = fs.existsSync(packagesRoot) ? walkCodeFiles(packagesRoot) : [];
+  const allFiles = [...srcFiles, ...packageFiles];
 
   for (const filePath of allFiles) {
-    const sourceLayer = classifyFileLayer(filePath, srcRoot);
-    if (!sourceLayer) {
-      continue;
-    }
-
-    const forbiddenLayers = FORBIDDEN_LAYER_MAP[sourceLayer];
-    if (!forbiddenLayers) {
-      continue;
-    }
-
     const sourceCode = fs.readFileSync(filePath, 'utf8');
     const specifiers = getImportSpecifiers(sourceCode);
 
-    for (const specifier of specifiers) {
-      const targetLayer = resolveTargetLayer(specifier, filePath, srcRoot);
-      if (!targetLayer) {
-        continue;
-      }
+    const sourceLayer = classifyFileLayer(filePath, srcRoot);
+    if (sourceLayer) {
+      const forbiddenLayers = FORBIDDEN_LAYER_MAP[sourceLayer];
+      if (forbiddenLayers) {
+        for (const specifier of specifiers) {
+          const targetLayer = resolveTargetLayer(specifier, filePath, srcRoot);
+          if (!targetLayer) {
+            continue;
+          }
 
-      if (forbiddenLayers.has(targetLayer)) {
-        violations.push({
-          filePath,
-          sourceLayer,
-          targetLayer,
-          specifier,
-          message: buildViolationMessage(sourceLayer, targetLayer)
-        });
+          if (forbiddenLayers.has(targetLayer)) {
+            violations.push({
+              filePath,
+              sourceLayer,
+              targetLayer,
+              specifier,
+              message: buildViolationMessage(sourceLayer, targetLayer)
+            });
+          }
+        }
       }
     }
+
+    violations.push(...checkPackageRules(filePath, specifiers));
   }
 
   violations.sort((a, b) => {
