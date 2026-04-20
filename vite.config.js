@@ -38,6 +38,7 @@ export default defineConfig({
           args.startup();
         },
         vite: {
+          plugins: [swc.vite(swcConfig)],
           resolve: {
             alias: {
               '@': path.resolve(__dirname, 'src'),
@@ -84,6 +85,7 @@ export default defineConfig({
             }
           },
           plugins: [
+            swc.vite(swcConfig),
             {
               // Emit package.json to make preload directory CommonJS scope
               name: 'emit-preload-package-json',
