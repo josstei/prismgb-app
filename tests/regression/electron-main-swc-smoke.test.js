@@ -1,3 +1,13 @@
+/**
+ * Smoke tests for electron main/preload sub-builds.
+ *
+ * Phase 1A currently verifies only that the bundles build with SWC in the
+ * pipeline. The `Reflect.metadata` emission assertion is deferred until
+ * `@prismgb/runtime.bootstrapMain()` is wired (later phase), at which point
+ * test 3 should be extended to:
+ *   expect(content).toContain('Reflect.metadata(')
+ * so removing SWC from the main sub-config causes a fast-fail.
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { execSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
