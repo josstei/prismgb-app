@@ -72,7 +72,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.6.0",
-    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vitest/coverage-v8": "^4.1.4",
     "@vitest/ui": "^4.0.14",
@@ -87,7 +87,7 @@
     "vite": "^7.3.2",
     "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.6",
-    "vite-plugin-static-copy": "^4.0.1",
+    "vite-plugin-static-copy": "^4.1.0",
     "vitest": "^4.0.14"
   },
   "build": {
