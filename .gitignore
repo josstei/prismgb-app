@@ -39,7 +39,6 @@ Thumbs.db
 .env
 .env.local
 .claude/
-CLAUDE.md
 GEMINI.md
 AGENT.md
 
