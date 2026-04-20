@@ -40,7 +40,8 @@
     "test:e2e:debug": "playwright test --debug",
     "prepare": "husky",
     "generate-icons": "node scripts/generate-icons.js",
-    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
+    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json",
+    "validate:phase-0": "npm run lint && npm run typecheck && npm test -- --run && npx license-checker --production --excludePackages \"prismgb@$(node -p 'require(\\\"./package.json\\\").version'),ffmpeg-static\" --failOn 'GPL;AGPL;LGPL;CDDL;EPL;OSL;SSPL' && npx turbo run test --filter=@prismgb/gpu --dry-run && npx changeset status"
   },
   "keywords": [
     "electron",
