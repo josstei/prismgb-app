@@ -23,7 +23,6 @@ export type {
 
 export type {
   PrismgbModule,
-  ModuleClass,
   ModuleSurface,
   ModuleLoader,
   ManifestContractPointer

@@ -1,9 +1,9 @@
+import type { Constructable } from '../metadata/module-metadata';
+
 export type ModuleSurface = 'shared' | 'main' | 'renderer' | 'worker';
 
-export type ModuleClass = new (...args: unknown[]) => object;
-
 export interface ModuleLoader {
-  (): Promise<{ default: ModuleClass }>;
+  (): Promise<{ default: Constructable }>;
 }
 
 export interface ManifestContractPointer {

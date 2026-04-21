@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { METADATA_KEYS } from './metadata-keys';
 
-export type Constructable = new (...args: any[]) => object;
+export type Constructable = new (...args: unknown[]) => object;
 
 export interface ModuleMetadata {
   providers: Constructable[];
