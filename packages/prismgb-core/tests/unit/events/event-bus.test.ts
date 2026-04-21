@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventBus } from '../../../src/events/event-bus';
+import type { EventChannelMap } from '../../../src/events/event-channel-map';
 
-interface TestMap {
+interface TestMap extends EventChannelMap {
   'ping': { ts: number };
   'pong': void;
   'data': { value: string };

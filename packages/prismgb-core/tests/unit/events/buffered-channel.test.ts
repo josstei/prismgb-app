@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { BufferedChannel } from '../../../src/events/buffered-channel';
 
 describe('BufferedChannel<T>', () => {
