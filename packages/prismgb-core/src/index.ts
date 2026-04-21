@@ -1,3 +1,12 @@
+/**
+ * @prismgb/core — Tier 1 platform package.
+ *
+ * Provides the decorator API, typed EventBus, push-channel primitives,
+ * logger contracts, module manifest types, and metadata introspection
+ * helpers consumed by all PrismGB capability packages.
+ *
+ * @packageDocumentation
+ */
 export { Injectable } from './decorators/injectable';
 export { Singleton } from './decorators/singleton';
 export { Service, type ServiceOptions } from './decorators/service';
