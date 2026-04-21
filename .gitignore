@@ -53,6 +53,7 @@ screenshots/
 
 # Test coverage
 tests/coverage/
+packages/*/tests/coverage/
 .vitest/
 artifacts/
 
