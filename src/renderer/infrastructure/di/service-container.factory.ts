@@ -117,7 +117,8 @@ class ServiceContainer<TServices extends ServiceInstanceMap = ServiceInstanceMap
         const dependencyNames = definition.dependencies.join(', ') || 'none';
         const message = (instantiationError as ResolutionErrorLike)?.message || String(instantiationError);
         throw new Error(
-          `[ServiceContainer] Failed to instantiate "${name}" (dependencies: ${dependencyNames}): ${message}`
+          `[ServiceContainer] Failed to instantiate "${name}" (dependencies: ${dependencyNames}): ${message}`,
+          { cause: instantiationError }
         );
       }
 
