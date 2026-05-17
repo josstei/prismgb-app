@@ -10,6 +10,9 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -25,9 +28,46 @@ type AudioEnergyResult = {
 };
 
 type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
+type TimerHandle = ReturnType<typeof setTimeout>;
+
+type AudioEnergyOptions = {
+  timeoutMs: number;
+  threshold: number;
+  token: number;
+};
+
+type SettingsServiceLike = {
+  getVolume(): number;
+};
+
+type StreamingAudioPipelineDependencies = {
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  settingsService: SettingsServiceLike;
+};
 
 export class StreamingAudioPipelineService extends BaseService {
-  constructor(dependencies) {
+  declare protected readonly eventBus: TypedEventBusLike;
+  declare protected readonly logger: LoggerLike;
+  declare protected readonly settingsService: SettingsServiceLike;
+
+  private _audioContext: AudioContext | null;
+  private _sourceNode: MediaStreamAudioSourceNode | null;
+  private _gainNode: GainNode | null;
+  private _analyserNode: AnalyserNode | null;
+  private _stream: MediaStream | null;
+  private _audioTrack: MediaStreamTrack | null;
+  private _isReady: boolean;
+  private _warmupToken: number;
+  private _volume: number;
+  private _targetGain: number;
+  private _unmuteTimeout: TimerHandle | null;
+  private _energyTimer: TimerHandle | null;
+  private _trackUnmuteHandler: (() => void) | null;
+  private _startPromise: Promise<boolean> | null;
+  private _unsubscribeVolume: (() => void) | null;
+
+  constructor(dependencies: StreamingAudioPipelineDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
 
     this._audioContext = null;
@@ -54,7 +94,7 @@ export class StreamingAudioPipelineService extends BaseService {
     );
   }
 
-  async start(stream) {
+  async start(stream: MediaStream | null | undefined): Promise<boolean> {
     if (this._startPromise && this._stream === stream) {
       return this._startPromise;
     }
@@ -75,7 +115,7 @@ export class StreamingAudioPipelineService extends BaseService {
     }
   }
 
-  async _startInternal(stream) {
+  private async _startInternal(stream: MediaStream | null | undefined): Promise<boolean> {
     this.stop();
 
     if (!stream) {
@@ -96,8 +136,12 @@ export class StreamingAudioPipelineService extends BaseService {
     const token = this._warmupToken;
 
     const startTime = performance.now();
-    const trackSettings = audioTrack.getSettings?.() || {};
-    const trackSampleRate = trackSettings.sampleRate || null;
+    const trackSettings = audioTrack.getSettings?.();
+    const trackSampleRate = trackSettings &&
+      'sampleRate' in trackSettings &&
+      typeof trackSettings.sampleRate === 'number'
+      ? trackSettings.sampleRate
+      : null;
 
     this._audioContext = this._createAudioContext(trackSampleRate);
     if (!this._audioContext) {
@@ -118,7 +162,7 @@ export class StreamingAudioPipelineService extends BaseService {
       try {
         await this._audioContext.resume();
       } catch (error) {
-        this.logger.warn('AudioContext resume failed:', error);
+        this.logger.warn('AudioContext resume failed:', getErrorMessage(error));
         this.stop();
         return false;
       }
@@ -164,7 +208,7 @@ export class StreamingAudioPipelineService extends BaseService {
     return true;
   }
 
-  stop() {
+  stop(): void {
     this._warmupToken += 1;
     this._startPromise = null;
     this._isReady = false;
@@ -187,7 +231,7 @@ export class StreamingAudioPipelineService extends BaseService {
 
     if (this._audioContext) {
       this._audioContext.close().catch((error) => {
-        this.logger.warn('AudioContext close failed:', error.message);
+        this.logger.warn('AudioContext close failed:', getErrorMessage(error));
       });
       this._audioContext = null;
     }
@@ -196,7 +240,7 @@ export class StreamingAudioPipelineService extends BaseService {
     this._audioTrack = null;
   }
 
-  cleanup() {
+  cleanup(): void {
     this.stop();
     if (this._unsubscribeVolume) {
       this._unsubscribeVolume();
@@ -204,11 +248,11 @@ export class StreamingAudioPipelineService extends BaseService {
     }
   }
 
-  isReady() {
+  isReady(): boolean {
     return this._isReady;
   }
 
-  _handleVolumeChanged(volume) {
+  private _handleVolumeChanged(volume: number): void {
     const clamped = Math.max(0, Math.min(100, volume));
     this._volume = clamped;
     this._targetGain = clamped / 100;
@@ -219,8 +263,8 @@ export class StreamingAudioPipelineService extends BaseService {
     }
   }
 
-  _createAudioContext(trackSampleRate) {
-    const AudioContextCtor = (window.AudioContext || window.webkitAudioContext) as AudioContextCtor | undefined;
+  private _createAudioContext(trackSampleRate: number | null): AudioContext | null {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) {
       return null;
     }
@@ -229,19 +273,26 @@ export class StreamingAudioPipelineService extends BaseService {
       try {
         return new AudioContextCtor({ sampleRate: trackSampleRate });
       } catch (error) {
-        this.logger.debug('AudioContext sampleRate override failed, retrying default:', error);
+        this.logger.debug(
+          'AudioContext sampleRate override failed, retrying default:',
+          getErrorMessage(error)
+        );
       }
     }
 
     try {
       return new AudioContextCtor();
     } catch (error) {
-      this.logger.error('AudioContext creation failed:', error);
+      this.logger.error('AudioContext creation failed:', getErrorMessage(error));
       return null;
     }
   }
 
-  _waitForTrackUnmute(track, timeoutMs, token): Promise<AudioWarmupResult> {
+  private _waitForTrackUnmute(
+    track: MediaStreamTrack,
+    timeoutMs: number,
+    token: number
+  ): Promise<AudioWarmupResult> {
     return new Promise<AudioWarmupResult>((resolve) => {
       if (!track) {
         resolve({ ready: false, reason: 'no-track', elapsedMs: 0 });
@@ -258,7 +309,9 @@ export class StreamingAudioPipelineService extends BaseService {
       const finish = (result: Omit<AudioWarmupResult, 'elapsedMs'>) => {
         if (settled) return;
         settled = true;
-        clearTimeout(this._unmuteTimeout);
+        if (this._unmuteTimeout !== null) {
+          clearTimeout(this._unmuteTimeout);
+        }
         this._unmuteTimeout = null;
         this._removeTrackListeners();
         resolve({ ...result, elapsedMs: Math.round(performance.now() - start) });
@@ -278,7 +331,11 @@ export class StreamingAudioPipelineService extends BaseService {
     });
   }
 
-  _waitForAudioEnergy({ timeoutMs, threshold, token }): Promise<AudioEnergyResult> {
+  private _waitForAudioEnergy({
+    timeoutMs,
+    threshold,
+    token
+  }: AudioEnergyOptions): Promise<AudioEnergyResult> {
     return new Promise<AudioEnergyResult>((resolve) => {
       if (!this._analyserNode) {
         resolve({ ready: false, reason: 'no-analyser', rms: 0, elapsedMs: 0 });
@@ -288,10 +345,21 @@ export class StreamingAudioPipelineService extends BaseService {
       const buffer = new Uint8Array(this._analyserNode.fftSize);
       let aboveCount = 0;
       const start = performance.now();
+      let settled = false;
 
-      const sample = () => {
+      const finish = (result: Omit<AudioEnergyResult, 'elapsedMs'>): void => {
+        if (settled) return;
+        settled = true;
+        if (this._energyTimer !== null) {
+          clearTimeout(this._energyTimer);
+          this._energyTimer = null;
+        }
+        resolve({ ...result, elapsedMs: Math.round(performance.now() - start) });
+      };
+
+      const sample = (): void => {
         if (!this._analyserNode || token !== this._warmupToken) {
-          resolve({ ready: false, reason: 'canceled', rms: 0, elapsedMs: Math.round(performance.now() - start) });
+          finish({ ready: false, reason: 'canceled', rms: 0 });
           return;
         }
 
@@ -301,7 +369,7 @@ export class StreamingAudioPipelineService extends BaseService {
         if (rms >= threshold) {
           aboveCount += 1;
           if (aboveCount >= 2) {
-            resolve({ ready: true, rms, elapsedMs: Math.round(performance.now() - start) });
+            finish({ ready: true, rms });
             return;
           }
         } else {
@@ -309,7 +377,7 @@ export class StreamingAudioPipelineService extends BaseService {
         }
 
         if (performance.now() - start >= timeoutMs) {
-          resolve({ ready: false, reason: 'timeout', rms, elapsedMs: Math.round(performance.now() - start) });
+          finish({ ready: false, reason: 'timeout', rms });
           return;
         }
 
@@ -320,18 +388,18 @@ export class StreamingAudioPipelineService extends BaseService {
     });
   }
 
-  _computeRms(buffer) {
+  private _computeRms(buffer: Uint8Array): number {
     if (!buffer || buffer.length === 0) return 0;
 
     let sum = 0;
-    for (let i = 0; i < buffer.length; i += 1) {
-      const value = (buffer[i] - 128) / 128;
+    for (const sample of buffer) {
+      const value = (sample - 128) / 128;
       sum += value * value;
     }
     return Math.sqrt(sum / buffer.length);
   }
 
-  _fadeTo(targetGain, fadeMs) {
+  private _fadeTo(targetGain: number, fadeMs: number): void {
     if (!this._gainNode || !this._audioContext) return;
 
     const now = this._audioContext.currentTime;
@@ -344,9 +412,9 @@ export class StreamingAudioPipelineService extends BaseService {
     this._gainNode.gain.setValueCurveAtTime(curve, now, fadeMs / 1000);
   }
 
-  _createEaseInCurve(startValue, endValue, steps) {
+  private _createEaseInCurve(startValue: number, endValue: number, steps: number): Float32Array {
     const curve = new Float32Array(steps);
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < steps; i += 1) {
       // Ease-in cubic: t^3 - slow start, accelerates toward end
       const t = i / (steps - 1);
       const eased = t * t * t;
@@ -355,7 +423,13 @@ export class StreamingAudioPipelineService extends BaseService {
     return curve;
   }
 
-  _getWarmupTimings() {
+  private _getWarmupTimings(): {
+    unmuteTimeoutMs: number;
+    energyTimeoutMs: number;
+    stabilizeDelayMs: number;
+    fadeMs: number;
+    energyThreshold: number;
+  } {
     const isLinux = this._isLinux();
     return {
       unmuteTimeoutMs: isLinux ? 1800 : 1200,
@@ -366,17 +440,17 @@ export class StreamingAudioPipelineService extends BaseService {
     };
   }
 
-  _isLinux() {
+  private _isLinux(): boolean {
     const ua = navigator.userAgent || '';
     if (ua.includes('Android')) return false;
     return ua.includes('Linux');
   }
 
-  _sleep(durationMs) {
-    return new Promise(resolve => setTimeout(resolve, durationMs));
+  private _sleep(durationMs: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, durationMs));
   }
 
-  _clearTimers() {
+  private _clearTimers(): void {
     if (this._unmuteTimeout) {
       clearTimeout(this._unmuteTimeout);
       this._unmuteTimeout = null;
@@ -387,7 +461,7 @@ export class StreamingAudioPipelineService extends BaseService {
     }
   }
 
-  _removeTrackListeners() {
+  private _removeTrackListeners(): void {
     if (this._audioTrack && this._trackUnmuteHandler) {
       this._audioTrack.removeEventListener('unmute', this._trackUnmuteHandler);
       this._trackUnmuteHandler = null;

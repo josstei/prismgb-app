@@ -6,11 +6,48 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import type { LoggerLike } from '@shared/base/service.base.js';
+import { EventChannels } from '@shared/events/event-channels.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import type {
+  GpuRecordingStartOptions,
+  GpuRendererServiceLike,
+  RecordingScaleParams
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type CaptureGpuRecordingDependencies = {
+  gpuRendererService: GpuRendererServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class CaptureGpuRecordingService extends BaseService {
+  declare protected readonly gpuRendererService: GpuRendererServiceLike;
+  declare protected readonly eventBus: TypedEventBusLike;
+  declare protected readonly logger: LoggerLike;
 
-  constructor(dependencies) {
+  _recordingCanvas: HTMLCanvasElement | null;
+  _recordingCtx: CanvasRenderingContext2D | null;
+  _recordingStream: MediaStream | null;
+  _recordingFrameId: number | null;
+  _isRecording: boolean;
+  _isCapturePending: boolean;
+  _recordingDroppedFrames: number;
+  _recordingWidth: number;
+  _recordingHeight: number;
+  _cachedScaleParams: RecordingScaleParams | null;
+  _cachedFrameWidth: number;
+  _cachedFrameHeight: number;
+  _isCanvasCleared: boolean;
+  _isDraining: boolean;
+  _lastCapturePromise: Promise<ImageBitmap> | null;
+
+  constructor(dependencies: CaptureGpuRecordingDependencies) {
     super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
 
     this._recordingCanvas = null;
@@ -34,19 +71,19 @@ class CaptureGpuRecordingService extends BaseService {
     this._lastCapturePromise = null;
   }
 
-  isActive() {
+  isActive(): boolean {
     return this._isRecording;
   }
 
-  getRecordingStream() {
+  getRecordingStream(): MediaStream | null {
     return this._recordingStream;
   }
 
-  captureFrame() {
+  captureFrame(): Promise<ImageBitmap> {
     return this.gpuRendererService.captureFrame();
   }
 
-  async start({ stream, frameRate }) {
+  async start({ stream, frameRate }: GpuRecordingStartOptions): Promise<MediaStream> {
     if (!stream) {
       this.logger.warn('Cannot start GPU recording - no stream provided');
       throw new Error('No stream provided');
@@ -64,15 +101,24 @@ class CaptureGpuRecordingService extends BaseService {
     this._recordingCanvas.height = targetHeight;
     this._recordingWidth = targetWidth;
     this._recordingHeight = targetHeight;
-    this._recordingCtx = this._recordingCanvas.getContext('2d', { alpha: false });
-    this._recordingCtx.imageSmoothingEnabled = false;
+    const recordingContext = this._recordingCanvas.getContext('2d', { alpha: false });
+    if (!recordingContext) {
+      this._recordingCanvas = null;
+      this._recordingWidth = 0;
+      this._recordingHeight = 0;
+      throw new Error('Unable to create GPU recording canvas context');
+    }
+
+    this._recordingCtx = recordingContext;
+    recordingContext.imageSmoothingEnabled = false;
 
     const fps = frameRate || 60;
-    this._recordingStream = this._recordingCanvas.captureStream(fps);
+    const recordingStream = this._recordingCanvas.captureStream(fps);
+    this._recordingStream = recordingStream;
 
-    stream.getAudioTracks().forEach(track => {
-      this._recordingStream.addTrack(track.clone());
-    });
+    for (const track of stream.getAudioTracks()) {
+      recordingStream.addTrack(track.clone());
+    }
 
     this._isRecording = true;
     this._recordingDroppedFrames = 0;
@@ -81,7 +127,7 @@ class CaptureGpuRecordingService extends BaseService {
 
     this._startRecordingFrameLoop();
 
-    return this._recordingStream;
+    return recordingStream;
   }
 
   /**
@@ -89,7 +135,7 @@ class CaptureGpuRecordingService extends BaseService {
    * This prevents race conditions with GPU resource cleanup.
    * @returns {Promise<void>}
    */
-  async stop() {
+  async stop(): Promise<void> {
     if (!this._isRecording) {
       return;
     }
@@ -98,7 +144,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._isDraining = true;
 
     // Cancel the RAF loop first
-    if (this._recordingFrameId) {
+    if (this._recordingFrameId !== null) {
       cancelAnimationFrame(this._recordingFrameId);
       this._recordingFrameId = null;
     }
@@ -122,7 +168,7 @@ class CaptureGpuRecordingService extends BaseService {
 
         // If timeout won the race, ensure any later-resolving ImageBitmap is closed
         if (timedOut) {
-          capturePromise.then(bitmap => {
+          void capturePromise.then((bitmap) => {
             if (bitmap && typeof bitmap.close === 'function') {
               bitmap.close();
               this.logger.debug('Closed late-resolving ImageBitmap after timeout');
@@ -140,12 +186,12 @@ class CaptureGpuRecordingService extends BaseService {
     this._cleanupGpuRecording();
   }
 
-  dispose() {
+  dispose(): void {
     this._cleanupGpuRecording();
     this.logger.info('CaptureGpuRecordingService disposed');
   }
 
-  _calculateRecordingScale(frameWidth, frameHeight) {
+  _calculateRecordingScale(frameWidth: number, frameHeight: number): RecordingScaleParams | null {
     // Performance: return cached result if frame dimensions unchanged
     if (this._cachedScaleParams &&
         this._cachedFrameWidth === frameWidth &&
@@ -161,7 +207,7 @@ class CaptureGpuRecordingService extends BaseService {
       return null;
     }
 
-    let scaleParams;
+    let scaleParams: RecordingScaleParams;
 
     if (frameWidth === canvasWidth && frameHeight === canvasHeight) {
       scaleParams = {
@@ -198,14 +244,14 @@ class CaptureGpuRecordingService extends BaseService {
     return scaleParams;
   }
 
-  _startRecordingFrameLoop() {
+  _startRecordingFrameLoop(): void {
     const captureAndDraw = async () => {
       // Don't start new captures if draining or stopped
       if (!this._isRecording || this._isDraining) return;
 
       if (!this._isCapturePending) {
         this._isCapturePending = true;
-        let frame = null;
+        let frame: ImageBitmap | null = null;
 
         // Track the capture promise for draining
         const capturePromise = this.gpuRendererService.captureFrame();
@@ -220,24 +266,29 @@ class CaptureGpuRecordingService extends BaseService {
           }
 
           const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
+          const recordingContext = this._recordingCtx;
+          if (!recordingContext) {
+            throw new Error('Recording canvas context is unavailable');
+          }
 
           // Performance: only clear canvas once when dimensions require it
           if (needsClearing && !this._isCanvasCleared) {
-            this._recordingCtx.fillStyle = '#000000';
-            this._recordingCtx.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
+            recordingContext.fillStyle = '#000000';
+            recordingContext.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
             this._isCanvasCleared = true;
           }
 
-          this._recordingCtx.drawImage(
+          recordingContext.drawImage(
             frame,
             0, 0, frame.width, frame.height,
             offsetX, offsetY, drawWidth, drawHeight
           );
         } catch (e) {
-          this.logger.debug('Frame capture skipped:', e.message);
+          this.logger.debug('Frame capture skipped:', getErrorMessage(e, 'Frame capture failed'));
           this._recordingDroppedFrames++;
           if (this._recordingDroppedFrames >= 30) {
             this.eventBus.publish(EventChannels.CAPTURE.RECORDING_DEGRADED, {
+              reason: 'dropped_frames',
               droppedFrames: this._recordingDroppedFrames
             });
             this._recordingDroppedFrames = 0;
@@ -255,14 +306,14 @@ class CaptureGpuRecordingService extends BaseService {
     this._recordingFrameId = requestAnimationFrame(captureAndDraw);
   }
 
-  _cleanupGpuRecording() {
-    if (this._recordingFrameId) {
+  _cleanupGpuRecording(): void {
+    if (this._recordingFrameId !== null) {
       cancelAnimationFrame(this._recordingFrameId);
       this._recordingFrameId = null;
     }
 
     if (this._recordingStream) {
-      this._recordingStream.getTracks().forEach(track => track.stop());
+      this._recordingStream.getTracks().forEach((track) => track.stop());
       this._recordingStream = null;
     }
 
