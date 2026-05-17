@@ -17,9 +17,97 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { LoggerLike } from '@shared/base/service.base.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import {
+  isPerformanceStatePayload,
+  isStreamStartedPayload,
+  isSupportedDeviceAvailablePayload
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import type {
+  PerformanceStatePayload,
+  StreamingCapabilities
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type StreamingServiceLike = {
+  start(deviceId?: string | null): Promise<unknown>;
+  stop(): Promise<void>;
+  getStream(): MediaStream | null;
+  isActive(): boolean;
+};
+
+type AppStateLike = {
+  deviceConnected: boolean;
+  isStreaming: boolean;
+};
+
+type StreamViewServiceLike = {
+  attachMutedStream(stream: MediaStream): void;
+  clearStream(): void;
+};
+
+type RenderPipelineServiceLike = {
+  initialize(): void;
+  handleCanvasExpired(): void;
+  handlePerformanceStateChanged(state: PerformanceStatePayload): void;
+  handleFullscreenChange(): void;
+  handleRenderPresetChanged(presetId: string): void;
+  handlePerformanceModeChanged(enabled: boolean): void;
+  startPipeline(capabilities: StreamingCapabilities): Promise<void>;
+  stopPipeline(): void;
+  cleanup(): void;
+};
+
+type GpuRecordingServiceLike = {
+  isActive(): boolean;
+  stop(): Promise<void>;
+};
+
+type SettingsServiceLike = {
+  getAutoStreamOnConnect(): boolean;
+};
+
+type StreamingOrchestratorDependencies = {
+  streamingService: StreamingServiceLike;
+  appState: AppStateLike;
+  streamViewService: StreamViewServiceLike;
+  renderPipelineService: RenderPipelineServiceLike;
+  gpuRecordingService: GpuRecordingServiceLike;
+  settingsService: SettingsServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
+function getStreamErrorMessage(payload: unknown): string {
+  if (typeof payload === 'object' && payload !== null) {
+    if ('message' in payload && typeof payload.message === 'string' && payload.message.length > 0) {
+      return payload.message;
+    }
+
+    if ('error' in payload) {
+      return getErrorMessage(payload.error, 'Stream error');
+    }
+  }
+
+  return getErrorMessage(payload, 'Stream error');
+}
 
 export class StreamingOrchestrator extends BaseOrchestrator {
-  constructor(dependencies) {
+  declare protected readonly streamingService: StreamingServiceLike;
+  declare protected readonly appState: AppStateLike;
+  declare protected readonly streamViewService: StreamViewServiceLike;
+  declare protected readonly renderPipelineService: RenderPipelineServiceLike;
+  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
+  declare protected readonly settingsService: SettingsServiceLike;
+  declare protected readonly eventBus: TypedEventBusLike;
+  declare protected readonly logger: LoggerLike;
+
+  constructor(dependencies: StreamingOrchestratorDependencies) {
     super(
       dependencies,
       ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
@@ -30,7 +118,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   /**
    * Initialize streaming orchestrator
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     // Wire service events
     this._wireStreamEvents();
     this._wireDeviceEvents();
@@ -55,7 +143,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Uses AppState.deviceConnected instead of direct orchestrator call (decoupled)
    * @param {string} deviceId - Optional device ID
    */
-  async start(deviceId = null) {
+  async start(deviceId: string | null = null): Promise<void> {
     if (!this.appState.deviceConnected) {
       this.logger.warn('Cannot start stream - device not connected');
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Please connect your device first', type: 'warning' });
@@ -65,9 +153,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     try {
       await this.streamingService.start(deviceId);
     } catch (error) {
+      const message = getErrorMessage(error, 'Failed to start stream');
       this.logger.error('Failed to start stream:', error);
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
-      this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${message}`, type: 'error' });
+      this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message });
     }
   }
 
@@ -75,7 +164,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Stop streaming
    * @returns {Promise<void>} Resolves when stream is stopped
    */
-  async stop() {
+  async stop(): Promise<void> {
     try {
       await this.streamingService.stop();
     } catch (error) {
@@ -88,14 +177,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   /**
    * Get current stream
    */
-  getStream() {
+  getStream(): MediaStream | null {
     return this.streamingService.getStream();
   }
 
   /**
    * Check if streaming is active
    */
-  isActive() {
+  isActive(): boolean {
     return this.streamingService.isActive();
   }
 
@@ -103,19 +192,24 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Wire stream events from StreamingService
    * @private
    */
-  _wireStreamEvents() {
+  private _wireStreamEvents(): void {
     this.subscribeWithCleanup({
-      [EventChannels.STREAM.STARTED]: (data) => this._handleStreamStarted(data),
+      [EventChannels.STREAM.STARTED]: (data: unknown) => this._handleStreamStarted(data),
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      [EventChannels.STREAM.ERROR]: (error) => this._handleStreamError(error),
-      [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId) => this._handleRenderPresetChanged(presetId),
-      [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled) => this._handlePerformanceModeChanged(enabled),
-      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state),
+      [EventChannels.STREAM.ERROR]: (error: unknown) => this._handleStreamError(error),
+      [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: (presetId: unknown) => this._handleRenderPresetChanged(presetId),
+      [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: (enabled: unknown) => this._handlePerformanceModeChanged(enabled),
+      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state: unknown) => this._handlePerformanceStateChanged(state),
       [EventChannels.UI.WINDOW_RESIZED]: () => this._handleWindowResized()
     });
   }
 
-  _handlePerformanceStateChanged(state) {
+  _handlePerformanceStateChanged(state: unknown): void {
+    if (!isPerformanceStatePayload(state)) {
+      this.logger.warn('Ignoring invalid performance state payload', state);
+      return;
+    }
+
     this.renderPipelineService.handlePerformanceStateChanged(state);
   }
 
@@ -125,7 +219,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Triggers immediate canvas resize with accurate dimensions.
    * @private
    */
-  _handleWindowResized() {
+  _handleWindowResized(): void {
     this.renderPipelineService.handleFullscreenChange();
   }
 
@@ -134,7 +228,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @param {string} presetId - New preset ID
    * @private
    */
-  _handleRenderPresetChanged(presetId) {
+  _handleRenderPresetChanged(presetId: unknown): void {
+    if (typeof presetId !== 'string') {
+      this.logger.warn('Ignoring invalid render preset payload', presetId);
+      return;
+    }
+
     this.renderPipelineService.handleRenderPresetChanged(presetId);
   }
 
@@ -145,7 +244,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @param {boolean} enabled - Whether performance mode is enabled
    * @private
    */
-  _handlePerformanceModeChanged(enabled) {
+  _handlePerformanceModeChanged(enabled: unknown): void {
+    if (typeof enabled !== 'boolean') {
+      this.logger.warn('Ignoring invalid performance mode payload', enabled);
+      return;
+    }
+
     this.renderPipelineService.handlePerformanceModeChanged(enabled);
   }
 
@@ -153,10 +257,10 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Wire device events
    * @private
    */
-  _wireDeviceEvents() {
+  private _wireDeviceEvents(): void {
     this.subscribeWithCleanup({
       [EventChannels.DEVICE.DISCONNECTED_DURING_SESSION]: () => this._handleDeviceDisconnectedDuringStream(),
-      [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: (data) => this._handleSupportedDeviceAvailable(data)
+      [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: (data: unknown) => this._handleSupportedDeviceAvailable(data)
     });
   }
 
@@ -164,7 +268,13 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle stream started event
    * @private
    */
-  async _handleStreamStarted(data) {
+  async _handleStreamStarted(data: unknown): Promise<void> {
+    if (!isStreamStartedPayload(data)) {
+      this.logger.error('Ignoring invalid stream started payload', data);
+      this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: 'Unable to start rendering stream.' });
+      return;
+    }
+
     const { stream, settings, capabilities } = data;
 
     this.logger.info('Stream started event received');
@@ -189,7 +299,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       // Update status via event
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Streaming from camera' });
     } catch (error) {
-      this.logger.error('Stream unhealthy:', error.message);
+      this.logger.error('Stream unhealthy:', getErrorMessage(error, 'No frames received'));
 
       // Show user-friendly message
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
@@ -201,8 +311,8 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       });
 
       // Stop the unhealthy stream
-      await this.streamingService.stop().catch(error => {
-        this.logger.error('Error stopping unhealthy stream:', error);
+      await this.streamingService.stop().catch((stopError: unknown) => {
+        this.logger.error('Error stopping unhealthy stream:', getErrorMessage(stopError, 'Failed to stop stream'));
       });
     }
   }
@@ -211,7 +321,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle stream stopped event
    * @private
    */
-  async _handleStreamStopped() {
+  async _handleStreamStopped(): Promise<void> {
     this.logger.info('Stream stopped event received');
 
     // Stop GPU recording BEFORE releasing GPU resources to avoid Skia race condition
@@ -240,21 +350,23 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Handle stream error event
    * @private
    */
-  _handleStreamError(error) {
+  _handleStreamError(error: unknown): void {
+    const message = getStreamErrorMessage(error);
+
     this.logger.error('Stream error:', error);
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${error.message}`, type: 'error' });
-    this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${message}`, type: 'error' });
+    this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message });
   }
 
   /**
    * Handle device disconnected during active stream
    * @private
    */
-  async _handleDeviceDisconnectedDuringStream() {
+  async _handleDeviceDisconnectedDuringStream(): Promise<void> {
     if (this.appState.isStreaming) {
       this.logger.warn('Device disconnected during stream - stopping');
-      await this.streamingService.stop().catch(error => {
-        this.logger.error('Error stopping stream after device disconnect:', error);
+      await this.streamingService.stop().catch((error: unknown) => {
+        this.logger.error('Error stopping stream after device disconnect:', getErrorMessage(error, 'Failed to stop stream'));
       });
     }
   }
@@ -266,14 +378,21 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Device data with deviceId and label
    * @private
    */
-  async _handleSupportedDeviceAvailable(data) {
+  async _handleSupportedDeviceAvailable(data: unknown): Promise<void> {
+    if (!isSupportedDeviceAvailablePayload(data)) {
+      this.logger.warn('Ignoring invalid supported device payload', data);
+      return;
+    }
+
     if (this.settingsService.getAutoStreamOnConnect() && !this.streamingService.isActive()) {
-      this.logger.info(`Auto-starting stream - device available: ${data.label}`);
+      const deviceLabel = data.device.label || data.device.deviceId;
+      this.logger.info(`Auto-starting stream - device available: ${deviceLabel}`);
       try {
-        await this.streamingService.start(data.deviceId);
+        await this.streamingService.start(data.device.deviceId);
       } catch (error) {
+        const message = getErrorMessage(error, 'Failed to auto-start stream');
         this.logger.error('Failed to auto-start stream:', error);
-        this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: error.message });
+        this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message });
       }
     }
   }
@@ -282,14 +401,14 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    * Note: EventBus subscriptions are automatically cleaned up by BaseOrchestrator
    */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.renderPipelineService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {
         await this.streamingService.stop();
       } catch (error) {
-        this.logger.error('Error stopping stream during cleanup:', error);
+        this.logger.error('Error stopping stream during cleanup:', getErrorMessage(error, 'Failed to stop stream'));
       }
     }
   }

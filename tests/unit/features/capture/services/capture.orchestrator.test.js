@@ -290,7 +290,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.toggleRecording();
 
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to stop recording:', expect.any(Error));
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to stop recording:', 'Stop failed');
     });
   });
 
@@ -400,7 +400,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.onCleanup();
 
-      expect(mockLogger.error).toHaveBeenCalledWith('Error stopping recording during cleanup:', expect.any(Error));
+      expect(mockLogger.error).toHaveBeenCalledWith('Error stopping recording during cleanup:', 'Stop failed');
     });
 
     it('should stop GPU recording on cleanup', async () => {
@@ -473,7 +473,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
 
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to save recording:', error);
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to save recording:', 'Save failed');
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
         message: 'Failed to save recording. Please try again.',
         type: 'error'
