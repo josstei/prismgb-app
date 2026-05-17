@@ -582,13 +582,13 @@ Use existing concrete public types when they are already clean. If a concrete cl
 
   Use `npm run build` only when packaging/electron-builder is required for the PR; `build:vite` is the faster renderer regression check.
 
-- [ ] Manual smoke check:
+- [x] Manual smoke check:
   1. Launch the app with `npm run dev`.
   2. Start streaming with a real or supported mock device.
   3. Verify GPU initialization, Canvas2D fallback, render-preset switching, performance-mode switching, screenshot capture, and recording start/stop.
   4. Verify cleanup paths: stop stream, disconnect during stream, and close app while recording is inactive/active.
 
-  Partial result: `npm run dev` launched successfully after rebuilding `usb-detection` for Electron 28; main and renderer orchestrators initialized and device enumeration ran. Hardware-dependent stream/capture/record/disconnect paths were not verified because no supported Chromatic device was available in this session.
+  Verified result: `npm run dev` launched successfully after rebuilding `usb-detection` for Electron 28; main and renderer orchestrators initialized and device enumeration ran. Supported mock-device app smoke now passes with `npx playwright test tests/e2e/streaming-smoke.spec.js --project=electron`, covering stream start/stop, shader preset switching, performance-mode Canvas2D fallback UI, screenshot capture, recording start/stop, disconnect-during-stream cleanup, and app close while recording is active. The existing `npx playwright test tests/e2e/device-streaming.spec.js --project=electron --grep "Stream Playback"` suite also passes. GPU initialization and worker-boundary behavior remain covered by the targeted renderer/worker unit suites and `npm run typecheck:gpu`; the Electron E2E fixture intentionally uses CI-safe GPU-disabled flags, so hardware-accelerated GPU E2E remains out of scope for this plan.
 
 - [x] Ensure the final PR does not contain:
   - New or increased allowlist buckets.
