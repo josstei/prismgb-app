@@ -17,6 +17,4 @@ export class BaseOrchestrator {
   onCleanup(): Promise<void>;
 }
 
-/* eslint-disable no-redeclare */
 export interface BaseOrchestrator extends Record<string, unknown> {}
-/* eslint-enable no-redeclare */

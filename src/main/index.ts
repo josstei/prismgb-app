@@ -3,7 +3,7 @@
  * Initializes the application using dependency injection
  */
 
-import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import { AppOrchestrator } from './application/index.js';
 import { getGpuPolicy, applyChromiumFlags } from './infrastructure/platform/index.js';
 
@@ -144,7 +144,6 @@ if (process.argv.includes('--smoke-test')) {
         await application.initialize();
       } catch (error) {
         console.error('Application initialization failed:', error);
-        const { dialog } = require('electron');
         dialog.showErrorBox(
           'Initialization Error',
           `${APP_NAME} failed to start: ${error instanceof Error ? error.message : String(error)}`

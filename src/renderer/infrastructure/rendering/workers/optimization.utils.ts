@@ -1,199 +1,188 @@
 /**
  * GPU Rendering Optimization Utilities
  *
- * Performance optimization classes for the render worker.
- * These utilities reduce per-frame overhead through caching,
- * pooling, and change tracking.
+ * Worker-local utilities for caching, pooling, and change tracking. These keep
+ * benchmark statistics that are not part of the current @prismgb/gpu public API.
  */
 
-/**
- * BindGroupCache - Caches GPU bind groups to avoid per-frame recreation
- *
- * Bind group creation is expensive (GPU driver calls). Since bind group
- * entries rarely change (only uniform buffer contents change), we can
- * cache and reuse them.
- */
+export type BindGroupCacheStats = {
+  size: number;
+  version: number;
+  hits: number;
+  misses: number;
+  hitRate: string;
+};
+
 export class BindGroupCache {
-  _cache: Map<string, GPUBindGroup>;
-  _version: number;
-  _hits: number;
-  _misses: number;
+  private readonly _cache = new Map<string, GPUBindGroup>();
+  private _version = 0;
+  private _hits = 0;
+  private _misses = 0;
 
-  constructor() {
-    this._cache = new Map();
-    this._version = 0;
-    this._hits = 0;
-    this._misses = 0;
-  }
-
-  /**
-   * Generate cache key for bind group
-   * @param {string} pipelineLabel - Pipeline identifier
-   * @param {string} textureLabel - Input texture label
-   * @returns {string} Cache key
-   */
-  _generateKey(pipelineLabel, textureLabel) {
+  private _generateKey(pipelineLabel: string, textureLabel: string): string {
     return `${pipelineLabel}:${textureLabel}:v${this._version}`;
   }
 
-  /**
-   * Get or create bind group
-   * @param {GPUDevice} device
-   * @param {GPURenderPipeline} pipeline
-   * @param {GPUBuffer} uniformBuffer
-   * @param {GPUTexture} inputTexture
-   * @param {GPUSampler} sampler
-   * @returns {GPUBindGroup}
-   */
-  getOrCreate(device, pipeline, uniformBuffer, inputTexture, sampler) {
-    const key = this._generateKey(pipeline.label, inputTexture.label);
-
-    if (!this._cache.has(key)) {
-      const bindGroup = device.createBindGroup({
-        label: `Cached ${pipeline.label} BindGroup`,
-        layout: pipeline.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: uniformBuffer } },
-          { binding: 1, resource: inputTexture.createView() },
-          { binding: 2, resource: sampler }
-        ]
-      });
-      this._cache.set(key, bindGroup);
-      this._misses++;
-      return bindGroup;
+  private _getLabel(value: object, fallback: string): string {
+    if ('label' in value && typeof value.label === 'string' && value.label.length > 0) {
+      return value.label;
     }
 
-    this._hits++;
-    return this._cache.get(key);
+    return fallback;
   }
 
-  /**
-   * Invalidate cache (call on resize/texture recreation)
-   */
-  invalidate() {
+  getOrCreate(
+    device: GPUDevice | null,
+    pipeline: GPURenderPipeline | null,
+    uniformBuffer: GPUBuffer | null,
+    inputTexture: GPUTexture | null,
+    sampler: GPUSampler | null
+  ): GPUBindGroup {
+    if (!device || !pipeline || !uniformBuffer || !inputTexture || !sampler) {
+      throw new Error('BindGroupCache: cannot create bind group with missing GPU resources');
+    }
+
+    const pipelineLabel = this._getLabel(pipeline, 'pipeline');
+    const textureLabel = this._getLabel(inputTexture, 'texture');
+    const key = this._generateKey(pipelineLabel, textureLabel);
+    const cached = this._cache.get(key);
+
+    if (cached) {
+      this._hits++;
+      return cached;
+    }
+
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: inputTexture.createView() },
+        { binding: 2, resource: sampler }
+      ]
+    });
+    this._cache.set(key, bindGroup);
+    this._misses++;
+    return bindGroup;
+  }
+
+  invalidate(): void {
     this._cache.clear();
     this._version++;
   }
 
-  /**
-   * Get cache statistics
-   */
-  getStats() {
+  getStats(): BindGroupCacheStats {
     const total = this._hits + this._misses;
     return {
       size: this._cache.size,
       version: this._version,
       hits: this._hits,
       misses: this._misses,
-      hitRate: total > 0 ? (this._hits / total * 100).toFixed(1) : '0'
+      hitRate: total > 0 ? ((this._hits / total) * 100).toFixed(1) : '0'
     };
   }
 
-  /**
-   * Reset statistics (for benchmarking)
-   */
-  resetStats() {
+  resetStats(): void {
     this._hits = 0;
     this._misses = 0;
   }
 }
 
-/**
- * TypedArrayPool - Pre-allocates and reuses TypedArrays to eliminate GC pressure
- *
- * Uses round-robin allocation to support triple-buffered rendering scenarios.
- * Includes a safety limit on pool types to prevent unbounded memory growth.
- */
+type Float32Pool = {
+  arrays: Float32Array[];
+  index: number;
+};
+
+export type TypedArrayPoolStats = {
+  poolCount: number;
+  totalArrays: number;
+  totalBytes: number;
+  totalKB: string;
+  allocations: number;
+  reuses: number;
+  reuseRatio: string;
+};
+
 export class TypedArrayPool {
-  _poolDepth: number;
-  _float32Pools: Map<number, { arrays: Float32Array[]; index: number }>;
-  _allocations: number;
-  _reuses: number;
-  _prewarmCount: number;
+  static readonly MAX_POOL_TYPES = 20;
 
-  /**
-   * Maximum number of unique array sizes to pool (safety limit)
-   * Pre-warmed sizes don't count toward this limit
-   */
-  static MAX_POOL_TYPES = 20;
+  private readonly _poolDepth: number;
+  private readonly _float32Pools = new Map<number, Float32Pool>();
+  private _allocations = 0;
+  private _reuses = 0;
+  private _prewarmCount: number;
 
-  constructor(poolDepth = 3, prewarmSizes = [4, 6, 8, 16, 32]) {
+  constructor(poolDepth = 3, prewarmSizes: readonly number[] = [4, 6, 8, 16, 32]) {
+    if (!Number.isInteger(poolDepth) || poolDepth <= 0) {
+      throw new Error('TypedArrayPool: poolDepth must be a positive integer');
+    }
+
     this._poolDepth = poolDepth;
-    this._float32Pools = new Map();
-    this._allocations = 0;
-    this._reuses = 0;
     this._prewarmCount = prewarmSizes.length;
 
-    // Pre-warm pools with common sizes
-    prewarmSizes.forEach(size => this._ensurePool(size));
+    for (const size of prewarmSizes) {
+      this._ensurePool(size);
+    }
 
-    // Track actual unique prewarmed pools (handles duplicates in prewarmSizes)
     this._prewarmCount = this._float32Pools.size;
   }
 
-  /**
-   * Ensure a pool exists for the given size
-   * @private
-   * @throws {Error} If pool type limit would be exceeded
-   */
-  _ensurePool(size) {
-    if (!this._float32Pools.has(size)) {
-      // Safety limit: prevent unbounded pool growth from unexpected sizes
-      const dynamicPools = this._float32Pools.size - this._prewarmCount;
-      if (dynamicPools >= TypedArrayPool.MAX_POOL_TYPES) {
-        throw new Error(
-          `TypedArrayPool: exceeded max pool types (${TypedArrayPool.MAX_POOL_TYPES}). ` +
-          `Requested size: ${size}. Consider adding to prewarmSizes if this is expected.`
-        );
-      }
-
-      const arrays = [];
-      for (let i = 0; i < this._poolDepth; i++) {
-        arrays.push(new Float32Array(size));
-      }
-      this._float32Pools.set(size, { arrays, index: 0 });
-      this._allocations += this._poolDepth;
+  private _ensurePool(size: number): void {
+    if (!Number.isInteger(size) || size <= 0) {
+      throw new Error(`TypedArrayPool: size must be a positive integer. Received: ${size}`);
     }
+
+    if (this._float32Pools.has(size)) {
+      return;
+    }
+
+    const dynamicPools = this._float32Pools.size - this._prewarmCount;
+    if (dynamicPools >= TypedArrayPool.MAX_POOL_TYPES) {
+      throw new Error(
+        `TypedArrayPool: exceeded max pool types (${TypedArrayPool.MAX_POOL_TYPES}). ` +
+        `Requested size: ${size}. Consider adding to prewarmSizes if this is expected.`
+      );
+    }
+
+    const arrays: Float32Array[] = [];
+    for (let i = 0; i < this._poolDepth; i += 1) {
+      arrays.push(new Float32Array(size));
+    }
+    this._float32Pools.set(size, { arrays, index: 0 });
+    this._allocations += this._poolDepth;
   }
 
-  /**
-   * Get a Float32Array from the pool
-   * @param {number} size - Required array length
-   * @returns {Float32Array} Pooled array
-   */
-  getFloat32(size) {
+  getFloat32(size: number): Float32Array {
     this._ensurePool(size);
 
     const pool = this._float32Pools.get(size);
+    if (!pool) {
+      throw new Error(`TypedArrayPool: pool missing after initialization for size ${size}`);
+    }
+
     const array = pool.arrays[pool.index];
+    if (!array) {
+      throw new Error(`TypedArrayPool: array missing at index ${pool.index} for size ${size}`);
+    }
+
     pool.index = (pool.index + 1) % this._poolDepth;
     this._reuses++;
-
     return array;
   }
 
-  /**
-   * Get a Float32Array and populate it with values
-   * @param {number[]} values - Values to set
-   * @returns {Float32Array} Pooled array with values set
-   */
-  getFloat32WithValues(values) {
+  getFloat32WithValues(values: ArrayLike<number>): Float32Array {
     const array = this.getFloat32(values.length);
     array.set(values);
     return array;
   }
 
-  /**
-   * Get pool statistics (for benchmarks)
-   */
-  getStats() {
+  getStats(): TypedArrayPoolStats {
     let totalArrays = 0;
     let totalBytes = 0;
 
-    this._float32Pools.forEach((pool, size) => {
+    for (const [size, pool] of this._float32Pools) {
       totalArrays += pool.arrays.length;
-      totalBytes += size * 4 * pool.arrays.length;
-    });
+      totalBytes += size * Float32Array.BYTES_PER_ELEMENT * pool.arrays.length;
+    }
 
     return {
       poolCount: this._float32Pools.size,
@@ -206,53 +195,38 @@ export class TypedArrayPool {
     };
   }
 
-  /**
-   * Reset statistics (for benchmarking)
-   */
-  resetStats() {
+  resetStats(): void {
     this._allocations = 0;
     this._reuses = 0;
   }
 }
 
-/**
- * UniformTracker - Tracks changes to uniform values to avoid redundant GPU writes
- *
- * Uses FNV-1a hashing for fast change detection.
- */
+export type UniformTrackerStats = {
+  trackedUniforms: number;
+  checks: number;
+  skips: number;
+  writes: number;
+  skipRate: string;
+};
+
 export class UniformTracker {
-  _hashes: Map<string, number>;
-  _checks: number;
-  _skips: number;
-  _writes: number;
-  _hashView: Uint8Array | null;
-  _hashViewBuffer: ArrayBufferLike | null;
+  private readonly _hashes = new Map<string, number>();
+  private _checks = 0;
+  private _skips = 0;
+  private _writes = 0;
+  private _hashView: Uint8Array | null = null;
+  private _hashViewBuffer: ArrayBufferLike | null = null;
 
-  constructor() {
-    this._hashes = new Map();
-    this._checks = 0;
-    this._skips = 0;
-    this._writes = 0;
-    // Cached view for hash computation to avoid per-frame Uint8Array allocation
-    this._hashView = null;
-    this._hashViewBuffer = null;
-  }
+  private _hashFloat32Array(data: Float32Array): number {
+    let hash = 2166136261;
 
-  /**
-   * FNV-1a hash for Float32Array
-   * Uses cached Uint8Array view to avoid per-frame allocation
-   * @param {Float32Array} data
-   * @returns {number} 32-bit hash
-   */
-  _hashFloat32Array(data) {
-    let hash = 2166136261; // FNV offset basis
-
-    // Reuse cached view if buffer matches, otherwise create new view
-    // This avoids creating a new Uint8Array every frame (GC pressure at 60fps)
-    let view;
-    if (this._hashViewBuffer === data.buffer && this._hashView &&
-        this._hashView.byteOffset === data.byteOffset &&
-        this._hashView.byteLength === data.byteLength) {
+    let view: Uint8Array;
+    if (
+      this._hashViewBuffer === data.buffer &&
+      this._hashView &&
+      this._hashView.byteOffset === data.byteOffset &&
+      this._hashView.byteLength === data.byteLength
+    ) {
       view = this._hashView;
     } else {
       view = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -260,21 +234,15 @@ export class UniformTracker {
       this._hashViewBuffer = data.buffer;
     }
 
-    for (let i = 0; i < view.length; i++) {
-      hash ^= view[i];
-      hash = Math.imul(hash, 16777619); // FNV prime
+    for (const byte of view) {
+      hash ^= byte;
+      hash = Math.imul(hash, 16777619);
     }
 
-    return hash >>> 0; // Ensure unsigned
+    return hash >>> 0;
   }
 
-  /**
-   * Check if uniform data has changed
-   * @param {string} name - Uniform buffer name
-   * @param {Float32Array} data - New data to check
-   * @returns {boolean} True if data changed and should be uploaded
-   */
-  hasChanged(name, data) {
+  hasChanged(name: string, data: Float32Array): boolean {
     this._checks++;
     const newHash = this._hashFloat32Array(data);
     const oldHash = this._hashes.get(name);
@@ -289,123 +257,90 @@ export class UniformTracker {
     return true;
   }
 
-  /**
-   * Force invalidation of a specific uniform
-   * @param {string} name - Uniform buffer name
-   */
-  invalidate(name) {
+  invalidate(name: string): void {
     this._hashes.delete(name);
   }
 
-  /**
-   * Invalidate all tracked uniforms
-   */
-  invalidateAll() {
+  invalidateAll(): void {
     this._hashes.clear();
   }
 
-  /**
-   * Get tracking statistics
-   */
-  getStats() {
+  getStats(): UniformTrackerStats {
     return {
       trackedUniforms: this._hashes.size,
       checks: this._checks,
       skips: this._skips,
       writes: this._writes,
-      skipRate: this._checks > 0 ? (this._skips / this._checks * 100).toFixed(1) : '0'
+      skipRate: this._checks > 0 ? ((this._skips / this._checks) * 100).toFixed(1) : '0'
     };
   }
 
-  /**
-   * Reset statistics (for benchmarking)
-   */
-  resetStats() {
+  resetStats(): void {
     this._checks = 0;
     this._skips = 0;
     this._writes = 0;
   }
 }
 
-/**
- * CaptureBufferManager - Lazy capture buffer to avoid per-frame ImageBitmap creation
- *
- * Only captures frames when explicitly requested, reducing overhead from
- * ~0.5-1ms per frame to only when screenshots are needed.
- */
+export type CaptureBufferStats = {
+  captureCount: number;
+  lazyCaptures: number;
+};
+
 export class CaptureBufferManager {
-  _captureRequested: boolean;
-  _capturedFrame: ImageBitmap | null;
-  _canvas: OffscreenCanvas | null;
-  _captureCount: number;
-  _lazyCaptures: number;
+  private _captureRequested = false;
+  private _capturedFrame: ImageBitmap | null = null;
+  private _canvas: OffscreenCanvas | null = null;
+  private _captureCount = 0;
+  private _lazyCaptures = 0;
 
-  constructor() {
-    this._captureRequested = false;
-    this._capturedFrame = null;
-    this._canvas = null;
-    this._captureCount = 0;
-    this._lazyCaptures = 0;
-  }
-
-  initialize(canvasRef) {
+  initialize(canvasRef: OffscreenCanvas): void {
     this._canvas = canvasRef;
   }
 
-  /**
-   * Mark that a capture is requested - next frame will be buffered
-   */
-  requestCapture() {
+  requestCapture(): void {
     this._captureRequested = true;
   }
 
-  /**
-   * Called after each frame render - only captures if previously requested
-   * @returns {Promise<void>}
-   */
-  async onFrameRendered() {
+  async onFrameRendered(): Promise<void> {
     if (!this._captureRequested || !this._canvas) {
       return;
     }
 
-    // Close previous capture if exists
     if (this._capturedFrame) {
       this._capturedFrame.close();
     }
 
-    // Capture current frame
     this._capturedFrame = await createImageBitmap(this._canvas);
     this._captureRequested = false;
     this._lazyCaptures++;
   }
 
-  /**
-   * Check if a captured frame is ready
-   * @returns {boolean}
-   */
-  hasCapturedFrame() {
+  hasCapturedFrame(): boolean {
     return this._capturedFrame !== null;
   }
 
-  /**
-   * Get the captured frame (transfers ownership)
-   * @returns {ImageBitmap|null}
-   */
-  getCapturedFrame() {
+  getCapturedFrame(): ImageBitmap | null {
     const frame = this._capturedFrame;
     this._capturedFrame = null;
-    if (frame) this._captureCount++;
+    if (frame) {
+      this._captureCount++;
+    }
     return frame;
   }
 
-  hasPendingCapture() {
+  hasPendingCapture(): boolean {
     return this._captureRequested;
   }
 
-  /**
-   * Clean up resources
-   */
-  destroy() {
+  getStats(): CaptureBufferStats {
+    return {
+      captureCount: this._captureCount,
+      lazyCaptures: this._lazyCaptures
+    };
+  }
+
+  destroy(): void {
     if (this._capturedFrame) {
       this._capturedFrame.close();
       this._capturedFrame = null;
@@ -415,84 +350,106 @@ export class CaptureBufferManager {
   }
 }
 
-/**
- * ShaderProgram - WebGL2 shader program with cached uniform locations
- *
- * Eliminates per-frame getUniformLocation string lookups.
- */
 export class ShaderProgram {
-  gl: WebGL2RenderingContext;
-  label: string;
+  readonly gl: WebGL2RenderingContext;
+  readonly label: string;
   program: WebGLProgram | null;
-  uniformLocations: Map<string, WebGLUniformLocation | null>;
-  _uniformCalls: number;
-  _cacheHits: number;
+  readonly uniformLocations = new Map<string, WebGLUniformLocation | null>();
+  private _uniformCalls = 0;
+  private _cacheHits = 0;
 
-  constructor(gl, vertexSource, fragmentSource, label = 'ShaderProgram') {
+  constructor(
+    gl: WebGL2RenderingContext | null,
+    vertexSource: string,
+    fragmentSource: string,
+    label = 'ShaderProgram'
+  ) {
+    if (!gl) {
+      throw new Error(`[${label}] WebGL2 context is not available`);
+    }
+
     this.gl = gl;
     this.label = label;
     this.program = this._compile(vertexSource, fragmentSource);
-    this.uniformLocations = new Map();
-    this._uniformCalls = 0;
-    this._cacheHits = 0;
-
     this._cacheUniformLocations();
   }
 
-  _compile(vertexSource, fragmentSource) {
-    const gl = this.gl;
+  private _requireProgram(): WebGLProgram {
+    if (!this.program) {
+      throw new Error(`[${this.label}] Shader program has been destroyed`);
+    }
+    return this.program;
+  }
 
-    const vertexShader = this._compileShader(gl.VERTEX_SHADER, vertexSource);
-    const fragmentShader = this._compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+  private _compile(vertexSource: string, fragmentSource: string): WebGLProgram {
+    const vertexShader = this._compileShader(this.gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = this._compileShader(this.gl.FRAGMENT_SHADER, fragmentSource);
+    const program = this.gl.createProgram();
 
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
+    if (!program) {
+      this.gl.deleteShader(vertexShader);
+      this.gl.deleteShader(fragmentShader);
+      throw new Error(`[${this.label}] Failed to create shader program`);
+    }
 
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      const error = gl.getProgramInfoLog(program);
-      gl.deleteProgram(program);
+    this.gl.attachShader(program, vertexShader);
+    this.gl.attachShader(program, fragmentShader);
+    this.gl.linkProgram(program);
+
+    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+      const error = this.gl.getProgramInfoLog(program);
+      this.gl.deleteProgram(program);
+      this.gl.deleteShader(vertexShader);
+      this.gl.deleteShader(fragmentShader);
       throw new Error(`[${this.label}] Shader link error: ${error}`);
     }
 
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-
+    this.gl.deleteShader(vertexShader);
+    this.gl.deleteShader(fragmentShader);
     return program;
   }
 
-  _compileShader(type, source) {
-    const gl = this.gl;
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
+  private _compileShader(type: number, source: string): WebGLShader {
+    const shader = this.gl.createShader(type);
+    if (!shader) {
+      throw new Error(`[${this.label}] Failed to create shader`);
+    }
 
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const error = gl.getShaderInfoLog(shader);
-      gl.deleteShader(shader);
+    this.gl.shaderSource(shader, source);
+    this.gl.compileShader(shader);
+
+    if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+      const error = this.gl.getShaderInfoLog(shader);
+      this.gl.deleteShader(shader);
       throw new Error(`[${this.label}] Shader compile error: ${error}`);
     }
 
     return shader;
   }
 
-  _cacheUniformLocations() {
-    const gl = this.gl;
-    const numUniforms = gl.getProgramParameter(this.program, gl.ACTIVE_UNIFORMS);
+  private _cacheUniformLocations(): void {
+    const program = this._requireProgram();
+    const numUniforms = this.gl.getProgramParameter(program, this.gl.ACTIVE_UNIFORMS);
 
-    for (let i = 0; i < numUniforms; i++) {
-      const info = gl.getActiveUniform(this.program, i);
-      const location = gl.getUniformLocation(this.program, info.name);
+    if (typeof numUniforms !== 'number') {
+      throw new Error(`[${this.label}] Invalid active uniform count`);
+    }
+
+    for (let i = 0; i < numUniforms; i += 1) {
+      const info = this.gl.getActiveUniform(program, i);
+      if (!info) {
+        continue;
+      }
+      const location = this.gl.getUniformLocation(program, info.name);
       this.uniformLocations.set(info.name, location);
     }
   }
 
-  use() {
-    this.gl.useProgram(this.program);
+  use(): void {
+    this.gl.useProgram(this._requireProgram());
   }
 
-  getUniformLocation(name) {
+  getUniformLocation(name: string): WebGLUniformLocation | null {
     this._uniformCalls++;
     if (this.uniformLocations.has(name)) {
       this._cacheHits++;
@@ -500,22 +457,28 @@ export class ShaderProgram {
     return this.uniformLocations.get(name) ?? null;
   }
 
-  setUniform1i(name, value) {
+  setUniform1i(name: string, value: number): void {
     const loc = this.getUniformLocation(name);
-    if (loc !== null) this.gl.uniform1i(loc, value);
+    if (loc !== null) {
+      this.gl.uniform1i(loc, value);
+    }
   }
 
-  setUniform1f(name, value) {
+  setUniform1f(name: string, value: number): void {
     const loc = this.getUniformLocation(name);
-    if (loc !== null) this.gl.uniform1f(loc, value);
+    if (loc !== null) {
+      this.gl.uniform1f(loc, value);
+    }
   }
 
-  setUniform2f(name, x, y) {
+  setUniform2f(name: string, x: number, y: number): void {
     const loc = this.getUniformLocation(name);
-    if (loc !== null) this.gl.uniform2f(loc, x, y);
+    if (loc !== null) {
+      this.gl.uniform2f(loc, x, y);
+    }
   }
 
-  destroy() {
+  destroy(): void {
     if (this.program) {
       this.gl.deleteProgram(this.program);
       this.program = null;

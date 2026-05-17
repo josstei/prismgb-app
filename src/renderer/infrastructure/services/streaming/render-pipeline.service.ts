@@ -13,9 +13,119 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type {
+  Dimensions,
+  PerformanceStatePayload,
+  StreamingCapabilities
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import { isPerformanceStatePayload } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type RendererType = 'gpu' | 'canvas2d';
+
+type StreamingRendererLike = {
+  initialize(canvasElement: HTMLCanvasElement, nativeResolution?: Dimensions): Promise<boolean>;
+  renderFrame(videoElement: HTMLVideoElement): Promise<void>;
+  resize(width: number, height: number): void;
+  isActive(): boolean;
+  pause(videoElement: HTMLVideoElement): void;
+  resume(videoElement: HTMLVideoElement): void;
+  cleanup(): void;
+  handlePipelineStop(): void;
+  supportsPresets(): boolean;
+  getPresetId(): string | null;
+  setPreset(presetId: string): void;
+  isCanvasTransferred(): boolean;
+  releaseGpuResources(): void;
+  terminateAndReset(emitCanvasExpired?: boolean): void;
+  setHiddenStateFn(fn: () => boolean): void;
+};
+
+type AppStateLike = {
+  isStreaming: boolean;
+};
+
+type StreamViewServiceLike = {
+  getVideo(): HTMLVideoElement;
+  getCanvas(): HTMLCanvasElement;
+};
+
+type CanvasLifecycleServiceLike = {
+  initialize(): void;
+  handleCanvasExpired(): void;
+  handleFullscreenChange(): void;
+  setupCanvasSize(nativeResolution?: Dimensions, useGpuCanvas?: boolean): void;
+  recreateCanvas(): void;
+  cleanup(): void;
+};
+
+type StreamHealthServiceLike = {
+  checkStreamHealth(
+    videoElement: HTMLVideoElement,
+    onHealthy: (frameData: Record<string, unknown>) => void,
+    onTimeout: (errorData: { reason: string; [key: string]: unknown }) => void,
+    timeoutMs: number
+  ): void;
+  cleanup(): void;
+};
+
+type StreamingRendererFactoryLike = {
+  selectRendererType(
+    capabilities: StreamingCapabilities,
+    performanceModeEnabled: boolean,
+    gpuAvailable: boolean
+  ): RendererType;
+  createRenderer(type: RendererType, dependencies: Record<string, unknown>): StreamingRendererLike;
+};
+
+type CanvasRendererLike = {
+  hasContextFor(canvas: HTMLCanvasElement): boolean;
+  cleanup(): void;
+};
+
+type GpuRendererServiceLike = {
+  isCanvasTransferred(): boolean;
+  terminateAndReset(emitCanvasExpired?: boolean): void;
+};
+
+type GpuRenderLoopServiceLike = Record<string, unknown>;
+
+type RenderPipelineDependencies = {
+  appState: AppStateLike;
+  streamViewService: StreamViewServiceLike;
+  canvasLifecycleService: CanvasLifecycleServiceLike;
+  streamHealthService: StreamHealthServiceLike;
+  streamingRendererFactory: StreamingRendererFactoryLike;
+  gpuRendererService: GpuRendererServiceLike;
+  gpuRenderLoopService: GpuRenderLoopServiceLike;
+  canvasRenderer: CanvasRendererLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class StreamingRenderPipelineService extends BaseService {
-  constructor(dependencies) {
+  declare protected readonly appState: AppStateLike;
+  declare protected readonly streamViewService: StreamViewServiceLike;
+  declare protected readonly canvasLifecycleService: CanvasLifecycleServiceLike;
+  declare protected readonly streamHealthService: StreamHealthServiceLike;
+  declare protected readonly streamingRendererFactory: StreamingRendererFactoryLike;
+  declare protected readonly gpuRendererService: GpuRendererServiceLike;
+  declare protected readonly gpuRenderLoopService: GpuRenderLoopServiceLike;
+  declare protected readonly canvasRenderer: CanvasRendererLike;
+  declare protected readonly eventBus: TypedEventBusLike;
+  declare protected readonly logger: LoggerLike;
+
+  private _currentCapabilities: StreamingCapabilities | null;
+  private _activeRenderer: StreamingRendererLike | null;
+  private _activeRendererType: RendererType | null;
+  private _isHidden: boolean;
+  private _performanceModeEnabled: boolean;
+  private _userPresetId: string | null;
+  private _canvas2dContextCreated: boolean;
+
+  constructor(dependencies: RenderPipelineDependencies) {
     super(
       dependencies,
       [
@@ -47,16 +157,16 @@ export class StreamingRenderPipelineService extends BaseService {
     this._canvas2dContextCreated = false;
   }
 
-  initialize() {
+  initialize(): void {
     this.canvasLifecycleService.initialize();
   }
 
-  handleCanvasExpired() {
+  handleCanvasExpired(): void {
     this.canvasLifecycleService.handleCanvasExpired();
   }
 
-  handlePerformanceStateChanged(state) {
-    if (!state || typeof state.hidden !== 'boolean') {
+  handlePerformanceStateChanged(state: unknown): void {
+    if (!isPerformanceStatePayload(state) || typeof state.hidden !== 'boolean') {
       return;
     }
 
@@ -72,7 +182,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  handleRenderPresetChanged(presetId) {
+  handleRenderPresetChanged(presetId: string): void {
     if (this._performanceModeEnabled) {
       this._userPresetId = presetId;
       this.logger.debug(`User selected ${presetId} preset - cached (performance mode active)`);
@@ -84,11 +194,11 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  handleFullscreenChange() {
+  handleFullscreenChange(): void {
     this.canvasLifecycleService.handleFullscreenChange();
   }
 
-  handlePerformanceModeChanged(enabled) {
+  handlePerformanceModeChanged(enabled: boolean): void {
     this._performanceModeEnabled = enabled;
 
     if (enabled) {
@@ -98,13 +208,13 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  async startPipeline(capabilities) {
+  async startPipeline(capabilities: StreamingCapabilities): Promise<void> {
     const video = this.streamViewService.getVideo();
     await this._waitForHealthyStream(video);
     await this._startRendering(capabilities);
   }
 
-  stopPipeline() {
+  stopPipeline(): void {
     const video = this.streamViewService.getVideo();
 
     if (this._activeRenderer) {
@@ -130,7 +240,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this._activeRendererType = null;
   }
 
-  cleanup() {
+  cleanup(): void {
     this._performanceModeEnabled = false;
     this._userPresetId = null;
 
@@ -151,7 +261,7 @@ export class StreamingRenderPipelineService extends BaseService {
   // Private methods
   // ============================
 
-  _handleVisible() {
+  private _handleVisible(): void {
     if (this.appState.isStreaming && this._activeRenderer) {
       const video = this.streamViewService.getVideo();
       this._activeRenderer.resume(video);
@@ -159,7 +269,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  _handleHidden() {
+  private _handleHidden(): void {
     if (this.appState.isStreaming && this._activeRenderer) {
       const video = this.streamViewService.getVideo();
       this._activeRenderer.pause(video);
@@ -167,7 +277,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  _handlePerformanceModeEnabled() {
+  private _handlePerformanceModeEnabled(): void {
     // Cache user preset if GPU is active
     if (this.appState.isStreaming && this._activeRendererType === 'gpu' && this._activeRenderer?.isActive()) {
       const currentPresetId = this._activeRenderer.getPresetId();
@@ -176,7 +286,7 @@ export class StreamingRenderPipelineService extends BaseService {
       }
 
       // Switch to Canvas2D mid-stream
-      this._switchToCanvas2DMidStream();
+      void this._switchToCanvas2DMidStream();
       this.logger.info('Performance mode enabled mid-stream - switched to Canvas2D renderer');
       return;
     }
@@ -190,7 +300,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  _handlePerformanceModeDisabled() {
+  private _handlePerformanceModeDisabled(): void {
     // Restore preset if GPU is already active
     if (this._activeRendererType === 'gpu' && this._activeRenderer?.isActive() && this._userPresetId) {
       this._activeRenderer.setPreset(this._userPresetId);
@@ -200,7 +310,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
     // Switch to GPU mid-stream if Canvas2D was being used
     if (this.appState.isStreaming && this._activeRendererType === 'canvas2d') {
-      this._switchToGPUMidStream();
+      void this._switchToGPUMidStream();
       return;
     }
 
@@ -215,7 +325,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  _waitForHealthyStream(videoElement) {
+  private _waitForHealthyStream(videoElement: HTMLVideoElement): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.streamHealthService.checkStreamHealth(
         videoElement,
@@ -240,7 +350,7 @@ export class StreamingRenderPipelineService extends BaseService {
    * Start rendering with the appropriate renderer strategy
    * @param {Object} capabilities - Device capabilities
    */
-  async _startRendering(capabilities) {
+  private async _startRendering(capabilities: StreamingCapabilities): Promise<void> {
     this._currentCapabilities = capabilities;
     const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
     const video = this.streamViewService.getVideo();
@@ -286,7 +396,11 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {HTMLVideoElement} video
    * @param {Object} nativeRes
    */
-  async _startGPURendering(canvas, video, nativeRes) {
+  private async _startGPURendering(
+    canvas: HTMLCanvasElement,
+    video: HTMLVideoElement,
+    nativeRes: Dimensions
+  ): Promise<void> {
     // Try GPU init with at most one retry for canvas context errors (handles HMR edge cases)
     const MAX_RETRIES = 1;
     let currentCanvas = canvas;
@@ -327,7 +441,8 @@ export class StreamingRenderPipelineService extends BaseService {
         break;
       } catch (error) {
         // Check if failure is due to canvas having a rendering context (e.g., from HMR)
-        const isContextError = error.message?.includes('rendering context');
+        const errorMessage = getErrorMessage(error);
+        const isContextError = errorMessage.includes('rendering context');
         const canRetry = attempt < MAX_RETRIES;
 
         if (isContextError && canRetry) {
@@ -338,7 +453,7 @@ export class StreamingRenderPipelineService extends BaseService {
           continue; // Retry with fresh canvas
         }
 
-        this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', error.message);
+        this.logger.warn('GPU renderer initialization failed, falling back to Canvas2D:', errorMessage);
         break;
       }
     }
@@ -352,7 +467,10 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {HTMLCanvasElement} canvas
    * @param {HTMLVideoElement} video
    */
-  async _startCanvas2DRendering(canvas, video) {
+  private async _startCanvas2DRendering(
+    canvas: HTMLCanvasElement,
+    video: HTMLVideoElement
+  ): Promise<void> {
     const renderer = this.streamingRendererFactory.createRenderer('canvas2d', {
       canvasRenderer: this.canvasRenderer,
       appState: this.appState
@@ -364,7 +482,7 @@ export class StreamingRenderPipelineService extends BaseService {
       await renderer.initialize(canvas);
     } catch (error) {
       // Don't set partial state if initialization fails
-      this.logger.error('Canvas2D renderer initialization failed:', error.message);
+      this.logger.error('Canvas2D renderer initialization failed:', getErrorMessage(error));
       throw error;
     }
 
@@ -383,7 +501,11 @@ export class StreamingRenderPipelineService extends BaseService {
    * @param {HTMLVideoElement} video
    * @param {Object} nativeRes
    */
-  async _startCanvas2DFallback(canvas, video, nativeRes) {
+  private async _startCanvas2DFallback(
+    canvas: HTMLCanvasElement,
+    video: HTMLVideoElement,
+    nativeRes: Dimensions
+  ): Promise<void> {
     let currentCanvas = canvas;
 
     // Recreate canvas if GPU transferred control
@@ -402,7 +524,7 @@ export class StreamingRenderPipelineService extends BaseService {
   /**
    * Switch from GPU to Canvas2D mid-stream
    */
-  async _switchToCanvas2DMidStream() {
+  private async _switchToCanvas2DMidStream(): Promise<void> {
     const video = this.streamViewService.getVideo();
 
     // Stop GPU renderer
@@ -427,7 +549,7 @@ export class StreamingRenderPipelineService extends BaseService {
   /**
    * Switch from Canvas2D to GPU mid-stream
    */
-  async _switchToGPUMidStream() {
+  private async _switchToGPUMidStream(): Promise<void> {
     const video = this.streamViewService.getVideo();
 
     // Stop Canvas2D renderer
@@ -472,7 +594,10 @@ export class StreamingRenderPipelineService extends BaseService {
         return;
       }
     } catch (error) {
-      this.logger.warn('GPU initialization failed mid-stream, staying on Canvas2D:', error.message);
+      this.logger.warn(
+        'GPU initialization failed mid-stream, staying on Canvas2D:',
+        getErrorMessage(error)
+      );
     }
 
     // Stay on Canvas2D
