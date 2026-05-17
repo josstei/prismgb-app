@@ -12,9 +12,8 @@
     "declaration": true,
     "declarationDir": "dist",
     "types": ["@webgpu/types", "vite/client"],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],
