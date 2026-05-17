@@ -13,9 +13,99 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { LoggerLike } from '@shared/base/service.base.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import {
+  isRecordingErrorPayload,
+  isRecordingReadyPayload,
+  isStreamingCapabilities
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import type {
+  GpuRecordingStartOptions,
+  GpuRendererServiceLike
+} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type CaptureSource = HTMLCanvasElement | HTMLVideoElement | ImageBitmap;
+
+type CaptureServiceLike = {
+  isRecording: boolean;
+  getRecordingState(): boolean;
+  takeScreenshot(source: CaptureSource): Promise<unknown>;
+  startRecording(stream: MediaStream): Promise<void>;
+  stopRecording(): Promise<void>;
+};
+
+type AppStateLike = {
+  isStreaming: boolean;
+  currentStream: MediaStream | null;
+  currentCapabilities: unknown;
+};
+
+type StreamViewServiceLike = {
+  getCanvas(): HTMLCanvasElement | null;
+  getVideo(): HTMLVideoElement | null;
+};
+
+type GpuRecordingServiceLike = {
+  start(options: GpuRecordingStartOptions): Promise<MediaStream>;
+  stop(): Promise<void>;
+};
+
+type CanvasRendererLike = {
+  isActive(): boolean;
+};
+
+type TranscodeServiceLike = {
+  isTranscoding(): boolean;
+};
+
+type SaveRecordingResult = {
+  success?: boolean;
+  transcoded?: boolean;
+  [key: string]: unknown;
+};
+
+type CaptureSaveServiceLike = {
+  saveRecording(
+    blob: Blob,
+    filename: string,
+    options: { interrupted: boolean }
+  ): Promise<SaveRecordingResult>;
+};
+
+type CaptureOrchestratorDependencies = {
+  captureService: CaptureServiceLike;
+  appState: AppStateLike;
+  streamViewService: StreamViewServiceLike;
+  gpuRendererService: GpuRendererServiceLike;
+  gpuRecordingService: GpuRecordingServiceLike;
+  canvasRenderer: CanvasRendererLike;
+  transcodeService: TranscodeServiceLike;
+  captureSaveService: CaptureSaveServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class CaptureOrchestrator extends BaseOrchestrator {
-  constructor(dependencies) {
+  declare protected readonly captureService: CaptureServiceLike;
+  declare protected readonly appState: AppStateLike;
+  declare protected readonly streamViewService: StreamViewServiceLike;
+  declare protected readonly gpuRendererService: GpuRendererServiceLike;
+  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
+  declare protected readonly canvasRenderer: CanvasRendererLike;
+  declare protected readonly transcodeService: TranscodeServiceLike;
+  declare protected readonly captureSaveService: CaptureSaveServiceLike;
+  declare protected readonly eventBus: TypedEventBusLike;
+  declare protected readonly logger: LoggerLike;
+
+  _recordingInterrupted: boolean;
+
+  constructor(dependencies: CaptureOrchestratorDependencies) {
     super(
       dependencies,
       [
@@ -39,10 +129,10 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   /**
    * Initialize capture orchestrator
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
-      [EventChannels.CAPTURE.RECORDING_ERROR]: (data) => this._handleRecordingError(data),
-      [EventChannels.CAPTURE.RECORDING_READY]: (data) => this._handleRecordingReady(data),
+      [EventChannels.CAPTURE.RECORDING_ERROR]: (data: unknown) => this._handleRecordingError(data),
+      [EventChannels.CAPTURE.RECORDING_READY]: (data: unknown) => this._handleRecordingReady(data),
       // Stop recording when stream stops to prevent orphaned recording loop
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
       // UI command events - decoupled from UISetupOrchestrator
@@ -55,7 +145,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Take screenshot
    * Uses AppState.isStreaming instead of direct orchestrator call (decoupled)
    */
-  async takeScreenshot() {
+  async takeScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
       return;
@@ -69,7 +159,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       const source = await this._getCaptureSource();
       await this.captureService.takeScreenshot(source);
     } catch (error) {
-      this.logger.error('Failed to take screenshot:', error);
+      this.logger.error('Failed to take screenshot:', getErrorMessage(error, 'Screenshot failed'));
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Error taking screenshot', type: 'error' });
     }
   }
@@ -82,7 +172,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @returns {Promise<HTMLCanvasElement|HTMLVideoElement|ImageBitmap>}
    * @private
    */
-  async _getCaptureSource() {
+  async _getCaptureSource(): Promise<CaptureSource> {
     if (this.gpuRendererService.isActive()) {
       this.logger.debug('Capturing screenshot from GPU renderer');
       return this.gpuRendererService.captureFrame();
@@ -90,11 +180,19 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     if (this.canvasRenderer.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      return this.streamViewService.getCanvas();
+      const canvas = this.streamViewService.getCanvas();
+      if (!canvas) {
+        throw new Error('Stream canvas element is unavailable');
+      }
+      return canvas;
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
-    return this.streamViewService.getVideo();
+    const video = this.streamViewService.getVideo();
+    if (!video) {
+      throw new Error('Stream video element is unavailable');
+    }
+    return video;
   }
 
   /**
@@ -103,16 +201,14 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Otherwise falls back to raw device stream.
    * Blocks new recording if transcoding is in progress.
    */
-  async toggleRecording() {
-    const isCurrentlyRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
-
-    if (isCurrentlyRecording) {
+  async toggleRecording(): Promise<void> {
+    if (this._isRecordingActive()) {
       await this._stopRecording();
       return;
     }
 
     // Block recording if transcoding is in progress
-    if (this.transcodeService?.isTranscoding?.()) {
+    if (this.transcodeService.isTranscoding()) {
       this.logger.warn('Cannot start recording - transcoding in progress');
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
         message: 'Cannot record while converting video',
@@ -130,25 +226,32 @@ export class CaptureOrchestrator extends BaseOrchestrator {
 
     try {
       if (this.gpuRendererService.isActive()) {
-        await this._startGpuRecording();
+        await this._startGpuRecording(stream);
       } else {
         await this.captureService.startRecording(stream);
       }
       this._recordingInterrupted = false;
     } catch (error) {
-      this.logger.error('Failed to start recording:', error);
+      this.logger.error('Failed to start recording:', getErrorMessage(error, 'Recording failed'));
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Error with recording', type: 'error' });
     }
+  }
+
+  _isRecordingActive(): boolean {
+    return this.captureService.isRecording || Boolean(this.captureService.getRecordingState());
   }
 
   /**
    * Start recording from GPU-rendered canvas with shader effects
    * @private
    */
-  async _startGpuRecording() {
-    const frameRate = this.appState.currentCapabilities?.frameRate || 60;
+  async _startGpuRecording(stream: MediaStream): Promise<void> {
+    const capabilities = this.appState.currentCapabilities;
+    const frameRate = isStreamingCapabilities(capabilities) && typeof capabilities.frameRate === 'number'
+      ? capabilities.frameRate
+      : 60;
     const recordingStream = await this.gpuRecordingService.start({
-      stream: this.appState.currentStream,
+      stream,
       frameRate
     });
 
@@ -159,13 +262,13 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Stop recording and clean up GPU recording resources
    * @private
    */
-  async _stopRecording() {
+  async _stopRecording(): Promise<void> {
     await this.gpuRecordingService.stop();
 
     try {
       await this.captureService.stopRecording();
     } catch (error) {
-      this.logger.error('Failed to stop recording:', error);
+      this.logger.error('Failed to stop recording:', getErrorMessage(error, 'Failed to stop recording'));
     }
   }
 
@@ -179,9 +282,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Prevents orphaned GPU recording loop when stream stops
    * @private
    */
-  async _handleStreamStopped() {
-    const isRecording = this.captureService.isRecording || this.captureService.getRecordingState?.();
-    if (isRecording) {
+  async _handleStreamStopped(): Promise<void> {
+    if (this._isRecordingActive()) {
       this.logger.info('Stream stopped - stopping active recording');
       this._recordingInterrupted = true;
       await this._stopRecording();
@@ -192,9 +294,16 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Handle recording error event
    * @private
    */
-  async _handleRecordingError(data) {
-    const { error } = data;
-    this.logger.error('Recording error:', error);
+  async _handleRecordingError(data: unknown): Promise<void> {
+    if (!isRecordingErrorPayload(data)) {
+      this.logger.error('Recording error event missing payload', data);
+      await this.gpuRecordingService.stop();
+      this._recordingInterrupted = false;
+      return;
+    }
+
+    const message = getErrorMessage(data.error ?? data.message, 'Recording failed');
+    this.logger.error('Recording error:', message);
 
     await this.gpuRecordingService.stop();
     this._recordingInterrupted = false;
@@ -205,7 +314,16 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Recording data { blob, filename }
    * @private
    */
-  async _handleRecordingReady(data) {
+  async _handleRecordingReady(data: unknown): Promise<void> {
+    if (!isRecordingReadyPayload(data)) {
+      this.logger.error('Recording ready event missing payload', data);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Failed to save recording. Please try again.',
+        type: 'error'
+      });
+      return;
+    }
+
     const { blob, filename } = data;
 
     try {
@@ -220,7 +338,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
       }
     } catch (error) {
-      this.logger.error('Failed to save recording:', error);
+      this.logger.error('Failed to save recording:', getErrorMessage(error, 'Failed to save recording'));
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
         message: 'Failed to save recording. Please try again.',
         type: 'error'
@@ -231,12 +349,12 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   /**
    * Cleanup resources
    */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     if (this.captureService.getRecordingState()) {
       try {
         await this.captureService.stopRecording();
       } catch (error) {
-        this.logger.error('Error stopping recording during cleanup:', error);
+        this.logger.error('Error stopping recording during cleanup:', getErrorMessage(error, 'Failed to stop recording'));
       }
     }
     await this.gpuRecordingService.stop();

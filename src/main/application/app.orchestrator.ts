@@ -8,6 +8,7 @@
  */
 
 import { app } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import type { AwilixContainer } from 'awilix';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
@@ -30,6 +31,15 @@ import type { LoginItemService } from '@main/infrastructure/platform/index.js';
  */
 interface AppOrchestratorDependencies {
   loggerFactory: MainLogger;
+}
+
+function resolveDevDockIconPath(appPath: string): string | null {
+  const candidates = [
+    path.join(appPath, 'assets/icon.png'),
+    path.join(process.cwd(), 'assets/icon.png')
+  ];
+
+  return candidates.find(candidate => fs.existsSync(candidate)) ?? null;
 }
 
 class AppOrchestrator extends BaseOrchestrator {
@@ -97,9 +107,13 @@ class AppOrchestrator extends BaseOrchestrator {
     // Set dock icon in dev mode (macOS only)
     // In production, macOS uses icon.icns from app bundle automatically
     if (process.platform === 'darwin' && !app.isPackaged) {
-      const iconPath = path.join(app.getAppPath(), 'assets/icon.png');
-      app.dock.setIcon(iconPath);
-      this.logger.debug(`Set dock icon: ${iconPath}`);
+      const iconPath = resolveDevDockIconPath(app.getAppPath());
+      if (iconPath) {
+        app.dock.setIcon(iconPath);
+        this.logger.debug(`Set dock icon: ${iconPath}`);
+      } else {
+        this.logger.warn('Dock icon not found; continuing without custom dock icon');
+      }
     }
 
     // Register IPC handlers

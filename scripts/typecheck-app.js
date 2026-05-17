@@ -2,6 +2,7 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 const DEFAULT_ALLOWLIST_PATH = 'scripts/type-debt-allowlist.json';
 const DEFAULT_EXPIRY_DATE = '2026-04-30';
@@ -10,7 +11,9 @@ function parseArgs(argv) {
   const options = {
     allowlistPath: DEFAULT_ALLOWLIST_PATH,
     writeAllowlist: false,
-    outputPath: DEFAULT_ALLOWLIST_PATH
+    outputPath: DEFAULT_ALLOWLIST_PATH,
+    defaultExpiresOn: DEFAULT_EXPIRY_DATE,
+    allowExpiredWrite: false
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -35,6 +38,21 @@ function parseArgs(argv) {
       } else {
         options.outputPath = options.allowlistPath;
       }
+      continue;
+    }
+
+    if (arg === '--default-expires-on') {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('Missing value for --default-expires-on');
+      }
+      options.defaultExpiresOn = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--allow-expired-write') {
+      options.allowExpiredWrite = true;
     }
   }
 
@@ -149,9 +167,30 @@ function ensureIsoDate(value, fieldName) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw new Error(`Invalid ${fieldName} "${value}". Expected YYYY-MM-DD.`);
   }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new Error(`Invalid ${fieldName} "${value}". Expected a real calendar date.`);
+  }
 }
 
-function writeAllowlist(outputPath, entries) {
+function getTodayIsoDate(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
+function validateAllowlistWriteOptions(options, today = getTodayIsoDate()) {
+  ensureIsoDate(options.defaultExpiresOn, 'defaultExpiresOn');
+
+  if (!options.allowExpiredWrite && options.defaultExpiresOn < today) {
+    throw new Error(
+      `Refusing to write an expired allowlist. ` +
+        `--default-expires-on ${options.defaultExpiresOn} is before today (${today}). ` +
+        `Pass a future date or use --allow-expired-write for historical reproduction.`
+    );
+  }
+}
+
+function writeAllowlist(outputPath, entries, defaultExpiresOn = DEFAULT_EXPIRY_DATE) {
   const absolutePath = path.isAbsolute(outputPath)
     ? outputPath
     : path.resolve(process.cwd(), outputPath);
@@ -159,10 +198,10 @@ function writeAllowlist(outputPath, entries) {
   const payload = {
     version: 1,
     generatedAt: new Date().toISOString(),
-    defaultExpiresOn: DEFAULT_EXPIRY_DATE,
+    defaultExpiresOn,
     entries: entries.map((entry) => ({
       ...entry,
-      expiresOn: DEFAULT_EXPIRY_DATE
+      expiresOn: defaultExpiresOn
     }))
   };
 
@@ -312,7 +351,8 @@ function main() {
   );
 
   if (options.writeAllowlist) {
-    const outputPath = writeAllowlist(options.outputPath, aggregated);
+    validateAllowlistWriteOptions(options);
+    const outputPath = writeAllowlist(options.outputPath, aggregated, options.defaultExpiresOn);
     console.log(`Wrote type debt allowlist: ${outputPath}`);
     console.log(`- tracked diagnostic buckets: ${aggregated.length}`);
     console.log(`- total strict diagnostics: ${diagnostics.length}`);
@@ -368,4 +408,19 @@ function main() {
   process.exit(0);
 }
 
-main();
+const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedScript) {
+  main();
+}
+
+export {
+  aggregateDiagnostics,
+  compareDiagnosticsToAllowlist,
+  ensureIsoDate,
+  getTodayIsoDate,
+  loadAllowlist,
+  parseArgs,
+  parseDiagnostics,
+  validateAllowlistWriteOptions,
+  writeAllowlist
+};

@@ -9,12 +9,37 @@
 import {
   WorkerMessageType,
   WorkerResponseType,
-  createWorkerMessage
+  createWorkerMessage,
+  isValidWorkerResponse
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
+import type {
+  WorkerMessagePayloadMap,
+  WorkerRendererConfig,
+  WorkerResponsePayloadMap,
+  WorkerResponseType as WorkerResponseTypeValue,
+  WorkerResponse
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
-import type { LoggerLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type {
+  LoggerFactoryLike,
+  LoggerLike,
+  EventBusLike
+} from '@shared/interfaces/infrastructure.types.js';
 
 export type WorkerCapabilities = Record<string, unknown>;
+
+type GpuWorkerManagerDependencies = {
+  loggerFactory?: LoggerFactoryLike;
+  eventBus: EventBusLike;
+};
+
+type WorkerResponseHandler<K extends WorkerResponseTypeValue> = (
+  payload: WorkerResponsePayloadMap[K]
+) => void;
+
+type AnyWorkerResponseHandler = (
+  payload: WorkerResponsePayloadMap[WorkerResponseTypeValue]
+) => void;
 
 export class GpuWorkerManager {
   _logger: LoggerLike;
@@ -25,8 +50,8 @@ export class GpuWorkerManager {
   _canvas: HTMLCanvasElement | null;
   _offscreenCanvas: OffscreenCanvas | null;
   _wasCanvasTransferred: boolean;
-  _messageHandlers: Map<string, (payload: Record<string, unknown>) => void>;
-  _readyResolve: ((value?: unknown) => void) | null;
+  _messageHandlers: Map<WorkerResponseTypeValue, AnyWorkerResponseHandler>;
+  _readyResolve: (() => void) | null;
   _readyReject: ((error: Error) => void) | null;
   _readyTimeoutId: ReturnType<typeof setTimeout> | null;
 
@@ -35,8 +60,8 @@ export class GpuWorkerManager {
    * @param {Object} dependencies.loggerFactory - Logger factory
    * @param {Object} dependencies.eventBus - Event bus for publishing events
    */
-  constructor({ loggerFactory, eventBus }) {
-    this._logger = loggerFactory?.create('GpuWorkerManager');
+  constructor({ loggerFactory, eventBus }: GpuWorkerManagerDependencies) {
+    this._logger = loggerFactory?.create('GpuWorkerManager') ?? console;
     this._eventBus = eventBus;
 
     // Worker state
@@ -62,7 +87,7 @@ export class GpuWorkerManager {
    * Check if worker is ready to receive commands
    * @returns {boolean}
    */
-  isReady() {
+  isReady(): boolean {
     return this._isReady;
   }
 
@@ -70,7 +95,7 @@ export class GpuWorkerManager {
    * Get detected GPU capabilities
    * @returns {Object|null}
    */
-  getCapabilities() {
+  getCapabilities(): WorkerCapabilities | null {
     return this._capabilities;
   }
 
@@ -78,7 +103,7 @@ export class GpuWorkerManager {
    * Check if canvas control was transferred (irreversible)
    * @returns {boolean}
    */
-  isCanvasTransferred() {
+  isCanvasTransferred(): boolean {
     return this._wasCanvasTransferred;
   }
 
@@ -89,7 +114,11 @@ export class GpuWorkerManager {
    * @param {number} [timeout=5000] - Initialization timeout in ms
    * @returns {Promise<boolean>} True if initialization successful
    */
-  async initialize(canvasElement, config, timeout = 5000) {
+  async initialize(
+    canvasElement: HTMLCanvasElement,
+    config: WorkerRendererConfig,
+    timeout = 5000
+  ): Promise<boolean> {
     // Check if we can reuse existing setup
     if (this._canvas === canvasElement && this._wasCanvasTransferred) {
       if (this._worker && this._isReady) {
@@ -142,7 +171,11 @@ export class GpuWorkerManager {
    * Reinitialize GPU resources without canvas transfer
    * @private
    */
-  async _reinitialize(config, timeout) {
+  async _reinitialize(config: WorkerRendererConfig, timeout: number): Promise<boolean> {
+    if (!this._worker) {
+      throw new Error('Worker not available for reinitialization');
+    }
+
     const message = createWorkerMessage(WorkerMessageType.INIT, { config });
     this._worker.postMessage(message);
     await this._waitForReady(timeout);
@@ -153,7 +186,7 @@ export class GpuWorkerManager {
    * Wait for worker to report ready
    * @private
    */
-  _waitForReady(timeout) {
+  _waitForReady(timeout: number): Promise<void> {
     if (this._isReady) {
       return Promise.resolve();
     }
@@ -175,38 +208,40 @@ export class GpuWorkerManager {
    * Handle incoming worker messages
    * @private
    */
-  _handleMessage(event) {
-    const { type, payload } = event.data;
+  _handleMessage(event: MessageEvent<unknown>): void {
+    const response = event.data;
+    if (!isValidWorkerResponse(response)) {
+      this._logger?.error('Invalid worker response:', response);
+      return;
+    }
 
-    switch (type) {
+    switch (response.type) {
       case WorkerResponseType.READY:
         this._isReady = true;
-        this._capabilities = payload;
+        this._capabilities = response.payload;
         this._resolveReady();
-        this._logger?.info(`Worker ready (API: ${payload.api})`);
+        this._logger?.info(`Worker ready (API: ${response.payload.api})`);
+        this._dispatchMessage(response);
         break;
 
       case WorkerResponseType.ERROR:
-        this._logger?.error('Worker error:', payload.message);
+        this._logger?.error('Worker error:', response.payload.message);
         this._isReady = false;
         if (this._readyReject) {
-          this._readyReject(new Error(payload.message));
-          this._readyResolve = null;
-          this._readyReject = null;
-          if (this._readyTimeoutId !== null) {
-            clearTimeout(this._readyTimeoutId);
-            this._readyTimeoutId = null;
-          }
+          this._rejectReady(new Error(response.payload.message));
         }
+        this._dispatchMessage(response);
         break;
 
-      default: {
-        // Forward to registered handlers
-        const handler = this._messageHandlers.get(type);
-        if (handler) {
-          handler(payload);
-        }
-      }
+      default:
+        this._dispatchMessage(response);
+    }
+  }
+
+  _dispatchMessage<K extends WorkerResponseTypeValue>(response: WorkerResponse<K>): void {
+    const handler = this._messageHandlers.get(response.type);
+    if (handler) {
+      handler(response.payload);
     }
   }
 
@@ -214,26 +249,34 @@ export class GpuWorkerManager {
    * Handle worker errors
    * @private
    */
-  _handleError(error) {
+  _handleError(error: ErrorEvent): void {
     this._logger?.error('Worker error:', error.message);
     this._isReady = false;
 
     if (this._readyReject) {
-      this._readyReject(new Error(error.message));
-      this._readyResolve = null;
-      this._readyReject = null;
-      if (this._readyTimeoutId !== null) {
-        clearTimeout(this._readyTimeoutId);
-        this._readyTimeoutId = null;
-      }
+      this._rejectReady(new Error(error.message));
     }
+  }
+
+  _rejectReady(error: Error): void {
+    if (this._readyTimeoutId !== null) {
+      clearTimeout(this._readyTimeoutId);
+      this._readyTimeoutId = null;
+    }
+
+    if (this._readyReject) {
+      this._readyReject(error);
+    }
+
+    this._readyResolve = null;
+    this._readyReject = null;
   }
 
   /**
    * Resolve pending ready promise
    * @private
    */
-  _resolveReady() {
+  _resolveReady(): void {
     if (this._readyTimeoutId !== null) {
       clearTimeout(this._readyTimeoutId);
       this._readyTimeoutId = null;
@@ -252,7 +295,11 @@ export class GpuWorkerManager {
    * @param {Object} payload - Message payload
    * @param {Transferable[]} [transferables] - Objects to transfer ownership
    */
-  sendCommand(type, payload = {}, transferables = []) {
+  sendCommand<K extends WorkerMessageType>(
+    type: K,
+    payload?: WorkerMessagePayloadMap[K],
+    transferables: Transferable[] = []
+  ): void {
     if (!this._isReady || !this._worker) {
       throw new Error('Worker not ready');
     }
@@ -272,8 +319,11 @@ export class GpuWorkerManager {
    * @param {Function} handler - Handler function receiving payload
    * @returns {Function} Unsubscribe function
    */
-  onMessage(type, handler) {
-    this._messageHandlers.set(type, handler);
+  onMessage<K extends WorkerResponseTypeValue>(
+    type: K,
+    handler: WorkerResponseHandler<K>
+  ): () => void {
+    this._messageHandlers.set(type, handler as AnyWorkerResponseHandler);
 
     return () => {
       this._messageHandlers.delete(type);
@@ -284,7 +334,7 @@ export class GpuWorkerManager {
    * Release GPU resources while keeping worker alive
    * Allows reinit without canvas transfer
    */
-  releaseResources() {
+  releaseResources(): void {
     if (!this._worker) {
       this._logger?.debug('releaseResources: No worker to release');
       return;
@@ -301,7 +351,7 @@ export class GpuWorkerManager {
    * Always resets the canvas transfer flag — a terminated worker
    * holds no canvas reference, so the flag would be dangling state.
    */
-  terminate() {
+  terminate(): void {
     if (this._readyTimeoutId !== null) {
       clearTimeout(this._readyTimeoutId);
       this._readyTimeoutId = null;

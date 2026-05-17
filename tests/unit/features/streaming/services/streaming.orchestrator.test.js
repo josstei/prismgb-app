@@ -163,6 +163,7 @@ describe('StreamingOrchestrator', () => {
   describe('_handleStreamStarted', () => {
     const mockData = {
       stream: { id: 'stream-1' },
+      device: { deviceId: 'test-device-id', label: 'Test Device', kind: 'videoinput' },
       settings: { video: { width: 160, height: 144, frameRate: 60 } },
       capabilities: { canvasScale: 4, nativeResolution: { width: 160, height: 144 } }
     };
@@ -248,7 +249,9 @@ describe('StreamingOrchestrator', () => {
   });
 
   describe('_handleSupportedDeviceAvailable', () => {
-    const mockDeviceData = { deviceId: 'test-device-id', label: 'Test Device' };
+    const mockDeviceData = {
+      device: { deviceId: 'test-device-id', label: 'Test Device', kind: 'videoinput' }
+    };
 
     it('should auto-start stream when device becomes available and setting enabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);

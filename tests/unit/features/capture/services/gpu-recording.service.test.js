@@ -60,6 +60,25 @@ describe('CaptureGpuRecordingService', () => {
     expect(service.isActive()).toBe(true);
   });
 
+  it('should throw a clear error when canvas context creation fails', async () => {
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => null)
+    };
+
+    global.document = {
+      createElement: vi.fn(() => mockCanvas)
+    };
+
+    const mockStream = { getAudioTracks: vi.fn(() => []) };
+
+    await expect(service.start({ stream: mockStream, frameRate: 60 }))
+      .rejects.toThrow('Unable to create GPU recording canvas context');
+
+    expect(service.isActive()).toBe(false);
+  });
+
   it('should calculate integer upscaling for smaller frames', () => {
     service._recordingWidth = 640;
     service._recordingHeight = 576;
@@ -156,6 +175,7 @@ describe('CaptureGpuRecordingService', () => {
     }
 
     expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-degraded', {
+      reason: 'dropped_frames',
       droppedFrames: 30
     });
   });
