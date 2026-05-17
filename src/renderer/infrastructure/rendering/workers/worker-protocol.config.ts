@@ -11,6 +11,7 @@ export const WorkerMessageType = Object.freeze({
   DESTROY: 'destroy'
 } as const);
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export type WorkerMessageType = typeof WorkerMessageType[keyof typeof WorkerMessageType];
 
 export const WorkerResponseType = Object.freeze({
@@ -24,6 +25,7 @@ export const WorkerResponseType = Object.freeze({
   DESTROYED: 'destroyed'
 } as const);
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export type WorkerResponseType = typeof WorkerResponseType[keyof typeof WorkerResponseType];
 
 export type WorkerRenderAPI = Extract<RenderAPI, 'webgpu' | 'webgl2'>;
