@@ -60,7 +60,7 @@ export class StreamAcquisitionOrchestrator {
   async acquire(context: AcquisitionContextLike, options: AcquisitionOptions = {}): Promise<AcquisitionResult> {
     this.fallbackStrategy.initialize(context);
 
-    let lastError: unknown = null;
+    let lastError: unknown;
     let currentStrategy = 'full';
 
     // Primary acquisition attempt with full constraints
@@ -127,9 +127,9 @@ export class StreamAcquisitionOrchestrator {
     }
 
     // All attempts failed
-    const errorMessage = `Stream acquisition failed after all attempts. Device: ${context.deviceId}. Last error: ${(lastError as Error)?.message}`;
+    const errorMessage = `Stream acquisition failed after all attempts. Device: ${context.deviceId}. Last error: ${formatErrorLabel(lastError as Error)}`;
     this._log('error', errorMessage);
-    throw new Error(errorMessage);
+    throw new Error(errorMessage, { cause: lastError });
   }
 
   /**
