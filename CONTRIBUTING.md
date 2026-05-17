@@ -12,6 +12,7 @@ Thank you for your interest in contributing to PrismGB! This document provides g
 - [Documentation](#documentation)
 - [Commit Guidelines](#commit-guidelines)
 - [Pull Request Process](#pull-request-process)
+- [Dependency Updates](#dependency-updates)
 - [Code Style](#code-style)
 - [Naming Conventions](#naming-conventions)
 - [Testing](#testing)
@@ -195,6 +196,34 @@ All PRs must pass:
 - Conventional commit validation (PR title and commits)
 
 Optional: add the `full-ci` label on a PR to run macOS and Windows validation.
+
+## Dependency Updates
+
+Routine dependency bumps are handled automatically by Dependabot (`.github/dependabot.yml`). Patch updates auto-merge; minor and major updates are labeled `needs-review`.
+
+### Packages excluded from automatic major bumps
+
+Major-version updates for these packages are **ignored** by Dependabot and must be performed manually as coordinated upgrades:
+
+- `electron`, `electron-builder`, `electron-vite`, `vite` — desktop build toolchain
+- `typescript`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser` — type-check toolchain
+
+### Upgrading TypeScript (major)
+
+A TypeScript major bump touches three things at once: the compiler, the lint toolchain, and the strict type-debt baseline. Do it in one branch:
+
+1. **Verify ecosystem support.** Check the peer-dependency ranges on `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `vitest`, `@vitest/coverage-v8`, and `happy-dom`. If any of them does not yet support the new TS major, wait — do not partially upgrade.
+2. **Bump in lockstep.** Update `typescript` in both `package.json` and `packages/prismgb-gpu/package.json`, and bump the lint/test peers in the same commit. The two workspace `typescript` ranges must agree on a major.
+3. **Review tsconfig.** Inspect `tsconfig.base.json`, `tsconfig.app.json`, and `packages/prismgb-gpu/tsconfig.json` for `target` / `lib` / `module` values deprecated by the new release.
+4. **Re-baseline the type-debt allowlist.** Run `npm run typecheck:app:allowlist` to regenerate `scripts/type-debt-allowlist.json`. Manually review any new diagnostic codes — do not silently widen the allowlist.
+5. **Run the full local gate before pushing:**
+   ```bash
+   npm run lint
+   npm run typecheck
+   npm run build:vite
+   npm run test:coverage
+   npm run test:integration
+   ```
 
 ## Code Style
 

@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.70",
-    "typescript": "^5.3.0",
+    "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vitest": "^4.0.0",
     "happy-dom": "^20.9.0"

@@ -23,8 +23,27 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
+      # TypeScript major bumps require coordinated upgrade of @typescript-eslint/*,
+      # vitest, and re-baselining scripts/type-debt-allowlist.json. See
+      # CONTRIBUTING.md → "Upgrading TypeScript (major)".
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@typescript-eslint/eslint-plugin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@typescript-eslint/parser"
+        update-types: ["version-update:semver-major"]
 
     groups:
+      # TypeScript ecosystem - keep TS, its lint tooling, and @types/* in sync
+      typescript-ecosystem:
+        patterns:
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+
       # Electron ecosystem - keep together for coordinated updates
       electron-ecosystem:
         patterns:
@@ -34,7 +53,7 @@ updates:
           - "minor"
           - "patch"
 
-      # Dev dependencies (excluding electron-related)
+      # Dev dependencies (excluding electron-related and typescript-ecosystem)
       dev-dependencies:
         dependency-type: "development"
         update-types:
@@ -43,6 +62,9 @@ updates:
         exclude-patterns:
           - "electron*"
           - "vite-plugin-electron*"
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "@types/*"
 
       # Production dependencies
       production-dependencies:
