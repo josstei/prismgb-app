@@ -65,3 +65,7 @@ test-results/
 
 # Build logs
 scripts/*.log
+
+# Docs subdirectories
+docs/superpowers/
+docs/maestro/

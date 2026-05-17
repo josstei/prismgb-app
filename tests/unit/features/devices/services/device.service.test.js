@@ -271,6 +271,15 @@ describe('DeviceService', () => {
       expect(mockStorageService.getItem('chromatic-mod-retro_id')).toBe('chromatic-1');
     });
 
+    it('should publish canonical supported device payload when a new device appears', async () => {
+      await service.enumerateDevices();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('device:supported-device-available', {
+        device: mockChromaticDevice,
+        videoDevices: [mockChromaticDevice]
+      });
+    });
+
     it('should return connected status from provider', async () => {
       mockDeviceStatusProvider.getDeviceStatus.mockResolvedValue({ connected: true });
 

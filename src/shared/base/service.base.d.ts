@@ -13,6 +13,4 @@ export class BaseService {
   constructor(dependencies: object, requiredDeps?: string[], serviceName?: string | null);
 }
 
-/* eslint-disable no-redeclare */
 export interface BaseService extends ServiceDependencies {}
-/* eslint-enable no-redeclare */

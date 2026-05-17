@@ -5,23 +5,59 @@ import {
   createWorkerResponse,
   isValidWorkerMessage
 } from './worker-protocol.config.js';
+import type {
+  FramePayload,
+  InitPayload,
+  PresetPayload,
+  ResizePayload,
+  WorkerErrorPayload
+} from './worker-protocol.config.js';
 import { CaptureBufferManager } from './optimization.utils.js';
 import { WebGPURenderer } from './webgpu-renderer.engine.js';
 import { WebGL2Renderer } from './webgl2-renderer.engine.js';
-let renderer = null;
-let canvas = null;
+
+import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import type { RenderConfig } from './engine.types.js';
+
+type WorkerScopeLike = {
+  onmessage: ((event: MessageEvent<unknown>) => void | Promise<void>) | null;
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+  close(): void;
+};
+
+type WorkerRenderer = {
+  hasError?: boolean;
+  errorMessage?: string | null;
+  adapterInfo?: object | null;
+  config: RenderConfig | null;
+  initialize(canvas: OffscreenCanvas, config: RenderConfig): Promise<void>;
+  uploadFrame(imageBitmap: ImageBitmap): void;
+  render(uniforms: FramePayload['uniforms']): void;
+  resize(width: number, height: number): void;
+  destroy(): void;
+};
+
+const workerScope = self as WorkerScopeLike;
+
+let renderer: WorkerRenderer | null = null;
+let canvas: OffscreenCanvas | null = null;
 let isInitialized = false;
 let frameCount = 0;
 let lastStatsTime = performance.now();
 let totalFrameTime = 0;
-let captureManager = null;
-self.onmessage = async (event) => {
+let captureManager: CaptureBufferManager | null = null;
+
+function postWorkerError(payload: WorkerErrorPayload): void {
+  workerScope.postMessage(createWorkerResponse(WorkerResponseType.ERROR, payload));
+}
+
+workerScope.onmessage = async (event) => {
   const message = event.data;
   if (!isValidWorkerMessage(message)) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+    postWorkerError({
       message: 'Invalid message format',
       code: 'INVALID_MESSAGE'
-    }));
+    });
     return;
   }
   const { type, payload } = message;
@@ -50,14 +86,10 @@ self.onmessage = async (event) => {
     case WorkerMessageType.DESTROY:
       handleDestroy();
       break;
-    default:
-      self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-        message: `Unknown message type: ${type}`,
-        code: 'UNKNOWN_MESSAGE'
-      }));
   }
 };
-async function handleInit(payload) {
+
+async function handleInit(payload: InitPayload): Promise<void> {
   try {
     const { canvas: offscreenCanvas, config } = payload;
     const canvasToUse = offscreenCanvas || canvas;
@@ -78,19 +110,20 @@ async function handleInit(payload) {
     isInitialized = true;
     captureManager = new CaptureBufferManager();
     captureManager.initialize(canvasToUse);
-    self.postMessage(createWorkerResponse(WorkerResponseType.READY, {
+    workerScope.postMessage(createWorkerResponse(WorkerResponseType.READY, {
       api: config.api
     }));
   } catch (error) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
-      stack: error.stack,
+    postWorkerError({
+      message: getErrorMessage(error),
+      stack: error instanceof Error ? error.stack : undefined,
       code: 'INIT_FAILED',
       adapterInfo: renderer?.adapterInfo || null
-    }));
+    });
   }
 }
-async function handleFrame(payload) {
+
+async function handleFrame(payload: FramePayload): Promise<void> {
   if (!isInitialized || !renderer) return;
   if (renderer.hasError) return;
   const frameStart = performance.now();
@@ -107,30 +140,33 @@ async function handleFrame(payload) {
     const now = performance.now();
     if (now - lastStatsTime >= 1000) {
       const avgFrameTime = totalFrameTime / frameCount;
-      self.postMessage(createWorkerResponse(WorkerResponseType.STATS, {
+      workerScope.postMessage(createWorkerResponse(WorkerResponseType.STATS, {
         fps: frameCount,
-        frameTime: avgFrameTime.toFixed(2)
+        frameTime: Number(avgFrameTime.toFixed(2))
       }));
       frameCount = 0;
       totalFrameTime = 0;
       lastStatsTime = now;
     }
-    self.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
+    workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
   } catch (error) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
+    postWorkerError({
+      message: getErrorMessage(error),
       code: 'RENDER_FAILED',
       adapterInfo: renderer?.adapterInfo || null
-    }));
+    });
   } finally {
     imageBitmap?.close();
   }
 }
-function handleResize(payload) {
+
+function handleResize(payload: ResizePayload): void {
   if (!isInitialized || !renderer) return;
   try {
     const { width, height, scaleFactor } = payload;
-    renderer.config.scaleFactor = scaleFactor;
+    if (renderer.config) {
+      renderer.config.scaleFactor = scaleFactor;
+    }
     renderer.resize(width, height);
     // Update canvas size
     if (canvas) {
@@ -138,60 +174,78 @@ function handleResize(payload) {
       canvas.height = height;
     }
   } catch (error) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: error.message,
+    postWorkerError({
+      message: getErrorMessage(error),
       code: 'RESIZE_FAILED'
-    }));
+    });
   }
 }
-function handleSetPreset(_payload) {
+
+function handleSetPreset(_payload: PresetPayload): void {
   // Reserved for preset-specific resource updates.
 }
-function handleRequestCapture() {
+
+function handleRequestCapture(): void {
   if (!captureManager) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+    postWorkerError({
       message: 'Capture manager not initialized',
       code: 'NO_CAPTURE_MANAGER'
-    }));
+    });
     return;
   }
   captureManager.requestCapture();
-  self.postMessage(createWorkerResponse(WorkerResponseType.CAPTURE_REQUESTED, {}));
+  workerScope.postMessage(createWorkerResponse(WorkerResponseType.CAPTURE_REQUESTED));
 }
-async function handleCapture() {
+
+async function handleCapture(): Promise<void> {
   if (!captureManager) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
+    postWorkerError({
       message: 'Capture manager not initialized',
       code: 'NO_CAPTURE_MANAGER'
-    }));
+    });
+    return;
+  }
+  if (!canvas) {
+    postWorkerError({
+      message: 'Canvas not initialized',
+      code: 'NO_CANVAS'
+    });
     return;
   }
   if (captureManager.hasCapturedFrame()) {
     const frameToSend = captureManager.getCapturedFrame();
-    self.postMessage(
+    if (!frameToSend) {
+      postWorkerError({
+        message: 'Captured frame was unavailable',
+        code: 'CAPTURE_FAILED'
+      });
+      return;
+    }
+    workerScope.postMessage(
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: frameToSend
       }),
-      { transfer: [frameToSend] }
+      [frameToSend]
     );
     return;
   }
   try {
     const capturedFrame = await createImageBitmap(canvas);
-    self.postMessage(
+    workerScope.postMessage(
       createWorkerResponse(WorkerResponseType.CAPTURE_READY, {
         bitmap: capturedFrame
       }),
-      { transfer: [capturedFrame] }
+      [capturedFrame]
     );
   } catch (error) {
-    self.postMessage(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: 'Failed to capture frame: ' + error.message,
+    postWorkerError({
+      message: `Failed to capture frame: ${getErrorMessage(error)}`,
       code: 'CAPTURE_FAILED'
-    }));
+    });
   }
 }
-function handleRelease() {
+
+function handleRelease(): void {
   if (captureManager) {
     captureManager.destroy();
     captureManager = null;
@@ -209,9 +263,10 @@ function handleRelease() {
   frameCount = 0;
   totalFrameTime = 0;
   lastStatsTime = performance.now();
-  self.postMessage(createWorkerResponse(WorkerResponseType.RELEASED));
+  workerScope.postMessage(createWorkerResponse(WorkerResponseType.RELEASED));
 }
-function handleDestroy() {
+
+function handleDestroy(): void {
   if (captureManager) {
     captureManager.destroy();
     captureManager = null;
@@ -222,6 +277,6 @@ function handleDestroy() {
   }
   isInitialized = false;
   canvas = null;
-  self.postMessage(createWorkerResponse(WorkerResponseType.DESTROYED));
-  self.close();
+  workerScope.postMessage(createWorkerResponse(WorkerResponseType.DESTROYED));
+  workerScope.close();
 }

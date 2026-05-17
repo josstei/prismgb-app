@@ -24,7 +24,8 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
     RELEASED: 'released',
     DESTROYED: 'destroyed'
   },
-  createWorkerMessage: vi.fn((type, payload) => ({ type, payload, timestamp: 0 }))
+  createWorkerMessage: vi.fn((type, payload) => ({ type, payload, timestamp: 0 })),
+  isValidWorkerResponse: vi.fn(() => true)
 }));
 
 describe('GpuWorkerManager', () => {
