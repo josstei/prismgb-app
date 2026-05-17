@@ -18,28 +18,27 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@main/*": [
-        "src/main/*"
+        "./src/main/*"
       ],
       "@renderer/*": [
-        "src/renderer/*"
+        "./src/renderer/*"
       ],
       "@preload/*": [
-        "src/preload/*"
+        "./src/preload/*"
       ],
       "@shared/*": [
-        "src/shared/*"
+        "./src/shared/*"
       ],
       "@prismgb/gpu": [
-        "packages/prismgb-gpu/src"
+        "./packages/prismgb-gpu/src"
       ],
       "@prismgb/gpu/*": [
-        "packages/prismgb-gpu/src/*"
+        "./packages/prismgb-gpu/src/*"
       ]
     },
     "types": [
