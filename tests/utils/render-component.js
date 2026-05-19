@@ -40,7 +40,7 @@ export function renderTemplate(html) {
 
 /**
  * Gather element references by ID from a container
- * Follows the app's DOMSelectors pattern
+ * Follows the app's selector-id pattern
  *
  * @param {HTMLElement} container - Container to search in
  * @param {string[]} selectorIds - Array of element IDs to find

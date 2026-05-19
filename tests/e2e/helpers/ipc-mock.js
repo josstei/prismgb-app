@@ -4,14 +4,16 @@
  * Provides utilities to simulate device connections and
  * other IPC events during E2E testing.
  */
+import { CHROMATIC_SPECS } from './mock-chromatic.helper.js';
 
 /**
  * Mock device info for testing
  */
 export const MOCK_DEVICE = {
-  vendorId: 0x1209, // Mod Retro vendor ID
-  productId: 0xcafe, // Test product ID
-  name: 'Mod Retro Chromatic (Test)',
+  vendorId: CHROMATIC_SPECS.vendorId,
+  productId: CHROMATIC_SPECS.productId,
+  deviceName: 'Mod Retro Chromatic (Test)',
+  manufacturer: 'ModRetro',
   serialNumber: 'TEST-001',
 };
 
@@ -30,10 +32,6 @@ export async function mockDeviceConnection(page, deviceInfo = MOCK_DEVICE) {
       })
     );
 
-    // Also trigger the deviceAPI callback if it exists
-    if (window.deviceAPI?.onConnected) {
-      window.deviceAPI.onConnected(device);
-    }
   }, deviceInfo);
 }
 
@@ -47,10 +45,6 @@ export async function mockDeviceDisconnection(page) {
     // Dispatch custom event
     window.dispatchEvent(new CustomEvent('device:disconnected'));
 
-    // Also trigger the deviceAPI callback if it exists
-    if (window.deviceAPI?.onDisconnected) {
-      window.deviceAPI.onDisconnected();
-    }
   });
 }
 

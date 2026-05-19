@@ -275,7 +275,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
     );
   });
 
-  it('captures E2E selector assumptions and stale deviceAPI callback naming', () => {
+  it('captures E2E selector assumptions and current deviceAPI callback naming', () => {
     const fixtureSource = readProjectFile('tests/e2e/fixtures/electron.fixture.js');
     const settingsSpecSource = readProjectFile('tests/e2e/settings.spec.js');
     const streamingSpecSource = readProjectFile('tests/e2e/streaming-smoke.spec.js');
@@ -293,10 +293,21 @@ describe('Phase 0 non-IPC contract baselines', () => {
     expect(streamingSpecSource).toContain("window.locator('#streamCanvas')");
     expect(streamingSpecSource).toContain("window.locator('#shaderBtn')");
 
-    expect(ipcMockSource).toContain('window.deviceAPI?.onConnected');
-    expect(ipcMockSource).toContain('window.deviceAPI?.onDisconnected');
+    expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onConnected/);
+    expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onDisconnected/);
     expect(preloadSource).toContain('onDeviceConnected: deviceAPI.onConnected');
     expect(preloadSource).toContain('onDeviceDisconnected: deviceAPI.onDisconnected');
+  });
+
+  it('keeps E2E Chromatic media-device patches fully restorable', () => {
+    const chromaticHelperSource = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
+
+    expect(chromaticHelperSource).toContain('addEventListener: originalAddEventListener');
+    expect(chromaticHelperSource).toContain('removeEventListener: originalRemoveEventListener');
+    expect(chromaticHelperSource).toContain('navigator.mediaDevices.addEventListener = originals.addEventListener');
+    expect(chromaticHelperSource).toContain(
+      'navigator.mediaDevices.removeEventListener = originals.removeEventListener'
+    );
   });
 
   it('captures current release artifact targets and output locations', () => {

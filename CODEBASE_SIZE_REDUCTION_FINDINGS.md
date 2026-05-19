@@ -832,7 +832,7 @@ Current state:
 - Strict flags are enabled.
 - `tsconfig.app.json` still relaxes important checks: `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, and `exactOptionalPropertyTypes`.
 - `scripts/type-debt-allowlist.json` is large.
-- `artifacts/type-debt-current.json` is generated and ignored locally, but can drift stale.
+- `artifacts/type-debt-current.json` is generated and ignored locally, but can become outdated.
 - `npm run typecheck:app:allowlist` uses the script default expiry date, which is already in the past as of 2026-05-18. The writer path requires an explicit future `--default-expires-on` or a policy-driven expiry.
 
 Recommended end state:
@@ -845,7 +845,7 @@ Recommended end state:
   - `src/renderer/infrastructure`
   - `src/renderer/presentation`
 - Convert hot JS areas to TS in the same pass as manifest generation.
-- Fail CI if generated debt artifacts are stale when explicitly requested.
+- Fail CI if generated debt artifacts are outdated when explicitly requested.
 - Do not allow new files to use JS plus hand-authored declarations.
 
 Aggressive policy:
@@ -942,14 +942,14 @@ Current repetition:
 
 - Testing Library is configured, but many component tests manually append DOM, query selectors, and clear DOM.
 - `tests/utils/render-component.js` exists but appears unused outside its own exports and is not re-exported from `tests/utils/index.js`.
-- `tests/utils/dom-helpers.js` imports a stale path and has no consumers according to `rg`.
+- The unused DOM selector helper was deleted after `rg` found no consumers.
 
 Recommended end state:
 
 - One `renderComponent()` helper.
 - Prefer `screen`, `within`, `fireEvent` or `userEvent`.
 - Add `@testing-library/jest-dom` matchers if accepted.
-- Delete stale helpers after verifying no dynamic imports.
+- Delete unused helpers after verifying no dynamic imports.
 
 Impact:
 
@@ -982,8 +982,8 @@ Current repetition:
 
 - Device specs repeat across unit mocks, fixtures, E2E helpers, and browser-injected mocks.
 - VID/PID, native resolution, device labels, stream settings, and media constraints appear in multiple files.
-- `tests/e2e/helpers/ipc-mock.js` is already stale against production data and preload names: it uses mock VID/PID `0x1209`/`0xcafe` instead of Chromatic `0x374e`/`0x0101`, and calls `window.deviceAPI.onConnected`/`onDisconnected` instead of exposed `onDeviceConnected`/`onDeviceDisconnected`.
-- `mock-chromatic.helper.js` stores original media-device event listener methods but cleanup restores only media enumeration/stream methods, leaving listener patches at risk of leaking across tests.
+- `tests/e2e/helpers/ipc-mock.js` now derives USB IDs from shared Chromatic E2E specs and no longer calls obsolete device callback names.
+- `mock-chromatic.helper.js` now restores media-device event listener patches during cleanup, matching its stored original method set.
 
 Recommended end state:
 
