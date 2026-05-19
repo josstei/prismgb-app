@@ -43,6 +43,7 @@
     },
     "types": [
       "node",
+      "@webgpu/types",
       "vite/client"
     ],
     "lib": [

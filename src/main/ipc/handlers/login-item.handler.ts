@@ -2,14 +2,15 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { LoginItemSetResponse } from '@shared/ipc/preload-api.contract.js';
+import {
+  defineIpcHandlers,
+  registerIpcHandlerDescriptors,
+  type RegisterHandler
+} from '../ipc-handler.descriptor.js';
 
 interface LoginItemService {
   isEnabled(): boolean;
   setEnabled(enabled: boolean): void;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
 }
 
 export interface LoginItemHandlerDependencies {
@@ -18,14 +19,29 @@ export interface LoginItemHandlerDependencies {
   logger: Logger;
 }
 
-export function registerLoginItemHandlers({ registerHandler, loginItemService, logger }: LoginItemHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.LOGIN_ITEM.GET, async () => {
-    return loginItemService.isEnabled();
-  });
+export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDependencies>([
+  {
+    channel: IPC_CHANNELS.LOGIN_ITEM.GET,
+    dependencyTokens: ['loginItemService'],
+    argumentSchema: [],
+    responseMode: 'bare',
+    async invoke({ loginItemService }: LoginItemHandlerDependencies) {
+      return loginItemService.isEnabled();
+    }
+  },
+  {
+    channel: IPC_CHANNELS.LOGIN_ITEM.SET,
+    dependencyTokens: ['loginItemService', 'logger'],
+    argumentSchema: ['enabled:boolean'],
+    responseMode: 'result-envelope',
+    async invoke({ loginItemService, logger }: LoginItemHandlerDependencies, _event: IpcMainInvokeEvent, enabled: boolean) {
+      logger.debug(`Setting login item: ${enabled}`);
+      loginItemService.setEnabled(enabled);
+      return { success: true } as LoginItemSetResponse;
+    }
+  }
+]);
 
-  registerHandler(IPC_CHANNELS.LOGIN_ITEM.SET, async (_event: IpcMainInvokeEvent, enabled: boolean) => {
-    logger.debug(`Setting login item: ${enabled}`);
-    loginItemService.setEnabled(enabled);
-    return { success: true } as LoginItemSetResponse;
-  });
+export function registerLoginItemHandlers(dependencies: LoginItemHandlerDependencies): void {
+  registerIpcHandlerDescriptors(dependencies, loginItemHandlerDescriptors);
 }
