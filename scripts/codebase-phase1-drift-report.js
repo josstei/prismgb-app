@@ -128,9 +128,10 @@ function collectManifestStorageKeys(settingsManifest) {
   return settingsManifest.definitions.map((definition) => definition.storageKey);
 }
 
-function extractStorageKeyValues(sourceText) {
-  const block = sourceText.match(/export const SettingsStorageKeys = \{([\s\S]*?)\};/)?.[1] || '';
-  return [...block.matchAll(/:\s*'([^']+)'/g)].map((match) => match[1]);
+function storageConfigDerivesSettingsKeys(sourceText) {
+  return sourceText.includes('SettingsDefinitions.definitions.map')
+    && sourceText.includes('definition.storageKey')
+    && sourceText.includes('...SETTINGS_STORAGE_KEYS');
 }
 
 function collectRenderPassShaderFiles(renderPassManifest) {
@@ -283,11 +284,16 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     extra: []
   });
 
-  checks.push(compareSortedValues({
-    name: 'settings manifest keys match SettingsStorageKeys',
-    expected: extractStorageKeyValues(readProjectText('src/shared/config/storage-keys.config.ts')),
-    actual: collectManifestStorageKeys(manifests.settings)
-  }));
+  const storageConfigSource = readProjectText('src/shared/config/storage-keys.config.ts');
+  const derivesSettingsKeys = storageConfigDerivesSettingsKeys(storageConfigSource);
+  checks.push({
+    name: 'storage protected keys derive from settings manifest',
+    status: derivesSettingsKeys ? 'pass' : 'fail',
+    expected: 'SettingsDefinitions.definitions storageKey derivation',
+    actual: derivesSettingsKeys ? 'derived' : 'manual-or-missing',
+    missing: derivesSettingsKeys ? [] : ['SETTINGS_STORAGE_KEYS derived from SettingsDefinitions.definitions'],
+    extra: []
+  });
 
   const defaults = collectManifestDefaults(manifests.settings);
   checks.push({

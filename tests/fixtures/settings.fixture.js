@@ -3,36 +3,38 @@
  *
  * Centralized test data for settings-related tests.
  */
+import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
+
+const settingDefaults = Object.fromEntries(
+  settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])
+);
+
+const recordingFormatDefinition = settingsDefinitions.definitions.find(
+  (definition) => definition.name === 'recordingFormat'
+);
 
 /**
  * Default application settings
  */
 export const DEFAULT_SETTINGS = {
-  volume: 100,
-  brightness: 1.0,
-  performanceMode: 'balanced',
-  renderPreset: 'sharp',
-  cinematicMode: true,
-  minimalistFullscreen: false,
-  recordingFormat: 'webm',
-  autoUpdate: true,
+  ...settingDefaults,
 };
 
 /**
  * Settings for performance mode
  */
 export const PERFORMANCE_MODE_SETTINGS = {
-  performance: {
-    performanceMode: 'performance',
-    renderPreset: 'sharp',
+  enabled: {
+    performanceMode: true,
+    renderPreset: 'performance',
   },
-  balanced: {
-    performanceMode: 'balanced',
-    renderPreset: 'sharp',
+  disabled: {
+    performanceMode: false,
+    renderPreset: 'vibrant',
   },
   quality: {
-    performanceMode: 'quality',
-    renderPreset: 'smooth',
+    performanceMode: false,
+    renderPreset: 'hi-def',
   },
 };
 
@@ -40,22 +42,35 @@ export const PERFORMANCE_MODE_SETTINGS = {
  * Render presets
  */
 export const RENDER_PRESETS = {
-  sharp: {
-    name: 'sharp',
+  trueColor: {
+    name: 'true-color',
     imageSmoothingEnabled: false,
-    description: 'Crisp pixel-perfect rendering',
+    description: 'Color-accurate rendering',
   },
-  smooth: {
-    name: 'smooth',
-    imageSmoothingEnabled: true,
-    imageSmoothingQuality: 'high',
-    description: 'Smooth anti-aliased rendering',
-  },
-  retro: {
-    name: 'retro',
+  vibrant: {
+    name: 'vibrant',
     imageSmoothingEnabled: false,
-    scanlines: true,
-    description: 'CRT-style retro look',
+    description: 'Saturated default rendering',
+  },
+  hiDef: {
+    name: 'hi-def',
+    imageSmoothingEnabled: false,
+    description: 'High-definition sharpening',
+  },
+  vintage: {
+    name: 'vintage',
+    imageSmoothingEnabled: false,
+    description: 'Warm vintage palette',
+  },
+  pixel: {
+    name: 'pixel',
+    imageSmoothingEnabled: false,
+    description: 'Pixel-emphasized rendering',
+  },
+  performance: {
+    name: 'performance',
+    imageSmoothingEnabled: false,
+    description: 'Low-cost rendering preset',
   },
 };
 
@@ -66,6 +81,7 @@ export const VOLUME_SETTINGS = {
   muted: 0,
   low: 25,
   medium: 50,
+  default: settingDefaults.gameVolume,
   high: 75,
   max: 100,
 };
@@ -78,9 +94,9 @@ export const BRIGHTNESS_SETTINGS = {
   normal: 1.0,
   bright: 1.5,
   slider: {
-    min: 0,
-    max: 100,
-    default: 50,
+    min: 0.5,
+    max: 1.5,
+    default: settingDefaults.globalBrightness,
   },
 };
 
@@ -88,21 +104,15 @@ export const BRIGHTNESS_SETTINGS = {
  * Recording format settings
  */
 export const RECORDING_FORMATS = {
-  webm: {
-    format: 'webm',
-    mimeType: 'video/webm;codecs=vp8',
-    extension: '.webm',
-  },
-  webmVp9: {
-    format: 'webm',
-    mimeType: 'video/webm;codecs=vp9',
-    extension: '.webm',
-  },
-  mp4: {
-    format: 'mp4',
-    mimeType: 'video/mp4',
-    extension: '.mp4',
-  },
+  ...Object.fromEntries(
+    recordingFormatDefinition.allowedValues.map((format) => [
+      format,
+      {
+        format,
+        extension: `.${format}`,
+      },
+    ])
+  ),
 };
 
 /**
@@ -136,23 +146,31 @@ export const APP_CONFIG = {
 export const SETTINGS_EVENTS = {
   volumeChanged: {
     event: 'settings:volume-changed',
-    data: { volume: 75 },
+    data: 75,
   },
   brightnessChanged: {
     event: 'settings:brightness-changed',
-    data: { brightness: 1.2 },
+    data: 1.2,
   },
   performanceModeChanged: {
     event: 'settings:performance-mode-changed',
-    data: { mode: 'quality' },
+    data: true,
   },
   renderPresetChanged: {
     event: 'settings:render-preset-changed',
-    data: { preset: 'smooth' },
+    data: 'vibrant',
   },
   cinematicModeChanged: {
     event: 'settings:cinematic-mode-changed',
     data: { enabled: false },
+  },
+  minimalistFullscreenChanged: {
+    event: 'settings:minimalist-fullscreen-changed',
+    data: false,
+  },
+  recordingFormatChanged: {
+    event: 'settings:recording-format-changed',
+    data: settingDefaults.recordingFormat,
   },
   preferencesLoaded: {
     event: 'settings:preferences-loaded',
@@ -177,9 +195,8 @@ export function createSettingsFixture(overrides = {}) {
  */
 export function createPerformanceSettings() {
   return createSettingsFixture({
-    performanceMode: 'performance',
-    renderPreset: 'sharp',
-    cinematicMode: false,
+    performanceMode: true,
+    renderPreset: 'performance',
   });
 }
 
@@ -188,9 +205,8 @@ export function createPerformanceSettings() {
  */
 export function createQualitySettings() {
   return createSettingsFixture({
-    performanceMode: 'quality',
-    renderPreset: 'smooth',
-    cinematicMode: true,
+    performanceMode: false,
+    renderPreset: 'hi-def',
   });
 }
 

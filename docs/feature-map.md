@@ -41,7 +41,7 @@ This document maps user-facing features to the codebase for maintenance and onbo
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.js`, `src/renderer/presentation/bridges/capture-ui.bridge.js`, or `src/renderer/presentation/bridges/transcode-ui.bridge.js`.
+UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
 
 ### Start Streaming
 

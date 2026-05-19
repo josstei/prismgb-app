@@ -8,7 +8,7 @@ import deviceManifest from '@shared/features/devices/device.manifest.json';
 import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
-import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
+import { SETTINGS_STORAGE_KEYS } from '@shared/config/storage-keys.config';
 import {
   deviceHandlerDescriptors,
   gpuHandlerDescriptors,
@@ -164,7 +164,7 @@ describe('Phase 1 manifests', () => {
 
     expect(defaults).toEqual(serviceDefaults);
     expect(settingsDefinitions.definitions.map((definition) => definition.storageKey).sort()).toEqual(
-      Object.values(SettingsStorageKeys).sort()
+      [...SETTINGS_STORAGE_KEYS].sort()
     );
 
     const recordingFormat = settingsDefinitions.definitions.find((definition) => definition.name === 'recordingFormat');

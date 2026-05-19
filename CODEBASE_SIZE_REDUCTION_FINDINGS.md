@@ -455,7 +455,7 @@ Current repetition:
 
 - `src/renderer/infrastructure/services/settings/settings.service.ts` repeats `getX`, `setX`, storage key, default, parse, clamp/validate, logging, and event publishing for each setting.
 - Recording-format allowed values now live in `src/shared/features/settings/settings.definitions.json`; `src/shared/features/transcode/transcode.config.js` still owns transcode implementation metadata.
-- Storage keys/protected-key policy repeat the same settings in shared config.
+- Storage keys and protected-key policy originally repeated settings in shared config; Phase 2 now derives settings storage keys from the settings manifest.
 - Recording-format UI options are hard-coded in the settings template.
 - `loadAllPreferences()` returns only a subset of defaults, so aggregate settings reads can drift from setting definitions.
 
@@ -464,7 +464,7 @@ Recommended end state:
 ```ts
 const SettingsDefinitions = {
   volume: {
-    key: SettingsStorageKeys.VOLUME,
+    storageKey: 'gameVolume',
     default: 70,
     type: 'number',
     min: 0,
@@ -472,7 +472,7 @@ const SettingsDefinitions = {
     event: EventChannels.SETTINGS.VOLUME_CHANGED
   },
   recordingFormat: {
-    key: SettingsStorageKeys.RECORDING_FORMAT,
+    storageKey: 'recordingFormat',
     default: 'webm',
     allowed: Object.keys(TRANSCODE_CONFIG.formats),
     event: EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED
