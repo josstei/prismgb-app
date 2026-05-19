@@ -266,13 +266,11 @@ describe('Phase 0 non-IPC contract baselines', () => {
     });
   });
 
-  it('keeps duplicated renderer and package shader trees byte-equivalent before consolidation', () => {
-    expect(collectShaderTree('packages/prismgb-gpu/src/infrastructure/webgpu/shaders')).toEqual(
-      collectShaderTree('src/renderer/infrastructure/rendering/shaders/webgpu')
-    );
-    expect(collectShaderTree('packages/prismgb-gpu/src/infrastructure/webgl2/shaders')).toEqual(
-      collectShaderTree('src/renderer/infrastructure/rendering/shaders/webgl2')
-    );
+  it('uses package-owned shader trees after consolidation', () => {
+    expect(fs.existsSync(path.join(projectRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu'))).toBe(false);
+    expect(fs.existsSync(path.join(projectRoot, 'src/renderer/infrastructure/rendering/shaders/webgl2'))).toBe(false);
+    expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'))).toBe(true);
+    expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders'))).toBe(true);
   });
 
   it('captures E2E selector assumptions and current deviceAPI callback naming', () => {

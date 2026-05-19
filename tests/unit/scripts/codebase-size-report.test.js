@@ -74,7 +74,7 @@ describe('codebase-size-report metrics', () => {
       const trackedFiles = [
         writeWorkspaceFile(workspace, 'tests/mocks/mock-device.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'tests/e2e/mocks/device-mock.js', 'export {};\n'),
-        writeWorkspaceFile(workspace, 'tests/utils/lazy-mocks.js', 'export {};\n'),
+        writeWorkspaceFile(workspace, 'tests/support/lazy-mock.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'tests/mocks/index.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'src/main/logic.js', 'export {};\n')
       ];
@@ -142,7 +142,7 @@ describe('codebase-size-report metrics', () => {
     }
   });
 
-  it('reports shader files missing in sourceB when only the package copy has them', () => {
+  it('reports package-owned shader status when the renderer duplicate tree is gone', () => {
     const workspace = createTempWorkspace();
     try {
       writeWorkspaceFile(
@@ -156,6 +156,8 @@ describe('codebase-size-report metrics', () => {
 
       expect(webgpuPair.missingInSourceA).toBe(0);
       expect(webgpuPair.missingInSourceB).toBe(1);
+      expect(webgpuPair.status).toBe('package-owned');
+      expect(result.cleanOwnership).toBe(true);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

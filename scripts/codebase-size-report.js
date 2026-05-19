@@ -438,6 +438,11 @@ export function getShaderDuplicateStatus(projectRoot) {
       }
     }
 
+    const packageOwned = leftFiles.size > 0 && rightFiles.size === 0;
+    const status = packageOwned
+      ? 'package-owned'
+      : mismatches || missingInSourceA || missingInSourceB ? 'diverged' : 'synchronized';
+
     results.push({
       name: pair.name,
       sourceA: pair.sourceA,
@@ -448,13 +453,14 @@ export function getShaderDuplicateStatus(projectRoot) {
       mismatches,
       missingInSourceA,
       missingInSourceB,
-      status: mismatches || missingInSourceA || missingInSourceB ? 'diverged' : 'synchronized'
+      status
     });
   }
 
   return {
     pairs: results,
-    allSynchronized: results.every((entry) => entry.status === 'synchronized')
+    allSynchronized: results.every((entry) => entry.status === 'synchronized'),
+    cleanOwnership: results.every((entry) => entry.status === 'synchronized' || entry.status === 'package-owned')
   };
 }
 
