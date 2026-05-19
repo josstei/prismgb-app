@@ -6,6 +6,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
 
 type CursorAutoHideOptions = {
   onActivity?: () => void;
@@ -13,12 +14,9 @@ type CursorAutoHideOptions = {
 };
 
 export class CursorAutoHide {
-  _enabled: boolean;
+  _activityController: ActivityAutoHideController;
   _onActivity: () => void;
   _onHide: () => void;
-  _boundHandleMouseMove: () => void;
-  _mouseMoveFramePending: boolean;
-  _rafId: number | null;
 
   /**
    * @param {Object} options
@@ -26,67 +24,58 @@ export class CursorAutoHide {
    * @param {Function} [options.onHide] - Callback when cursor is hidden
    */
   constructor(options: CursorAutoHideOptions = {}) {
-    this._enabled = false;
+    this._activityController = new ActivityAutoHideController({
+      onActivity: () => {
+        this._handleActivity();
+      },
+      onEnable: () => {},
+      onDisable: () => {
+        document.body.classList.remove(CSSClasses.CURSOR_HIDDEN);
+      }
+    });
+
     this._onActivity = options.onActivity || (() => {});
     this._onHide = options.onHide || (() => {});
-    this._boundHandleMouseMove = this._handleMouseMove.bind(this);
-    this._mouseMoveFramePending = false;
-    this._rafId = null;
   }
 
-  /**
-   * Check if cursor auto-hide is enabled
-   * @returns {boolean}
-   */
   get isEnabled() {
-    return this._enabled;
+    return this._activityController.isEnabled;
+  }
+
+  get _mouseMoveFramePending() {
+    return this._activityController.isActivityFramePending;
+  }
+
+  get _rafId() {
+    return this._activityController.rafId;
   }
 
   /**
    * Enable cursor auto-hide
    */
   enable() {
-    if (this._enabled) return;
+    if (this._activityController.isEnabled) return;
 
-    this._enabled = true;
-    document.addEventListener('mousemove', this._boundHandleMouseMove);
-    this._onActivity();
+    this._activityController.enable({
+      activityEvents: [{ target: document, type: 'mousemove' }],
+      triggerActivityImmediately: true
+    });
   }
 
   /**
    * Disable cursor auto-hide
    */
   disable() {
-    if (!this._enabled) return;
-
-    this._enabled = false;
-    document.removeEventListener('mousemove', this._boundHandleMouseMove);
-
-    // Cancel any pending RAF
-    if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
-    this._mouseMoveFramePending = false;
-
-    this.show();
+    this._activityController.disable();
   }
 
   /**
    * Handle mouse move - show cursor and notify activity
-   * Uses RAF throttling to avoid excessive handler execution
    * @private
    */
-  _handleMouseMove() {
-    if (this._mouseMoveFramePending) return;
-
-    this._mouseMoveFramePending = true;
-    this._rafId = requestAnimationFrame(() => {
-      this._mouseMoveFramePending = false;
-      this._rafId = null;
-      this.show();
-      this._onActivity();
-    });
+  _handleActivity() {
+    this.show();
+    this._onActivity();
   }
 
   /**

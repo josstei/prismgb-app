@@ -7,6 +7,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
 
 type ToolbarAutoHideOptions = {
   onActivity?: () => void;
@@ -19,15 +20,16 @@ export class ToolbarAutoHide {
   _enabled: boolean;
   _element: HTMLElement | null;
   _hovering: boolean;
+  _activityController: ActivityAutoHideController;
   _onActivity: () => void;
   _onHide: () => void;
   _onHoverStart: () => void;
   _onHoverEnd: () => void;
-  _boundHandleMouseEnter: () => void;
-  _boundHandleMouseLeave: () => void;
   _panelOpenCache: boolean;
   _panelCacheDirty: boolean;
   _panelObserver: MutationObserver | null;
+  _boundHandleMouseEnter: () => void;
+  _boundHandleMouseLeave: () => void;
 
   /**
    * @param {Object} options
@@ -47,6 +49,13 @@ export class ToolbarAutoHide {
 
     this._boundHandleMouseEnter = this._handleMouseEnter.bind(this);
     this._boundHandleMouseLeave = this._handleMouseLeave.bind(this);
+
+    this._activityController = new ActivityAutoHideController({
+      onActivity: () => {},
+      onEnable: () => {},
+      onDisable: () => {},
+      shouldStartTimer: () => true
+    });
 
     // Cached panel state to avoid repeated DOM queries
     this._panelOpenCache = false;
@@ -84,10 +93,14 @@ export class ToolbarAutoHide {
     this._hovering = false;
     this._panelCacheDirty = true;
 
-    this._element.addEventListener('mouseenter', this._boundHandleMouseEnter);
-    this._element.addEventListener('mouseleave', this._boundHandleMouseLeave);
-    this._bindPanelObserver();
+    this._activityController.enable({
+      directEvents: [
+        { target: this._element, type: 'mouseenter', handler: this._boundHandleMouseEnter },
+        { target: this._element, type: 'mouseleave', handler: this._boundHandleMouseLeave }
+      ]
+    });
 
+    this._bindPanelObserver();
     this._onActivity();
   }
 
@@ -98,11 +111,7 @@ export class ToolbarAutoHide {
     if (!this._enabled) return;
 
     this._enabled = false;
-
-    if (this._element) {
-      this._element.removeEventListener('mouseenter', this._boundHandleMouseEnter);
-      this._element.removeEventListener('mouseleave', this._boundHandleMouseLeave);
-    }
+    this._activityController.disable();
 
     if (this._panelObserver) {
       try {
