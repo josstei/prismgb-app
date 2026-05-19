@@ -372,21 +372,27 @@ describe('UpdateService', () => {
       await service.initialize();
     });
 
-    it('should call cleanup functions', () => {
+    it('should dispose preload event bridge unsubscribe functions', () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
-      service._cleanupFns = [cleanup1, cleanup2];
+      service._eventBridge = {
+        dispose: vi.fn(() => {
+          cleanup1();
+          cleanup2();
+        })
+      };
 
       service.dispose();
 
       expect(cleanup1).toHaveBeenCalled();
       expect(cleanup2).toHaveBeenCalled();
+      expect(service._eventBridge).toBeNull();
     });
 
-    it('should call removeListeners', () => {
+    it('should not use namespace-wide removeListeners for bridge-owned subscriptions', () => {
       service.dispose();
 
-      expect(mockUpdateAPI.removeListeners).toHaveBeenCalled();
+      expect(mockUpdateAPI.removeListeners).not.toHaveBeenCalled();
     });
 
     it('should reset state', () => {

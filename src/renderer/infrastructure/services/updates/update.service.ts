@@ -15,11 +15,16 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import {
+  createPreloadEventBridge,
+  type PreloadEventBridge
+} from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { UpdateState } from '@shared/config/update-state.config';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateErrorPayload,
+  UpdateGetStatusResponse,
   UpdateInfoPayload,
   UpdateInstallResponse,
   UpdateProgressPayload,
@@ -29,16 +34,32 @@ import type {
 // Re-export for backward compatibility
 export { UpdateState };
 
-class UpdateService extends BaseService {
+interface UpdateEventBus {
+  publish(event: string, payload?: unknown): void;
+}
 
-  constructor(dependencies) {
+interface UpdateServiceDependencies {
+  eventBus: UpdateEventBus;
+  loggerFactory: unknown;
+}
+
+class UpdateService extends BaseService {
+  declare eventBus: UpdateEventBus;
+  private _state: string;
+  private _updateInfo: UpdateInfoPayload | null;
+  private _downloadProgress: UpdateProgressPayload | null;
+  private _error: string | UpdateErrorPayload | null;
+  private _eventBridge: PreloadEventBridge | null;
+  private _initialized: boolean;
+
+  constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._cleanupFns = [];
+    this._eventBridge = null;
     this._initialized = false;
   }
 
@@ -57,13 +78,18 @@ class UpdateService extends BaseService {
 
     await this._loadInitialStatus();
 
-    this._cleanupFns.push(
-      window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
-      window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
-      window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
-      window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
-      window.updateAPI.onError((error) => this._handleError(error))
-    );
+    this._eventBridge = createPreloadEventBridge({
+      api: window.updateAPI,
+      bridgeName: 'UpdateService',
+      logger: this.logger,
+      subscriptions: [
+        { id: 'available', subscribe: (api) => api.onAvailable((info) => this._handleAvailable(info)) },
+        { id: 'notAvailable', subscribe: (api) => api.onNotAvailable((info) => this._handleNotAvailable(info)) },
+        { id: 'progress', subscribe: (api) => api.onProgress((progress) => this._handleProgress(progress)) },
+        { id: 'downloaded', subscribe: (api) => api.onDownloaded((info) => this._handleDownloaded(info)) },
+        { id: 'error', subscribe: (api) => api.onError((error) => this._handleError(error)) }
+      ]
+    });
 
     this._initialized = true;
     this.logger.info('UpdateService initialized');
@@ -71,7 +97,12 @@ class UpdateService extends BaseService {
 
   async _loadInitialStatus() {
     try {
-      const result = await window.updateAPI.getStatus();
+      const updateAPI = window.updateAPI;
+      if (!updateAPI) {
+        return;
+      }
+
+      const result: UpdateGetStatusResponse = await updateAPI.getStatus();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
         this._updateInfo = result.updateInfo;
@@ -212,12 +243,8 @@ class UpdateService extends BaseService {
   }
 
   dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
-    window.updateAPI?.removeListeners();
+    this._eventBridge?.dispose();
+    this._eventBridge = null;
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;

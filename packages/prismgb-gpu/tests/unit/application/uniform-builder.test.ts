@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { buildUniforms, calculateScaleFactor } from '@/application/uniform-builder';
-import { PresetRegistry } from '@/domain/presets';
+import { PresetRegistry, BUILT_IN_PRESETS } from '@/domain/presets';
 
-// Import presets to register them
-import '@/domain/presets/presets/true-color.preset';
-import '@/domain/presets/presets/performance.preset';
-import '@/domain/presets/presets/vintage.preset';
+PresetRegistry.registerMany(BUILT_IN_PRESETS);
 
 describe('calculateScaleFactor', () => {
   it('should calculate integer scale factor', () => {

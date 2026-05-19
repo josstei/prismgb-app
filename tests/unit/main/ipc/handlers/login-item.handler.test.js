@@ -56,30 +56,41 @@ describe('LoginItem IPC Handlers', () => {
     expect(mockRegisterHandler).toHaveBeenCalledTimes(2);
   });
 
-  it('should expose Phase 1 handler descriptors for report-only IPC migration', () => {
+  it('should expose descriptor metadata for result visibility', () => {
     expect(loginItemHandlerDescriptors).toEqual([
       expect.objectContaining({
         channel: 'login-item:get',
         dependencyTokens: ['loginItemService'],
         argumentSchema: [],
-        responseMode: 'bare'
+        responseMode: 'bare',
+        mapError: expect.any(Function)
       }),
       expect.objectContaining({
         channel: 'login-item:set',
         dependencyTokens: ['loginItemService', 'logger'],
         argumentSchema: ['enabled:boolean'],
-        responseMode: 'result-envelope'
+        responseMode: 'result-envelope',
+        mapError: expect.any(Function)
       })
     ]);
   });
 
   describe('login-item:get', () => {
-    it('should return login item state', async () => {
+    it('returns login item state', async () => {
       mockLoginItemService.isEnabled.mockReturnValue(true);
 
       const result = await handlers['login-item:get']({});
       expect(result).toBe(true);
       expect(mockLoginItemService.isEnabled).toHaveBeenCalled();
+    });
+
+    it('maps errors to a boolean response', async () => {
+      mockLoginItemService.isEnabled.mockImplementation(() => {
+        throw new Error('login item read failed');
+      });
+
+      const result = await handlers['login-item:get']({});
+      expect(result).toEqual(false);
     });
   });
 
@@ -91,11 +102,14 @@ describe('LoginItem IPC Handlers', () => {
       expect(result).toEqual({ success: true });
     });
 
-    it('should disable login item', async () => {
+    it('maps errors to a result envelope', async () => {
+      mockLoginItemService.setEnabled.mockImplementation(() => {
+        throw new Error('login item update failed');
+      });
+
       const result = await handlers['login-item:set']({}, false);
 
-      expect(mockLoginItemService.setEnabled).toHaveBeenCalledWith(false);
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({ success: false, error: 'login item update failed' });
     });
   });
 });

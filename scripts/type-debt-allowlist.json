@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-17T03:07:52.151Z",
+  "generatedAt": "2026-05-19T04:44:26.713Z",
   "defaultExpiresOn": "2026-08-14",
   "entries": [
     {
@@ -43,24 +43,6 @@
       "file": "src/main/infrastructure/window/window.service.ts",
       "code": "TS2769",
       "maxCount": 2,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/main/ipc/handlers/shell.handler.ts",
-      "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/main/ipc/handlers/transcode.handler.ts",
-      "code": "TS2345",
-      "maxCount": 3,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/main/ipc/handlers/window.handler.ts",
-      "code": "TS2345",
-      "maxCount": 1,
       "expiresOn": "2026-08-14"
     },
     {
@@ -322,30 +304,6 @@
       "expiresOn": "2026-08-14"
     },
     {
-      "file": "src/renderer/infrastructure/factories/streaming-adapter.factory.ts",
-      "code": "TS7005",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/factories/streaming-adapter.factory.ts",
-      "code": "TS7006",
-      "maxCount": 4,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/factories/streaming-adapter.factory.ts",
-      "code": "TS7034",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/factories/streaming-renderer.factory.ts",
-      "code": "TS7006",
-      "maxCount": 13,
-      "expiresOn": "2026-08-14"
-    },
-    {
       "file": "src/renderer/infrastructure/services/capture/capture-save.service.ts",
       "code": "TS18046",
       "maxCount": 3,
@@ -598,24 +556,6 @@
       "expiresOn": "2026-08-14"
     },
     {
-      "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
-      "code": "TS2339",
-      "maxCount": 21,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
-      "code": "TS2571",
-      "maxCount": 40,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/settings/settings.service.ts",
-      "code": "TS7006",
-      "maxCount": 11,
-      "expiresOn": "2026-08-14"
-    },
-    {
       "file": "src/renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts",
       "code": "TS2345",
       "maxCount": 2,
@@ -766,24 +706,6 @@
       "expiresOn": "2026-08-14"
     },
     {
-      "file": "src/renderer/infrastructure/services/transcode/transcode.service.ts",
-      "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/transcode/transcode.service.ts",
-      "code": "TS2571",
-      "maxCount": 7,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/transcode/transcode.service.ts",
-      "code": "TS7006",
-      "maxCount": 2,
-      "expiresOn": "2026-08-14"
-    },
-    {
       "file": "src/renderer/infrastructure/services/updates/update-ui.service.ts",
       "code": "TS2571",
       "maxCount": 15,
@@ -797,26 +719,8 @@
     },
     {
       "file": "src/renderer/infrastructure/services/updates/update.service.ts",
-      "code": "TS18048",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/updates/update.service.ts",
       "code": "TS2322",
-      "maxCount": 4,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/updates/update.service.ts",
-      "code": "TS2571",
-      "maxCount": 8,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/updates/update.service.ts",
-      "code": "TS7006",
-      "maxCount": 2,
+      "maxCount": 3,
       "expiresOn": "2026-08-14"
     },
     {

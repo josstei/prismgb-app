@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const performancePreset: IPreset = {
   id: 'performance',
@@ -24,5 +23,3 @@ export const performancePreset: IPreset = {
     vignetteStrength: 0
   }
 };
-
-PresetRegistry.register(performancePreset);

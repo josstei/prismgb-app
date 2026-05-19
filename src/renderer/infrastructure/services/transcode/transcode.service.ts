@@ -14,6 +14,10 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import {
+  createPreloadEventBridge,
+  type PreloadEventBridge
+} from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import type {
   TranscodeCancelResponse,
   TranscodeCancelledPayload,
@@ -25,14 +29,28 @@ import type {
   TranscodeStartResponse
 } from '@shared/ipc/preload-api.contract.js';
 
-class TranscodeService extends BaseService {
+interface TranscodeEventBus {
+  publish(event: string, payload?: unknown): void;
+}
 
-  constructor(dependencies) {
+interface TranscodeServiceDependencies {
+  eventBus: TranscodeEventBus;
+  loggerFactory: unknown;
+}
+
+class TranscodeService extends BaseService {
+  declare eventBus: TranscodeEventBus;
+  private _isTranscoding: boolean;
+  private _activeJobId: string | null;
+  private _eventBridge: PreloadEventBridge | null;
+  private _initialized: boolean;
+
+  constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
 
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._cleanupFns = [];
+    this._eventBridge = null;
     this._initialized = false;
   }
 
@@ -52,15 +70,19 @@ class TranscodeService extends BaseService {
 
     this.logger.info('Initializing TranscodeService');
 
-    // Subscribe to IPC events and republish on eventBus
     // Note: No onStarted handler - the main process doesn't emit a STARTED event.
     // The started state is determined by the successful return of transcode() call.
-    this._cleanupFns.push(
-      window.transcodeAPI.onProgress((data) => this._handleProgress(data)),
-      window.transcodeAPI.onCompleted((data) => this._handleCompleted(data)),
-      window.transcodeAPI.onError((data) => this._handleError(data)),
-      window.transcodeAPI.onCancelled((data) => this._handleCancelled(data))
-    );
+    this._eventBridge = createPreloadEventBridge({
+      api: window.transcodeAPI,
+      bridgeName: 'TranscodeService',
+      logger: this.logger,
+      subscriptions: [
+        { id: 'progress', subscribe: (api) => api.onProgress((data) => this._handleProgress(data)) },
+        { id: 'completed', subscribe: (api) => api.onCompleted((data) => this._handleCompleted(data)) },
+        { id: 'error', subscribe: (api) => api.onError((data) => this._handleError(data)) },
+        { id: 'cancelled', subscribe: (api) => api.onCancelled((data) => this._handleCancelled(data)) }
+      ]
+    });
 
     this._initialized = true;
     this.logger.info('TranscodeService initialized');
@@ -212,12 +234,8 @@ class TranscodeService extends BaseService {
    * Cleanup subscriptions and reset state
    */
   dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
-    window.transcodeAPI?.removeListeners?.();
+    this._eventBridge?.dispose();
+    this._eventBridge = null;
 
     this._isTranscoding = false;
     this._activeJobId = null;

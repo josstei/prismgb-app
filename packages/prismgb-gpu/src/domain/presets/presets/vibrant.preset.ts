@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const vibrantPreset: IPreset = {
   id: 'vibrant',
@@ -24,5 +23,3 @@ export const vibrantPreset: IPreset = {
     vignetteStrength: 0
   }
 };
-
-PresetRegistry.register(vibrantPreset);

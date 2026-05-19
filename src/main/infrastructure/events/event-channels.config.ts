@@ -1,21 +1,60 @@
-/**
- * Main Process Event Channels Configuration
- * Defines event channel constants for main process EventBus
- */
+import eventManifest from '@shared/events/event.manifest.json';
 
-export const MainEventChannels = {
+type ManifestEvent = {
+  domain: string;
+  name: string;
+  value: string;
+};
+
+type ManifestScope = {
+  scope: string;
+  events: ManifestEvent[];
+};
+
+type MainEventChannelMap = {
   DEVICE: {
-    CONNECTION_CHANGED: 'device:connection-changed',
-    CHECK_ERROR: 'device:check-error',
-  },
+    CONNECTION_CHANGED: 'device:connection-changed';
+    CHECK_ERROR: 'device:check-error';
+  };
   UPDATE: {
-    STATE_CHANGED: 'update:state-changed',
+    STATE_CHANGED: 'update:state-changed';
+  };
+};
+
+const mainScope = (eventManifest.scopes as ManifestScope[]).find((entry) => entry.scope === 'main');
+if (!mainScope) {
+  throw new Error('Main event scope not found in event manifest');
+}
+
+function normalizeDomainKey(domain: string): string {
+  return domain.toUpperCase().replace(/-/g, '_');
+}
+
+function normalizeNameKey(name: string): string {
+  return name.toUpperCase().replace(/-/g, '_');
+}
+
+function buildMainEventChannels(scopeEvents: ManifestEvent[]) {
+  const channelMap: Record<string, Record<string, string>> = {};
+
+  for (const event of scopeEvents) {
+    const domain = normalizeDomainKey(event.domain);
+    const name = normalizeNameKey(event.name);
+    const bucket = (channelMap[domain] ||= {});
+    bucket[name] = event.value;
   }
-} as const;
+
+  return channelMap as Record<string, Record<string, string>>;
+}
+
+const mainEvents = buildMainEventChannels(mainScope.events) as MainEventChannelMap;
+
+export const MainEventChannels: MainEventChannelMap = mainEvents;
 
 /**
  * Type representing all main event channels
  */
-export type MainEventChannel =
-  | typeof MainEventChannels.DEVICE[keyof typeof MainEventChannels.DEVICE]
-  | typeof MainEventChannels.UPDATE[keyof typeof MainEventChannels.UPDATE];
+type ValueOf<T> = T[keyof T];
+export type MainEventChannel = ValueOf<{
+  [Domain in keyof MainEventChannelMap]: ValueOf<MainEventChannelMap[Domain]>;
+}>;

@@ -1,79 +1,78 @@
-function createWindowPreloadAPI({ ipcRenderer, channels, listenerRegistry, maxListeners, isValidCallback }) {
+import { createSubscription } from '../subscription.factory.js';
+
+function createWindowPreloadAPI({
+  ipcRenderer,
+  channels,
+  listenerRegistry,
+  maxListeners,
+  isValidCallback
+}) {
+  const listenerKeys = {
+    onEnterFullscreen: 'window.onEnterFullscreen',
+    onLeaveFullscreen: 'window.onLeaveFullscreen',
+    onResized: 'window.onResized'
+  };
+
+  const removeListenersForKey = (channel, registryKey) => {
+    const listeners = listenerRegistry.get(registryKey);
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of listeners) {
+      ipcRenderer.removeListener(channel, listener);
+    }
+    listeners.clear();
+  };
+
   return {
-    onEnterFullscreen: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('windowAPI.onEnterFullscreen: Invalid callback provided');
-        return () => {};
-      }
+    onEnterFullscreen: (callback) =>
+      createSubscription({
+        apiName: 'windowAPI',
+        methodName: 'onEnterFullscreen',
+        channel: channels.WINDOW.ENTER_FULLSCREEN,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onEnterFullscreen,
+        maxListeners,
+        validateCallback: isValidCallback,
+        dispatchPayload: false
+      })(callback),
 
-      if (listenerRegistry.enterFullscreen.size >= maxListeners) {
-        console.warn('windowAPI.onEnterFullscreen: Maximum listener limit reached');
-        return () => {};
-      }
+    onLeaveFullscreen: (callback) =>
+      createSubscription({
+        apiName: 'windowAPI',
+        methodName: 'onLeaveFullscreen',
+        channel: channels.WINDOW.LEAVE_FULLSCREEN,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onLeaveFullscreen,
+        maxListeners,
+        validateCallback: isValidCallback,
+        dispatchPayload: false
+      })(callback),
 
-      const listener = () => callback();
-      listenerRegistry.enterFullscreen.add(listener);
-      ipcRenderer.on(channels.WINDOW.ENTER_FULLSCREEN, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.WINDOW.ENTER_FULLSCREEN, listener);
-        listenerRegistry.enterFullscreen.delete(listener);
-      };
-    },
-
-    onLeaveFullscreen: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('windowAPI.onLeaveFullscreen: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.leaveFullscreen.size >= maxListeners) {
-        console.warn('windowAPI.onLeaveFullscreen: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = () => callback();
-      listenerRegistry.leaveFullscreen.add(listener);
-      ipcRenderer.on(channels.WINDOW.LEAVE_FULLSCREEN, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.WINDOW.LEAVE_FULLSCREEN, listener);
-        listenerRegistry.leaveFullscreen.delete(listener);
-      };
-    },
-
-    onResized: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('windowAPI.onResized: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.resized.size >= maxListeners) {
-        console.warn('windowAPI.onResized: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = () => callback();
-      listenerRegistry.resized.add(listener);
-      ipcRenderer.on(channels.WINDOW.RESIZED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.WINDOW.RESIZED, listener);
-        listenerRegistry.resized.delete(listener);
-      };
-    },
+    onResized: (callback) =>
+      createSubscription({
+        apiName: 'windowAPI',
+        methodName: 'onResized',
+        channel: channels.WINDOW.RESIZED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onResized,
+        maxListeners,
+        validateCallback: isValidCallback,
+        dispatchPayload: false
+      })(callback),
 
     setFullScreen: (enabled) => ipcRenderer.invoke(channels.WINDOW.SET_FULLSCREEN, enabled),
 
     isFullScreen: () => ipcRenderer.invoke(channels.WINDOW.IS_FULLSCREEN),
 
     removeListeners: () => {
-      ipcRenderer.removeAllListeners(channels.WINDOW.ENTER_FULLSCREEN);
-      ipcRenderer.removeAllListeners(channels.WINDOW.LEAVE_FULLSCREEN);
-      ipcRenderer.removeAllListeners(channels.WINDOW.RESIZED);
-      listenerRegistry.enterFullscreen.clear();
-      listenerRegistry.leaveFullscreen.clear();
-      listenerRegistry.resized.clear();
+      removeListenersForKey(channels.WINDOW.ENTER_FULLSCREEN, listenerKeys.onEnterFullscreen);
+      removeListenersForKey(channels.WINDOW.LEAVE_FULLSCREEN, listenerKeys.onLeaveFullscreen);
+      removeListenersForKey(channels.WINDOW.RESIZED, listenerKeys.onResized);
     }
   };
 }

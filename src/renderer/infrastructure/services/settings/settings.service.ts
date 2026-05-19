@@ -13,31 +13,133 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
+import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+
+const SETTING_DEFINITIONS = SettingsDefinitions.definitions;
+
+type SettingDefinition = (typeof SETTING_DEFINITIONS)[number];
+type SettingDefaultValue = string | number | boolean;
+type SettingMethod = (...args: unknown[]) => unknown;
+
+interface SettingsDefaults {
+  gameVolume: number;
+  statusStripVisible: boolean;
+  renderPreset: string;
+  globalBrightness: number;
+  performanceMode: boolean;
+  fullscreenOnStartup: boolean;
+  minimalistFullscreen: boolean;
+  autoStreamOnConnect: boolean;
+  launchOnLogin: boolean;
+  recordingFormat: string;
+}
+
+interface SettingsStorageService {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+interface SettingsEventBus {
+  publish(event: string, payload?: unknown): void;
+}
+
+interface SettingsServiceDependencies {
+  eventBus: SettingsEventBus;
+  loggerFactory: unknown;
+  storageService: SettingsStorageService;
+}
+
+function createDefinitionMap(): Map<string, SettingDefinition> {
+  return new Map(SETTING_DEFINITIONS.map((definition) => [definition.name, definition]));
+}
+
+function getDefinitionDefault<T extends SettingDefaultValue>(name: string): T {
+  const definition = SETTING_DEFINITIONS.find((candidate) => candidate.name === name);
+  if (!definition) {
+    throw new Error(`Missing settings definition default: ${name}`);
+  }
+  return definition.default as T;
+}
+
+function createDefaultSettings(): SettingsDefaults {
+  return {
+    gameVolume: getDefinitionDefault<number>('gameVolume'),
+    statusStripVisible: getDefinitionDefault<boolean>('statusStripVisible'),
+    renderPreset: getDefinitionDefault<string>('renderPreset'),
+    globalBrightness: getDefinitionDefault<number>('globalBrightness'),
+    performanceMode: getDefinitionDefault<boolean>('performanceMode'),
+    fullscreenOnStartup: getDefinitionDefault<boolean>('fullscreenOnStartup'),
+    minimalistFullscreen: getDefinitionDefault<boolean>('minimalistFullscreen'),
+    autoStreamOnConnect: getDefinitionDefault<boolean>('autoStreamOnConnect'),
+    launchOnLogin: getDefinitionDefault<boolean>('launchOnLogin'),
+    recordingFormat: getDefinitionDefault<string>('recordingFormat')
+  };
+}
+
+function getAllowedValues(definition: SettingDefinition): string[] {
+  return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
+}
 
 class SettingsService extends BaseService {
+  declare eventBus: SettingsEventBus;
+  declare storageService: SettingsStorageService;
+  settingDefinitions: readonly SettingDefinition[];
+  settingDefinitionMap: Map<string, SettingDefinition>;
+  defaults: SettingsDefaults;
+  validRecordingFormats: string[];
+  keys: typeof SettingsStorageKeys;
 
-  constructor(dependencies) {
+  constructor(dependencies: SettingsServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
 
-    // Default settings
-    this.defaults = {
-      gameVolume: 70,
-      statusStripVisible: false,
-      renderPreset: 'vibrant',
-      globalBrightness: 1.0,
-      performanceMode: false,
-      fullscreenOnStartup: false,
-      minimalistFullscreen: false,
-      autoStreamOnConnect: false,
-      recordingFormat: 'webm',
-      launchOnLogin: false
-    };
+    this.settingDefinitions = SETTING_DEFINITIONS;
+    this.settingDefinitionMap = createDefinitionMap();
+    this.defaults = createDefaultSettings();
 
-    // Valid recording formats
-    this.validRecordingFormats = ['webm', 'mp4', 'mov'];
+    const recordingFormatDefinition = this._getSettingDefinition('recordingFormat');
+    this.validRecordingFormats = getAllowedValues(recordingFormatDefinition);
 
     // Use centralized storage keys
     this.keys = SettingsStorageKeys;
+  }
+
+  listSettings(): string[] {
+    return this.settingDefinitions.map((definition) => definition.name);
+  }
+
+  getSetting(name: string): unknown {
+    const definition = this._getSettingDefinition(name);
+    const getterName = definition.legacy?.get;
+    const getter = getterName ? this[getterName] : undefined;
+    if (typeof getter === 'function') {
+      return (getter as SettingMethod).call(this);
+    }
+
+    const saved = this.storageService?.getItem(definition.storageKey);
+    return saved !== null ? saved : definition.default;
+  }
+
+  setSetting(name: string, value: unknown): unknown {
+    const definition = this._getSettingDefinition(name);
+    const setterName = definition.legacy?.set;
+    const setter = setterName ? this[setterName] : undefined;
+    if (typeof setter === 'function') {
+      return (setter as SettingMethod).call(this, value);
+    }
+
+    this.storageService?.setItem(definition.storageKey, String(value));
+    if (definition.event) {
+      this.eventBus.publish(definition.event, value);
+    }
+    return true;
+  }
+
+  _getSettingDefinition(name: string): SettingDefinition {
+    const definition = this.settingDefinitionMap.get(name);
+    if (!definition) {
+      throw new Error(`Unknown setting: ${name}`);
+    }
+    return definition;
   }
 
   /**
@@ -75,7 +177,7 @@ class SettingsService extends BaseService {
    * Save volume preference
    * @param {number} volume - Volume (0-100)
    */
-  setVolume(volume) {
+  setVolume(volume: number) {
     const clampedVolume = Math.max(0, Math.min(100, volume));
     this.storageService?.setItem(this.keys.VOLUME, clampedVolume.toString());
 
@@ -96,7 +198,7 @@ class SettingsService extends BaseService {
    * Save status strip visibility preference
    * @param {boolean} visible - Status strip visible
    */
-  setStatusStripVisible(visible) {
+  setStatusStripVisible(visible: boolean) {
     this.storageService?.setItem(this.keys.STATUS_STRIP, visible.toString());
 
     this.logger.debug(`Status strip ${visible ? 'shown' : 'hidden'}`);
@@ -115,7 +217,7 @@ class SettingsService extends BaseService {
    * Save render preset preference
    * @param {string} presetId - Render preset ID
    */
-  setRenderPreset(presetId) {
+  setRenderPreset(presetId: string) {
     this.storageService?.setItem(this.keys.RENDER_PRESET, presetId);
 
     this.logger.debug(`Render preset set to ${presetId}`);
@@ -137,7 +239,7 @@ class SettingsService extends BaseService {
    * Save global brightness preference
    * @param {number} brightness - Brightness multiplier (0.5-1.5)
    */
-  setGlobalBrightness(brightness) {
+  setGlobalBrightness(brightness: number) {
     const clampedBrightness = Math.max(0.5, Math.min(1.5, brightness));
     this.storageService?.setItem(this.keys.GLOBAL_BRIGHTNESS, clampedBrightness.toString());
 
@@ -160,7 +262,7 @@ class SettingsService extends BaseService {
    * Set performance mode preference
    * @param {boolean} enabled - Enable performance mode (Canvas2D, minimal shaders, no CSS animations)
    */
-  setPerformanceMode(enabled) {
+  setPerformanceMode(enabled: boolean) {
     this.storageService?.setItem(this.keys.PERFORMANCE_MODE, enabled.toString());
 
     this.logger.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'}`);
@@ -182,7 +284,7 @@ class SettingsService extends BaseService {
    * Set fullscreen on startup preference
    * @param {boolean} enabled - Enable fullscreen on startup
    */
-  setFullscreenOnStartup(enabled) {
+  setFullscreenOnStartup(enabled: boolean) {
     this.storageService?.setItem(this.keys.FULLSCREEN_ON_STARTUP, enabled.toString());
 
     this.logger.debug(`Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`);
@@ -201,7 +303,7 @@ class SettingsService extends BaseService {
    * Set minimalist fullscreen preference
    * @param {boolean} enabled - Enable minimalist fullscreen
    */
-  setMinimalistFullscreen(enabled) {
+  setMinimalistFullscreen(enabled: boolean) {
     this.storageService?.setItem(this.keys.MINIMALIST_FULLSCREEN, enabled.toString());
 
     this.logger.debug(`Minimalist fullscreen ${enabled ? 'enabled' : 'disabled'}`);
@@ -223,7 +325,7 @@ class SettingsService extends BaseService {
    * Set auto-stream on connect preference
    * @param {boolean} enabled - Enable auto-stream on connect
    */
-  setAutoStreamOnConnect(enabled) {
+  setAutoStreamOnConnect(enabled: boolean) {
     this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
 
     this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
@@ -241,7 +343,7 @@ class SettingsService extends BaseService {
         this.storageService?.setItem(this.keys.LAUNCH_ON_LOGIN, enabled.toString());
         return enabled;
       }
-    } catch (error) {
+    } catch {
       this.logger.warn('Failed to query login item state from main process');
     }
 
@@ -254,12 +356,12 @@ class SettingsService extends BaseService {
    * Updates OS-level login item via main process and caches locally
    * @param {boolean} enabled - Enable launch on login
    */
-  async setLaunchOnLogin(enabled) {
+  async setLaunchOnLogin(enabled: boolean) {
     try {
       if (window.loginItemAPI?.set) {
         await window.loginItemAPI.set(enabled);
       }
-    } catch (error) {
+    } catch {
       this.logger.error('Failed to set login item state in main process');
     }
 
@@ -284,7 +386,7 @@ class SettingsService extends BaseService {
    * @param {string} format - Recording format (webm, mp4, or mov)
    * @returns {boolean} True if format was valid and saved
    */
-  setRecordingFormat(format) {
+  setRecordingFormat(format: string) {
     if (!this.validRecordingFormats.includes(format)) {
       this.logger.warn(`Invalid recording format: ${format}. Valid formats: ${this.validRecordingFormats.join(', ')}`);
       return false;

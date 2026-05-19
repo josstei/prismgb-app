@@ -11,8 +11,9 @@
  */
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 
-type RendererConstructor = new (deps: Record<string, unknown>) => unknown;
+export type RendererConstructor = new (deps: Record<string, unknown>) => unknown;
 
 export class StreamingRendererFactory {
   eventBus: EventBusLike;
@@ -22,6 +23,7 @@ export class StreamingRendererFactory {
   _commonDependencies: Record<string, unknown>;
   rendererRegistry: Map<string, RendererConstructor>;
   metadataRegistry: Map<string, Record<string, unknown>>;
+  _rendererRegistry: TypedRegistryFactory<RendererConstructor, Record<string, unknown>>;
   _initialized: boolean;
 
   /**
@@ -29,7 +31,11 @@ export class StreamingRendererFactory {
    * @param {Object} loggerFactory - Factory for creating loggers
    * @param {Map<string, class>} rendererClasses - Map of renderer type IDs to adapter classes (injected via DI)
    */
-  constructor(eventBus, loggerFactory, rendererClasses = new Map()) {
+  constructor(
+    eventBus: EventBusLike,
+    loggerFactory: LoggerFactoryLike,
+    rendererClasses: Map<string, RendererConstructor> = new Map()
+  ) {
     this.eventBus = eventBus;
     this.loggerFactory = loggerFactory;
     this.logger = loggerFactory.create('StreamingRendererFactory');
@@ -42,9 +48,9 @@ export class StreamingRendererFactory {
       loggerFactory: this.loggerFactory
     };
 
-    // Renderer and metadata registries
-    this.rendererRegistry = new Map();
-    this.metadataRegistry = new Map();
+    this._rendererRegistry = new TypedRegistryFactory();
+    this.rendererRegistry = this._rendererRegistry.getValueMap();
+    this.metadataRegistry = this._rendererRegistry.getMetadataMap();
 
     // Track initialization
     this._initialized = false;
@@ -80,13 +86,14 @@ export class StreamingRendererFactory {
    * @param {Object} metadata - Renderer metadata
    * @private
    */
-  _register(typeId, RendererClass, metadata = {}) {
-    this.rendererRegistry.set(typeId, RendererClass);
-    this.metadataRegistry.set(typeId, {
+  _register(typeId: string, RendererClass: RendererConstructor, metadata: Record<string, unknown> = {}) {
+    const normalizedMetadata = {
       typeId,
       supportsPresets: typeId === 'gpu',
       ...metadata
-    });
+    };
+
+    this._rendererRegistry.registerValue(typeId, RendererClass, normalizedMetadata);
   }
 
   /**
@@ -95,12 +102,18 @@ export class StreamingRendererFactory {
    * @param {Object} dependencies - Additional dependencies for the renderer
    * @returns {IStreamingRenderer} Renderer adapter instance
    */
-  createRenderer(typeId, dependencies = {}) {
+  createRenderer(typeId: string, dependencies: Record<string, unknown> = {}) {
     if (!this._initialized) {
       throw new Error('StreamingRendererFactory not initialized. Call initialize() first.');
     }
 
-    const RendererClass = this.rendererRegistry.get(typeId);
+    let RendererClass;
+    try {
+      RendererClass = this._rendererRegistry.create(typeId);
+    } catch {
+      throw new Error(`No renderer registered for type: ${typeId}`);
+    }
+
     if (!RendererClass) {
       throw new Error(`No renderer registered for type: ${typeId}`);
     }
@@ -122,7 +135,11 @@ export class StreamingRendererFactory {
    * @param {boolean} gpuAvailable - Whether GPU rendering is available
    * @returns {string} Renderer type ('gpu' or 'canvas2d')
    */
-  selectRendererType(capabilities, performanceModeEnabled, gpuAvailable) {
+  selectRendererType(
+    capabilities: { supportsGPU?: boolean } | null | undefined,
+    performanceModeEnabled: boolean,
+    gpuAvailable: boolean
+  ) {
     // Performance mode forces Canvas2D
     if (performanceModeEnabled) {
       this.logger.debug('Performance mode active - selecting Canvas2D');
@@ -145,8 +162,8 @@ export class StreamingRendererFactory {
    * @param {string} typeId - Renderer type to check
    * @returns {boolean} True if registered
    */
-  hasRenderer(typeId) {
-    return this.rendererRegistry.has(typeId);
+  hasRenderer(typeId: string) {
+    return this._rendererRegistry.has(typeId);
   }
 
   /**
@@ -154,7 +171,7 @@ export class StreamingRendererFactory {
    * @returns {string[]} Array of registered type IDs
    */
   getRegisteredTypes() {
-    return Array.from(this.rendererRegistry.keys());
+    return this._rendererRegistry.listIds();
   }
 
   /**
@@ -162,8 +179,8 @@ export class StreamingRendererFactory {
    * @param {string} typeId - Renderer type
    * @returns {Object|undefined} Renderer metadata
    */
-  getMetadata(typeId) {
-    return this.metadataRegistry.get(typeId);
+  getMetadata(typeId: string) {
+    return this._rendererRegistry.getMetadata(typeId);
   }
 
   /**
@@ -172,7 +189,7 @@ export class StreamingRendererFactory {
    * @param {class} RendererClass - Renderer adapter class constructor
    * @param {Object} metadata - Renderer metadata
    */
-  registerRenderer(typeId, RendererClass, metadata = {}) {
+  registerRenderer(typeId: string, RendererClass: RendererConstructor, metadata: Record<string, unknown> = {}) {
     this._register(typeId, RendererClass, metadata);
     this.logger.info(`Registered renderer: ${typeId}`);
   }
@@ -181,17 +198,15 @@ export class StreamingRendererFactory {
    * Unregister a renderer type
    * @param {string} typeId - Renderer type to remove
    */
-  unregister(typeId) {
-    this.rendererRegistry.delete(typeId);
-    this.metadataRegistry.delete(typeId);
+  unregister(typeId: string) {
+    this._rendererRegistry.unregister(typeId);
   }
 
   /**
    * Clear all registrations
    */
   clear() {
-    this.rendererRegistry.clear();
-    this.metadataRegistry.clear();
+    this._rendererRegistry.clear();
     this._initialized = false;
   }
 }

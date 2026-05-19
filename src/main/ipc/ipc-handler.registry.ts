@@ -75,6 +75,7 @@ class IpcHandlerRegistry extends BaseService {
   private readonly transcodeService: TranscodeService;
   private readonly loginItemService: LoginItemService;
   private _registeredChannels: string[];
+  private readonly _registeredChannelsSet: Set<string>;
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loginItemService', 'loggerFactory'], 'IpcHandlerRegistry');
@@ -84,6 +85,7 @@ class IpcHandlerRegistry extends BaseService {
     this.transcodeService = dependencies.transcodeService;
     this.loginItemService = dependencies.loginItemService;
     this._registeredChannels = [];
+    this._registeredChannelsSet = new Set<string>();
   }
 
   /**
@@ -145,15 +147,21 @@ class IpcHandlerRegistry extends BaseService {
    */
   dispose(): void {
     this.logger.info('Removing IPC handlers');
-    this._registeredChannels.forEach(channel => {
+    [...this._registeredChannels].forEach(channel => {
       ipcMain.removeHandler(channel);
     });
     this._registeredChannels = [];
+    this._registeredChannelsSet.clear();
   }
 
   private _registerHandler(channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void {
+    if (this._registeredChannelsSet.has(channel)) {
+      throw new Error(`Duplicate IPC channel registration for ${channel}`);
+    }
+
     ipcMain.handle(channel, handler);
     this._registeredChannels.push(channel);
+    this._registeredChannelsSet.add(channel);
   }
 }
 

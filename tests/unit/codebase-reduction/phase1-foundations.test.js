@@ -117,4 +117,19 @@ describe('Phase 1 typed registry foundation', () => {
     expect(registry.unregister('alpha')).toBe(true);
     expect(registry.has('alpha')).toBe(false);
   });
+
+  it('exposes constant value and metadata maps as registry-owned compatibility views', () => {
+    const registry = new TypedRegistryFactory();
+    const value = { type: 'constant' };
+
+    registry.registerValue('constant', value, { enabled: true });
+
+    expect(registry.getValueMap().get('constant')).toBe(value);
+    expect(registry.create('constant')).toBe(value);
+    expect(registry.getMetadataMap().get('constant')).toEqual({ enabled: true });
+
+    registry.unregister('constant');
+    expect(registry.getValueMap().has('constant')).toBe(false);
+    expect(registry.getMetadataMap().has('constant')).toBe(false);
+  });
 });

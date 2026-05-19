@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const pixelPreset: IPreset = {
   id: 'pixel',
@@ -24,5 +23,3 @@ export const pixelPreset: IPreset = {
     vignetteStrength: 0
   }
 };
-
-PresetRegistry.register(pixelPreset);

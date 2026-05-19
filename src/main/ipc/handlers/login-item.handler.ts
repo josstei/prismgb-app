@@ -27,6 +27,9 @@ export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDep
     responseMode: 'bare',
     async invoke({ loginItemService }: LoginItemHandlerDependencies) {
       return loginItemService.isEnabled();
+    },
+    mapError: () => {
+      return false;
     }
   },
   {
@@ -38,6 +41,11 @@ export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDep
       logger.debug(`Setting login item: ${enabled}`);
       loginItemService.setEnabled(enabled);
       return { success: true } as LoginItemSetResponse;
+    },
+    mapError: (error, { logger }) => {
+      logger.error('Failed to set login item:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as LoginItemSetResponse;
     }
   }
 ]);

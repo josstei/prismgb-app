@@ -61,6 +61,22 @@ function extractStringValuesFromSource(sourceText) {
   return matches.map((match) => match[1]);
 }
 
+function collectMainEventFacadeValues(sourceText, eventManifest) {
+  const literalValues = extractStringValuesFromSource(sourceText);
+  if (literalValues.length > 0) {
+    return literalValues;
+  }
+
+  const derivesFromManifest = sourceText.includes('event.manifest.json');
+  const selectsMainScope = /scope\s*===\s*['"]main['"]/.test(sourceText);
+  const buildsChannelsFromMainScope = /MainEventChannels/.test(sourceText) && /mainScope\.events/.test(sourceText);
+  if (!derivesFromManifest || !selectsMainScope || !buildsChannelsFromMainScope) {
+    return [];
+  }
+
+  return collectEventManifestValues(eventManifest, 'main');
+}
+
 function extractPreloadExposures(sourceText) {
   const exposeRegex = /contextBridge\.exposeInMainWorld\('([^']+)',\s*\{([\s\S]*?)\}\);/g;
   const exposures = {};
@@ -216,7 +232,10 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
 
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
-    expected: extractStringValuesFromSource(readProjectText('src/main/infrastructure/events/event-channels.config.ts')),
+    expected: collectMainEventFacadeValues(
+      readProjectText('src/main/infrastructure/events/event-channels.config.ts'),
+      manifests.events
+    ),
     actual: collectEventManifestValues(manifests.events, 'main')
   }));
 

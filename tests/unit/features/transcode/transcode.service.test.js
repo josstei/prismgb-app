@@ -84,7 +84,7 @@ describe('TranscodeService', () => {
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._cleanupFns).toEqual([]);
+      expect(service._eventBridge).toBeNull();
       expect(service._initialized).toBe(false);
     });
   });
@@ -117,9 +117,9 @@ describe('TranscodeService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService initialized');
     });
 
-    it('should store cleanup functions', () => {
+    it('should store a preload event bridge', () => {
       service.initialize();
-      expect(service._cleanupFns.length).toBe(4);
+      expect(service._eventBridge.size).toBe(4);
     });
 
     it('should warn and skip if already initialized', () => {
@@ -476,7 +476,7 @@ describe('TranscodeService', () => {
       });
     });
 
-    it('should call all cleanup functions', () => {
+    it('should dispose all bridge-owned unsubscribe functions', () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
       mockTranscodeAPI.onProgress.mockReturnValue(cleanup1);
@@ -489,18 +489,18 @@ describe('TranscodeService', () => {
       expect(cleanup2).toHaveBeenCalled();
     });
 
-    it('should clear cleanup array', () => {
+    it('should clear event bridge reference', () => {
       service.initialize();
       service.dispose();
 
-      expect(service._cleanupFns).toEqual([]);
+      expect(service._eventBridge).toBeNull();
     });
 
-    it('should call removeListeners on transcodeAPI', () => {
+    it('should not use namespace-wide removeListeners for bridge-owned subscriptions', () => {
       service.initialize();
       service.dispose();
 
-      expect(mockTranscodeAPI.removeListeners).toHaveBeenCalled();
+      expect(mockTranscodeAPI.removeListeners).not.toHaveBeenCalled();
     });
 
     it('should reset state', () => {
@@ -519,9 +519,9 @@ describe('TranscodeService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService disposed');
     });
 
-    it('should handle non-function cleanup items gracefully', () => {
+    it('should handle a missing event bridge gracefully', () => {
       service.initialize();
-      service._cleanupFns.push(null, undefined, 'not-a-function');
+      service._eventBridge = null;
 
       expect(() => service.dispose()).not.toThrow();
     });

@@ -3,14 +3,15 @@
  * Registers performance-related IPC routes.
  */
 
-import type { App, IpcMainInvokeEvent } from 'electron';
+import type { App } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
-}
+import {
+  defineIpcHandlers,
+  registerIpcHandlerDescriptors,
+  type RegisterHandler
+} from '../ipc-handler.descriptor.js';
 
 export interface PerformanceHandlerDependencies {
   registerHandler: RegisterHandler;
@@ -18,9 +19,13 @@ export interface PerformanceHandlerDependencies {
   logger: Logger;
 }
 
-export function registerPerformanceHandlers({ registerHandler, app, logger }: PerformanceHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.PERFORMANCE.GET_METRICS, async () => {
-    try {
+export const performanceHandlerDescriptors = defineIpcHandlers<PerformanceHandlerDependencies>([
+  {
+    channel: IPC_CHANNELS.PERFORMANCE.GET_METRICS,
+    dependencyTokens: ['app', 'logger'],
+    argumentSchema: [],
+    responseMode: 'result-envelope',
+    invoke({ app }: PerformanceHandlerDependencies): ProcessMetricsResponse {
       const metrics = app.getAppMetrics();
       const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
 
@@ -40,9 +45,15 @@ export function registerPerformanceHandlers({ registerHandler, app, logger }: Pe
           cpuPercent: proc.cpu.percentCPUUsage
         }))
       } as ProcessMetricsResponse;
-    } catch (error) {
+    },
+    mapError: (error, { logger }) => {
       logger.error('Failed to get process metrics:', error);
-      return { success: false, error: (error as Error).message } as ProcessMetricsResponse;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as ProcessMetricsResponse;
     }
-  });
+  }
+]);
+
+export function registerPerformanceHandlers(dependencies: PerformanceHandlerDependencies): void {
+  registerIpcHandlerDescriptors(dependencies, performanceHandlerDescriptors);
 }

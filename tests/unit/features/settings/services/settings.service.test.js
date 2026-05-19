@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
+import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
 
 describe('SettingsService', () => {
   let service;
@@ -68,6 +69,46 @@ describe('SettingsService', () => {
       expect(service.keys.PERFORMANCE_MODE).toBe('performanceMode');
       expect(service.keys.FULLSCREEN_ON_STARTUP).toBe('fullscreenOnStartup');
       expect(service.keys.MINIMALIST_FULLSCREEN).toBe('minimalistFullscreen');
+    });
+
+    it('derives defaults and recording formats from settings definitions', () => {
+      const manifestDefaults = Object.fromEntries(
+        settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])
+      );
+      const recordingFormat = settingsDefinitions.definitions.find(
+        (definition) => definition.name === 'recordingFormat'
+      );
+
+      expect(service.defaults).toEqual(manifestDefaults);
+      expect(service.validRecordingFormats).toEqual(recordingFormat.allowedValues);
+      expect(service.listSettings()).toEqual(
+        settingsDefinitions.definitions.map((definition) => definition.name)
+      );
+    });
+  });
+
+  describe('generic definition accessors', () => {
+    it('routes getSetting through legacy-compatible getters', () => {
+      localStorageMock.store['gameVolume'] = '64';
+      localStorageMock.store['minimalistFullscreen'] = 'true';
+
+      expect(service.getSetting('gameVolume')).toBe(64);
+      expect(service.getSetting('minimalistFullscreen')).toBe(true);
+      expect(service.getSetting('recordingFormat')).toBe('webm');
+    });
+
+    it('routes setSetting through legacy-compatible setters and validation', () => {
+      expect(service.setSetting('gameVolume', 140)).toBeUndefined();
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '100');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:volume-changed', 100);
+
+      expect(service.setSetting('recordingFormat', 'avi')).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid recording format: avi. Valid formats: webm, mp4, mov');
+    });
+
+    it('fails fast for unknown settings instead of silently creating storage drift', () => {
+      expect(() => service.getSetting('missingSetting')).toThrow('Unknown setting: missingSetting');
+      expect(() => service.setSetting('missingSetting', true)).toThrow('Unknown setting: missingSetting');
     });
   });
 

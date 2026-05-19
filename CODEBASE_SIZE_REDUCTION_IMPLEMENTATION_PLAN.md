@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-19
 
-- Status: Phase 1 implementation complete on branch `refactor/codebase-size-phase-1`; ready for PR back to `refactor/codebase_reduction`.
-- Completed phase: Phase 1, Foundational Utilities And Report-Only Manifests.
+- Status: Phase 2 implementation complete; paused for review before Phase 3.
+- Completed phase: Phase 2, Generated Runtime Adoption.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -30,13 +30,29 @@ Last updated: 2026-05-19
   - Drift/generation command: `npm run codebase:phase1`, with optional generated declaration and docs preview artifacts under `artifacts/codebase-reduction/phase1`.
   - Official WebGPU types are hoisted to the root type environment; local `webgpu-worker.d.ts` is reduced to an augmentation placeholder.
   - Vitest coverage output now targets ignored `artifacts/coverage` instead of `tests/coverage`.
+- Phase 2 delivered:
+  - Preload subscriptions now use descriptor-style `createSubscription()` plumbing with map-backed listener registries across device, window, update, and transcode APIs while preserving public preload API names and unsubscribe behavior.
+  - Main IPC handlers now register through descriptor arrays with centralized duplicate-channel detection, disposal, and explicit per-handler error mapping.
+  - Main event channels now derive from the scoped event manifest through a compatibility facade, and the Phase 1 drift audit understands manifest-derived runtime facades.
+  - `@prismgb/gpu` exposes worker-safe pipeline creation, render-pass helper metadata, and explicit preset bulk registration without side-effect preset imports.
+  - `BaseService` now owns `DisposableBag` lifecycle helpers, and renderer update/transcode services use a generic preload event bridge with per-subscription cleanup.
+  - Settings now have manifest-backed generic `getSetting()`/`setSetting()` accessors while preserving legacy getters/setters and the `webm` compatibility default.
+  - Streaming adapter/renderer factories now use the shared typed registry primitive while retaining domain-specific compatibility wrappers.
+  - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
   - `npm run test:run` passed with 150 test files and 2967 tests after the Phase 0/1 audit hardening test was added.
   - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
   - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
-- Next phase when resumed: Phase 2, Generated Runtime Adoption.
+- Verification for Phase 2:
+  - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; stale type-debt allowlist buckets from migrated Phase 2 files were removed.
+  - `npm run test:run` passed with 154 test files and 3010 tests.
+  - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
+  - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after the main event facade moved to manifest-derived values.
+  - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
+- Next phase when resumed: Phase 3, High-Impact Consolidation. Pause here until Phase 2 review is accepted.
 
 ## Phase 0 Grounding Snapshot
 
