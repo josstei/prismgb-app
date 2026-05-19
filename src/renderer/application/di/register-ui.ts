@@ -20,113 +20,116 @@ import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import {
+  defineRendererDescriptors,
+  registerRendererDescriptors
+} from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerUi(container: RegistrableContainer<RendererContainerMap>): void {
-  container.registerSingleton(
-    'settingsService',
-    function (eventBus, loggerFactory, storageService) {
-      return new SettingsService({ eventBus, loggerFactory, storageService });
-    },
-    ['eventBus', 'loggerFactory', 'storageService']
-  );
-
-  container.registerSingleton(
-    'notesService',
-    function (eventBus, loggerFactory, storageService) {
-      return new NotesService({ eventBus, loggerFactory, storageService });
-    },
-    ['eventBus', 'loggerFactory', 'storageService']
-  );
-
-  container.registerSingleton(
-    'updateService',
-    function (eventBus, loggerFactory) {
-      return new UpdateService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'updateUiService',
-    function (eventBus, loggerFactory) {
-      return new UpdateUiService({ eventBus, loggerFactory });
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'streamViewService',
-    function (uiController, loggerFactory) {
-      return new StreamingViewService({ uiController, loggerFactory });
-    },
-    ['uiController', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'streamingAudioPipelineService',
-    function (eventBus, loggerFactory, settingsService) {
-      return new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
-    },
-    ['eventBus', 'loggerFactory', 'settingsService']
-  );
-
-  container.registerSingleton('appState', function(streamingService, deviceService, eventBus) {
-    return new AppState({ streamingService, deviceService, eventBus });
-  }, ['streamingService', 'deviceService', 'eventBus']);
-
-  container.registerSingleton(
-    'uiComponentRegistry',
-    function (loggerFactory) {
+const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
+  {
+    token: 'settingsService',
+    kind: 'class',
+    resolver: SettingsService
+  },
+  {
+    token: 'notesService',
+    kind: 'class',
+    resolver: NotesService
+  },
+  {
+    token: 'updateService',
+    kind: 'class',
+    resolver: UpdateService
+  },
+  {
+    token: 'updateUiService',
+    kind: 'class',
+    resolver: UpdateUiService
+  },
+  {
+    token: 'streamViewService',
+    kind: 'class',
+    resolver: StreamingViewService
+  },
+  {
+    token: 'streamingAudioPipelineService',
+    kind: 'class',
+    resolver: StreamingAudioPipelineService
+  },
+  {
+    token: 'appState',
+    kind: 'class',
+    resolver: AppState
+  },
+  {
+    token: 'uiComponentRegistry',
+    kind: 'function',
+    dependencies: ['loggerFactory'],
+    resolver: (dependencies: any) => {
+      const loggerFactory = dependencies.loggerFactory;
       const componentDefinitions = [
         {
           id: 'statusNotificationComponent',
           stage: 'core',
-          create: ({ elements }) => new StatusNotificationComponent({
-            statusMessage: elements.statusMessage
-          })
+          create: (context: any) => {
+            const { elements } = context as any;
+            return new StatusNotificationComponent({
+              statusMessage: elements.statusMessage
+            });
+          }
         },
         {
           id: 'deviceStatusComponent',
           stage: 'core',
-          create: ({ elements }) => new DeviceStatusComponent({
-            statusIndicator: elements.statusIndicator,
-            statusText: elements.statusText,
-            deviceName: elements.deviceName,
-            deviceStatusText: elements.deviceStatusText,
-            streamOverlay: elements.streamOverlay,
-            overlayMessage: elements.overlayMessage
-          })
+          create: (context: any) => {
+            const { elements } = context as any;
+            return new DeviceStatusComponent({
+              statusIndicator: elements.statusIndicator,
+              statusText: elements.statusText,
+              deviceName: elements.deviceName,
+              deviceStatusText: elements.deviceStatusText,
+              streamOverlay: elements.streamOverlay,
+              overlayMessage: elements.overlayMessage
+            });
+          }
         },
         {
           id: 'streamControlsComponent',
           stage: 'core',
-          create: ({ elements, dependencies }) => new StreamingControlsComponent({
-            elements: {
-              currentResolution: elements.currentResolution,
-              currentFPS: elements.currentFPS,
-              screenshotBtn: elements.screenshotBtn,
-              recordBtn: elements.recordBtn,
-              shaderControls: elements.shaderControls,
-              streamOverlay: elements.streamOverlay
-            },
-            bodyClassManager: dependencies.bodyClassManager
-          })
+          create: (context: any) => {
+            const { elements, dependencies } = context as any;
+            return new StreamingControlsComponent({
+              elements: {
+                currentResolution: elements.currentResolution,
+                currentFPS: elements.currentFPS,
+                screenshotBtn: elements.screenshotBtn,
+                recordBtn: elements.recordBtn,
+                shaderControls: elements.shaderControls,
+                streamOverlay: elements.streamOverlay
+              },
+              bodyClassManager: dependencies.bodyClassManager
+            });
+          }
         },
         {
           id: 'transcodeToastComponent',
           stage: 'core',
-          create: ({ elements }) => new TranscodeToastComponent({
-            recordBtn: elements.recordBtn,
-            transcodeRing: elements.transcodeRing,
-            transcodePercentLabel: elements.transcodePercentLabel
-          })
+          create: (context: any) => {
+            const { elements } = context as any;
+            return new TranscodeToastComponent({
+              recordBtn: elements.recordBtn,
+              transcodeRing: elements.transcodeRing,
+              transcodePercentLabel: elements.transcodePercentLabel
+            });
+          }
         },
         {
           id: 'settingsMenuComponent',
           stage: 'deferred',
-          create: ({ dependencies }) => {
+          create: (context: any) => {
+            const dependencies = context.dependencies as any;
             const updateSectionComponent = dependencies.updateOrchestrator
               ? new UpdateSectionComponent({
                 updateOrchestrator: dependencies.updateOrchestrator,
@@ -147,74 +150,65 @@ export function registerUi(container: RegistrableContainer<RendererContainerMap>
         {
           id: 'shaderSelectorComponent',
           stage: 'deferred',
-          create: ({ dependencies }) => new ShaderSelectorComponent({
-            settingsService: dependencies.settingsService,
-            appState: dependencies.appState,
-            eventBus: dependencies.eventBus,
-            logger: dependencies.logger
-          })
+          create: (context: any) => {
+            const dependencies = context.dependencies as any;
+            return new ShaderSelectorComponent({
+              settingsService: dependencies.settingsService,
+              appState: dependencies.appState,
+              eventBus: dependencies.eventBus,
+              logger: dependencies.logger
+            });
+          }
         },
         {
           id: 'notesPanelComponent',
           stage: 'deferred',
-          create: ({ dependencies }) => new NotesPanelComponent({
-            notesService: dependencies.notesService,
-            eventBus: dependencies.eventBus,
-            logger: dependencies.logger
-          })
+          create: (context: any) => {
+            const dependencies = context.dependencies as any;
+            return new NotesPanelComponent({
+              notesService: dependencies.notesService,
+              eventBus: dependencies.eventBus,
+              logger: dependencies.logger
+            });
+          }
         }
       ];
 
       return new UIComponentRegistry({ componentDefinitions, loggerFactory });
-    },
-    ['loggerFactory']
-  );
+    }
+  },
+  {
+    token: 'uiEffects',
+    kind: 'class',
+    resolver: UIEffects
+  },
+  {
+    token: 'bodyClassManager',
+    kind: 'class',
+    resolver: BodyClassManager
+  },
+  {
+    token: 'uiEventBridge',
+    kind: 'class',
+    resolver: UIEventBridge
+  },
+  {
+    token: 'presentationModeService',
+    kind: 'class',
+    resolver: PresentationModeService
+  },
+  {
+    token: 'captureUiBridge',
+    kind: 'class',
+    resolver: CaptureUIBridge
+  },
+  {
+    token: 'transcodeUiBridge',
+    kind: 'class',
+    resolver: TranscodeUIBridge
+  }
+]);
 
-  container.registerSingleton(
-    'uiEffects',
-    function (bodyClassManager) {
-      return new UIEffects({ elements: null, bodyClassManager });
-    },
-    ['bodyClassManager']
-  );
-
-  container.registerSingleton(
-    'bodyClassManager',
-    function () {
-      return new BodyClassManager();
-    },
-    []
-  );
-
-  container.registerSingleton(
-    'uiEventBridge',
-    function (eventBus, uiController, presentationModeService, loggerFactory) {
-      return new UIEventBridge({ eventBus, uiController, presentationModeService, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'presentationModeService',
-    function (uiController, appState, loggerFactory) {
-      return new PresentationModeService({ uiController, appState, loggerFactory });
-    },
-    ['uiController', 'appState', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'captureUiBridge',
-    function (eventBus, uiController, loggerFactory) {
-      return new CaptureUIBridge({ eventBus, uiController, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'transcodeUiBridge',
-    function (eventBus, uiController, loggerFactory) {
-      return new TranscodeUIBridge({ eventBus, uiController, loggerFactory });
-    },
-    ['eventBus', 'uiController', 'loggerFactory']
-  );
+export function registerUi(container: RegistrableContainer<RendererContainerMap>): void {
+  registerRendererDescriptors(container, rendererUiDescriptors);
 }

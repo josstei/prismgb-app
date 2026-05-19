@@ -26,150 +26,130 @@ import { StreamingRenderPipelineService } from '@renderer/infrastructure/service
 import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager';
 import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
+import {
+  defineRendererDescriptors,
+  registerRendererDescriptors
+} from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerInfrastructure(container: RegistrableContainer<RendererContainerMap>): void {
-  container.registerSingleton(
-    'eventBus',
-    function (loggerFactory) {
-      return new EventBus({ loggerFactory });
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton('loggerFactory', function() {
-    return new RendererLogger();
-  }, []);
-
-  container.registerSingleton('storageService', function() {
-    return new BrowserStorageAdapter({
+const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererContainerMap>([
+  {
+    token: 'eventBus',
+    kind: 'class',
+    resolver: EventBus
+  },
+  {
+    token: 'loggerFactory',
+    kind: 'class',
+    resolver: RendererLogger
+  },
+  {
+    token: 'storageService',
+    kind: 'function',
+    dependencies: [],
+    resolver: () => new BrowserStorageAdapter({
       protectedKeys: PROTECTED_STORAGE_KEYS
-    });
-  }, []);
-
-  container.registerSingleton('browserMediaService', function() {
-    return new BrowserMediaAdapter();
-  }, []);
-
-  container.registerSingleton('visibilityAdapter', function() {
-    return new VisibilityAdapter();
-  }, []);
-
-  container.registerSingleton('userActivityAdapter', function() {
-    return new UserActivityAdapter();
-  }, []);
-
-  container.registerSingleton('reducedMotionAdapter', function() {
-    return new ReducedMotionAdapter();
-  }, []);
-
-  container.registerSingleton('metricsAdapter', function() {
-    return new MetricsAdapter();
-  }, []);
-
-  container.registerSingleton('deviceIpcAdapter', function(loggerFactory: RendererLogger) {
-    return new DeviceIpcAdapter({ logger: loggerFactory.create('DeviceIpcAdapter') });
-  }, ['loggerFactory']);
-
-  container.registerSingleton(
-    'deviceChangeDebounceAdapter',
-    function(browserMediaService: BrowserMediaAdapter, loggerFactory: RendererLogger) {
-      return new DeviceChangeDebounceAdapter({
-        browserMediaService,
-        logger: loggerFactory.create('DeviceChangeDebounceAdapter')
-      });
-    },
-    ['browserMediaService', 'loggerFactory']
-  );
-
-  container.registerSingleton('animationCache', function() {
-    return new AnimationCache();
-  }, []);
-
-  container.registerSingleton(
-    'canvasRenderer',
-    function(loggerFactory: RendererLogger, animationCache: AnimationCache) {
-      return new StreamingCanvasRenderer(
-        loggerFactory.create('StreamingCanvasRenderer'),
-        animationCache
-      );
-    },
-    ['loggerFactory', 'animationCache']
-  );
-
-  container.registerSingleton(
-    'viewportService',
-    function(loggerFactory) {
-      return new StreamingViewportService({ loggerFactory });
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton(
-    'canvasLifecycleService',
-    function(streamViewService, canvasRenderer, viewportService, gpuRendererService, eventBus, loggerFactory) {
-      return new StreamingCanvasLifecycleService({
-        streamViewService,
-        canvasRenderer,
-        viewportService,
-        gpuRendererService,
-        eventBus,
-        loggerFactory
-      });
-    },
-    ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'gpuRenderLoopService',
-    function(loggerFactory) {
-      return new StreamingGpuRenderLoopService({ loggerFactory });
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton(
-    'streamHealthService',
-    function(loggerFactory) {
-      return new StreamingHealthService({ loggerFactory });
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton(
-    'gpuFrameBuffer',
-    function(loggerFactory) {
-      return new GpuFrameBuffer({ loggerFactory });
-    },
-    ['loggerFactory']
-  );
-
-  container.registerSingleton(
-    'gpuWorkerManager',
-    function(loggerFactory, eventBus) {
-      return new GpuWorkerManager({ loggerFactory, eventBus });
-    },
-    ['loggerFactory', 'eventBus']
-  );
-
-  container.registerSingleton(
-    'gpuRendererService',
-    function(eventBus, loggerFactory, settingsService, gpuFrameBuffer, gpuWorkerManager) {
-      return new StreamingGpuRendererService({
-        eventBus,
-        loggerFactory,
-        settingsService,
-        gpuFrameBuffer,
-        gpuWorkerManager
-      });
-    },
-    ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager']
-  );
-
-  container.registerSingleton(
-    'streamingRendererFactory',
-    function(eventBus, loggerFactory) {
+    })
+  },
+  {
+    token: 'browserMediaService',
+    kind: 'class',
+    resolver: BrowserMediaAdapter
+  },
+  {
+    token: 'visibilityAdapter',
+    kind: 'class',
+    resolver: VisibilityAdapter
+  },
+  {
+    token: 'userActivityAdapter',
+    kind: 'class',
+    resolver: UserActivityAdapter
+  },
+  {
+    token: 'reducedMotionAdapter',
+    kind: 'class',
+    resolver: ReducedMotionAdapter
+  },
+  {
+    token: 'metricsAdapter',
+    kind: 'class',
+    resolver: MetricsAdapter
+  },
+  {
+    token: 'deviceIpcAdapter',
+    kind: 'function',
+    dependencies: ['loggerFactory'],
+    resolver: (dependencies: any) => new DeviceIpcAdapter({
+      logger: (dependencies.loggerFactory as any).create('DeviceIpcAdapter')
+    })
+  },
+  {
+    token: 'deviceChangeDebounceAdapter',
+    kind: 'function',
+    dependencies: ['browserMediaService', 'loggerFactory'],
+    resolver: (dependencies: any) => new DeviceChangeDebounceAdapter({
+      browserMediaService: dependencies.browserMediaService,
+      logger: dependencies.loggerFactory.create('DeviceChangeDebounceAdapter')
+    })
+  },
+  {
+    token: 'animationCache',
+    kind: 'class',
+    resolver: AnimationCache
+  },
+  {
+    token: 'canvasRenderer',
+    kind: 'function',
+    dependencies: ['loggerFactory', 'animationCache'],
+    resolver: (dependencies: any) => new StreamingCanvasRenderer(
+      dependencies.loggerFactory.create('StreamingCanvasRenderer'),
+      dependencies.animationCache
+    )
+  },
+  {
+    token: 'viewportService',
+    kind: 'class',
+    resolver: StreamingViewportService
+  },
+  {
+    token: 'canvasLifecycleService',
+    kind: 'class',
+    resolver: StreamingCanvasLifecycleService
+  },
+  {
+    token: 'gpuRenderLoopService',
+    kind: 'class',
+    resolver: StreamingGpuRenderLoopService
+  },
+  {
+    token: 'streamHealthService',
+    kind: 'class',
+    resolver: StreamingHealthService
+  },
+  {
+    token: 'gpuFrameBuffer',
+    kind: 'function',
+    dependencies: ['loggerFactory'],
+    resolver: ({ loggerFactory }) => new GpuFrameBuffer({ loggerFactory })
+  },
+  {
+    token: 'gpuWorkerManager',
+    kind: 'class',
+    resolver: GpuWorkerManager
+  },
+  {
+    token: 'gpuRendererService',
+    kind: 'class',
+    resolver: StreamingGpuRendererService
+  },
+  {
+    token: 'streamingRendererFactory',
+    kind: 'function',
+    dependencies: ['eventBus', 'loggerFactory'],
+    resolver: (dependencies: any) => {
+      const { eventBus, loggerFactory } = dependencies as any;
       const rendererClasses = new Map<string, RendererConstructor>([
         ['gpu', StreamingGpuRendererAdapter as unknown as RendererConstructor],
         ['canvas2d', StreamingCanvas2DRendererAdapter as unknown as RendererConstructor]
@@ -177,41 +157,33 @@ export function registerInfrastructure(container: RegistrableContainer<RendererC
       const rendererFactory = new StreamingRendererFactory(eventBus, loggerFactory, rendererClasses);
       rendererFactory.initialize();
       return rendererFactory;
-    },
-    ['eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'renderPipelineService',
-    function(appState, streamViewService, canvasRenderer, canvasLifecycleService, streamHealthService, streamingRendererFactory, gpuRendererService, gpuRenderLoopService, eventBus, loggerFactory) {
-      return new StreamingRenderPipelineService({
-        appState,
-        streamViewService,
-        canvasRenderer,
-        canvasLifecycleService,
-        streamHealthService,
-        streamingRendererFactory,
-        gpuRendererService,
-        gpuRenderLoopService,
-        eventBus,
-        loggerFactory
-      });
-    },
-    ['appState', 'streamViewService', 'canvasRenderer', 'canvasLifecycleService', 'streamHealthService', 'streamingRendererFactory', 'gpuRendererService', 'gpuRenderLoopService', 'eventBus', 'loggerFactory']
-  );
-
-  container.registerSingleton('ipcClient', function () {
-    if (!window.deviceAPI) {
-      throw new Error('deviceAPI is not available in the renderer. The preload script may have failed to load.');
     }
-    return window.deviceAPI;
-  }, []);
+  },
+  {
+    token: 'renderPipelineService',
+    kind: 'class',
+    resolver: StreamingRenderPipelineService
+  },
+  {
+    token: 'ipcClient',
+    kind: 'function',
+    dependencies: [],
+    resolver: () => {
+      const globalWindow = window as Window & { deviceAPI?: unknown };
+      if (!globalWindow.deviceAPI) {
+        throw new Error('deviceAPI is not available in the renderer. The preload script may have failed to load.');
+      }
+      return globalWindow.deviceAPI;
+    }
+  },
+  {
+    token: 'deviceStatusProvider',
+    kind: 'function',
+    dependencies: ['ipcClient'],
+    resolver: (dependencies: any) => new DeviceIpcStatusAdapter(dependencies.ipcClient)
+  }
+]);
 
-  container.registerSingleton(
-    'deviceStatusProvider',
-    function (ipcClient) {
-      return new DeviceIpcStatusAdapter(ipcClient);
-    },
-    ['ipcClient']
-  );
+export function registerInfrastructure(container: RegistrableContainer<RendererContainerMap>): void {
+  registerRendererDescriptors(container, rendererInfrastructureDescriptors);
 }
