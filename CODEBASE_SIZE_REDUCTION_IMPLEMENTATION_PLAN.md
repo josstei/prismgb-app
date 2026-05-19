@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-19
 
-- Status: Phase 2 implementation complete with full-cutover audit applied; paused for review before Phase 3.
-- Completed phase: Phase 2, Generated Runtime Adoption.
+- Status: Phase 3 implementation complete on branch `refactor/codebase-reduction-phase-3`; clean-break audit applied and ready for review before Phase 4.
+- Completed phase: Phase 3, High-Impact Consolidation.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -40,6 +40,14 @@ Last updated: 2026-05-19
   - Streaming adapter/renderer factories now use the shared typed registry primitive.
   - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
   - Full-cutover audit after Phase 2 removed outdated preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
+- Phase 3 delivered:
+  - Renderer worker internals now delegate rendering, capture, resize, stats, preset, brightness, and disposal to `@prismgb/gpu` through `createWorkerPipeline()`; renderer-private WebGPU/WebGL2 engines, optimization helpers, and duplicate shader trees were deleted.
+  - `@prismgb/gpu` now owns worker-safe WebGL2 probing, package shader ownership, and the worker pipeline API while preserving the worker protocol boundary in the renderer.
+  - Renderer DI now uses Awilix descriptor registration and typed container metadata; the custom `ServiceContainer` implementation and its old tests were deleted.
+  - Presentation auto-hide behavior now uses `PresentationComponent` and `ActivityAutoHideController`, consolidating repeated listener, RAF, timer, and disposal behavior behind current UI boundaries.
+  - Vitest is split into explicit `shared-node`, `renderer-happy-dom`, `main-preload`, and `gpu-package` projects; browser API mocks moved to project-scoped installers and the lazy/global sandbox helpers were deleted.
+  - The device preload factory now uses the current `getDeviceStatus`, `onDeviceConnected`, and `onDeviceDisconnected` names internally; the old listener method names are no longer public or internal compatibility surfaces.
+  - The stale Phase 0/1 audit artifact was replaced with `CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md`, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one outdated type-debt allowlist bucket for login-item handlers was removed.
@@ -53,11 +61,20 @@ Last updated: 2026-05-19
   - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
   - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
   - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
-- Next phase when resumed: Phase 3, High-Impact Consolidation. Pause here until Phase 2 review is accepted.
+- Verification for Phase 3:
+  - `npm run test:run -- tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 3 test files and 16 tests.
+  - `npm run test:run -- tests/unit/preload/preload-api.invoke-contract.test.js tests/unit/preload/preload-api.contract.test.js tests/unit/codebase-reduction/non-ipc-baselines.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 5 test files and 32 tests after the device preload clean-break cutover.
+  - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; strict app diagnostics are 660, tracked buckets are 135, and stale buckets are 0.
+  - `npm run test:run` passed with 155 test files and 2850 tests.
+  - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 28 tests.
+  - `npm run codebase:phase1 -- --json` exited 0 and all manifest drift checks passed.
+  - `npm run codebase:size -- --json` exited 0 and reports WebGPU/WebGL2 shader status as package-owned with clean ownership.
+- Next phase when resumed: Phase 4, Enforcement And Ratchets.
 
 ## Phase 0 Grounding Snapshot
 
-The plan was grounded in the Phase 0 repository state before Phase 1 added report-only manifests and shared foundations. Treat the counts and examples in this section as the baseline that Phase 0 measured, not as live post-Phase-1 totals:
+The plan was grounded in the Phase 0 repository state before Phase 1 added report-only manifests and shared foundations. Treat the counts and examples in this section as the baseline that Phase 0 measured, not as live post-Phase-1 totals. The "Grounded repo truth" blocks in each finding are likewise original planning baselines; current state is recorded in the execution status above and the current audit report:
 
 - The root package is an Electron/Vite app with npm workspaces and `@prismgb/gpu` under `packages/prismgb-gpu`.
 - `package.json` already includes `awilix`, `eventemitter3`, `joi`, Vitest, Playwright, Testing Library, Vite, Electron, and Electron Builder.

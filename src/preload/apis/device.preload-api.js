@@ -8,8 +8,8 @@ function createDevicePreloadAPI({
   isValidCallback
 }) {
   const listenerKeys = {
-    onConnected: 'device.onConnected',
-    onDisconnected: 'device.onDisconnected'
+    onDeviceConnected: 'device.onDeviceConnected',
+    onDeviceDisconnected: 'device.onDeviceDisconnected'
   };
 
   const disposeListenersForKey = (channel, registryKey) => {
@@ -25,35 +25,35 @@ function createDevicePreloadAPI({
   };
 
   return {
-    getStatus: () => ipcRenderer.invoke(channels.DEVICE.GET_STATUS),
+    getDeviceStatus: () => ipcRenderer.invoke(channels.DEVICE.GET_STATUS),
 
-    onConnected: (callback) =>
+    onDeviceConnected: (callback) =>
       createSubscription({
         apiName: 'deviceAPI',
-        methodName: 'onConnected',
+        methodName: 'onDeviceConnected',
         channel: channels.DEVICE.CONNECTED,
         ipcRenderer,
         registry: listenerRegistry,
-        registryKey: listenerKeys.onConnected,
+        registryKey: listenerKeys.onDeviceConnected,
         maxListeners,
         validateCallback: isValidCallback
       })(callback),
 
-    onDisconnected: (callback) =>
+    onDeviceDisconnected: (callback) =>
       createSubscription({
         apiName: 'deviceAPI',
-        methodName: 'onDisconnected',
+        methodName: 'onDeviceDisconnected',
         channel: channels.DEVICE.DISCONNECTED,
         ipcRenderer,
         registry: listenerRegistry,
-        registryKey: listenerKeys.onDisconnected,
+        registryKey: listenerKeys.onDeviceDisconnected,
         maxListeners,
         validateCallback: isValidCallback
       })(callback),
 
     dispose: () => {
-      disposeListenersForKey(channels.DEVICE.CONNECTED, listenerKeys.onConnected);
-      disposeListenersForKey(channels.DEVICE.DISCONNECTED, listenerKeys.onDisconnected);
+      disposeListenersForKey(channels.DEVICE.CONNECTED, listenerKeys.onDeviceConnected);
+      disposeListenersForKey(channels.DEVICE.DISCONNECTED, listenerKeys.onDeviceDisconnected);
     }
   };
 }

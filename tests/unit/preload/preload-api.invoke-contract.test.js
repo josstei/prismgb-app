@@ -87,7 +87,7 @@ describe('Preload API invoke contract baselines', () => {
       { isValidCallback }
     );
 
-    const status = await deviceAPI.getStatus();
+    const status = await deviceAPI.getDeviceStatus();
 
     expect(ipcRenderer.invoke).toHaveBeenCalledTimes(1);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.DEVICE.GET_STATUS);
@@ -393,9 +393,9 @@ describe('Preload subscription API parity', () => {
     const callbackCases = [
       {
         factory: createDevicePreloadAPI,
-        method: 'onConnected',
+        method: 'onDeviceConnected',
         options: { isValidCallback },
-        message: 'deviceAPI.onConnected: Invalid callback provided'
+        message: 'deviceAPI.onDeviceConnected: Invalid callback provided'
       },
       {
         factory: createWindowPreloadAPI,
@@ -512,25 +512,25 @@ describe('Preload subscription API parity', () => {
     const connectedCallback = vi.fn();
     const disconnectedCallback = vi.fn();
 
-    const unsubConnected = api.onConnected(connectedCallback);
-    const unsubDisconnected = api.onDisconnected(disconnectedCallback);
+    const unsubConnected = api.onDeviceConnected(connectedCallback);
+    const unsubDisconnected = api.onDeviceDisconnected(disconnectedCallback);
 
     ipcRenderer.emit(channels.DEVICE.CONNECTED, { deviceName: 'Chromatic USB' });
     ipcRenderer.emit(channels.DEVICE.DISCONNECTED, { deviceName: 'Chromatic USB' });
 
     expect(connectedCallback).toHaveBeenCalledTimes(1);
     expect(disconnectedCallback).toHaveBeenCalledTimes(1);
-    expect(listenerRegistry.get('device.onConnected').size).toBe(1);
-    expect(listenerRegistry.get('device.onDisconnected').size).toBe(1);
+    expect(listenerRegistry.get('device.onDeviceConnected').size).toBe(1);
+    expect(listenerRegistry.get('device.onDeviceDisconnected').size).toBe(1);
 
     unsubConnected();
     ipcRenderer.emit(channels.DEVICE.CONNECTED, { deviceName: 'Chromatic USB' });
     expect(connectedCallback).toHaveBeenCalledTimes(1);
-    expect(listenerRegistry.get('device.onConnected').size).toBe(0);
+    expect(listenerRegistry.get('device.onDeviceConnected').size).toBe(0);
 
     api.dispose();
-    expect(listenerRegistry.get('device.onConnected').size).toBe(0);
-    expect(listenerRegistry.get('device.onDisconnected').size).toBe(0);
+    expect(listenerRegistry.get('device.onDeviceConnected').size).toBe(0);
+    expect(listenerRegistry.get('device.onDeviceDisconnected').size).toBe(0);
     expect(ipcRenderer.removeListener).toHaveBeenCalledWith(
       channels.DEVICE.DISCONNECTED,
       expect.any(Function)

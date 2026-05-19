@@ -293,8 +293,8 @@ describe('Phase 0 non-IPC contract baselines', () => {
 
     expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onConnected/);
     expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onDisconnected/);
-    expect(preloadSource).toContain('onDeviceConnected: deviceAPI.onConnected');
-    expect(preloadSource).toContain('onDeviceDisconnected: deviceAPI.onDisconnected');
+    expect(preloadSource).toContain('onDeviceConnected: deviceAPI.onDeviceConnected');
+    expect(preloadSource).toContain('onDeviceDisconnected: deviceAPI.onDeviceDisconnected');
   });
 
   it('keeps E2E Chromatic media-device patches fully restorable', () => {

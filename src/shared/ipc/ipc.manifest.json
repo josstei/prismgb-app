@@ -9,7 +9,7 @@
       "invoke": [
         {
           "method": "getDeviceStatus",
-          "factoryMethod": "getStatus",
+          "factoryMethod": "getDeviceStatus",
           "channelKey": "GET_STATUS",
           "channel": "device:get-status",
           "request": [],
@@ -19,14 +19,14 @@
       "subscriptions": [
         {
           "method": "onDeviceConnected",
-          "factoryMethod": "onConnected",
+          "factoryMethod": "onDeviceConnected",
           "channelKey": "CONNECTED",
           "channel": "device:connected",
           "payload": "DeviceInfoPayload"
         },
         {
           "method": "onDeviceDisconnected",
-          "factoryMethod": "onDisconnected",
+          "factoryMethod": "onDeviceDisconnected",
           "channelKey": "DISCONNECTED",
           "channel": "device:disconnected",
           "payload": "DeviceInfoPayload | null | undefined"
