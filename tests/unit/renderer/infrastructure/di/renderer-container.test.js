@@ -15,6 +15,14 @@ class UsesLogger {
   }
 }
 
+class UsesExplicitLogger {
+  constructor(dependencies) {
+    const { logger, elements } = dependencies;
+    this.logger = logger;
+    this.elements = elements ?? null;
+  }
+}
+
 describe('Renderer DI descriptors', () => {
   let container;
 
@@ -22,7 +30,7 @@ describe('Renderer DI descriptors', () => {
     container = createContainer();
   });
 
-  it('registers class descriptors and resolves dependencies via constructor cradle', () => {
+  it('registers class descriptors and resolves explicit constructor dependencies', () => {
     registerRendererDescriptors(
       container,
       defineRendererDescriptors([
@@ -48,6 +56,22 @@ describe('Renderer DI descriptors', () => {
 
     const classService = container.resolve('classUsingLogger');
     expect(classService.logger).toBeInstanceOf(Logger);
+
+    registerRendererDescriptors(
+      container,
+      defineRendererDescriptors([
+        {
+          token: 'classUsingExplicitLogger',
+          kind: 'class',
+          resolver: UsesExplicitLogger,
+          dependencies: ['logger']
+        }
+      ])
+    );
+
+    const explicitClassService = container.resolve('classUsingExplicitLogger');
+    expect(explicitClassService.logger).toBeInstanceOf(Logger);
+    expect(explicitClassService.elements).toBeNull();
 
     registerRendererDescriptors(
       container,
@@ -140,6 +164,22 @@ describe('Renderer DI descriptors', () => {
     );
 
     expect(() => container.resolve('factoryValue')).toThrow('[RendererContainer] Missing dependency "appKey" for "factoryValue"');
+  });
+
+  it('throws a helpful error for missing class dependencies', () => {
+    registerRendererDescriptors(
+      container,
+      defineRendererDescriptors([
+        {
+          token: 'classUsingLogger',
+          kind: 'class',
+          resolver: UsesLogger,
+          dependencies: ['logger']
+        }
+      ])
+    );
+
+    expect(() => container.resolve('classUsingLogger')).toThrow('[RendererContainer] Missing dependency "logger" for "classUsingLogger"');
   });
 
   it('disposes async class services', async () => {

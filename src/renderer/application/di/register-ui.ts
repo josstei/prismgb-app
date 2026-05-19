@@ -180,7 +180,8 @@ const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
   {
     token: 'uiEffects',
     kind: 'class',
-    resolver: UIEffects
+    resolver: UIEffects,
+    dependencies: ['bodyClassManager']
   },
   {
     token: 'bodyClassManager',

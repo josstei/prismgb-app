@@ -100,6 +100,15 @@ describe('Renderer container', () => {
     expect(container.resolve('loggerFactory')).toBeDefined();
   });
 
+  it('resolves UI effects without requiring a container-level elements token', () => {
+    const container = createRendererContainer();
+
+    const uiEffects = container.resolve('uiEffects');
+
+    expect(uiEffects.elements).toBeNull();
+    expect(Object.keys(container.registrations)).not.toContain('elements');
+  });
+
   it('warns and reuses container on repeated initialization', () => {
     const warnSpy = vi.spyOn(console, 'warn');
     const first = initializeContainer();

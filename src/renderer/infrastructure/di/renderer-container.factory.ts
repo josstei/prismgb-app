@@ -24,11 +24,12 @@ interface RendererDescriptorBase<TMap extends object, TToken extends DependencyT
 
 export interface RendererClassDescriptor<
   TMap extends object,
-  TToken extends DependencyToken<TMap>
+  TToken extends DependencyToken<TMap>,
+  TDependencies extends readonly DependencyToken<TMap>[] = readonly DependencyToken<TMap>[]
 > extends RendererDescriptorBase<TMap, TToken> {
   kind: 'class';
-  resolver: new (...args: never[]) => TMap[TToken];
-  dependencies?: readonly DependencyToken<TMap>[];
+  resolver: new (dependencies?: any) => TMap[TToken];
+  dependencies?: TDependencies;
 }
 
 export interface RendererFunctionDescriptor<
@@ -73,7 +74,10 @@ function hasRegistration<TMap extends object>(container: ContainerWithRegistrati
 
 function resolveDependencies<TMap extends object, TDependencies extends readonly DependencyToken<TMap>[]>(
   container: AwilixContainer<TMap>,
-  descriptor: RendererFunctionDescriptor<TMap, DependencyToken<TMap>, TDependencies>,
+  descriptor: {
+    token: string;
+    dependencies: TDependencies;
+  },
   token: string
 ): Pick<TMap, TDependencies[number]> {
   const values = {} as Record<string, unknown>;
@@ -164,7 +168,21 @@ export function registerRendererDescriptors<TMap extends object>(
     }
 
     if (descriptor.kind === 'class') {
-      const classResolver = asClass(descriptor.resolver as new (...args: unknown[]) => unknown);
+      const declaredDependencies = descriptor.dependencies;
+      const classResolver = declaredDependencies
+        ? asFunction(() => {
+          const dependencies = resolveDependencies(
+            container,
+            {
+              token: descriptor.token,
+              dependencies: declaredDependencies
+            },
+            descriptor.token
+          );
+          const Constructor = descriptor.resolver as new (resolved: typeof dependencies) => unknown;
+          return new Constructor(dependencies);
+        })
+        : asClass(descriptor.resolver as new (...args: unknown[]) => unknown);
       resolver = applyLifecycle(classResolver, lifecycle);
       resolver = applyDisposer(
         resolver,
