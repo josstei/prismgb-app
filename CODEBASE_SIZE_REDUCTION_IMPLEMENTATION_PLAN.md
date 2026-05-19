@@ -1681,7 +1681,7 @@ Phases and tasks:
   - Replace `tests/mocks/MockDevice.js`, factories, and settings/media fixtures where values duplicate manifest data.
 - Phase 3: Integrate with E2E fixtures.
   - Pass generated specs into `page.evaluate` helpers.
-  - Fix preload event naming drift to `onDeviceConnected`/`onDeviceDisconnected` or remove invalid direct callback simulation.
+  - Enforce current preload event names in E2E helper baseline tests.
 - Phase 4: Enforce fixture ownership.
   - Add CI drift check for device metadata in tests.
 
