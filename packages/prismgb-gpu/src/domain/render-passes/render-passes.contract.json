@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "mode": "report-only",
+  "passes": [
+    {
+      "id": "pixel-upscale",
+      "order": 10,
+      "alwaysEnabled": true,
+      "webgpuShader": "pixel-upscale.wgsl",
+      "webgl2FragmentShader": "pixel-upscale.frag.glsl",
+      "webgl2VertexShader": "common.vert.glsl",
+      "uniformBlock": "upscale",
+      "sampler": "nearest"
+    },
+    {
+      "id": "unsharp-mask",
+      "order": 20,
+      "enabledWhen": "uniforms.unsharp.enabled && uniforms.unsharp.strength > 0",
+      "webgpuShader": "unsharp-mask.wgsl",
+      "webgl2FragmentShader": "unsharp-mask.frag.glsl",
+      "webgl2VertexShader": "common.vert.glsl",
+      "uniformBlock": "unsharp",
+      "sampler": "linear"
+    },
+    {
+      "id": "color-elevation",
+      "order": 30,
+      "enabledWhen": "uniforms.color.enabled",
+      "webgpuShader": "color-elevation.wgsl",
+      "webgl2FragmentShader": "color-elevation.frag.glsl",
+      "webgl2VertexShader": "common.vert.glsl",
+      "uniformBlock": "color",
+      "sampler": "linear"
+    },
+    {
+      "id": "crt-lcd",
+      "order": 40,
+      "enabledWhen": "scanlineStrength > 0 || pixelMaskStrength > 0 || bloomStrength > 0 || curvature > 0 || vignetteStrength > 0",
+      "webgpuShader": "crt-lcd.wgsl",
+      "webgl2FragmentShader": "crt-lcd.frag.glsl",
+      "webgl2VertexShader": "common.vert.glsl",
+      "uniformBlock": "crt",
+      "sampler": "linear"
+    }
+  ],
+  "utilityShaders": [
+    {
+      "id": "webgl2-fullscreen-triangle",
+      "file": "common.vert.glsl",
+      "role": "shared WebGL2 fullscreen triangle vertex shader"
+    }
+  ]
+}
+

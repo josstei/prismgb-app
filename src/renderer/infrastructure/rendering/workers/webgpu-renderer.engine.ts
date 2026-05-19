@@ -50,7 +50,7 @@ type WebGPUTextures = {
 type WebGPUState = {
   device: GPUDevice;
   context: GPUCanvasContext;
-  canvasFormat: string;
+  canvasFormat: GPUTextureFormat;
   config: RenderConfig;
   shaderModules: WebGPUShaderModules;
   pipelines: WebGPURenderPipelines;
@@ -276,7 +276,7 @@ class WebGPURenderer {
   private async _createPipelines(
     device: GPUDevice,
     shaderModules: WebGPUShaderModules,
-    canvasFormat: string
+    canvasFormat: GPUTextureFormat
   ): Promise<{
     pipelines: WebGPURenderPipelines;
     crtLcdBindGroupLayout: GPUBindGroupLayout;
@@ -591,7 +591,7 @@ class WebGPURenderer {
     ]);
 
     if (this.uniformTracker.hasChanged('upscale', upscaleData)) {
-      state.device.queue.writeBuffer(state.uniformBuffers.upscale, 0, upscaleData);
+      this._writeFloat32Buffer(state.device.queue, state.uniformBuffers.upscale, upscaleData);
     }
 
     const unsharpData = this.typedArrayPool.getFloat32WithValues([
@@ -601,7 +601,7 @@ class WebGPURenderer {
     ]);
 
     if (this.uniformTracker.hasChanged('unsharp', unsharpData)) {
-      state.device.queue.writeBuffer(state.uniformBuffers.unsharp, 0, unsharpData);
+      this._writeFloat32Buffer(state.device.queue, state.uniformBuffers.unsharp, unsharpData);
     }
 
     const colorData = this.typedArrayPool.getFloat32WithValues([
@@ -614,7 +614,7 @@ class WebGPURenderer {
     ]);
 
     if (this.uniformTracker.hasChanged('color', colorData)) {
-      state.device.queue.writeBuffer(state.uniformBuffers.color, 0, colorData);
+      this._writeFloat32Buffer(state.device.queue, state.uniformBuffers.color, colorData);
     }
 
     const crtData = this.typedArrayPool.getFloat32WithValues([
@@ -628,8 +628,12 @@ class WebGPURenderer {
     ]);
 
     if (this.uniformTracker.hasChanged('crt', crtData)) {
-      state.device.queue.writeBuffer(state.uniformBuffers.crt, 0, crtData);
+      this._writeFloat32Buffer(state.device.queue, state.uniformBuffers.crt, crtData);
     }
+  }
+
+  private _writeFloat32Buffer(queue: GPUQueue, buffer: GPUBuffer, data: Float32Array): void {
+    queue.writeBuffer(buffer, 0, data.buffer as ArrayBuffer, data.byteOffset, data.byteLength);
   }
 
   resize(width: number, height: number): void {

@@ -16,7 +16,10 @@ vi.mock('@shared/ipc/channels.config.js', () => ({
   }
 }));
 
-import { registerLoginItemHandlers } from '@main/ipc/handlers/login-item.handler.js';
+import {
+  loginItemHandlerDescriptors,
+  registerLoginItemHandlers
+} from '@main/ipc/handlers/login-item.handler.js';
 
 describe('LoginItem IPC Handlers', () => {
   let mockRegisterHandler;
@@ -51,6 +54,23 @@ describe('LoginItem IPC Handlers', () => {
 
   it('should register two handlers', () => {
     expect(mockRegisterHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it('should expose Phase 1 handler descriptors for report-only IPC migration', () => {
+    expect(loginItemHandlerDescriptors).toEqual([
+      expect.objectContaining({
+        channel: 'login-item:get',
+        dependencyTokens: ['loginItemService'],
+        argumentSchema: [],
+        responseMode: 'bare'
+      }),
+      expect.objectContaining({
+        channel: 'login-item:set',
+        dependencyTokens: ['loginItemService', 'logger'],
+        argumentSchema: ['enabled:boolean'],
+        responseMode: 'result-envelope'
+      })
+    ]);
   });
 
   describe('login-item:get', () => {

@@ -46,12 +46,6 @@
       "expiresOn": "2026-08-14"
     },
     {
-      "file": "src/main/ipc/handlers/login-item.handler.ts",
-      "code": "TS2345",
-      "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
       "file": "src/main/ipc/handlers/shell.handler.ts",
       "code": "TS2345",
       "maxCount": 1,

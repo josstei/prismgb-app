@@ -1,3 +1,5 @@
+import { createSubscription } from '../subscription.factory.js';
+
 function createUpdatePreloadAPI({
   ipcRenderer,
   channels,
@@ -122,32 +124,17 @@ function createUpdatePreloadAPI({
       };
     },
 
-    onError: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('updateAPI.onError: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.updateError.size >= maxListeners) {
-        console.warn('updateAPI.onError: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, error) => {
-        if (!isValidError(error)) {
-          console.warn('updateAPI.onError: Invalid error received');
-          return;
-        }
-        callback(error);
-      };
-      listenerRegistry.updateError.add(listener);
-      ipcRenderer.on(channels.UPDATE.ERROR, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.UPDATE.ERROR, listener);
-        listenerRegistry.updateError.delete(listener);
-      };
-    },
+    onError: createSubscription({
+      apiName: 'updateAPI',
+      methodName: 'onError',
+      channel: channels.UPDATE.ERROR,
+      ipcRenderer,
+      registry: listenerRegistry.updateError,
+      maxListeners,
+      validateCallback: isValidCallback,
+      validatePayload: isValidError,
+      invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
+    }),
 
     removeListeners: () => {
       ipcRenderer.removeAllListeners(channels.UPDATE.AVAILABLE);

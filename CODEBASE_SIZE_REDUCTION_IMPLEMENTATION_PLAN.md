@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-19
 
-- Status: paused before Phase 1 execution.
-- Completed phase: Phase 0, Measurement And Compatibility Baselines.
+- Status: Phase 1 implementation complete on branch `refactor/codebase-size-phase-1`; ready for PR back to `refactor/codebase_reduction`.
+- Completed phase: Phase 1, Foundational Utilities And Report-Only Manifests.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -23,7 +23,20 @@ Last updated: 2026-05-19
   - `scripts/codebase-size-report.js` and `npm run codebase:size`.
   - Compatibility baselines for preload/API invoke forwarding, IPC channel shape, EventBus channel values, settings defaults, device metadata, duplicated shader equivalence, E2E selector assumptions, release artifact targets, and known drift cases.
   - `src/preload/apis/inline.preload-api.js`, a behavior-preserving extraction of inline preload APIs to make shell, metrics, GPU, and login-item compatibility testable.
-- Next phase when resumed: Phase 1, Foundational Utilities And Report-Only Manifests. No Phase 1 implementation has been committed.
+- Phase 1 delivered:
+  - Shared foundations: `DisposableBag`, contract flattening/schema helpers, script utility helpers, canonical test support helpers, `TypedRegistryFactory`, preload `createSubscription()`, and main IPC handler descriptor helpers.
+  - Low-risk compatibility-preserving adoption: `updateAPI.onError` now uses the subscription factory, and login-item IPC handlers now register through descriptors while preserving public response shapes.
+  - Report-only manifests: IPC/preload, scoped events, Chromatic device metadata, settings definitions, GPU render passes, architecture aliases/layers, and platform build targets.
+  - Drift/generation command: `npm run codebase:phase1`, with optional generated declaration and docs preview artifacts under `artifacts/codebase-reduction/phase1`.
+  - Official WebGPU types are hoisted to the root type environment; local `webgpu-worker.d.ts` is reduced to an augmentation placeholder.
+  - Vitest coverage output now targets ignored `artifacts/coverage` instead of `tests/coverage`.
+- Verification for Phase 1:
+  - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
+  - `npm run test:run` passed with 150 test files and 2966 tests.
+  - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
+  - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
+- Next phase when resumed: Phase 2, Generated Runtime Adoption.
 
 ## Grounding Snapshot
 
