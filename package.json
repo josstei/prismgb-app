@@ -39,7 +39,8 @@
     "test:e2e:debug": "playwright test --debug",
     "prepare": "husky",
     "generate-icons": "node scripts/generate-icons.js",
-    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
+    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json",
+    "codebase:size": "node scripts/codebase-size-report.js"
   },
   "keywords": [
     "electron",

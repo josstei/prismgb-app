@@ -18,6 +18,12 @@ import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
 import { createTranscodePreloadAPI } from '@preload/apis/transcode.preload-api.js';
+import {
+  createShellPreloadAPI,
+  createMetricsPreloadAPI,
+  createGpuPreloadAPI,
+  createLoginItemPreloadAPI
+} from '@preload/apis/inline.preload-api.js';
 
 const listenerRegistry = createListenerRegistry();
 
@@ -29,15 +35,11 @@ const deviceAPI = createDevicePreloadAPI({
   isValidCallback
 });
 
-const shellAPI = {
-  openExternal: (url) => {
-    if (!isValidExternalUrl(url)) {
-      console.warn('shellAPI.openExternal: Invalid URL provided');
-      return Promise.resolve({ success: false, error: 'Invalid URL' });
-    }
-    return ipcRenderer.invoke(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, url);
-  }
-};
+const shellAPI = createShellPreloadAPI({
+  ipcRenderer,
+  channels: IPC_CHANNELS,
+  isValidExternalUrl
+});
 
 const windowAPI = createWindowPreloadAPI({
   ipcRenderer,
@@ -58,47 +60,21 @@ const updateAPI = createUpdatePreloadAPI({
   isValidError
 });
 
-const metricsAPI = {
-  getProcessMetrics: () => ipcRenderer.invoke(IPC_CHANNELS.PERFORMANCE.GET_METRICS)
-};
+const metricsAPI = createMetricsPreloadAPI({
+  ipcRenderer,
+  channels: IPC_CHANNELS
+});
 
-const gpuAPI = {
-  getPolicy: async () => {
-    try {
-      const result = await ipcRenderer.invoke(IPC_CHANNELS.GPU.GET_POLICY);
-      if (!result.success) {
-        console.warn('gpuAPI.getPolicy: Failed to get policy:', result.error);
-        return { skipWebGPU: false, reason: null };
-      }
-      if (!isValidGpuPolicy(result)) {
-        console.warn('gpuAPI.getPolicy: Invalid policy received');
-        return { skipWebGPU: false, reason: null };
-      }
-      return { skipWebGPU: result.skipWebGPU, reason: result.reason };
-    } catch (error) {
-      console.warn('gpuAPI.getPolicy: IPC error:', error);
-      return { skipWebGPU: false, reason: null };
-    }
-  }
-};
+const gpuAPI = createGpuPreloadAPI({
+  ipcRenderer,
+  channels: IPC_CHANNELS,
+  isValidGpuPolicy
+});
 
-const loginItemAPI = {
-  get: async () => {
-    try {
-      return await ipcRenderer.invoke(IPC_CHANNELS.LOGIN_ITEM.GET);
-    } catch (error) {
-      console.warn('loginItemAPI.get: IPC error:', error);
-      return false;
-    }
-  },
-  set: (enabled) => {
-    if (typeof enabled !== 'boolean') {
-      console.warn('loginItemAPI.set: Invalid parameter - expected boolean');
-      return Promise.resolve({ success: false, error: 'Invalid parameter' });
-    }
-    return ipcRenderer.invoke(IPC_CHANNELS.LOGIN_ITEM.SET, enabled);
-  }
-};
+const loginItemAPI = createLoginItemPreloadAPI({
+  ipcRenderer,
+  channels: IPC_CHANNELS
+});
 
 const transcodeAPI = createTranscodePreloadAPI({
   ipcRenderer,
