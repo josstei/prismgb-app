@@ -70,6 +70,7 @@ Last updated: 2026-05-19
   - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 28 tests.
   - `npm run codebase:phase1 -- --json` exited 0 and all manifest drift checks passed.
   - `npm run codebase:size -- --json` exited 0 and reports WebGPU/WebGL2 shader status as package-owned with clean ownership.
+  - The focused Phase 0-3 audit loop was run 5 times; each pass verified manifest drift, size/shader ownership, obsolete source-name absence, deleted legacy-path absence, and the Phase 3 clean-break regression test.
 - Next phase when resumed: Phase 4, Enforcement And Ratchets.
 
 ## Phase 0 Grounding Snapshot

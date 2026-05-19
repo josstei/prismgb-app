@@ -38,6 +38,7 @@ The implementation-level checks found no blocking drift:
 - `npm run codebase:size -- --json` exits 0, reports package-owned shader trees, and reports `cleanOwnership: true`.
 - `git diff --check` exits 0.
 - `npm run lint`, `npm run typecheck`, `npm run test:run`, and `npm run test:run --workspace=@prismgb/gpu` all exit 0 after audit hardening.
+- The focused audit loop was run 5 times against the current branch, with each pass verifying manifest drift, size/shader ownership, obsolete source-name absence, deleted legacy-path absence, and the clean-break regression test.
 
 ## Prompt-To-Artifact Checklist
 
@@ -77,6 +78,13 @@ The clean-break standard is met for migrated areas when this audit's new clean-b
 
 ## Commands Run
 
+- Five-pass focused audit loop:
+  - Result: 5 passes, 0 failures.
+  - Per pass: `npm run codebase:phase1 -- --json` reported 23 manifest checks and `status: pass`.
+  - Per pass: `npm run codebase:size -- --json` reported 673 tracked files, 112,811 counted source lines, and WebGPU/WebGL2 shader status `package-owned,package-owned`.
+  - Per pass: source scan found no obsolete `onConnected`, `onDisconnected`, `device.onConnected`, `device.onDisconnected`, `deviceAPI.onConnected`, `deviceAPI.onDisconnected`, or `getStatus(jobId` references in `src/preload`, `src/shared/ipc`, or `src/types`.
+  - Per pass: deleted legacy paths were absent: stale Phase 0/1 audit doc, custom renderer service container, renderer-private GPU engines, duplicate renderer shader trees, `tests/utils/global-sandbox.js`, and `tests/utils/lazy-mocks.js`.
+  - Per pass: `npm run test:run -- tests/unit/codebase-reduction/phase3-clean-break.test.js` passed with 1 file and 5 tests.
 - `npm run codebase:phase1 -- --json`
   - Result: exit 0.
   - Coverage: IPC/preload methods, request schemas, handler descriptors, event manifest values, settings storage derivation, render pass shader existence, architecture aliases, and platform matrices.
@@ -91,7 +99,7 @@ The clean-break standard is met for migrated areas when this audit's new clean-b
 - `npm run codebase:size -- --json`
   - Result: exit 0.
   - Current staged tracked file count: 673.
-  - Current staged counted source lines: 112,802.
+  - Current staged counted source lines: 112,811.
   - Current duplicate shader status: package-owned for WebGPU and WebGL2, with `cleanOwnership: true`.
 - `git diff --check`
   - Result: exit 0.
