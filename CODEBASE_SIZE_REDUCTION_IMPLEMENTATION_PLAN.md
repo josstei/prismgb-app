@@ -10,7 +10,7 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-19
 
-- Status: Phase 2 implementation complete; paused for review before Phase 3.
+- Status: Phase 2 implementation complete with full-cutover audit applied; paused for review before Phase 3.
 - Completed phase: Phase 2, Generated Runtime Adoption.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
@@ -21,24 +21,25 @@ Last updated: 2026-05-19
   - `npm run codebase:size -- --json` exited 0 and reports tracked source separately from local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets.
 - Phase 0 delivered:
   - `scripts/codebase-size-report.js` and `npm run codebase:size`.
-  - Compatibility baselines for preload/API invoke forwarding, IPC channel shape, EventBus channel values, settings defaults, device metadata, duplicated shader equivalence, E2E selector assumptions, release artifact targets, and known drift cases.
-  - `src/preload/apis/inline.preload-api.js`, a behavior-preserving extraction of inline preload APIs to make shell, metrics, GPU, and login-item compatibility testable.
+  - Contract baselines for preload/API invoke forwarding, IPC channel shape, EventBus channel values, settings defaults, device metadata, duplicated shader equivalence, E2E selector assumptions, release artifact targets, and known drift cases.
+  - `src/preload/apis/inline.preload-api.js`, an extraction of inline preload APIs that made shell, metrics, GPU, and login-item invoke contracts testable.
 - Phase 1 delivered:
   - Shared foundations: `DisposableBag`, contract flattening/schema helpers, script utility helpers, canonical test support helpers, `TypedRegistryFactory`, preload `createSubscription()`, and main IPC handler descriptor helpers.
-  - Low-risk compatibility-preserving adoption: `updateAPI.onError` now uses the subscription factory, and login-item IPC handlers now register through descriptors while preserving public response shapes.
+  - Low-risk contract adoption: `updateAPI.onError` now uses the subscription factory, and login-item IPC handlers now use descriptors with public response shapes asserted by tests.
   - Report-only manifests: IPC/preload, scoped events, Chromatic device metadata, settings definitions, GPU render passes, architecture aliases/layers, and platform build targets.
   - Drift/generation command: `npm run codebase:phase1`, with optional generated declaration and docs preview artifacts under `artifacts/codebase-reduction/phase1`.
   - Official WebGPU types are hoisted to the root type environment; local `webgpu-worker.d.ts` is reduced to an augmentation placeholder.
   - Vitest coverage output now targets ignored `artifacts/coverage` instead of `tests/coverage`.
 - Phase 2 delivered:
-  - Preload subscriptions now use descriptor-style `createSubscription()` plumbing with map-backed listener registries across device, window, update, and transcode APIs while preserving public preload API names and unsubscribe behavior.
-  - Main IPC handlers now register through descriptor arrays with centralized duplicate-channel detection, disposal, and explicit per-handler error mapping.
-  - Main event channels now derive from the scoped event manifest through a compatibility facade, and the Phase 1 drift audit understands manifest-derived runtime facades.
+  - Preload subscriptions now use descriptor-style `createSubscription()` plumbing with map-backed listener registries across device, window, update, and transcode APIs; namespace-wide public listener teardown methods were removed and preload owns internal disposal.
+  - Main IPC handlers now register descriptor arrays directly with centralized duplicate-channel detection, disposal, and explicit per-handler error mapping; per-domain registration wrappers were removed.
+  - Renderer event imports now point directly at the shared event contract; the renderer event-channel re-export was deleted. Main event channels derive from the scoped event manifest.
   - `@prismgb/gpu` exposes worker-safe pipeline creation, render-pass helper metadata, and explicit preset bulk registration without side-effect preset imports.
   - `BaseService` now owns `DisposableBag` lifecycle helpers, and renderer update/transcode services use a generic preload event bridge with per-subscription cleanup.
-  - Settings now have manifest-backed generic `getSetting()`/`setSetting()` accessors while preserving legacy getters/setters and the `webm` compatibility default.
-  - Streaming adapter/renderer factories now use the shared typed registry primitive while retaining domain-specific compatibility wrappers.
+  - Settings now use manifest-backed generic `getSetting()`/`setSetting()` and typed setting accessors; setting-specific getter/setter shims and manifest method mappings were removed.
+  - Streaming adapter/renderer factories now use the shared typed registry primitive.
   - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
+  - Full-cutover audit after Phase 2 removed stale preload declaration drift, settings method shims, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
@@ -78,7 +79,7 @@ The overall program succeeds when these conditions are true:
 - Repeated contracts are authoritative in manifests or generated sources, not hand-maintained in multiple runtime and test files.
 - Manual implementation files contain behavior, not duplicated channel lists, payload maps, registration tables, selector maps, mock fixtures, platform matrices, or lifecycle cleanup patterns.
 - Every generated surface has an owner manifest, generation command, drift check, and deletion policy for generated local artifacts.
-- Public APIs stay compatible until explicitly versioned or migrated with a test-backed compatibility layer.
+- Migrated public APIs have one current contract; no migrated surface keeps old-method shims or duplicate import paths.
 - File count and LOC reductions are measured by area before and after each phase, with functionality, performance, and release behavior protected by tests.
 - New code cannot reintroduce the old duplication patterns because lint, scorecard, tests, or generated-drift checks reject them.
 
@@ -86,13 +87,13 @@ The overall program succeeds when these conditions are true:
 
 These phases apply across all findings. Each finding below uses a local version of the same lifecycle.
 
-### Phase 0: Measurement And Compatibility Baselines
+### Phase 0: Measurement And Contract Baselines
 
 Tasks:
 
 - Add a tracked measurement script that reports tracked file counts, source LOC by area, duplicate shader status, IPC/event contract counts, test mock counts, and generated artifact locations.
 - Snapshot current public behavior before replacing hand-written plumbing: preload exposure names, IPC channels and response shapes, EventBus channel values, settings defaults, device capabilities, GPU pipeline outputs, Playwright selectors, and release artifacts.
-- Record high-risk current drift as explicit compatibility tests before centralization. Current examples include `transcodeAPI.getStatus(jobId?: string)` declaration drift versus preload implementation, settings `webm` default versus transcode `mp4` default, and stale E2E `deviceAPI.onConnected` naming.
+- Record high-risk current drift as explicit contract tests before centralization. Resolved examples include the former transcode status declaration mismatch, settings `webm` default versus transcode `mp4` default, and stale E2E `deviceAPI.onConnected` naming.
 
 Success criteria:
 
@@ -105,7 +106,7 @@ Risks and mitigations:
 - Risk: measuring the wrong thing rewards deletion of generated or ignored outputs instead of durable source reduction.
   Mitigation: report tracked source, ignored artifacts, generated source, and vendored/package output as separate buckets.
 - Risk: public API drift gets introduced while removing boilerplate.
-  Mitigation: add compatibility tests before deleting old code.
+  Mitigation: add contract tests before deleting old code and keep the post-migration contract singular.
 
 Expected outcome:
 
@@ -122,7 +123,7 @@ Tasks:
 Success criteria:
 
 - Generated outputs match the current hand-maintained surfaces.
-- Drift checks fail on intentional mismatch and pass on the current repository after compatibility exceptions are documented.
+- Drift checks fail on intentional mismatch and pass on the current repository after intentional differences are resolved or explicitly represented in the manifest.
 - No runtime behavior changes are shipped in this phase except low-risk additive utilities.
 
 Risks and mitigations:
@@ -141,13 +142,13 @@ Expected outcome:
 Tasks:
 
 - Move low-risk domains to generated runtime adapters first.
-- Keep existing public APIs stable while swapping internals.
+- Cut over migrated public APIs to their current contract while swapping internals.
 - Add parity tests for each domain before deleting hand-written code.
 
 Success criteria:
 
 - Generated code owns channel constants, payload maps, bridge methods, handler descriptors, fixtures, docs fragments, or config fragments for migrated domains.
-- Old hand-maintained files are either deleted, reduced to generated imports, or marked as compatibility facades.
+- Old hand-maintained files are deleted or reduced to generated imports.
 - Runtime tests verify both behavior and disposal semantics.
 
 Risks and mitigations:
@@ -159,7 +160,7 @@ Risks and mitigations:
 
 Expected outcome:
 
-- High-duplication runtime plumbing shrinks while compatibility remains stable.
+- High-duplication runtime plumbing shrinks while migrated contracts remain singular and enforceable.
 
 ### Phase 3: High-Impact Consolidation
 
@@ -221,7 +222,7 @@ Grounded repo truth:
 
 - IPC data is split across `src/shared/ipc/channels.json`, `src/shared/ipc/channels.config.js`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
 - The current preload contract test in `tests/unit/preload/preload-api.contract.test.js` regex-scans only `src/preload/index.js` for exposure names and direct `IPC_CHANNELS.X.Y` references.
-- The findings identify a live drift: `src/types/preload-api.d.ts` declares `transcodeAPI.getStatus(jobId?: string)`, while `src/preload/apis/transcode.preload-api.js` invokes status without forwarding that argument.
+- The full-cutover audit resolved the former transcode status declaration mismatch; preload types and implementation now expose status without a job id argument.
 
 Long-term target:
 
@@ -237,7 +238,7 @@ Phases and tasks:
 - Phase 0: Snapshot current IPC shape.
   - Generate a channel inventory from `channels.json`.
   - Record exposed preload APIs from `src/preload/index.js` and delegated preload APIs from `src/preload/apis`.
-  - Add compatibility tests for each invoke method's argument forwarding and response shape, including `transcodeAPI.getStatus`.
+  - Add contract tests for each invoke method's argument forwarding and response shape, including `transcodeAPI.getStatus`.
   - Document current validation behavior in `src/preload/validators.js` before replacing it.
 - Phase 1: Add manifest in report-only mode.
   - Create `contracts/ipc.contract.ts` or `src/shared/ipc/ipc.contract.ts`.
@@ -258,14 +259,14 @@ Phases and tasks:
 Success criteria:
 
 - Every exposed preload method, channel, validator, type, and handler descriptor can be traced to one contract entry.
-- The generated tests assert method names, argument forwarding, schemas, response compatibility, and channel references across delegated preload API modules.
-- Existing public preload API names remain stable unless a separately versioned migration is approved.
+- The generated tests assert method names, argument forwarding, schemas, response shapes, and channel references across delegated preload API modules.
+- Existing public preload API names remain stable unless a separately versioned replacement is approved.
 
 Risks and mitigations:
 
 - Risk: security policy gets diluted by generic code generation.
   Mitigation: make security policy required per contract entry and fail generation when file/system/URL access lacks explicit constraints.
-- Risk: generated code masks subtle compatibility differences.
+- Risk: generated code masks subtle behavior differences.
   Mitigation: keep black-box preload tests and add namespace-specific parity tests before deleting hand-written paths.
 
 Expected outcome:
@@ -277,7 +278,7 @@ Expected outcome:
 Grounded repo truth:
 
 - `src/preload/listener-registry.js` hard-codes listener sets such as `connected`, `updateProgress`, `transcodeCompleted`, and `enterFullscreen`.
-- `src/preload/apis/device.preload-api.js`, `window.preload-api.js`, `update.preload-api.js`, and `transcode.preload-api.js` repeat callback validation, listener limit checks, `ipcRenderer.on`, unsubscribe closures, and cleanup.
+- `src/preload/apis/device.preload-api.js`, `window.preload-api.js`, `update.preload-api.js`, and `transcode.preload-api.js` previously repeated callback validation, listener limit checks, `ipcRenderer.on`, unsubscribe closures, and cleanup before Phase 2 moved them onto the subscription factory.
 
 Long-term target:
 
@@ -290,7 +291,7 @@ Reasoning:
 Phases and tasks:
 
 - Phase 0: Characterize current listener behavior.
-  - Add tests for invalid callbacks, listener limit handling, event payload mapping, unsubscribe behavior, and `removeListeners()` behavior for each API namespace.
+  - Add tests for invalid callbacks, listener limit handling, event payload mapping, unsubscribe behavior, and preload-owned internal disposal for each API namespace.
   - Capture current warning messages only where tests depend on them.
 - Phase 1: Add `createSubscription()`.
   - Implement a small factory that accepts API name, channel, callback validator, optional payload validator, event mapper, registry map, and listener limit.
@@ -300,14 +301,14 @@ Phases and tasks:
   - Replace hard-coded registry fields with map-backed entries.
 - Phase 3: Integrate with generated IPC contract.
   - Generate subscription descriptors from the IPC manifest.
-  - Keep namespace `removeListeners()` compatibility during transition.
+  - Keep disposal internal to preload-owned listener registrations.
 - Phase 4: Enforce no new manual subscriptions.
   - Add a contract or lint test that rejects raw `ipcRenderer.on` usage in preload APIs outside the factory.
 
 Success criteria:
 
 - All preload subscription APIs return unsubscribe closures and enforce the same listener cap.
-- Public API names and callback payloads match the baseline.
+- Public API names and callback payloads match the current manifest.
 - `listener-registry.js` is deleted or reduced to a generic exported helper.
 
 Risks and mitigations:
@@ -325,7 +326,7 @@ Expected outcome:
 
 Grounded repo truth:
 
-- `src/main/ipc/ipc-handler.registry.ts` manually imports and calls `registerDeviceHandlers`, `registerShellHandlers`, `registerUpdateHandlers`, `registerPerformanceHandlers`, `registerWindowHandlers`, `registerTranscodeHandlers`, `registerGpuHandlers`, and `registerLoginItemHandlers`.
+- `src/main/ipc/ipc-handler.registry.ts` previously called one registration function per handler module; Phase 2 now imports descriptor arrays directly.
 - Handler modules repeat local service interfaces, argument shaping, try/catch, logging, and success/error mapping.
 - Current behavior is not uniform: some handlers return explicit success/error objects while others return direct values.
 
@@ -339,7 +340,7 @@ Reasoning:
 
 Phases and tasks:
 
-- Phase 0: Freeze compatibility.
+- Phase 0: Freeze contracts.
   - Add tests for every registered invoke channel and current response shape.
   - Verify duplicate registration behavior and handler disposal.
   - Record which handlers intentionally return bare values versus `{ success, error }` envelopes.
@@ -349,7 +350,7 @@ Phases and tasks:
 - Phase 2: Move handler modules to descriptors.
   - Convert device, shell, update, window, transcode, GPU, and login item handlers.
   - Centralize duplicate-channel detection in `IpcHandlerRegistry`.
-  - Make error mapping explicit per descriptor so public response compatibility is preserved.
+  - Make error mapping explicit per descriptor so public response shape is preserved.
 - Phase 3: Generate descriptors from IPC contract where suitable.
   - Generate channel/schema/dependency metadata from the contract.
   - Keep behavior callbacks hand-written where domain logic is not purely declarative.
@@ -404,8 +405,8 @@ Phases and tasks:
   - Generate constants matching current values.
   - Generate payload maps from schemas or typed definitions.
 - Phase 2: Replace config facades.
-  - Update renderer and main event-channel config files to re-export generated scoped constants.
-  - Keep existing import paths as compatibility facades during migration.
+  - Update renderer imports to consume shared generated scoped constants directly.
+  - Keep main scoped event constants generated from the manifest.
 - Phase 3: Standardize EventBus implementation.
   - Move shared EventBus behavior into a shared TS module using `eventemitter3`.
   - Preserve renderer handler-error emission behavior and decide whether main should also emit handler-error events.
@@ -706,11 +707,11 @@ Grounded repo truth:
 
 Long-term target:
 
-- One authoritative settings definition map owns key, type, default, parser, validator, allowed values, event, protected-key policy, UI option metadata, and compatibility method generation.
+- One authoritative settings definition map owns key, type, default, parser, validator, allowed values, event, protected-key policy, and UI option metadata.
 
 Reasoning:
 
-- Settings growth currently requires synchronized service, storage, event, UI, and test edits. Definitions preserve existing methods while moving setting policy into one data surface that can generate the repetitive code safely.
+- Settings growth currently requires synchronized service, storage, event, UI, and test edits. Definitions move setting policy into one data surface and remove setting-specific service method repetition.
 
 Phases and tasks:
 
@@ -721,8 +722,8 @@ Phases and tasks:
   - Create `SettingsDefinitions` using existing storage keys and defaults.
   - Import allowed recording formats from `TRANSCODE_CONFIG.formats` without changing `webm` default.
 - Phase 2: Generate generic accessors.
-  - Add `getSetting(name)` and `setSetting(name, value)` while preserving legacy methods.
-  - Generate compatibility methods or route legacy methods through definitions.
+  - Add `getSetting(name)` and `setSetting(name, value)` plus typed generic accessors.
+  - Remove setting-specific getter/setter shims from production call sites and tests.
 - Phase 3: Generate UI/storage/test surfaces.
   - Generate settings UI options, protected-key metadata, and table-driven settings tests.
   - Update `loadAllPreferences()` to derive from definitions or explicitly documented startup subset.
@@ -732,7 +733,7 @@ Phases and tasks:
 Success criteria:
 
 - Every setting has one definition for key, default, validation, and event behavior.
-- Legacy methods remain compatible.
+- Setting access goes through definition names, and migrated call sites no longer use setting-specific service methods.
 - Recording format allowed values come from transcode config and default remains `webm` unless intentionally changed.
 
 Risks and mitigations:
@@ -740,7 +741,7 @@ Risks and mitigations:
 - Risk: settings migration changes persisted-value parsing.
   Mitigation: snapshot existing localStorage strings and test migrations.
 - Risk: generic APIs make call sites less readable.
-  Mitigation: keep generated typed compatibility methods for common settings.
+  Mitigation: keep typed generic helpers such as `getNumberSetting`, `getBooleanSetting`, and `getStringSetting`.
 
 Expected outcome:
 
@@ -757,7 +758,7 @@ Grounded repo truth:
 
 Long-term target:
 
-- A validated preset config array owns preset data, default selection policy, UI visibility, and public compatibility exports.
+- A validated preset config array owns preset data, default selection policy, UI visibility, and current public exports.
 - `PresetRegistry.registerMany(presets)` replaces side-effect imports.
 
 Reasoning:
@@ -770,7 +771,7 @@ Phases and tasks:
   - Add tests for registered preset ids, default id, renderer default id, UI visibility, and uniform builder results.
 - Phase 1: Add `presets.config.ts`.
   - Move preset objects into one typed array with metadata for default and UI visibility.
-  - Keep named exports for compatibility.
+  - Keep named exports only when they remain the current package contract.
 - Phase 2: Bulk registration.
   - Add `PresetRegistry.registerMany`.
   - Replace side-effect imports in package index with explicit registration from config.
@@ -1024,7 +1025,7 @@ Phases and tasks:
   - Normalize filenames to keys matching current API.
 - Phase 2: Add drift report.
   - Report assets without callers and callers without assets.
-  - Keep compatibility aliases where current keys differ from filenames.
+  - Keep explicit aliases only where the current icon key is still the owned contract.
 - Phase 3: Delete manual map.
   - Replace hand-maintained imports with glob output.
   - Add test that asset files and registry keys cannot drift silently.
@@ -1052,7 +1053,7 @@ Grounded repo truth:
 
 - Renderer update and transcode services subscribe to preload API events, map them to EventBus events, store state, and cleanup via local arrays.
 - Device and window/fullscreen paths also subscribe to preload-backed events.
-- Namespace-wide preload `removeListeners()` methods can become unsafe if APIs gain multiple consumers.
+- Namespace-wide public preload teardown methods were removed because they can become unsafe if APIs gain multiple consumers.
 
 Long-term target:
 
@@ -1165,7 +1166,7 @@ Phases and tasks:
 
 - Phase 0: Inventory JS/declaration pairs.
   - Generate a list of `.js` files with matching `.d.ts`.
-  - Add typecheck and import compatibility tests for shared base/interfaces.
+  - Add typecheck and import contract tests for shared base/interfaces.
 - Phase 1: Convert shared base modules.
   - Convert `BaseService`, `BaseOrchestrator`, dependency validation, and safe/disposer utilities to `.ts`.
   - Update imports with the existing build-compatible extension strategy.
@@ -1310,7 +1311,7 @@ Long-term target:
 
 Reasoning:
 
-- Tooling scripts should be small domain commands, not each script's private utility framework. Extracting only proven shared helpers keeps the reduction pragmatic and protects CI output compatibility.
+- Tooling scripts should be small domain commands, not each script's private utility framework. Extracting only proven shared helpers keeps the reduction pragmatic and protects CI output contracts.
 
 Phases and tasks:
 
@@ -1903,7 +1904,7 @@ Expected outcome:
 
 ## Integrated Migration Sequence
 
-1. Measurement and compatibility baselines:
+1. Measurement and contract baselines:
    - Add file/LOC/artifact measurement.
    - Add IPC/preload, settings, device, GPU, and test baseline coverage.
    - Fix known drift tests so they describe current behavior or intentional gaps.
@@ -1924,7 +1925,7 @@ Expected outcome:
 
 4. Low-risk runtime adoption:
    - Generated IPC for low-risk APIs.
-   - Settings generic getters/setters behind legacy methods.
+   - Settings generic getters/setters as the current service contract.
    - Icon glob registry.
    - CSS utilities for repeated primitives.
    - Test mock installers and canonical factories.
@@ -1953,8 +1954,8 @@ Expected outcome:
 - Risk: manifest-driven migration adds more code before it deletes code.
   Mitigation: every manifest has report-only, runtime-adoption, deletion, and enforcement milestones. A manifest is not complete until at least one duplicated hand-maintained surface is deleted or reduced to a generated facade.
 
-- Risk: public API compatibility breaks while internal code shrinks.
-  Mitigation: all public preload APIs, IPC response shapes, settings defaults, device metadata, and E2E selectors get compatibility tests before replacement.
+- Risk: public API contracts break while internal code shrinks.
+  Mitigation: all public preload APIs, IPC response shapes, settings defaults, device metadata, and E2E selectors get contract tests before replacement.
 
 - Risk: rendering regressions are hard to see in unit tests.
   Mitigation: combine unit tests for uniform/pass data, worker protocol tests, browser/E2E streaming smoke tests, and performance snapshots before deleting renderer engines.

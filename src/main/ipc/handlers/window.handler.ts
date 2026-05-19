@@ -2,11 +2,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;
@@ -14,7 +10,6 @@ interface WindowService {
 }
 
 export interface WindowHandlerDependencies {
-  registerHandler: RegisterHandler;
   windowService: WindowService;
   logger: Logger;
 }
@@ -54,7 +49,3 @@ export const windowHandlerDescriptors = defineIpcHandlers<WindowHandlerDependenc
     }
   }
 ]);
-
-export function registerWindowHandlers(dependencies: WindowHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, windowHandlerDescriptors);
-}

@@ -73,7 +73,7 @@ class ShaderSliderControlsComponent {
   _loadCurrentBrightness() {
     if (!this.brightnessSlider) return;
 
-    this.currentBrightness = this.settingsService.getGlobalBrightness();
+    this.currentBrightness = this.settingsService.getNumberSetting('globalBrightness');
     this.brightnessSlider.value = brightnessToSlider(this.currentBrightness);
     this._updateBrightnessDisplay();
   }
@@ -81,14 +81,14 @@ class ShaderSliderControlsComponent {
   _loadCurrentVolume() {
     if (!this.volumeSlider) return;
 
-    this.currentVolume = this.settingsService.getVolume();
+    this.currentVolume = this.settingsService.getNumberSetting('gameVolume');
     this.volumeSlider.value = this.currentVolume;
     this._updateVolumeDisplay();
     this._applyVolumeToVideo();
   }
 
   _loadPerformanceModeState() {
-    this._performanceModeEnabled = this.settingsService.getPerformanceMode();
+    this._performanceModeEnabled = this.settingsService.getBooleanSetting('performanceMode');
     this._updateBrightnessControlVisibility();
   }
 
@@ -174,7 +174,7 @@ class ShaderSliderControlsComponent {
     this._updateBrightnessDisplay();
 
     if (saveToSettings) {
-      this.settingsService.setGlobalBrightness(brightness);
+      this.settingsService.setSetting('globalBrightness', brightness);
     } else {
       this.eventBus.publish(EventChannels.SETTINGS.BRIGHTNESS_CHANGED, brightness);
     }
@@ -206,7 +206,7 @@ class ShaderSliderControlsComponent {
     this._applyVolumeToVideo();
 
     if (saveToSettings) {
-      this.settingsService.setVolume(sliderValue);
+      this.settingsService.setSetting('gameVolume', sliderValue);
     } else {
       this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, sliderValue);
     }

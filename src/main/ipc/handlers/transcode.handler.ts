@@ -7,11 +7,7 @@ import type {
   TranscodeStartResponse,
   TranscodeStatusResponse
 } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface TranscodeService {
   transcode(options: {
@@ -22,11 +18,10 @@ interface TranscodeService {
     interrupted: boolean;
   }): Promise<TranscodeStartResponse>;
   cancel(jobId: string): TranscodeCancelResponse;
-  getStatus(jobId?: string): TranscodeStatusResponse;
+  getStatus(): TranscodeStatusResponse;
 }
 
 export interface TranscodeHandlerDependencies {
-  registerHandler: RegisterHandler;
   transcodeService: TranscodeService;
   logger: Logger;
 }
@@ -41,10 +36,6 @@ interface TranscodeStartOptions {
 
 interface TranscodeCancelOptions {
   jobId: string;
-}
-
-interface TranscodeStatusOptions {
-  jobId?: string;
 }
 
 function toBuffer(inputBuffer: TranscodeStartOptions['inputBuffer']): Buffer {
@@ -107,14 +98,12 @@ export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDep
   {
     channel: IPC_CHANNELS.TRANSCODE.GET_STATUS,
     dependencyTokens: ['transcodeService', 'logger'],
-    argumentSchema: ['options:object'],
+    argumentSchema: [],
     responseMode: 'result-envelope',
     invoke(
-      { transcodeService }: TranscodeHandlerDependencies,
-      _event: IpcMainInvokeEvent,
-      options: TranscodeStatusOptions = {}
+      { transcodeService }: TranscodeHandlerDependencies
     ): TranscodeStatusResponse {
-      return transcodeService.getStatus(options.jobId);
+      return transcodeService.getStatus();
     },
     mapError: (error, { logger }) => {
       logger.error('Failed to get transcode status:', error);
@@ -123,7 +112,3 @@ export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDep
     }
   }
 ]);
-
-export function registerTranscodeHandlers(dependencies: TranscodeHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, transcodeHandlerDescriptors);
-}

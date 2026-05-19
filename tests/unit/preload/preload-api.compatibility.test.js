@@ -74,7 +74,7 @@ function createAPIWithRegistry(factory, ipcRenderer, options = {}) {
   });
 }
 
-describe('Preload API invoke compatibility baselines', () => {
+describe('Preload API invoke contract baselines', () => {
   it('forwards device status invoke call to device:get-status with no args', async () => {
     const expectedResponse = { connected: true, device: { deviceName: 'Chromatic USB' } };
     const ipcRenderer = createMockIpcRenderer({
@@ -248,7 +248,7 @@ describe('Preload API invoke compatibility baselines', () => {
     expect(Array.isArray(statusResult.jobs)).toBe(true);
   });
 
-  it('documents transcode.getStatus jobId drift: optional jobId is declared but not forwarded', async () => {
+  it('forwards transcode.getStatus without an obsolete jobId argument', async () => {
     const ipcRenderer = createMockIpcRenderer({
       [channels.TRANSCODE.GET_STATUS]: { success: true }
     });
@@ -266,24 +266,25 @@ describe('Preload API invoke compatibility baselines', () => {
       }
     );
 
-    await transcodeAPI.getStatus('job-1');
+    await transcodeAPI.getStatus();
 
     expect(ipcRenderer.invoke).toHaveBeenCalledTimes(1);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.TRANSCODE.GET_STATUS);
     expect(ipcRenderer.invoke.mock.calls[0]).toHaveLength(1);
   });
 
-  it('documents transcode.getStatus declaration drift: d.ts still accepts optional jobId', () => {
+  it('declares transcode.getStatus without a jobId argument', () => {
     const preloadTypes = fs.readFileSync(
       path.resolve(process.cwd(), 'src/types/preload-api.d.ts'),
       'utf8'
     );
 
-    expect(preloadTypes).toContain('getStatus(jobId?: string): Promise<TranscodeStatusResponse>;');
+    expect(preloadTypes).toContain('getStatus(): Promise<TranscodeStatusResponse>;');
+    expect(preloadTypes).not.toMatch(/getStatus\(jobId\?: string\)/);
   });
 });
 
-describe('Preload inline API compatibility baselines', () => {
+describe('Preload inline API contract baselines', () => {
   it('forwards shell, metrics, GPU, and login item invokes', async () => {
     const metricsResponse = {
       success: true,
@@ -516,7 +517,7 @@ describe('Preload subscription API parity', () => {
     consoleSpy.mockRestore();
   });
 
-  it('supports unsubscribe to stop callbacks and preserves removeAll behavior by namespace', () => {
+  it('supports unsubscribe and internal disposal by namespace', () => {
     const ipcRenderer = createMockIpcRenderer();
     const { api, listenerRegistry } = createAPIAndRegistry(createDevicePreloadAPI, ipcRenderer, {
       isValidCallback
@@ -540,7 +541,7 @@ describe('Preload subscription API parity', () => {
     expect(connectedCallback).toHaveBeenCalledTimes(1);
     expect(listenerRegistry.get('device.onConnected').size).toBe(0);
 
-    api.removeListeners();
+    api.dispose();
     expect(listenerRegistry.get('device.onConnected').size).toBe(0);
     expect(listenerRegistry.get('device.onDisconnected').size).toBe(0);
     expect(ipcRenderer.removeListener).toHaveBeenCalledWith(

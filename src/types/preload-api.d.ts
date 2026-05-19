@@ -34,7 +34,6 @@ interface DeviceAPI {
   getDeviceStatus(): Promise<DeviceStatusPayload>;
   onDeviceConnected(callback: (device: DeviceInfoPayload) => void): Unsubscribe;
   onDeviceDisconnected(callback: (device: DeviceInfoPayload | null | undefined) => void): Unsubscribe;
-  removeDeviceListeners(): void;
 }
 
 interface UpdateAPI {
@@ -47,7 +46,6 @@ interface UpdateAPI {
   onProgress(callback: (progress: UpdateProgressPayload) => void): Unsubscribe;
   onDownloaded(callback: (info: UpdateInfoPayload) => void): Unsubscribe;
   onError(callback: (error: UpdateErrorPayload) => void): Unsubscribe;
-  removeListeners(): void;
 }
 
 interface TranscodeAPI {
@@ -58,12 +56,11 @@ interface TranscodeAPI {
     options?: TranscodeStartOptions
   ): Promise<TranscodeStartResponse>;
   cancel(jobId: string): Promise<TranscodeCancelResponse>;
-  getStatus(jobId?: string): Promise<TranscodeStatusResponse>;
+  getStatus(): Promise<TranscodeStatusResponse>;
   onProgress(callback: (progress: TranscodeProgressPayload) => void): Unsubscribe;
   onCompleted(callback: (result: TranscodeCompletedPayload) => void): Unsubscribe;
   onError(callback: (error: TranscodeErrorPayload) => void): Unsubscribe;
   onCancelled(callback: (payload: TranscodeCancelledPayload) => void): Unsubscribe;
-  removeListeners(): void;
 }
 
 interface WindowAPI {
@@ -72,7 +69,6 @@ interface WindowAPI {
   onResized(callback: () => void): Unsubscribe;
   setFullScreen(enabled: boolean): Promise<WindowSetFullscreenResponse>;
   isFullScreen(): Promise<WindowIsFullscreenResponse>;
-  removeListeners(): void;
 }
 
 interface ShellAPI {

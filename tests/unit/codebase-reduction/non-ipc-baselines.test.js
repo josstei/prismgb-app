@@ -87,7 +87,7 @@ function collectShaderTree(relativeRoot) {
   return files;
 }
 
-describe('Phase 0 non-IPC compatibility baselines', () => {
+describe('Phase 0 non-IPC contract baselines', () => {
   it('captures shared EventBus channel values before manifest migration', () => {
     expect(flattenStringValues(EventChannels).sort()).toEqual([
       'capture:recording-degraded',
@@ -192,10 +192,10 @@ describe('Phase 0 non-IPC compatibility baselines', () => {
       launchOnLogin: false
     });
     expect(service.validRecordingFormats).toEqual(['webm', 'mp4', 'mov']);
-    expect(service.getRecordingFormat()).toBe('webm');
+    expect(service.getStringSetting('recordingFormat')).toBe('webm');
 
     expect(TRANSCODE_CONFIG.defaultFormat).toBe('mp4');
-    expect(service.getRecordingFormat()).not.toBe(TRANSCODE_CONFIG.defaultFormat);
+    expect(service.getStringSetting('recordingFormat')).not.toBe(TRANSCODE_CONFIG.defaultFormat);
   });
 
   it('captures Chromatic device metadata, capabilities, and E2E mock alignment', () => {

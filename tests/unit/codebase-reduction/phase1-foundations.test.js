@@ -118,7 +118,7 @@ describe('Phase 1 typed registry foundation', () => {
     expect(registry.has('alpha')).toBe(false);
   });
 
-  it('exposes constant value and metadata maps as registry-owned compatibility views', () => {
+  it('exposes constant value and metadata maps as registry-owned views', () => {
     const registry = new TypedRegistryFactory();
     const value = { type: 'constant' };
 

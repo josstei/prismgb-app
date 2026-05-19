@@ -16,10 +16,8 @@ vi.mock('@shared/ipc/channels.config.js', () => ({
   }
 }));
 
-import {
-  loginItemHandlerDescriptors,
-  registerLoginItemHandlers
-} from '@main/ipc/handlers/login-item.handler.js';
+import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
+import { loginItemHandlerDescriptors } from '@main/ipc/handlers/login-item.handler.js';
 
 describe('LoginItem IPC Handlers', () => {
   let mockRegisterHandler;
@@ -45,11 +43,10 @@ describe('LoginItem IPC Handlers', () => {
       error: vi.fn()
     };
 
-    registerLoginItemHandlers({
-      registerHandler: mockRegisterHandler,
+    registerIpcHandlerDescriptors(mockRegisterHandler, {
       loginItemService: mockLoginItemService,
       logger: mockLogger
-    });
+    }, loginItemHandlerDescriptors);
   });
 
   it('should register two handlers', () => {

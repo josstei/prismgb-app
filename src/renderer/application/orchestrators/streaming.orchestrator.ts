@@ -69,7 +69,7 @@ type GpuRecordingServiceLike = {
 };
 
 type SettingsServiceLike = {
-  getAutoStreamOnConnect(): boolean;
+  getBooleanSetting(name: string): boolean;
 };
 
 type StreamingOrchestratorDependencies = {
@@ -384,7 +384,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    if (this.settingsService.getAutoStreamOnConnect() && !this.streamingService.isActive()) {
+    if (this.settingsService.getBooleanSetting('autoStreamOnConnect') && !this.streamingService.isActive()) {
       const deviceLabel = data.device.label || data.device.deviceId;
       this.logger.info(`Auto-starting stream - device available: ${deviceLabel}`);
       try {

@@ -7,14 +7,9 @@ import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
 import type { GpuPolicyResponse } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface GpuHandlerDependencies {
-  registerHandler: RegisterHandler;
   logger: Logger;
 }
 
@@ -39,7 +34,3 @@ export const gpuHandlerDescriptors = defineIpcHandlers<GpuHandlerDependencies>([
     }
   }
 ]);
-
-export function registerGpuHandlers(dependencies: GpuHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, gpuHandlerDescriptors);
-}

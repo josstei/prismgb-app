@@ -7,14 +7,9 @@ import type { IpcMainInvokeEvent, Shell } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface ShellHandlerDependencies {
-  registerHandler: RegisterHandler;
   shell: Shell;
   logger: Logger;
 }
@@ -41,7 +36,3 @@ export const shellHandlerDescriptors = defineIpcHandlers<ShellHandlerDependencie
     }
   }
 ]);
-
-export function registerShellHandlers(dependencies: ShellHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, shellHandlerDescriptors);
-}

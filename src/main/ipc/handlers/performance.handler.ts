@@ -7,14 +7,9 @@ import type { App } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface PerformanceHandlerDependencies {
-  registerHandler: RegisterHandler;
   app: App;
   logger: Logger;
 }
@@ -53,7 +48,3 @@ export const performanceHandlerDescriptors = defineIpcHandlers<PerformanceHandle
     }
   }
 ]);
-
-export function registerPerformanceHandlers(dependencies: PerformanceHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, performanceHandlerDescriptors);
-}

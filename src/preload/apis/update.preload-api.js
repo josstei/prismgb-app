@@ -18,7 +18,7 @@ function createUpdatePreloadAPI({
     onError: 'update.onError'
   };
 
-  const removeListenersForKey = (channel, registryKey) => {
+  const disposeListenersForKey = (channel, registryKey) => {
     const listeners = listenerRegistry.get(registryKey);
     if (!listeners) {
       return;
@@ -106,12 +106,12 @@ function createUpdatePreloadAPI({
         invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
       })(callback),
 
-    removeListeners: () => {
-      removeListenersForKey(channels.UPDATE.AVAILABLE, listenerKeys.onAvailable);
-      removeListenersForKey(channels.UPDATE.NOT_AVAILABLE, listenerKeys.onNotAvailable);
-      removeListenersForKey(channels.UPDATE.PROGRESS, listenerKeys.onProgress);
-      removeListenersForKey(channels.UPDATE.DOWNLOADED, listenerKeys.onDownloaded);
-      removeListenersForKey(channels.UPDATE.ERROR, listenerKeys.onError);
+    dispose: () => {
+      disposeListenersForKey(channels.UPDATE.AVAILABLE, listenerKeys.onAvailable);
+      disposeListenersForKey(channels.UPDATE.NOT_AVAILABLE, listenerKeys.onNotAvailable);
+      disposeListenersForKey(channels.UPDATE.PROGRESS, listenerKeys.onProgress);
+      disposeListenersForKey(channels.UPDATE.DOWNLOADED, listenerKeys.onDownloaded);
+      disposeListenersForKey(channels.UPDATE.ERROR, listenerKeys.onError);
     }
   };
 }

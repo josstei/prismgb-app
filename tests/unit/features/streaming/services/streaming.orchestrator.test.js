@@ -65,7 +65,7 @@ describe('StreamingOrchestrator', () => {
     };
 
     mockSettingsService = {
-      getAutoStreamOnConnect: vi.fn().mockReturnValue(false)
+      getBooleanSetting: vi.fn().mockReturnValue(false)
     };
 
     orchestrator = new StreamingOrchestrator({
@@ -255,7 +255,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should auto-start stream when device becomes available and setting enabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -266,7 +266,7 @@ describe('StreamingOrchestrator', () => {
     it('should bypass appState.deviceConnected check (browser enumeration is source of truth)', async () => {
       mockAppState.deviceConnected = false;
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -275,7 +275,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should not auto-start when setting disabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(false);
+      mockSettingsService.getBooleanSetting.mockReturnValue(false);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -284,7 +284,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should not auto-start when streaming service is active', async () => {
       mockStreamingService.isActive.mockReturnValue(true);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -293,7 +293,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should handle rapid duplicate device available events gracefully', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -306,7 +306,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should handle start error gracefully', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getAutoStreamOnConnect.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
       mockStreamingService.start.mockRejectedValue(new Error('Start failed'));
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);

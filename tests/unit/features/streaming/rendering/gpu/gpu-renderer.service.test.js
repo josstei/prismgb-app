@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 // Mock the capability detector
 vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
@@ -93,8 +93,8 @@ describe('StreamingGpuRendererService', () => {
     };
 
     mockSettingsService = {
-      getGlobalBrightness: vi.fn(() => 1.0),
-      getRenderPreset: vi.fn(() => 'default')
+      getNumberSetting: vi.fn(() => 1.0),
+      getStringSetting: vi.fn(() => 'default')
     };
 
     mockGpuFrameBuffer = {

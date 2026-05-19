@@ -13,7 +13,7 @@ function createWindowPreloadAPI({
     onResized: 'window.onResized'
   };
 
-  const removeListenersForKey = (channel, registryKey) => {
+  const disposeListenersForKey = (channel, registryKey) => {
     const listeners = listenerRegistry.get(registryKey);
     if (!listeners) {
       return;
@@ -69,10 +69,10 @@ function createWindowPreloadAPI({
 
     isFullScreen: () => ipcRenderer.invoke(channels.WINDOW.IS_FULLSCREEN),
 
-    removeListeners: () => {
-      removeListenersForKey(channels.WINDOW.ENTER_FULLSCREEN, listenerKeys.onEnterFullscreen);
-      removeListenersForKey(channels.WINDOW.LEAVE_FULLSCREEN, listenerKeys.onLeaveFullscreen);
-      removeListenersForKey(channels.WINDOW.RESIZED, listenerKeys.onResized);
+    dispose: () => {
+      disposeListenersForKey(channels.WINDOW.ENTER_FULLSCREEN, listenerKeys.onEnterFullscreen);
+      disposeListenersForKey(channels.WINDOW.LEAVE_FULLSCREEN, listenerKeys.onLeaveFullscreen);
+      disposeListenersForKey(channels.WINDOW.RESIZED, listenerKeys.onResized);
     }
   };
 }

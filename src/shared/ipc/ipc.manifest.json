@@ -1,17 +1,11 @@
 {
   "version": 1,
   "mode": "report-only",
-  "compatibilityExceptions": [
-    {
-      "id": "transcode-get-status-job-id-not-forwarded",
-      "description": "src/types/preload-api.d.ts declares transcodeAPI.getStatus(jobId?: string), while the current preload implementation invokes transcode:get-status without forwarding the argument."
-    }
-  ],
   "namespaces": [
     {
       "namespace": "DEVICE",
       "apiName": "deviceAPI",
-      "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected", "removeDeviceListeners"],
+      "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected"],
       "invoke": [
         {
           "method": "getDeviceStatus",
@@ -37,8 +31,7 @@
           "channel": "device:disconnected",
           "payload": "DeviceInfoPayload | null | undefined"
         }
-      ],
-      "removeListenersMethod": "removeDeviceListeners"
+      ]
     },
     {
       "namespace": "SHELL",
@@ -58,7 +51,7 @@
     {
       "namespace": "WINDOW",
       "apiName": "windowAPI",
-      "exposedMethods": ["onEnterFullscreen", "onLeaveFullscreen", "onResized", "setFullScreen", "isFullScreen", "removeListeners"],
+      "exposedMethods": ["onEnterFullscreen", "onLeaveFullscreen", "onResized", "setFullScreen", "isFullScreen"],
       "invoke": [
         {
           "method": "setFullScreen",
@@ -94,13 +87,12 @@
           "channel": "window:resized",
           "payload": "void"
         }
-      ],
-      "removeListenersMethod": "removeListeners"
+      ]
     },
     {
       "namespace": "UPDATE",
       "apiName": "updateAPI",
-      "exposedMethods": ["getStatus", "checkForUpdates", "downloadUpdate", "installUpdate", "onAvailable", "onNotAvailable", "onProgress", "onDownloaded", "onError", "removeListeners"],
+      "exposedMethods": ["getStatus", "checkForUpdates", "downloadUpdate", "installUpdate", "onAvailable", "onNotAvailable", "onProgress", "onDownloaded", "onError"],
       "invoke": [
         {
           "method": "getStatus",
@@ -162,8 +154,7 @@
           "channel": "update:error",
           "payload": "UpdateErrorPayload"
         }
-      ],
-      "removeListenersMethod": "removeListeners"
+      ]
     },
     {
       "namespace": "PERFORMANCE",
@@ -217,7 +208,7 @@
     {
       "namespace": "TRANSCODE",
       "apiName": "transcodeAPI",
-      "exposedMethods": ["start", "cancel", "getStatus", "onProgress", "onCompleted", "onError", "onCancelled", "removeListeners"],
+      "exposedMethods": ["start", "cancel", "getStatus", "onProgress", "onCompleted", "onError", "onCancelled"],
       "invoke": [
         {
           "method": "start",
@@ -238,9 +229,7 @@
           "channelKey": "GET_STATUS",
           "channel": "transcode:get-status",
           "request": [],
-          "declaredRequest": ["jobId?:string"],
-          "response": "TranscodeStatusResponse",
-          "compatibilityException": "transcode-get-status-job-id-not-forwarded"
+          "response": "TranscodeStatusResponse"
         }
       ],
       "subscriptions": [
@@ -268,9 +257,7 @@
           "channel": "transcode:cancelled",
           "payload": "TranscodeCancelledPayload"
         }
-      ],
-      "removeListenersMethod": "removeListeners"
+      ]
     }
   ]
 }
-

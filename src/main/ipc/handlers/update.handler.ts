@@ -12,11 +12,7 @@ import type {
   UpdateInstallResponse,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface UpdateService {
   checkForUpdates(): Promise<Record<string, unknown>>;
@@ -26,7 +22,6 @@ interface UpdateService {
 }
 
 export interface UpdateHandlerDependencies {
-  registerHandler: RegisterHandler;
   updateService: UpdateService;
   logger: Logger;
 }
@@ -100,7 +95,3 @@ export const updateHandlerDescriptors = defineIpcHandlers<UpdateHandlerDependenc
     }
   }
 ]);
-
-export function registerUpdateHandlers(dependencies: UpdateHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, updateHandlerDescriptors);
-}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 function flattenEventValues(node) {
   const values = [];

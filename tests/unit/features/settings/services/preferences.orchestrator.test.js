@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;
@@ -34,9 +34,10 @@ describe('SettingsPreferencesOrchestrator', () => {
 
     mockSettingsService = {
       loadAllPreferences: vi.fn(() => ({
-        volume: 80,
+        gameVolume: 80,
         statusStripVisible: false,
-        performanceMode: true
+        performanceMode: true,
+        minimalistFullscreen: false
       }))
     };
 

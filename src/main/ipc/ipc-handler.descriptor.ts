@@ -30,12 +30,13 @@ export function defineIpcHandlers<TDependencies>(
   return descriptors;
 }
 
-export function registerIpcHandlerDescriptors<TDependencies extends { registerHandler: RegisterHandler }>(
+export function registerIpcHandlerDescriptors<TDependencies>(
+  registerHandler: RegisterHandler,
   dependencies: TDependencies,
   descriptors: readonly IpcHandlerDescriptor<TDependencies>[]
 ): void {
   for (const descriptor of descriptors) {
-    dependencies.registerHandler(descriptor.channel, async (event, ...args) => {
+    registerHandler(descriptor.channel, async (event, ...args) => {
       try {
         return await descriptor.invoke(dependencies, event, ...args);
       } catch (error) {

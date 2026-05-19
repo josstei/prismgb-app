@@ -49,9 +49,6 @@ export function createOverlayTemplate() {
   `;
 }
 
-// Re-export for backwards compatibility
-export { createToolbarTemplate, createFullscreenControlsTemplate };
-
 /**
  * Create stream viewer HTML (includes toolbar and fullscreen controls)
  * @returns {string} Stream viewer HTML string

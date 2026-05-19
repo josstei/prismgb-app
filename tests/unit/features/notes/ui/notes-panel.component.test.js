@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 
 describe('NotesPanelComponent', () => {

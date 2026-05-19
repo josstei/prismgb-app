@@ -14,7 +14,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 class CaptureService extends BaseService {
 

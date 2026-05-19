@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('TranscodeService', () => {
   let service;
@@ -41,8 +41,7 @@ describe('TranscodeService', () => {
       onProgress: vi.fn().mockReturnValue(vi.fn()),
       onCompleted: vi.fn().mockReturnValue(vi.fn()),
       onError: vi.fn().mockReturnValue(vi.fn()),
-      onCancelled: vi.fn().mockReturnValue(vi.fn()),
-      removeListeners: vi.fn()
+      onCancelled: vi.fn().mockReturnValue(vi.fn())
     };
 
     // Set up window.transcodeAPI
@@ -494,13 +493,6 @@ describe('TranscodeService', () => {
       service.dispose();
 
       expect(service._eventBridge).toBeNull();
-    });
-
-    it('should not use namespace-wide removeListeners for bridge-owned subscriptions', () => {
-      service.initialize();
-      service.dispose();
-
-      expect(mockTranscodeAPI.removeListeners).not.toHaveBeenCalled();
     });
 
     it('should reset state', () => {

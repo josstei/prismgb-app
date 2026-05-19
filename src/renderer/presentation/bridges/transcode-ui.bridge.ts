@@ -13,7 +13,6 @@ class TranscodeUIBridge extends BaseService {
   constructor(dependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
     this._subscriptions = [];
-    this._currentFormat = null;
   }
 
   /**
@@ -50,18 +49,17 @@ class TranscodeUIBridge extends BaseService {
 
   /**
    * Handle transcode started
-   * @param {Object} data - Started data with format
+   * @param {Object} data - Started data
    * @private
    */
   _handleStarted(data) {
     this.logger.info('Transcode started', data);
-    this._currentFormat = data?.format?.toUpperCase() || 'MP4';
 
     // Disable record button during transcode
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_DISABLED);
 
     // Show toast
-    this._toast?.show(this._currentFormat);
+    this._toast?.show();
   }
 
   /**
@@ -87,7 +85,6 @@ class TranscodeUIBridge extends BaseService {
     // Show success state
     this._toast?.showSuccess();
 
-    this._currentFormat = null;
   }
 
   /**
@@ -101,10 +98,8 @@ class TranscodeUIBridge extends BaseService {
     // Re-enable record button
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
 
-    const errorMessage = data?.message || data?.error || 'Conversion failed';
-    this._toast?.showError(errorMessage);
+    this._toast?.showError();
 
-    this._currentFormat = null;
   }
 
   /**
@@ -120,7 +115,6 @@ class TranscodeUIBridge extends BaseService {
     // Hide toast
     this._toast?.hide();
 
-    this._currentFormat = null;
   }
 }
 

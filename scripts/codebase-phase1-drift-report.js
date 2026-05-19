@@ -257,7 +257,7 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
 
   const defaults = collectManifestDefaults(manifests.settings);
   checks.push({
-    name: 'settings manifest records current recording format compatibility default',
+    name: 'settings manifest records recording format default',
     status: defaults.recordingFormat === 'webm' ? 'pass' : 'fail',
     expected: 'webm',
     actual: defaults.recordingFormat,

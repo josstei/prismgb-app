@@ -1,14 +1,13 @@
 {
   "version": 1,
-  "mode": "report-only",
-  "loadAllPreferencesShape": ["volume", "statusStripVisible", "performanceMode", "minimalistFullscreen"],
+  "mode": "enforced",
+  "loadAllPreferencesShape": ["gameVolume", "statusStripVisible", "performanceMode", "minimalistFullscreen"],
   "definitions": [
     {
       "name": "gameVolume",
       "storageKey": "gameVolume",
       "type": "number",
       "default": 70,
-      "legacy": { "get": "getVolume", "set": "setVolume" },
       "validation": { "min": 0, "max": 100, "clamp": true },
       "event": "settings:volume-changed"
     },
@@ -16,15 +15,13 @@
       "name": "statusStripVisible",
       "storageKey": "statusStripVisible",
       "type": "boolean",
-      "default": false,
-      "legacy": { "get": "getStatusStripVisible", "set": "setStatusStripVisible" }
+      "default": false
     },
     {
       "name": "renderPreset",
       "storageKey": "renderPreset",
       "type": "string",
       "default": "vibrant",
-      "legacy": { "get": "getRenderPreset", "set": "setRenderPreset" },
       "event": "settings:render-preset-changed"
     },
     {
@@ -32,7 +29,6 @@
       "storageKey": "globalBrightness",
       "type": "number",
       "default": 1,
-      "legacy": { "get": "getGlobalBrightness", "set": "setGlobalBrightness" },
       "validation": { "min": 0.5, "max": 1.5, "clamp": true },
       "event": "settings:brightness-changed"
     },
@@ -41,30 +37,26 @@
       "storageKey": "performanceMode",
       "type": "boolean",
       "default": false,
-      "legacy": { "get": "getPerformanceMode", "set": "setPerformanceMode" },
       "event": "settings:performance-mode-changed"
     },
     {
       "name": "fullscreenOnStartup",
       "storageKey": "fullscreenOnStartup",
       "type": "boolean",
-      "default": false,
-      "legacy": { "get": "getFullscreenOnStartup", "set": "setFullscreenOnStartup" }
+      "default": false
     },
     {
       "name": "minimalistFullscreen",
       "storageKey": "minimalistFullscreen",
       "type": "boolean",
       "default": false,
-      "legacy": { "get": "getMinimalistFullscreen", "set": "setMinimalistFullscreen" },
       "event": "settings:minimalist-fullscreen-changed"
     },
     {
       "name": "autoStreamOnConnect",
       "storageKey": "autoStreamOnConnect",
       "type": "boolean",
-      "default": false,
-      "legacy": { "get": "getAutoStreamOnConnect", "set": "setAutoStreamOnConnect" }
+      "default": false
     },
     {
       "name": "recordingFormat",
@@ -73,19 +65,15 @@
       "default": "webm",
       "allowedValues": ["webm", "mp4", "mov"],
       "allowedValuesSource": "TRANSCODE_CONFIG.formats",
-      "legacy": { "get": "getRecordingFormat", "set": "setRecordingFormat" },
-      "event": "settings:recording-format-changed",
-      "compatibilityNotes": ["Default intentionally remains webm even though TRANSCODE_CONFIG.defaultFormat is mp4."]
+      "event": "settings:recording-format-changed"
     },
     {
       "name": "launchOnLogin",
       "storageKey": "launchOnLogin",
       "type": "boolean",
       "default": false,
-      "legacy": { "get": "getLaunchOnLogin", "set": "setLaunchOnLogin" },
       "protected": true,
       "externalSource": "window.loginItemAPI"
     }
   ]
 }
-

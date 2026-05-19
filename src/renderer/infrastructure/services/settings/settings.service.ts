@@ -11,7 +11,6 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
@@ -19,7 +18,13 @@ const SETTING_DEFINITIONS = SettingsDefinitions.definitions;
 
 type SettingDefinition = (typeof SETTING_DEFINITIONS)[number];
 type SettingDefaultValue = string | number | boolean;
-type SettingMethod = (...args: unknown[]) => unknown;
+type SettingValue = SettingDefaultValue;
+type SettingResult = SettingValue | Promise<SettingValue>;
+type SettingValidation = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
 
 interface SettingsDefaults {
   gameVolume: number;
@@ -107,31 +112,183 @@ class SettingsService extends BaseService {
     return this.settingDefinitions.map((definition) => definition.name);
   }
 
-  getSetting(name: string): unknown {
+  getSetting(name: string): SettingResult {
     const definition = this._getSettingDefinition(name);
-    const getterName = definition.legacy?.get;
-    const getter = getterName ? this[getterName] : undefined;
-    if (typeof getter === 'function') {
-      return (getter as SettingMethod).call(this);
+
+    if (this._usesLoginItemAPI(definition)) {
+      return this._readLoginItemSetting(definition);
     }
 
-    const saved = this.storageService?.getItem(definition.storageKey);
-    return saved !== null ? saved : definition.default;
+    return this._readStoredSetting(definition);
   }
 
-  setSetting(name: string, value: unknown): unknown {
+  setSetting(name: string, value: unknown): boolean | Promise<boolean> {
     const definition = this._getSettingDefinition(name);
-    const setterName = definition.legacy?.set;
-    const setter = setterName ? this[setterName] : undefined;
-    if (typeof setter === 'function') {
-      return (setter as SettingMethod).call(this, value);
+
+    if (this._usesLoginItemAPI(definition)) {
+      return this._writeLoginItemSetting(definition, value);
     }
 
-    this.storageService?.setItem(definition.storageKey, String(value));
-    if (definition.event) {
-      this.eventBus.publish(definition.event, value);
+    return this._writeStoredSetting(definition, value);
+  }
+
+  getNumberSetting(name: string): number {
+    const value = this._getSynchronousSetting(name);
+    if (typeof value === 'number') {
+      return value;
     }
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+    throw new Error(`Setting is not numeric: ${name}`);
+  }
+
+  getBooleanSetting(name: string): boolean {
+    const value = this._getSynchronousSetting(name);
+    return this._normalizeBoolean(value);
+  }
+
+  getStringSetting(name: string): string {
+    const value = this._getSynchronousSetting(name);
+    return String(value);
+  }
+
+  _getSynchronousSetting(name: string): SettingValue {
+    const value = this.getSetting(name);
+    if (this._isPromiseLike(value)) {
+      throw new Error(`Setting requires asynchronous access: ${name}`);
+    }
+    return value;
+  }
+
+  _readStoredSetting(definition: SettingDefinition): SettingValue {
+    const saved = this.storageService?.getItem(definition.storageKey);
+    if (saved === null || saved === undefined) {
+      return definition.default as SettingValue;
+    }
+
+    switch (definition.type) {
+      case 'boolean':
+        return saved === 'true';
+      case 'number': {
+        const parsed = Number.parseFloat(saved);
+        return Number.isFinite(parsed) ? parsed : definition.default as number;
+      }
+      case 'enum': {
+        const allowedValues = getAllowedValues(definition);
+        return allowedValues.includes(saved) ? saved : definition.default as string;
+      }
+      case 'string':
+      default:
+        return saved;
+    }
+  }
+
+  _writeStoredSetting(definition: SettingDefinition, value: unknown): boolean {
+    const normalized = this._normalizeSettingValue(definition, value);
+    if (!normalized.ok) {
+      return false;
+    }
+
+    this.storageService?.setItem(definition.storageKey, String(normalized.value));
+    if (definition.event) {
+      this.eventBus.publish(definition.event, normalized.value);
+    }
+    this.logger.debug(`Setting ${definition.name} set to ${normalized.value}`);
     return true;
+  }
+
+  _normalizeSettingValue(definition: SettingDefinition, value: unknown): { ok: true; value: SettingValue } | { ok: false } {
+    switch (definition.type) {
+      case 'boolean':
+        return { ok: true, value: this._normalizeBoolean(value) };
+      case 'number': {
+        const parsed = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(parsed)) {
+          this.logger.warn(`Invalid numeric setting value for ${definition.name}: ${String(value)}`);
+          return { ok: false };
+        }
+        return { ok: true, value: this._applyNumberValidation(definition, parsed) };
+      }
+      case 'enum': {
+        const normalized = String(value);
+        const allowedValues = getAllowedValues(definition);
+        if (!allowedValues.includes(normalized)) {
+          this.logger.warn(`Invalid ${definition.name}: ${normalized}. Valid values: ${allowedValues.join(', ')}`);
+          return { ok: false };
+        }
+        return { ok: true, value: normalized };
+      }
+      case 'string':
+      default:
+        return { ok: true, value: String(value) };
+    }
+  }
+
+  _applyNumberValidation(definition: SettingDefinition, value: number): number {
+    const validation = (definition as SettingDefinition & { validation?: SettingValidation }).validation;
+    if (!validation?.clamp) {
+      return value;
+    }
+
+    const min = typeof validation.min === 'number' ? validation.min : value;
+    const max = typeof validation.max === 'number' ? validation.max : value;
+    return Math.max(min, Math.min(max, value));
+  }
+
+  _normalizeBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
+    return Boolean(value);
+  }
+
+  _usesLoginItemAPI(definition: SettingDefinition): boolean {
+    return definition.name === 'launchOnLogin'
+      && (definition as SettingDefinition & { externalSource?: string }).externalSource === 'window.loginItemAPI';
+  }
+
+  async _readLoginItemSetting(definition: SettingDefinition): Promise<boolean> {
+    try {
+      if (window.loginItemAPI?.get) {
+        const enabled = await window.loginItemAPI.get();
+        this.storageService?.setItem(definition.storageKey, enabled.toString());
+        return enabled;
+      }
+    } catch {
+      this.logger.warn('Failed to query login item state from main process');
+    }
+
+    return this._readStoredSetting(definition) as boolean;
+  }
+
+  async _writeLoginItemSetting(definition: SettingDefinition, value: unknown): Promise<boolean> {
+    const enabled = this._normalizeBoolean(value);
+    try {
+      if (window.loginItemAPI?.set) {
+        await window.loginItemAPI.set(enabled);
+      }
+    } catch {
+      this.logger.error('Failed to set login item state in main process');
+    }
+
+    this.storageService?.setItem(definition.storageKey, enabled.toString());
+    this.logger.debug(`Setting ${definition.name} set to ${enabled}`);
+    return true;
+  }
+
+  _isPromiseLike(value: unknown): value is Promise<SettingValue> {
+    return typeof value === 'object'
+      && value !== null
+      && 'then' in value
+      && typeof (value as { then?: unknown }).then === 'function';
   }
 
   _getSettingDefinition(name: string): SettingDefinition {
@@ -143,261 +300,19 @@ class SettingsService extends BaseService {
   }
 
   /**
-   * Load all saved preferences
-   * @returns {Object} All preferences
+   * Load all saved preferences.
+   * @returns {Object} Preferences keyed by settings definition names.
    */
   loadAllPreferences() {
-    const volume = this.getVolume();
-    const statusStripVisible = this.getStatusStripVisible();
-    const performanceMode = this.getPerformanceMode();
-    const minimalistFullscreen = this.getMinimalistFullscreen();
-
-    this.logger.info(
-      `Loaded preferences - Volume: ${volume}%, StatusStrip: ${statusStripVisible}, PerformanceMode: ${performanceMode}, MinimalistFullscreen: ${minimalistFullscreen}`
+    const preferences = Object.fromEntries(
+      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this.getSetting(name)])
     );
 
-    return {
-      volume,
-      statusStripVisible,
-      performanceMode,
-      minimalistFullscreen
-    };
-  }
+    this.logger.info(
+      `Loaded preferences - GameVolume: ${preferences.gameVolume}%, StatusStrip: ${preferences.statusStripVisible}, PerformanceMode: ${preferences.performanceMode}, MinimalistFullscreen: ${preferences.minimalistFullscreen}`
+    );
 
-  /**
-   * Get saved volume preference
-   * @returns {number} Volume (0-100)
-   */
-  getVolume() {
-    const saved = this.storageService?.getItem(this.keys.VOLUME);
-    return saved !== null ? parseInt(saved) : this.defaults.gameVolume;
-  }
-
-  /**
-   * Save volume preference
-   * @param {number} volume - Volume (0-100)
-   */
-  setVolume(volume: number) {
-    const clampedVolume = Math.max(0, Math.min(100, volume));
-    this.storageService?.setItem(this.keys.VOLUME, clampedVolume.toString());
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, clampedVolume);
-  }
-
-  /**
-   * Get saved status strip visibility preference
-   * @returns {boolean} Status strip visible
-   */
-  getStatusStripVisible() {
-    const saved = this.storageService?.getItem(this.keys.STATUS_STRIP);
-    return saved !== null ? saved === 'true' : this.defaults.statusStripVisible;
-  }
-
-  /**
-   * Save status strip visibility preference
-   * @param {boolean} visible - Status strip visible
-   */
-  setStatusStripVisible(visible: boolean) {
-    this.storageService?.setItem(this.keys.STATUS_STRIP, visible.toString());
-
-    this.logger.debug(`Status strip ${visible ? 'shown' : 'hidden'}`);
-  }
-
-  /**
-   * Get saved render preset preference
-   * @returns {string} Render preset ID
-   */
-  getRenderPreset() {
-    const saved = this.storageService?.getItem(this.keys.RENDER_PRESET);
-    return saved !== null ? saved : this.defaults.renderPreset;
-  }
-
-  /**
-   * Save render preset preference
-   * @param {string} presetId - Render preset ID
-   */
-  setRenderPreset(presetId: string) {
-    this.storageService?.setItem(this.keys.RENDER_PRESET, presetId);
-
-    this.logger.debug(`Render preset set to ${presetId}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, presetId);
-  }
-
-  /**
-   * Get saved global brightness preference
-   * @returns {number} Global brightness multiplier (0.5-1.5)
-   */
-  getGlobalBrightness() {
-    const saved = this.storageService?.getItem(this.keys.GLOBAL_BRIGHTNESS);
-    return saved !== null ? parseFloat(saved) : this.defaults.globalBrightness;
-  }
-
-  /**
-   * Save global brightness preference
-   * @param {number} brightness - Brightness multiplier (0.5-1.5)
-   */
-  setGlobalBrightness(brightness: number) {
-    const clampedBrightness = Math.max(0.5, Math.min(1.5, brightness));
-    this.storageService?.setItem(this.keys.GLOBAL_BRIGHTNESS, clampedBrightness.toString());
-
-    this.logger.debug(`Global brightness set to ${clampedBrightness.toFixed(2)}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.BRIGHTNESS_CHANGED, clampedBrightness);
-  }
-
-  /**
-   * Get performance mode preference
-   * @returns {boolean} True if performance mode is enabled (Canvas2D, minimal shaders, no CSS animations)
-   */
-  getPerformanceMode() {
-    const saved = this.storageService?.getItem(this.keys.PERFORMANCE_MODE);
-    return saved !== null ? saved === 'true' : this.defaults.performanceMode;
-  }
-
-  /**
-   * Set performance mode preference
-   * @param {boolean} enabled - Enable performance mode (Canvas2D, minimal shaders, no CSS animations)
-   */
-  setPerformanceMode(enabled: boolean) {
-    this.storageService?.setItem(this.keys.PERFORMANCE_MODE, enabled.toString());
-
-    this.logger.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, enabled);
-  }
-
-  /**
-   * Get fullscreen on startup preference
-   * @returns {boolean} True if fullscreen on startup is enabled
-   */
-  getFullscreenOnStartup() {
-    const saved = this.storageService?.getItem(this.keys.FULLSCREEN_ON_STARTUP);
-    return saved !== null ? saved === 'true' : this.defaults.fullscreenOnStartup;
-  }
-
-  /**
-   * Set fullscreen on startup preference
-   * @param {boolean} enabled - Enable fullscreen on startup
-   */
-  setFullscreenOnStartup(enabled: boolean) {
-    this.storageService?.setItem(this.keys.FULLSCREEN_ON_STARTUP, enabled.toString());
-
-    this.logger.debug(`Fullscreen on startup ${enabled ? 'enabled' : 'disabled'}`);
-  }
-
-  /**
-   * Get minimalist fullscreen preference
-   * @returns {boolean} True if minimalist fullscreen is enabled
-   */
-  getMinimalistFullscreen() {
-    const saved = this.storageService?.getItem(this.keys.MINIMALIST_FULLSCREEN);
-    return saved !== null ? saved === 'true' : this.defaults.minimalistFullscreen;
-  }
-
-  /**
-   * Set minimalist fullscreen preference
-   * @param {boolean} enabled - Enable minimalist fullscreen
-   */
-  setMinimalistFullscreen(enabled: boolean) {
-    this.storageService?.setItem(this.keys.MINIMALIST_FULLSCREEN, enabled.toString());
-
-    this.logger.debug(`Minimalist fullscreen ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, enabled);
-  }
-
-  /**
-   * Get auto-stream on connect preference
-   * @returns {boolean} True if auto-stream on connect is enabled
-   */
-  getAutoStreamOnConnect() {
-    const saved = this.storageService?.getItem(this.keys.AUTO_STREAM_ON_CONNECT);
-    return saved !== null ? saved === 'true' : this.defaults.autoStreamOnConnect;
-  }
-
-  /**
-   * Set auto-stream on connect preference
-   * @param {boolean} enabled - Enable auto-stream on connect
-   */
-  setAutoStreamOnConnect(enabled: boolean) {
-    this.storageService?.setItem(this.keys.AUTO_STREAM_ON_CONNECT, enabled.toString());
-
-    this.logger.debug(`Auto-stream on connect ${enabled ? 'enabled' : 'disabled'}`);
-  }
-
-  /**
-   * Get launch on login preference
-   * Queries main process for OS-level state, falls back to localStorage cache
-   * @returns {Promise<boolean>} True if launch on login is enabled
-   */
-  async getLaunchOnLogin() {
-    try {
-      if (window.loginItemAPI?.get) {
-        const enabled = await window.loginItemAPI.get();
-        this.storageService?.setItem(this.keys.LAUNCH_ON_LOGIN, enabled.toString());
-        return enabled;
-      }
-    } catch {
-      this.logger.warn('Failed to query login item state from main process');
-    }
-
-    const saved = this.storageService?.getItem(this.keys.LAUNCH_ON_LOGIN);
-    return saved !== null ? saved === 'true' : this.defaults.launchOnLogin;
-  }
-
-  /**
-   * Set launch on login preference
-   * Updates OS-level login item via main process and caches locally
-   * @param {boolean} enabled - Enable launch on login
-   */
-  async setLaunchOnLogin(enabled: boolean) {
-    try {
-      if (window.loginItemAPI?.set) {
-        await window.loginItemAPI.set(enabled);
-      }
-    } catch {
-      this.logger.error('Failed to set login item state in main process');
-    }
-
-    this.storageService?.setItem(this.keys.LAUNCH_ON_LOGIN, enabled.toString());
-    this.logger.debug(`Launch on login ${enabled ? 'enabled' : 'disabled'}`);
-  }
-
-  /**
-   * Get recording format preference
-   * @returns {string} Recording format (webm, mp4, or mov)
-   */
-  getRecordingFormat() {
-    const saved = this.storageService?.getItem(this.keys.RECORDING_FORMAT);
-    if (saved !== null && this.validRecordingFormats.includes(saved)) {
-      return saved;
-    }
-    return this.defaults.recordingFormat;
-  }
-
-  /**
-   * Set recording format preference
-   * @param {string} format - Recording format (webm, mp4, or mov)
-   * @returns {boolean} True if format was valid and saved
-   */
-  setRecordingFormat(format: string) {
-    if (!this.validRecordingFormats.includes(format)) {
-      this.logger.warn(`Invalid recording format: ${format}. Valid formats: ${this.validRecordingFormats.join(', ')}`);
-      return false;
-    }
-
-    this.storageService?.setItem(this.keys.RECORDING_FORMAT, format);
-    this.logger.debug(`Recording format set to ${format}`);
-
-    // Emit event
-    this.eventBus.publish(EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED, format);
-    return true;
+    return preferences;
   }
 }
 

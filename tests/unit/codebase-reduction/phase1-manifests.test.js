@@ -56,19 +56,15 @@ describe('Phase 1 report-only manifests', () => {
     );
 
     expect(exposedApis).toEqual({
-      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected', 'removeDeviceListeners'],
+      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected'],
       shellAPI: ['openExternal'],
-      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen', 'removeListeners'],
-      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError', 'removeListeners'],
+      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen'],
+      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
       metricsAPI: ['getProcessMetrics'],
       gpuAPI: ['getPolicy'],
       loginItemAPI: ['get', 'set'],
-      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled', 'removeListeners']
+      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
     });
-
-    expect(ipcManifest.compatibilityExceptions).toContainEqual(
-      expect.objectContaining({ id: 'transcode-get-status-job-id-not-forwarded' })
-    );
   });
 
   it('describes current renderer and main EventBus channels by scope', () => {

@@ -12,7 +12,7 @@ function createDevicePreloadAPI({
     onDisconnected: 'device.onDisconnected'
   };
 
-  const removeListenersForKey = (channel, registryKey) => {
+  const disposeListenersForKey = (channel, registryKey) => {
     const listeners = listenerRegistry.get(registryKey);
     if (!listeners) {
       return;
@@ -51,9 +51,9 @@ function createDevicePreloadAPI({
         validateCallback: isValidCallback
       })(callback),
 
-    removeListeners: () => {
-      removeListenersForKey(channels.DEVICE.CONNECTED, listenerKeys.onConnected);
-      removeListenersForKey(channels.DEVICE.DISCONNECTED, listenerKeys.onDisconnected);
+    dispose: () => {
+      disposeListenersForKey(channels.DEVICE.CONNECTED, listenerKeys.onConnected);
+      disposeListenersForKey(channels.DEVICE.DISCONNECTED, listenerKeys.onDisconnected);
     }
   };
 }

@@ -2,18 +2,13 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface DeviceService {
   getStatus(): DeviceStatusPayload;
 }
 
 export interface DeviceHandlerDependencies {
-  registerHandler: RegisterHandler;
   deviceService: DeviceService;
   logger: Logger;
 }
@@ -51,7 +46,3 @@ export const deviceHandlerDescriptors = defineIpcHandlers<DeviceHandlerDependenc
     }
   }
 ]);
-
-export function registerDeviceHandlers(dependencies: DeviceHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, deviceHandlerDescriptors);
-}

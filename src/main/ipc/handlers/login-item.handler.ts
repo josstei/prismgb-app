@@ -2,11 +2,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
 import type { LoginItemSetResponse } from '@shared/ipc/preload-api.contract.js';
-import {
-  defineIpcHandlers,
-  registerIpcHandlerDescriptors,
-  type RegisterHandler
-} from '../ipc-handler.descriptor.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface LoginItemService {
   isEnabled(): boolean;
@@ -14,7 +10,6 @@ interface LoginItemService {
 }
 
 export interface LoginItemHandlerDependencies {
-  registerHandler: RegisterHandler;
   loginItemService: LoginItemService;
   logger: Logger;
 }
@@ -49,7 +44,3 @@ export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDep
     }
   }
 ]);
-
-export function registerLoginItemHandlers(dependencies: LoginItemHandlerDependencies): void {
-  registerIpcHandlerDescriptors(dependencies, loginItemHandlerDescriptors);
-}

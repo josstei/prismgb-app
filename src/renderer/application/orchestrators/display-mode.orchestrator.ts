@@ -32,7 +32,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   }
 
   _applyStartupBehaviors() {
-    if (this.settingsService.getFullscreenOnStartup()) {
+    if (this.settingsService.getBooleanSetting('fullscreenOnStartup')) {
       if (document.hidden) {
         const onVisible = () => {
           document.removeEventListener('visibilitychange', onVisible);

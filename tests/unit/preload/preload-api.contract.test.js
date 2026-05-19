@@ -50,14 +50,14 @@ describe('Preload API contract', () => {
     const apiMap = extractExposedApis(source);
 
     const expected = {
-      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected', 'removeDeviceListeners'],
+      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected'],
       shellAPI: ['openExternal'],
-      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen', 'removeListeners'],
-      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError', 'removeListeners'],
+      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen'],
+      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
       metricsAPI: ['getProcessMetrics'],
       gpuAPI: ['getPolicy'],
       loginItemAPI: ['get', 'set'],
-      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled', 'removeListeners']
+      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
     };
 
     expect(Array.from(apiMap.keys()).sort()).toEqual(Object.keys(expected).sort());

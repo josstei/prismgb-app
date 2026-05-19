@@ -20,7 +20,7 @@ function createTranscodePreloadAPI({
     onCancelled: 'transcode.onCancelled'
   };
 
-  const removeListenersForKey = (channel, registryKey) => {
+  const disposeListenersForKey = (channel, registryKey) => {
     const listeners = listenerRegistry.get(registryKey);
     if (!listeners) {
       return;
@@ -117,11 +117,11 @@ function createTranscodePreloadAPI({
         invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
       })(callback),
 
-    removeListeners: () => {
-      removeListenersForKey(channels.TRANSCODE.PROGRESS, listenerKeys.onProgress);
-      removeListenersForKey(channels.TRANSCODE.COMPLETED, listenerKeys.onCompleted);
-      removeListenersForKey(channels.TRANSCODE.ERROR, listenerKeys.onError);
-      removeListenersForKey(channels.TRANSCODE.CANCELLED, listenerKeys.onCancelled);
+    dispose: () => {
+      disposeListenersForKey(channels.TRANSCODE.PROGRESS, listenerKeys.onProgress);
+      disposeListenersForKey(channels.TRANSCODE.COMPLETED, listenerKeys.onCompleted);
+      disposeListenersForKey(channels.TRANSCODE.ERROR, listenerKeys.onError);
+      disposeListenersForKey(channels.TRANSCODE.CANCELLED, listenerKeys.onCancelled);
     }
   };
 }

@@ -1,5 +1,5 @@
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
 
 export function getStatusEventName() {
-  return EventChannels.UI.STATUS_MESSAGE;
+  return EventBus.name;
 }

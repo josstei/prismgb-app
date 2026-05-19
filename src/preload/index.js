@@ -90,17 +90,16 @@ const transcodeAPI = createTranscodePreloadAPI({
 });
 
 window.addEventListener('beforeunload', () => {
-  deviceAPI.removeListeners();
-  windowAPI.removeListeners();
-  updateAPI.removeListeners();
-  transcodeAPI.removeListeners();
+  deviceAPI.dispose();
+  windowAPI.dispose();
+  updateAPI.dispose();
+  transcodeAPI.dispose();
 });
 
 contextBridge.exposeInMainWorld('deviceAPI', {
   getDeviceStatus: deviceAPI.getStatus,
   onDeviceConnected: deviceAPI.onConnected,
-  onDeviceDisconnected: deviceAPI.onDisconnected,
-  removeDeviceListeners: deviceAPI.removeListeners
+  onDeviceDisconnected: deviceAPI.onDisconnected
 });
 
 contextBridge.exposeInMainWorld('shellAPI', {
@@ -112,8 +111,7 @@ contextBridge.exposeInMainWorld('windowAPI', {
   onLeaveFullscreen: windowAPI.onLeaveFullscreen,
   onResized: windowAPI.onResized,
   setFullScreen: windowAPI.setFullScreen,
-  isFullScreen: windowAPI.isFullScreen,
-  removeListeners: windowAPI.removeListeners
+  isFullScreen: windowAPI.isFullScreen
 });
 
 contextBridge.exposeInMainWorld('updateAPI', {
@@ -125,8 +123,7 @@ contextBridge.exposeInMainWorld('updateAPI', {
   onNotAvailable: updateAPI.onNotAvailable,
   onProgress: updateAPI.onProgress,
   onDownloaded: updateAPI.onDownloaded,
-  onError: updateAPI.onError,
-  removeListeners: updateAPI.removeListeners
+  onError: updateAPI.onError
 });
 
 contextBridge.exposeInMainWorld('metricsAPI', {
@@ -149,6 +146,5 @@ contextBridge.exposeInMainWorld('transcodeAPI', {
   onProgress: transcodeAPI.onProgress,
   onCompleted: transcodeAPI.onCompleted,
   onError: transcodeAPI.onError,
-  onCancelled: transcodeAPI.onCancelled,
-  removeListeners: transcodeAPI.removeListeners
+  onCancelled: transcodeAPI.onCancelled
 });

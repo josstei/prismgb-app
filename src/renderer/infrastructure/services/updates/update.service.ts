@@ -14,7 +14,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import {
   createPreloadEventBridge,
   type PreloadEventBridge
@@ -30,9 +30,6 @@ import type {
   UpdateProgressPayload,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
-
-// Re-export for backward compatibility
-export { UpdateState };
 
 interface UpdateEventBus {
   publish(event: string, payload?: unknown): void;

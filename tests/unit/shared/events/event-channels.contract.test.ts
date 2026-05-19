@@ -1,6 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { EventChannels as SharedEventChannels } from '@shared/events/event-channels.js';
-import { EventChannels as CompatibilityEventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { MainEventChannel } from '@main/infrastructure/events/event-channels.config.js';
 import eventManifest from '@shared/events/event.manifest.json';
@@ -25,10 +24,6 @@ function flattenEventValues(node: unknown): string[] {
 }
 
 describe('Shared event channel contract', () => {
-  it('keeps shared and compatibility exports aligned', () => {
-    expect(CompatibilityEventChannels).toEqual(SharedEventChannels);
-  });
-
   it('keeps all event channels unique', () => {
     const values = flattenEventValues(SharedEventChannels);
     expect(new Set(values).size).toBe(values.length);

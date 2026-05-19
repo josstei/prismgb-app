@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils.ts';
 
 vi.mock('@shared/lib/file-download.utils.ts', () => ({
@@ -29,7 +29,7 @@ describe('CaptureSaveService', () => {
 
     // Create mock SettingsService
     mockSettingsService = {
-      getRecordingFormat: vi.fn().mockReturnValue('webm')
+      getStringSetting: vi.fn().mockReturnValue('webm')
     };
 
     // Create mock TranscodeService
@@ -120,7 +120,7 @@ describe('CaptureSaveService', () => {
 
     describe('when format is webm', () => {
       it('should use direct save', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('webm');
+        mockSettingsService.getStringSetting.mockReturnValue('webm');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         const result = await service.saveRecording(mockBlob, 'recording.webm');
@@ -131,7 +131,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should log format preference', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('webm');
+        mockSettingsService.getStringSetting.mockReturnValue('webm');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         await service.saveRecording(mockBlob, 'recording.webm');
@@ -142,7 +142,7 @@ describe('CaptureSaveService', () => {
 
     describe('when transcoding is not available', () => {
       it('should use direct save regardless of format', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         mockTranscodeService.isAvailable.mockReturnValue(false);
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
@@ -156,7 +156,7 @@ describe('CaptureSaveService', () => {
 
     describe('when format requires transcoding', () => {
       it('should call transcodeService for mp4', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         await service.saveRecording(mockBlob, 'recording.webm');
@@ -170,7 +170,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should call transcodeService for mov', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mov');
+        mockSettingsService.getStringSetting.mockReturnValue('mov');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         await service.saveRecording(mockBlob, 'recording.webm');
@@ -184,7 +184,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should return transcoded true on success', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         const result = await service.saveRecording(mockBlob, 'recording.webm');
@@ -193,7 +193,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should handle transcode failure', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         mockTranscodeService.transcode.mockResolvedValue({
           success: false,
           error: 'FFmpeg not found'
@@ -213,7 +213,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should handle transcode exception', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         mockTranscodeService.transcode.mockRejectedValue(new Error('Network error'));
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
@@ -224,7 +224,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should extract base name correctly from filename', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         await service.saveRecording(mockBlob, 'my-recording-2024-01-15.webm');
@@ -238,7 +238,7 @@ describe('CaptureSaveService', () => {
       });
 
       it('should pass interrupted flag and inputArgs when recording was interrupted', async () => {
-        mockSettingsService.getRecordingFormat.mockReturnValue('mp4');
+        mockSettingsService.getStringSetting.mockReturnValue('mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
         await service.saveRecording(mockBlob, 'recording.webm', { interrupted: true });
