@@ -38,7 +38,7 @@ Hardening performed during audit:
 | --- | --- | --- |
 | Phase 0 adds tracked measurement command | `scripts/codebase-size-report.js`, `package.json` script `codebase:size` | Present. Current run exits 0 and reports tracked source separately from ignored artifacts. |
 | Phase 0 snapshots preload/API public behavior | `tests/unit/preload/preload-api.invoke-contract.test.js`, `tests/unit/preload/preload-api.contract.test.js` | Present. Covers invoke forwarding, response shapes, exposed names, declaration typing, and transcode status shape. |
-| Phase 0 snapshots non-IPC public surfaces | `tests/unit/codebase-reduction/non-ipc-baselines.test.js` | Present. Covers EventBus values, settings defaults, Chromatic metadata, shader equivalence, E2E selectors, stale E2E naming, and release targets. |
+| Phase 0 snapshots non-IPC public surfaces | `tests/unit/codebase-reduction/non-ipc-baselines.test.js` | Present. Covers EventBus values, settings defaults, Chromatic metadata, shader equivalence, E2E selectors, current E2E naming, and release targets. |
 | Phase 0 distinguishes source reduction from local artifact cleanup | `npm run codebase:size -- --json` output | Present. Current report separates tracked source, local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets. |
 | Phase 1 adds shared generator/schema/flattening helpers | `src/shared/contracts/contract-utils.ts`, `scripts/lib/*` | Present. Helpers are small and reused by drift/generation code. |
 | Phase 1 adds lifecycle primitive | `src/shared/base/disposable-bag.ts`, `tests/unit/codebase-reduction/phase1-foundations.test.js` | Present. Tests verify reverse-order, async-aware, idempotent cleanup and event listener cleanup. |
@@ -75,12 +75,12 @@ No current contract drift found after hardening.
 Explicit known drift at the Phase 1 audit point:
 
 - The former transcode status declaration mismatch was resolved during Phase 2; preload types and implementation now expose status without a job id argument.
-- E2E helper references to `window.deviceAPI?.onConnected` / `onDisconnected` remain captured as stale assumptions, while preload exposes `onDeviceConnected` / `onDeviceDisconnected`.
+- The former E2E helper references to obsolete device callback names were removed during the Phase 2 audit loop.
 - Settings default recording format remains `webm`, while `TRANSCODE_CONFIG.defaultFormat` remains `mp4`; both are intentionally preserved and tested.
 
 Resolved audit drift:
 
-- The plan's grounding snapshot was stale after Phase 1. It now explicitly describes the Phase 0 baseline rather than current post-Phase-1 totals.
+- The plan's grounding snapshot was outdated after Phase 1. It now explicitly describes the Phase 0 baseline rather than current post-Phase-1 totals.
 
 ## Design Assessment
 

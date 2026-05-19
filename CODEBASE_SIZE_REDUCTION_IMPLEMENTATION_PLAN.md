@@ -39,16 +39,16 @@ Last updated: 2026-05-19
   - Settings now use manifest-backed generic `getSetting()`/`setSetting()` and typed setting accessors; setting-specific getters/setters and manifest method mappings were removed.
   - Streaming adapter/renderer factories now use the shared typed registry primitive.
   - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
-  - Full-cutover audit after Phase 2 removed stale preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
+  - Full-cutover audit after Phase 2 removed outdated preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one outdated type-debt allowlist bucket for login-item handlers was removed.
   - `npm run test:run` passed with 150 test files and 2967 tests after the Phase 0/1 audit hardening test was added.
   - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
   - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
 - Verification for Phase 2:
   - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; stale type-debt allowlist buckets from migrated Phase 2 files were removed.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; outdated type-debt allowlist buckets from migrated Phase 2 files were removed.
   - `npm run test:run` passed with 154 test files and 2957 tests.
   - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
   - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
@@ -93,7 +93,7 @@ Tasks:
 
 - Add a tracked measurement script that reports tracked file counts, source LOC by area, duplicate shader status, IPC/event contract counts, test mock counts, and generated artifact locations.
 - Snapshot current public behavior before replacing hand-written plumbing: preload exposure names, IPC channels and response shapes, EventBus channel values, settings defaults, device capabilities, GPU pipeline outputs, Playwright selectors, and release artifacts.
-- Record high-risk current drift as explicit contract tests before centralization. Resolved examples include the former transcode status declaration mismatch, settings `webm` default versus transcode `mp4` default, and stale E2E `deviceAPI.onConnected` naming.
+- Record high-risk current drift as explicit contract tests before centralization. Resolved examples include the former transcode status declaration mismatch, settings `webm` default versus transcode `mp4` default, and the former E2E `deviceAPI.onConnected` naming mismatch.
 
 Success criteria:
 
@@ -651,8 +651,8 @@ Grounded repo truth:
 
 - Built-in device identity is in `src/shared/features/devices/device.registry.js`.
 - Chromatic constants are in `src/shared/features/devices/profiles/chromatic/device-chromatic.config.js`.
-- Renderer adapters, CSS, tests, and E2E helpers repeat VID/PID, native resolution, labels, and capability assumptions.
-- `tests/e2e/helpers/ipc-mock.js` uses stale mock VID/PID `0x1209`/`0xcafe`, while the production Chromatic IDs are `0x374e`/`0x0101`.
+- Renderer adapters, CSS, tests, and E2E helpers still repeat native resolution, labels, and capability assumptions.
+- `tests/e2e/helpers/ipc-mock.js` now derives Chromatic USB IDs from the shared E2E Chromatic specs.
 
 Long-term target:
 
@@ -672,7 +672,7 @@ Phases and tasks:
   - Generate read-only reports comparing generated values to current files.
 - Phase 2: Generate test fixtures and docs.
   - Generate unit fixtures, Playwright serialized fixture data, and feature-map device tables.
-  - Replace stale E2E data first because it already drifts from production.
+  - Replace E2E data first when it drifts from production.
 - Phase 3: Generate runtime metadata.
   - Generate `DeviceRegistry` entries, main profile factory data, renderer adapter metadata, media constraints, and CSS custom properties.
   - Keep hand-written behavior in adapters and profiles.
@@ -1358,7 +1358,7 @@ Grounded repo truth:
 
 Long-term target:
 
-- Type debt has an authoritative ratchet by directory with expiring allowlist entries, stale artifact checks, and policy forbidding new unchecked runtime JS.
+- Type debt has an authoritative ratchet by directory with expiring allowlist entries, out-of-date artifact checks, and policy forbidding new unchecked runtime JS.
 
 Reasoning:
 
@@ -1380,7 +1380,7 @@ Phases and tasks:
   - Track runtime JS count as a scorecard metric.
 - Phase 4: CI enforcement.
   - Fail on new debt outside allowlist.
-  - Fail on stale generated debt artifacts only when the command explicitly expects checked artifacts.
+  - Fail on out-of-date generated debt artifacts only when the command explicitly expects checked artifacts.
 
 Success criteria:
 
@@ -1558,11 +1558,11 @@ Grounded repo truth:
 
 - Testing Library is installed and configured.
 - Many component tests still manually append DOM, query selectors, and clear DOM.
-- `tests/utils/render-component.js` exists but is not broadly used or re-exported, and `tests/utils/dom-helpers.js` appears stale according to findings.
+- `tests/utils/render-component.js` exists but is not broadly used or re-exported; the unused DOM selector helper was deleted after confirming no consumers.
 
 Long-term target:
 
-- DOM tests use one `renderComponent()` helper, Testing Library `screen`/`within`, and `userEvent` or `fireEvent`. Stale helpers are deleted.
+- DOM tests use one `renderComponent()` helper, Testing Library `screen`/`within`, and `userEvent` or `fireEvent`. Unused helpers are deleted.
 
 Reasoning:
 
@@ -1572,7 +1572,7 @@ Phases and tasks:
 
 - Phase 0: Inventory DOM test helpers.
   - Find manual `document.body.innerHTML`, `querySelector`, `appendChild`, and cleanup patterns.
-  - Verify whether `tests/utils/dom-helpers.js` has any dynamic consumers.
+  - Verify whether DOM helper modules have dynamic consumers before deletion.
 - Phase 1: Standardize render helper.
   - Promote or replace `render-component.js` as `tests/support/render-component.ts`.
   - Re-export from canonical test support.
@@ -1580,7 +1580,7 @@ Phases and tasks:
 - Phase 2: Migrate high-value tests.
   - Convert settings, notes, toolbar, update section, and UI controller tests.
   - Use generated refs/actions as they become available.
-- Phase 3: Delete stale helpers.
+- Phase 3: Delete unused helpers.
   - Remove unused DOM helpers and manual cleanup utilities once tests use Testing Library cleanup.
 - Phase 4: Enforce query style.
   - Add review/lint guidance preferring role/text/label queries where available.
@@ -1588,7 +1588,7 @@ Phases and tasks:
 Success criteria:
 
 - DOM tests consistently render through one helper.
-- Stale helpers are deleted.
+- Unused helpers are deleted.
 - Tests assert user-visible behavior rather than implementation selectors where practical.
 
 Risks and mitigations:
@@ -1658,8 +1658,8 @@ Expected outcome:
 Grounded repo truth:
 
 - Unit mocks, fixtures, E2E helpers, and browser-injected mocks repeat Chromatic VID/PID, native resolution, labels, stream settings, and media constraints.
-- `tests/e2e/helpers/ipc-mock.js` is stale against production VID/PID and preload names.
-- `mock-chromatic.helper.js` stores original media-device listener methods, and findings note cleanup does not restore all listener patches.
+- `tests/e2e/helpers/ipc-mock.js` now uses production-aligned VID/PID values and current preload names.
+- `mock-chromatic.helper.js` now restores the media-device listener patches it stores during setup.
 
 Long-term target:
 
@@ -1688,7 +1688,7 @@ Phases and tasks:
 Success criteria:
 
 - Test Chromatic specs match production manifest by generation, not by copy/paste.
-- Stale `0x1209`/`0xcafe` and `onConnected`/`onDisconnected` assumptions are removed or explicitly test-only with rationale.
+- Copied USB IDs and obsolete device callback assumptions are removed or explicitly test-only with rationale.
 - E2E helper cleanup restores patched methods.
 
 Risks and mitigations:
@@ -1738,7 +1738,7 @@ Phases and tasks:
 Success criteria:
 
 - E2E specs use page objects/fixtures for common workflows.
-- `test:e2e` fails early if build output is missing or stale.
+- `test:e2e` fails early if build output is missing or out of date.
 - Generated settings/device data drives repetitive test cases.
 
 Risks and mitigations:
@@ -1771,7 +1771,7 @@ Phases and tasks:
 
 - Phase 0: Identify generated versus narrative doc content.
   - Mark sections in architecture docs and feature maps that should remain hand-authored versus generated.
-  - Add a docs drift check for known stale paths.
+  - Add a docs drift check for known removed paths.
 - Phase 1: Generate path tables.
   - Use architecture and feature manifests to generate path tables into docs between stable markers.
   - Keep narrative text hand-authored.
@@ -2094,7 +2094,7 @@ Check:
 
 Result:
 
-- The plan calls out `transcodeAPI.getStatus` argument drift, stale E2E device VID/PID and preload names, settings `webm` versus transcode `mp4`, ignored coverage/artifact noise, and event scope collisions.
+- The plan calls out the resolved `transcodeAPI.getStatus` argument drift, resolved E2E device VID/PID and preload-name drift, settings `webm` versus transcode `mp4`, ignored coverage/artifact noise, and event scope collisions.
 
 Refinement:
 
