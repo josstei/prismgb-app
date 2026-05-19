@@ -1,3 +1,5 @@
+import { expect } from 'vitest';
+
 function flattenStringLeaves(node, path = []) {
   if (typeof node === 'string') {
     return [{ path, value: node }];
@@ -37,4 +39,3 @@ export {
   flattenStringLeaves,
   flattenStringValues
 };
-

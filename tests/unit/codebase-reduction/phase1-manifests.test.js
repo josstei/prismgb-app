@@ -229,4 +229,14 @@ describe('Phase 1 manifests', () => {
     expect(vitestConfig).toContain("reportsDirectory: './artifacts/coverage'");
     expect(vitestConfig).not.toContain("reportsDirectory: './tests/coverage'");
   });
+
+  it('documents explicit Vitest project topology for browser, node, and GPU tests', () => {
+    const vitestConfig = fs.readFileSync(path.join(projectRoot, 'vitest.config.js'), 'utf8');
+
+    expect(vitestConfig).toContain("projects: [");
+    expect(vitestConfig).toContain("name: 'shared-node'");
+    expect(vitestConfig).toContain("name: 'renderer-happy-dom'");
+    expect(vitestConfig).toContain("name: 'main-preload'");
+    expect(vitestConfig).toContain("name: 'gpu-package'");
+  });
 });
