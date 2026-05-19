@@ -6,6 +6,25 @@ Source findings: `CODEBASE_SIZE_REDUCTION_FINDINGS.md`
 
 This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` into long-term implementation work. The target is not a round of small cleanup. The target is to make PrismGB increasingly contract-driven, generated, typed, measured, and enforceable so codebase size stays lower as the product grows.
 
+## Execution Status
+
+Last updated: 2026-05-19
+
+- Status: paused before Phase 1 execution.
+- Completed phase: Phase 0, Measurement And Compatibility Baselines.
+- Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
+- Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
+- Verification at Phase 0 commit:
+  - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`.
+  - `npm run test:run` passed with 147 test files and 2951 tests.
+  - `npm run codebase:size -- --json` exited 0 and reports tracked source separately from local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets.
+- Phase 0 delivered:
+  - `scripts/codebase-size-report.js` and `npm run codebase:size`.
+  - Compatibility baselines for preload/API invoke forwarding, IPC channel shape, EventBus channel values, settings defaults, device metadata, duplicated shader equivalence, E2E selector assumptions, release artifact targets, and known drift cases.
+  - `src/preload/apis/inline.preload-api.js`, a behavior-preserving extraction of inline preload APIs to make shell, metrics, GPU, and login-item compatibility testable.
+- Next phase when resumed: Phase 1, Foundational Utilities And Report-Only Manifests. No Phase 1 implementation has been committed.
+
 ## Grounding Snapshot
 
 The plan is grounded in the current repository state:
