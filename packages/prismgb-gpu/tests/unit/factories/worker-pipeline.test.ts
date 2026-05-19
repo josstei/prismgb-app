@@ -191,4 +191,53 @@ describe('createWorkerPipeline', () => {
 
     await workerPipeline.dispose();
   });
+
+  it('does not probe WebGL2 on the render canvas before WebGPU initialization', async () => {
+    const createPipelineSpy = vi
+      .spyOn(pipelineFactory, 'createPipeline')
+      .mockResolvedValue(mockPipeline);
+    const originalGpu = navigator.gpu;
+
+    Object.defineProperty(navigator, 'gpu', {
+      configurable: true,
+      value: {}
+    });
+
+    const getContext = vi.fn((contextType: string) => {
+      if (contextType === 'webgl2') {
+        throw new Error('render canvas must not be used for WebGL2 probing');
+      }
+      return null;
+    });
+    const canvas = {
+      width: 160,
+      height: 144,
+      getContext
+    } as unknown as RenderCanvas & { width: number; height: number };
+
+    try {
+      await createWorkerPipeline({
+        canvas,
+        nativeSize: [160, 144],
+        outputSize: [320, 288],
+        api: 'webgpu',
+        preset: BUILT_IN_PRESETS[0].preset
+      });
+    } finally {
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: originalGpu
+      });
+    }
+
+    expect(getContext).not.toHaveBeenCalledWith('webgl2', expect.anything());
+    expect(createPipelineSpy).toHaveBeenCalledWith(expect.objectContaining({
+      canvas,
+      preferredAPI: 'webgpu',
+      capabilities: expect.objectContaining({
+        webgpu: true,
+        preferredAPI: 'webgpu'
+      })
+    }));
+  });
 });

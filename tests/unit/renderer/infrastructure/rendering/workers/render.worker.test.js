@@ -149,6 +149,7 @@ describe('render worker', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -207,6 +208,58 @@ describe('render worker', () => {
     expect(mockPipeline.setBrightness).toHaveBeenCalled();
     expect(harness.postedMessages.at(-1)[0]).toMatchObject({
       type: WorkerResponseType.FRAME_RENDERED
+    });
+  });
+
+  it('reports interval fps from worker-rendered frames instead of pipeline instantaneous fps', async () => {
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    mockPipeline.getStats.mockReturnValueOnce({
+      fps: 999,
+      frameTime: 1,
+      framesRendered: 999,
+      framesDropped: 0
+    });
+
+    const harness = await loadWorkerHarness();
+
+    await sendWorkerMessage(
+      harness.scope,
+      createWorkerMessage(WorkerMessageType.INIT, {
+        canvas: { width: 1, height: 1 },
+        config: configPayload()
+      })
+    );
+
+    now = 100;
+    await sendWorkerMessage(
+      harness.scope,
+      createWorkerMessage(WorkerMessageType.FRAME, {
+        imageBitmap: createBitmap('frame-1'),
+        uniforms: validUniforms
+      })
+    );
+
+    now = 1100;
+    await sendWorkerMessage(
+      harness.scope,
+      createWorkerMessage(WorkerMessageType.FRAME, {
+        imageBitmap: createBitmap('frame-2'),
+        uniforms: validUniforms
+      })
+    );
+
+    const statsMessage = harness.postedMessages.find(
+      (entry) => entry[0]?.type === WorkerResponseType.STATS
+    );
+    expect(statsMessage?.[0]).toMatchObject({
+      type: WorkerResponseType.STATS,
+      payload: {
+        fps: 2,
+        frameTime: 0,
+        gpuTime: undefined,
+        uploadTime: undefined
+      }
     });
   });
 

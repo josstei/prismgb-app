@@ -44,6 +44,8 @@ const workerScope = self as WorkerScopeLike;
 let renderer: WorkerRenderer | null = null;
 let canvas: OffscreenCanvas | null = null;
 let isInitialized = false;
+let frameCount = 0;
+let totalFrameTime = 0;
 let lastStatsTime = performance.now();
 let captureRequested = false;
 let captureFrame: ImageBitmap | null = null;
@@ -161,6 +163,8 @@ async function handleInit(payload: InitPayload): Promise<void> {
 
     isInitialized = true;
     captureRequested = false;
+    frameCount = 0;
+    totalFrameTime = 0;
     lastStatsTime = performance.now();
 
     workerScope.postMessage(createWorkerResponse(WorkerResponseType.READY, {
@@ -216,6 +220,7 @@ function clearCaptureState(): void {
 async function handleFrame(payload: FramePayload): Promise<void> {
   if (!isInitialized || !renderer) return;
 
+  const frameStart = performance.now();
   const { imageBitmap, uniforms } = payload;
   try {
     renderer.render(imageBitmap, uniforms);
@@ -225,6 +230,9 @@ async function handleFrame(payload: FramePayload): Promise<void> {
       captureRequested = false;
     }
 
+    const frameTime = performance.now() - frameStart;
+    frameCount++;
+    totalFrameTime += frameTime;
     maybePostStats();
 
     workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
@@ -249,12 +257,17 @@ function maybePostStats(): void {
   }
 
   const stats = renderer.getStats();
+  const averageFrameTime = frameCount > 0
+    ? totalFrameTime / frameCount
+    : stats.frameTime;
   workerScope.postMessage(createWorkerResponse(WorkerResponseType.STATS, {
-    fps: stats.fps,
-    frameTime: Number(stats.frameTime.toFixed(2)),
+    fps: frameCount,
+    frameTime: Number(averageFrameTime.toFixed(2)),
     gpuTime: stats.gpuTime,
     uploadTime: stats.uploadTime
   }));
+  frameCount = 0;
+  totalFrameTime = 0;
   lastStatsTime = now;
 }
 
@@ -344,6 +357,9 @@ async function handleCapture(): Promise<void> {
 
 async function handleRelease(): Promise<void> {
   clearCaptureState();
+  frameCount = 0;
+  totalFrameTime = 0;
+  lastStatsTime = performance.now();
   if (renderer) {
     try {
       await renderer.release();
@@ -378,6 +394,8 @@ async function handleDestroy(): Promise<void> {
   renderer = null;
   isInitialized = false;
   canvas = null;
+  frameCount = 0;
+  totalFrameTime = 0;
   workerScope.postMessage(createWorkerResponse(WorkerResponseType.DESTROYED));
   workerScope.close();
 }

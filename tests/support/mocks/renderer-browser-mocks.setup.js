@@ -23,4 +23,3 @@ afterEach(() => {
     installers.pop().cleanup();
   }
 });
-
