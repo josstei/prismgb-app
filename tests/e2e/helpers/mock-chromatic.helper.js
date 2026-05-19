@@ -479,6 +479,12 @@ export async function cleanupMockDevice(page) {
       if (originals.getUserMedia) {
         navigator.mediaDevices.getUserMedia = originals.getUserMedia;
       }
+      if (originals.addEventListener) {
+        navigator.mediaDevices.addEventListener = originals.addEventListener;
+      }
+      if (originals.removeEventListener) {
+        navigator.mediaDevices.removeEventListener = originals.removeEventListener;
+      }
     }
 
     delete window.__mockChromaticState;
