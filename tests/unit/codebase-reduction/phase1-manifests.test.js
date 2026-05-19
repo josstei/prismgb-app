@@ -70,6 +70,19 @@ function collectHandlerArgumentSchemas() {
   ].map((descriptor) => [descriptor.channel, descriptor.argumentSchema || []]);
 }
 
+function collectRuntimeSourceFiles(rootDirectory) {
+  return fs.readdirSync(rootDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(rootDirectory, entry.name);
+    if (entry.isDirectory()) {
+      return collectRuntimeSourceFiles(absolutePath);
+    }
+    if (!/\.(js|ts)$/.test(entry.name)) {
+      return [];
+    }
+    return [absolutePath];
+  });
+}
+
 describe('Phase 1 manifests', () => {
   it('describes the current IPC channel and preload exposure surfaces', () => {
     expect(ipcManifest.mode).toBe('enforced');
@@ -89,6 +102,21 @@ describe('Phase 1 manifests', () => {
       loginItemAPI: ['get', 'set'],
       transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
     });
+  });
+
+  it('uses one import style for the runtime IPC channel contract', () => {
+    const runtimeFiles = [
+      ...collectRuntimeSourceFiles(path.join(projectRoot, 'src/main')),
+      ...collectRuntimeSourceFiles(path.join(projectRoot, 'src/preload'))
+    ];
+    const channelImportAttributes = runtimeFiles.flatMap((filePath) => {
+      const source = fs.readFileSync(filePath, 'utf8');
+      return [...source.matchAll(/import\s+[^;]*['"]@shared\/ipc\/channels\.json['"]([^;]*);/g)]
+        .map((match) => match[1].trim());
+    });
+
+    expect(channelImportAttributes.length).toBeGreaterThan(0);
+    expect(new Set(channelImportAttributes)).toEqual(new Set(['']));
   });
 
   it('keeps IPC manifest request schemas aligned with main handler descriptors', () => {
@@ -228,5 +256,15 @@ describe('Phase 1 manifests', () => {
 
     expect(vitestConfig).toContain("reportsDirectory: './artifacts/coverage'");
     expect(vitestConfig).not.toContain("reportsDirectory: './tests/coverage'");
+  });
+
+  it('documents explicit Vitest project topology for browser, node, and GPU tests', () => {
+    const vitestConfig = fs.readFileSync(path.join(projectRoot, 'vitest.config.js'), 'utf8');
+
+    expect(vitestConfig).toContain("projects: [");
+    expect(vitestConfig).toContain("name: 'shared-node'");
+    expect(vitestConfig).toContain("name: 'renderer-happy-dom'");
+    expect(vitestConfig).toContain("name: 'main-preload'");
+    expect(vitestConfig).toContain("name: 'gpu-package'");
   });
 });

@@ -73,13 +73,6 @@ describe('StreamingViewportService', () => {
       return {};
     });
 
-    // Mock ResizeObserver
-    global.ResizeObserver = vi.fn(function(callback) {
-      this.observe = vi.fn();
-      this.disconnect = vi.fn();
-      this.callback = callback;
-    });
-
     service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
   });
 
@@ -102,7 +95,7 @@ describe('StreamingViewportService', () => {
 
       service.initialize(mockSection, onResize);
 
-      expect(global.ResizeObserver).toHaveBeenCalled();
+      expect(service._resizeObserver).toBeTruthy();
       expect(service._resizeObserver.observe).toHaveBeenCalledWith(mockSection);
       expect(service._onResizeCallback).toBe(onResize);
     });
@@ -120,16 +113,17 @@ describe('StreamingViewportService', () => {
 
       service.initialize(null, onResize);
 
-      expect(global.ResizeObserver).not.toHaveBeenCalled();
+      expect(service._resizeObserver).toBeNull();
     });
 
     it('should not create observer if already exists', () => {
       const onResize = vi.fn();
-      service._resizeObserver = { observe: vi.fn() };
+      const existingObserver = { observe: vi.fn() };
+      service._resizeObserver = existingObserver;
 
       service.initialize(mockSection, onResize);
 
-      expect(global.ResizeObserver).not.toHaveBeenCalled();
+      expect(service._resizeObserver).toBe(existingObserver);
     });
   });
 

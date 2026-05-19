@@ -46,12 +46,6 @@
       "expiresOn": "2026-08-14"
     },
     {
-      "file": "src/renderer/application/di/register-ui.ts",
-      "code": "TS7031",
-      "maxCount": 8,
-      "expiresOn": "2026-08-14"
-    },
-    {
       "file": "src/renderer/application/orchestrators/app.orchestrator.ts",
       "code": "TS18046",
       "maxCount": 1,
@@ -787,12 +781,6 @@
       "file": "src/renderer/presentation/effects/capture.effect.ts",
       "code": "TS7006",
       "maxCount": 1,
-      "expiresOn": "2026-08-14"
-    },
-    {
-      "file": "src/renderer/presentation/effects/controls-auto-hide.effect.ts",
-      "code": "TS2531",
-      "maxCount": 4,
       "expiresOn": "2026-08-14"
     },
     {

@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-19
 
-- Status: Phase 2 implementation complete with full-cutover audit applied; paused for review before Phase 3.
-- Completed phase: Phase 2, Generated Runtime Adoption.
+- Status: Phase 3 implementation complete on branch `refactor/codebase-reduction-phase-3`; clean-break audit applied and ready for review before Phase 4.
+- Completed phase: Phase 3, High-Impact Consolidation.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -40,6 +40,16 @@ Last updated: 2026-05-19
   - Streaming adapter/renderer factories now use the shared typed registry primitive.
   - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
   - Full-cutover audit after Phase 2 removed outdated preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
+- Phase 3 delivered:
+  - Renderer worker internals now delegate rendering, capture, resize, stats, preset, brightness, and disposal to `@prismgb/gpu` through `createWorkerPipeline()`; renderer-private WebGPU/WebGL2 engines, optimization helpers, and duplicate shader trees were deleted.
+  - `@prismgb/gpu` now owns worker-safe WebGL2 probing, package shader ownership, and the worker pipeline API while preserving the worker protocol boundary in the renderer.
+  - Renderer DI now uses Awilix descriptor registration and typed container metadata; the custom `ServiceContainer` implementation and its old tests were deleted.
+  - Renderer descriptor registration now supports explicit class dependency metadata, and `uiEffects` declares `bodyClassManager` directly while keeping DOM element wiring delayed until `UIController` creates the elements.
+  - Presentation auto-hide behavior now uses `PresentationComponent` and `ActivityAutoHideController`, consolidating repeated listener, RAF, timer, and disposal behavior behind current UI boundaries.
+  - Vitest is split into explicit `shared-node`, `renderer-happy-dom`, `main-preload`, and `gpu-package` projects; browser API mocks moved to project-scoped installers and the lazy/global sandbox helpers were deleted.
+  - Runtime `channels.json` imports now use one import style across main/preload sources so Vite cannot emit mixed JSON import-attribute warnings during dev builds.
+  - The device preload factory now uses the current `getDeviceStatus`, `onDeviceConnected`, and `onDeviceDisconnected` names internally; the old listener method names are no longer public or internal compatibility surfaces.
+  - The stale Phase 0/1 audit artifact was replaced with `CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md`, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one outdated type-debt allowlist bucket for login-item handlers was removed.
@@ -53,11 +63,23 @@ Last updated: 2026-05-19
   - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
   - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
   - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
-- Next phase when resumed: Phase 3, High-Impact Consolidation. Pause here until Phase 2 review is accepted.
+- Verification for Phase 3:
+  - `npm run test:run -- tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 3 test files and 16 tests.
+  - `npm run test:run -- tests/unit/preload/preload-api.invoke-contract.test.js tests/unit/preload/preload-api.contract.test.js tests/unit/codebase-reduction/non-ipc-baselines.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 5 test files and 32 tests after the device preload clean-break cutover.
+  - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
+  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; strict app diagnostics are 660, tracked buckets are 135, and stale buckets are 0.
+  - `npm run test:run` passed with 155 test files and 2853 tests after dev-boot hardening checks were added.
+  - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 28 tests.
+  - `npm run codebase:phase1 -- --json` exited 0 and all manifest drift checks passed.
+  - `npm run codebase:size -- --json` exited 0 and reports WebGPU/WebGL2 shader status as package-owned with clean ownership.
+  - The focused Phase 0-3 audit loop was run 5 times; each pass verified manifest drift, size/shader ownership, obsolete source-name absence, deleted legacy-path absence, and the Phase 3 clean-break regression test.
+  - `npm run dev` was run until the renderer logged `Renderer application started successfully`; the prior `uiEffects -> elements` Awilix resolution failure is covered by container tests.
+  - Dev build output was rechecked after aligning `channels.json` imports; the prior Vite mixed JSON import-attribute warning is covered by the runtime IPC import-style test.
+- Next phase when resumed: Phase 4, Enforcement And Ratchets.
 
 ## Phase 0 Grounding Snapshot
 
-The plan was grounded in the Phase 0 repository state before Phase 1 added report-only manifests and shared foundations. Treat the counts and examples in this section as the baseline that Phase 0 measured, not as live post-Phase-1 totals:
+The plan was grounded in the Phase 0 repository state before Phase 1 added report-only manifests and shared foundations. Treat the counts and examples in this section as the baseline that Phase 0 measured, not as live post-Phase-1 totals. The "Grounded repo truth" blocks in each finding are likewise original planning baselines; current state is recorded in the execution status above and the current audit report:
 
 - The root package is an Electron/Vite app with npm workspaces and `@prismgb/gpu` under `packages/prismgb-gpu`.
 - `package.json` already includes `awilix`, `eventemitter3`, `joi`, Vitest, Playwright, Testing Library, Vite, Electron, and Electron Builder.
@@ -170,6 +192,7 @@ Tasks:
 - Replace custom renderer DI and registry patterns with Awilix or generated metadata.
 - Introduce presentation lifecycle/controller primitives and migrate duplicated UI patterns.
 - Split test projects and centralize mocks/fixtures.
+- Add a dev-boot smoke check after renderer DI, preload, Vite, or test-topology changes: start `npm run dev`, wait for `Renderer application started successfully`, and fail on `[Renderer ERROR]`, Awilix missing-token resolution errors, or Vite JSON import-attribute warnings.
 
 Success criteria:
 
@@ -177,6 +200,7 @@ Success criteria:
 - Renderer DI has one container model and explicit factory/class semantics.
 - Presentation components share lifecycle/disposal primitives.
 - Test setup becomes explicit and project-scoped instead of globally eager.
+- The renderer boots in the dev app without missing DI tokens, renderer initialization failures, or contract-import build warnings.
 
 Risks and mitigations:
 
@@ -196,12 +220,14 @@ Tasks:
 - Add lint/scorecard rules for no new hand-maintained contracts, no duplicate shader files, no new JS plus `.d.ts` twins, no inline test mocks for canonical dependencies, and no new aliases/platform entries outside manifests.
 - Ratchet type strictness and coverage by directory/project.
 - Move generated artifact outputs to ignored `artifacts/**` locations and add cleanup commands.
+- Promote the dev-boot smoke check into CI or a local release-preflight command that starts `npm run dev`, captures startup output, asserts renderer initialization success, and tears down Vite/Electron reliably.
 
 Success criteria:
 
 - CI rejects the duplication patterns this plan removes.
 - Type and coverage debt decline monotonically by area.
 - Generated artifacts are reproducible and not mixed into source directories unless intentionally tracked.
+- The local/CI preflight catches renderer startup regressions and dev-build contract warnings before a PR can be marked ready.
 
 Risks and mitigations:
 
@@ -255,12 +281,14 @@ Phases and tasks:
 - Phase 4: Delete duplicate contracts.
   - Delete or reduce hand-maintained channel wrappers, preload global declarations, regex contract tests, and manual validator lists only after generated parity is green.
   - Add CI drift check: no channel or preload API exists outside the contract.
+  - Add a runtime import-style check for generated JSON contracts so `channels.json` cannot be imported with mixed attributes across main/preload builds.
 
 Success criteria:
 
 - Every exposed preload method, channel, validator, type, and handler descriptor can be traced to one contract entry.
 - The generated tests assert method names, argument forwarding, schemas, response shapes, and channel references across delegated preload API modules.
 - Existing public preload API names remain stable unless a separately versioned replacement is approved.
+- Dev builds do not emit Vite warnings about inconsistent JSON import attributes for the IPC contract.
 
 Risks and mitigations:
 
@@ -560,6 +588,7 @@ Phases and tasks:
 
 - Phase 0: Baseline container behavior.
   - Add tests for duplicate registration, missing dependency errors, circular dependencies, factory versus class registration, disposal, and token map typing.
+  - Add tests for class descriptors with explicit dependency lists so constructors that destructure optional fields do not accidentally resolve those optional field names as container tokens.
   - Inventory all renderer registration modules and dependency lists.
 - Phase 1: Choose container strategy.
   - Prefer Awilix if browser bundle size and runtime behavior are acceptable.
@@ -568,17 +597,20 @@ Phases and tasks:
   - Define descriptors with token, lifecycle, constructor/factory, and deps.
   - Generate `RendererContainerMap` from descriptors.
   - Convert infrastructure registrations first, then orchestrators.
+  - Add a renderer-container regression that resolves `uiEffects` without a container-level `elements` token and keeps DOM element assignment owned by `UIController`.
 - Phase 3: Delete redundant registration code.
   - Remove repeated function parameter/object/dependency array patterns.
   - Keep bootstrap module boundaries, but make them import descriptor arrays.
 - Phase 4: Enforce generated registration ownership.
   - Add lint/scorecard rule that new renderer services require metadata registration.
+  - Add the dev-boot smoke check to the renderer DI gate so missing-token errors are caught in the real Vite/Electron runtime, not only in unit tests.
 
 Success criteria:
 
 - Renderer has one container implementation and explicit factory/class semantics.
 - Registration descriptors are the source of runtime registration and token typing.
 - Existing tests pass and container error messages remain useful.
+- The dev app boots through renderer initialization without Awilix resolution errors such as `uiEffects -> elements`.
 
 Risks and mitigations:
 
@@ -1481,14 +1513,17 @@ Phases and tasks:
 - Phase 3: Add main/preload report-only coverage.
   - Include main/preload with realistic mocks and report-only thresholds first.
   - Wire GPU package tests into root quality gate.
+  - Add a local dev-runtime smoke check for Vite/Electron startup that asserts `Renderer application started successfully` and fails on renderer console errors.
 - Phase 4: Ratchet thresholds.
   - Add per-project thresholds and exclude performance benchmarks from default runs.
+  - Run the dev-runtime smoke check in CI or release preflight after project-split changes, especially when DI, preload, or Vite import behavior changes.
 
 Success criteria:
 
 - Default tests run the right environment per code area.
 - GPU package tests are part of the root quality gate.
 - Coverage output no longer pollutes `tests/coverage`.
+- The test plan includes a real dev startup check, not only unit/project tests, so renderer boot failures are caught before review.
 
 Risks and mitigations:
 
@@ -1962,6 +1997,9 @@ Expected outcome:
 
 - Risk: generated tests compare generated outputs to generated sources.
   Mitigation: keep black-box runtime tests that instantiate actual modules, inspect actual exports, and exercise real registration paths.
+
+- Risk: unit tests pass while the Vite/Electron dev runtime fails during startup.
+  Mitigation: add a dev-runtime smoke check that starts `npm run dev`, waits for renderer initialization success, fails on renderer console errors and Vite contract-import warnings, and always tears down the dev server and Electron process.
 
 - Risk: dependency additions offset code-size reduction.
   Mitigation: prefer existing dependencies (`awilix`, `eventemitter3`, `joi`, Testing Library, Playwright) unless a new library deletes meaningful local code and improves correctness.

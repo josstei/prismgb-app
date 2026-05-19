@@ -15,8 +15,8 @@ type EventTargetLike = {
   removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
 };
 
-type TimerHandle = ReturnType<typeof setTimeout>;
-type AnimationFrameHandle = number;
+type TimerHandle = ReturnType<typeof setTimeout> | number;
+type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
 
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
@@ -124,4 +124,3 @@ export class DisposableBag {
     await this.clear();
   }
 }
-

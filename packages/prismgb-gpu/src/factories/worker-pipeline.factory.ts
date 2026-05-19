@@ -20,7 +20,22 @@ export interface WorkerPipeline {
   setBrightness: (value: number) => void;
 }
 
-function detectCanvasWebGL2(canvas: RenderCanvas): { supported: boolean; info?: WebGL2Info } {
+function createWebGL2ProbeCanvas(): RenderCanvas | null {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    return new OffscreenCanvas(1, 1);
+  }
+
+  if (typeof document !== 'undefined') {
+    return document.createElement('canvas');
+  }
+
+  return null;
+}
+
+function detectCanvasWebGL2(
+  canvas: RenderCanvas,
+  options: { releaseContext: boolean }
+): { supported: boolean; info?: WebGL2Info } {
   try {
     const gl = canvas.getContext('webgl2', {
       alpha: false,
@@ -36,7 +51,7 @@ function detectCanvasWebGL2(canvas: RenderCanvas): { supported: boolean; info?: 
     }
 
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    return {
+    const result = {
       supported: true,
       info: {
         renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'worker-canvas',
@@ -44,6 +59,11 @@ function detectCanvasWebGL2(canvas: RenderCanvas): { supported: boolean; info?: 
         maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE)
       }
     };
+
+    if (options.releaseContext) {
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+    return result;
   } catch {
     return { supported: false };
   }
@@ -54,10 +74,12 @@ function isOffscreenCanvas(canvas: RenderCanvas): boolean {
 }
 
 function createWorkerCapabilities(canvas: RenderCanvas, preferredAPI?: RenderAPI): IPipelineCapabilities {
-  const webgl2Result = preferredAPI !== 'canvas2d'
-    ? detectCanvasWebGL2(canvas)
-    : { supported: false };
   const webgpuSupported = preferredAPI === 'webgpu' && typeof navigator !== 'undefined' && Boolean(navigator.gpu);
+  const disposableWebGL2ProbeCanvas = webgpuSupported ? createWebGL2ProbeCanvas() : null;
+  const webgl2ProbeCanvas = disposableWebGL2ProbeCanvas ?? (webgpuSupported ? null : canvas);
+  const webgl2Result = preferredAPI !== 'canvas2d' && webgl2ProbeCanvas
+    ? detectCanvasWebGL2(webgl2ProbeCanvas, { releaseContext: Boolean(disposableWebGL2ProbeCanvas) })
+    : { supported: false };
   const resolvedPreferredAPI = preferredAPI
     ?? (webgpuSupported ? 'webgpu' : webgl2Result.supported ? 'webgl2' : 'canvas2d');
 

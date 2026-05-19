@@ -48,7 +48,7 @@ export { buildUniforms, calculateScaleFactor } from './application/uniform-build
 export type { UniformBuildContext } from './application/uniform-builder';
 
 // Worker API (worker-safe rendering API)
-export { createWorkerPipeline, type CreateWorkerPipelineOptions } from './factories';
+export { createWorkerPipeline, type CreateWorkerPipelineOptions, type WorkerPipeline } from './factories';
 
 // Pipeline Factory (main entry point)
 export { createPipeline, type CreatePipelineOptions } from './factories';

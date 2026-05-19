@@ -53,8 +53,11 @@ describe('RENDER_PASS_HELPERS', () => {
       return new RegExp(`setUniform\\w*\\(\\s*['\\\"]${escaped}['\\\"]`, 'g');
     };
 
+    const packageRoot = process.cwd().endsWith(join('packages', 'prismgb-gpu'))
+      ? process.cwd()
+      : join(process.cwd(), 'packages/prismgb-gpu');
     const source = readFileSync(
-      join(process.cwd(), 'src/infrastructure/webgl2/webgl2-pipeline.ts'),
+      join(packageRoot, 'src/infrastructure/webgl2/webgl2-pipeline.ts'),
       'utf8'
     );
 

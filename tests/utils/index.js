@@ -1,39 +1,12 @@
 /**
- * Test Utils Index
+ * Test Utilities
  *
- * Central export for all test utilities.
+ * General helpers for unit tests that are process-agnostic.
  */
 
-// Global sandbox utilities
-export {
-  createGlobalSandbox,
-  createDocumentSandbox,
-  createNavigatorSandbox,
-  createPerformanceSandbox,
-  useSandbox,
-} from './global-sandbox.js';
-
-// Lazy mock utilities
-export {
-  lazyMock,
-  clearMock,
-  clearAllMocks,
-  resetAllMocks,
-  getCacheSize,
-  isMockCached,
-  getMediaDevicesMock,
-  getCanvasMock,
-  getAnimationFrameMock,
-  getVideoElementMock,
-  getPerformanceMock,
-  getMediaStreamMock,
-  getMediaStreamTrackMock,
-  installCleanupHooks,
-  runCleanup,
-} from './lazy-mocks.js';
-
 /**
- * Wait for a condition to be true
+ * Wait for a condition to be true.
+ *
  * @param {Function} condition - Condition function (can be async)
  * @param {Object} options - Wait options
  * @returns {Promise<boolean>}
@@ -42,16 +15,17 @@ export async function waitFor(condition, { timeout = 5000, interval = 50 } = {})
   const start = Date.now();
   while (Date.now() - start < timeout) {
     if (await condition()) return true;
-    await new Promise(r => setTimeout(r, interval));
+    await new Promise((r) => setTimeout(r, interval));
   }
   throw new Error(`waitFor timeout after ${timeout}ms`);
 }
 
 /**
- * Create a deferred promise for async testing
+ * Create a deferred promise for async testing.
  */
 export function createDeferred() {
-  let resolve, reject;
+  let resolve;
+  let reject;
   const promise = new Promise((res, rej) => {
     resolve = res;
     reject = rej;
@@ -60,21 +34,21 @@ export function createDeferred() {
 }
 
 /**
- * Delay execution for specified milliseconds
+ * Delay execution for specified milliseconds.
  */
 export function delay(ms) {
-  return new Promise(r => setTimeout(r, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Flush all pending promises
+ * Flush all pending promises.
  */
 export function flushPromises() {
-  return new Promise(resolve => setImmediate(resolve));
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 /**
- * Measure execution time of a function
+ * Measure execution time of a function.
  */
 export async function measureTime(fn, iterations = 1) {
   const times = [];
@@ -96,7 +70,7 @@ export async function measureTime(fn, iterations = 1) {
 }
 
 /**
- * Creates a mock event
+ * Creates a mock event.
  */
 export function createMockEvent(type, props = {}) {
   return {

@@ -11,7 +11,6 @@ describe('NotesPanelLayoutComponent', () => {
   let panelElement;
   let toolbarElement;
   let streamContainer;
-  let originalResizeObserver;
 
   beforeEach(() => {
     mockLogger = { debug: vi.fn(), warn: vi.fn() };
@@ -28,14 +27,11 @@ describe('NotesPanelLayoutComponent', () => {
       height: 40
     });
 
-    originalResizeObserver = global.ResizeObserver;
     component = new NotesPanelLayoutComponent({ logger: mockLogger });
   });
 
   afterEach(() => {
     component.dispose();
-    global.ResizeObserver = originalResizeObserver;
-    vi.restoreAllMocks();
   });
 
   it('initializes and updates position when required elements exist', () => {
@@ -61,19 +57,13 @@ describe('NotesPanelLayoutComponent', () => {
   });
 
   it('disconnects resize observer on dispose', () => {
-    const disconnect = vi.fn();
-    const observe = vi.fn();
-    function ResizeObserverMock(callback) {
-      this.callback = callback;
-      this.observe = observe;
-      this.disconnect = disconnect;
-    }
-    global.ResizeObserver = ResizeObserverMock;
-
     component.initialize({ panelElement, toolbarElement, streamContainer });
+    const observer = component._resizeObserver;
     component.dispose();
 
-    expect(disconnect).toHaveBeenCalled();
+    expect(observer).toBeTruthy();
+    expect(observer.disconnect).toHaveBeenCalled();
+    expect(component._resizeObserver).toBeNull();
   });
 
   it('clears pending resize timers on dispose', () => {

@@ -97,9 +97,9 @@ window.addEventListener('beforeunload', () => {
 });
 
 contextBridge.exposeInMainWorld('deviceAPI', {
-  getDeviceStatus: deviceAPI.getStatus,
-  onDeviceConnected: deviceAPI.onConnected,
-  onDeviceDisconnected: deviceAPI.onDisconnected
+  getDeviceStatus: deviceAPI.getDeviceStatus,
+  onDeviceConnected: deviceAPI.onDeviceConnected,
+  onDeviceDisconnected: deviceAPI.onDeviceDisconnected
 });
 
 contextBridge.exposeInMainWorld('shellAPI', {

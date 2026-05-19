@@ -5,64 +5,55 @@ import { DeviceConnectionService } from '@renderer/infrastructure/services/devic
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
 import { DeviceService } from '@renderer/infrastructure/services/devices/device.service';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service';
+import {
+  defineRendererDescriptors,
+  registerRendererDescriptors
+} from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
-export function registerDevices(container: RegistrableContainer<RendererContainerMap>): void {
-  container.registerSingleton(
-    'adapterFactory',
-    function (eventBus, loggerFactory, browserMediaService) {
+const rendererDeviceDescriptors = defineRendererDescriptors<RendererContainerMap>([
+  {
+    token: 'adapterFactory',
+    kind: 'function',
+    dependencies: ['eventBus', 'loggerFactory', 'browserMediaService'],
+    resolver: (dependencies: any) => {
+      const { eventBus, loggerFactory, browserMediaService } = dependencies as any;
       const adapterClasses = new Map([
         ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
       const adapterFactory = new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
       adapterFactory.initialize();
       return adapterFactory;
-    },
-    ['eventBus', 'loggerFactory', 'browserMediaService']
-  );
+    }
+  },
+  {
+    token: 'deviceStorageService',
+    kind: 'class',
+    resolver: DeviceStorageService
+  },
+  {
+    token: 'deviceConnectionService',
+    kind: 'class',
+    resolver: DeviceConnectionService
+  },
+  {
+    token: 'deviceMediaService',
+    kind: 'class',
+    resolver: DeviceMediaService
+  },
+  {
+    token: 'deviceService',
+    kind: 'class',
+    resolver: DeviceService
+  },
+  {
+    token: 'deviceOperationSequencer',
+    kind: 'class',
+    resolver: DeviceOperationSequencerService
+  }
+]);
 
-  container.registerSingleton(
-    'deviceStorageService',
-    function (storageService, loggerFactory) {
-      return new DeviceStorageService({ storageService, loggerFactory });
-    },
-    ['storageService', 'loggerFactory']
-  );
-
-  container.registerSingleton(
-    'deviceConnectionService',
-    function (eventBus, loggerFactory, deviceStatusProvider) {
-      return new DeviceConnectionService({ eventBus, loggerFactory, deviceStatusProvider });
-    },
-    ['eventBus', 'loggerFactory', 'deviceStatusProvider']
-  );
-
-  container.registerSingleton(
-    'deviceMediaService',
-    function (eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService, deviceChangeDebounceAdapter) {
-      return new DeviceMediaService({ eventBus, loggerFactory, browserMediaService, deviceConnectionService, deviceStorageService, deviceChangeDebounceAdapter });
-    },
-    ['eventBus', 'loggerFactory', 'browserMediaService', 'deviceConnectionService', 'deviceStorageService', 'deviceChangeDebounceAdapter']
-  );
-
-  container.registerSingleton(
-    'deviceService',
-    function (eventBus, loggerFactory, deviceStatusProvider, deviceConnectionService, deviceStorageService, deviceMediaService) {
-      return new DeviceService({ eventBus, loggerFactory, deviceStatusProvider, deviceConnectionService, deviceStorageService, deviceMediaService });
-    },
-    ['eventBus', 'loggerFactory', 'deviceStatusProvider', 'deviceConnectionService', 'deviceStorageService', 'deviceMediaService']
-  );
-
-  container.registerSingleton(
-    'deviceOperationSequencer',
-    function(deviceService, eventBus, loggerFactory) {
-      return new DeviceOperationSequencerService({
-        deviceService,
-        eventBus,
-        loggerFactory
-      });
-    },
-    ['deviceService', 'eventBus', 'loggerFactory']
-  );
+export function registerDevices(container: RegistrableContainer<RendererContainerMap>): void {
+  registerRendererDescriptors(container, rendererDeviceDescriptors);
 }

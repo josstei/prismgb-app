@@ -2,7 +2,12 @@
  * Renderer DI container composition shell.
  */
 
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
+import {
+  asValue,
+  createContainer,
+  InjectionMode,
+} from '@renderer/infrastructure/di/renderer-container.factory.js';
+import type { AwilixContainer } from 'awilix';
 import { PresetRegistry } from '@prismgb/gpu';
 import { registerInfrastructure } from '@renderer/application/di/register-infrastructure';
 import { registerDevices } from '@renderer/application/di/register-devices';
@@ -14,10 +19,12 @@ import type { RendererContainerMap } from '@renderer/application/di/renderer-con
 
 PresetRegistry.setDefault('vibrant');
 
-type RendererServiceContainer = ServiceContainer<RendererContainerMap>;
+type RendererServiceContainer = AwilixContainer<RendererContainerMap>;
 
 function createRendererContainer(): RendererServiceContainer {
-  const container = new ServiceContainer<RendererContainerMap>();
+  const container = createContainer<RendererContainerMap>({
+    injectionMode: InjectionMode.PROXY
+  });
 
   registerInfrastructure(container);
   registerDevices(container);
