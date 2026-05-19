@@ -15,6 +15,7 @@ import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisit
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
 
@@ -49,6 +50,7 @@ export class StreamingAdapterFactory {
   commonDependencies: DependencyBag;
   adapterRegistry: Map<string, AdapterConstructor>;
   metadataRegistry: Map<string, AdapterMetadata>;
+  _adapterRegistry: TypedRegistryFactory<AdapterConstructor, AdapterMetadata>;
   initialized: boolean;
 
   /**
@@ -79,9 +81,9 @@ export class StreamingAdapterFactory {
       browserMediaService: this.browserMediaService
     };
 
-    // Adapter and metadata registries (previously in StreamingAdapterFactory)
-    this.adapterRegistry = new Map();
-    this.metadataRegistry = new Map();
+    this._adapterRegistry = new TypedRegistryFactory();
+    this.adapterRegistry = this._adapterRegistry.getValueMap();
+    this.metadataRegistry = this._adapterRegistry.getMetadataMap();
 
     // Track initialization
     this.initialized = false;
@@ -123,8 +125,8 @@ export class StreamingAdapterFactory {
     let registeredCount = 0;
 
     // Collect all devices with adapter modules
-    const devices = [];
-    forEachDeviceWithModule('adapterModule', (device) => {
+    const devices: Array<{ id: string; name: string }> = [];
+    forEachDeviceWithModule('adapterModule', (device: { id: string; name: string }) => {
       devices.push(device);
     }, { logger: this.logger });
 
@@ -162,15 +164,28 @@ export class StreamingAdapterFactory {
    * @private
    */
   _register(deviceType: string, AdapterClass: AdapterConstructor, metadata: AdapterMetadata = {}) {
-    this.adapterRegistry.set(deviceType, AdapterClass);
-    this.metadataRegistry.set(deviceType, {
+    const normalizedMetadata = {
       deviceType,
       requiresIPC: metadata.requiresIPC || false,
       requiresProfile: metadata.requiresProfile || false,
       dependencies: metadata.dependencies || [],
       capabilities: metadata.capabilities || {},
       ...metadata
+    };
+
+    this._adapterRegistry.registerValue(deviceType, AdapterClass, normalizedMetadata);
+  }
+
+  _buildAdapter(deviceType: string, dependencies: DependencyBag) {
+    const AdapterClass = this._adapterRegistry.create(deviceType);
+
+    const metadata = this._adapterRegistry.getMetadata(deviceType) || {};
+    const resolvedDeps = this._resolveDependencies(metadata, {
+      logger: this.loggerFactory.create(deviceType),
+      ...dependencies
     });
+
+    return new AdapterClass(resolvedDeps);
   }
 
   /**
@@ -183,18 +198,16 @@ export class StreamingAdapterFactory {
 
     this.logger.debug(`Creating adapter for device type: ${deviceType}`);
 
-    const AdapterClass = this.adapterRegistry.get(deviceType);
+    let AdapterClass;
+    try {
+      AdapterClass = this._adapterRegistry.create(deviceType);
+    } catch {
+      throw new Error(`No adapter registered for device type: ${deviceType}`);
+    }
     if (!AdapterClass) {
       throw new Error(`No adapter registered for device type: ${deviceType}`);
     }
-
-    const metadata = (this.metadataRegistry.get(deviceType) || {}) as AdapterMetadata;
-    const resolvedDeps = this._resolveDependencies(metadata, {
-      logger: this.loggerFactory.create(deviceType),
-      ...dependencies
-    });
-
-    return new AdapterClass(resolvedDeps);
+    return this._buildAdapter(deviceType, dependencies);
   }
 
   /**
@@ -264,38 +277,36 @@ export class StreamingAdapterFactory {
   /**
    * Check if adapter exists for device type
    */
-  hasAdapter(deviceType) {
-    return this.adapterRegistry.has(deviceType);
+  hasAdapter(deviceType: string) {
+    return this._adapterRegistry.has(deviceType);
   }
 
   /**
    * Get all registered device types
    */
   getRegisteredTypes() {
-    return Array.from(this.adapterRegistry.keys());
+    return this._adapterRegistry.listIds();
   }
 
   /**
    * Get adapter metadata
    */
-  getMetadata(deviceType) {
-    return this.metadataRegistry.get(deviceType);
+  getMetadata(deviceType: string) {
+    return this._adapterRegistry.getMetadata(deviceType);
   }
 
   /**
    * Unregister an adapter
    */
-  unregister(deviceType) {
-    this.adapterRegistry.delete(deviceType);
-    this.metadataRegistry.delete(deviceType);
+  unregister(deviceType: string) {
+    this._adapterRegistry.unregister(deviceType);
   }
 
   /**
    * Clear all registrations
    */
   clear() {
-    this.adapterRegistry.clear();
-    this.metadataRegistry.clear();
+    this._adapterRegistry.clear();
     this.initialized = false;
   }
 }

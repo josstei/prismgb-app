@@ -14,7 +14,3 @@ export interface Logger {
 export interface LoggerFactory {
   create(name: string): Logger;
 }
-
-// Backward-compatible aliases while legacy imports are migrated.
-export type ILogger = Logger;
-export type ILoggerFactory = LoggerFactory;

@@ -78,7 +78,7 @@ describe('check-layer-boundaries script', () => {
     });
   });
 
-  it('flags presentation imports of infrastructure event-channel constants', () => {
+  it('flags presentation imports of renderer infrastructure services', () => {
     const report = runFixture('presentation-imports-infra-allowed');
     expect(report.violations).toHaveLength(1);
     expect(report.violations[0]).toMatchObject({

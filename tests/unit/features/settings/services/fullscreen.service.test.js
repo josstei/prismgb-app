@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('SettingsFullscreenService', () => {
   let service;

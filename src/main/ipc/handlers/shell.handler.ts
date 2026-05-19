@@ -5,31 +5,34 @@
 
 import type { IpcMainInvokeEvent, Shell } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
-}
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface ShellHandlerDependencies {
-  registerHandler: RegisterHandler;
   shell: Shell;
   logger: Logger;
 }
 
-export function registerShellHandlers({ registerHandler, shell, logger }: ShellHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.SHELL.OPEN_EXTERNAL, async (event: IpcMainInvokeEvent, url: string) => {
-    try {
+export const shellHandlerDescriptors = defineIpcHandlers<ShellHandlerDependencies>([
+  {
+    channel: IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
+    dependencyTokens: ['shell', 'logger'],
+    argumentSchema: ['url:string'],
+    responseMode: 'result-envelope',
+    async invoke({ shell }: ShellHandlerDependencies, _event: IpcMainInvokeEvent, url: string) {
       const parsedUrl = new URL(url);
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
         throw new Error('Only http and https URLs are allowed');
       }
+
       await shell.openExternal(url);
       return { success: true } as ShellOpenExternalResponse;
-    } catch (error) {
+    },
+    mapError: (error, { logger }) => {
       logger.error('Failed to open external URL:', error);
-      return { success: false, error: (error as Error).message } as ShellOpenExternalResponse;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as ShellOpenExternalResponse;
     }
-  });
-}
+  }
+]);

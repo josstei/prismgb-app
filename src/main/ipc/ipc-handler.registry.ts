@@ -14,15 +14,16 @@ import type {
   TranscodeStatusResponse,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
+import { registerIpcHandlerDescriptors } from './ipc-handler.descriptor.js';
 import {
-  registerDeviceHandlers,
-  registerUpdateHandlers,
-  registerShellHandlers,
-  registerPerformanceHandlers,
-  registerWindowHandlers,
-  registerTranscodeHandlers,
-  registerGpuHandlers,
-  registerLoginItemHandlers
+  deviceHandlerDescriptors,
+  updateHandlerDescriptors,
+  shellHandlerDescriptors,
+  performanceHandlerDescriptors,
+  windowHandlerDescriptors,
+  transcodeHandlerDescriptors,
+  gpuHandlerDescriptors,
+  loginItemHandlerDescriptors
 } from './handlers/index.js';
 
 interface DeviceService {
@@ -55,7 +56,7 @@ interface TranscodeService {
     interrupted: boolean;
   }): Promise<TranscodeStartResponse>;
   cancel(jobId: string): TranscodeCancelResponse;
-  getStatus(jobId?: string): TranscodeStatusResponse;
+  getStatus(): TranscodeStatusResponse;
 }
 
 export interface IpcHandlerRegistryDependencies {
@@ -75,6 +76,7 @@ class IpcHandlerRegistry extends BaseService {
   private readonly transcodeService: TranscodeService;
   private readonly loginItemService: LoginItemService;
   private _registeredChannels: string[];
+  private readonly _registeredChannelsSet: Set<string>;
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loginItemService', 'loggerFactory'], 'IpcHandlerRegistry');
@@ -84,6 +86,7 @@ class IpcHandlerRegistry extends BaseService {
     this.transcodeService = dependencies.transcodeService;
     this.loginItemService = dependencies.loginItemService;
     this._registeredChannels = [];
+    this._registeredChannelsSet = new Set<string>();
   }
 
   /**
@@ -91,53 +94,46 @@ class IpcHandlerRegistry extends BaseService {
    */
   registerHandlers(): void {
     this.logger.info('Registering IPC handlers');
+    const registerHandler = this._registerHandler.bind(this);
 
-    registerDeviceHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       deviceService: this.deviceService,
       logger: this.logger
-    });
+    }, deviceHandlerDescriptors);
 
-    registerShellHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       shell,
       logger: this.logger
-    });
+    }, shellHandlerDescriptors);
 
-    registerUpdateHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       updateService: this.updateService,
       logger: this.logger
-    });
+    }, updateHandlerDescriptors);
 
-    registerPerformanceHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       app,
       logger: this.logger
-    });
+    }, performanceHandlerDescriptors);
 
-    registerWindowHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       windowService: this.windowService,
       logger: this.logger
-    });
+    }, windowHandlerDescriptors);
 
-    registerTranscodeHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       transcodeService: this.transcodeService,
       logger: this.logger
-    });
+    }, transcodeHandlerDescriptors);
 
-    registerGpuHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       logger: this.logger
-    });
+    }, gpuHandlerDescriptors);
 
-    registerLoginItemHandlers({
-      registerHandler: this._registerHandler.bind(this),
+    registerIpcHandlerDescriptors(registerHandler, {
       loginItemService: this.loginItemService,
       logger: this.logger
-    });
+    }, loginItemHandlerDescriptors);
   }
 
   /**
@@ -145,15 +141,21 @@ class IpcHandlerRegistry extends BaseService {
    */
   dispose(): void {
     this.logger.info('Removing IPC handlers');
-    this._registeredChannels.forEach(channel => {
+    [...this._registeredChannels].forEach(channel => {
       ipcMain.removeHandler(channel);
     });
     this._registeredChannels = [];
+    this._registeredChannelsSet.clear();
   }
 
   private _registerHandler(channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void {
+    if (this._registeredChannelsSet.has(channel)) {
+      throw new Error(`Duplicate IPC channel registration for ${channel}`);
+    }
+
     ipcMain.handle(channel, handler);
     this._registeredChannels.push(channel);
+    this._registeredChannelsSet.add(channel);
   }
 }
 

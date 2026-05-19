@@ -76,7 +76,7 @@ export class WebGPUPipeline extends BasePipeline {
       this._isActive = false;
     });
 
-    this.context = (this.canvas as HTMLCanvasElement).getContext('webgpu') as GPUCanvasContext;
+    this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
       throw new Error('WebGPU context not available');
     }

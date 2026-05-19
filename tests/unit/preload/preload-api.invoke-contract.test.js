@@ -25,6 +25,8 @@ import {
 } from '@preload/validators.js';
 
 function createMockIpcRenderer(overrides = {}) {
+  const listeners = new Map();
+
   return {
     invoke: vi.fn(async (channel, payload) => {
       if (Object.prototype.hasOwnProperty.call(overrides, channel)) {
@@ -36,8 +38,28 @@ function createMockIpcRenderer(overrides = {}) {
       }
       return { success: true };
     }),
-    on: vi.fn(),
-    removeListener: vi.fn(),
+    on: vi.fn((channel, callback) => {
+      const handlers = listeners.get(channel) || [];
+      handlers.push(callback);
+      listeners.set(channel, handlers);
+    }),
+    removeListener: vi.fn((channel, callback) => {
+      const handlers = listeners.get(channel);
+      if (!handlers) {
+        return;
+      }
+
+      listeners.set(
+        channel,
+        handlers.filter((handler) => handler !== callback)
+      );
+    }),
+    emit: (channel, ...args) => {
+      const handlers = listeners.get(channel) || [];
+      for (const handler of handlers) {
+        handler({}, ...args);
+      }
+    },
     removeAllListeners: vi.fn()
   };
 }
@@ -52,7 +74,7 @@ function createAPIWithRegistry(factory, ipcRenderer, options = {}) {
   });
 }
 
-describe('Preload API invoke compatibility baselines', () => {
+describe('Preload API invoke contract baselines', () => {
   it('forwards device status invoke call to device:get-status with no args', async () => {
     const expectedResponse = { connected: true, device: { deviceName: 'Chromatic USB' } };
     const ipcRenderer = createMockIpcRenderer({
@@ -151,14 +173,6 @@ describe('Preload API invoke compatibility baselines', () => {
     };
     const statusResponse = {
       success: true,
-      job: {
-        id: 'job-1',
-        state: 'running',
-        progress: 0,
-        outputPath: '/tmp/job-1.mp4',
-        error: null,
-        startTime: 1712345678000
-      },
       jobs: [
         {
           id: 'job-1',
@@ -218,15 +232,10 @@ describe('Preload API invoke compatibility baselines', () => {
     expect(startResult).toEqual(startResponse);
     expect(cancelResult).toEqual({ success: true });
     expect(statusResult).toEqual(statusResponse);
-    expect(statusResult.job).toMatchObject({
-      id: expect.any(String),
-      state: expect.any(String),
-      startTime: expect.any(Number)
-    });
     expect(Array.isArray(statusResult.jobs)).toBe(true);
   });
 
-  it('documents transcode.getStatus jobId drift: optional jobId is declared but not forwarded', async () => {
+  it('forwards transcode.getStatus without an obsolete jobId argument', async () => {
     const ipcRenderer = createMockIpcRenderer({
       [channels.TRANSCODE.GET_STATUS]: { success: true }
     });
@@ -244,24 +253,25 @@ describe('Preload API invoke compatibility baselines', () => {
       }
     );
 
-    await transcodeAPI.getStatus('job-1');
+    await transcodeAPI.getStatus();
 
     expect(ipcRenderer.invoke).toHaveBeenCalledTimes(1);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.TRANSCODE.GET_STATUS);
     expect(ipcRenderer.invoke.mock.calls[0]).toHaveLength(1);
   });
 
-  it('documents transcode.getStatus declaration drift: d.ts still accepts optional jobId', () => {
+  it('declares transcode.getStatus without a jobId argument', () => {
     const preloadTypes = fs.readFileSync(
       path.resolve(process.cwd(), 'src/types/preload-api.d.ts'),
       'utf8'
     );
 
-    expect(preloadTypes).toContain('getStatus(jobId?: string): Promise<TranscodeStatusResponse>;');
+    expect(preloadTypes).toContain('getStatus(): Promise<TranscodeStatusResponse>;');
+    expect(preloadTypes).not.toMatch(/getStatus\(jobId\?: string\)/);
   });
 });
 
-describe('Preload inline API compatibility baselines', () => {
+describe('Preload inline API contract baselines', () => {
   it('forwards shell, metrics, GPU, and login item invokes', async () => {
     const metricsResponse = {
       success: true,
@@ -344,5 +354,210 @@ describe('Preload inline API compatibility baselines', () => {
     expect(ipcRenderer.invoke).not.toHaveBeenCalledWith(channels.SHELL.OPEN_EXTERNAL, expect.anything());
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.GPU.GET_POLICY);
     expect(ipcRenderer.invoke).not.toHaveBeenCalledWith(channels.LOGIN_ITEM.SET, expect.anything());
+  });
+});
+
+describe('Preload subscription API parity', () => {
+  function createAPIAndRegistry(factory, ipcRenderer, options = {}) {
+    const listenerRegistry = createListenerRegistry();
+    return {
+      listenerRegistry,
+      api: factory({
+        ipcRenderer,
+        channels,
+        listenerRegistry,
+        maxListeners: MAX_LISTENERS_PER_CHANNEL,
+        ...options
+      })
+    };
+  }
+
+  it('registers listener registry entries as map-backed sets', () => {
+    const ipcRenderer = createMockIpcRenderer();
+    const { api, listenerRegistry } = createAPIAndRegistry(createWindowPreloadAPI, ipcRenderer, {
+      isValidCallback
+    });
+    const callback = vi.fn();
+
+    const unsubscribe = api.onResized(callback);
+
+    expect(listenerRegistry).toBeInstanceOf(Map);
+    expect(listenerRegistry.has('window.onResized')).toBe(true);
+    expect(listenerRegistry.get('window.onResized').size).toBe(1);
+
+    unsubscribe();
+    expect(listenerRegistry.get('window.onResized').size).toBe(0);
+  });
+
+  it('rejects invalid callbacks for subscription registration', () => {
+    const callbackCases = [
+      {
+        factory: createDevicePreloadAPI,
+        method: 'onConnected',
+        options: { isValidCallback },
+        message: 'deviceAPI.onConnected: Invalid callback provided'
+      },
+      {
+        factory: createWindowPreloadAPI,
+        method: 'onResized',
+        options: { isValidCallback },
+        message: 'windowAPI.onResized: Invalid callback provided'
+      },
+      {
+        factory: createUpdatePreloadAPI,
+        method: 'onProgress',
+        options: {
+          isValidCallback,
+          isValidUpdateInfo,
+          isValidProgress,
+          isValidError
+        },
+        message: 'updateAPI.onProgress: Invalid callback provided'
+      },
+      {
+        factory: createTranscodePreloadAPI,
+        method: 'onError',
+        options: {
+          isValidCallback,
+          isValidError,
+          isValidTranscodeProgress,
+          isValidTranscodeResult,
+          isValidTranscodeParams,
+          isValidFfmpegArgs
+        },
+        message: 'transcodeAPI.onError: Invalid callback provided'
+      }
+    ];
+
+    callbackCases.forEach((entry) => {
+      const ipcRenderer = createMockIpcRenderer();
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { api } = createAPIAndRegistry(entry.factory, ipcRenderer, entry.options);
+
+      const result = api[entry.method]('not a function');
+
+      expect(typeof result).toBe('function');
+      expect(consoleSpy).toHaveBeenCalledWith(entry.message);
+      expect(typeof api[entry.method](vi.fn())).toBe('function');
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  it('enforces listener limits per registry key', () => {
+    const ipcRenderer = createMockIpcRenderer();
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { api } = createAPIAndRegistry(createTranscodePreloadAPI, ipcRenderer, {
+      isValidCallback,
+      isValidError,
+      isValidTranscodeProgress,
+      isValidTranscodeResult,
+      isValidTranscodeParams,
+      isValidFfmpegArgs
+    });
+
+    for (let index = 0; index < MAX_LISTENERS_PER_CHANNEL; index += 1) {
+      api.onError(vi.fn());
+    }
+
+    api.onError(vi.fn());
+
+    expect(consoleSpy).toHaveBeenCalledWith('transcodeAPI.onError: Maximum listener limit reached');
+    expect(ipcRenderer.on).toHaveBeenCalledTimes(MAX_LISTENERS_PER_CHANNEL);
+
+    consoleSpy.mockRestore();
+  });
+
+  it('validates subscription payloads before callback', () => {
+    const ipcRenderer = createMockIpcRenderer();
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { api } = createAPIAndRegistry(createUpdatePreloadAPI, ipcRenderer, {
+      isValidCallback,
+      isValidUpdateInfo,
+      isValidProgress,
+      isValidError
+    });
+    const progressCallback = vi.fn();
+    const errorCallback = vi.fn();
+
+    api.onProgress(progressCallback);
+    api.onError(errorCallback);
+    ipcRenderer.emit(channels.UPDATE.PROGRESS, { percent: 'bad' });
+    ipcRenderer.emit(channels.UPDATE.ERROR, null);
+
+    expect(progressCallback).not.toHaveBeenCalled();
+    expect(errorCallback).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith('updateAPI.onProgress: Invalid progress received');
+    expect(consoleSpy).toHaveBeenCalledWith('updateAPI.onError: Invalid error received');
+
+    progressCallback.mockClear();
+    errorCallback.mockClear();
+    consoleSpy.mockClear();
+
+    ipcRenderer.emit(channels.UPDATE.PROGRESS, { percent: 22 });
+    ipcRenderer.emit(channels.UPDATE.ERROR, { code: 'x' });
+
+    expect(progressCallback).toHaveBeenCalledWith({ percent: 22 });
+    expect(errorCallback).toHaveBeenCalledWith({ code: 'x' });
+    expect(consoleSpy).not.toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it('supports unsubscribe and internal disposal by namespace', () => {
+    const ipcRenderer = createMockIpcRenderer();
+    const { api, listenerRegistry } = createAPIAndRegistry(createDevicePreloadAPI, ipcRenderer, {
+      isValidCallback
+    });
+    const connectedCallback = vi.fn();
+    const disconnectedCallback = vi.fn();
+
+    const unsubConnected = api.onConnected(connectedCallback);
+    const unsubDisconnected = api.onDisconnected(disconnectedCallback);
+
+    ipcRenderer.emit(channels.DEVICE.CONNECTED, { deviceName: 'Chromatic USB' });
+    ipcRenderer.emit(channels.DEVICE.DISCONNECTED, { deviceName: 'Chromatic USB' });
+
+    expect(connectedCallback).toHaveBeenCalledTimes(1);
+    expect(disconnectedCallback).toHaveBeenCalledTimes(1);
+    expect(listenerRegistry.get('device.onConnected').size).toBe(1);
+    expect(listenerRegistry.get('device.onDisconnected').size).toBe(1);
+
+    unsubConnected();
+    ipcRenderer.emit(channels.DEVICE.CONNECTED, { deviceName: 'Chromatic USB' });
+    expect(connectedCallback).toHaveBeenCalledTimes(1);
+    expect(listenerRegistry.get('device.onConnected').size).toBe(0);
+
+    api.dispose();
+    expect(listenerRegistry.get('device.onConnected').size).toBe(0);
+    expect(listenerRegistry.get('device.onDisconnected').size).toBe(0);
+    expect(ipcRenderer.removeListener).toHaveBeenCalledWith(
+      channels.DEVICE.DISCONNECTED,
+      expect.any(Function)
+    );
+    expect(ipcRenderer.removeListener).toHaveBeenCalledWith(
+      channels.DEVICE.CONNECTED,
+      expect.any(Function)
+    );
+
+    ipcRenderer.emit(channels.DEVICE.DISCONNECTED, { deviceName: 'Chromatic USB' });
+    expect(disconnectedCallback).toHaveBeenCalledTimes(1);
+    unsubDisconnected();
+    ipcRenderer.emit(channels.DEVICE.DISCONNECTED, { deviceName: 'Chromatic USB' });
+    expect(disconnectedCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps window event callbacks payload mapping behavior stable', () => {
+    const ipcRenderer = createMockIpcRenderer();
+    const { api } = createAPIAndRegistry(createWindowPreloadAPI, ipcRenderer, {
+      isValidCallback
+    });
+    const callback = vi.fn();
+
+    api.onEnterFullscreen(callback);
+    ipcRenderer.emit(channels.WINDOW.ENTER_FULLSCREEN, { ignored: true });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback.mock.calls[0]).toHaveLength(0);
   });
 });

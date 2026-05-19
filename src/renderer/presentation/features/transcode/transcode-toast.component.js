@@ -21,9 +21,8 @@ class TranscodeToastComponent {
 
   /**
    * Show the progress indicator
-   * @param {string} format - Format being converted to (e.g., 'MP4', 'MOV') - unused but kept for API compatibility
    */
-  show(_format = 'MP4') {
+  show() {
     if (!this.elements.recordBtn) return;
 
     // Clear any pending hide timeout
@@ -95,9 +94,8 @@ class TranscodeToastComponent {
 
   /**
    * Show error state and hide after delay
-   * @param {string} message - Error message (unused, kept for API compatibility)
    */
-  showError(_message = 'Failed') {
+  showError() {
     if (!this.elements.recordBtn) return;
 
     // Show X mark

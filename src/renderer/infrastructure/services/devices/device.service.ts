@@ -1,8 +1,8 @@
 /**
- * Device Service (Facade)
+ * Device Service
  *
  * Delegates device connection, storage, and media enumeration
- * to focused services while preserving the legacy interface.
+ * to focused services behind the application device contract.
  */
 
 import { BaseService } from '@shared/base/service.base.js';

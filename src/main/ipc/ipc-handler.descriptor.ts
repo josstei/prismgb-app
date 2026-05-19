@@ -11,6 +11,12 @@ export interface IpcHandlerDescriptor<TDependencies> {
   dependencyTokens: readonly string[];
   argumentSchema?: readonly string[];
   responseMode: IpcHandlerResponseMode;
+  mapError: (
+    error: unknown,
+    dependencies: TDependencies,
+    event: IpcMainInvokeEvent,
+    ...args: unknown[]
+  ) => unknown;
   invoke(
     dependencies: TDependencies,
     event: IpcMainInvokeEvent,
@@ -24,14 +30,18 @@ export function defineIpcHandlers<TDependencies>(
   return descriptors;
 }
 
-export function registerIpcHandlerDescriptors<TDependencies extends { registerHandler: RegisterHandler }>(
+export function registerIpcHandlerDescriptors<TDependencies>(
+  registerHandler: RegisterHandler,
   dependencies: TDependencies,
   descriptors: readonly IpcHandlerDescriptor<TDependencies>[]
 ): void {
   for (const descriptor of descriptors) {
-    dependencies.registerHandler(descriptor.channel, (event, ...args) =>
-      descriptor.invoke(dependencies, event, ...args)
-    );
+    registerHandler(descriptor.channel, async (event, ...args) => {
+      try {
+        return await descriptor.invoke(dependencies, event, ...args);
+      } catch (error) {
+        return descriptor.mapError(error, dependencies, event, ...args);
+      }
+    });
   }
 }
-

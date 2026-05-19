@@ -14,7 +14,7 @@ Audited commits:
 
 Run an exhaustive audit against Phase 0 and Phase 1 work to verify:
 
-- No contract or compatibility drift was introduced.
+- No contract drift was introduced.
 - Phase 0 baselines are real regression gates, not intent-only documentation.
 - Phase 1 foundations are future-first and report-only where planned.
 - New utilities and manifests support aggressive later code reduction instead of becoming permanent duplicate systems.
@@ -24,7 +24,7 @@ Run an exhaustive audit against Phase 0 and Phase 1 work to verify:
 
 Status: pass, with one hardening change made during this audit.
 
-The Phase 0 and Phase 1 implementation matches the plan's staged migration strategy. Phase 1 intentionally increases tracked source temporarily by adding manifests, helpers, and tests; that is acceptable only because every added manifest has a drift gate and a later deletion/adoption path in the implementation plan. The current branch does not yet claim durable net code reduction. It establishes the compatibility and generation gates needed for Phase 2 deletion work.
+The Phase 0 and Phase 1 implementation matches the plan's staged migration strategy. Phase 1 intentionally increases tracked source temporarily by adding manifests, helpers, and tests; that is acceptable only because every added manifest has a drift gate and a later deletion/adoption path in the implementation plan. The current branch does not yet claim durable net code reduction. It establishes the contract and generation gates needed for Phase 2 deletion work.
 
 Hardening performed during audit:
 
@@ -37,19 +37,19 @@ Hardening performed during audit:
 | Requirement | Evidence | Audit Finding |
 | --- | --- | --- |
 | Phase 0 adds tracked measurement command | `scripts/codebase-size-report.js`, `package.json` script `codebase:size` | Present. Current run exits 0 and reports tracked source separately from ignored artifacts. |
-| Phase 0 snapshots preload/API public behavior | `tests/unit/preload/preload-api.compatibility.test.js`, `tests/unit/preload/preload-api.contract.test.js` | Present. Covers invoke forwarding, response shapes, exposed names, declaration typing, and known `transcodeAPI.getStatus` drift. |
+| Phase 0 snapshots preload/API public behavior | `tests/unit/preload/preload-api.invoke-contract.test.js`, `tests/unit/preload/preload-api.contract.test.js` | Present. Covers invoke forwarding, response shapes, exposed names, declaration typing, and transcode status shape. |
 | Phase 0 snapshots non-IPC public surfaces | `tests/unit/codebase-reduction/non-ipc-baselines.test.js` | Present. Covers EventBus values, settings defaults, Chromatic metadata, shader equivalence, E2E selectors, stale E2E naming, and release targets. |
 | Phase 0 distinguishes source reduction from local artifact cleanup | `npm run codebase:size -- --json` output | Present. Current report separates tracked source, local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets. |
 | Phase 1 adds shared generator/schema/flattening helpers | `src/shared/contracts/contract-utils.ts`, `scripts/lib/*` | Present. Helpers are small and reused by drift/generation code. |
 | Phase 1 adds lifecycle primitive | `src/shared/base/disposable-bag.ts`, `tests/unit/codebase-reduction/phase1-foundations.test.js` | Present. Tests verify reverse-order, async-aware, idempotent cleanup and event listener cleanup. |
-| Phase 1 adds report-only manifests | `src/shared/ipc/ipc.manifest.json`, `src/shared/events/event.manifest.json`, `src/shared/features/devices/device.manifest.json`, `src/shared/features/settings/settings.definitions.json`, `packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json`, `scripts/manifests/architecture.manifest.json`, `scripts/manifests/platforms.manifest.json` | Present. Every planned Phase 1 manifest exists and is marked `report-only`. |
+| Phase 1 adds manifests | `src/shared/ipc/ipc.manifest.json`, `src/shared/events/event.manifest.json`, `src/shared/features/devices/device.manifest.json`, `src/shared/features/settings/settings.definitions.json`, `packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json`, `scripts/manifests/architecture.manifest.json`, `scripts/manifests/platforms.manifest.json` | Present. Phase 2 now enforces runtime-adopted IPC/settings manifests while remaining inventory manifests stay report-only. |
 | Phase 1 generates declarations/docs fragments and drift reports before runtime replacement | `scripts/codebase-phase1-drift-report.js`, `npm run codebase:phase1 -- --write-generated --output artifacts/codebase-reduction/phase1/drift-report.json` | Present. Generated outputs are reproducible under ignored `artifacts/codebase-reduction/phase1`. |
 | Drift checks pass on current repo | `npm run codebase:phase1 -- --json` | Present. Current run exits 0 with all checks passing. |
 | Drift checks fail on intentional mismatch | `tests/unit/scripts/codebase-phase1-drift-report.test.js` | Present after audit hardening. A mutated IPC manifest channel produces `status: fail` with expected missing/extra values. |
-| No unplanned runtime behavior change in Phase 1 | `tests/unit/codebase-reduction/phase1-foundations.test.js`, `tests/unit/main/ipc/handlers/login-item.handler.test.js`, `tests/unit/preload/preload-api.compatibility.test.js` | Present. Runtime adoption is limited to `updateAPI.onError` subscription factory and login-item handler descriptors; tests preserve payloads, warnings, channels, and response shapes. |
+| No unplanned runtime behavior change in Phase 1 | `tests/unit/codebase-reduction/phase1-foundations.test.js`, `tests/unit/main/ipc/handlers/login-item.handler.test.js`, `tests/unit/preload/preload-api.invoke-contract.test.js` | Present. Runtime adoption is limited to `updateAPI.onError` subscription factory and login-item handler descriptors; tests preserve payloads, warnings, channels, and response shapes. |
 | Official WebGPU type hoist does not regress app/GPU typechecks | `tsconfig.base.json`, `src/types/webgpu-worker.d.ts`, `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts`, `npm run typecheck` | Present. Local manual declarations were deleted; typecheck passes with official `@webgpu/types`. |
 | Generated artifact policy moves coverage away from `tests/coverage` | `vitest.config.js`, `tests/unit/codebase-reduction/phase1-manifests.test.js` | Present. Coverage now targets `artifacts/coverage`; old local `tests/coverage` is still measured as ignored historical noise by the size report. |
-| Aggressive reduction remains future-first rather than quick cleanup | Implementation plan Phase 2+ deletion/enforcement phases, Phase 1 report-only manifests, `TypedRegistryFactory`, handler descriptors, subscription factory | Pass with caveat. Phase 1 adds foundation and gates, not net reduction. The next phase must start deleting or reducing old hand-maintained surfaces. |
+| Aggressive reduction remains future-first rather than quick cleanup | Implementation plan Phase 2+ deletion/enforcement phases, Phase 1 manifests, `TypedRegistryFactory`, handler descriptors, subscription factory | Pass with caveat. Phase 1 adds foundation and gates, not net reduction. The next phase must start deleting or reducing old hand-maintained surfaces. |
 
 ## Commands Run
 
@@ -72,9 +72,9 @@ Hardening performed during audit:
 
 No current contract drift found after hardening.
 
-Explicit known drift remains intentionally documented as compatibility debt:
+Explicit known drift at the Phase 1 audit point:
 
-- `transcodeAPI.getStatus(jobId?: string)` is declared with an optional `jobId`, but current preload behavior does not forward that argument. Phase 0 compatibility tests and the Phase 1 IPC manifest both document this.
+- The former transcode status declaration mismatch was resolved during Phase 2; preload types and implementation now expose status without a job id argument.
 - E2E helper references to `window.deviceAPI?.onConnected` / `onDisconnected` remain captured as stale assumptions, while preload exposes `onDeviceConnected` / `onDeviceDisconnected`.
 - Settings default recording format remains `webm`, while `TRANSCODE_CONFIG.defaultFormat` remains `mp4`; both are intentionally preserved and tested.
 
@@ -86,8 +86,8 @@ Resolved audit drift:
 
 The Phase 0/1 design follows the long-term plan:
 
-- It adds compatibility tests before replacing plumbing.
-- It keeps report-only manifests out of runtime ownership until parity is proven.
+- It adds contract tests before replacing plumbing.
+- It keeps manifests out of runtime ownership until parity is proven.
 - It avoids introducing a new schema runtime dependency and stays aligned with existing project dependencies.
 - It moves repeated mechanics into narrow primitives (`DisposableBag`, `createSubscription`, handler descriptors, `TypedRegistryFactory`) rather than broad abstractions.
 - It keeps generated preview output out of source directories.

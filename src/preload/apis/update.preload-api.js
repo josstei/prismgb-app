@@ -10,143 +10,108 @@ function createUpdatePreloadAPI({
   isValidProgress,
   isValidError
 }) {
+  const listenerKeys = {
+    onAvailable: 'update.onAvailable',
+    onNotAvailable: 'update.onNotAvailable',
+    onProgress: 'update.onProgress',
+    onDownloaded: 'update.onDownloaded',
+    onError: 'update.onError'
+  };
+
+  const disposeListenersForKey = (channel, registryKey) => {
+    const listeners = listenerRegistry.get(registryKey);
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of listeners) {
+      ipcRenderer.removeListener(channel, listener);
+    }
+    listeners.clear();
+  };
+
   return {
     getStatus: () => ipcRenderer.invoke(channels.UPDATE.GET_STATUS),
     checkForUpdates: () => ipcRenderer.invoke(channels.UPDATE.CHECK),
     downloadUpdate: () => ipcRenderer.invoke(channels.UPDATE.DOWNLOAD),
     installUpdate: () => ipcRenderer.invoke(channels.UPDATE.INSTALL),
 
-    onAvailable: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('updateAPI.onAvailable: Invalid callback provided');
-        return () => {};
-      }
+    onAvailable: (callback) =>
+      createSubscription({
+        apiName: 'updateAPI',
+        methodName: 'onAvailable',
+        channel: channels.UPDATE.AVAILABLE,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onAvailable,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidUpdateInfo,
+        invalidPayloadMessage: 'updateAPI.onAvailable: Invalid update info received'
+      })(callback),
 
-      if (listenerRegistry.updateAvailable.size >= maxListeners) {
-        console.warn('updateAPI.onAvailable: Maximum listener limit reached');
-        return () => {};
-      }
+    onNotAvailable: (callback) =>
+      createSubscription({
+        apiName: 'updateAPI',
+        methodName: 'onNotAvailable',
+        channel: channels.UPDATE.NOT_AVAILABLE,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onNotAvailable,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidUpdateInfo,
+        invalidPayloadMessage: 'updateAPI.onNotAvailable: Invalid update info received'
+      })(callback),
 
-      const listener = (event, info) => {
-        if (!isValidUpdateInfo(info)) {
-          console.warn('updateAPI.onAvailable: Invalid update info received');
-          return;
-        }
-        callback(info);
-      };
-      listenerRegistry.updateAvailable.add(listener);
-      ipcRenderer.on(channels.UPDATE.AVAILABLE, listener);
+    onProgress: (callback) =>
+      createSubscription({
+        apiName: 'updateAPI',
+        methodName: 'onProgress',
+        channel: channels.UPDATE.PROGRESS,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onProgress,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidProgress,
+        invalidPayloadMessage: 'updateAPI.onProgress: Invalid progress received'
+      })(callback),
 
-      return () => {
-        ipcRenderer.removeListener(channels.UPDATE.AVAILABLE, listener);
-        listenerRegistry.updateAvailable.delete(listener);
-      };
-    },
+    onDownloaded: (callback) =>
+      createSubscription({
+        apiName: 'updateAPI',
+        methodName: 'onDownloaded',
+        channel: channels.UPDATE.DOWNLOADED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onDownloaded,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidUpdateInfo,
+        invalidPayloadMessage: 'updateAPI.onDownloaded: Invalid update info received'
+      })(callback),
 
-    onNotAvailable: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('updateAPI.onNotAvailable: Invalid callback provided');
-        return () => {};
-      }
+    onError: (callback) =>
+      createSubscription({
+        apiName: 'updateAPI',
+        methodName: 'onError',
+        channel: channels.UPDATE.ERROR,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onError,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidError,
+        invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
+      })(callback),
 
-      if (listenerRegistry.updateNotAvailable.size >= maxListeners) {
-        console.warn('updateAPI.onNotAvailable: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, info) => {
-        if (!isValidUpdateInfo(info)) {
-          console.warn('updateAPI.onNotAvailable: Invalid update info received');
-          return;
-        }
-        callback(info);
-      };
-      listenerRegistry.updateNotAvailable.add(listener);
-      ipcRenderer.on(channels.UPDATE.NOT_AVAILABLE, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.UPDATE.NOT_AVAILABLE, listener);
-        listenerRegistry.updateNotAvailable.delete(listener);
-      };
-    },
-
-    onProgress: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('updateAPI.onProgress: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.updateProgress.size >= maxListeners) {
-        console.warn('updateAPI.onProgress: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, progress) => {
-        if (!isValidProgress(progress)) {
-          console.warn('updateAPI.onProgress: Invalid progress received');
-          return;
-        }
-        callback(progress);
-      };
-      listenerRegistry.updateProgress.add(listener);
-      ipcRenderer.on(channels.UPDATE.PROGRESS, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.UPDATE.PROGRESS, listener);
-        listenerRegistry.updateProgress.delete(listener);
-      };
-    },
-
-    onDownloaded: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('updateAPI.onDownloaded: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.updateDownloaded.size >= maxListeners) {
-        console.warn('updateAPI.onDownloaded: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, info) => {
-        if (!isValidUpdateInfo(info)) {
-          console.warn('updateAPI.onDownloaded: Invalid update info received');
-          return;
-        }
-        callback(info);
-      };
-      listenerRegistry.updateDownloaded.add(listener);
-      ipcRenderer.on(channels.UPDATE.DOWNLOADED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.UPDATE.DOWNLOADED, listener);
-        listenerRegistry.updateDownloaded.delete(listener);
-      };
-    },
-
-    onError: createSubscription({
-      apiName: 'updateAPI',
-      methodName: 'onError',
-      channel: channels.UPDATE.ERROR,
-      ipcRenderer,
-      registry: listenerRegistry.updateError,
-      maxListeners,
-      validateCallback: isValidCallback,
-      validatePayload: isValidError,
-      invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
-    }),
-
-    removeListeners: () => {
-      ipcRenderer.removeAllListeners(channels.UPDATE.AVAILABLE);
-      ipcRenderer.removeAllListeners(channels.UPDATE.NOT_AVAILABLE);
-      ipcRenderer.removeAllListeners(channels.UPDATE.PROGRESS);
-      ipcRenderer.removeAllListeners(channels.UPDATE.DOWNLOADED);
-      ipcRenderer.removeAllListeners(channels.UPDATE.ERROR);
-      listenerRegistry.updateAvailable.clear();
-      listenerRegistry.updateNotAvailable.clear();
-      listenerRegistry.updateProgress.clear();
-      listenerRegistry.updateDownloaded.clear();
-      listenerRegistry.updateError.clear();
+    dispose: () => {
+      disposeListenersForKey(channels.UPDATE.AVAILABLE, listenerKeys.onAvailable);
+      disposeListenersForKey(channels.UPDATE.NOT_AVAILABLE, listenerKeys.onNotAvailable);
+      disposeListenersForKey(channels.UPDATE.PROGRESS, listenerKeys.onProgress);
+      disposeListenersForKey(channels.UPDATE.DOWNLOADED, listenerKeys.onDownloaded);
+      disposeListenersForKey(channels.UPDATE.ERROR, listenerKeys.onError);
     }
   };
 }

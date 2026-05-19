@@ -256,15 +256,16 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Volume | 100% | Audio playback volume |
+| Volume | 70% | Audio playback volume |
 | Brightness | 1.0x | Display brightness multiplier |
 | Render Preset | Vibrant | Active shader preset |
-| Status Strip | Visible | Show device/FPS footer |
+| Status Strip | Hidden | Show device/FPS footer |
 | Performance Mode | Off | Use Canvas2D instead of GPU |
 | Fullscreen on Startup | Off | Auto-enter fullscreen |
-| Cinematic Mode | Off | Auto-hide toolbar |
-| Auto-Stream | On | Start streaming on device connect |
-| Recording Format | MP4 | Output format for recordings |
+| Minimalist Fullscreen | Off | Hide chrome while fullscreen |
+| Auto-Stream | Off | Start streaming on device connect |
+| Launch on Login | Off | Start app with the operating system |
+| Recording Format | WebM | Output format for recordings |
 
 ### Local Data
 

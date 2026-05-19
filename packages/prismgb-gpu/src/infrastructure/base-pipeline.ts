@@ -1,17 +1,18 @@
 import type { IPipeline, IPipelineStats } from '../domain/pipeline';
 import type { IPreset } from '../domain/presets';
 import type { PipelineUniforms } from '../domain/shaders';
+import type { RenderCanvas } from '../domain/pipeline';
 import { buildUniforms } from '../application/uniform-builder';
 
 export interface BasePipelineConfig {
-  canvas: HTMLCanvasElement | OffscreenCanvas;
+  canvas: RenderCanvas;
   nativeWidth: number;
   nativeHeight: number;
   preset: IPreset;
 }
 
 export abstract class BasePipeline implements IPipeline {
-  protected canvas: HTMLCanvasElement | OffscreenCanvas;
+  protected canvas: RenderCanvas;
   protected nativeWidth: number;
   protected nativeHeight: number;
   protected outputWidth: number;

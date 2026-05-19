@@ -39,7 +39,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
     };
 
     mockSettingsService = {
-      getFullscreenOnStartup: vi.fn(() => false)
+      getBooleanSetting: vi.fn(() => false)
     };
 
     mockEventBus = {
@@ -127,15 +127,16 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
   describe('_applyStartupBehaviors', () => {
     it('should enter fullscreen when fullscreenOnStartup is enabled', () => {
-      mockSettingsService.getFullscreenOnStartup.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
 
       orchestrator._applyStartupBehaviors();
 
+      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('fullscreenOnStartup');
       expect(mockSettingsFullscreenService.enterFullscreen).toHaveBeenCalled();
     });
 
     it('should not enter fullscreen when fullscreenOnStartup is disabled', () => {
-      mockSettingsService.getFullscreenOnStartup.mockReturnValue(false);
+      mockSettingsService.getBooleanSetting.mockReturnValue(false);
 
       orchestrator._applyStartupBehaviors();
 

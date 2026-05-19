@@ -116,37 +116,30 @@ export const CaptureContracts = {
  * Settings event contracts
  */
 export const SettingsContracts = {
-  'settings:volume-changed': Joi.object({
-    volume: Joi.number().min(0).max(100).required(),
-  }),
+  'settings:volume-changed': Joi.number().min(0).max(100).required(),
 
-  'settings:brightness-changed': Joi.object({
-    brightness: Joi.number().min(0.5).max(1.5).required(),
-  }),
+  'settings:brightness-changed': Joi.number().min(0.5).max(1.5).required(),
 
-  'settings:render-preset-changed': Joi.object({
-    preset: Joi.string().valid('sharp', 'smooth', 'retro').required(),
-  }),
+  'settings:render-preset-changed': Joi.string()
+    .valid('true-color', 'vibrant', 'hi-def', 'vintage', 'pixel', 'performance')
+    .required(),
 
-  'settings:performance-mode-changed': Joi.object({
-    mode: Joi.string().valid('performance', 'balanced', 'quality').required(),
-  }),
+  'settings:performance-mode-changed': Joi.boolean().required(),
 
   'settings:cinematic-mode-changed': Joi.object({
     enabled: Joi.boolean().required(),
   }),
 
-  'settings:minimalist-fullscreen-changed': Joi.object({
-    enabled: Joi.boolean().required(),
-  }),
+  'settings:minimalist-fullscreen-changed': Joi.boolean().required(),
 
   'settings:preferences-loaded': Joi.object({
-    volume: Joi.number(),
-    brightness: Joi.number(),
-    performanceMode: Joi.string(),
-    renderPreset: Joi.string(),
-    cinematicMode: Joi.boolean(),
+    gameVolume: Joi.number().min(0).max(100),
+    statusStripVisible: Joi.boolean(),
+    performanceMode: Joi.boolean(),
+    minimalistFullscreen: Joi.boolean(),
   }),
+
+  'settings:recording-format-changed': Joi.string().valid('webm', 'mp4', 'mov').required(),
 };
 
 /**

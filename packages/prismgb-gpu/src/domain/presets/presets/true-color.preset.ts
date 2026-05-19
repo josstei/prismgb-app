@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const trueColorPreset: IPreset = {
   id: 'true-color',
@@ -24,5 +23,3 @@ export const trueColorPreset: IPreset = {
     vignetteStrength: 0
   }
 };
-
-PresetRegistry.register(trueColorPreset);

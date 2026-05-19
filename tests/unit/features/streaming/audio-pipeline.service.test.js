@@ -18,7 +18,7 @@ function createService() {
       create: vi.fn(() => logger)
     },
     settingsService: {
-      getVolume: vi.fn(() => 70)
+      getNumberSetting: vi.fn(() => 70)
     }
   });
 

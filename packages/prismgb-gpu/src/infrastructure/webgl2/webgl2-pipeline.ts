@@ -36,8 +36,8 @@ export class WebGL2Pipeline extends BasePipeline {
       powerPreference: 'low-power'
     };
 
-    this.gl = (this.canvas as HTMLCanvasElement).getContext('webgl2', baseAttributes)
-      ?? (this.canvas as HTMLCanvasElement).getContext('webgl2', {
+    this.gl = this.canvas.getContext('webgl2', baseAttributes)
+      ?? this.canvas.getContext('webgl2', {
         ...baseAttributes,
         powerPreference: 'high-performance'
       });

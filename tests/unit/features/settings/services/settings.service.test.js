@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
+import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
 
 describe('SettingsService', () => {
   let service;
@@ -13,7 +14,6 @@ describe('SettingsService', () => {
   let localStorageMock;
 
   beforeEach(() => {
-    // Mock localStorage
     localStorageMock = {
       store: {},
       getItem: vi.fn((key) => localStorageMock.store[key] || null),
@@ -49,329 +49,142 @@ describe('SettingsService', () => {
 
   afterEach(() => {
     localStorageMock.clear();
+    delete window.loginItemAPI;
   });
 
-  describe('Constructor', () => {
-    it('should create service with default settings', () => {
-      expect(service.defaults.gameVolume).toBe(70);
-      expect(service.defaults.statusStripVisible).toBe(false);
-      expect(service.defaults.performanceMode).toBe(false);
-      expect(service.defaults.fullscreenOnStartup).toBe(false);
-      expect(service.defaults.minimalistFullscreen).toBe(false);
+  describe('manifest contract', () => {
+    it('uses enforced definitions without compatibility mappings', () => {
+      expect(settingsDefinitions.mode).toBe('enforced');
+      expect(settingsDefinitions.loadAllPreferencesShape).toEqual([
+        'gameVolume',
+        'statusStripVisible',
+        'performanceMode',
+        'minimalistFullscreen'
+      ]);
+      expect(settingsDefinitions.definitions.some((definition) => 'legacy' in definition)).toBe(false);
+      expect(settingsDefinitions.definitions.some((definition) => 'compatibilityNotes' in definition)).toBe(false);
     });
 
-    it('should have correct setting keys', () => {
-      expect(service.keys.VOLUME).toBe('gameVolume');
-      expect(service.keys.STATUS_STRIP).toBe('statusStripVisible');
-      expect(service.keys.RENDER_PRESET).toBe('renderPreset');
-      expect(service.keys.GLOBAL_BRIGHTNESS).toBe('globalBrightness');
-      expect(service.keys.PERFORMANCE_MODE).toBe('performanceMode');
-      expect(service.keys.FULLSCREEN_ON_STARTUP).toBe('fullscreenOnStartup');
-      expect(service.keys.MINIMALIST_FULLSCREEN).toBe('minimalistFullscreen');
+    it('derives defaults, allowed values, and listing from settings definitions', async () => {
+      const manifestDefaults = Object.fromEntries(
+        settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])
+      );
+      const recordingFormat = settingsDefinitions.definitions.find(
+        (definition) => definition.name === 'recordingFormat'
+      );
+      const serviceDefaults = Object.fromEntries(
+        await Promise.all(
+          settingsDefinitions.definitions.map(async (definition) => [
+            definition.name,
+            await service.getSetting(definition.name)
+          ])
+        )
+      );
+
+      expect(serviceDefaults).toEqual(manifestDefaults);
+      expect(service.getAllowedValues('recordingFormat')).toEqual(recordingFormat.allowedValues);
+      expect(service.listSettings()).toEqual(
+        settingsDefinitions.definitions.map((definition) => definition.name)
+      );
     });
   });
 
-  describe('getVolume', () => {
-    it('should return default volume when not set', () => {
-      expect(service.getVolume()).toBe(70);
+  describe('generic accessors', () => {
+    it('reads defaults and saved values by definition name', () => {
+      localStorageMock.store.gameVolume = '64';
+      localStorageMock.store.minimalistFullscreen = 'true';
+
+      expect(service.getSetting('gameVolume')).toBe(64);
+      expect(service.getSetting('minimalistFullscreen')).toBe(true);
+      expect(service.getSetting('recordingFormat')).toBe('webm');
+      expect(service.getNumberSetting('gameVolume')).toBe(64);
+      expect(service.getBooleanSetting('minimalistFullscreen')).toBe(true);
+      expect(service.getStringSetting('recordingFormat')).toBe('webm');
     });
 
-    it('should return saved volume', () => {
-      localStorageMock.store['gameVolume'] = '50';
-      expect(service.getVolume()).toBe(50);
+    it('fails fast for unknown settings instead of silently creating storage drift', () => {
+      expect(() => service.getSetting('missingSetting')).toThrow('Unknown setting: missingSetting');
+      expect(() => service.setSetting('missingSetting', true)).toThrow('Unknown setting: missingSetting');
     });
 
-    it('should parse stored value as integer', () => {
-      localStorageMock.store['gameVolume'] = '85';
-      expect(service.getVolume()).toBe(85);
-    });
-  });
-
-  describe('setVolume', () => {
-    it('should save volume to localStorage', () => {
-      service.setVolume(80);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '80');
-    });
-
-    it('should clamp volume to 0-100 range (high)', () => {
-      service.setVolume(150);
+    it('clamps numeric settings and emits manifest events', () => {
+      expect(service.setSetting('gameVolume', 140)).toBe(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '100');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:volume-changed', 100);
+
+      expect(service.setSetting('globalBrightness', 0.2)).toBe(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '0.5');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:brightness-changed', 0.5);
     });
 
-    it('should clamp volume to 0-100 range (low)', () => {
-      service.setVolume(-20);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('gameVolume', '0');
+    it('stores boolean settings with manifest event behavior', () => {
+      expect(service.setSetting('statusStripVisible', true)).toBe(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('statusStripVisible', 'true');
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('status-strip-changed', true);
+
+      expect(service.setSetting('performanceMode', true)).toBe(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('performanceMode', 'true');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:performance-mode-changed', true);
     });
 
-    it('should emit volume-changed event', () => {
-      service.setVolume(50);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:volume-changed', 50);
-    });
-  });
+    it('validates enum settings', () => {
+      expect(service.setSetting('recordingFormat', 'mp4')).toBe(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('recordingFormat', 'mp4');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:recording-format-changed', 'mp4');
 
-  describe('getStatusStripVisible', () => {
-    it('should return default status strip visibility when not set', () => {
-      expect(service.getStatusStripVisible()).toBe(false);
-    });
-
-    it('should return true when stored as "true"', () => {
-      localStorageMock.store['statusStripVisible'] = 'true';
-      expect(service.getStatusStripVisible()).toBe(true);
-    });
-
-    it('should return false when stored as "false"', () => {
-      localStorageMock.store['statusStripVisible'] = 'false';
-      expect(service.getStatusStripVisible()).toBe(false);
-    });
-  });
-
-  describe('setStatusStripVisible', () => {
-    it('should save status strip visibility to localStorage', () => {
-      service.setStatusStripVisible(false);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('statusStripVisible', 'false');
-    });
-
-    it('should log status strip shown', () => {
-      service.setStatusStripVisible(true);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Status strip shown');
-    });
-
-    it('should log status strip hidden', () => {
-      service.setStatusStripVisible(false);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Status strip hidden');
+      expect(service.setSetting('recordingFormat', 'avi')).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid recordingFormat: avi. Valid values: webm, mp4, mov');
     });
   });
 
   describe('loadAllPreferences', () => {
-    it('should load all preferences with defaults', () => {
-      const prefs = service.loadAllPreferences();
-      expect(prefs).toEqual({
-        volume: 70,
-        statusStripVisible: false,
-        performanceMode: false,
-        minimalistFullscreen: false
-      });
-    });
+    it('loads preference shape from definition names', () => {
+      localStorageMock.store.gameVolume = '30';
+      localStorageMock.store.statusStripVisible = 'false';
+      localStorageMock.store.performanceMode = 'false';
+      localStorageMock.store.minimalistFullscreen = 'true';
 
-    it('should load saved preferences', () => {
-      localStorageMock.store['gameVolume'] = '30';
-      localStorageMock.store['statusStripVisible'] = 'false';
-      localStorageMock.store['performanceMode'] = 'false';
-      localStorageMock.store['minimalistFullscreen'] = 'true';
-
-      const prefs = service.loadAllPreferences();
-      expect(prefs).toEqual({
-        volume: 30,
+      expect(service.loadAllPreferences()).toEqual({
+        gameVolume: 30,
         statusStripVisible: false,
         performanceMode: false,
         minimalistFullscreen: true
       });
     });
 
-    it('should log loaded preferences', () => {
+    it('logs loaded preferences', () => {
       service.loadAllPreferences();
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded preferences - Volume: 70%, StatusStrip: false, PerformanceMode: false, MinimalistFullscreen: false');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Loaded preferences - GameVolume: 70%, StatusStrip: false, PerformanceMode: false, MinimalistFullscreen: false'
+      );
     });
   });
 
-  describe('getGlobalBrightness', () => {
-    it('should return default brightness when not set', () => {
-      expect(service.getGlobalBrightness()).toBe(1.0);
-    });
-
-    it('should return saved brightness', () => {
-      localStorageMock.store['globalBrightness'] = '0.8';
-      expect(service.getGlobalBrightness()).toBe(0.8);
-    });
-
-    it('should parse stored value as float', () => {
-      localStorageMock.store['globalBrightness'] = '1.25';
-      expect(service.getGlobalBrightness()).toBe(1.25);
-    });
-  });
-
-  describe('setGlobalBrightness', () => {
-    it('should save brightness to localStorage', () => {
-      service.setGlobalBrightness(1.2);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '1.2');
-    });
-
-    it('should clamp brightness to 0.5-1.5 range (high)', () => {
-      service.setGlobalBrightness(2.0);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '1.5');
-    });
-
-    it('should clamp brightness to 0.5-1.5 range (low)', () => {
-      service.setGlobalBrightness(0.2);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '0.5');
-    });
-
-    it('should emit brightness-changed event', () => {
-      service.setGlobalBrightness(0.9);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:brightness-changed', 0.9);
-    });
-
-    it('should emit clamped value in event', () => {
-      service.setGlobalBrightness(2.0);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:brightness-changed', 1.5);
-    });
-
-    it('should log brightness change', () => {
-      service.setGlobalBrightness(0.75);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Global brightness set to 0.75');
-    });
-  });
-
-  describe('getPerformanceMode', () => {
-    it('should return default when not set', () => {
-      expect(service.getPerformanceMode()).toBe(false);
-    });
-
-    it('should return saved preference (true)', () => {
-      localStorageMock.store['performanceMode'] = 'true';
-      expect(service.getPerformanceMode()).toBe(true);
-    });
-
-    it('should return saved preference (false)', () => {
-      localStorageMock.store['performanceMode'] = 'false';
-      expect(service.getPerformanceMode()).toBe(false);
-    });
-  });
-
-  describe('setPerformanceMode', () => {
-    it('should save preference to localStorage', () => {
-      service.setPerformanceMode(false);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('performanceMode', 'false');
-    });
-
-    it('should emit performance mode changed event', () => {
-      service.setPerformanceMode(true);
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:performance-mode-changed', true);
-    });
-
-    it('should log preference change', () => {
-      service.setPerformanceMode(false);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Performance mode disabled');
-    });
-  });
-
-  describe('getFullscreenOnStartup', () => {
-    it('should return default when not set', () => {
-      expect(service.getFullscreenOnStartup()).toBe(false);
-    });
-
-    it('should return saved preference (true)', () => {
-      localStorageMock.store['fullscreenOnStartup'] = 'true';
-      expect(service.getFullscreenOnStartup()).toBe(true);
-    });
-
-    it('should return saved preference (false)', () => {
-      localStorageMock.store['fullscreenOnStartup'] = 'false';
-      expect(service.getFullscreenOnStartup()).toBe(false);
-    });
-  });
-
-  describe('setFullscreenOnStartup', () => {
-    it('should save preference to localStorage', () => {
-      service.setFullscreenOnStartup(true);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('fullscreenOnStartup', 'true');
-    });
-
-    it('should log preference change (enabled)', () => {
-      service.setFullscreenOnStartup(true);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Fullscreen on startup enabled');
-    });
-
-    it('should log preference change (disabled)', () => {
-      service.setFullscreenOnStartup(false);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Fullscreen on startup disabled');
-    });
-  });
-
-  describe('getAutoStreamOnConnect', () => {
-    it('should return default when not set', () => {
-      expect(service.getAutoStreamOnConnect()).toBe(false);
-    });
-
-    it('should return saved preference (true)', () => {
-      localStorageMock.store['autoStreamOnConnect'] = 'true';
-      expect(service.getAutoStreamOnConnect()).toBe(true);
-    });
-
-    it('should return saved preference (false)', () => {
-      localStorageMock.store['autoStreamOnConnect'] = 'false';
-      expect(service.getAutoStreamOnConnect()).toBe(false);
-    });
-  });
-
-  describe('setAutoStreamOnConnect', () => {
-    it('should save preference to localStorage', () => {
-      service.setAutoStreamOnConnect(true);
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('autoStreamOnConnect', 'true');
-    });
-
-    it('should log preference change (enabled)', () => {
-      service.setAutoStreamOnConnect(true);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Auto-stream on connect enabled');
-    });
-
-    it('should log preference change (disabled)', () => {
-      service.setAutoStreamOnConnect(false);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Auto-stream on connect disabled');
-    });
-  });
-
-  describe('getLaunchOnLogin', () => {
-    it('should call loginItemAPI.get when available', async () => {
+  describe('launchOnLogin', () => {
+    it('queries loginItemAPI through getSetting when available', async () => {
       window.loginItemAPI = { get: vi.fn(() => Promise.resolve(true)), set: vi.fn() };
 
-      const result = await service.getLaunchOnLogin();
+      const result = await service.getSetting('launchOnLogin');
+
       expect(result).toBe(true);
       expect(window.loginItemAPI.get).toHaveBeenCalled();
-
-      delete window.loginItemAPI;
-    });
-
-    it('should fall back to localStorage when loginItemAPI is unavailable', async () => {
-      localStorageMock.store['launchOnLogin'] = 'true';
-
-      const result = await service.getLaunchOnLogin();
-      expect(result).toBe(true);
-    });
-
-    it('should return false by default', async () => {
-      const result = await service.getLaunchOnLogin();
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('setLaunchOnLogin', () => {
-    it('should call loginItemAPI.set when available', async () => {
-      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
-
-      await service.setLaunchOnLogin(true);
-      expect(window.loginItemAPI.set).toHaveBeenCalledWith(true);
-
-      delete window.loginItemAPI;
-    });
-
-    it('should cache value in localStorage', async () => {
-      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
-
-      await service.setLaunchOnLogin(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
-
-      delete window.loginItemAPI;
     });
 
-    it('should log the change', async () => {
+    it('falls back to storage through getSetting when loginItemAPI is unavailable', async () => {
+      localStorageMock.store.launchOnLogin = 'true';
+
+      await expect(service.getSetting('launchOnLogin')).resolves.toBe(true);
+    });
+
+    it('updates loginItemAPI and cache through setSetting', async () => {
       window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
 
-      await service.setLaunchOnLogin(true);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Launch on login enabled');
+      await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(true);
 
-      delete window.loginItemAPI;
+      expect(window.loginItemAPI.set).toHaveBeenCalledWith(true);
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
     });
   });
-
 });

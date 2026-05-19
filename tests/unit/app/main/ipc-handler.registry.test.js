@@ -3,10 +3,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 
 vi.mock('electron', () => ({
   ipcMain: {
-    handle: vi.fn()
+    handle: vi.fn(),
+    removeHandler: vi.fn()
   },
   app: {
     getAppMetrics: vi.fn(() => [])
@@ -54,14 +56,14 @@ describe('IpcHandlerRegistry', () => {
     };
 
     mockWindowService = {
-      toggleFullscreen: vi.fn(),
-      setVolume: vi.fn()
+      setFullScreen: vi.fn(),
+      isFullScreen: vi.fn()
     };
 
     mockTranscodeService = {
-      start: vi.fn(),
+      transcode: vi.fn(),
       cancel: vi.fn(),
-      isTranscoding: vi.fn(() => false)
+      getStatus: vi.fn()
     };
 
     ipcHandlerRegistry = new IpcHandlerRegistry({
@@ -99,6 +101,54 @@ describe('IpcHandlerRegistry', () => {
       ipcHandlerRegistry.registerHandlers();
 
       expect(ipcMain.handle).toHaveBeenCalledWith('device:get-status', expect.any(Function));
+    });
+
+    it('should register each expected IPC channel exactly once', () => {
+      ipcHandlerRegistry.registerHandlers();
+
+      expect(ipcMain.handle.mock.calls.map(call => call[0])).toEqual([
+        IPC_CHANNELS.DEVICE.GET_STATUS,
+        IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
+        IPC_CHANNELS.UPDATE.CHECK,
+        IPC_CHANNELS.UPDATE.DOWNLOAD,
+        IPC_CHANNELS.UPDATE.INSTALL,
+        IPC_CHANNELS.UPDATE.GET_STATUS,
+        IPC_CHANNELS.PERFORMANCE.GET_METRICS,
+        IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
+        IPC_CHANNELS.WINDOW.IS_FULLSCREEN,
+        IPC_CHANNELS.TRANSCODE.START,
+        IPC_CHANNELS.TRANSCODE.CANCEL,
+        IPC_CHANNELS.TRANSCODE.GET_STATUS,
+        IPC_CHANNELS.GPU.GET_POLICY,
+        IPC_CHANNELS.LOGIN_ITEM.GET,
+        IPC_CHANNELS.LOGIN_ITEM.SET
+      ]);
+    });
+
+    it('rejects duplicate registrations', () => {
+      ipcHandlerRegistry.registerHandlers();
+
+      expect(() => {
+        ipcHandlerRegistry.registerHandlers();
+      }).toThrow('Duplicate IPC channel registration');
+    });
+
+    it('removes only registered handlers on dispose', () => {
+      ipcHandlerRegistry.registerHandlers();
+      const registeredChannels = ipcMain.handle.mock.calls.map(call => call[0]);
+
+      ipcHandlerRegistry.dispose();
+
+      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(registeredChannels.length);
+      expect(ipcMain.removeHandler.mock.calls.map(call => call[0])).toEqual(registeredChannels);
+    });
+
+    it('is idempotent when dispose is called repeatedly', () => {
+      ipcHandlerRegistry.registerHandlers();
+      ipcHandlerRegistry.dispose();
+      ipcHandlerRegistry.dispose();
+
+      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(15);
     });
   });
 

@@ -1,12 +1,37 @@
+function getListenerSet(registry, key) {
+  if (!registry) {
+    return null;
+  }
+
+  if (typeof registry.get === 'function' && typeof registry.set === 'function') {
+    if (key == null) {
+      return null;
+    }
+
+    const listeners = registry.get(key);
+    if (listeners instanceof Set) {
+      return listeners;
+    }
+
+    const newListeners = new Set();
+    registry.set(key, newListeners);
+    return newListeners;
+  }
+
+  return registry;
+}
+
 function createSubscription({
   apiName,
   methodName,
   channel,
   ipcRenderer,
   registry,
+  registryKey,
   maxListeners,
   validateCallback,
   validatePayload,
+  dispatchPayload = true,
   mapPayload = (payload) => payload,
   invalidCallbackMessage = `${apiName}.${methodName}: Invalid callback provided`,
   listenerLimitMessage = `${apiName}.${methodName}: Maximum listener limit reached`,
@@ -18,7 +43,13 @@ function createSubscription({
       return () => {};
     }
 
-    if (registry.size >= maxListeners) {
+    const listenerSet = getListenerSet(registry, registryKey);
+
+    if (!listenerSet) {
+      return () => {};
+    }
+
+    if (listenerSet.size >= maxListeners) {
       console.warn(listenerLimitMessage);
       return () => {};
     }
@@ -28,18 +59,22 @@ function createSubscription({
         console.warn(invalidPayloadMessage);
         return;
       }
-      callback(mapPayload(payload, event));
+      if (dispatchPayload) {
+        callback(mapPayload(payload, event));
+        return;
+      }
+
+      callback();
     };
 
-    registry.add(listener);
+    listenerSet.add(listener);
     ipcRenderer.on(channel, listener);
 
     return () => {
       ipcRenderer.removeListener(channel, listener);
-      registry.delete(listener);
+      listenerSet.delete(listener);
     };
   };
 }
 
 export { createSubscription };
-

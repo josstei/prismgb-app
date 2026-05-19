@@ -50,6 +50,34 @@ function collectIpcManifestMethods(ipcManifest) {
   );
 }
 
+function collectIpcManifestRequestEntries(ipcManifest) {
+  return ipcManifest.namespaces.flatMap((namespace) =>
+    (namespace.invoke || []).map((entry) =>
+      `${entry.channel} ${JSON.stringify(entry.request || [])}`
+    )
+  );
+}
+
+function parseArgumentSchema(schemaSource) {
+  return [...schemaSource.matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
+}
+
+function collectIpcHandlerRequestEntries(ipcChannels) {
+  const handlersRoot = resolveProjectPath('src/main/ipc/handlers');
+  return fs.readdirSync(handlersRoot)
+    .filter((fileName) => fileName.endsWith('.handler.ts'))
+    .flatMap((fileName) => {
+      const sourceText = fs.readFileSync(path.join(handlersRoot, fileName), 'utf8');
+      return [...sourceText.matchAll(
+        /channel:\s*IPC_CHANNELS\.([A-Z0-9_]+)\.([A-Z0-9_]+)[\s\S]*?argumentSchema:\s*\[([\s\S]*?)\]/g
+      )].map((match) => {
+        const [, namespace, channelKey, schemaSource] = match;
+        const channel = ipcChannels[namespace]?.[channelKey] || `IPC_CHANNELS.${namespace}.${channelKey}`;
+        return `${channel} ${JSON.stringify(parseArgumentSchema(schemaSource))}`;
+      });
+    });
+}
+
 function collectEventManifestValues(eventManifest, scope) {
   return eventManifest.scopes
     .filter((entry) => entry.scope === scope)
@@ -59,6 +87,22 @@ function collectEventManifestValues(eventManifest, scope) {
 function extractStringValuesFromSource(sourceText) {
   const matches = [...sourceText.matchAll(/['"]([a-z][a-z0-9-]*:[a-z][a-z0-9-]*)['"]/g)];
   return matches.map((match) => match[1]);
+}
+
+function collectMainEventChannelValues(sourceText, eventManifest) {
+  const literalValues = extractStringValuesFromSource(sourceText);
+  if (literalValues.length > 0) {
+    return literalValues;
+  }
+
+  const derivesFromManifest = sourceText.includes('event.manifest.json');
+  const selectsMainScope = /scope\s*===\s*['"]main['"]/.test(sourceText);
+  const buildsChannelsFromMainScope = /MainEventChannels/.test(sourceText) && /mainScope\.events/.test(sourceText);
+  if (!derivesFromManifest || !selectsMainScope || !buildsChannelsFromMainScope) {
+    return [];
+  }
+
+  return collectEventManifestValues(eventManifest, 'main');
 }
 
 function extractPreloadExposures(sourceText) {
@@ -84,9 +128,10 @@ function collectManifestStorageKeys(settingsManifest) {
   return settingsManifest.definitions.map((definition) => definition.storageKey);
 }
 
-function extractStorageKeyValues(sourceText) {
-  const block = sourceText.match(/export const SettingsStorageKeys = \{([\s\S]*?)\};/)?.[1] || '';
-  return [...block.matchAll(/:\s*'([^']+)'/g)].map((match) => match[1]);
+function storageConfigDerivesSettingsKeys(sourceText) {
+  return sourceText.includes('SettingsDefinitions.definitions.map')
+    && sourceText.includes('definition.storageKey')
+    && sourceText.includes('...SETTINGS_STORAGE_KEYS');
 }
 
 function collectRenderPassShaderFiles(renderPassManifest) {
@@ -168,11 +213,11 @@ function createDocsFragment(manifests) {
   ];
 
   return [
-    '<!-- CODEBASE_PHASE1_REPORT_ONLY_MANIFESTS:START -->',
+    '<!-- CODEBASE_PHASE1_MANIFESTS:START -->',
     '| Surface | Count |',
     '| --- | ---: |',
     ...rows.map(([label, count]) => `| ${label} | ${count} |`),
-    '<!-- CODEBASE_PHASE1_REPORT_ONLY_MANIFESTS:END -->',
+    '<!-- CODEBASE_PHASE1_MANIFESTS:END -->',
     ''
   ].join('\n');
 }
@@ -186,11 +231,17 @@ function loadManifests() {
 function buildPhase1DriftReport(manifests = loadManifests()) {
   const checks = [];
 
-  const currentChannels = flattenStringLeaves(readProjectJson('src/shared/ipc/channels.json'));
+  const ipcChannels = readProjectJson('src/shared/ipc/channels.json');
+  const currentChannels = flattenStringLeaves(ipcChannels);
   checks.push(compareSortedValues({
     name: 'ipc channels manifest matches channels.json',
     expected: currentChannels,
     actual: collectIpcManifestChannels(manifests.ipc)
+  }));
+  checks.push(compareSortedValues({
+    name: 'ipc manifest request schemas match main handler descriptors',
+    expected: collectIpcHandlerRequestEntries(ipcChannels),
+    actual: collectIpcManifestRequestEntries(manifests.ipc)
   }));
 
   const currentPreloadExposures = extractPreloadExposures(readProjectText('src/preload/index.js'));
@@ -216,7 +267,10 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
 
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
-    expected: extractStringValuesFromSource(readProjectText('src/main/infrastructure/events/event-channels.config.ts')),
+    expected: collectMainEventChannelValues(
+      readProjectText('src/main/infrastructure/events/event-channels.config.ts'),
+      manifests.events
+    ),
     actual: collectEventManifestValues(manifests.events, 'main')
   }));
 
@@ -230,15 +284,20 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     extra: []
   });
 
-  checks.push(compareSortedValues({
-    name: 'settings manifest keys match SettingsStorageKeys',
-    expected: extractStorageKeyValues(readProjectText('src/shared/config/storage-keys.config.ts')),
-    actual: collectManifestStorageKeys(manifests.settings)
-  }));
+  const storageConfigSource = readProjectText('src/shared/config/storage-keys.config.ts');
+  const derivesSettingsKeys = storageConfigDerivesSettingsKeys(storageConfigSource);
+  checks.push({
+    name: 'storage protected keys derive from settings manifest',
+    status: derivesSettingsKeys ? 'pass' : 'fail',
+    expected: 'SettingsDefinitions.definitions storageKey derivation',
+    actual: derivesSettingsKeys ? 'derived' : 'manual-or-missing',
+    missing: derivesSettingsKeys ? [] : ['SETTINGS_STORAGE_KEYS derived from SettingsDefinitions.definitions'],
+    extra: []
+  });
 
   const defaults = collectManifestDefaults(manifests.settings);
   checks.push({
-    name: 'settings manifest records current recording format compatibility default',
+    name: 'settings manifest records recording format default',
     status: defaults.recordingFormat === 'webm' ? 'pass' : 'fail',
     expected: 'webm',
     actual: defaults.recordingFormat,

@@ -40,7 +40,7 @@ export class ReducedMotionAdapter {
       callback(Boolean(event.matches));
     };
 
-    // Support both modern addEventListener and legacy addListener
+    // Support both modern addEventListener and MediaQueryList.addListener.
     if (typeof this._mediaQuery.addEventListener === 'function') {
       this._mediaQuery.addEventListener('change', handleChange);
       this._cleanupFn = () => this._mediaQuery.removeEventListener('change', handleChange);

@@ -49,11 +49,11 @@ class ShaderPresetListComponent {
   }
 
   _loadCurrentPreset() {
-    this.currentPresetId = this.settingsService.getRenderPreset();
+    this.currentPresetId = this.settingsService.getStringSetting('renderPreset');
   }
 
   _loadPerformanceModeState() {
-    this._performanceModeEnabled = this.settingsService.getPerformanceMode();
+    this._performanceModeEnabled = this.settingsService.getBooleanSetting('performanceMode');
     this._updateShaderListVisibility();
   }
 
@@ -94,7 +94,7 @@ class ShaderPresetListComponent {
     }
 
     this.currentPresetId = presetId;
-    this.settingsService.setRenderPreset(presetId);
+    this.settingsService.setSetting('renderPreset', presetId);
     this._updateActiveState(true);
 
     this.logger?.debug(`Shader preset selected: ${presetId}`);

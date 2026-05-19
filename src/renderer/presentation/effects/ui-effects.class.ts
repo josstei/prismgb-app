@@ -3,7 +3,6 @@
  *
  * Coordinates feature-specific effect classes for cursor hiding, toolbar hiding,
  * fullscreen controls, button feedback, and body mode management.
- * Maintains backwards-compatible public API.
  */
 
 import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';

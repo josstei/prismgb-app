@@ -83,4 +83,86 @@ describe('BaseService', () => {
       expect(service._serviceName).toBe('TestService');
     });
   });
+
+  describe('Lifecycle helpers', () => {
+    let service;
+
+    beforeEach(() => {
+      service = new BaseService(
+        { eventBus: mockEventBus, loggerFactory: mockLoggerFactory },
+        ['eventBus', 'loggerFactory'],
+        'TestService'
+      );
+    });
+
+    it('tracks EventBus subscriptions through listen()', async () => {
+      const listener = vi.fn();
+      const unsub = vi.fn();
+      mockEventBus.subscribe = vi.fn(() => unsub);
+
+      const stopListening = service.listen('device:connected', listener);
+
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:connected', listener);
+      expect(unsub).not.toHaveBeenCalled();
+
+      await service.dispose();
+      stopListening();
+      expect(unsub).toHaveBeenCalledTimes(1);
+    });
+
+    it('tracks DOM/event-target listeners', async () => {
+      const target = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn()
+      };
+      const handler = vi.fn();
+
+      service.subscribe(target, 'click', handler);
+      expect(target.addEventListener).toHaveBeenCalledWith('click', handler, undefined);
+
+      await service.dispose();
+      expect(target.removeEventListener).toHaveBeenCalledWith('click', handler, undefined);
+    });
+
+    it('tracks timeout and interval lifecycles and clears them on dispose', async () => {
+      vi.useFakeTimers();
+
+      const timeoutHandler = vi.fn();
+      const intervalHandler = vi.fn();
+
+      service.timeout(timeoutHandler, 1000);
+      service.interval(intervalHandler, 100);
+
+      await service.dispose();
+      vi.advanceTimersByTime(2000);
+
+      expect(timeoutHandler).not.toHaveBeenCalled();
+      expect(intervalHandler).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('tracks animation frames and cancels on dispose', async () => {
+      const request = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(() => 77);
+      const cancel = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {});
+      const frame = vi.fn();
+
+      service.animationFrame(frame);
+      await service.dispose();
+
+      expect(cancel).toHaveBeenCalledWith(77);
+
+      request.mockRestore();
+      cancel.mockRestore();
+    });
+
+    it('throws nothing when dispose is called multiple times', async () => {
+      const unsub = vi.fn();
+      mockEventBus.subscribe = vi.fn(() => unsub);
+      service.listen('one', vi.fn());
+
+      await expect(service.dispose()).resolves.toBeUndefined();
+      await expect(service.dispose()).resolves.toBeUndefined();
+    });
+  });
 });

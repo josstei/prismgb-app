@@ -1,54 +1,59 @@
-function createDevicePreloadAPI({ ipcRenderer, channels, listenerRegistry, maxListeners, isValidCallback }) {
+import { createSubscription } from '../subscription.factory.js';
+
+function createDevicePreloadAPI({
+  ipcRenderer,
+  channels,
+  listenerRegistry,
+  maxListeners,
+  isValidCallback
+}) {
+  const listenerKeys = {
+    onConnected: 'device.onConnected',
+    onDisconnected: 'device.onDisconnected'
+  };
+
+  const disposeListenersForKey = (channel, registryKey) => {
+    const listeners = listenerRegistry.get(registryKey);
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of listeners) {
+      ipcRenderer.removeListener(channel, listener);
+    }
+    listeners.clear();
+  };
+
   return {
     getStatus: () => ipcRenderer.invoke(channels.DEVICE.GET_STATUS),
 
-    onConnected: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('deviceAPI.onConnected: Invalid callback provided');
-        return () => {};
-      }
+    onConnected: (callback) =>
+      createSubscription({
+        apiName: 'deviceAPI',
+        methodName: 'onConnected',
+        channel: channels.DEVICE.CONNECTED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onConnected,
+        maxListeners,
+        validateCallback: isValidCallback
+      })(callback),
 
-      if (listenerRegistry.connected.size >= maxListeners) {
-        console.warn('deviceAPI.onConnected: Maximum listener limit reached');
-        return () => {};
-      }
+    onDisconnected: (callback) =>
+      createSubscription({
+        apiName: 'deviceAPI',
+        methodName: 'onDisconnected',
+        channel: channels.DEVICE.DISCONNECTED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onDisconnected,
+        maxListeners,
+        validateCallback: isValidCallback
+      })(callback),
 
-      const listener = (event, device) => callback(device);
-      listenerRegistry.connected.add(listener);
-      ipcRenderer.on(channels.DEVICE.CONNECTED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.DEVICE.CONNECTED, listener);
-        listenerRegistry.connected.delete(listener);
-      };
-    },
-
-    onDisconnected: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('deviceAPI.onDisconnected: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.disconnected.size >= maxListeners) {
-        console.warn('deviceAPI.onDisconnected: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, device) => callback(device);
-      listenerRegistry.disconnected.add(listener);
-      ipcRenderer.on(channels.DEVICE.DISCONNECTED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.DEVICE.DISCONNECTED, listener);
-        listenerRegistry.disconnected.delete(listener);
-      };
-    },
-
-    removeListeners: () => {
-      ipcRenderer.removeAllListeners(channels.DEVICE.CONNECTED);
-      ipcRenderer.removeAllListeners(channels.DEVICE.DISCONNECTED);
-      listenerRegistry.connected.clear();
-      listenerRegistry.disconnected.clear();
+    dispose: () => {
+      disposeListenersForKey(channels.DEVICE.CONNECTED, listenerKeys.onConnected);
+      disposeListenersForKey(channels.DEVICE.DISCONNECTED, listenerKeys.onDisconnected);
     }
   };
 }

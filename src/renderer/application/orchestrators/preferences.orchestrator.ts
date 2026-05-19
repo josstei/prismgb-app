@@ -37,7 +37,7 @@ export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
       const preferences = this.settingsService.loadAllPreferences();
 
       // Apply volume via event (ShaderSelector listens for this)
-      this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, preferences.volume);
+      this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, preferences.gameVolume);
       this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, preferences.performanceMode);
       this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, preferences.minimalistFullscreen);
 

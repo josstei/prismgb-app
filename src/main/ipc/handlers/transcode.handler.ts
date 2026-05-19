@@ -1,18 +1,13 @@
-/**
- * Transcode IPC Handlers
- *
- * Registers transcode-related IPC routes.
- */
-
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type {
   TranscodeCancelResponse,
   TranscodeFormat,
   TranscodeStartResponse,
   TranscodeStatusResponse
 } from '@shared/ipc/preload-api.contract.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface TranscodeService {
   transcode(options: {
@@ -23,15 +18,10 @@ interface TranscodeService {
     interrupted: boolean;
   }): Promise<TranscodeStartResponse>;
   cancel(jobId: string): TranscodeCancelResponse;
-  getStatus(jobId?: string): TranscodeStatusResponse;
-}
-
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
+  getStatus(): TranscodeStatusResponse;
 }
 
 export interface TranscodeHandlerDependencies {
-  registerHandler: RegisterHandler;
   transcodeService: TranscodeService;
   logger: Logger;
 }
@@ -48,35 +38,31 @@ interface TranscodeCancelOptions {
   jobId: string;
 }
 
-interface TranscodeStatusOptions {
-  jobId?: string;
+function toBuffer(inputBuffer: TranscodeStartOptions['inputBuffer']): Buffer {
+  if (inputBuffer instanceof ArrayBuffer) {
+    return Buffer.from(inputBuffer);
+  }
+
+  if (ArrayBuffer.isView(inputBuffer)) {
+    return Buffer.from(inputBuffer.buffer, inputBuffer.byteOffset, inputBuffer.byteLength);
+  }
+
+  return inputBuffer as Buffer;
 }
 
-/**
- * Register transcode IPC handlers
- */
-export function registerTranscodeHandlers({ registerHandler, transcodeService, logger }: TranscodeHandlerDependencies): void {
-  /**
-   * Start a transcode operation
-   * Expects: { inputBuffer: ArrayBuffer, format: string, outputFilename?: string, inputArgs?: string[] }
-   * Returns: { success: boolean, jobId?: string, error?: string }
-   */
-  registerHandler(IPC_CHANNELS.TRANSCODE.START, async (_event: IpcMainInvokeEvent, options: TranscodeStartOptions) => {
-    try {
-      // Convert ArrayBuffer to Buffer if needed
-      let inputBuffer: Buffer = options.inputBuffer as Buffer;
-      if (options.inputBuffer instanceof ArrayBuffer) {
-        inputBuffer = Buffer.from(options.inputBuffer);
-      } else if (ArrayBuffer.isView(options.inputBuffer)) {
-        inputBuffer = Buffer.from(
-          options.inputBuffer.buffer,
-          options.inputBuffer.byteOffset,
-          options.inputBuffer.byteLength
-        );
-      }
-
+export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDependencies>([
+  {
+    channel: IPC_CHANNELS.TRANSCODE.START,
+    dependencyTokens: ['transcodeService', 'logger'],
+    argumentSchema: ['options:object'],
+    responseMode: 'result-envelope',
+    async invoke(
+      { transcodeService }: TranscodeHandlerDependencies,
+      _event: IpcMainInvokeEvent,
+      options: TranscodeStartOptions
+    ): Promise<TranscodeStartResponse> {
       const result = await transcodeService.transcode({
-        inputBuffer,
+        inputBuffer: toBuffer(options.inputBuffer),
         format: options.format,
         outputFilename: options.outputFilename,
         inputArgs: options.inputArgs,
@@ -84,39 +70,45 @@ export function registerTranscodeHandlers({ registerHandler, transcodeService, l
       });
 
       return result;
-    } catch (error) {
+    },
+    mapError: (error, { logger }) => {
       logger.error('Failed to start transcode:', error);
-      return { success: false, error: (error as Error).message } as TranscodeStartResponse;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as TranscodeStartResponse;
     }
-  });
-
-  /**
-   * Cancel a transcode operation
-   * Expects: { jobId: string }
-   * Returns: { success: boolean, error?: string }
-   */
-  registerHandler(IPC_CHANNELS.TRANSCODE.CANCEL, async (_event: IpcMainInvokeEvent, { jobId }: TranscodeCancelOptions) => {
-    try {
-      const result = transcodeService.cancel(jobId);
-      return result;
-    } catch (error) {
+  },
+  {
+    channel: IPC_CHANNELS.TRANSCODE.CANCEL,
+    dependencyTokens: ['transcodeService', 'logger'],
+    argumentSchema: ['options:object'],
+    responseMode: 'result-envelope',
+    invoke(
+      { transcodeService }: TranscodeHandlerDependencies,
+      _event: IpcMainInvokeEvent,
+      { jobId }: TranscodeCancelOptions
+    ): TranscodeCancelResponse {
+      return transcodeService.cancel(jobId);
+    },
+    mapError: (error, { logger }) => {
       logger.error('Failed to cancel transcode:', error);
-      return { success: false, error: (error as Error).message } as TranscodeCancelResponse;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as TranscodeCancelResponse;
     }
-  });
-
-  /**
-   * Get transcode status
-   * Expects: { jobId?: string } (optional - if not provided, returns all jobs)
-   * Returns: { success: boolean, job?: TranscodeJob, jobs?: TranscodeJob[], error?: string }
-   */
-  registerHandler(IPC_CHANNELS.TRANSCODE.GET_STATUS, async (_event: IpcMainInvokeEvent, options: TranscodeStatusOptions = {}) => {
-    try {
-      const result = transcodeService.getStatus(options.jobId);
-      return result;
-    } catch (error) {
+  },
+  {
+    channel: IPC_CHANNELS.TRANSCODE.GET_STATUS,
+    dependencyTokens: ['transcodeService', 'logger'],
+    argumentSchema: [],
+    responseMode: 'result-envelope',
+    invoke(
+      { transcodeService }: TranscodeHandlerDependencies
+    ): TranscodeStatusResponse {
+      return transcodeService.getStatus();
+    },
+    mapError: (error, { logger }) => {
       logger.error('Failed to get transcode status:', error);
-      return { success: false, error: (error as Error).message } as TranscodeStatusResponse;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage } as TranscodeStatusResponse;
     }
-  });
-}
+  }
+]);

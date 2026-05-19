@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const hiDefPreset: IPreset = {
   id: 'hi-def',
@@ -24,5 +23,3 @@ export const hiDefPreset: IPreset = {
     vignetteStrength: 0
   }
 };
-
-PresetRegistry.register(hiDefPreset);

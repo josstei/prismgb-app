@@ -1,5 +1,4 @@
 import type { IPreset } from '../preset.interface';
-import { PresetRegistry } from '../preset-registry';
 
 export const vintagePreset: IPreset = {
   id: 'vintage',
@@ -24,5 +23,3 @@ export const vintagePreset: IPreset = {
     vignetteStrength: 0.15
   }
 };
-
-PresetRegistry.register(vintagePreset);

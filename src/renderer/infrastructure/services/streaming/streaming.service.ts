@@ -14,7 +14,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 /**
  * Stream lifecycle states for the state machine

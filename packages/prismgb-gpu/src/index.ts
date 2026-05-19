@@ -47,13 +47,13 @@ export { detectCapabilities } from './application/capability-detector';
 export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
 export type { UniformBuildContext } from './application/uniform-builder';
 
+// Worker API (worker-safe rendering API)
+export { createWorkerPipeline, type CreateWorkerPipelineOptions } from './factories';
+
 // Pipeline Factory (main entry point)
 export { createPipeline, type CreatePipelineOptions } from './factories';
 
-// Register all built-in presets on import
-import './domain/presets/presets/true-color.preset';
-import './domain/presets/presets/vibrant.preset';
-import './domain/presets/presets/hi-def.preset';
-import './domain/presets/presets/vintage.preset';
-import './domain/presets/presets/pixel.preset';
-import './domain/presets/presets/performance.preset';
+import { BUILT_IN_PRESETS } from './domain/presets';
+import { PresetRegistry } from './domain/presets';
+
+PresetRegistry.registerMany(BUILT_IN_PRESETS);

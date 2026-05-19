@@ -1,5 +1,5 @@
 /**
- * UI Controller - Thin facade for UI operations
+ * UI Controller - UI operation coordinator
  * Delegates to UIComponentRegistry and UIEffects for actual work
  */
 

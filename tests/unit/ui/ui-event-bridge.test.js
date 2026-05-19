@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('UIEventBridge', () => {
   let handler;

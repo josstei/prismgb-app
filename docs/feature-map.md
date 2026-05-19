@@ -22,8 +22,8 @@ This document maps user-facing features to the codebase for maintenance and onbo
 | Capture (screenshots/recording) | `src/renderer/infrastructure/services/capture` | PNG screenshots, recordings with format selection |
 | Transcode | `src/main/infrastructure/transcode`, `src/renderer/infrastructure/services/transcode`, `src/shared/features/transcode` | FFmpeg-based transcoding for MP4/MOV output |
 | Devices and adapters | `src/renderer/infrastructure/services/devices`, `src/renderer/infrastructure/adapters/devices`, `src/main/infrastructure/devices`, `src/shared/features/devices` | USB detection, device registry, adapters |
-| Settings and display modes | `src/renderer/infrastructure/services/settings`, `src/renderer/presentation/config/storage-keys.config.ts` | Cinematic, fullscreen, performance mode, status strip |
-| Notes | `src/renderer/infrastructure/services/notes`, `src/renderer/presentation/config/storage-keys.config.ts` | Notes CRUD and search |
+| Settings and display modes | `src/shared/features/settings/settings.definitions.json`, `src/renderer/infrastructure/services/settings` | Cinematic, fullscreen, performance mode, status strip |
+| Notes | `src/renderer/infrastructure/services/notes`, `src/shared/config/storage-keys.config.ts` | Notes CRUD and search |
 | Updates | `src/main/infrastructure/updates`, `src/renderer/infrastructure/services/updates`, `src/preload/index.js` | electron-updater + renderer UI |
 | UI shell | `src/renderer/presentation`, `src/renderer/assets` | Templates, components, effects |
 | App lifecycle and performance | `src/renderer/application`, `src/renderer/application/di`, `src/main/application` | Orchestrators, DI registration modules, performance state |
@@ -41,7 +41,7 @@ This document maps user-facing features to the codebase for maintenance and onbo
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.js`, `src/renderer/presentation/bridges/capture-ui.bridge.js`, or `src/renderer/presentation/bridges/transcode-ui.bridge.js`.
+UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
 
 ### Start Streaming
 
@@ -78,20 +78,20 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 
 ### Recording Format Selection
 
-1. User selects format in Settings dropdown -> `SettingsService.setRecordingFormat`.
+1. User selects format in Settings dropdown -> `SettingsService.setSetting('recordingFormat', value)`.
 2. `settings:recording-format-changed` event updates UI.
 3. Format preference is persisted to localStorage and used when saving recordings.
 
 ### Shader Presets, Brightness, Volume
 
-1. Shader panel updates settings via `SettingsService.setRenderPreset`, `setGlobalBrightness`, `setVolume`.
+1. Shader panel updates settings via `SettingsService.setSetting()` for `renderPreset`, `globalBrightness`, and `gameVolume`.
 2. Settings events emit `settings:render-preset-changed`, `settings:brightness-changed`, `settings:volume-changed`.
 3. `StreamingOrchestrator` listens for preset changes and updates the render pipeline.
 4. `ShaderSliderControlsComponent` listens for brightness/volume updates to keep UI in sync.
 
 ### Performance Mode
 
-1. Settings toggle calls `SettingsService.setPerformanceMode`.
+1. Settings toggle calls `SettingsService.setSetting('performanceMode', enabled)`.
 2. `settings:performance-mode-changed` updates `PerformanceStateOrchestrator`, which emits `performance:render-mode-changed`.
 3. `StreamingOrchestrator` switches to Canvas2D rendering when performance mode is enabled.
 
@@ -119,7 +119,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 ## Data and Storage
 
 - Downloads location: screenshots and recordings go to the OS downloads folder.
-- Local storage keys: settings and notes live in localStorage, defined in `src/renderer/presentation/config/storage-keys.config.ts`.
+- Local storage keys: settings live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
 - Stored device IDs: `src/renderer/infrastructure/services/devices/device-storage.service.ts`.
 - Transcode temp files: during MP4/MOV conversion, temporary files are created in the system temp directory and cleaned up after completion or cancellation.
 
@@ -145,12 +145,11 @@ Screenshots will not be added to this repository.
 
 ### Add a New Setting
 
-1. Add a storage key in `src/renderer/presentation/config/storage-keys.config.ts`.
-2. Update `src/renderer/infrastructure/services/settings/settings.service.ts`.
-3. Wire UI in `src/renderer/presentation/features/settings`.
+1. Add the setting definition, storage key, default, type, and event in `src/shared/features/settings/settings.definitions.json`.
+2. Update UI wiring in `src/renderer/presentation/features/settings`.
 
 ## Architecture Guardrails
 
 - Renderer infrastructure timing values come from `src/shared/config/timing.config.ts`.
-- IPC handlers import channels through `src/shared/ipc/channels.config.js`.
+- IPC handlers import channels from `src/shared/ipc/channels.json`.
 - Active runtime paths do not use `@core` imports.

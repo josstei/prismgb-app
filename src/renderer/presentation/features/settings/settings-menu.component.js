@@ -109,7 +109,7 @@ class SettingsMenuComponent {
     if (this.statusStripCheckbox) {
       this._domListeners.add(this.statusStripCheckbox, 'change', () => {
         const visible = this.statusStripCheckbox.checked;
-        this.settingsService.setStatusStripVisible(visible);
+        this.settingsService.setSetting('statusStripVisible', visible);
         this._applyStatusStripVisibility(visible);
       });
     }
@@ -118,14 +118,14 @@ class SettingsMenuComponent {
     if (this.fullscreenOnStartupCheckbox) {
       this._domListeners.add(this.fullscreenOnStartupCheckbox, 'change', () => {
         const enabled = this.fullscreenOnStartupCheckbox.checked;
-        this.settingsService.setFullscreenOnStartup(enabled);
+        this.settingsService.setSetting('fullscreenOnStartup', enabled);
       });
     }
 
     // Auto-stream on connect toggle
     if (this.autoStreamOnConnectCheckbox) {
       this._domListeners.add(this.autoStreamOnConnectCheckbox, 'change', () => {
-        this.settingsService.setAutoStreamOnConnect(this.autoStreamOnConnectCheckbox.checked);
+        this.settingsService.setSetting('autoStreamOnConnect', this.autoStreamOnConnectCheckbox.checked);
       });
     }
 
@@ -133,14 +133,14 @@ class SettingsMenuComponent {
     if (this.minimalistFullscreenCheckbox) {
       this._domListeners.add(this.minimalistFullscreenCheckbox, 'change', () => {
         const enabled = this.minimalistFullscreenCheckbox.checked;
-        this.settingsService.setMinimalistFullscreen(enabled);
+        this.settingsService.setSetting('minimalistFullscreen', enabled);
       });
     }
 
     // Launch on login toggle
     if (this.launchOnLoginCheckbox) {
       this._domListeners.add(this.launchOnLoginCheckbox, 'change', () => {
-        this.settingsService.setLaunchOnLogin(this.launchOnLoginCheckbox.checked);
+        this.settingsService.setSetting('launchOnLogin', this.launchOnLoginCheckbox.checked);
       });
     }
 
@@ -148,7 +148,7 @@ class SettingsMenuComponent {
     if (this.animationSaverCheckbox) {
       this._domListeners.add(this.animationSaverCheckbox, 'change', () => {
         const enabled = this.animationSaverCheckbox.checked;
-        this.settingsService.setPerformanceMode(enabled);
+        this.settingsService.setSetting('performanceMode', enabled);
       });
     }
 
@@ -168,12 +168,12 @@ class SettingsMenuComponent {
    * @private
    */
   _loadCurrentSettings() {
-    const statusStripVisible = this.settingsService.getStatusStripVisible();
-    const fullscreenOnStartupEnabled = this.settingsService.getFullscreenOnStartup?.() ?? false;
-    const autoStreamOnConnectEnabled = this.settingsService.getAutoStreamOnConnect?.() ?? false;
-    const minimalistFullscreenEnabled = this.settingsService.getMinimalistFullscreen?.() ?? false;
-    const performanceModeEnabled = this.settingsService.getPerformanceMode?.() ?? false;
-    const recordingFormat = this.settingsService.getRecordingFormat?.() ?? 'webm';
+    const statusStripVisible = this.settingsService.getBooleanSetting('statusStripVisible');
+    const fullscreenOnStartupEnabled = this.settingsService.getBooleanSetting('fullscreenOnStartup');
+    const autoStreamOnConnectEnabled = this.settingsService.getBooleanSetting('autoStreamOnConnect');
+    const minimalistFullscreenEnabled = this.settingsService.getBooleanSetting('minimalistFullscreen');
+    const performanceModeEnabled = this.settingsService.getBooleanSetting('performanceMode');
+    const recordingFormat = this.settingsService.getStringSetting('recordingFormat');
 
     if (this.statusStripCheckbox) {
       this.statusStripCheckbox.checked = statusStripVisible;
@@ -205,7 +205,7 @@ class SettingsMenuComponent {
   }
 
   async _loadAsyncSettings() {
-    const launchOnLoginEnabled = await this.settingsService.getLaunchOnLogin?.() ?? false;
+    const launchOnLoginEnabled = await this.settingsService.getSetting('launchOnLogin');
 
     if (this.launchOnLoginCheckbox) {
       this.launchOnLoginCheckbox.checked = launchOnLoginEnabled;
@@ -258,7 +258,7 @@ class SettingsMenuComponent {
       optionSelector: '.settings-select-option',
       ignoreOutsideSelectors: ['.settings-select-wrapper'],
       onChange: (value) => {
-        this.settingsService.setRecordingFormat(value);
+        this.settingsService.setSetting('recordingFormat', value);
       },
       logger: this.logger
     });

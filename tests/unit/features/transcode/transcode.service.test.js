@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('TranscodeService', () => {
   let service;
@@ -41,8 +41,7 @@ describe('TranscodeService', () => {
       onProgress: vi.fn().mockReturnValue(vi.fn()),
       onCompleted: vi.fn().mockReturnValue(vi.fn()),
       onError: vi.fn().mockReturnValue(vi.fn()),
-      onCancelled: vi.fn().mockReturnValue(vi.fn()),
-      removeListeners: vi.fn()
+      onCancelled: vi.fn().mockReturnValue(vi.fn())
     };
 
     // Set up window.transcodeAPI
@@ -84,7 +83,7 @@ describe('TranscodeService', () => {
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._cleanupFns).toEqual([]);
+      expect(service._eventBridge).toBeNull();
       expect(service._initialized).toBe(false);
     });
   });
@@ -117,9 +116,9 @@ describe('TranscodeService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService initialized');
     });
 
-    it('should store cleanup functions', () => {
+    it('should store a preload event bridge', () => {
       service.initialize();
-      expect(service._cleanupFns.length).toBe(4);
+      expect(service._eventBridge.size).toBe(4);
     });
 
     it('should warn and skip if already initialized', () => {
@@ -476,7 +475,7 @@ describe('TranscodeService', () => {
       });
     });
 
-    it('should call all cleanup functions', () => {
+    it('should dispose all bridge-owned unsubscribe functions', () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
       mockTranscodeAPI.onProgress.mockReturnValue(cleanup1);
@@ -489,18 +488,11 @@ describe('TranscodeService', () => {
       expect(cleanup2).toHaveBeenCalled();
     });
 
-    it('should clear cleanup array', () => {
+    it('should clear event bridge reference', () => {
       service.initialize();
       service.dispose();
 
-      expect(service._cleanupFns).toEqual([]);
-    });
-
-    it('should call removeListeners on transcodeAPI', () => {
-      service.initialize();
-      service.dispose();
-
-      expect(mockTranscodeAPI.removeListeners).toHaveBeenCalled();
+      expect(service._eventBridge).toBeNull();
     });
 
     it('should reset state', () => {
@@ -519,9 +511,9 @@ describe('TranscodeService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeService disposed');
     });
 
-    it('should handle non-function cleanup items gracefully', () => {
+    it('should handle a missing event bridge gracefully', () => {
       service.initialize();
-      service._cleanupFns.push(null, undefined, 'not-a-function');
+      service._eventBridge = null;
 
       expect(() => service.dispose()).not.toThrow();
     });

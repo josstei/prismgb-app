@@ -1,23 +1,14 @@
-/**
- * Device IPC Handlers
- * Registers device-related IPC routes.
- */
-
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface DeviceService {
   getStatus(): DeviceStatusPayload;
 }
 
-interface RegisterHandler {
-  (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;
-}
-
 export interface DeviceHandlerDependencies {
-  registerHandler: RegisterHandler;
   deviceService: DeviceService;
   logger: Logger;
 }
@@ -29,9 +20,13 @@ function isTestMode(): boolean {
   return process.argv.includes('--test-mode') || process.env.NODE_ENV === 'test';
 }
 
-export function registerDeviceHandlers({ registerHandler, deviceService, logger }: DeviceHandlerDependencies): void {
-  registerHandler(IPC_CHANNELS.DEVICE.GET_STATUS, async () => {
-    try {
+export const deviceHandlerDescriptors = defineIpcHandlers<DeviceHandlerDependencies>([
+  {
+    channel: IPC_CHANNELS.DEVICE.GET_STATUS,
+    dependencyTokens: ['deviceService', 'logger'],
+    argumentSchema: [],
+    responseMode: 'bare',
+    invoke({ deviceService, logger }: DeviceHandlerDependencies, _event: IpcMainInvokeEvent) {
       // In test mode, check for mock status first
       const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
       if (isTestMode() && testGlobal.__testMockDeviceStatus) {
@@ -39,11 +34,15 @@ export function registerDeviceHandlers({ registerHandler, deviceService, logger 
         return testGlobal.__testMockDeviceStatus;
       }
 
-      const status = deviceService.getStatus();
-      return status;
-    } catch (error) {
+      return deviceService.getStatus();
+    },
+    mapError: (error, { logger }) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to get device status:', error);
-      return { connected: false, error: (error as Error).message };
+      return {
+        connected: false,
+        error: errorMessage
+      } as DeviceStatusPayload;
     }
-  });
-}
+  }
+]);

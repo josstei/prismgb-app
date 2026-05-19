@@ -79,17 +79,6 @@ async function cleanup() {
   if (app) {
     await app.cleanup();
   }
-
-  // Cleanup IPC listeners for all APIs
-  if (window.deviceAPI?.removeDeviceListeners) {
-    window.deviceAPI.removeDeviceListeners();
-  }
-  if (window.windowAPI?.removeListeners) {
-    window.windowAPI.removeListeners();
-  }
-  if (window.updateAPI?.removeListeners) {
-    window.updateAPI.removeListeners();
-  }
 }
 
 // Initialize when DOM is ready

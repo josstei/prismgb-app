@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 vi.mock('@prismgb/gpu', () => ({
   PresetRegistry: {
@@ -20,9 +20,9 @@ vi.mock('@prismgb/gpu', () => ({
 
 function createMockSettingsService(overrides = {}) {
   return {
-    getRenderPreset: vi.fn(() => 'sharp'),
-    setRenderPreset: vi.fn(),
-    getPerformanceMode: vi.fn(() => false),
+    getStringSetting: vi.fn(() => 'sharp'),
+    getBooleanSetting: vi.fn(() => false),
+    setSetting: vi.fn(() => true),
     ...overrides
   };
 }
@@ -90,13 +90,13 @@ describe('ShaderPresetListComponent', () => {
 
     it('should load current preset from settings', () => {
       component.initialize({ optionsContainer, unavailableMessage });
-      expect(mockSettingsService.getRenderPreset).toHaveBeenCalled();
+      expect(mockSettingsService.getStringSetting).toHaveBeenCalledWith('renderPreset');
       expect(component.currentPresetId).toBe('sharp');
     });
 
     it('should load performance mode state', () => {
       component.initialize({ optionsContainer, unavailableMessage });
-      expect(mockSettingsService.getPerformanceMode).toHaveBeenCalled();
+      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
     });
 
     it('should render preset list', () => {
@@ -140,7 +140,7 @@ describe('ShaderPresetListComponent', () => {
       const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
       softOption.click();
 
-      expect(mockSettingsService.setRenderPreset).toHaveBeenCalledWith('soft');
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('renderPreset', 'soft');
       expect(component.currentPresetId).toBe('soft');
     });
 
@@ -164,17 +164,17 @@ describe('ShaderPresetListComponent', () => {
       const sharpOption = optionsContainer.querySelector('[data-preset-id="sharp"]');
       sharpOption.click();
 
-      expect(mockSettingsService.setRenderPreset).not.toHaveBeenCalled();
+      expect(mockSettingsService.setSetting).not.toHaveBeenCalled();
     });
 
     it('should not allow selection in performance mode', () => {
-      mockSettingsService.getPerformanceMode.mockReturnValue(true);
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
       component._performanceModeEnabled = true;
 
       const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
       softOption.click();
 
-      expect(mockSettingsService.setRenderPreset).not.toHaveBeenCalled();
+      expect(mockSettingsService.setSetting).not.toHaveBeenCalled();
     });
   });
 

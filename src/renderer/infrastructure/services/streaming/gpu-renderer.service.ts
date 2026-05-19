@@ -14,7 +14,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
 import {
   WorkerMessageType,
@@ -67,8 +67,8 @@ type RendererCapabilities = IPipelineCapabilities & {
 };
 
 type SettingsServiceLike = {
-  getGlobalBrightness(): number;
-  getRenderPreset?: () => string | null | undefined;
+  getNumberSetting(name: string): number;
+  getStringSetting(name: string): string;
 };
 
 type GpuFrameBufferLike = {
@@ -191,7 +191,7 @@ export class StreamingGpuRendererService extends BaseService {
   ): Promise<boolean> {
     this.logger.info('Initializing GPU renderer...');
 
-    this._globalBrightness = this.settingsService.getGlobalBrightness();
+    this._globalBrightness = this.settingsService.getNumberSetting('globalBrightness');
     if (!this._brightnessUnsubscribe) {
       this._brightnessUnsubscribe = this.eventBus.subscribe(
         EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
@@ -233,7 +233,7 @@ export class StreamingGpuRendererService extends BaseService {
       this._targetWidth = nativeResolution.width * this._scaleFactor;
       this._targetHeight = nativeResolution.height * this._scaleFactor;
 
-      const savedPresetId = this.settingsService.getRenderPreset?.() || PresetRegistry.getDefault().id;
+      const savedPresetId = this.settingsService.getStringSetting('renderPreset') || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
       this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
 

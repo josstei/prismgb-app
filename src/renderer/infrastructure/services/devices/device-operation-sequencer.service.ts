@@ -24,7 +24,7 @@ export class DeviceOperationSequencerService extends BaseService {
 
   /**
    * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceService} dependencies.deviceService - Device service facade
+   * @param {DeviceService} dependencies.deviceService - Device service dependency
    * @param {EventBus} dependencies.eventBus - Event publisher
    * @param {Function} dependencies.loggerFactory - Logger factory
    */

@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('TranscodeUIBridge', () => {
   let bridge;
@@ -120,15 +120,6 @@ describe('TranscodeUIBridge', () => {
       expect(bridge._subscriptions).toEqual([]);
     });
 
-    it('should initialize currentFormat as null', () => {
-      bridge = new TranscodeUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
-
-      expect(bridge._currentFormat).toBeNull();
-    });
   });
 
   describe('_toast getter', () => {
@@ -273,29 +264,14 @@ describe('TranscodeUIBridge', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('Transcode started', { format: 'mp4' });
     });
 
-    it('should store current format in uppercase', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.STARTED]({ format: 'mp4' });
-      expect(bridge._currentFormat).toBe('MP4');
-    });
-
-    it('should default to MP4 when format is missing', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.STARTED]({});
-      expect(bridge._currentFormat).toBe('MP4');
-    });
-
-    it('should default to MP4 when data is undefined', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.STARTED](undefined);
-      expect(bridge._currentFormat).toBe('MP4');
-    });
-
     it('should disable record button', () => {
       subscribedHandlers[EventChannels.TRANSCODE.STARTED]({ format: 'mp4' });
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.RECORD_BUTTON_DISABLED);
     });
 
-    it('should show toast with format', () => {
+    it('should show toast', () => {
       subscribedHandlers[EventChannels.TRANSCODE.STARTED]({ format: 'mov' });
-      expect(mockTranscodeToast.show).toHaveBeenCalledWith('MOV');
+      expect(mockTranscodeToast.show).toHaveBeenCalledWith();
     });
 
     it('should not throw when toast is unavailable', () => {
@@ -357,8 +333,6 @@ describe('TranscodeUIBridge', () => {
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
-      // Simulate a started transcode
-      bridge._currentFormat = 'MP4';
     });
 
     it('should log transcode completed', () => {
@@ -374,11 +348,6 @@ describe('TranscodeUIBridge', () => {
     it('should show success on toast', () => {
       subscribedHandlers[EventChannels.TRANSCODE.COMPLETED]({});
       expect(mockTranscodeToast.showSuccess).toHaveBeenCalled();
-    });
-
-    it('should clear current format', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.COMPLETED]({});
-      expect(bridge._currentFormat).toBeNull();
     });
 
     it('should not throw when toast is unavailable', () => {
@@ -397,8 +366,6 @@ describe('TranscodeUIBridge', () => {
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
-      // Simulate a started transcode
-      bridge._currentFormat = 'MP4';
     });
 
     it('should log transcode error', () => {
@@ -414,22 +381,17 @@ describe('TranscodeUIBridge', () => {
 
     it('should show error on toast with message', () => {
       subscribedHandlers[EventChannels.TRANSCODE.ERROR]({ message: 'FFmpeg crashed' });
-      expect(mockTranscodeToast.showError).toHaveBeenCalledWith('FFmpeg crashed');
+      expect(mockTranscodeToast.showError).toHaveBeenCalledWith();
     });
 
     it('should use error property if message is missing', () => {
       subscribedHandlers[EventChannels.TRANSCODE.ERROR]({ error: 'Some error' });
-      expect(mockTranscodeToast.showError).toHaveBeenCalledWith('Some error');
+      expect(mockTranscodeToast.showError).toHaveBeenCalledWith();
     });
 
     it('should default to generic error message', () => {
       subscribedHandlers[EventChannels.TRANSCODE.ERROR]({});
-      expect(mockTranscodeToast.showError).toHaveBeenCalledWith('Conversion failed');
-    });
-
-    it('should clear current format', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.ERROR]({ message: 'Error' });
-      expect(bridge._currentFormat).toBeNull();
+      expect(mockTranscodeToast.showError).toHaveBeenCalledWith();
     });
 
     it('should not throw when toast is unavailable', () => {
@@ -448,8 +410,6 @@ describe('TranscodeUIBridge', () => {
         loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
-      // Simulate a started transcode
-      bridge._currentFormat = 'MP4';
     });
 
     it('should log transcode cancelled', () => {
@@ -465,11 +425,6 @@ describe('TranscodeUIBridge', () => {
     it('should hide toast', () => {
       subscribedHandlers[EventChannels.TRANSCODE.CANCELLED]();
       expect(mockTranscodeToast.hide).toHaveBeenCalled();
-    });
-
-    it('should clear current format', () => {
-      subscribedHandlers[EventChannels.TRANSCODE.CANCELLED]();
-      expect(bridge._currentFormat).toBeNull();
     });
 
     it('should not throw when toast is unavailable', () => {
@@ -494,7 +449,7 @@ describe('TranscodeUIBridge', () => {
       // Start transcode
       subscribedHandlers[EventChannels.TRANSCODE.STARTED]({ format: 'mp4' });
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.RECORD_BUTTON_DISABLED);
-      expect(mockTranscodeToast.show).toHaveBeenCalledWith('MP4');
+      expect(mockTranscodeToast.show).toHaveBeenCalledWith();
 
       // Progress updates
       subscribedHandlers[EventChannels.TRANSCODE.PROGRESS]({ percent: 25 });
@@ -515,13 +470,11 @@ describe('TranscodeUIBridge', () => {
     it('should handle transcode error workflow', () => {
       // Start transcode
       subscribedHandlers[EventChannels.TRANSCODE.STARTED]({ format: 'mov' });
-      expect(bridge._currentFormat).toBe('MOV');
 
       // Error occurs
       subscribedHandlers[EventChannels.TRANSCODE.ERROR]({ message: 'Encoder failure' });
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.RECORD_BUTTON_ENABLED);
-      expect(mockTranscodeToast.showError).toHaveBeenCalledWith('Encoder failure');
-      expect(bridge._currentFormat).toBeNull();
+      expect(mockTranscodeToast.showError).toHaveBeenCalledWith();
     });
 
     it('should handle transcode cancellation workflow', () => {
@@ -532,7 +485,6 @@ describe('TranscodeUIBridge', () => {
       subscribedHandlers[EventChannels.TRANSCODE.CANCELLED]();
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.RECORD_BUTTON_ENABLED);
       expect(mockTranscodeToast.hide).toHaveBeenCalled();
-      expect(bridge._currentFormat).toBeNull();
     });
   });
 

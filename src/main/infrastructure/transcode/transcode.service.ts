@@ -9,7 +9,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { BaseService } from '@shared/base/service.base.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import { TRANSCODE_CONFIG, TranscodeState } from '@shared/features/transcode/transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
 import {
@@ -67,7 +67,6 @@ export interface CancelResult {
  */
 export interface StatusResult {
   success: boolean;
-  job?: TranscodeJob;
   jobs?: TranscodeJob[];
   error?: string;
 }
@@ -294,20 +293,9 @@ class TranscodeService extends BaseService {
   }
 
   /**
-   * Get status of a specific job or all jobs
-   * @param jobId - Optional job ID
-   * @returns Status result
+   * Get status of all tracked jobs.
    */
-  getStatus(jobId?: string): StatusResult {
-    if (jobId) {
-      const job = this._jobs.get(jobId);
-      if (!job) {
-        return { success: false, error: 'Job not found' };
-      }
-      return { success: true, job };
-    }
-
-    // Return all jobs
+  getStatus(): StatusResult {
     const jobs = Array.from(this._jobs.values());
     return { success: true, jobs };
   }

@@ -9,7 +9,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils';
 
 interface RecordingSaveOptions {
@@ -41,7 +41,7 @@ class CaptureSaveService extends BaseService {
    * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
    */
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {
-    const format = this.settingsService.getRecordingFormat();
+    const format = this.settingsService.getStringSetting('recordingFormat');
     const interrupted = Boolean(options.interrupted);
 
     this.logger.info(`Saving recording with format preference: ${format}`);

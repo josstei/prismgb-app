@@ -9,7 +9,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
@@ -37,7 +37,7 @@ type AudioEnergyOptions = {
 };
 
 type SettingsServiceLike = {
-  getVolume(): number;
+  getNumberSetting(name: string): number;
 };
 
 type StreamingAudioPipelineDependencies = {
@@ -80,7 +80,7 @@ export class StreamingAudioPipelineService extends BaseService {
     this._isReady = false;
     this._warmupToken = 0;
 
-    this._volume = this.settingsService.getVolume();
+    this._volume = this.settingsService.getNumberSetting('gameVolume');
     this._targetGain = this._volume / 100;
 
     this._unmuteTimeout = null;

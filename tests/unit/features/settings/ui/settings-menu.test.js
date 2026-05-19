@@ -15,12 +15,16 @@ describe('SettingsMenuComponent', () => {
   beforeEach(() => {
     // Mock settings service
     mockSettingsService = {
-      getStatusStripVisible: vi.fn(() => true),
-      setStatusStripVisible: vi.fn(),
-      getPerformanceMode: vi.fn(() => true),
-      setPerformanceMode: vi.fn(),
-      getLaunchOnLogin: vi.fn(() => Promise.resolve(false)),
-      setLaunchOnLogin: vi.fn(() => Promise.resolve())
+      getBooleanSetting: vi.fn((name) => ({
+        statusStripVisible: true,
+        fullscreenOnStartup: false,
+        autoStreamOnConnect: false,
+        minimalistFullscreen: false,
+        performanceMode: true
+      })[name] ?? false),
+      getStringSetting: vi.fn(() => 'webm'),
+      getSetting: vi.fn(() => Promise.resolve(false)),
+      setSetting: vi.fn(() => true)
     };
 
     // Mock event bus
@@ -96,14 +100,14 @@ describe('SettingsMenuComponent', () => {
     it('should load current settings on initialize', () => {
       component.initialize(mockElements);
 
-      expect(mockSettingsService.getStatusStripVisible).toHaveBeenCalled();
-      expect(mockSettingsService.getPerformanceMode).toHaveBeenCalled();
+      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('statusStripVisible');
+      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
       expect(mockElements.settingStatusStrip.checked).toBe(true);
       expect(mockElements.settingAnimationSaver.checked).toBe(true);
     });
 
     it('should apply status strip visibility on initialize', () => {
-      mockSettingsService.getStatusStripVisible.mockReturnValue(false);
+      mockSettingsService.getBooleanSetting.mockImplementation((name) => name === 'performanceMode');
 
       component.initialize(mockElements);
 
@@ -208,7 +212,7 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingStatusStrip.checked = false;
       mockElements.settingStatusStrip.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setStatusStripVisible).toHaveBeenCalledWith(false);
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('statusStripVisible', false);
     });
 
     it('should add status-hidden class when unchecked', () => {
@@ -236,22 +240,23 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingAnimationSaver.checked = false;
       mockElements.settingAnimationSaver.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setPerformanceMode).toHaveBeenCalledWith(false);
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('performanceMode', false);
     });
 
     it('should reflect stored preference on initialize', () => {
-      mockSettingsService.getPerformanceMode.mockReturnValue(false);
+      mockSettingsService.getBooleanSetting.mockImplementation((name) => name === 'statusStripVisible');
 
       component.initialize(mockElements);
 
       expect(mockElements.settingAnimationSaver.checked).toBe(false);
     });
 
-    it('should default to false when getPerformanceMode method is missing', () => {
+    it('should use generic setting access when loading animation preference', () => {
       const serviceWithoutMethod = {
-        getStatusStripVisible: vi.fn(() => false),
-        setStatusStripVisible: vi.fn(),
-        setPerformanceMode: vi.fn()
+        getBooleanSetting: vi.fn(() => false),
+        getStringSetting: vi.fn(() => 'webm'),
+        getSetting: vi.fn(() => Promise.resolve(false)),
+        setSetting: vi.fn(() => true)
       };
 
       const componentWithLimitedService = new SettingsMenuComponent({
@@ -263,6 +268,7 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingAnimationSaver.checked = true;
       componentWithLimitedService.initialize(mockElements);
 
+      expect(serviceWithoutMethod.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
       expect(mockElements.settingAnimationSaver.checked).toBe(false);
 
       componentWithLimitedService.dispose();
@@ -274,15 +280,15 @@ describe('SettingsMenuComponent', () => {
       component.initialize(mockElements);
     });
 
-    it('should call setLaunchOnLogin when checkbox changes', () => {
+    it('should set launchOnLogin when checkbox changes', () => {
       mockElements.settingLaunchOnLogin.checked = true;
       mockElements.settingLaunchOnLogin.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setLaunchOnLogin).toHaveBeenCalledWith(true);
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('launchOnLogin', true);
     });
 
     it('should load saved state on initialization', async () => {
-      mockSettingsService.getLaunchOnLogin.mockResolvedValue(true);
+      mockSettingsService.getSetting.mockResolvedValue(true);
       await component._loadAsyncSettings();
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);

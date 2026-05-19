@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService, UpdateState } from '@renderer/infrastructure/services/updates/update.service.ts';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
+import { UpdateState } from '@shared/config/update-state.config';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('UpdateService', () => {
   let service;
@@ -39,8 +40,7 @@ describe('UpdateService', () => {
       onNotAvailable: vi.fn(() => vi.fn()),
       onProgress: vi.fn(() => vi.fn()),
       onDownloaded: vi.fn(() => vi.fn()),
-      onError: vi.fn(() => vi.fn()),
-      removeListeners: vi.fn()
+      onError: vi.fn(() => vi.fn())
     };
 
     global.window = { updateAPI: mockUpdateAPI };
@@ -372,21 +372,21 @@ describe('UpdateService', () => {
       await service.initialize();
     });
 
-    it('should call cleanup functions', () => {
+    it('should dispose preload event bridge unsubscribe functions', () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
-      service._cleanupFns = [cleanup1, cleanup2];
+      service._eventBridge = {
+        dispose: vi.fn(() => {
+          cleanup1();
+          cleanup2();
+        })
+      };
 
       service.dispose();
 
       expect(cleanup1).toHaveBeenCalled();
       expect(cleanup2).toHaveBeenCalled();
-    });
-
-    it('should call removeListeners', () => {
-      service.dispose();
-
-      expect(mockUpdateAPI.removeListeners).toHaveBeenCalled();
+      expect(service._eventBridge).toBeNull();
     });
 
     it('should reset state', () => {

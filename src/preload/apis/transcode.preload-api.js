@@ -1,3 +1,5 @@
+import { createSubscription } from '../subscription.factory.js';
+
 function createTranscodePreloadAPI({
   ipcRenderer,
   channels,
@@ -10,6 +12,26 @@ function createTranscodePreloadAPI({
   isValidTranscodeParams,
   isValidFfmpegArgs
 }) {
+  const isValidCancelledData = (data) => data && typeof data === 'object';
+  const listenerKeys = {
+    onProgress: 'transcode.onProgress',
+    onCompleted: 'transcode.onCompleted',
+    onError: 'transcode.onError',
+    onCancelled: 'transcode.onCancelled'
+  };
+
+  const disposeListenersForKey = (channel, registryKey) => {
+    const listeners = listenerRegistry.get(registryKey);
+    if (!listeners) {
+      return;
+    }
+
+    for (const listener of listeners) {
+      ipcRenderer.removeListener(channel, listener);
+    }
+    listeners.clear();
+  };
+
   return {
     start: (arrayBuffer, format, outputFilename, options = {}) => {
       if (!isValidTranscodeParams(arrayBuffer, format)) {
@@ -39,123 +61,67 @@ function createTranscodePreloadAPI({
 
     getStatus: () => ipcRenderer.invoke(channels.TRANSCODE.GET_STATUS),
 
-    onProgress: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('transcodeAPI.onProgress: Invalid callback provided');
-        return () => {};
-      }
+    onProgress: (callback) =>
+      createSubscription({
+        apiName: 'transcodeAPI',
+        methodName: 'onProgress',
+        channel: channels.TRANSCODE.PROGRESS,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onProgress,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidTranscodeProgress,
+        invalidPayloadMessage: 'transcodeAPI.onProgress: Invalid progress received'
+      })(callback),
 
-      if (listenerRegistry.transcodeProgress.size >= maxListeners) {
-        console.warn('transcodeAPI.onProgress: Maximum listener limit reached');
-        return () => {};
-      }
+    onCompleted: (callback) =>
+      createSubscription({
+        apiName: 'transcodeAPI',
+        methodName: 'onCompleted',
+        channel: channels.TRANSCODE.COMPLETED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onCompleted,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidTranscodeResult,
+        invalidPayloadMessage: 'transcodeAPI.onCompleted: Invalid result received'
+      })(callback),
 
-      const listener = (event, progress) => {
-        if (!isValidTranscodeProgress(progress)) {
-          console.warn('transcodeAPI.onProgress: Invalid progress received');
-          return;
-        }
-        callback(progress);
-      };
-      listenerRegistry.transcodeProgress.add(listener);
-      ipcRenderer.on(channels.TRANSCODE.PROGRESS, listener);
+    onError: (callback) =>
+      createSubscription({
+        apiName: 'transcodeAPI',
+        methodName: 'onError',
+        channel: channels.TRANSCODE.ERROR,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onError,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidError,
+        invalidPayloadMessage: 'transcodeAPI.onError: Invalid error received'
+      })(callback),
 
-      return () => {
-        ipcRenderer.removeListener(channels.TRANSCODE.PROGRESS, listener);
-        listenerRegistry.transcodeProgress.delete(listener);
-      };
-    },
+    onCancelled: (callback) =>
+      createSubscription({
+        apiName: 'transcodeAPI',
+        methodName: 'onCancelled',
+        channel: channels.TRANSCODE.CANCELLED,
+        ipcRenderer,
+        registry: listenerRegistry,
+        registryKey: listenerKeys.onCancelled,
+        maxListeners,
+        validateCallback: isValidCallback,
+        validatePayload: isValidCancelledData,
+        invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
+      })(callback),
 
-    onCompleted: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('transcodeAPI.onCompleted: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.transcodeCompleted.size >= maxListeners) {
-        console.warn('transcodeAPI.onCompleted: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, result) => {
-        if (!isValidTranscodeResult(result)) {
-          console.warn('transcodeAPI.onCompleted: Invalid result received');
-          return;
-        }
-        callback(result);
-      };
-      listenerRegistry.transcodeCompleted.add(listener);
-      ipcRenderer.on(channels.TRANSCODE.COMPLETED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.TRANSCODE.COMPLETED, listener);
-        listenerRegistry.transcodeCompleted.delete(listener);
-      };
-    },
-
-    onError: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('transcodeAPI.onError: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.transcodeError.size >= maxListeners) {
-        console.warn('transcodeAPI.onError: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, error) => {
-        if (!isValidError(error)) {
-          console.warn('transcodeAPI.onError: Invalid error received');
-          return;
-        }
-        callback(error);
-      };
-      listenerRegistry.transcodeError.add(listener);
-      ipcRenderer.on(channels.TRANSCODE.ERROR, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.TRANSCODE.ERROR, listener);
-        listenerRegistry.transcodeError.delete(listener);
-      };
-    },
-
-    onCancelled: (callback) => {
-      if (!isValidCallback(callback)) {
-        console.warn('transcodeAPI.onCancelled: Invalid callback provided');
-        return () => {};
-      }
-
-      if (listenerRegistry.transcodeCancelled.size >= maxListeners) {
-        console.warn('transcodeAPI.onCancelled: Maximum listener limit reached');
-        return () => {};
-      }
-
-      const listener = (event, data) => {
-        if (!data || typeof data !== 'object') {
-          console.warn('transcodeAPI.onCancelled: Invalid data received');
-          return;
-        }
-        callback(data);
-      };
-      listenerRegistry.transcodeCancelled.add(listener);
-      ipcRenderer.on(channels.TRANSCODE.CANCELLED, listener);
-
-      return () => {
-        ipcRenderer.removeListener(channels.TRANSCODE.CANCELLED, listener);
-        listenerRegistry.transcodeCancelled.delete(listener);
-      };
-    },
-
-    removeListeners: () => {
-      ipcRenderer.removeAllListeners(channels.TRANSCODE.PROGRESS);
-      ipcRenderer.removeAllListeners(channels.TRANSCODE.COMPLETED);
-      ipcRenderer.removeAllListeners(channels.TRANSCODE.ERROR);
-      ipcRenderer.removeAllListeners(channels.TRANSCODE.CANCELLED);
-      listenerRegistry.transcodeProgress.clear();
-      listenerRegistry.transcodeCompleted.clear();
-      listenerRegistry.transcodeError.clear();
-      listenerRegistry.transcodeCancelled.clear();
+    dispose: () => {
+      disposeListenersForKey(channels.TRANSCODE.PROGRESS, listenerKeys.onProgress);
+      disposeListenersForKey(channels.TRANSCODE.COMPLETED, listenerKeys.onCompleted);
+      disposeListenersForKey(channels.TRANSCODE.ERROR, listenerKeys.onError);
+      disposeListenersForKey(channels.TRANSCODE.CANCELLED, listenerKeys.onCancelled);
     }
   };
 }

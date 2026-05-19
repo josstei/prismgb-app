@@ -5,15 +5,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/components/shader-slider-controls.component.js';
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 function createMockSettingsService(overrides = {}) {
   return {
-    getGlobalBrightness: vi.fn(() => 1.0),
-    setGlobalBrightness: vi.fn(),
-    getVolume: vi.fn(() => 70),
-    setVolume: vi.fn(),
-    getPerformanceMode: vi.fn(() => false),
+    getNumberSetting: vi.fn((name) => ({
+      globalBrightness: 1.0,
+      gameVolume: 70
+    })[name]),
+    getBooleanSetting: vi.fn(() => false),
+    setSetting: vi.fn(() => true),
     ...overrides
   };
 }
@@ -121,7 +122,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getGlobalBrightness).toHaveBeenCalled();
+      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('globalBrightness');
       expect(brightnessSlider.value).toBe('50'); // brightnessToSlider(1.0) = 50
     });
 
@@ -135,7 +136,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getVolume).toHaveBeenCalled();
+      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('gameVolume');
       expect(volumeSlider.value).toBe('70');
     });
 
@@ -223,7 +224,7 @@ describe('ShaderSliderControlsComponent', () => {
       brightnessSlider.value = '75';
       brightnessSlider.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setGlobalBrightness).toHaveBeenCalledWith(1.25);
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('globalBrightness', 1.25);
     });
 
     it('should update slider from external brightness change', () => {
@@ -281,7 +282,7 @@ describe('ShaderSliderControlsComponent', () => {
       volumeSlider.value = '50';
       volumeSlider.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setVolume).toHaveBeenCalledWith(50);
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('gameVolume', 50);
     });
 
     it('should update slider from external volume change', () => {

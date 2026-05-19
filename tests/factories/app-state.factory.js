@@ -18,10 +18,10 @@ export const DEFAULT_STATE = {
   recordingBlob: null,
   deviceConnected: false,
   isFullscreen: false,
-  volume: 100,
+  volume: 70,
   brightness: 1.0,
-  performanceMode: 'balanced',
-  renderPreset: 'sharp',
+  performanceMode: false,
+  renderPreset: 'vibrant',
 };
 
 /**

@@ -12,7 +12,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
