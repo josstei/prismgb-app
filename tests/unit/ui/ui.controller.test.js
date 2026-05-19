@@ -1,6 +1,6 @@
 /**
  * UIController Unit Tests
- * Tests the thin facade that delegates to UIComponentRegistry and UIEffects
+ * Tests delegation to UIComponentRegistry and UIEffects
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import {
   deviceHandlerDescriptors,

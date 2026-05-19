@@ -5,7 +5,7 @@
  *
  * Responsibilities:
  * - Initialize UpdateService
- * - Provide facade for update actions
+ * - Coordinate update actions
  */
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';

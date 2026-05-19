@@ -11,7 +11,6 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
 const SETTING_DEFINITIONS = SettingsDefinitions.definitions;
@@ -25,19 +24,6 @@ type SettingValidation = {
   max?: number;
   clamp?: boolean;
 };
-
-interface SettingsDefaults {
-  gameVolume: number;
-  statusStripVisible: boolean;
-  renderPreset: string;
-  globalBrightness: number;
-  performanceMode: boolean;
-  fullscreenOnStartup: boolean;
-  minimalistFullscreen: boolean;
-  autoStreamOnConnect: boolean;
-  launchOnLogin: boolean;
-  recordingFormat: string;
-}
 
 interface SettingsStorageService {
   getItem(key: string): string | null;
@@ -58,29 +44,6 @@ function createDefinitionMap(): Map<string, SettingDefinition> {
   return new Map(SETTING_DEFINITIONS.map((definition) => [definition.name, definition]));
 }
 
-function getDefinitionDefault<T extends SettingDefaultValue>(name: string): T {
-  const definition = SETTING_DEFINITIONS.find((candidate) => candidate.name === name);
-  if (!definition) {
-    throw new Error(`Missing settings definition default: ${name}`);
-  }
-  return definition.default as T;
-}
-
-function createDefaultSettings(): SettingsDefaults {
-  return {
-    gameVolume: getDefinitionDefault<number>('gameVolume'),
-    statusStripVisible: getDefinitionDefault<boolean>('statusStripVisible'),
-    renderPreset: getDefinitionDefault<string>('renderPreset'),
-    globalBrightness: getDefinitionDefault<number>('globalBrightness'),
-    performanceMode: getDefinitionDefault<boolean>('performanceMode'),
-    fullscreenOnStartup: getDefinitionDefault<boolean>('fullscreenOnStartup'),
-    minimalistFullscreen: getDefinitionDefault<boolean>('minimalistFullscreen'),
-    autoStreamOnConnect: getDefinitionDefault<boolean>('autoStreamOnConnect'),
-    launchOnLogin: getDefinitionDefault<boolean>('launchOnLogin'),
-    recordingFormat: getDefinitionDefault<string>('recordingFormat')
-  };
-}
-
 function getAllowedValues(definition: SettingDefinition): string[] {
   return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
 }
@@ -88,28 +51,22 @@ function getAllowedValues(definition: SettingDefinition): string[] {
 class SettingsService extends BaseService {
   declare eventBus: SettingsEventBus;
   declare storageService: SettingsStorageService;
-  settingDefinitions: readonly SettingDefinition[];
-  settingDefinitionMap: Map<string, SettingDefinition>;
-  defaults: SettingsDefaults;
-  validRecordingFormats: string[];
-  keys: typeof SettingsStorageKeys;
+  private readonly settingDefinitions: readonly SettingDefinition[];
+  private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
   constructor(dependencies: SettingsServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
 
     this.settingDefinitions = SETTING_DEFINITIONS;
     this.settingDefinitionMap = createDefinitionMap();
-    this.defaults = createDefaultSettings();
-
-    const recordingFormatDefinition = this._getSettingDefinition('recordingFormat');
-    this.validRecordingFormats = getAllowedValues(recordingFormatDefinition);
-
-    // Use centralized storage keys
-    this.keys = SettingsStorageKeys;
   }
 
   listSettings(): string[] {
     return this.settingDefinitions.map((definition) => definition.name);
+  }
+
+  getAllowedValues(name: string): string[] {
+    return getAllowedValues(this._getSettingDefinition(name));
   }
 
   getSetting(name: string): SettingResult {

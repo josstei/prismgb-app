@@ -65,16 +65,24 @@ describe('SettingsService', () => {
       expect(settingsDefinitions.definitions.some((definition) => 'compatibilityNotes' in definition)).toBe(false);
     });
 
-    it('derives defaults, allowed values, and listing from settings definitions', () => {
+    it('derives defaults, allowed values, and listing from settings definitions', async () => {
       const manifestDefaults = Object.fromEntries(
         settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])
       );
       const recordingFormat = settingsDefinitions.definitions.find(
         (definition) => definition.name === 'recordingFormat'
       );
+      const serviceDefaults = Object.fromEntries(
+        await Promise.all(
+          settingsDefinitions.definitions.map(async (definition) => [
+            definition.name,
+            await service.getSetting(definition.name)
+          ])
+        )
+      );
 
-      expect(service.defaults).toEqual(manifestDefaults);
-      expect(service.validRecordingFormats).toEqual(recordingFormat.allowedValues);
+      expect(serviceDefaults).toEqual(manifestDefaults);
+      expect(service.getAllowedValues('recordingFormat')).toEqual(recordingFormat.allowedValues);
       expect(service.listSettings()).toEqual(
         settingsDefinitions.definitions.map((definition) => definition.name)
       );

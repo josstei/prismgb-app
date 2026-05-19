@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
+import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
@@ -176,10 +177,19 @@ describe('Phase 0 non-IPC contract baselines', () => {
     });
   });
 
-  it('documents settings defaults and current recording/transcode format drift', () => {
+  it('documents settings defaults and current recording/transcode format drift', async () => {
     const { service } = createSettingsService();
 
-    expect(service.defaults).toEqual({
+    const defaults = Object.fromEntries(
+      await Promise.all(
+        settingsDefinitions.definitions.map(async (definition) => [
+          definition.name,
+          await service.getSetting(definition.name)
+        ])
+      )
+    );
+
+    expect(defaults).toEqual({
       gameVolume: 70,
       statusStripVisible: false,
       renderPreset: 'vibrant',
@@ -191,7 +201,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
       recordingFormat: 'webm',
       launchOnLogin: false
     });
-    expect(service.validRecordingFormats).toEqual(['webm', 'mp4', 'mov']);
+    expect(service.getAllowedValues('recordingFormat')).toEqual(['webm', 'mp4', 'mov']);
     expect(service.getStringSetting('recordingFormat')).toBe('webm');
 
     expect(TRANSCODE_CONFIG.defaultFormat).toBe('mp4');

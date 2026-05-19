@@ -36,10 +36,10 @@ Last updated: 2026-05-19
   - Renderer event imports now point directly at the shared event contract; the renderer event-channel re-export was deleted. Main event channels derive from the scoped event manifest.
   - `@prismgb/gpu` exposes worker-safe pipeline creation, render-pass helper metadata, and explicit preset bulk registration without side-effect preset imports.
   - `BaseService` now owns `DisposableBag` lifecycle helpers, and renderer update/transcode services use a generic preload event bridge with per-subscription cleanup.
-  - Settings now use manifest-backed generic `getSetting()`/`setSetting()` and typed setting accessors; setting-specific getter/setter shims and manifest method mappings were removed.
+  - Settings now use manifest-backed generic `getSetting()`/`setSetting()` and typed setting accessors; setting-specific getters/setters and manifest method mappings were removed.
   - Streaming adapter/renderer factories now use the shared typed registry primitive.
   - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
-  - Full-cutover audit after Phase 2 removed stale preload declaration drift, settings method shims, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
+  - Full-cutover audit after Phase 2 removed stale preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
@@ -49,9 +49,9 @@ Last updated: 2026-05-19
 - Verification for Phase 2:
   - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; stale type-debt allowlist buckets from migrated Phase 2 files were removed.
-  - `npm run test:run` passed with 154 test files and 3010 tests.
+  - `npm run test:run` passed with 154 test files and 2957 tests.
   - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
-  - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after the main event facade moved to manifest-derived values.
+  - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
   - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
 - Next phase when resumed: Phase 3, High-Impact Consolidation. Pause here until Phase 2 review is accepted.
 
@@ -63,7 +63,7 @@ The plan was grounded in the Phase 0 repository state before Phase 1 added repor
 - `package.json` already includes `awilix`, `eventemitter3`, `joi`, Vitest, Playwright, Testing Library, Vite, Electron, and Electron Builder.
 - `git ls-files` currently reports 639 tracked files, with the largest tracked extension counts at 268 `.js`, 230 `.ts`, 38 `.css`, 23 `.svg`, 10 `.json`, 10 `.glsl`, and 8 `.wgsl`.
 - `src/renderer/presentation` currently contains 92 `.js`/`.ts`/`.css` files.
-- IPC/preload code is split across `src/shared/ipc/channels.json`, `src/shared/ipc/channels.config.js`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
+- IPC/preload code is split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
 - Renderer and GPU package shader folders are byte-equivalent by `diff -qr` and account for 1,782 total lines across duplicated WebGPU and WebGL2 shader trees.
 - Renderer DI uses a custom container in `src/renderer/infrastructure/di/service-container.factory.ts`, while main already uses Awilix in `src/main/application/container.ts`.
 - `BaseService` only validates dependencies and creates a logger; `BaseOrchestrator` owns EventBus subscription cleanup, but services and presentation components still manage timers/listeners/observers ad hoc.
@@ -79,7 +79,7 @@ The overall program succeeds when these conditions are true:
 - Repeated contracts are authoritative in manifests or generated sources, not hand-maintained in multiple runtime and test files.
 - Manual implementation files contain behavior, not duplicated channel lists, payload maps, registration tables, selector maps, mock fixtures, platform matrices, or lifecycle cleanup patterns.
 - Every generated surface has an owner manifest, generation command, drift check, and deletion policy for generated local artifacts.
-- Migrated public APIs have one current contract; no migrated surface keeps old-method shims or duplicate import paths.
+- Migrated public APIs have one current contract; no migrated surface keeps old method surfaces or duplicate import paths.
 - File count and LOC reductions are measured by area before and after each phase, with functionality, performance, and release behavior protected by tests.
 - New code cannot reintroduce the old duplication patterns because lint, scorecard, tests, or generated-drift checks reject them.
 
@@ -220,7 +220,7 @@ Expected outcome:
 
 Grounded repo truth:
 
-- IPC data is split across `src/shared/ipc/channels.json`, `src/shared/ipc/channels.config.js`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
+- IPC data is split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
 - The current preload contract test in `tests/unit/preload/preload-api.contract.test.js` regex-scans only `src/preload/index.js` for exposure names and direct `IPC_CHANNELS.X.Y` references.
 - The full-cutover audit resolved the former transcode status declaration mismatch; preload types and implementation now expose status without a job id argument.
 
@@ -253,7 +253,7 @@ Phases and tasks:
   - Generate listener cleanup and validation.
   - Replace `src/preload/index.js` with generated exposure imports plus explicit security review entry points.
 - Phase 4: Delete duplicate contracts.
-  - Delete or reduce `channels.config.js`, hand-maintained preload global declarations, regex contract tests, and manual validator lists only after generated parity is green.
+  - Delete or reduce hand-maintained channel wrappers, preload global declarations, regex contract tests, and manual validator lists only after generated parity is green.
   - Add CI drift check: no channel or preload API exists outside the contract.
 
 Success criteria:
@@ -380,7 +380,7 @@ Expected outcome:
 Grounded repo truth:
 
 - Shared renderer channels live in `src/shared/events/event-channels.ts`; payloads and runtime channel lists live separately in `src/shared/events/event-payloads.ts`.
-- Renderer has `src/renderer/infrastructure/events/event-channels.config.js`; main has `src/main/infrastructure/events/event-channels.config.ts`.
+- Renderer imports the shared event contract directly; main has manifest-derived scoped channels in `src/main/infrastructure/events/event-channels.config.ts`.
 - Renderer EventBus uses `eventemitter3`; main EventBus wraps Node `EventEmitter`.
 - Main and renderer can reuse string values with different payload shapes, such as `update:state-changed`.
 
@@ -404,7 +404,7 @@ Phases and tasks:
   - Define event identity as `{ scope, domain, name }`, not only string value.
   - Generate constants matching current values.
   - Generate payload maps from schemas or typed definitions.
-- Phase 2: Replace config facades.
+- Phase 2: Replace duplicated event config.
   - Update renderer imports to consume shared generated scoped constants directly.
   - Keep main scoped event constants generated from the manifest.
 - Phase 3: Standardize EventBus implementation.
@@ -549,7 +549,7 @@ Grounded repo truth:
 
 Long-term target:
 
-- Renderer uses one explicit DI model: preferably Awilix to match main, or generated metadata registration if browser constraints require a local facade.
+- Renderer uses one explicit DI model: preferably Awilix to match main, or generated metadata registration if browser constraints require a local boundary module.
 - Registration metadata derives runtime registrations and container token types.
 
 Reasoning:
@@ -583,7 +583,7 @@ Success criteria:
 Risks and mitigations:
 
 - Risk: adopting Awilix increases bundle or changes lifecycle semantics.
-  Mitigation: prototype with bundle measurement and keep a facade for migration.
+  Mitigation: prototype with bundle measurement and keep a narrow migration boundary.
 - Risk: generated registration obscures dependency cycles.
   Mitigation: add descriptor-level cycle detection in tests and generation.
 
@@ -702,7 +702,7 @@ Grounded repo truth:
 
 - `SettingsService` repeats `getX`, `setX`, storage key, default, validation, logging, and event publishing for each setting.
 - `loadAllPreferences()` returns only a subset of defaults.
-- `SettingsService.validRecordingFormats` duplicates transcode format knowledge from `src/shared/features/transcode/transcode.config.js`.
+- `SettingsDefinitions` owns recording-format allowed values and keeps the default explicit.
 - Settings default recording format is `webm`, while `TRANSCODE_CONFIG.defaultFormat` is `mp4`.
 
 Long-term target:
@@ -723,7 +723,7 @@ Phases and tasks:
   - Import allowed recording formats from `TRANSCODE_CONFIG.formats` without changing `webm` default.
 - Phase 2: Generate generic accessors.
   - Add `getSetting(name)` and `setSetting(name, value)` plus typed generic accessors.
-  - Remove setting-specific getter/setter shims from production call sites and tests.
+  - Remove setting-specific getters/setters from production call sites and tests.
 - Phase 3: Generate UI/storage/test surfaces.
   - Generate settings UI options, protected-key metadata, and table-driven settings tests.
   - Update `loadAllPreferences()` to derive from definitions or explicitly documented startup subset.
@@ -928,7 +928,7 @@ Phases and tasks:
   - Move game autocomplete and notes filter onto shared controllers.
   - Keep markup/classes compatible.
 - Phase 3: Add `ActivityAutoHideController`.
-  - Replace cursor, toolbar, and fullscreen auto-hide internals behind current facades.
+  - Replace cursor, toolbar, and fullscreen auto-hide internals behind current UI boundaries.
   - Centralize pause conditions and timer/RAF behavior.
 - Phase 4: Evaluate positioning library.
   - Prototype Floating UI for notes panel/dropdowns and compare deleted placement code.
@@ -938,7 +938,7 @@ Success criteria:
 
 - Repeated UI interaction logic is owned by headless controllers.
 - Keyboard and ARIA behavior is covered by tests.
-- Existing UI facades remain stable while internals consolidate.
+- Existing UI boundaries remain stable while internals consolidate.
 
 Risks and mitigations:
 
@@ -1757,7 +1757,7 @@ Expected outcome:
 Grounded repo truth:
 
 - `docs/architecture-diagrams.md` and `docs/architecture-diagrams-onboarding.md` overlap.
-- `docs/feature-map.md` contains path drift, including storage-key references pointing at renderer config facades according to findings.
+- `docs/feature-map.md` is maintained manually today and should continue to be checked for path drift against settings and architecture manifests.
 
 Long-term target:
 
@@ -1952,7 +1952,7 @@ Expected outcome:
 ## Global Risks And Mitigations
 
 - Risk: manifest-driven migration adds more code before it deletes code.
-  Mitigation: every manifest has report-only, runtime-adoption, deletion, and enforcement milestones. A manifest is not complete until at least one duplicated hand-maintained surface is deleted or reduced to a generated facade.
+  Mitigation: every manifest has report-only, runtime-adoption, deletion, and enforcement milestones. A manifest is not complete until at least one duplicated hand-maintained surface is deleted or reduced to generated code.
 
 - Risk: public API contracts break while internal code shrinks.
   Mitigation: all public preload APIs, IPC response shapes, settings defaults, device metadata, and E2E selectors get contract tests before replacement.

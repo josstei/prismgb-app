@@ -52,9 +52,9 @@ This document captures the naming and organization conventions used throughout P
 - Services are UI-agnostic and emit events rather than manipulating DOM directly.
 - Event channel names follow `domain:action` in kebab-case.
   - Shared event contract: `src/shared/events/event-channels.ts`.
-  - Compatibility re-export: `src/renderer/infrastructure/events/event-channels.config.js`.
+  - Main event channels: `src/main/infrastructure/events/event-channels.config.ts`.
   - IPC channels: `src/shared/ipc/channels.json`.
-- localStorage keys use camelCase values and live in `src/renderer/presentation/config/storage-keys.config.ts`.
+- localStorage keys use camelCase values. Settings keys live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
 
 ## Imports and Aliases
 

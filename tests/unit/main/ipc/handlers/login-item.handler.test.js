@@ -7,15 +7,6 @@ vi.mock('electron', () => ({
   }
 }));
 
-vi.mock('@shared/ipc/channels.config.js', () => ({
-  channels: {
-    LOGIN_ITEM: {
-      GET: 'login-item:get',
-      SET: 'login-item:set'
-    }
-  }
-}));
-
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import { loginItemHandlerDescriptors } from '@main/ipc/handlers/login-item.handler.js';
 

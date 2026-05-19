@@ -29,7 +29,7 @@ describe('Shared event channel contract', () => {
     expect(new Set(values).size).toBe(values.length);
   });
 
-  it('keeps main facade derived from manifest scope', () => {
+  it('keeps main event channels derived from manifest scope', () => {
     const mainValues = Object.values(MainEventChannels).flatMap((group) => Object.values(group));
     const manifestMain = eventManifest.scopes
       .find((scope) => scope.scope === 'main')

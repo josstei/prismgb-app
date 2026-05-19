@@ -9,6 +9,16 @@ import settingsDefinitions from '@shared/features/settings/settings.definitions.
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import { SettingsStorageKeys } from '@shared/config/storage-keys.config';
+import {
+  deviceHandlerDescriptors,
+  gpuHandlerDescriptors,
+  loginItemHandlerDescriptors,
+  performanceHandlerDescriptors,
+  shellHandlerDescriptors,
+  transcodeHandlerDescriptors,
+  updateHandlerDescriptors,
+  windowHandlerDescriptors
+} from '@main/ipc/handlers/index.js';
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
@@ -47,8 +57,22 @@ function getSettingDefaults() {
   );
 }
 
-describe('Phase 1 report-only manifests', () => {
+function collectHandlerArgumentSchemas() {
+  return [
+    ...deviceHandlerDescriptors,
+    ...gpuHandlerDescriptors,
+    ...loginItemHandlerDescriptors,
+    ...performanceHandlerDescriptors,
+    ...shellHandlerDescriptors,
+    ...transcodeHandlerDescriptors,
+    ...updateHandlerDescriptors,
+    ...windowHandlerDescriptors
+  ].map((descriptor) => [descriptor.channel, descriptor.argumentSchema || []]);
+}
+
+describe('Phase 1 manifests', () => {
   it('describes the current IPC channel and preload exposure surfaces', () => {
+    expect(ipcManifest.mode).toBe('enforced');
     expectNoDrift(flattenStringValues(channels), collectIpcManifestChannels());
 
     const exposedApis = Object.fromEntries(
@@ -65,6 +89,18 @@ describe('Phase 1 report-only manifests', () => {
       loginItemAPI: ['get', 'set'],
       transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
     });
+  });
+
+  it('keeps IPC manifest request schemas aligned with main handler descriptors', () => {
+    const manifestRequests = new Map(
+      ipcManifest.namespaces.flatMap((namespace) =>
+        namespace.invoke.map((entry) => [entry.channel, entry.request])
+      )
+    );
+
+    for (const [channel, argumentSchema] of collectHandlerArgumentSchemas()) {
+      expect(manifestRequests.get(channel)).toEqual(argumentSchema);
+    }
   });
 
   it('describes current renderer and main EventBus channels by scope', () => {
@@ -114,11 +150,19 @@ describe('Phase 1 report-only manifests', () => {
     });
   });
 
-  it('describes current settings defaults, keys, events, and known recording-format drift', () => {
+  it('describes current settings defaults, keys, events, and known recording-format drift', async () => {
     const service = createSettingsService();
     const defaults = getSettingDefaults();
+    const serviceDefaults = Object.fromEntries(
+      await Promise.all(
+        settingsDefinitions.definitions.map(async (definition) => [
+          definition.name,
+          await service.getSetting(definition.name)
+        ])
+      )
+    );
 
-    expect(defaults).toEqual(service.defaults);
+    expect(defaults).toEqual(serviceDefaults);
     expect(settingsDefinitions.definitions.map((definition) => definition.storageKey).sort()).toEqual(
       Object.values(SettingsStorageKeys).sort()
     );

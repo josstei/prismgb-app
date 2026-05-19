@@ -280,7 +280,7 @@ describe('SettingsMenuComponent', () => {
       component.initialize(mockElements);
     });
 
-    it('should call setLaunchOnLogin when checkbox changes', () => {
+    it('should set launchOnLogin when checkbox changes', () => {
       mockElements.settingLaunchOnLogin.checked = true;
       mockElements.settingLaunchOnLogin.dispatchEvent(new Event('change'));
 

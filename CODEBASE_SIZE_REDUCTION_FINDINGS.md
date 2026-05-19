@@ -54,18 +54,18 @@ Baseline observations:
 Current repetition:
 
 - Channel names live in `src/shared/ipc/channels.json`.
-- Runtime channel import wrapper parses raw JSON in `src/shared/ipc/channels.config.js`.
+- Channel values are consumed directly from `src/shared/ipc/channels.json`.
 - Payload types live separately in `src/shared/ipc/preload-api.contract.ts`.
 - Window globals are hand-maintained in `src/types/preload-api.d.ts`.
 - Preload exposes APIs by hand in `src/preload/index.js`.
 - Preload runtime validators are hand-maintained in `src/preload/validators.js`, including URL/update/transcode/GPU rules and allowed transcode formats.
 - Main IPC handlers are manually registered in `src/main/ipc/ipc-handler.registry.ts`.
 - Preload contract tests regex-scan source in `tests/unit/preload/preload-api.contract.test.js`.
-- IPC channel data is consumed through both the wrapper in `src/shared/ipc/channels.config.js` and direct JSON imports in preload/window code.
+- IPC channel data now has one runtime import surface, backed by drift checks against the IPC manifest and main handler descriptors.
 
 This is the most obvious architectural compression target. The current design already wants a contract. It just stops before making that contract authoritative.
 
-Known live drift: `src/types/preload-api.d.ts` declares `transcodeAPI.getStatus(jobId?: string)`, but `src/preload/apis/transcode.preload-api.js` currently invokes `TRANSCODE.GET_STATUS` without forwarding arguments, while `src/main/ipc/handlers/transcode.handler.ts` expects an options object and reads `options.jobId`. The existing regex preload contract test verifies exposed method names, not method signatures or argument forwarding.
+Known live drift at the original findings point was resolved during Phase 2: `transcodeAPI.getStatus()` no longer declares or forwards a job id, and the IPC manifest now checks request schemas against main handler descriptors.
 
 Recommended end state:
 
@@ -175,7 +175,7 @@ Current repetition:
 - Each handler module defines local `RegisterHandler` and service interfaces.
 - Try/catch, logging, success/error result mapping, and argument shaping repeat across handlers.
 
-This is not only repetition. It is also inconsistent behavior. Update and shell handlers map errors into explicit response shapes, while some window and login-item handlers return directly with no central error mapping or input validation. A descriptor migration must snapshot current IPC response compatibility before centralizing validation/error mapping, otherwise size reduction could become a subtle public API change.
+This is not only repetition. It is also inconsistent behavior. Update and shell handlers map errors into explicit response shapes, while some window and login-item handlers return directly with no central error mapping or input validation. A descriptor migration must snapshot current IPC response shapes before centralizing validation/error mapping, otherwise size reduction could become a subtle public API change.
 
 Recommended abstraction:
 
@@ -207,7 +207,7 @@ Current repetition:
 
 - Shared renderer event names are in `src/shared/events/event-channels.ts`.
 - Event payload types and the runtime channel list are separately maintained in `src/shared/events/event-payloads.ts`.
-- Renderer has a facade at `src/renderer/infrastructure/events/event-channels.config.js`.
+- Renderer imports shared event channels directly.
 - Main has separate event channels in `src/main/infrastructure/events/event-channels.config.ts`.
 - Renderer `EventBus` uses `eventemitter3`; main `EventBus` wraps Node `EventEmitter`.
 
@@ -336,8 +336,8 @@ Current repetition:
 
 Recommended end state:
 
-- Use Awilix in renderer too, through a small facade if needed.
-- Only adopt renderer Awilix if it deletes the local `ServiceContainer` and registration shim; using both would add abstraction rather than reduce code.
+- Use Awilix in renderer too, through a small boundary module if needed.
+- Only adopt renderer Awilix if it deletes the local `ServiceContainer` and registration adapter; using both would add abstraction rather than reduce code.
 - Or generate registrations from static service metadata:
 
 ```ts
@@ -454,7 +454,7 @@ This is the correct long-term path for adding more devices without multiplying f
 Current repetition:
 
 - `src/renderer/infrastructure/services/settings/settings.service.ts` repeats `getX`, `setX`, storage key, default, parse, clamp/validate, logging, and event publishing for each setting.
-- Recording formats are listed in `SettingsService.validRecordingFormats`, while format metadata lives in `src/shared/features/transcode/transcode.config.js`.
+- Recording-format allowed values now live in `src/shared/features/settings/settings.definitions.json`; `src/shared/features/transcode/transcode.config.js` still owns transcode implementation metadata.
 - Storage keys/protected-key policy repeat the same settings in shared config.
 - Recording-format UI options are hard-coded in the settings template.
 - `loadAllPreferences()` returns only a subset of defaults, so aggregate settings reads can drift from setting definitions.
@@ -486,7 +486,6 @@ Generate:
 
 - `getSetting(name)`
 - `setSetting(name, value)`
-- legacy compatibility methods like `getVolume()` and `setVolume()`
 - settings UI options
 - storage/protected-key metadata
 - settings tests
@@ -508,7 +507,7 @@ Recommended end state:
 - `PresetRegistry.registerMany(presets)`.
 - Default-preset selection lives in the same preset config and is generated into package and renderer defaults.
 - UI visibility/availability lives in the same preset config.
-- Optionally generate named exports for public compatibility.
+- Optionally generate named exports for stable public package APIs.
 
 Impact:
 
@@ -612,7 +611,7 @@ Migration:
 
 1. Upgrade the existing listbox controller to cover keyboard navigation and dynamic option rendering before moving notes filter onto it.
 2. Fold game autocomplete into a combobox controller.
-3. Replace cursor, toolbar, and fullscreen auto-hide internals behind the existing `UIEffects` facade.
+3. Replace cursor, toolbar, and fullscreen auto-hide internals behind the existing `UIEffects` boundary.
 
 Add the notes panel placement logic to the Floating UI candidate list. It currently hand-rolls anchor measurement, viewport clamping, and CSS variable placement.
 
@@ -687,7 +686,7 @@ createPreloadEventBridge({
 
 Keep command methods domain-specific. Extract only event subscription/state reset boilerplate.
 
-Generated disposal should prefer the per-subscription unsubscribe closures returned by preload APIs. Namespace-wide `removeListeners()` methods call `ipcRenderer.removeAllListeners()` and can remove listeners owned by other consumers if shared APIs expand.
+Generated disposal should prefer the per-subscription unsubscribe closures returned by preload APIs. Namespace-wide teardown methods that call `ipcRenderer.removeAllListeners()` can remove listeners owned by other consumers if shared APIs expand.
 
 ## 18. Consolidate Generic Registry And Factory Code
 
@@ -1021,7 +1020,7 @@ Library option:
 Current repetition:
 
 - `docs/architecture-diagrams.md` and onboarding diagrams overlap.
-- `docs/feature-map.md` contains path drift, for example storage-key references still pointing at renderer config facades.
+- `docs/feature-map.md` should be generated or drift-checked against current settings and architecture manifests.
 
 Recommended end state:
 
@@ -1168,7 +1167,7 @@ Adopt these rules to prevent regression:
 3. Introduce manifests in report-only mode:
    - IPC manifest generates declarations/tests first.
    - event manifest generates payload/runtime channel list.
-   - settings manifest generates compatibility getters/setters.
+   - settings manifest generates generic accessors and table-driven tests.
    - device manifest generates test fixtures.
 
 4. Collapse high-duplication runtime code:

@@ -76,7 +76,7 @@ describe('ReducedMotionAdapter', () => {
       expect(mockMediaQuery.addListener).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should call callback when preference changes (legacy addListener)', () => {
+    it('should call callback when preference changes through addListener fallback', () => {
       delete mockMediaQuery.addEventListener;
       delete mockMediaQuery.removeEventListener;
 
@@ -109,7 +109,7 @@ describe('ReducedMotionAdapter', () => {
       );
     });
 
-    it('should remove listener when cleanup is called (legacy)', () => {
+    it('should remove listener when cleanup is called for addListener fallback', () => {
       delete mockMediaQuery.addEventListener;
       delete mockMediaQuery.removeEventListener;
 
@@ -135,7 +135,7 @@ describe('ReducedMotionAdapter', () => {
       );
     });
 
-    it('should remove event listener (legacy)', () => {
+    it('should remove event listener for addListener fallback', () => {
       delete mockMediaQuery.addEventListener;
       delete mockMediaQuery.removeEventListener;
 

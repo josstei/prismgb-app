@@ -36,7 +36,7 @@ describe('codebase phase 1 drift report', () => {
     });
   });
 
-  it('generates declaration and docs fragments from report-only manifests', () => {
+  it('generates declaration and docs fragments from manifests', () => {
     const manifests = loadManifests();
     const declaration = createPreloadDeclarationPreview(manifests.ipc);
     const docs = createDocsFragment(manifests);
@@ -44,7 +44,7 @@ describe('codebase phase 1 drift report', () => {
     expect(declaration).toContain('interface Window');
     expect(declaration).toContain('deviceAPI?:');
     expect(declaration).toContain('transcodeAPI?:');
-    expect(docs).toContain('CODEBASE_PHASE1_REPORT_ONLY_MANIFESTS:START');
+    expect(docs).toContain('CODEBASE_PHASE1_MANIFESTS:START');
     expect(docs).toContain('| IPC namespaces | 8 |');
     expect(docs).toContain('| Platform targets | 5 |');
   });

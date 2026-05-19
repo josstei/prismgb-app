@@ -50,6 +50,34 @@ function collectIpcManifestMethods(ipcManifest) {
   );
 }
 
+function collectIpcManifestRequestEntries(ipcManifest) {
+  return ipcManifest.namespaces.flatMap((namespace) =>
+    (namespace.invoke || []).map((entry) =>
+      `${entry.channel} ${JSON.stringify(entry.request || [])}`
+    )
+  );
+}
+
+function parseArgumentSchema(schemaSource) {
+  return [...schemaSource.matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
+}
+
+function collectIpcHandlerRequestEntries(ipcChannels) {
+  const handlersRoot = resolveProjectPath('src/main/ipc/handlers');
+  return fs.readdirSync(handlersRoot)
+    .filter((fileName) => fileName.endsWith('.handler.ts'))
+    .flatMap((fileName) => {
+      const sourceText = fs.readFileSync(path.join(handlersRoot, fileName), 'utf8');
+      return [...sourceText.matchAll(
+        /channel:\s*IPC_CHANNELS\.([A-Z0-9_]+)\.([A-Z0-9_]+)[\s\S]*?argumentSchema:\s*\[([\s\S]*?)\]/g
+      )].map((match) => {
+        const [, namespace, channelKey, schemaSource] = match;
+        const channel = ipcChannels[namespace]?.[channelKey] || `IPC_CHANNELS.${namespace}.${channelKey}`;
+        return `${channel} ${JSON.stringify(parseArgumentSchema(schemaSource))}`;
+      });
+    });
+}
+
 function collectEventManifestValues(eventManifest, scope) {
   return eventManifest.scopes
     .filter((entry) => entry.scope === scope)
@@ -61,7 +89,7 @@ function extractStringValuesFromSource(sourceText) {
   return matches.map((match) => match[1]);
 }
 
-function collectMainEventFacadeValues(sourceText, eventManifest) {
+function collectMainEventChannelValues(sourceText, eventManifest) {
   const literalValues = extractStringValuesFromSource(sourceText);
   if (literalValues.length > 0) {
     return literalValues;
@@ -184,11 +212,11 @@ function createDocsFragment(manifests) {
   ];
 
   return [
-    '<!-- CODEBASE_PHASE1_REPORT_ONLY_MANIFESTS:START -->',
+    '<!-- CODEBASE_PHASE1_MANIFESTS:START -->',
     '| Surface | Count |',
     '| --- | ---: |',
     ...rows.map(([label, count]) => `| ${label} | ${count} |`),
-    '<!-- CODEBASE_PHASE1_REPORT_ONLY_MANIFESTS:END -->',
+    '<!-- CODEBASE_PHASE1_MANIFESTS:END -->',
     ''
   ].join('\n');
 }
@@ -202,11 +230,17 @@ function loadManifests() {
 function buildPhase1DriftReport(manifests = loadManifests()) {
   const checks = [];
 
-  const currentChannels = flattenStringLeaves(readProjectJson('src/shared/ipc/channels.json'));
+  const ipcChannels = readProjectJson('src/shared/ipc/channels.json');
+  const currentChannels = flattenStringLeaves(ipcChannels);
   checks.push(compareSortedValues({
     name: 'ipc channels manifest matches channels.json',
     expected: currentChannels,
     actual: collectIpcManifestChannels(manifests.ipc)
+  }));
+  checks.push(compareSortedValues({
+    name: 'ipc manifest request schemas match main handler descriptors',
+    expected: collectIpcHandlerRequestEntries(ipcChannels),
+    actual: collectIpcManifestRequestEntries(manifests.ipc)
   }));
 
   const currentPreloadExposures = extractPreloadExposures(readProjectText('src/preload/index.js'));
@@ -232,7 +266,7 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
 
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
-    expected: collectMainEventFacadeValues(
+    expected: collectMainEventChannelValues(
       readProjectText('src/main/infrastructure/events/event-channels.config.ts'),
       manifests.events
     ),

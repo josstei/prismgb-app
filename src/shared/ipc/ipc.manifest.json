@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "mode": "report-only",
+  "mode": "enforced",
   "namespaces": [
     {
       "namespace": "DEVICE",
@@ -214,14 +214,14 @@
           "method": "start",
           "channelKey": "START",
           "channel": "transcode:start",
-          "request": ["inputBuffer:ArrayBuffer", "format:TranscodeFormat", "outputFilename?:string", "options?:TranscodeStartOptions"],
+          "request": ["options:object"],
           "response": "TranscodeStartResponse"
         },
         {
           "method": "cancel",
           "channelKey": "CANCEL",
           "channel": "transcode:cancel",
-          "request": ["jobId:string"],
+          "request": ["options:object"],
           "response": "TranscodeCancelResponse"
         },
         {

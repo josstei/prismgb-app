@@ -173,14 +173,6 @@ describe('Preload API invoke contract baselines', () => {
     };
     const statusResponse = {
       success: true,
-      job: {
-        id: 'job-1',
-        state: 'running',
-        progress: 0,
-        outputPath: '/tmp/job-1.mp4',
-        error: null,
-        startTime: 1712345678000
-      },
       jobs: [
         {
           id: 'job-1',
@@ -240,11 +232,6 @@ describe('Preload API invoke contract baselines', () => {
     expect(startResult).toEqual(startResponse);
     expect(cancelResult).toEqual({ success: true });
     expect(statusResult).toEqual(statusResponse);
-    expect(statusResult.job).toMatchObject({
-      id: expect.any(String),
-      state: expect.any(String),
-      startTime: expect.any(Number)
-    });
     expect(Array.isArray(statusResult.jobs)).toBe(true);
   });
 

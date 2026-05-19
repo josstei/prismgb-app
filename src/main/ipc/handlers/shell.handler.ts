@@ -5,7 +5,7 @@
 
 import type { IpcMainInvokeEvent, Shell } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import { channels as IPC_CHANNELS } from '@shared/ipc/channels.config.js';
+import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
 import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
 

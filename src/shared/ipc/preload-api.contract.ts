@@ -119,7 +119,6 @@ export interface TranscodeStartResponse extends IpcActionResult {
 export type TranscodeCancelResponse = IpcActionResult;
 
 export interface TranscodeStatusResponse extends IpcActionResult {
-  job?: TranscodeJobPayload;
   jobs?: TranscodeJobPayload[];
 }
 
