@@ -19,11 +19,12 @@ function createCanvasMock(): RenderCanvas & { width: number; height: number } {
   } as unknown as RenderCanvas;
 }
 
-function createWebGL2ContextMock(): WebGL2RenderingContext {
+function createWebGL2ContextMock(): WebGL2RenderingContext & { loseContextMock: ReturnType<typeof vi.fn> } {
   const activeUniforms = 0x8B86;
   const linkStatus = 0x8B82;
   const compileStatus = 0x8B81;
   const maxTextureSize = 0x0D33;
+  const loseContextMock = vi.fn();
 
   return {
     ACTIVE_UNIFORMS: activeUniforms,
@@ -70,8 +71,9 @@ function createWebGL2ContextMock(): WebGL2RenderingContext {
     framebufferTexture2D: vi.fn(),
     deleteFramebuffer: vi.fn(),
     getParameter: vi.fn((parameter) => parameter === maxTextureSize ? 8192 : 'mock'),
-    getExtension: vi.fn((name) => name === 'WEBGL_lose_context' ? { loseContext: vi.fn() } : null)
-  } as unknown as WebGL2RenderingContext;
+    getExtension: vi.fn((name) => name === 'WEBGL_lose_context' ? { loseContext: loseContextMock } : null),
+    loseContextMock
+  } as unknown as WebGL2RenderingContext & { loseContextMock: ReturnType<typeof vi.fn> };
 }
 
 describe('createWorkerPipeline', () => {
@@ -181,6 +183,7 @@ describe('createWorkerPipeline', () => {
 
     expect(getContext.mock.calls.map(([contextType]) => contextType)).toContain('webgl2');
     expect(getContext.mock.calls.map(([contextType]) => contextType)).not.toContain('2d');
+    expect(gl.loseContextMock).not.toHaveBeenCalled();
     expect(gl.createProgram).toHaveBeenCalled();
     expect(workerPipeline.getStats()).toEqual({
       fps: 0,

@@ -32,7 +32,10 @@ function createWebGL2ProbeCanvas(): RenderCanvas | null {
   return null;
 }
 
-function detectCanvasWebGL2(canvas: RenderCanvas): { supported: boolean; info?: WebGL2Info } {
+function detectCanvasWebGL2(
+  canvas: RenderCanvas,
+  options: { releaseContext: boolean }
+): { supported: boolean; info?: WebGL2Info } {
   try {
     const gl = canvas.getContext('webgl2', {
       alpha: false,
@@ -57,7 +60,9 @@ function detectCanvasWebGL2(canvas: RenderCanvas): { supported: boolean; info?: 
       }
     };
 
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    if (options.releaseContext) {
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
     return result;
   } catch {
     return { supported: false };
@@ -70,9 +75,10 @@ function isOffscreenCanvas(canvas: RenderCanvas): boolean {
 
 function createWorkerCapabilities(canvas: RenderCanvas, preferredAPI?: RenderAPI): IPipelineCapabilities {
   const webgpuSupported = preferredAPI === 'webgpu' && typeof navigator !== 'undefined' && Boolean(navigator.gpu);
-  const webgl2ProbeCanvas = webgpuSupported ? createWebGL2ProbeCanvas() : canvas;
+  const disposableWebGL2ProbeCanvas = webgpuSupported ? createWebGL2ProbeCanvas() : null;
+  const webgl2ProbeCanvas = disposableWebGL2ProbeCanvas ?? (webgpuSupported ? null : canvas);
   const webgl2Result = preferredAPI !== 'canvas2d' && webgl2ProbeCanvas
-    ? detectCanvasWebGL2(webgl2ProbeCanvas)
+    ? detectCanvasWebGL2(webgl2ProbeCanvas, { releaseContext: Boolean(disposableWebGL2ProbeCanvas) })
     : { supported: false };
   const resolvedPreferredAPI = preferredAPI
     ?? (webgpuSupported ? 'webgpu' : webgl2Result.supported ? 'webgl2' : 'canvas2d');
