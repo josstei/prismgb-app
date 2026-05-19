@@ -105,7 +105,9 @@ function collectRenderPassShaderFiles(renderPassManifest) {
 
 function collectTsconfigAliases(tsconfigPath) {
   const parsed = readProjectJson(tsconfigPath);
-  return Object.keys(parsed.compilerOptions?.paths || {}).map((alias) => alias.replace(/\/\*$/, ''));
+  return [...new Set(
+    Object.keys(parsed.compilerOptions?.paths || {}).map((alias) => alias.replace(/\/\*$/, ''))
+  )];
 }
 
 function extractViteAliasKeys() {
@@ -181,8 +183,7 @@ function loadManifests() {
   );
 }
 
-function buildPhase1DriftReport() {
-  const manifests = loadManifests();
+function buildPhase1DriftReport(manifests = loadManifests()) {
   const checks = [];
 
   const currentChannels = flattenStringLeaves(readProjectJson('src/shared/ipc/channels.json'));

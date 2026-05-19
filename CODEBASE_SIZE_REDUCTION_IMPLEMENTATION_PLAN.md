@@ -33,14 +33,14 @@ Last updated: 2026-05-19
 - Verification for Phase 1:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one stale type-debt allowlist bucket for login-item handlers was removed.
-  - `npm run test:run` passed with 150 test files and 2966 tests.
+  - `npm run test:run` passed with 150 test files and 2967 tests after the Phase 0/1 audit hardening test was added.
   - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
   - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
 - Next phase when resumed: Phase 2, Generated Runtime Adoption.
 
-## Grounding Snapshot
+## Phase 0 Grounding Snapshot
 
-The plan is grounded in the current repository state:
+The plan was grounded in the Phase 0 repository state before Phase 1 added report-only manifests and shared foundations. Treat the counts and examples in this section as the baseline that Phase 0 measured, not as live post-Phase-1 totals:
 
 - The root package is an Electron/Vite app with npm workspaces and `@prismgb/gpu` under `packages/prismgb-gpu`.
 - `package.json` already includes `awilix`, `eventemitter3`, `joi`, Vitest, Playwright, Testing Library, Vite, Electron, and Electron Builder.
