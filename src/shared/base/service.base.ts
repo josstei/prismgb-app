@@ -10,7 +10,6 @@ export interface LoggerLike {
 
 export type ServiceDependencies = object;
 type DisposableFunction = () => void | Promise<void>;
-type TimerHandle = ReturnType<typeof setTimeout>;
 
 export interface EventTargetLike {
   addEventListener(
