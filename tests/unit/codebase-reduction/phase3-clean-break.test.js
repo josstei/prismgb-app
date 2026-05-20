@@ -23,9 +23,12 @@ function expectMissing(relativePath) {
 }
 
 describe('Phase 3 clean-break consolidation', () => {
-  it('replaces the stale Phase 0/1 audit artifact with the current Phase 0-3 audit', () => {
+  it('keeps stale phase audit artifacts retired after status moved into the implementation plan', () => {
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_1_AUDIT.md');
-    expect(fs.existsSync(projectPath('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md'))).toBe(true);
+    expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md');
+    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
+      'Next phase when resumed: Phase 4'
+    );
   });
 
   it('keeps renderer GPU consolidation package-owned without renderer-private engines or shader trees', () => {

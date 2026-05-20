@@ -49,6 +49,8 @@ describe('Phase 0-3 CI parity gates', () => {
     expect(testWorkflow).toContain('npm run architecture:scorecard -- --enforce-thresholds');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard.json');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard-summary.md');
+    expect(testWorkflow).toContain('npm run coverage:ratchet');
+    expect(testWorkflow).toContain('xvfb-run -a npm run dev:smoke');
     expect(testWorkflow).toContain('npm run packaging:check-native-abi');
     expect(buildSmokeWorkflow).toContain('npm run packaging:check-native-abi');
     expect(desktopBuildWorkflow).toContain('npm run packaging:check-native-abi');

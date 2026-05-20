@@ -27,6 +27,8 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: 'true'
 
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
@@ -67,6 +69,12 @@ jobs:
 
       - name: Run tests with coverage
         run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
+
+      - name: Enforce coverage ratchets
+        run: npm run coverage:ratchet
+
+      - name: Run dev boot preflight
+        run: xvfb-run -a npm run dev:smoke
 
       - name: Run integration tests
         run: npm run test:integration

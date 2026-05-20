@@ -4,22 +4,65 @@ import { fileURLToPath } from 'url';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export const GENERATED_PATHS = [
-  'artifacts',
-  'tests/coverage',
-  '.vitest',
-  'playwright-report',
-  'test-results',
-  'tests/e2e/test-results'
+function normalizeRelativePath(relativePath) {
+  return relativePath.split(path.sep).join('/');
+}
+
+export const GENERATED_ARTIFACT_PATHS = [
+  {
+    path: 'artifacts',
+    owner: 'Generated repository artifacts'
+  },
+  {
+    path: 'artifacts/coverage',
+    owner: 'Vitest coverage report'
+  },
+  {
+    path: '.vitest',
+    owner: 'Vitest cache'
+  },
+  {
+    path: 'playwright-report',
+    owner: 'Playwright report'
+  },
+  {
+    path: 'test-results',
+    owner: 'Playwright test artifacts'
+  },
+  {
+    path: 'tests/e2e/test-results',
+    owner: 'End-to-end test artifacts'
+  },
+  {
+    path: 'tests/e2e/screenshots',
+    owner: 'End-to-end screenshots'
+  }
 ];
+export const GENERATED_PATHS = GENERATED_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);
+
+export function getArtifactOwnership(pathName, paths = GENERATED_ARTIFACT_PATHS) {
+  const normalizedPath = normalizeRelativePath(pathName);
+  const match = paths.find((entry) => entry.path === normalizedPath);
+  return match ? match.owner : 'custom-path';
+}
 
 export function resolveGeneratedPaths(paths = GENERATED_PATHS, root = PROJECT_ROOT) {
-  return paths.map((relativePath) => path.join(root, relativePath));
+  const sorted = [...paths].sort((a, b) => {
+    const aDepth = a.split(/[\\/]/).length;
+    const bDepth = b.split(/[\\/]/).length;
+    if (aDepth === bDepth) {
+      return a.localeCompare(b);
+    }
+    return bDepth - aDepth;
+  });
+
+  return sorted.map((relativePath) => path.join(root, relativePath));
 };
 
 function toDeletionSummary(targetPath, removed, failed) {
   return {
     target: targetPath,
+    owner: getArtifactOwnership(targetPath),
     removed,
     failed
   };
@@ -45,7 +88,7 @@ export function cleanGeneratedOutputs(options = {}) {
       continue;
     }
 
-    const relativePath = path.relative(PROJECT_ROOT, generatedPath);
+    const relativePath = normalizeRelativePath(path.relative(root, generatedPath));
     if (dryRun) {
       deleted.push(toDeletionSummary(relativePath, true, false));
       continue;
