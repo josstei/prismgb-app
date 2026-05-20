@@ -106,6 +106,9 @@ describe('Phase 3 clean-break consolidation', () => {
 
     const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.js');
     expect(deviceFactorySource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
+
+    const deviceIpcAdapterSource = readProjectFile('src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts');
+    expect(deviceIpcAdapterSource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
   });
 
   it('keeps test mocks project-scoped without the deleted lazy/global sandbox helpers', () => {

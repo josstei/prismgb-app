@@ -256,6 +256,9 @@ describe('Phase 1 manifests', () => {
 
     expect(vitestConfig).toContain("reportsDirectory: './artifacts/coverage'");
     expect(vitestConfig).not.toContain("reportsDirectory: './tests/coverage'");
+    expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/webgpu/**');
+    expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/webgl2/**');
+    expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/canvas2d/**');
   });
 
   it('documents explicit Vitest project topology for browser, node, and GPU tests', () => {

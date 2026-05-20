@@ -29,26 +29,26 @@ export class DeviceIpcAdapter {
 
   /**
    * Subscribe to device connection/disconnection events
-   * @param {Function} onConnected - Called when device is connected
-   * @param {Function} onDisconnected - Called when device is disconnected
+   * @param {Function} onDeviceConnected - Called when device is connected
+   * @param {Function} onDeviceDisconnected - Called when device is disconnected
    * @returns {Function} Cleanup function to remove listeners
    */
-  subscribe(onConnected: DeviceEventHandler, onDisconnected: DeviceEventHandler) {
+  subscribe(onDeviceConnected: DeviceEventHandler, onDeviceDisconnected: DeviceEventHandler) {
     if (typeof window === 'undefined' || !window.deviceAPI) {
       // Gracefully handle missing deviceAPI (e.g., in tests or if preload fails)
       return () => {};
     }
 
     // Validate callbacks
-    if (typeof onConnected !== 'function' || typeof onDisconnected !== 'function') {
+    if (typeof onDeviceConnected !== 'function' || typeof onDeviceDisconnected !== 'function') {
       this._logger?.warn('DeviceIpcAdapter.subscribe: Invalid callbacks provided');
       return () => {};
     }
 
     // Subscribe to IPC events
     const deviceApi = window.deviceAPI as DeviceApiLike;
-    this._unsubscribeConnected = deviceApi.onDeviceConnected(onConnected);
-    this._unsubscribeDisconnected = deviceApi.onDeviceDisconnected(onDisconnected);
+    this._unsubscribeConnected = deviceApi.onDeviceConnected(onDeviceConnected);
+    this._unsubscribeDisconnected = deviceApi.onDeviceDisconnected(onDeviceDisconnected);
 
     // Return cleanup function
     return () => this.dispose();

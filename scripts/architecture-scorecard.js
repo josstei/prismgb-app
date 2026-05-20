@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import * as ts from 'typescript';
 import {
   analyzeLayerBoundaries,
   classifyFileLayer,
@@ -134,22 +135,43 @@ function readTsStrictness(projectRoot) {
   };
 }
 
-function collectAnyMetrics(srcRoot) {
+export function countExplicitAnyKeywords(sourceCode, fileName = 'source.ts') {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    sourceCode,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+  let count = 0;
+
+  function visit(node) {
+    if (node.kind === ts.SyntaxKind.AnyKeyword) {
+      count += 1;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return count;
+}
+
+export function collectAnyMetrics(srcRoot) {
   const files = walkCodeFiles(srcRoot).filter((filePath) => filePath.endsWith('.ts'));
   const entries = [];
   let occurrenceCount = 0;
 
   for (const filePath of files) {
     const sourceCode = fs.readFileSync(filePath, 'utf8');
-    const matches = sourceCode.match(/\bany\b/g) || [];
-    if (matches.length === 0) {
+    const explicitAnyCount = countExplicitAnyKeywords(sourceCode, filePath);
+    if (explicitAnyCount === 0) {
       continue;
     }
 
-    occurrenceCount += matches.length;
+    occurrenceCount += explicitAnyCount;
     entries.push({
       file: normalizeRelativePath(path.relative(srcRoot, filePath)),
-      count: matches.length
+      count: explicitAnyCount
     });
   }
 

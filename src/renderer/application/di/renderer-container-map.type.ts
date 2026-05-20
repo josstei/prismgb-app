@@ -9,19 +9,37 @@ import type { BodyClassManager } from '@renderer/presentation/effects/body-class
 import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+
+export interface BrowserMediaServiceLike {
+  enumerateDevices(): Promise<MediaDeviceInfo[]>;
+  getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
+  addEventListener(event: 'devicechange', handler: () => void): void;
+  removeEventListener(event: 'devicechange', handler: () => void): void;
+}
+
+export interface AnimationCacheLike {
+  cancelAnimation(name: string): void;
+  cancelAllAnimations(): void;
+}
+
+export interface RendererDeviceIpcClient {
+  getDeviceStatus(): Promise<DeviceStatusPayload>;
+}
 
 export interface RendererContainerMap {
-  eventBus: unknown;
-  loggerFactory: RendererLogger;
+  eventBus: EventBusLike;
+  loggerFactory: RendererLogger & LoggerFactoryLike;
   storageService: unknown;
-  browserMediaService: unknown;
+  browserMediaService: BrowserMediaServiceLike;
   visibilityAdapter: unknown;
   userActivityAdapter: unknown;
   reducedMotionAdapter: unknown;
   metricsAdapter: unknown;
   deviceIpcAdapter: unknown;
   deviceChangeDebounceAdapter: unknown;
-  animationCache: unknown;
+  animationCache: AnimationCacheLike;
   canvasRenderer: unknown;
   viewportService: unknown;
   canvasLifecycleService: unknown;
@@ -32,7 +50,7 @@ export interface RendererContainerMap {
   gpuRendererService: unknown;
   streamingRendererFactory: unknown;
   renderPipelineService: unknown;
-  ipcClient: unknown;
+  ipcClient: RendererDeviceIpcClient;
   deviceStatusProvider: unknown;
   adapterFactory: unknown;
   deviceStorageService: unknown;

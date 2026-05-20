@@ -12,13 +12,14 @@ import {
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
+type AdapterFactoryDependencies = Pick<RendererContainerMap, 'eventBus' | 'loggerFactory' | 'browserMediaService'>;
+
 const rendererDeviceDescriptors = defineRendererDescriptors<RendererContainerMap>([
   {
     token: 'adapterFactory',
     kind: 'function',
     dependencies: ['eventBus', 'loggerFactory', 'browserMediaService'],
-    resolver: (dependencies: any) => {
-      const { eventBus, loggerFactory, browserMediaService } = dependencies as any;
+    resolver: ({ eventBus, loggerFactory, browserMediaService }: AdapterFactoryDependencies) => {
       const adapterClasses = new Map([
         ['chromatic-mod-retro', DeviceChromaticAdapter]
       ]);
