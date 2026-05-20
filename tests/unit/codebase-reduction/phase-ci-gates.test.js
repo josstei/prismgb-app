@@ -47,6 +47,7 @@ describe('Phase 0-3 CI parity gates', () => {
     expect(lintWorkflow).toContain('npx commitlint --from');
     expect(lintWorkflow).toContain('--to');
     expect(testWorkflow).toContain('npm run architecture:scorecard -- --enforce-thresholds');
+    expect(testWorkflow).toContain('npm run codebase:phase1 -- --json');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard.json');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard-summary.md');
     expect(testWorkflow).toContain('npm run coverage:ratchet');

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { pathToFileURL } from 'url';
 import * as ts from 'typescript';
 import { getShaderDuplicateStatus } from './codebase-size-report.js';
@@ -50,16 +50,27 @@ const CANONICAL_CONTRACT_ALLOWLIST = [
   'scripts/manifests/architecture.manifest.json',
   'scripts/manifests/platforms.manifest.json'
 ];
-const CANONICAL_PRELOAD_APIS = [
+const FALLBACK_CANONICAL_PRELOAD_APIS = [
   'deviceAPI',
+  'shellAPI',
   'windowAPI',
   'updateAPI',
   'transcodeAPI',
   'metricsAPI',
+  'gpuAPI',
   'loginItemAPI'
 ];
 const TS_ALIAS_KEY_PATTERN = /^(.+?)\s*\/\*$/;
-const BUILD_MATRIX_COMMAND = 'node scripts/ci/build-matrix.mjs --mode release --platforms all';
+const BUILD_MATRIX_SOURCES = [
+  {
+    name: 'release',
+    args: ['--mode', 'release', '--platforms', 'all']
+  },
+  {
+    name: 'smoke',
+    args: ['--mode', 'smoke', '--platform', 'all']
+  }
+];
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -218,6 +229,70 @@ export function collectRuntimeTwinMetrics(projectRoot) {
   };
 }
 
+function collectCanonicalPreloadApis(projectRoot) {
+  const ipcManifest = readJson(projectRoot, 'src/shared/ipc/ipc.manifest.json');
+  const apiNames = Array.isArray(ipcManifest?.namespaces)
+    ? ipcManifest.namespaces.map((namespace) => namespace.apiName).filter(Boolean)
+    : FALLBACK_CANONICAL_PRELOAD_APIS;
+
+  return sortUniq(apiNames);
+}
+
+function getPropertyName(node, sourceFile) {
+  if (ts.isPropertyAccessExpression(node)) {
+    return node.name.text;
+  }
+
+  if (ts.isElementAccessExpression(node)) {
+    const argument = node.argumentExpression;
+    if (argument && ts.isStringLiteralLike(argument)) {
+      return argument.text;
+    }
+  }
+
+  if (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) {
+    if (ts.isIdentifier(node.name) || ts.isStringLiteralLike(node.name)) {
+      return node.name.text;
+    }
+  }
+
+  return node.getText(sourceFile);
+}
+
+function isCanonicalWindowObjectExpression(node, sourceFile) {
+  const text = node.getText(sourceFile);
+  return text === 'window'
+    || text === 'globalThis'
+    || text === 'global.window'
+    || text === 'globalThis.window';
+}
+
+function getCanonicalPreloadPropertyAccessName(node, sourceFile, apiNames) {
+  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+    const apiName = getPropertyName(node, sourceFile);
+    if (apiNames.has(apiName) && isCanonicalWindowObjectExpression(node.expression, sourceFile)) {
+      return apiName;
+    }
+  }
+
+  return null;
+}
+
+function countCanonicalPreloadObjectLiteralProperties(node, sourceFile, apiNames) {
+  if (!ts.isObjectLiteralExpression(node)) {
+    return 0;
+  }
+
+  let count = 0;
+  for (const property of node.properties) {
+    const apiName = getPropertyName(property, sourceFile);
+    if (apiNames.has(apiName)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 export function collectInlineMockAssignments(projectRoot) {
   const testsRoot = path.join(projectRoot, 'tests');
   if (!fs.existsSync(testsRoot)) {
@@ -227,32 +302,45 @@ export function collectInlineMockAssignments(projectRoot) {
     };
   }
 
-  const assignmentApiPattern = CANONICAL_PRELOAD_APIS.join('|');
-  const assignmentPattern = new RegExp(
-    `\\b(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\s*[+\\-*/%|&^]?=`,
-    'g'
-  );
-  const deletePattern = new RegExp(`\\bdelete\\s+(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\b`, 'g');
+  const apiNames = new Set(collectCanonicalPreloadApis(projectRoot));
   const filesWithAssignments = [];
 
   const files = walkFiles(testsRoot, (absolutePath) => absolutePath.endsWith('.ts') || absolutePath.endsWith('.js'));
   for (const filePath of files) {
     const source = fs.readFileSync(filePath, 'utf8');
+    const sourceFile = ts.createSourceFile(
+      filePath,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      filePath.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS
+    );
     let count = 0;
 
-    const assignments = source.matchAll(assignmentPattern);
-    const deletes = source.matchAll(deletePattern);
-    for (const match of assignments) {
-      if (match[1]) {
+    function visit(node) {
+      if (ts.isBinaryExpression(node)) {
+        const isAssignment = node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+          && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+        if (isAssignment) {
+          if (getCanonicalPreloadPropertyAccessName(node.left, sourceFile, apiNames)) {
+            count += 1;
+          } else if (isCanonicalWindowObjectExpression(node.left, sourceFile)) {
+            count += countCanonicalPreloadObjectLiteralProperties(node.right, sourceFile, apiNames);
+          }
+        }
+      }
+
+      if (
+        ts.isDeleteExpression(node)
+        && getCanonicalPreloadPropertyAccessName(node.expression, sourceFile, apiNames)
+      ) {
         count += 1;
       }
+
+      ts.forEachChild(node, visit);
     }
 
-    for (const match of deletes) {
-      if (match[1]) {
-        count += 1;
-      }
-    }
+    visit(sourceFile);
 
     if (count > 0) {
       filesWithAssignments.push({
@@ -275,6 +363,18 @@ function collectAliasManifestSet(projectRoot) {
     : [];
 
   return new Set(sortUniq(aliases));
+}
+
+function compareAliasSet(source, configuredAliases, expectedAliases) {
+  const configured = new Set(configuredAliases);
+  const expected = new Set(expectedAliases);
+  return {
+    source,
+    extras: sortUniq([...configured].filter((alias) => !expected.has(alias))),
+    missing: sortUniq([...expected].filter((alias) => !configured.has(alias))),
+    configuredAliases: sortUniq([...configured]),
+    expectedAliases: sortUniq([...expected])
+  };
 }
 
 function collectTsConfigAliases(projectRoot, configFileName) {
@@ -305,32 +405,36 @@ function collectJsAliasKeys(projectRoot, jsFileName) {
 
 export function collectAliasDriftMetrics(projectRoot) {
   const manifestAliases = collectAliasManifestSet(projectRoot);
+  const nonRuntimeManifestAliases = new Set([...manifestAliases].filter((alias) => alias !== 'url'));
   const tsBaseAliases = collectTsConfigAliases(projectRoot, 'tsconfig.base.json');
   const tsAppAliases = collectTsConfigAliases(projectRoot, 'tsconfig.app.json');
   const viteAliases = collectJsAliasKeys(projectRoot, 'vite.config.js');
   const vitestAliases = collectJsAliasKeys(projectRoot, 'vitest.config.js');
 
-  const configuredAliases = new Set([
-    ...tsBaseAliases,
-    ...tsAppAliases,
-    ...viteAliases,
-    ...vitestAliases
-  ]);
-
-  const manifestExtras = [...configuredAliases].filter((alias) => !manifestAliases.has(alias));
-  const manifestMissing = [...manifestAliases].filter((alias) => !configuredAliases.has(alias));
+  const sources = [
+    compareAliasSet('tsconfig.base.json', tsBaseAliases, nonRuntimeManifestAliases),
+    compareAliasSet('tsconfig.app.json', tsAppAliases, nonRuntimeManifestAliases),
+    compareAliasSet('vite.config.js', viteAliases, manifestAliases),
+    compareAliasSet('vitest.config.js', vitestAliases, nonRuntimeManifestAliases)
+  ];
+  const manifestExtras = sources.flatMap((entry) =>
+    entry.extras.map((alias) => ({ source: entry.source, alias }))
+  );
+  const manifestMissing = sources.flatMap((entry) =>
+    entry.missing.map((alias) => ({ source: entry.source, alias }))
+  );
   const driftCount = manifestExtras.length + manifestMissing.length;
 
   return {
     driftCount,
     manifestExtras,
     manifestMissing,
-    configuredAliases: sortUniq(Array.from(configuredAliases))
+    sources
   };
 }
 
-function collectBuildMatrixPlatforms(projectRoot) {
-  const output = execSync(BUILD_MATRIX_COMMAND, {
+function collectBuildMatrixPlatforms(projectRoot, args) {
+  const output = execFileSync(process.execPath, ['scripts/ci/build-matrix.mjs', ...args], {
     cwd: projectRoot,
     encoding: 'utf8'
   });
@@ -343,11 +447,22 @@ export function collectPlatformDriftMetrics(projectRoot) {
   const manifestLabels = new Set(
     (platformsManifest?.platforms || []).map((platform) => platform.label).filter(Boolean)
   );
-  const buildMatrixLabels = collectBuildMatrixPlatforms(projectRoot);
-  const matrixSet = new Set(buildMatrixLabels);
-
-  const matrixExtras = [...matrixSet].filter((entry) => !manifestLabels.has(entry));
-  const manifestMissing = [...manifestLabels].filter((label) => !matrixSet.has(label));
+  const sources = BUILD_MATRIX_SOURCES.map((source) => {
+    const buildMatrixLabels = collectBuildMatrixPlatforms(projectRoot, source.args);
+    const matrixSet = new Set(buildMatrixLabels);
+    return {
+      source: source.name,
+      matrixExtras: sortUniq([...matrixSet].filter((entry) => !manifestLabels.has(entry))),
+      manifestMissing: sortUniq([...manifestLabels].filter((label) => !matrixSet.has(label))),
+      matrixLabelCount: matrixSet.size
+    };
+  });
+  const matrixExtras = sources.flatMap((entry) =>
+    entry.matrixExtras.map((label) => ({ source: entry.source, label }))
+  );
+  const manifestMissing = sources.flatMap((entry) =>
+    entry.manifestMissing.map((label) => ({ source: entry.source, label }))
+  );
   const driftCount = matrixExtras.length + manifestMissing.length;
 
   return {
@@ -355,7 +470,7 @@ export function collectPlatformDriftMetrics(projectRoot) {
     matrixExtras,
     manifestMissing,
     manifestLabelCount: manifestLabels.size,
-    matrixLabelCount: matrixSet.size
+    sources
   };
 }
 

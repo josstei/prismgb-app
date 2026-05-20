@@ -287,18 +287,18 @@ export async function runDevBootSmoke(options = {}) {
   if (child.stdout) {
     child.stdout.on('data', (data) => {
       const text = String(data);
-      output.stdout.add(text);
+      const bufferedText = output.stdout.add(text);
       console.log(text.trim());
-      onOutput(text);
+      onOutput(bufferedText);
     });
   }
 
   if (child.stderr) {
     child.stderr.on('data', (data) => {
       const text = String(data);
-      output.stderr.add(text);
+      const bufferedText = output.stderr.add(text);
       console.error(text.trim());
-      onOutput(text);
+      onOutput(bufferedText);
     });
   }
 
