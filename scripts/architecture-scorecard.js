@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { pathToFileURL } from 'url';
 import * as ts from 'typescript';
+import { getShaderDuplicateStatus } from './codebase-size-report.js';
 import {
   analyzeLayerBoundaries,
   classifyFileLayer,
@@ -14,6 +16,348 @@ import {
 const RUNTIME_LAYER_PREFIXES = ['main', 'renderer', 'preload'];
 const DEFAULT_TOP_FILES = 10;
 const DEFAULT_THRESHOLDS_PATH = 'scripts/architecture-thresholds.json';
+const DEFAULT_IGNORE_ROOT_DIRECTORIES = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'release',
+  'coverage',
+  'artifacts',
+  '.turbo'
+]);
+const DEFAULT_CONTRACT_PATTERNS = [
+  /\.manifest\.(json|ts)$/,
+  /\.contract\.(json|ts)$/,
+  /channels\.json$/,
+  /settings\.definitions\.json$/,
+  /preload-api\.contract\.(ts|js|mjs)$/
+];
+const CANONICAL_CONTRACT_ALLOWLIST = [
+  'src/shared/ipc/channels.json',
+  'src/shared/ipc/ipc.manifest.json',
+  'src/shared/ipc/ipc.manifest.ts',
+  'src/shared/ipc/preload-api.contract.ts',
+  'src/shared/events/event.manifest.json',
+  'src/shared/events/event.manifest.ts',
+  'src/shared/features/devices/device.manifest.json',
+  'src/shared/features/devices/device.manifest.ts',
+  'src/shared/features/settings/settings.definitions.json',
+  'src/shared/features/settings/settings.definitions.ts',
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json',
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.ts',
+  'scripts/manifests/architecture.manifest.json',
+  'scripts/manifests/platforms.manifest.json'
+];
+const CANONICAL_PRELOAD_APIS = [
+  'deviceAPI',
+  'windowAPI',
+  'updateAPI',
+  'transcodeAPI',
+  'metricsAPI',
+  'loginItemAPI'
+];
+const TS_ALIAS_KEY_PATTERN = /^(.+?)\s*\/\*$/;
+const BUILD_MATRIX_COMMAND = 'node scripts/ci/build-matrix.mjs --mode release --platforms all';
+
+function readJson(projectRoot, relativePath) {
+  const absolutePath = path.join(projectRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+
+  return JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+}
+
+function normalizeAliasKey(alias) {
+  return alias.replace(TS_ALIAS_KEY_PATTERN, '$1');
+}
+
+function sortUniq(items) {
+  return [...new Set(items)].sort();
+}
+
+function toPosix(value) {
+  return value.split(path.sep).join('/');
+}
+
+function normalizeRelativePath(value) {
+  return toPosix(value);
+}
+
+function isContractLikeFile(filePath) {
+  return DEFAULT_CONTRACT_PATTERNS.some((pattern) => pattern.test(filePath));
+}
+
+function walkFiles(rootPath, predicate) {
+  const files = [];
+  if (!fs.existsSync(rootPath)) {
+    return files;
+  }
+
+  const walk = (currentPath) => {
+    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (DEFAULT_IGNORE_ROOT_DIRECTORIES.has(entry.name)) {
+        continue;
+      }
+
+      const absolutePath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        walk(absolutePath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      if (predicate(absolutePath)) {
+        files.push(absolutePath);
+      }
+    }
+  };
+
+  walk(rootPath);
+  return files;
+}
+
+function collectContractAllowlist() {
+  return new Set(CANONICAL_CONTRACT_ALLOWLIST.map(normalizeRelativePath));
+}
+
+function collectContractLikeFiles(projectRoot) {
+  const contractLikeFiles = [];
+  const roots = ['src', 'scripts', 'packages'];
+
+  for (const root of roots) {
+    const rootPath = path.join(projectRoot, root);
+    if (!fs.existsSync(rootPath)) {
+      continue;
+    }
+
+    const files = walkFiles(rootPath, (absolutePath) => isContractLikeFile(absolutePath));
+    for (const filePath of files) {
+      contractLikeFiles.push(normalizeRelativePath(path.relative(projectRoot, filePath)));
+    }
+  }
+
+  return sortUniq(contractLikeFiles);
+}
+
+function collectRuntimeFiles(projectRoot, includeFiles = []) {
+  const roots = [
+    path.join(projectRoot, 'src'),
+    path.join(projectRoot, 'packages')
+  ];
+
+  const matches = [];
+  for (const root of roots) {
+    if (!fs.existsSync(root)) {
+      continue;
+    }
+    matches.push(...walkFiles(root, (absolutePath) => includeFiles.some((fileName) => absolutePath.endsWith(fileName))));
+  }
+
+  return matches;
+}
+
+export function collectContractMetrics(projectRoot) {
+  const allowlist = collectContractAllowlist();
+  const contractLikeFiles = collectContractLikeFiles(projectRoot);
+  const unexpectedContractFiles = contractLikeFiles.filter((filePath) => !allowlist.has(filePath));
+
+  return {
+    totalContractLikeFiles: contractLikeFiles.length,
+    unexpectedContractFileCount: unexpectedContractFiles.length,
+    unexpectedContractFiles
+  };
+}
+
+export function collectShaderDuplicateMetrics(projectRoot) {
+  const shaderStatus = getShaderDuplicateStatus(projectRoot);
+  return {
+    duplicatePairs: shaderStatus.pairs,
+    divergentPairs: shaderStatus.pairs.filter((pair) => pair.status === 'diverged'),
+    totalPairs: shaderStatus.pairs.length,
+    divergentPairCount: shaderStatus.pairs.filter((pair) => pair.status === 'diverged').length
+  };
+}
+
+export function collectRuntimeTwinMetrics(projectRoot) {
+  const runtimeJsFiles = [];
+  const runtimeDtsFiles = new Set();
+
+  for (const filePath of collectRuntimeFiles(projectRoot, ['.js', '.d.ts'])) {
+    if (filePath.endsWith('.js')) {
+      runtimeJsFiles.push(filePath);
+    } else if (filePath.endsWith('.d.ts')) {
+      runtimeDtsFiles.add(filePath);
+    }
+  }
+
+  const pairs = runtimeJsFiles
+    .map((jsFilePath) => {
+      const dtsPath = `${jsFilePath.slice(0, -3)}.d.ts`;
+      if (!runtimeDtsFiles.has(dtsPath)) {
+        return null;
+      }
+
+      return {
+        jsFile: normalizeRelativePath(path.relative(projectRoot, jsFilePath)),
+        dtsFile: normalizeRelativePath(path.relative(projectRoot, dtsPath))
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => (left.jsFile > right.jsFile ? 1 : -1));
+
+  return {
+    pairCount: pairs.length,
+    pairs
+  };
+}
+
+export function collectInlineMockAssignments(projectRoot) {
+  const testsRoot = path.join(projectRoot, 'tests');
+  if (!fs.existsSync(testsRoot)) {
+    return {
+      inlineCanonicalMockAssignmentCount: 0,
+      filesWithAssignments: []
+    };
+  }
+
+  const assignmentApiPattern = CANONICAL_PRELOAD_APIS.join('|');
+  const assignmentPattern = new RegExp(
+    `\\b(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\s*[+\\-*/%|&^]?=`,
+    'g'
+  );
+  const deletePattern = new RegExp(`\\bdelete\\s+(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\b`, 'g');
+  const filesWithAssignments = [];
+
+  const files = walkFiles(testsRoot, (absolutePath) => absolutePath.endsWith('.ts') || absolutePath.endsWith('.js'));
+  for (const filePath of files) {
+    const source = fs.readFileSync(filePath, 'utf8');
+    let count = 0;
+
+    const assignments = source.matchAll(assignmentPattern);
+    const deletes = source.matchAll(deletePattern);
+    for (const match of assignments) {
+      if (match[1]) {
+        count += 1;
+      }
+    }
+
+    for (const match of deletes) {
+      if (match[1]) {
+        count += 1;
+      }
+    }
+
+    if (count > 0) {
+      filesWithAssignments.push({
+        file: normalizeRelativePath(path.relative(projectRoot, filePath)),
+        count
+      });
+    }
+  }
+
+  return {
+    inlineCanonicalMockAssignmentCount: filesWithAssignments.reduce((sum, item) => sum + item.count, 0),
+    filesWithAssignments
+  };
+}
+
+function collectAliasManifestSet(projectRoot) {
+  const manifest = readJson(projectRoot, 'scripts/manifests/architecture.manifest.json');
+  const aliases = Array.isArray(manifest?.aliases)
+    ? manifest.aliases.map((entry) => entry.id).filter(Boolean)
+    : [];
+
+  return new Set(sortUniq(aliases));
+}
+
+function collectTsConfigAliases(projectRoot, configFileName) {
+  const config = readJson(projectRoot, configFileName);
+  const entries = Object.keys(config?.compilerOptions?.paths || {});
+  return new Set(sortUniq(entries.map((entry) => normalizeAliasKey(entry))));
+}
+
+function collectJsAliasKeys(projectRoot, jsFileName) {
+  const source = fs.readFileSync(path.join(projectRoot, jsFileName), 'utf8');
+  const aliases = new Set();
+  const aliasRegex = /['"](@(?:\/|main|renderer|preload|shared|prismgb\/gpu)?|url)['"]\s*:/g;
+  const plainUrlRegex = /^\s*(url)\s*:/gm;
+
+  for (const match of source.matchAll(aliasRegex)) {
+    const rawAlias = normalizeAliasKey(match[1]);
+    if (rawAlias) {
+      aliases.add(rawAlias);
+    }
+  }
+
+  for (const match of source.matchAll(plainUrlRegex)) {
+    aliases.add(match[1]);
+  }
+
+  return aliases;
+}
+
+export function collectAliasDriftMetrics(projectRoot) {
+  const manifestAliases = collectAliasManifestSet(projectRoot);
+  const tsBaseAliases = collectTsConfigAliases(projectRoot, 'tsconfig.base.json');
+  const tsAppAliases = collectTsConfigAliases(projectRoot, 'tsconfig.app.json');
+  const viteAliases = collectJsAliasKeys(projectRoot, 'vite.config.js');
+  const vitestAliases = collectJsAliasKeys(projectRoot, 'vitest.config.js');
+
+  const configuredAliases = new Set([
+    ...tsBaseAliases,
+    ...tsAppAliases,
+    ...viteAliases,
+    ...vitestAliases
+  ]);
+
+  const manifestExtras = [...configuredAliases].filter((alias) => !manifestAliases.has(alias));
+  const manifestMissing = [...manifestAliases].filter((alias) => !configuredAliases.has(alias));
+  const driftCount = manifestExtras.length + manifestMissing.length;
+
+  return {
+    driftCount,
+    manifestExtras,
+    manifestMissing,
+    configuredAliases: sortUniq(Array.from(configuredAliases))
+  };
+}
+
+function collectBuildMatrixPlatforms(projectRoot) {
+  const output = execSync(BUILD_MATRIX_COMMAND, {
+    cwd: projectRoot,
+    encoding: 'utf8'
+  });
+  const matrix = JSON.parse(output);
+  return matrix.map((entry) => entry.label);
+}
+
+export function collectPlatformDriftMetrics(projectRoot) {
+  const platformsManifest = readJson(projectRoot, 'scripts/manifests/platforms.manifest.json');
+  const manifestLabels = new Set(
+    (platformsManifest?.platforms || []).map((platform) => platform.label).filter(Boolean)
+  );
+  const buildMatrixLabels = collectBuildMatrixPlatforms(projectRoot);
+  const matrixSet = new Set(buildMatrixLabels);
+
+  const matrixExtras = [...matrixSet].filter((entry) => !manifestLabels.has(entry));
+  const manifestMissing = [...manifestLabels].filter((label) => !matrixSet.has(label));
+  const driftCount = matrixExtras.length + manifestMissing.length;
+
+  return {
+    driftCount,
+    matrixExtras,
+    manifestMissing,
+    manifestLabelCount: manifestLabels.size,
+    matrixLabelCount: matrixSet.size
+  };
+}
 
 export function parseCliArgs(argv) {
   const options = {
@@ -190,10 +534,6 @@ export function collectAnyMetrics(srcRoot) {
   };
 }
 
-function normalizeRelativePath(value) {
-  return value.split(path.sep).join('/');
-}
-
 function collectTopRuntimeFiles({ srcRoot, top }) {
   const files = walkCodeFiles(srcRoot);
   const entries = [];
@@ -250,6 +590,12 @@ function printSummary(scorecard) {
     + `across ${metrics.any.filesWithAnyCount} files`
   );
   console.log(`- boundary violations: ${metrics.boundaryViolationCount}`);
+  console.log(`- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`);
+  console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
+  console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
+  console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
+  console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
+  console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
   console.log('- top runtime files:');
   for (const entry of metrics.topRuntimeFiles) {
     console.log(`  - ${entry.file}: ${entry.loc}`);
@@ -284,7 +630,13 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['noImplicitAny', ensureBooleanLimit],
     ['strictNullChecks', ensureBooleanLimit],
     ['anyOccurrenceCountMax', ensureNonNegativeIntegerLimit],
-    ['topRuntimeFileLocMax', ensureNonNegativeIntegerLimit]
+    ['topRuntimeFileLocMax', ensureNonNegativeIntegerLimit],
+    ['unexpectedContractFileCountMax', ensureNonNegativeIntegerLimit],
+    ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
+    ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
+    ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
+    ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
+    ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
   ];
 
   for (const [key, validator] of checks) {
@@ -348,6 +700,42 @@ export function evaluateThresholds(metrics, limits) {
     metrics.topRuntimeFiles[0]?.loc ?? 0,
     'max'
   );
+  addCheck(
+    'unexpectedContractFileCountMax',
+    'unexpectedContractFileCount',
+    metrics.unexpectedContractFileCount,
+    'max'
+  );
+  addCheck(
+    'shaderDuplicateDivergenceCountMax',
+    'shaderDuplicateDivergenceCount',
+    metrics.shaderDuplicateDivergenceCount,
+    'max'
+  );
+  addCheck(
+    'runtimeJsDtsTwinCountMax',
+    'runtimeJsDtsTwinCount',
+    metrics.runtimeJsDtsTwinCount,
+    'max'
+  );
+  addCheck(
+    'inlineCanonicalMockAssignmentCountMax',
+    'inlineCanonicalMockAssignmentCount',
+    metrics.inlineCanonicalMockAssignmentCount,
+    'max'
+  );
+  addCheck(
+    'aliasManifestDriftCountMax',
+    'aliasManifestDriftCount',
+    metrics.aliasManifestDriftCount,
+    'max'
+  );
+  addCheck(
+    'platformManifestDriftCountMax',
+    'platformManifestDriftCount',
+    metrics.platformManifestDriftCount,
+    'max'
+  );
 
   const failures = checks.filter((check) => !check.passed);
   return {
@@ -376,17 +764,23 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
     '',
     `Generated at: ${scorecard.generatedAt}`,
     '',
-    '## Metrics',
-    `- boundary violations: ${metrics.boundaryViolationCount}`,
-    `- infra->presentation imports: ${metrics.infraToPresentationImportCount}`,
-    `- cross-process imports: ${metrics.crossProcessImportCount}`,
-    `- ts strictness: strict=${metrics.tsStrictness.strict}, `
+  '## Metrics',
+  `- boundary violations: ${metrics.boundaryViolationCount}`,
+  `- infra->presentation imports: ${metrics.infraToPresentationImportCount}`,
+  `- cross-process imports: ${metrics.crossProcessImportCount}`,
+  `- ts strictness: strict=${metrics.tsStrictness.strict}, `
       + `noImplicitAny=${metrics.tsStrictness.noImplicitAny}, `
       + `strictNullChecks=${metrics.tsStrictness.strictNullChecks}`,
-    `- any occurrences: ${metrics.any.occurrenceCount} `
+  `- any occurrences: ${metrics.any.occurrenceCount} `
       + `across ${metrics.any.filesWithAnyCount} files`,
-    '',
-    '## Top Runtime Files',
+  `- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`,
+  `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
+  `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
+  `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
+  `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
+  `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
+  '',
+  '## Top Runtime Files',
     '| File | LOC |',
     '| --- | ---: |'
   ];
@@ -421,6 +815,12 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
 export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_TOP_FILES } = {}) {
   const srcRoot = path.join(projectRoot, 'src');
   const boundaryAnalysis = analyzeLayerBoundaries({ projectRoot });
+  const contractOwnershipMetrics = collectContractMetrics(projectRoot);
+  const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
+  const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
+  const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
+  const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
+  const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -428,7 +828,26 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       tsStrictness: readTsStrictness(projectRoot),
       any: collectAnyMetrics(srcRoot),
       topRuntimeFiles: collectTopRuntimeFiles({ srcRoot, top }),
-      boundaryViolationCount: boundaryAnalysis.violations.length
+      boundaryViolationCount: boundaryAnalysis.violations.length,
+      unexpectedContractFileCount: contractOwnershipMetrics.unexpectedContractFileCount,
+      totalContractLikeFiles: contractOwnershipMetrics.totalContractLikeFiles,
+      unexpectedContractFiles: contractOwnershipMetrics.unexpectedContractFiles,
+      shaderDuplicateDivergenceCount: shaderDuplicateMetrics.divergentPairCount,
+      shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
+      runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
+      runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
+      inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,
+      inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
+      aliasManifestDriftCount: aliasDriftMetrics.driftCount,
+      aliasManifestDrift: {
+        missing: aliasDriftMetrics.manifestMissing,
+        extras: aliasDriftMetrics.manifestExtras
+      },
+      platformManifestDriftCount: platformDriftMetrics.driftCount,
+      platformManifestDrift: {
+        missing: platformDriftMetrics.manifestMissing,
+        extras: platformDriftMetrics.matrixExtras
+      }
     }
   };
 }

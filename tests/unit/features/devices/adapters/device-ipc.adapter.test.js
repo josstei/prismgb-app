@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter.ts';
+import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;
@@ -25,15 +26,14 @@ describe('DeviceIpcAdapter', () => {
       error: vi.fn()
     };
 
-    // Mock window.deviceAPI
-    global.window = { deviceAPI: mockDeviceAPI };
+    setPreloadApi('deviceAPI', mockDeviceAPI);
 
     adapter = new DeviceIpcAdapter({ logger: mockLogger });
   });
 
   afterEach(() => {
     adapter.dispose();
-    delete global.window;
+    clearPreloadApi('deviceAPI');
   });
 
   describe('subscribe', () => {
@@ -73,7 +73,7 @@ describe('DeviceIpcAdapter', () => {
     });
 
     it('should handle missing window.deviceAPI gracefully', () => {
-      delete global.window.deviceAPI;
+      clearPreloadApi('deviceAPI');
 
       const onConnected = vi.fn();
       const onDisconnected = vi.fn();
@@ -97,7 +97,7 @@ describe('DeviceIpcAdapter', () => {
       expect(() => cleanup()).not.toThrow();
 
       // Restore window for cleanup
-      global.window = { deviceAPI: mockDeviceAPI };
+      setPreloadApi('deviceAPI', mockDeviceAPI);
     });
 
     it('should handle invalid callbacks gracefully', () => {

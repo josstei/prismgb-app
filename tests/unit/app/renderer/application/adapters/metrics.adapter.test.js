@@ -4,29 +4,28 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter.ts';
+import { clearPreloadApi, setPreloadApi } from '../../../../../support/mocks/preload-api-globals.js';
 
 describe('MetricsAdapter', () => {
   let adapter;
 
   beforeEach(() => {
-    delete globalThis.metricsAPI;
-    delete window.metricsAPI;
+    clearPreloadApi('metricsAPI');
   });
 
   afterEach(() => {
-    delete globalThis.metricsAPI;
-    delete window.metricsAPI;
+    clearPreloadApi('metricsAPI');
   });
 
   describe('constructor', () => {
     it('should initialize with globalThis.metricsAPI if available', () => {
-      globalThis.metricsAPI = { getProcessMetrics: vi.fn() };
+      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() });
       adapter = new MetricsAdapter();
       expect(adapter._metricsAPI).toBe(globalThis.metricsAPI);
     });
 
     it('should fallback to window.metricsAPI if globalThis is not available', () => {
-      window.metricsAPI = { getProcessMetrics: vi.fn() };
+      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() }, { exposeOnGlobalThis: false });
       adapter = new MetricsAdapter();
       expect(adapter._metricsAPI).toBe(window.metricsAPI);
     });
@@ -39,7 +38,7 @@ describe('MetricsAdapter', () => {
 
   describe('isAvailable', () => {
     it('should return true when metricsAPI with getProcessMetrics exists', () => {
-      globalThis.metricsAPI = { getProcessMetrics: vi.fn() };
+      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() });
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(true);
     });
@@ -50,13 +49,13 @@ describe('MetricsAdapter', () => {
     });
 
     it('should return false when metricsAPI exists but getProcessMetrics is missing', () => {
-      globalThis.metricsAPI = {};
+      setPreloadApi('metricsAPI', {});
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(false);
     });
 
     it('should return false when getProcessMetrics is not a function', () => {
-      globalThis.metricsAPI = { getProcessMetrics: 'not-a-function' };
+      setPreloadApi('metricsAPI', { getProcessMetrics: 'not-a-function' });
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(false);
     });
@@ -79,9 +78,9 @@ describe('MetricsAdapter', () => {
         ]
       };
 
-      globalThis.metricsAPI = {
+      setPreloadApi('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      };
+      });
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -91,9 +90,9 @@ describe('MetricsAdapter', () => {
     });
 
     it('should handle promise rejection gracefully', async () => {
-      globalThis.metricsAPI = {
+      setPreloadApi('metricsAPI', {
         getProcessMetrics: vi.fn().mockRejectedValue(new Error('IPC error'))
-      };
+      });
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -103,9 +102,9 @@ describe('MetricsAdapter', () => {
     });
 
     it('should handle errors without message property', async () => {
-      globalThis.metricsAPI = {
+      setPreloadApi('metricsAPI', {
         getProcessMetrics: vi.fn().mockRejectedValue('string error')
-      };
+      });
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -125,9 +124,9 @@ describe('MetricsAdapter', () => {
         ]
       };
 
-      globalThis.metricsAPI = {
+      setPreloadApi('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      };
+      });
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
