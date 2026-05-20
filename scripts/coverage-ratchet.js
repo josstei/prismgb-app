@@ -7,6 +7,7 @@ const DEFAULT_SUMMARY_PATH = 'artifacts/coverage/coverage-summary.json';
 const DEFAULT_THRESHOLD_PATH = 'scripts/coverage-thresholds.json';
 const COVERAGE_METRICS = ['lines', 'statements', 'functions', 'branches'];
 const VALID_MODES = new Set(['enforce', 'warning']);
+const VALID_TARGET_MODES = new Set(['enforce', 'report-only']);
 
 function parseArgs(argv) {
   const options = {
@@ -155,6 +156,10 @@ function parseTarget(rawTarget) {
   }
 
   const normalizedScopes = extractScopes(rawTarget, id);
+  const targetMode = rawTarget.mode || 'enforce';
+  if (!VALID_TARGET_MODES.has(targetMode)) {
+    throw new Error(`Invalid coverage target mode "${targetMode}" for ${id}.`);
+  }
 
   const owner = rawTarget.owner.trim();
   const expiresOn = rawTarget.expiresOn;
@@ -167,6 +172,7 @@ function parseTarget(rawTarget) {
   return {
     id,
     owner,
+    mode: targetMode,
     scopes: normalizedScopes,
     minimums,
     expiresOn: expiresOn.trim()
@@ -306,12 +312,17 @@ function hasMinimums(minimums) {
   return Object.keys(minimums).length > 0;
 }
 
+function hasPositiveMinimums(minimums) {
+  return Object.values(minimums).some((value) => Number(value) > 0);
+}
+
 function evaluateCoverageRatchet(summary, thresholds, options = {}) {
   const projectRoot = options.projectRoot || process.cwd();
   const asOfDate = options.asOfDate || getTodayIsoDate();
   const normalizedTargets = thresholds.targets.map((target) => ({
     id: target.id,
     owner: target.owner,
+    mode: target.mode || 'enforce',
     scopes: Array.isArray(target.scopes) ? target.scopes : extractScopes(target, target.id),
     minimums: target.minimums || {},
     expiresOn: target.expiresOn
@@ -329,6 +340,7 @@ function evaluateCoverageRatchet(summary, thresholds, options = {}) {
 
     ensureIsoDate(target.expiresOn, `expiresOn for ${target.id}`);
     const minimums = { ...thresholds.defaultMinimums, ...target.minimums };
+    const shouldEnforceTarget = target.mode !== 'report-only';
     const metrics = {};
     const passedMetrics = [];
     const failedMetrics = [];
@@ -372,7 +384,7 @@ function evaluateCoverageRatchet(summary, thresholds, options = {}) {
       }
     }
 
-    if (aggregate.fileCount === 0 && hasMinimums(minimums)) {
+    if (shouldEnforceTarget && aggregate.fileCount === 0 && hasPositiveMinimums(minimums)) {
       failures.push({
         target: target.id,
         owner: target.owner,
@@ -381,26 +393,29 @@ function evaluateCoverageRatchet(summary, thresholds, options = {}) {
       });
     }
 
-    for (const failure of failedMetrics) {
-      failures.push({
-        target: target.id,
-        owner: target.owner,
-        type: 'coverage-regression',
-        metric: failure.metric,
-        actual: failure.actual,
-        minimum: failure.minimum,
-        message: `Coverage target ${target.id} ${failure.metric}=${failure.actual.toFixed(2)} `
-          + `< minimum ${failure.minimum}.`
-      });
+    if (shouldEnforceTarget) {
+      for (const failure of failedMetrics) {
+        failures.push({
+          target: target.id,
+          owner: target.owner,
+          type: 'coverage-regression',
+          metric: failure.metric,
+          actual: failure.actual,
+          minimum: failure.minimum,
+          message: `Coverage target ${target.id} ${failure.metric}=${failure.actual.toFixed(2)} `
+            + `< minimum ${failure.minimum}.`
+        });
+      }
     }
 
     results.push({
       target: target.id,
       owner: target.owner,
+      mode: target.mode,
       scopes: aggregate.scope,
       fileCount: aggregate.fileCount,
       metrics,
-      passes: failedMetrics.length === 0 && !expired,
+      passes: (!shouldEnforceTarget || failedMetrics.length === 0) && !expired,
       passedMetrics,
       failedMetrics
     });
@@ -418,7 +433,7 @@ function evaluateCoverageRatchet(summary, thresholds, options = {}) {
 function printRatchetSummary(evaluation) {
   console.log('Coverage Ratchet');
   for (const result of evaluation.results) {
-    console.log(`- ${result.target} (${result.owner})`);
+    console.log(`- ${result.target} (${result.owner}, ${result.mode})`);
     console.log(`  - matched files: ${result.fileCount}`);
     for (const metric of COVERAGE_METRICS) {
       const value = result.metrics[metric];

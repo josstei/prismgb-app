@@ -78,6 +78,7 @@ describe('coverage threshold parsing', () => {
         {
           id: 'renderer',
           owner: 'platform/ui',
+          mode: 'report-only',
           scope: 'src/renderer',
           minimums: { lines: 8 },
           expiresOn: '2026-11-30'
@@ -90,6 +91,7 @@ describe('coverage threshold parsing', () => {
     expect(config.targets.map((target) => target.id)).toEqual(['shared-node', 'renderer']);
     expect(config.targets[0].scopes).toContain('src/shared');
     expect(config.targets[1].owner).toBe('platform/ui');
+    expect(config.targets[1].mode).toBe('report-only');
     expect(config.targets[1].minimums).toMatchObject({ lines: 8 });
     expect(config.targets[0].expiresOn).toBe('2026-12-31');
   });
@@ -208,5 +210,39 @@ describe('coverage threshold evaluation', () => {
         })
       ])
     );
+  });
+
+  it('allows explicit report-only targets to avoid blocking on excluded coverage artifacts', () => {
+    const summary = {
+      total: { lines: 0, covered: 0, skipped: 0, pct: 100 }
+    };
+
+    const thresholds = {
+      mode: 'enforce',
+      defaultMinimums: { lines: 0, statements: 0, functions: 0, branches: 0 },
+      targets: [
+        {
+          id: 'main-preload',
+          owner: 'platform/runtime',
+          mode: 'report-only',
+          scope: ['src/main', 'src/preload'],
+          minimums: { lines: 80, statements: 80, functions: 80, branches: 80 },
+          expiresOn: '2026-12-31'
+        }
+      ]
+    };
+
+    const evaluation = evaluateCoverageRatchet(summary, thresholds, {
+      asOfDate: '2026-05-20'
+    });
+
+    expect(evaluation.passed).toBe(true);
+    expect(evaluation.failures).toHaveLength(0);
+    expect(evaluation.results[0]).toMatchObject({
+      target: 'main-preload',
+      mode: 'report-only',
+      fileCount: 0,
+      passes: true
+    });
   });
 });

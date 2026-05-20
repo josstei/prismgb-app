@@ -38,15 +38,16 @@
     {
       "id": "main-preload",
       "owner": "platform:runtime",
+      "mode": "report-only",
       "scope": ["src/main", "src/preload"],
       "minimums": {
-        "lines": 4,
-        "statements": 4,
-        "functions": 4,
-        "branches": 4
+        "lines": 0,
+        "statements": 0,
+        "functions": 0,
+        "branches": 0
       },
       "expiresOn": "2026-12-31",
-      "notes": "Report-first target for node environment runtime scope."
+      "notes": "Root Vitest coverage still excludes Electron runtime entrypoints; this target is explicit and expiring until runtime coverage has its own artifact."
     },
     {
       "id": "gpu-package",
