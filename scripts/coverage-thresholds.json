@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "mode": "enforce",
+  "generatedAt": "2026-05-20T00:00:00.000Z",
+  "defaultMinimums": {
+    "lines": 0,
+    "statements": 0,
+    "functions": 0,
+    "branches": 0
+  },
+  "targets": [
+    {
+      "id": "shared-node",
+      "owner": "platform:shared",
+      "scope": "src/shared",
+      "minimums": {
+        "lines": 8,
+        "statements": 8,
+        "functions": 8,
+        "branches": 8
+      },
+      "expiresOn": "2026-12-31",
+      "notes": "Bootstrap target for shared-node coverage migration."
+    },
+    {
+      "id": "renderer-happy-dom",
+      "owner": "platform:ui",
+      "scope": "src/renderer",
+      "minimums": {
+        "lines": 6,
+        "statements": 6,
+        "functions": 6,
+        "branches": 6
+      },
+      "expiresOn": "2026-12-31",
+      "notes": "Renderer coverage target for happy-dom project split phase."
+    },
+    {
+      "id": "main-preload",
+      "owner": "platform:runtime",
+      "scope": ["src/main", "src/preload"],
+      "minimums": {
+        "lines": 4,
+        "statements": 4,
+        "functions": 4,
+        "branches": 4
+      },
+      "expiresOn": "2026-12-31",
+      "notes": "Report-first target for node environment runtime scope."
+    },
+    {
+      "id": "gpu-package",
+      "owner": "platform:gpu",
+      "scope": "packages/prismgb-gpu/src",
+      "minimums": {
+        "lines": 5,
+        "statements": 5,
+        "functions": 5,
+        "branches": 5
+      },
+      "expiresOn": "2026-12-31",
+      "notes": "GPU package coverage target for happy-dom coverage project."
+    }
+  ]
+}
