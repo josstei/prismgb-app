@@ -34,11 +34,14 @@ describe('Phase 0-3 CI parity gates', () => {
     expect(verificationBlock).toContain('semantic-pull-request');
     expect(verificationBlock).toContain('npx commitlint --from <base> --to <head> --verbose');
     expect(verificationBlock).toContain('npm run architecture:scorecard -- --enforce-thresholds');
+    expect(verificationBlock).toContain('npm run packaging:check-native-abi');
   });
 
-  it('keeps GitHub Actions wired to the same PR lint and scorecard commands used by phase testing', () => {
+  it('keeps GitHub Actions wired to the same PR lint, scorecard, and packaging ABI commands used by phase testing', () => {
     const lintWorkflow = readProjectFile('.github/workflows/reusable-ci-lint.yml');
     const testWorkflow = readProjectFile('.github/workflows/reusable-ci-tests.yml');
+    const buildSmokeWorkflow = readProjectFile('.github/workflows/reusable-ci-build-smoke.yml');
+    const desktopBuildWorkflow = readProjectFile('.github/workflows/reusable-build-desktop.yml');
 
     expect(lintWorkflow).toContain('amannn/action-semantic-pull-request');
     expect(lintWorkflow).toContain('npx commitlint --from');
@@ -46,5 +49,8 @@ describe('Phase 0-3 CI parity gates', () => {
     expect(testWorkflow).toContain('npm run architecture:scorecard -- --enforce-thresholds');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard.json');
     expect(testWorkflow).toContain('artifacts/architecture-scorecard-summary.md');
+    expect(testWorkflow).toContain('npm run packaging:check-native-abi');
+    expect(buildSmokeWorkflow).toContain('npm run packaging:check-native-abi');
+    expect(desktopBuildWorkflow).toContain('npm run packaging:check-native-abi');
   });
 });
