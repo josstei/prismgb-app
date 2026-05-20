@@ -52,7 +52,7 @@ export default defineConfig({
               },
               external: [
                 'electron',
-                'usb-detection',
+                'usb',
                 'winston',
                 'awilix',
                 'joi',

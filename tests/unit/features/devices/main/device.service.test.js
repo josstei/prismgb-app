@@ -5,17 +5,6 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-// Mock usb-detection
-vi.mock('usb-detection', () => ({
-  default: {
-    startMonitoring: vi.fn(),
-    stopMonitoring: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    find: vi.fn(() => ({}))
-  }
-}));
-
 // Mock DeviceRegistry
 vi.mock('@shared/features/devices/device.registry.js', () => ({
   DeviceRegistry: {

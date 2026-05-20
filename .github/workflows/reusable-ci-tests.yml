@@ -28,6 +28,9 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
 
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
+
       - name: Run linter
         run: npm run lint
 
@@ -81,6 +84,9 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
 
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
+
       - name: Build GPU package types
         run: npm run build --workspace=@prismgb/gpu
 
@@ -115,6 +121,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
 
       - name: Run tests (no coverage)
         run: npm run test:run

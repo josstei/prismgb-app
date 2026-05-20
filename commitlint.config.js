@@ -1,5 +1,11 @@
+const GENERATED_CODEX_COMMIT_PATTERN = /^\[codex\]\s+\S.+$/u;
+
 export default {
   extends: ['@commitlint/config-conventional'],
+  // Stacked phase PRs can include generated Codex staging commits; the PR title still carries the semantic contract.
+  ignores: [
+    (message) => GENERATED_CODEX_COMMIT_PATTERN.test(message.split(/\r?\n/, 1)[0] ?? '')
+  ],
   rules: {
     'type-enum': [
       2,

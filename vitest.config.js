@@ -47,6 +47,12 @@ const baseCoverageConfig = {
     'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
     'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
     'src/**/gpu-render-loop.service.{js,ts}',
+    // Keep root CI coverage aligned with @prismgb/gpu package coverage policy.
+    // Hardware-specific GPU backends are covered by focused package tests and build/type gates.
+    'packages/prismgb-gpu/src/infrastructure/webgpu/**',
+    'packages/prismgb-gpu/src/infrastructure/webgl2/**',
+    'packages/prismgb-gpu/src/infrastructure/workers/**',
+    'packages/prismgb-gpu/src/infrastructure/canvas2d/**',
     // Audio warmup requires Web Audio API not available in vitest
     'src/**/audio/*.{js,ts}',
     // Canvas lifecycle requires complex DOM/Canvas API interactions

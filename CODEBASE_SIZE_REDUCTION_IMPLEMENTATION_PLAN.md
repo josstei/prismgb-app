@@ -16,6 +16,9 @@ Last updated: 2026-05-19
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so scorecard ratchets are checked with the Phase 0 baselines.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`.
   - `npm run test:run` passed with 147 test files and 2951 tests.
   - `npm run codebase:size -- --json` exited 0 and reports tracked source separately from local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets.
@@ -51,12 +54,18 @@ Last updated: 2026-05-19
   - The device preload factory now uses the current `getDeviceStatus`, `onDeviceConnected`, and `onDeviceDisconnected` names internally; the old listener method names are no longer public or internal compatibility surfaces.
   - The stale Phase 0/1 audit artifact was replaced with `CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md`, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
 - Verification for Phase 1:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
   - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one outdated type-debt allowlist bucket for login-item handlers was removed.
   - `npm run test:run` passed with 150 test files and 2967 tests after the Phase 0/1 audit hardening test was added.
   - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
   - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
 - Verification for Phase 2:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 2 generated-runtime and cleanup gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
   - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
   - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; outdated type-debt allowlist buckets from migrated Phase 2 files were removed.
   - `npm run test:run` passed with 154 test files and 2957 tests.
@@ -64,6 +73,9 @@ Last updated: 2026-05-19
   - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
   - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
 - Verification for Phase 3:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 3 clean-break gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
   - `npm run test:run -- tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 3 test files and 16 tests.
   - `npm run test:run -- tests/unit/preload/preload-api.invoke-contract.test.js tests/unit/preload/preload-api.contract.test.js tests/unit/codebase-reduction/non-ipc-baselines.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 5 test files and 32 tests after the device preload clean-break cutover.
   - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.

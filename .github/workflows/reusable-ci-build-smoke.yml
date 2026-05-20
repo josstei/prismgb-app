@@ -16,5 +16,8 @@ jobs:
         with:
           skip-native-deps: 'true'
 
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
+
       - name: Build Vite bundle
         run: npm run build:vite

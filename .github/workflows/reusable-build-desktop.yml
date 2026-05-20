@@ -117,6 +117,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-electron-builder-
 
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
+
       - name: Import code signing certificate (macOS)
         if: runner.os == 'macOS' && inputs.enable_macos_signing == true
         env:

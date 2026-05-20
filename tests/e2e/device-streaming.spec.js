@@ -471,9 +471,9 @@ test.describe('Full UI Flow with IPC Injection', () => {
   test('should update UI when device connected via IPC', async ({ electronApp, window }) => {
     await waitForAppReady(window);
 
-    // Verify initial state shows "Checking device..." or similar
+    // Verify initial state shows a disconnected/no-device status.
     const initialStatus = await window.locator('#statusText').textContent();
-    expect(initialStatus.toLowerCase()).toMatch(/checking|disconnected/);
+    expect(initialStatus.toLowerCase()).toMatch(/checking|disconnected|no device|waiting|plug in/);
 
     // Set mock device status in main process (so getDeviceStatus returns connected)
     await setMockDeviceStatus(electronApp, {

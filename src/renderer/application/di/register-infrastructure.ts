@@ -33,6 +33,12 @@ import {
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
+type DeviceIpcDependencies = Pick<RendererContainerMap, 'loggerFactory'>;
+type DeviceChangeDebounceDependencies = Pick<RendererContainerMap, 'browserMediaService' | 'loggerFactory'>;
+type CanvasRendererDependencies = Pick<RendererContainerMap, 'loggerFactory' | 'animationCache'>;
+type StreamingRendererFactoryDependencies = Pick<RendererContainerMap, 'eventBus' | 'loggerFactory'>;
+type DeviceStatusProviderDependencies = Pick<RendererContainerMap, 'ipcClient'>;
+
 const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererContainerMap>([
   {
     token: 'eventBus',
@@ -81,15 +87,15 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'deviceIpcAdapter',
     kind: 'function',
     dependencies: ['loggerFactory'],
-    resolver: (dependencies: any) => new DeviceIpcAdapter({
-      logger: (dependencies.loggerFactory as any).create('DeviceIpcAdapter')
+    resolver: (dependencies: DeviceIpcDependencies) => new DeviceIpcAdapter({
+      logger: dependencies.loggerFactory.create('DeviceIpcAdapter')
     })
   },
   {
     token: 'deviceChangeDebounceAdapter',
     kind: 'function',
     dependencies: ['browserMediaService', 'loggerFactory'],
-    resolver: (dependencies: any) => new DeviceChangeDebounceAdapter({
+    resolver: (dependencies: DeviceChangeDebounceDependencies) => new DeviceChangeDebounceAdapter({
       browserMediaService: dependencies.browserMediaService,
       logger: dependencies.loggerFactory.create('DeviceChangeDebounceAdapter')
     })
@@ -103,7 +109,7 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'canvasRenderer',
     kind: 'function',
     dependencies: ['loggerFactory', 'animationCache'],
-    resolver: (dependencies: any) => new StreamingCanvasRenderer(
+    resolver: (dependencies: CanvasRendererDependencies) => new StreamingCanvasRenderer(
       dependencies.loggerFactory.create('StreamingCanvasRenderer'),
       dependencies.animationCache
     )
@@ -148,8 +154,7 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'streamingRendererFactory',
     kind: 'function',
     dependencies: ['eventBus', 'loggerFactory'],
-    resolver: (dependencies: any) => {
-      const { eventBus, loggerFactory } = dependencies as any;
+    resolver: ({ eventBus, loggerFactory }: StreamingRendererFactoryDependencies) => {
       const rendererClasses = new Map<string, RendererConstructor>([
         ['gpu', StreamingGpuRendererAdapter as unknown as RendererConstructor],
         ['canvas2d', StreamingCanvas2DRendererAdapter as unknown as RendererConstructor]
@@ -180,7 +185,7 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'deviceStatusProvider',
     kind: 'function',
     dependencies: ['ipcClient'],
-    resolver: (dependencies: any) => new DeviceIpcStatusAdapter(dependencies.ipcClient)
+    resolver: (dependencies: DeviceStatusProviderDependencies) => new DeviceIpcStatusAdapter(dependencies.ipcClient)
   }
 ]);
 

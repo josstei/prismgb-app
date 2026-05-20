@@ -54,9 +54,9 @@ test.describe('Device Status Indicator', () => {
     const indicator = window.locator('#statusIndicator');
     await expect(indicator).toBeAttached();
 
-    // Check it doesn't have connected class
-    const classes = await indicator.getAttribute('class');
-    expect(classes).not.toContain('connected');
+    const classList = await indicator.evaluate(element => Array.from(element.classList));
+    expect(classList).toContain('disconnected');
+    expect(classList).not.toContain('connected');
   });
 
   test('should have status-indicator class', async ({ window }) => {

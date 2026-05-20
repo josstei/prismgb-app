@@ -90,7 +90,7 @@ flowchart LR
   DeviceServiceMain[DeviceServiceMain]
   UpdateServiceMain[UpdateServiceMain]
   TranscodeServiceMain[TranscodeServiceMain]
-  UsbDetection[usb-detection]
+  UsbMonitor[node-usb]
   AutoUpdater[electron-updater]
   FFmpeg[ffmpeg-static]
 
@@ -103,7 +103,7 @@ flowchart LR
   IpcHandlerRegistry --> UpdateServiceMain
   IpcHandlerRegistry --> TranscodeServiceMain
   TrayService --> DeviceServiceMain
-  DeviceServiceMain --> UsbDetection
+  DeviceServiceMain --> UsbMonitor
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
