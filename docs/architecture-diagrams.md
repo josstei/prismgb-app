@@ -136,7 +136,7 @@ flowchart LR
     DeviceServiceMain[DeviceServiceMain]
     UpdateServiceMain[UpdateServiceMain]
     TranscodeServiceMain[TranscodeServiceMain]
-    UsbDetection[usb-detection]
+    UsbMonitor[node-usb]
     DeviceRegistry[DeviceRegistry]
     DeviceProfileRegistry[DeviceProfileRegistry]
     AutoUpdater[electron-updater]
@@ -153,7 +153,7 @@ flowchart LR
   IpcHandlerRegistry --> TranscodeServiceMain
   TrayService --> DeviceServiceMain
 
-  DeviceServiceMain --> UsbDetection
+    DeviceServiceMain --> UsbMonitor
   DeviceServiceMain --> DeviceRegistry
   DeviceServiceMain --> DeviceProfileRegistry
   UpdateServiceMain --> AutoUpdater

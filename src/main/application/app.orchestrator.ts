@@ -109,7 +109,7 @@ class AppOrchestrator extends BaseOrchestrator {
     if (process.platform === 'darwin' && !app.isPackaged) {
       const iconPath = resolveDevDockIconPath(app.getAppPath());
       if (iconPath) {
-        app.dock.setIcon(iconPath);
+        app.dock?.setIcon(iconPath);
         this.logger.debug(`Set dock icon: ${iconPath}`);
       } else {
         this.logger.warn('Dock icon not found; continuing without custom dock icon');
@@ -119,8 +119,7 @@ class AppOrchestrator extends BaseOrchestrator {
     // Register IPC handlers
     this._ipcHandlerRegistry.registerHandlers();
 
-    // Wait for USB monitoring to initialize and enumerate devices
-    // usb-detection needs time to populate its device cache after startMonitoring()
+    // Wait for USB monitoring to initialize and enumerate devices.
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Detect hidden launch (login item / auto-start)

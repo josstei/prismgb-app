@@ -5,12 +5,17 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import usbDetection, { type Device as USBDetectionDevice } from 'usb-detection';
 import { appConfig } from '@shared/config/config-loader.utils.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
+import {
+  createNodeUsbDeviceMonitor,
+  createNoopUsbDeviceMonitor,
+  type UsbDeviceInfo,
+  type UsbDeviceMonitor
+} from './usb-device-monitor.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
@@ -33,29 +38,28 @@ interface DeviceStatus {
   device: ConnectedDeviceInfo | null;
 }
 
-interface ConnectedDeviceInfo {
-  locationId: number;
+interface ConnectedDeviceInfo extends UsbDeviceInfo {
+  locationId?: number;
   vendorId: number;
   productId: number;
-  deviceName: string;
-  manufacturer: string;
-  serialNumber: string;
-  deviceAddress: number;
+  deviceName?: string;
+  manufacturer?: string;
+  serialNumber?: string;
+  deviceAddress?: number;
   configName: string;
 }
 
 type ProfileClass = new () => DeviceProfile;
-type USBDetectionEvent = 'add' | 'remove';
-
-type USBDetectionWithLegacyOff = typeof usbDetection & {
-  off?: (event: USBDetectionEvent, callback: (device: USBDetectionDevice) => void) => void;
-  removeListener?: (event: USBDetectionEvent, callback: (device: USBDetectionDevice) => void) => void;
-};
 
 interface DeviceServiceDependencies {
   profileRegistry: DeviceProfileRegistry;
   eventBus: EventBus;
   loggerFactory: LoggerFactory;
+  usbMonitor?: UsbDeviceMonitor;
+}
+
+function isTestMode(): boolean {
+  return process.argv.includes('--test-mode') || process.env.NODE_ENV === 'test';
 }
 
 class DeviceService extends BaseService {
@@ -70,9 +74,9 @@ class DeviceService extends BaseService {
   private _initializationLock: Promise<void> | null;
   private _checkDeviceLock: Promise<boolean> | null;
   private readonly _profileClasses: Map<string, ProfileClass>;
-  private _onDeviceAdd: ((device: USBDetectionDevice) => void) | null;
-  private _onDeviceRemove: ((device: USBDetectionDevice) => void) | null;
-  private readonly _usbDetection: USBDetectionWithLegacyOff;
+  private _onDeviceAdd: ((device: UsbDeviceInfo) => void) | null;
+  private _onDeviceRemove: ((device: UsbDeviceInfo) => void) | null;
+  private readonly _usbMonitor: UsbDeviceMonitor;
 
   /**
    * @param dependencies - Service dependencies
@@ -91,7 +95,9 @@ class DeviceService extends BaseService {
     this._checkDeviceLock = null;
     this._onDeviceAdd = null;
     this._onDeviceRemove = null;
-    this._usbDetection = usbDetection as USBDetectionWithLegacyOff;
+    this._usbMonitor = dependencies.usbMonitor ?? (
+      isTestMode() ? createNoopUsbDeviceMonitor() : createNodeUsbDeviceMonitor()
+    );
 
     // Profile classes registered via DI bootstrap
     this._profileClasses = profileClasses;
@@ -229,20 +235,19 @@ class DeviceService extends BaseService {
       this._cleanupUSBListeners();
 
       // Start monitoring
-      this._usbDetection.startMonitoring();
+      this._usbMonitor.startMonitoring();
       this.isUsbMonitoring = true;
 
       // Set up event listeners - store references for cleanup
       // Note: Handler reassignment is intentional. If startUSBMonitoring() is called
       // while monitoring is already active, we skip (see guard at top). The handlers
       // are cleaned up in _cleanupUSBListeners() which is called before creating new ones.
-      this._onDeviceAdd = (device: USBDetectionDevice) => this.onDeviceConnected(device);
-      this._onDeviceRemove = (device: USBDetectionDevice) => this.onDeviceDisconnected(device);
-      this._usbDetection.on('add', this._onDeviceAdd);
-      this._usbDetection.on('remove', this._onDeviceRemove);
+      this._onDeviceAdd = (device: UsbDeviceInfo) => this.onDeviceConnected(device);
+      this._onDeviceRemove = (device: UsbDeviceInfo) => this.onDeviceDisconnected(device);
+      this._usbMonitor.on('add', this._onDeviceAdd);
+      this._usbMonitor.on('remove', this._onDeviceRemove);
 
-      // Trigger initial scan for already-connected devices
-      // This works around usb-detection.find() not working reliably on Linux
+      // Trigger initial scan for already-connected devices.
       this._scanTimeoutId = setTimeout(() => this._scanAlreadyConnectedDevices(), USB_SCAN_DELAY);
 
       this.logger.info('USB monitoring started');
@@ -265,33 +270,7 @@ class DeviceService extends BaseService {
     try {
       this.logger.debug('Scanning for already-connected devices...');
 
-      // Try to get device list
-      const devicesObj = await new Promise<USBDetectionDevice[] | Record<string, USBDetectionDevice>>((resolve) => {
-        try {
-          this._usbDetection.find((error, devices) => {
-            if (error) {
-              this.logger.warn('find() callback error:', error.message);
-              resolve([]);
-            } else {
-              resolve(devices || []);
-            }
-          });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger.warn('find() async attempt failed, trying synchronous version:', errorMessage);
-          // Synchronous version
-          try {
-            const result = this._usbDetection.find();
-            resolve(Object.values(result || {}));
-          } catch (syncErr) {
-            const syncErrorMessage = syncErr instanceof Error ? syncErr.message : 'Unknown error';
-            this.logger.warn('find() failed:', syncErrorMessage);
-            resolve([]);
-          }
-        }
-      });
-
-      const devices = Array.isArray(devicesObj) ? devicesObj : Object.values(devicesObj || {});
+      const devices = this._usbMonitor.find();
 
       if (devices.length === 0) {
         this.logger.debug('No devices found in initial scan');
@@ -319,19 +298,11 @@ class DeviceService extends BaseService {
    */
   private _cleanupUSBListeners(): void {
     if (this._onDeviceAdd) {
-      if (typeof this._usbDetection.off === 'function') {
-        this._usbDetection.off('add', this._onDeviceAdd);
-      } else if (typeof this._usbDetection.removeListener === 'function') {
-        this._usbDetection.removeListener('add', this._onDeviceAdd);
-      }
+      this._usbMonitor.off('add', this._onDeviceAdd);
       this._onDeviceAdd = null;
     }
     if (this._onDeviceRemove) {
-      if (typeof this._usbDetection.off === 'function') {
-        this._usbDetection.off('remove', this._onDeviceRemove);
-      } else if (typeof this._usbDetection.removeListener === 'function') {
-        this._usbDetection.removeListener('remove', this._onDeviceRemove);
-      }
+      this._usbMonitor.off('remove', this._onDeviceRemove);
       this._onDeviceRemove = null;
     }
   }
@@ -354,7 +325,7 @@ class DeviceService extends BaseService {
       // Remove event listeners to prevent memory leaks
       this._cleanupUSBListeners();
 
-      this._usbDetection.stopMonitoring();
+      this._usbMonitor.stopMonitoring();
       this.isUsbMonitoring = false;
       this.logger.info('USB monitoring stopped');
     } catch (error) {
@@ -367,7 +338,7 @@ class DeviceService extends BaseService {
    * @param device - USB device object
    * @returns Match result with matched flag, config, and profile
    */
-  matchDevice(device: USBDetectionDevice): DeviceMatch {
+  matchDevice(device: UsbDeviceInfo): DeviceMatch {
     // Match via ProfileRegistry (profile-based)
     const detectionResult = this.profileRegistry.detectDevice(device);
     if (detectionResult.matched && detectionResult.profile) {
@@ -410,22 +381,13 @@ class DeviceService extends BaseService {
    */
   private async _performDeviceCheck(): Promise<boolean> {
     try {
-      // Get list of all connected USB devices
-      let findResult: unknown = null;
+      let devices: UsbDeviceInfo[] = [];
       try {
-        findResult = this._usbDetection.find();
-        const keyCount = (findResult && typeof findResult === 'object') ? Object.keys(findResult as object).length : 0;
-        this.logger.debug(`find() returned ${keyCount} device(s)`);
+        devices = this._usbMonitor.find();
+        this.logger.debug(`find() returned ${devices.length} device(s)`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`USB detection find() failed: ${errorMessage}`);
-        findResult = null;
-      }
-
-      // Convert object to array - usb-detection returns { deviceId: device, ... }
-      let devices: USBDetectionDevice[] = [];
-      if (findResult && typeof findResult === 'object') {
-        devices = Object.values(findResult as Record<string, USBDetectionDevice>);
+        this.logger.warn(`USB device scan failed: ${errorMessage}`);
       }
 
       // Handle undefined/null/empty
@@ -466,7 +428,7 @@ class DeviceService extends BaseService {
   /**
    * Handle device connection
    */
-  onDeviceConnected(device: USBDetectionDevice): void {
+  onDeviceConnected(device: UsbDeviceInfo): void {
     const formatted = formatDeviceInfo(device);
     this.logger.info('Device connected', { device: formatted });
 
@@ -487,7 +449,7 @@ class DeviceService extends BaseService {
   /**
    * Handle device disconnection
    */
-  onDeviceDisconnected(device: USBDetectionDevice): void {
+  onDeviceDisconnected(device: UsbDeviceInfo): void {
     const formatted = formatDeviceInfo(device);
     this.logger.info('Device disconnected', { device: formatted });
 

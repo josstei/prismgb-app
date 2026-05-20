@@ -40,7 +40,7 @@ Please be respectful and constructive in all interactions. We aim to foster a we
 
 ### Linux Dependencies
 
-Native modules (like `usb-detection`) require build tools and development libraries:
+Native modules (like `usb`) require build tools and development libraries:
 
 ```bash
 # Debian/Ubuntu

@@ -7,6 +7,10 @@ export { DeviceService } from './device.service.js';
 export { DeviceBridgeService } from './device-bridge.service.js';
 export { DeviceLifecycleService } from './device-lifecycle.service.js';
 export { DeviceProfileRegistry } from './device-profile.registry.js';
+export {
+  createNodeUsbDeviceMonitor,
+  createNoopUsbDeviceMonitor
+} from './usb-device-monitor.js';
 
 export type {
   DeviceServiceDependencies,
@@ -29,3 +33,9 @@ export type {
   USBDevice,
   DetectionResult
 } from './device-profile.registry.js';
+
+export type {
+  UsbDeviceEvent,
+  UsbDeviceInfo,
+  UsbDeviceMonitor
+} from './usb-device-monitor.js';

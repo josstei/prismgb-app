@@ -12,7 +12,7 @@
   <a href="https://github.com/josstei/prismgb-app/releases/latest"><img src="https://img.shields.io/github/v/release/josstei/prismgb-app?label=version" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
-  <img src="https://img.shields.io/badge/electron-v28-blue" alt="Electron">
+  <img src="https://img.shields.io/badge/electron-v42-blue" alt="Electron">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node.js">
 </p>
 
@@ -345,14 +345,14 @@ The 4-pass shader pipeline processes each frame:
 
 | Category | Technology |
 |----------|------------|
-| **Framework** | Electron v28 |
+| **Framework** | Electron v42 |
 | **Build Tool** | Vite v7.3 |
 | **Runtime** | Node.js v22 LTS |
 | **GPU Rendering** | WebGL2, WebGPU, Canvas2D |
 | **Audio** | Web Audio API |
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
-| **USB** | usb-detection, libusb |
+| **USB** | node-usb, libusb |
 | **DI** | Awilix |
 | **Logging** | Winston |
 | **Testing** | Vitest, Playwright |

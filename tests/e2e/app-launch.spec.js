@@ -377,9 +377,9 @@ test.describe('Status Indicators', () => {
     await expect(statusIndicator).toBeAttached();
     await expect(statusText).toBeAttached();
 
-    // Should NOT have connected class
-    const classes = await statusIndicator.getAttribute('class');
-    expect(classes).not.toContain('connected');
+    const classList = await statusIndicator.evaluate(element => Array.from(element.classList));
+    expect(classList).toContain('disconnected');
+    expect(classList).not.toContain('connected');
 
     // Status text should indicate waiting/disconnected/checking
     const text = await statusText.textContent();
