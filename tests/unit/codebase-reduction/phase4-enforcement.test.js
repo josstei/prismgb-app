@@ -42,6 +42,7 @@ describe('Phase 4 clean-break enforcement', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0

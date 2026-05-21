@@ -13,6 +13,7 @@
     "shaderDuplicateDivergenceCountMax": 0,
     "shaderDuplicateFileCountMax": 0,
     "runtimeJsDtsTwinCountMax": 0,
+    "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,
     "aliasManifestDriftCountMax": 0,
     "platformManifestDriftCountMax": 0
@@ -26,6 +27,7 @@
     "shaderDuplicateDivergenceCountMax": 0,
     "shaderDuplicateFileCountMax": 0,
     "runtimeJsDtsTwinCountMax": 0,
+    "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,
     "aliasManifestDriftCountMax": 0,
     "platformManifestDriftCountMax": 0,

@@ -11,6 +11,7 @@ import {
   collectPlatformDriftMetrics,
   collectRuntimeTwinMetrics,
   collectShaderDuplicateMetrics,
+  collectSharedTypeScriptCutoverMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
@@ -39,6 +40,7 @@ function createMetrics(overrides = {}) {
     shaderDuplicateDivergenceCount: 0,
     shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
+    sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
     platformManifestDriftCount: 0,
@@ -151,6 +153,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
     };
@@ -170,6 +173,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCount: 1,
       shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
+      sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       aliasManifestDriftCount: 1,
       platformManifestDriftCount: 1
@@ -179,6 +183,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -186,12 +191,13 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(7);
+    expect(evaluation.failures).toHaveLength(8);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
       'shaderDuplicateFileCount',
       'runtimeJsDtsTwinCount',
+      'sharedBaseInterfaceJsOrDtsFileCount',
       'inlineCanonicalMockAssignmentCount',
       'aliasManifestDriftCount',
       'platformManifestDriftCount'
@@ -271,6 +277,27 @@ describe('phase 4 enforcement metrics', () => {
     fs.writeFileSync(path.join(tempRoot, 'src/shared/base.class.d.ts'), 'export {};');
     const mutant = collectRuntimeTwinMetrics(tempRoot);
     expect(mutant.pairCount).toBe(1);
+  });
+
+  it('reports no shared base/interface JS or d.ts cutover leftovers', () => {
+    const baseline = collectSharedTypeScriptCutoverMetrics(process.cwd());
+    expect(baseline.fileCount).toBe(0);
+
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shared-cutover-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'src/shared/base'), { recursive: true });
+    fs.mkdirSync(path.join(tempRoot, 'src/shared/interfaces'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'src/shared/base/listener.js'), 'export {}');
+    fs.writeFileSync(path.join(tempRoot, 'src/shared/interfaces/service.d.ts'), 'export {};');
+
+    const mutant = collectSharedTypeScriptCutoverMetrics(tempRoot);
+    expect(mutant).toEqual({
+      fileCount: 2,
+      files: [
+        'src/shared/base/listener.js',
+        'src/shared/interfaces/service.d.ts'
+      ]
+    });
   });
 
   it('detects shader duplicate divergence introduced by mismatched copies', () => {

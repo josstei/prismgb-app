@@ -72,6 +72,10 @@ const BUILD_MATRIX_SOURCES = [
     args: ['--mode', 'smoke', '--platform', 'all']
   }
 ];
+const SHARED_TYPESCRIPT_CUTOVER_ROOTS = [
+  'src/shared/base',
+  'src/shared/interfaces'
+];
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -237,6 +241,23 @@ export function collectRuntimeTwinMetrics(projectRoot) {
   return {
     pairCount: pairs.length,
     pairs
+  };
+}
+
+export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
+  const files = SHARED_TYPESCRIPT_CUTOVER_ROOTS.flatMap((relativeRoot) => {
+    const absoluteRoot = path.join(projectRoot, relativeRoot);
+    return walkFiles(
+      absoluteRoot,
+      (absolutePath) => absolutePath.endsWith('.js') || absolutePath.endsWith('.d.ts')
+    );
+  })
+    .map((filePath) => normalizeRelativePath(path.relative(projectRoot, filePath)))
+    .sort();
+
+  return {
+    fileCount: files.length,
+    files
   };
 }
 
@@ -754,6 +775,7 @@ function printSummary(scorecard) {
   console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
   console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
+  console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
@@ -796,6 +818,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
     ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
+    ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
     ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
@@ -887,6 +910,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'sharedBaseInterfaceJsOrDtsFileCountMax',
+    'sharedBaseInterfaceJsOrDtsFileCount',
+    metrics.sharedBaseInterfaceJsOrDtsFileCount,
+    'max'
+  );
+  addCheck(
     'inlineCanonicalMockAssignmentCountMax',
     'inlineCanonicalMockAssignmentCount',
     metrics.inlineCanonicalMockAssignmentCount,
@@ -945,6 +974,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
   `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
+  `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
@@ -987,6 +1017,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const contractOwnershipMetrics = collectContractMetrics(projectRoot);
   const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
   const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
+  const sharedTypeScriptCutoverMetrics = collectSharedTypeScriptCutoverMetrics(projectRoot);
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
@@ -1007,6 +1038,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
       runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
+      sharedBaseInterfaceJsOrDtsFileCount: sharedTypeScriptCutoverMetrics.fileCount,
+      sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,
       inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
       aliasManifestDriftCount: aliasDriftMetrics.driftCount,
