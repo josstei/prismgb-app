@@ -10,7 +10,7 @@ import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metri
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter';
 import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter';
-import { StreamingCanvasRenderer } from '@renderer/infrastructure/services/streaming/canvas-renderer';
+import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
 import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service';
@@ -32,10 +32,11 @@ import {
 } from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 type DeviceIpcDependencies = Pick<RendererContainerMap, 'loggerFactory'>;
 type DeviceChangeDebounceDependencies = Pick<RendererContainerMap, 'browserMediaService' | 'loggerFactory'>;
-type CanvasRendererDependencies = Pick<RendererContainerMap, 'loggerFactory' | 'animationCache'>;
+type CanvasRenderLoopDependencies = Pick<RendererContainerMap, 'loggerFactory' | 'animationCache'>;
 type StreamingRendererFactoryDependencies = Pick<RendererContainerMap, 'eventBus' | 'loggerFactory'>;
 type DeviceStatusProviderDependencies = Pick<RendererContainerMap, 'ipcClient'>;
 
@@ -106,13 +107,17 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     resolver: AnimationCache
   },
   {
-    token: 'canvasRenderer',
+    token: 'canvasRenderLoopService',
     kind: 'function',
     dependencies: ['loggerFactory', 'animationCache'],
-    resolver: (dependencies: CanvasRendererDependencies) => new StreamingCanvasRenderer(
-      dependencies.loggerFactory.create('StreamingCanvasRenderer'),
-      dependencies.animationCache
-    )
+    resolver: (dependencies: CanvasRenderLoopDependencies) => {
+      const loggerFactory = dependencies.loggerFactory as LoggerFactoryLike;
+      const animationCache = dependencies.animationCache as AnimationCache;
+      return new StreamingCanvasRenderLoopService(
+        loggerFactory.create('StreamingCanvasRenderLoopService'),
+        animationCache
+      );
+    }
   },
   {
     token: 'viewportService',

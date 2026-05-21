@@ -56,7 +56,7 @@ type GpuRecordingServiceLike = {
   stop(): Promise<void>;
 };
 
-type CanvasRendererLike = {
+type CanvasRenderLoopServiceLike = {
   isActive(): boolean;
 };
 
@@ -84,7 +84,7 @@ type CaptureOrchestratorDependencies = {
   streamViewService: StreamViewServiceLike;
   gpuRendererService: GpuRendererServiceLike;
   gpuRecordingService: GpuRecordingServiceLike;
-  canvasRenderer: CanvasRendererLike;
+  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   transcodeService: TranscodeServiceLike;
   captureSaveService: CaptureSaveServiceLike;
   eventBus: TypedEventBusLike;
@@ -97,7 +97,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   declare protected readonly streamViewService: StreamViewServiceLike;
   declare protected readonly gpuRendererService: GpuRendererServiceLike;
   declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
-  declare protected readonly canvasRenderer: CanvasRendererLike;
+  declare protected readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
   declare protected readonly transcodeService: TranscodeServiceLike;
   declare protected readonly captureSaveService: CaptureSaveServiceLike;
   declare protected readonly eventBus: TypedEventBusLike;
@@ -114,7 +114,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         'streamViewService',
         'gpuRendererService',
         'gpuRecordingService',
-        'canvasRenderer',
+        'canvasRenderLoopService',
         'transcodeService',
         'captureSaveService',
         'eventBus',
@@ -178,7 +178,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       return this.gpuRendererService.captureFrame();
     }
 
-    if (this.canvasRenderer.isActive()) {
+    if (this.canvasRenderLoopService.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
       const canvas = this.streamViewService.getCanvas();
       if (!canvas) {

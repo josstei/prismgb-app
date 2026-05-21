@@ -1,22 +1,23 @@
 /**
- * Canvas2D Renderer Adapter
+ * Canvas2D Render Loop Adapter
  *
- * Adapts StreamingCanvasRenderer to the IStreamingRenderer interface
+ * Adapts the package-backed Canvas2D render loop to the IStreamingRenderer interface
  * for use in the render pipeline.
  *
  * Responsibilities:
- * - Wrap Canvas2D renderer lifecycle
+ * - Wrap Canvas2D render loop lifecycle
  * - Manage render loop start/stop
- * - Handle canvas context state
+ * - Keep canvas context ownership inside @prismgb/gpu
  */
 
 import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
 
-interface CanvasRendererLike {
+interface CanvasRenderLoopServiceLike {
+  initialize(canvasElement: HTMLCanvasElement, nativeResolution?: { width: number; height: number }): Promise<void>;
   startRendering(videoElement: HTMLVideoElement, canvasElement: HTMLCanvasElement, isStreamingFn: () => boolean, isHiddenFn: () => boolean): void;
-  stopRendering(videoElement: HTMLVideoElement): void;
+  stopRendering(videoElement?: HTMLVideoElement | null): void;
   clearCanvas(canvasElement: HTMLCanvasElement): void;
   resize(canvasElement: HTMLCanvasElement, width: number, height: number): void;
   isActive(): boolean;
@@ -29,7 +30,7 @@ interface AppStateLike {
 }
 
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
-  canvasRenderer: CanvasRendererLike;
+  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   appState: AppStateLike;
   logger: LoggerLike;
   _canvasElement: HTMLCanvasElement | null;
@@ -39,13 +40,13 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
 
   /**
    * @param {Object} dependencies - Injected dependencies
-   * @param {Object} dependencies.canvasRenderer - Canvas2D renderer class
+   * @param {Object} dependencies.canvasRenderLoopService - Canvas2D render loop service
    * @param {Object} dependencies.appState - Application state for streaming status
    * @param {Object} dependencies.loggerFactory - Logger factory
    */
-  constructor({ canvasRenderer, appState, loggerFactory }) {
+  constructor({ canvasRenderLoopService, appState, loggerFactory }) {
     super();
-    this.canvasRenderer = canvasRenderer;
+    this.canvasRenderLoopService = canvasRenderLoopService;
     this.appState = appState;
     this.logger = loggerFactory.create('StreamingCanvas2DRendererAdapter');
 
@@ -70,10 +71,11 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    * @param {Object} _nativeResolution - Native device resolution (unused for Canvas2D)
    * @returns {Promise<boolean>} Always true for Canvas2D
    */
-  async initialize(canvasElement, _nativeResolution) {
+  async initialize(canvasElement, nativeResolution) {
     this.logger.debug('Initializing Canvas2D renderer adapter');
 
     this._canvasElement = canvasElement;
+    await this.canvasRenderLoopService.initialize(canvasElement, nativeResolution);
     this._isInitialized = true;
 
     this.logger.info('Canvas2D renderer adapter initialized');
@@ -98,7 +100,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    */
   resize(width, height) {
     if (this._canvasElement) {
-      this.canvasRenderer.resize(this._canvasElement, width, height);
+      this.canvasRenderLoopService.resize(this._canvasElement, width, height);
     }
   }
 
@@ -107,7 +109,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    * @returns {boolean} True if rendering is active
    */
   isActive() {
-    return this.canvasRenderer.isActive();
+    return this.canvasRenderLoopService.isActive();
   }
 
   /**
@@ -122,7 +124,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
 
     this._videoElement = videoElement;
 
-    this.canvasRenderer.startRendering(
+    this.canvasRenderLoopService.startRendering(
       videoElement,
       this._canvasElement,
       () => this.appState.isStreaming,
@@ -137,7 +139,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    * @param {HTMLVideoElement} videoElement - Video element for callback cancellation
    */
   pause(videoElement) {
-    this.canvasRenderer.stopRendering(videoElement || this._videoElement);
+    this.canvasRenderLoopService.stopRendering(videoElement || this._videoElement);
     this.logger.debug('Canvas2D render loop stopped');
   }
 
@@ -154,14 +156,14 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    */
   cleanup() {
     if (this._videoElement) {
-      this.canvasRenderer.stopRendering(this._videoElement);
+      this.canvasRenderLoopService.stopRendering(this._videoElement);
     }
 
     this._canvasElement = null;
     this._videoElement = null;
     this._isInitialized = false;
 
-    this.canvasRenderer.cleanup();
+    this.canvasRenderLoopService.cleanup();
     this.logger.info('Canvas2D renderer adapter cleaned up');
   }
 
@@ -170,7 +172,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    */
   clearCanvas() {
     if (this._canvasElement) {
-      this.canvasRenderer.clearCanvas(this._canvasElement);
+      this.canvasRenderLoopService.clearCanvas(this._canvasElement);
     }
   }
 
@@ -178,7 +180,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
    * Reset canvas state (after canvas replacement)
    */
   resetCanvasState() {
-    this.canvasRenderer.resetCanvasState();
+    this.canvasRenderLoopService.resetCanvasState();
     this._canvasElement = null;
     this._isInitialized = false;
   }

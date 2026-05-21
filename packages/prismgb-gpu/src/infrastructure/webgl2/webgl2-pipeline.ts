@@ -217,6 +217,14 @@ export class WebGL2Pipeline extends BasePipeline {
     return createImageBitmap(this.canvas as ImageBitmapSource);
   }
 
+  clearFrame(): void {
+    if (!this.gl) return;
+
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  }
+
   protected onUniformsChanged(): void {
     // WebGL2 uniforms are set per-frame in renderFrame() via setUniform calls.
   }

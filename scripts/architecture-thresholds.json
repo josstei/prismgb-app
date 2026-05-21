@@ -15,6 +15,7 @@
     "runtimeJsDtsTwinCountMax": 0,
     "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,
+    "rendererBackendImplementationViolationCountMax": 0,
     "aliasManifestDriftCountMax": 0,
     "platformManifestDriftCountMax": 0
   },
@@ -29,6 +30,7 @@
     "runtimeJsDtsTwinCountMax": 0,
     "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,
+    "rendererBackendImplementationViolationCountMax": 0,
     "aliasManifestDriftCountMax": 0,
     "platformManifestDriftCountMax": 0,
     "topRuntimeFileLocMax": 700

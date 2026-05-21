@@ -18,7 +18,6 @@ import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 import type {
   Dimensions,
-  PerformanceStatePayload,
   StreamingCapabilities
 } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 import { isPerformanceStatePayload } from '@renderer/infrastructure/streaming/streaming-contracts.js';
@@ -80,7 +79,7 @@ type StreamingRendererFactoryLike = {
   createRenderer(type: RendererType, dependencies: Record<string, unknown>): StreamingRendererLike;
 };
 
-type CanvasRendererLike = {
+type CanvasRenderLoopServiceLike = {
   hasContextFor(canvas: HTMLCanvasElement): boolean;
   cleanup(): void;
 };
@@ -100,7 +99,7 @@ type RenderPipelineDependencies = {
   streamingRendererFactory: StreamingRendererFactoryLike;
   gpuRendererService: GpuRendererServiceLike;
   gpuRenderLoopService: GpuRenderLoopServiceLike;
-  canvasRenderer: CanvasRendererLike;
+  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
 };
@@ -113,7 +112,7 @@ export class StreamingRenderPipelineService extends BaseService {
   declare protected readonly streamingRendererFactory: StreamingRendererFactoryLike;
   declare protected readonly gpuRendererService: GpuRendererServiceLike;
   declare protected readonly gpuRenderLoopService: GpuRenderLoopServiceLike;
-  declare protected readonly canvasRenderer: CanvasRendererLike;
+  declare protected readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
   declare protected readonly eventBus: TypedEventBusLike;
   declare protected readonly logger: LoggerLike;
 
@@ -136,7 +135,7 @@ export class StreamingRenderPipelineService extends BaseService {
         'streamingRendererFactory',
         'gpuRendererService',
         'gpuRenderLoopService',
-        'canvasRenderer',
+        'canvasRenderLoopService',
         'eventBus',
         'loggerFactory'
       ],
@@ -252,7 +251,7 @@ export class StreamingRenderPipelineService extends BaseService {
       this._activeRendererType = null;
     }
 
-    this.canvasRenderer.cleanup();
+    this.canvasRenderLoopService.cleanup();
     this.canvasLifecycleService.cleanup();
     this.streamHealthService.cleanup();
   }
@@ -370,7 +369,7 @@ export class StreamingRenderPipelineService extends BaseService {
     // This handles both: 1) explicit Canvas2D usage, 2) HMR scenarios where canvas persists with context
     const currentCanvas = this.streamViewService.getCanvas();
     const canvasHasContext = this._canvas2dContextCreated ||
-      this.canvasRenderer.hasContextFor(currentCanvas);
+      this.canvasRenderLoopService.hasContextFor(currentCanvas);
 
     if (rendererType === 'gpu' && canvasHasContext) {
       this.logger.info('Recreating canvas before GPU init (canvas has 2D context)');
@@ -386,7 +385,7 @@ export class StreamingRenderPipelineService extends BaseService {
     if (rendererType === 'gpu') {
       await this._startGPURendering(canvas, video, nativeRes);
     } else {
-      await this._startCanvas2DRendering(canvas, video);
+      await this._startCanvas2DRendering(canvas, video, nativeRes);
     }
   }
 
@@ -469,17 +468,18 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   private async _startCanvas2DRendering(
     canvas: HTMLCanvasElement,
-    video: HTMLVideoElement
+    video: HTMLVideoElement,
+    nativeRes: Dimensions
   ): Promise<void> {
     const renderer = this.streamingRendererFactory.createRenderer('canvas2d', {
-      canvasRenderer: this.canvasRenderer,
+      canvasRenderLoopService: this.canvasRenderLoopService,
       appState: this.appState
     });
 
     renderer.setHiddenStateFn(() => this._isHidden);
 
     try {
-      await renderer.initialize(canvas);
+      await renderer.initialize(canvas, nativeRes);
     } catch (error) {
       // Don't set partial state if initialization fails
       this.logger.error('Canvas2D renderer initialization failed:', getErrorMessage(error));
@@ -518,7 +518,7 @@ export class StreamingRenderPipelineService extends BaseService {
       currentCanvas = this.streamViewService.getCanvas();
     }
 
-    await this._startCanvas2DRendering(currentCanvas, video);
+    await this._startCanvas2DRendering(currentCanvas, video, nativeRes);
   }
 
   /**
@@ -543,7 +543,7 @@ export class StreamingRenderPipelineService extends BaseService {
     const canvas = this.streamViewService.getCanvas();
 
     // Start Canvas2D
-    await this._startCanvas2DRendering(canvas, video);
+    await this._startCanvas2DRendering(canvas, video, nativeRes);
   }
 
   /**
@@ -601,7 +601,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Stay on Canvas2D
-    await this._startCanvas2DRendering(canvas, video);
+    await this._startCanvas2DRendering(canvas, video, nativeRes);
     this.logger.warn('Could not switch to GPU mid-stream, continuing with Canvas2D');
   }
 }

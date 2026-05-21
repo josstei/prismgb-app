@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-21
 
-- Status: Phase 4 enforcement and ratchets are implemented on branch `codex/codebase-reduction-phase-4`; the Phase 0/4 clean-break audit is current in this plan instead of a separate stale audit artifact.
-- Completed phase: Phase 4, Enforcement And Ratchets.
+- Status: Phase 5 rendering backend ownership is implemented; `@prismgb/gpu` owns WebGPU, WebGL2, and Canvas2D drawing while renderer code owns only protocol, telemetry, RVFC, and canvas lifecycle boundaries.
+- Completed phase: Phase 5, Make `@prismgb/gpu` The Only Rendering Backend.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -62,6 +62,12 @@ Last updated: 2026-05-21
   - `npm run dev:smoke` starts `npm run dev` on explicit IPv4 localhost, captures startup output, fails on renderer errors, Awilix missing-token failures, and Vite JSON import-attribute warnings, then tears down the process tree.
   - `npm run release:preflight` and `.github/workflows/reusable-ci-tests.yml` run native ABI checks, architecture thresholds, manifest drift checks, strict type debt checks, coverage plus coverage ratchets, and dev boot preflight before release readiness.
   - `tests/unit/codebase-reduction/phase4-enforcement.test.js` guards the Phase 4 clean-break requirements so the old paths and future-phase status cannot drift back in.
+- Phase 5 delivered:
+  - Renderer Canvas2D fallback drawing now goes through a package-backed `StreamingCanvasRenderLoopService` that creates a `@prismgb/gpu` `createPipeline({ preferredAPI: 'canvas2d' })` pipeline; the old renderer-owned `canvas-renderer.ts` backend file was deleted.
+  - `@prismgb/gpu` pipeline ownership now includes `clearFrame()` across Canvas2D, WebGL2, and WebGPU so idle canvas clearing no longer requires renderer-side context or drawing code.
+  - Renderer Canvas2D adapter and render pipeline wiring now pass native resolution into the package pipeline and keep renderer responsibilities limited to RVFC scheduling, fallback selection, capture source selection, and canvas lifecycle orchestration.
+  - `scripts/architecture-scorecard.js` and `scripts/architecture-thresholds.json` enforce zero renderer backend implementation violations, including old worker engines, renderer shader trees, and the deleted renderer Canvas2D backend path.
+  - The old Canvas2D backend type-debt allowlist buckets were removed after the package-backed render loop cutover.
 - Verification for Phase 1:
   - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
   - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
@@ -107,6 +113,15 @@ Last updated: 2026-05-21
   - `npm run test:run -- tests/unit/codebase-reduction/phase-ci-gates.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/codebase-reduction/phase4-enforcement.test.js tests/unit/scripts/architecture-scorecard.test.js tests/unit/scripts/clean-generated.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/coverage-ratchet.test.js tests/unit/scripts/dev-boot-smoke.test.js tests/unit/scripts/typecheck-app.test.js` exits 0 for the focused Phase 0/4 clean-break audit suite.
   - `npm run test:coverage` followed by `npm run coverage:ratchet` exits 0, proving coverage artifacts are generated under `artifacts/coverage` and the Phase 4 ratchet policy is enforced.
   - `xvfb-run -a npm run dev:smoke` is the CI form of the dev boot preflight; `npm run dev:smoke` is the local equivalent.
+- Verification for Phase 5:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Section 5 backend ownership gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
+  - `npm run build --workspace=@prismgb/gpu` exits 0 and refreshes local package declarations for app typechecking.
+  - `npm run test:run -- tests/unit/features/streaming/rendering/canvas-render-loop.service.test.js tests/unit/features/streaming/rendering/render-pipeline.service.test.js tests/unit/features/streaming/rendering/streaming-canvas-lifecycle.service.test.js tests/unit/features/capture/services/capture.orchestrator.test.js tests/unit/app/renderer/container.test.js packages/prismgb-gpu/tests/unit/factories/worker-pipeline.test.ts packages/prismgb-gpu/tests/unit/infrastructure/canvas2d-pipeline.test.ts tests/unit/scripts/architecture-scorecard.test.js tests/unit/codebase-reduction/phase4-enforcement.test.js tests/unit/codebase-reduction/phase-ci-gates.test.js tests/unit/renderer/infrastructure/rendering/workers/render.worker.test.js` exits 0 for Section 5 ownership, Canvas2D fallback, DI wiring, capture, scorecard, and worker protocol checks.
+  - `npm run typecheck` exits 0 for app and `@prismgb/gpu`; strict app diagnostics are 281, tracked buckets are 72, and stale buckets are 0 after removing the old Canvas2D backend allowlist buckets.
+  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero renderer backend implementation violations.
+  - `npm run test:run -- tests/unit/codebase-reduction/phase-ci-gates.test.js` exits 0 to verify this verification marker remains current.
 
 ## Phase 0 Grounding Snapshot
 
@@ -493,12 +508,18 @@ Expected outcome:
 
 ## 5. Make `@prismgb/gpu` The Only Rendering Backend
 
-Grounded repo truth:
+Pre-migration grounded repo truth:
 
-- Renderer worker engines exist in `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts` and `webgl2-renderer.engine.ts`.
-- Renderer Canvas2D fallback exists in `src/renderer/infrastructure/services/streaming/canvas-renderer.ts` and `canvas2d-renderer.adapter.ts`.
-- `@prismgb/gpu` already contains WebGPU, WebGL2, and Canvas2D pipelines.
-- WebGPU and WebGL2 shader directories are duplicated exactly between renderer and the GPU package, accounting for 1,782 total shader lines.
+- Renderer worker engines existed in `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts` and `webgl2-renderer.engine.ts`.
+- Renderer Canvas2D fallback drawing existed in `src/renderer/infrastructure/services/streaming/canvas-renderer.ts` and `canvas2d-renderer.adapter.ts`.
+- `@prismgb/gpu` already contained WebGPU, WebGL2, and Canvas2D pipelines.
+- WebGPU and WebGL2 shader directories were duplicated exactly between renderer and the GPU package, accounting for 1,782 total shader lines.
+
+Current repo truth after Phase 5:
+
+- Renderer worker code delegates rendering, capture, stats, resize, preset, brightness, and disposal to `@prismgb/gpu`.
+- Renderer Canvas2D fallback drawing delegates to `@prismgb/gpu` through `StreamingCanvasRenderLoopService`; the renderer owns only RVFC scheduling and canvas lifecycle boundaries.
+- Renderer shader trees, renderer-private worker engines, and the old renderer-owned `canvas-renderer.ts` backend path are deleted and guarded by the architecture scorecard.
 
 Long-term target:
 

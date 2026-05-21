@@ -94,6 +94,7 @@ describe('createWorkerPipeline', () => {
     getPreset: vi.fn(),
     setBrightness: vi.fn(),
     captureFrame: vi.fn(async () => ({} as ImageBitmap)),
+    clearFrame: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
     getStats: vi.fn(() => mockStats),
@@ -103,6 +104,14 @@ describe('createWorkerPipeline', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockPipeline.renderFrame.mockClear();
+    mockPipeline.resize.mockClear();
+    mockPipeline.captureFrame.mockClear();
+    mockPipeline.clearFrame.mockClear();
+    mockPipeline.getStats.mockClear();
+    mockPipeline.dispose.mockClear();
+    mockPipeline.setPreset.mockClear();
+    mockPipeline.setBrightness.mockClear();
   });
 
   it('builds worker-safe API with required methods', async () => {
@@ -242,5 +251,42 @@ describe('createWorkerPipeline', () => {
         preferredAPI: 'webgpu'
       })
     }));
+  });
+
+  it('supports Canvas2D preference with full worker-safe API surface', async () => {
+    const createPipelineSpy = vi
+      .spyOn(pipelineFactory, 'createPipeline')
+      .mockResolvedValue(mockPipeline);
+    const canvas = createCanvasMock();
+
+    const workerPipeline = await createWorkerPipeline({
+      canvas,
+      nativeSize: [160, 144],
+      outputSize: [320, 288],
+      api: 'canvas2d',
+      preset: BUILT_IN_PRESETS[0].preset
+    });
+
+    expect(createPipelineSpy).toHaveBeenCalledWith(expect.objectContaining({
+      canvas,
+      preferredAPI: 'canvas2d',
+      capabilities: expect.objectContaining({
+        preferredAPI: 'canvas2d',
+        webgpu: false,
+        offscreenCanvas: false
+      })
+    }));
+
+    workerPipeline.render({} as TexImageSource);
+    workerPipeline.resize(640, 360);
+    await workerPipeline.captureFrame();
+    workerPipeline.getStats();
+    await workerPipeline.dispose();
+
+    expect(mockPipeline.renderFrame).toHaveBeenCalledTimes(1);
+    expect(mockPipeline.resize).toHaveBeenCalledWith(640, 360);
+    expect(mockPipeline.captureFrame).toHaveBeenCalledTimes(1);
+    expect(mockPipeline.getStats).toHaveBeenCalledTimes(1);
+    expect(mockPipeline.dispose).toHaveBeenCalledTimes(1);
   });
 });

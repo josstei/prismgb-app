@@ -299,24 +299,6 @@
       "expiresOn": "2026-12-31"
     },
     {
-      "file": "src/renderer/infrastructure/services/streaming/canvas-renderer.ts",
-      "code": "TS18047",
-      "maxCount": 1,
-      "expiresOn": "2026-12-31"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/streaming/canvas-renderer.ts",
-      "code": "TS2531",
-      "maxCount": 1,
-      "expiresOn": "2026-12-31"
-    },
-    {
-      "file": "src/renderer/infrastructure/services/streaming/canvas-renderer.ts",
-      "code": "TS7006",
-      "maxCount": 15,
-      "expiresOn": "2026-12-31"
-    },
-    {
       "file": "src/renderer/infrastructure/services/streaming/gpu-frame-buffer.ts",
       "code": "TS7006",
       "maxCount": 1,

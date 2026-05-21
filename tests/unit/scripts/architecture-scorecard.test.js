@@ -12,6 +12,7 @@ import {
   collectRuntimeTwinMetrics,
   collectShaderDuplicateMetrics,
   collectSharedTypeScriptCutoverMetrics,
+  collectRendererBackendImplementationMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
@@ -44,6 +45,8 @@ function createMetrics(overrides = {}) {
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
     platformManifestDriftCount: 0,
+    rendererBackendImplementationViolationCount: 0,
+    rendererBackendImplementationViolationFiles: [],
     ...overrides
   };
 }
@@ -175,6 +178,7 @@ describe('evaluateThresholds', () => {
       runtimeJsDtsTwinCount: 1,
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
+      rendererBackendImplementationViolationCount: 1,
       aliasManifestDriftCount: 1,
       platformManifestDriftCount: 1
     });
@@ -184,6 +188,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
+      rendererBackendImplementationViolationCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -191,7 +196,7 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(8);
+    expect(evaluation.failures).toHaveLength(9);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
@@ -199,6 +204,7 @@ describe('evaluateThresholds', () => {
       'runtimeJsDtsTwinCount',
       'sharedBaseInterfaceJsOrDtsFileCount',
       'inlineCanonicalMockAssignmentCount',
+      'rendererBackendImplementationViolationCount',
       'aliasManifestDriftCount',
       'platformManifestDriftCount'
     ]);
@@ -264,6 +270,63 @@ describe('phase 4 enforcement metrics', () => {
     const manifestApiNames = manifest.namespaces.map((namespace) => namespace.apiName).sort();
 
     expect([...PRELOAD_API_NAMES].sort()).toEqual(manifestApiNames);
+  });
+
+  it('reports no renderer backend implementation reintroduction', () => {
+    const baseline = collectRendererBackendImplementationMetrics(process.cwd());
+    expect(baseline.implementationViolationCount).toBe(0);
+  });
+
+  it('detects renderer backend implementation reintroduction in the rendering layer', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-backend-'));
+    tempRoots.push(tempRoot);
+
+    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'src/renderer/infrastructure/rendering/my-webgpu-engine.ts'),
+      'export class WebGPUEngine {}\n'
+    );
+
+    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
+    expect(metrics.implementationViolationCount).toBe(1);
+    expect(metrics.implementationViolationFiles).toEqual([
+      {
+        file: 'src/renderer/infrastructure/rendering/my-webgpu-engine.ts',
+        reason: 'backend implementation filename leaked into rendering layer: my-webgpu-engine.ts'
+      }
+    ]);
+  });
+
+  it('detects any shader tree returned to the renderer rendering layer', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-shaders-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders'), { recursive: true });
+
+    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
+    expect(metrics.implementationViolationCount).toBe(1);
+    expect(metrics.implementationViolationFiles).toEqual([
+      {
+        file: 'src/renderer/infrastructure/rendering/shaders',
+        reason: 'legacy renderer backend path exists: src/renderer/infrastructure/rendering/shaders'
+      }
+    ]);
+  });
+
+  it('detects the deleted renderer-owned Canvas2D backend path', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-canvas-backend-'));
+    tempRoots.push(tempRoot);
+    const backendPath = 'src/renderer/infrastructure/services/streaming/canvas-renderer.ts';
+    fs.mkdirSync(path.join(tempRoot, path.dirname(backendPath)), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, backendPath), 'export class StreamingCanvasRenderer {}\n');
+
+    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
+    expect(metrics.implementationViolationCount).toBe(1);
+    expect(metrics.implementationViolationFiles).toEqual([
+      {
+        file: backendPath,
+        reason: `legacy renderer backend path exists: ${backendPath}`
+      }
+    ]);
   });
 
   it('reports runtime JS + d.ts twin count and catches additions', () => {

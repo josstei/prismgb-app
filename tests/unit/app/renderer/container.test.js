@@ -21,7 +21,7 @@ const expectedRegistrationKeys = [
   'deviceIpcAdapter',
   'deviceChangeDebounceAdapter',
   'animationCache',
-  'canvasRenderer',
+  'canvasRenderLoopService',
   'viewportService',
   'canvasLifecycleService',
   'gpuRenderLoopService',

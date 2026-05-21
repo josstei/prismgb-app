@@ -48,6 +48,7 @@ describe('Phase 4 clean-break enforcement', () => {
       runtimeJsDtsTwinCountMax: 0,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
+      rendererBackendImplementationViolationCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
     });
@@ -72,5 +73,31 @@ describe('Phase 4 clean-break enforcement', () => {
 
     expect(assetModules).toContain("declare module '*.svg?raw'");
     expect(assetModules).not.toMatch(/legacy|compat/i);
+  });
+
+  it('keeps renderer worker protocol-only and package-owned', () => {
+    const workerSource = readProjectFile('src/renderer/infrastructure/rendering/workers/render.worker.ts');
+
+    expect(workerSource).toContain("from '@prismgb/gpu'");
+    expect(workerSource).toContain('createWorkerPipeline');
+    expect(workerSource).not.toMatch(/webgpu-renderer\.engine|webgl2-renderer\.engine|optimization\.utils/);
+
+    const renderWorkerImports = [...workerSource.matchAll(/import\s+.*?from\s+['"]([^'"]+)['"]/g)]
+      .map((match) => match[1]);
+    const nonProtocolRelativeImports = renderWorkerImports.filter((source) =>
+      source.startsWith('./') && source !== './worker-protocol.config.js'
+    );
+
+    expect(nonProtocolRelativeImports).toEqual([]);
+  });
+
+  it('keeps Canvas2D fallback drawing package-owned', () => {
+    const renderLoopSource = readProjectFile('src/renderer/infrastructure/services/streaming/canvas-render-loop.service.ts');
+
+    expect(fs.existsSync(path.join(projectRoot, 'src/renderer/infrastructure/services/streaming/canvas-renderer.ts'))).toBe(false);
+    expect(renderLoopSource).toContain("from '@prismgb/gpu'");
+    expect(renderLoopSource).toContain('createPipeline');
+    expect(renderLoopSource).toContain("preferredAPI: 'canvas2d'");
+    expect(renderLoopSource).not.toMatch(/\.getContext\(|\.drawImage\(|imageSmoothingEnabled|CanvasRenderingContext2D/);
   });
 });

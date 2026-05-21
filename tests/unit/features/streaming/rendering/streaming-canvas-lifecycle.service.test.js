@@ -120,7 +120,7 @@ describe('StreamingCanvasLifecycleService', () => {
     it('should store required dependencies', () => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -128,7 +128,7 @@ describe('StreamingCanvasLifecycleService', () => {
       });
 
       expect(service.streamViewService).toBe(mockStreamViewService);
-      expect(service.canvasRenderer).toBe(mockCanvasRenderer);
+      expect(service.canvasRenderLoopService).toBe(mockCanvasRenderer);
       expect(service.viewportService).toBe(mockViewportService);
       expect(service.gpuRendererService).toBe(mockGpuRendererService);
     });
@@ -136,7 +136,7 @@ describe('StreamingCanvasLifecycleService', () => {
     it('should initialize state properties', () => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -152,7 +152,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -174,7 +174,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -205,7 +205,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -224,7 +224,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -287,7 +287,7 @@ describe('StreamingCanvasLifecycleService', () => {
       expect(mockCanvas.style.height).toBe('576px');
     });
 
-    it('should resize via canvasRenderer when canvas is not transferred', () => {
+    it('should resize via canvasRenderLoopService when canvas is not transferred', () => {
       mockGpuRendererService.isCanvasTransferred.mockReturnValue(false);
 
       service.setupCanvasSize({ width: 160, height: 144 });
@@ -319,7 +319,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -470,7 +470,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,

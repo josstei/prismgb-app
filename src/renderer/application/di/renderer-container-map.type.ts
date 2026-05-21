@@ -40,7 +40,7 @@ export interface RendererContainerMap {
   deviceIpcAdapter: unknown;
   deviceChangeDebounceAdapter: unknown;
   animationCache: AnimationCacheLike;
-  canvasRenderer: unknown;
+  canvasRenderLoopService: unknown;
   viewportService: unknown;
   canvasLifecycleService: unknown;
   gpuRenderLoopService: unknown;

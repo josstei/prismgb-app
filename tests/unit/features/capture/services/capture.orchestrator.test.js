@@ -12,7 +12,7 @@ describe('CaptureOrchestrator', () => {
   let mockStreamingViewService;
   let mockGpuRendererService;
   let mockCaptureGpuRecordingService;
-  let mockStreamingCanvasRenderer;
+  let mockCanvasRenderLoopService;
   let mockTranscodeService;
   let mockCaptureSaveService;
   let mockEventBus;
@@ -63,7 +63,7 @@ describe('CaptureOrchestrator', () => {
       stop: vi.fn()
     };
 
-    mockStreamingCanvasRenderer = {
+    mockCanvasRenderLoopService = {
       isActive: vi.fn(() => false)
     };
 
@@ -111,7 +111,7 @@ describe('CaptureOrchestrator', () => {
       streamViewService: mockStreamingViewService,
       gpuRendererService: mockGpuRendererService,
       gpuRecordingService: mockCaptureGpuRecordingService,
-      canvasRenderer: mockStreamingCanvasRenderer,
+      canvasRenderLoopService: mockCanvasRenderLoopService,
       transcodeService: mockTranscodeService,
       captureSaveService: mockCaptureSaveService,
       eventBus: mockEventBus,
@@ -148,7 +148,7 @@ describe('CaptureOrchestrator', () => {
     it('should capture from video element when no rendering pipeline active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
 
       await orchestrator.takeScreenshot();
 
@@ -170,7 +170,7 @@ describe('CaptureOrchestrator', () => {
     it('should capture from canvas when Canvas2D rendering is active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
 
       await orchestrator.takeScreenshot();
 
@@ -366,7 +366,7 @@ describe('CaptureOrchestrator', () => {
 
     it('should return canvas when Canvas2D is active but GPU is not', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
 
       const source = await orchestrator._getCaptureSource();
 
@@ -376,7 +376,7 @@ describe('CaptureOrchestrator', () => {
 
     it('should return video element when no rendering pipeline is active', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
 
       const source = await orchestrator._getCaptureSource();
 

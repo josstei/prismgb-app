@@ -76,6 +76,21 @@ const SHARED_TYPESCRIPT_CUTOVER_ROOTS = [
   'src/shared/base',
   'src/shared/interfaces'
 ];
+const RENDERER_BACKEND_PROHIBITED_RENDERING_PATHS = [
+  'src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts',
+  'src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts',
+  'src/renderer/infrastructure/rendering/workers/optimization.utils.ts',
+  'src/renderer/infrastructure/rendering/workers/engine.types.ts',
+  'src/renderer/infrastructure/rendering/shaders',
+  'src/renderer/infrastructure/rendering/shaders/webgpu',
+  'src/renderer/infrastructure/rendering/shaders/webgl2',
+  'src/renderer/infrastructure/services/streaming/canvas-renderer.ts'
+];
+const RENDERER_BACKEND_RENDERING_ALLOWED_FILES = new Set([
+  'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
+  'src/renderer/infrastructure/rendering/workers/render.worker.ts',
+  'src/renderer/infrastructure/rendering/workers/worker-protocol.config.ts'
+]);
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -258,6 +273,66 @@ export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
   return {
     fileCount: files.length,
     files
+  };
+}
+
+export function collectRendererBackendImplementationMetrics(projectRoot) {
+  const violations = new Map();
+
+  for (const relativePath of RENDERER_BACKEND_PROHIBITED_RENDERING_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      violations.set(relativePath, `legacy renderer backend path exists: ${relativePath}`);
+    }
+  }
+
+  const renderingRoot = path.join(projectRoot, 'src/renderer/infrastructure/rendering');
+  if (!fs.existsSync(renderingRoot)) {
+    return {
+      implementationViolationCount: violations.size,
+      implementationViolationFiles: Array.from(violations, ([file, reason]) => ({ file, reason }))
+    };
+  }
+
+  for (const absolutePath of walkFiles(
+    renderingRoot,
+    (candidatePath) => candidatePath.endsWith('.ts') || candidatePath.endsWith('.js')
+  )) {
+    const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+    const fileName = path.basename(absolutePath);
+
+    if (RENDERER_BACKEND_RENDERING_ALLOWED_FILES.has(relativePath)) {
+      continue;
+    }
+
+    const lowerName = fileName.toLowerCase();
+    if (lowerName.endsWith('.engine.ts') && !lowerName.endsWith('.test.ts')) {
+      violations.set(relativePath, `unexpected renderer engine file: ${fileName}`);
+      continue;
+    }
+
+    if (lowerName === 'optimization.utils.ts' || lowerName === 'engine.types.ts') {
+      violations.set(relativePath, `legacy renderer utility file: ${fileName}`);
+      continue;
+    }
+
+    const baseName = lowerName.replace(/\.ts$/, '');
+    if (
+      (baseName.includes('webgpu') || baseName.includes('webgl2'))
+      && !baseName.includes('worker-protocol')
+      && !baseName.includes('config')
+    ) {
+      violations.set(relativePath, `backend implementation filename leaked into rendering layer: ${fileName}`);
+    }
+  }
+
+  const implementationViolationFiles = Array.from(violations.entries())
+    .map(([file, reason]) => ({ file, reason }))
+    .sort((left, right) => left.file.localeCompare(right.file));
+
+  return {
+    implementationViolationCount: implementationViolationFiles.length,
+    implementationViolationFiles
   };
 }
 
@@ -777,6 +852,7 @@ function printSummary(scorecard) {
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
   console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
+  console.log(`- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
   console.log('- top runtime files:');
@@ -820,6 +896,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
     ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
+    ['rendererBackendImplementationViolationCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
     ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
   ];
@@ -922,6 +999,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'rendererBackendImplementationViolationCountMax',
+    'rendererBackendImplementationViolationCount',
+    metrics.rendererBackendImplementationViolationCount,
+    'max'
+  );
+  addCheck(
     'aliasManifestDriftCountMax',
     'aliasManifestDriftCount',
     metrics.aliasManifestDriftCount,
@@ -976,6 +1059,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
   `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
+  `- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
   '',
@@ -1021,6 +1105,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
+  const rendererBackendMetrics = collectRendererBackendImplementationMetrics(projectRoot);
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -1042,6 +1127,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,
       inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
+      rendererBackendImplementationViolationCount: rendererBackendMetrics.implementationViolationCount,
+      rendererBackendImplementationViolationFiles: rendererBackendMetrics.implementationViolationFiles,
       aliasManifestDriftCount: aliasDriftMetrics.driftCount,
       aliasManifestDrift: {
         missing: aliasDriftMetrics.manifestMissing,

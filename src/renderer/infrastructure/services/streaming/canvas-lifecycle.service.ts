@@ -11,7 +11,7 @@ class StreamingCanvasLifecycleService extends BaseService {
   constructor(dependencies) {
     super(
       dependencies,
-      ['streamViewService', 'canvasRenderer', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
+      ['streamViewService', 'canvasRenderLoopService', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
       'StreamingCanvasLifecycleService'
     );
 
@@ -54,7 +54,7 @@ class StreamingCanvasLifecycleService extends BaseService {
       canvas.style.width = dimensions.width + 'px';
       canvas.style.height = dimensions.height + 'px';
     } else {
-      this.canvasRenderer.resize(canvas, dimensions.width, dimensions.height);
+      this.canvasRenderLoopService.resize(canvas, dimensions.width, dimensions.height);
     }
 
     if (!this.viewportService.isInitialized()) {
@@ -85,7 +85,7 @@ class StreamingCanvasLifecycleService extends BaseService {
 
     this.streamViewService.setCanvas(newCanvas);
 
-    this.canvasRenderer.resetCanvasState();
+    this.canvasRenderLoopService.resetCanvasState();
     this.viewportService.resetDimensions();
 
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });

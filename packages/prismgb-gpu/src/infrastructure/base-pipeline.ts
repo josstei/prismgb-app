@@ -110,6 +110,7 @@ export abstract class BasePipeline implements IPipeline {
   abstract initialize(): Promise<void>;
   abstract renderFrame(source: TexImageSource): void;
   abstract captureFrame(): Promise<ImageBitmap>;
+  abstract clearFrame(): void;
   abstract releaseResources(): void;
   abstract dispose(): Promise<void>;
 

@@ -154,7 +154,7 @@ describe('StreamingRenderPipelineService', () => {
     service = new StreamingRenderPipelineService({
       appState: mockAppState,
       streamViewService: mockStreamViewService,
-      canvasRenderer: mockCanvasRenderer,
+      canvasRenderLoopService: mockCanvasRenderer,
       canvasLifecycleService: mockCanvasLifecycleService,
       streamHealthService: mockStreamHealthService,
       streamingRendererFactory: mockStreamingRendererFactory,

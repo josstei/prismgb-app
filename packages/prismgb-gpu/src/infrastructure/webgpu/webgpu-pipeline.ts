@@ -505,6 +505,22 @@ export class WebGPUPipeline extends BasePipeline {
     return createImageBitmap(this.canvas as ImageBitmapSource);
   }
 
+  clearFrame(): void {
+    if (!this.device || !this.context || this.hasError) return;
+
+    const commandEncoder = this.device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: this.context.getCurrentTexture().createView(),
+        loadOp: 'clear',
+        storeOp: 'store',
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }
+      }]
+    });
+    passEncoder.end();
+    this.device.queue.submit([commandEncoder.finish()]);
+  }
+
   releaseResources(): void {
     this.sourceTexture?.destroy();
     this.sourceTexture = null;
