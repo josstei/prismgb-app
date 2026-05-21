@@ -215,8 +215,11 @@ describe('Phase 1 manifests', () => {
       'color-elevation',
       'crt-lcd'
     ]);
+    expect(renderPassManifest.mode).toBe('enforced');
 
     for (const pass of renderPassManifest.passes) {
+      expect(pass.enabledWhen).toEqual(expect.objectContaining({ kind: expect.any(String) }));
+      expect(typeof pass.enabledWhen).not.toBe('string');
       expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', pass.webgpuShader))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders', pass.webgl2FragmentShader))).toBe(true);
     }

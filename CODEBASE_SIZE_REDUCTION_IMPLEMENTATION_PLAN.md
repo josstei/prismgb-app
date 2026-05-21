@@ -10,8 +10,8 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-21
 
-- Status: Phase 5 rendering backend ownership is implemented; `@prismgb/gpu` owns WebGPU, WebGL2, and Canvas2D drawing while renderer code owns only protocol, telemetry, RVFC, and canvas lifecycle boundaries.
-- Completed phase: Phase 5, Make `@prismgb/gpu` The Only Rendering Backend.
+- Status: Phase 6 shader pass ownership is implemented; `@prismgb/gpu` now derives WebGPU and WebGL2 pass order, enablement, shader lookup, uniform layout metadata, and WebGL setters from the render-pass contract.
+- Completed phase: Phase 6, Data-Drive Shader Passes And Uniform Layouts.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -68,6 +68,12 @@ Last updated: 2026-05-21
   - Renderer Canvas2D adapter and render pipeline wiring now pass native resolution into the package pipeline and keep renderer responsibilities limited to RVFC scheduling, fallback selection, capture source selection, and canvas lifecycle orchestration.
   - `scripts/architecture-scorecard.js` and `scripts/architecture-thresholds.json` enforce zero renderer backend implementation violations, including old worker engines, renderer shader trees, and the deleted renderer Canvas2D backend path.
   - The old Canvas2D backend type-debt allowlist buckets were removed after the package-backed render loop cutover.
+- Phase 6 delivered:
+  - `packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json` now declares pass canvas-output ownership and package-owned enablement conditions for pixel upscale, unsharp mask, color elevation, and CRT/LCD.
+  - `render-passes-helpers.ts` derives typed WebGPU uniform buffer layouts, WebGPU uniform payload builders, WebGL uniform setter metadata, pass lookup maps, and preset enablement from the render-pass contract without runtime expression compilation.
+  - WebGPU and WebGL2 shader loaders now expose manifest-keyed shader source maps, so backend pipelines no longer hard-code shader filename fields outside the pass contract.
+  - WebGPU and WebGL2 pipelines now iterate enabled render-pass descriptors from the shared helpers instead of maintaining duplicated hand-written pass sequences.
+  - WebGL2 ping-pong output ownership is covered by a regression test that verifies multi-pass presets blit from the most recent non-canvas framebuffer when CRT output is disabled.
 - Verification for Phase 1:
   - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
   - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
@@ -122,6 +128,17 @@ Last updated: 2026-05-21
   - `npm run typecheck` exits 0 for app and `@prismgb/gpu`; strict app diagnostics are 281, tracked buckets are 72, and stale buckets are 0 after removing the old Canvas2D backend allowlist buckets.
   - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero renderer backend implementation violations.
   - `npm run test:run -- tests/unit/codebase-reduction/phase-ci-gates.test.js` exits 0 to verify this verification marker remains current.
+- Verification for Phase 6:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Section 6 manifest-driven shader pass gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
+  - `npm run test:run -- packages/prismgb-gpu/tests/unit/domain/render-passes/render-passes-helpers.test.ts` exits 0 for manifest-derived pass enablement, WebGPU uniform payloads, and WebGL setter metadata.
+  - `npm run test:run --workspace=@prismgb/gpu` exits 0 with 7 files and 33 tests after the WebGL2 ping-pong regression was added.
+  - `npm run build --workspace=@prismgb/gpu` exits 0 and refreshes package build output for app typechecking.
+  - `npm run typecheck` exits 0 for app and `@prismgb/gpu`; strict app diagnostics are 281, tracked buckets are 72, and stale buckets are 0.
+  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero renderer backend implementation violations and clean architecture thresholds.
+  - `npm run codebase:phase1 -- --json` exits 0 and all manifest drift checks pass.
+  - `npm run lint` exits 0 with two unrelated existing warnings in streaming audio/contract files.
 
 ## Phase 0 Grounding Snapshot
 
@@ -570,10 +587,17 @@ Expected outcome:
 
 ## 6. Data-Drive Shader Passes And Uniform Layouts
 
-Grounded repo truth:
+Pre-migration grounded repo truth:
 
 - WebGPU and WebGL2 pipelines repeat fixed pass setup for pixel upscale, unsharp mask, color elevation, and CRT/LCD.
 - Worker protocol accepts package `PipelineUniforms`, but worker engines still import a separate partial `RenderUniforms` shape.
+
+Current repo truth after Phase 6:
+
+- WebGPU and WebGL2 pipelines iterate enabled render-pass descriptors derived from `render-passes.contract.json`.
+- WebGPU uniform buffers and WebGL uniform setters are described by package-owned helper metadata rather than duplicated backend-specific pass lists.
+- Shader loaders return manifest-keyed shader source maps, keeping pass-to-shader ownership in the render-pass contract.
+- Worker rendering code uses package `PipelineUniforms`; the prior renderer-worker-only `RenderUniforms` shape was removed during the Phase 5 package backend cutover.
 
 Long-term target:
 

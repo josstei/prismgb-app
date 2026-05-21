@@ -1,13 +1,14 @@
 import { BasePipeline } from '../base-pipeline';
+import {
+  applyWebGLPassUniforms,
+  getEnabledRenderPasses,
+  RENDER_PASS_HELPERS,
+  type RenderPassHelpers
+} from '../../domain/render-passes/render-passes-helpers';
 import { loadShaders } from './webgl2-shader-loader';
 import { ShaderProgram } from './shader-program';
 
-interface ShaderPrograms {
-  pixelUpscale: ShaderProgram;
-  unsharpMask: ShaderProgram;
-  colorElevation: ShaderProgram;
-  crtLcd: ShaderProgram;
-}
+type ShaderPrograms = Map<string, ShaderProgram>;
 
 /**
  * WebGL2 4-pass rendering pipeline.
@@ -58,12 +59,19 @@ export class WebGL2Pipeline extends BasePipeline {
     const gl = this.gl!;
     const shaders = loadShaders();
 
-    this.programs = {
-      pixelUpscale: new ShaderProgram(gl, shaders.vertex, shaders.pixelUpscale, 'PixelUpscale'),
-      unsharpMask: new ShaderProgram(gl, shaders.vertex, shaders.unsharpMask, 'UnsharpMask'),
-      colorElevation: new ShaderProgram(gl, shaders.vertex, shaders.colorElevation, 'ColorElevation'),
-      crtLcd: new ShaderProgram(gl, shaders.vertex, shaders.crtLcd, 'CrtLcd')
-    };
+    const programs = new Map<string, ShaderProgram>();
+    for (const pass of RENDER_PASS_HELPERS) {
+      const vertexSource = shaders.byFileName[pass.webgl.vertexShaderFile];
+      const fragmentSource = shaders.byFileName[pass.webgl.fragmentShaderFile];
+      if (!vertexSource || !fragmentSource) {
+        throw new Error(`Missing WebGL2 shader source for pass '${pass.passId}'`);
+      }
+
+      const label = `${pass.passId} program`;
+      programs.set(pass.passId, new ShaderProgram(gl, vertexSource, fragmentSource, label));
+    }
+
+    this.programs = programs;
   }
 
   private createVAO(): void {
@@ -73,8 +81,7 @@ export class WebGL2Pipeline extends BasePipeline {
 
   private createResources(): void {
     const gl = this.gl!;
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
+    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
 
     this.sourceTexture = this.createTexture(this.nativeWidth, this.nativeHeight, gl.NEAREST);
 
@@ -118,87 +125,59 @@ export class WebGL2Pipeline extends BasePipeline {
 
     const startTime = performance.now();
     const gl = this.gl;
-    const { upscale, unsharp, color, crt } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
+    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
 
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
     gl.bindTexture(gl.TEXTURE_2D, null);
 
     gl.bindVertexArray(this.vao);
+    let currentTexture = this.sourceTexture;
+    let outputIndex = 0;
+    let currentFramebufferIndex = -1;
+    let renderedToCanvas = false;
 
-    let currentTexture = 0;
+    for (const pass of getEnabledRenderPasses(this.uniforms, this.preset)) {
+      const program = this.programs.get(pass.passId);
+      if (!program) {
+        throw new Error(`Missing WebGL2 program for pass '${pass.passId}'`);
+      }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[0]);
-    gl.viewport(0, 0, targetWidth, targetHeight);
-    this.programs.pixelUpscale.use();
+      const targetTexture = pass.outputsToCanvas
+        ? null
+        : this.intermediateTextures[outputIndex];
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-    this.programs.pixelUpscale.setUniform1i('uSourceTex', 0);
-    this.programs.pixelUpscale.setUniform2f('uSourceSize', this.nativeWidth, this.nativeHeight);
-    this.programs.pixelUpscale.setUniform2f('uTargetSize', targetWidth, targetHeight);
-    this.programs.pixelUpscale.setUniform1f('uScaleFactor', upscale.scaleFactor);
+      if (targetTexture) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[outputIndex]);
+        gl.viewport(0, 0, targetWidth, targetHeight);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      }
 
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    currentTexture = 0;
-
-    if (this.preset.unsharp.enabled && unsharp.strength > 0) {
-      const nextTexture = (currentTexture + 1) % 2;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
-      this.programs.unsharpMask.use();
-
+      program.use();
+      this.configureTextureSampler(pass, currentTexture);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
-      this.programs.unsharpMask.setUniform1i('uInputTex', 0);
-      this.programs.unsharpMask.setUniform2f('uTexelSize', unsharp.texelSize[0], unsharp.texelSize[1]);
-      this.programs.unsharpMask.setUniform1f('uStrength', unsharp.strength);
-      this.programs.unsharpMask.setUniform1f('uScaleFactor', unsharp.scaleFactor);
+      gl.bindTexture(gl.TEXTURE_2D, currentTexture);
+      applyWebGLPassUniforms(program, pass, this.uniforms);
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      currentTexture = nextTexture;
+
+      if (pass.outputsToCanvas) {
+        renderedToCanvas = true;
+        break;
+      }
+
+      currentTexture = targetTexture!;
+      currentFramebufferIndex = outputIndex;
+      outputIndex = (outputIndex + 1) % this.intermediateTextures.length;
     }
 
-    if (this.preset.color.enabled) {
-      const nextTexture = (currentTexture + 1) % 2;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[nextTexture]);
-      this.programs.colorElevation.use();
-
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
-      this.programs.colorElevation.setUniform1i('uInputTex', 0);
-      this.programs.colorElevation.setUniform1f('uGamma', color.gamma);
-      this.programs.colorElevation.setUniform1f('uSaturation', color.saturation);
-      this.programs.colorElevation.setUniform1f('uGreenBias', color.greenBias);
-      this.programs.colorElevation.setUniform1f('uBrightness', color.brightness);
-      this.programs.colorElevation.setUniform1f('uContrast', color.contrast);
-
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      currentTexture = nextTexture;
-    }
-
-    const crtEnabled = crt.scanlineStrength > 0 || crt.pixelMaskStrength > 0 ||
-      crt.bloomStrength > 0 || crt.curvature > 0 || crt.vignetteStrength > 0;
-
-    if (crtEnabled) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-      this.programs.crtLcd.use();
-
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.intermediateTextures[currentTexture]);
-      this.programs.crtLcd.setUniform1i('uInputTex', 0);
-      this.programs.crtLcd.setUniform2f('uResolution', crt.resolution[0], crt.resolution[1]);
-      this.programs.crtLcd.setUniform1f('uScaleFactor', crt.scaleFactor);
-      this.programs.crtLcd.setUniform1f('uScanlineStrength', crt.scanlineStrength);
-      this.programs.crtLcd.setUniform1f('uPixelMaskStrength', crt.pixelMaskStrength);
-      this.programs.crtLcd.setUniform1f('uBloomStrength', crt.bloomStrength);
-      this.programs.crtLcd.setUniform1f('uCurvature', crt.curvature);
-      this.programs.crtLcd.setUniform1f('uVignetteStrength', crt.vignetteStrength);
-
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    } else {
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[currentTexture]);
+    if (!renderedToCanvas) {
+      if (currentFramebufferIndex < 0) {
+        throw new Error('WebGL2 render pass chain produced no intermediate output');
+      }
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[currentFramebufferIndex]);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       gl.blitFramebuffer(
         0, 0, targetWidth, targetHeight,
@@ -226,7 +205,7 @@ export class WebGL2Pipeline extends BasePipeline {
   }
 
   protected onUniformsChanged(): void {
-    // WebGL2 uniforms are set per-frame in renderFrame() via setUniform calls.
+    // WebGL2 uniforms are set per-pass per-frame.
   }
 
   protected onResize(): void {
@@ -242,9 +221,9 @@ export class WebGL2Pipeline extends BasePipeline {
       gl.deleteTexture(this.sourceTexture);
       this.sourceTexture = null;
     }
-    this.intermediateTextures.forEach(t => gl.deleteTexture(t));
+    this.intermediateTextures.forEach((texture) => gl.deleteTexture(texture));
     this.intermediateTextures = [];
-    this.framebuffers.forEach(f => gl.deleteFramebuffer(f));
+    this.framebuffers.forEach((framebuffer) => gl.deleteFramebuffer(framebuffer));
     this.framebuffers = [];
     this._isActive = false;
   }
@@ -253,10 +232,7 @@ export class WebGL2Pipeline extends BasePipeline {
     this.releaseResources();
 
     if (this.programs) {
-      this.programs.pixelUpscale.destroy();
-      this.programs.unsharpMask.destroy();
-      this.programs.colorElevation.destroy();
-      this.programs.crtLcd.destroy();
+      this.programs.forEach((program) => program.destroy());
       this.programs = null;
     }
 
@@ -268,5 +244,13 @@ export class WebGL2Pipeline extends BasePipeline {
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.gl = null;
     this._isInitialized = false;
+  }
+
+  private configureTextureSampler(pass: RenderPassHelpers, texture: WebGLTexture): void {
+    const gl = this.gl!;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    const filter = pass.sampler === 'nearest' ? gl.NEAREST : gl.LINEAR;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
   }
 }

@@ -4,17 +4,16 @@ import colorElevation from './shaders/color-elevation.wgsl?raw';
 import crtLcd from './shaders/crt-lcd.wgsl?raw';
 
 export interface WebGPUShaders {
-  pixelUpscale: string;
-  unsharpMask: string;
-  colorElevation: string;
-  crtLcd: string;
+  byFileName: Record<string, string>;
 }
 
 export function loadShaders(): WebGPUShaders {
   return {
-    pixelUpscale,
-    unsharpMask,
-    colorElevation,
-    crtLcd
+    byFileName: {
+      'pixel-upscale.wgsl': pixelUpscale,
+      'unsharp-mask.wgsl': unsharpMask,
+      'color-elevation.wgsl': colorElevation,
+      'crt-lcd.wgsl': crtLcd
+    }
   };
 }

@@ -1,46 +1,111 @@
 {
   "version": 1,
-  "mode": "report-only",
+  "mode": "enforced",
   "passes": [
     {
       "id": "pixel-upscale",
       "order": 10,
-      "alwaysEnabled": true,
+      "enabledWhen": {
+        "kind": "always"
+      },
       "webgpuShader": "pixel-upscale.wgsl",
       "webgl2FragmentShader": "pixel-upscale.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "upscale",
-      "sampler": "nearest"
+      "sampler": "nearest",
+      "outputsToCanvas": false
     },
     {
       "id": "unsharp-mask",
       "order": 20,
-      "enabledWhen": "uniforms.unsharp.enabled && uniforms.unsharp.strength > 0",
+      "enabledWhen": {
+        "kind": "all",
+        "conditions": [
+          {
+            "kind": "uniformBoolean",
+            "uniformBlock": "unsharp",
+            "uniformField": "enabled"
+          },
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "unsharp",
+            "uniformField": "strength",
+            "operator": ">",
+            "value": 0
+          }
+        ]
+      },
       "webgpuShader": "unsharp-mask.wgsl",
       "webgl2FragmentShader": "unsharp-mask.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "unsharp",
-      "sampler": "linear"
+      "sampler": "linear",
+      "outputsToCanvas": false
     },
     {
       "id": "color-elevation",
       "order": 30,
-      "enabledWhen": "uniforms.color.enabled",
+      "enabledWhen": {
+        "kind": "uniformBoolean",
+        "uniformBlock": "color",
+        "uniformField": "enabled"
+      },
       "webgpuShader": "color-elevation.wgsl",
       "webgl2FragmentShader": "color-elevation.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "color",
-      "sampler": "linear"
+      "sampler": "linear",
+      "outputsToCanvas": false
     },
     {
       "id": "crt-lcd",
       "order": 40,
-      "enabledWhen": "scanlineStrength > 0 || pixelMaskStrength > 0 || bloomStrength > 0 || curvature > 0 || vignetteStrength > 0",
+      "enabledWhen": {
+        "kind": "any",
+        "conditions": [
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "crt",
+            "uniformField": "scanlineStrength",
+            "operator": ">",
+            "value": 0
+          },
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "crt",
+            "uniformField": "pixelMaskStrength",
+            "operator": ">",
+            "value": 0
+          },
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "crt",
+            "uniformField": "bloomStrength",
+            "operator": ">",
+            "value": 0
+          },
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "crt",
+            "uniformField": "curvature",
+            "operator": ">",
+            "value": 0
+          },
+          {
+            "kind": "uniformCompare",
+            "uniformBlock": "crt",
+            "uniformField": "vignetteStrength",
+            "operator": ">",
+            "value": 0
+          }
+        ]
+      },
       "webgpuShader": "crt-lcd.wgsl",
       "webgl2FragmentShader": "crt-lcd.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "crt",
-      "sampler": "linear"
+      "sampler": "linear",
+      "outputsToCanvas": true
     }
   ],
   "utilityShaders": [
@@ -51,4 +116,3 @@
     }
   ]
 }
-

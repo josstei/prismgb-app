@@ -5,19 +5,17 @@ import colorElevation from './shaders/color-elevation.frag.glsl?raw';
 import crtLcd from './shaders/crt-lcd.frag.glsl?raw';
 
 export interface WebGL2Shaders {
-  vertex: string;
-  pixelUpscale: string;
-  unsharpMask: string;
-  colorElevation: string;
-  crtLcd: string;
+  byFileName: Record<string, string>;
 }
 
 export function loadShaders(): WebGL2Shaders {
   return {
-    vertex: vertexShader,
-    pixelUpscale,
-    unsharpMask,
-    colorElevation,
-    crtLcd
+    byFileName: {
+      'common.vert.glsl': vertexShader,
+      'pixel-upscale.frag.glsl': pixelUpscale,
+      'unsharp-mask.frag.glsl': unsharpMask,
+      'color-elevation.frag.glsl': colorElevation,
+      'crt-lcd.frag.glsl': crtLcd
+    }
   };
 }
