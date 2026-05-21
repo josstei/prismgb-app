@@ -8,6 +8,7 @@ import { normalizePath, readJsonFile } from './lib/files.js';
 import { generatedFileHeader, writeGeneratedArtifact } from './lib/generate-artifacts.js';
 import { createReport, writeJsonReport } from './lib/json-report.js';
 import { compareSortedValues, flattenStringLeaves } from './lib/manifest-drift.js';
+import { extractAliasKeysFromConfigSource } from './lib/alias-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -157,17 +158,12 @@ function collectTsconfigAliases(tsconfigPath) {
 
 function extractViteAliasKeys() {
   const sourceText = readProjectText('vite.config.js');
-  const quotedAliases = [...sourceText.matchAll(/['"](@(?:\/|main|renderer|preload|shared|prismgb\/gpu)?|url)['"]\s*:/g)]
-    .map((match) => match[1]);
-  const unquotedAliases = [...sourceText.matchAll(/^\s*(url)\s*:/gm)].map((match) => match[1]);
-
-  return [...quotedAliases, ...unquotedAliases];
+  return extractAliasKeysFromConfigSource(sourceText, 'vite.config.js');
 }
 
 function extractVitestAliasKeys() {
   const sourceText = readProjectText('vitest.config.js');
-  return [...sourceText.matchAll(/['"](@(?:\/|main|renderer|preload|shared|prismgb\/gpu)?|url)['"]\s*:/g)]
-    .map((match) => match[1]);
+  return extractAliasKeysFromConfigSource(sourceText, 'vitest.config.js');
 }
 
 function runBuildMatrix(args) {

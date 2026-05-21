@@ -12,6 +12,7 @@ import {
   resolveTargetLayer,
   walkCodeFiles
 } from './check-layer-boundaries.js';
+import { extractAliasKeysFromConfigSource } from './lib/alias-config.js';
 
 const RUNTIME_LAYER_PREFIXES = ['main', 'renderer', 'preload'];
 const DEFAULT_TOP_FILES = 10;
@@ -278,6 +279,15 @@ function getCanonicalPreloadPropertyAccessName(node, sourceFile, apiNames) {
   return null;
 }
 
+function isObjectStaticMethodCall(node, methodName, sourceFile) {
+  if (!ts.isPropertyAccessExpression(node.expression)) {
+    return false;
+  }
+
+  return node.expression.getText(sourceFile) === `Object.${methodName}`
+    || node.expression.getText(sourceFile) === `Reflect.${methodName}`;
+}
+
 function countCanonicalPreloadObjectLiteralProperties(node, sourceFile, apiNames) {
   if (!ts.isObjectLiteralExpression(node)) {
     return 0;
@@ -291,6 +301,44 @@ function countCanonicalPreloadObjectLiteralProperties(node, sourceFile, apiNames
     }
   }
   return count;
+}
+
+function countCanonicalPreloadCallAssignments(node, sourceFile, apiNames) {
+  if (!ts.isCallExpression(node)) {
+    return 0;
+  }
+
+  const [target, propertyName, descriptor] = node.arguments;
+  if (!target || !isCanonicalWindowObjectExpression(target, sourceFile)) {
+    return 0;
+  }
+
+  if (isObjectStaticMethodCall(node, 'assign', sourceFile)) {
+    return node.arguments
+      .slice(1)
+      .reduce(
+        (sum, argument) => sum + countCanonicalPreloadObjectLiteralProperties(argument, sourceFile, apiNames),
+        0
+      );
+  }
+
+  if (
+    isObjectStaticMethodCall(node, 'defineProperty', sourceFile)
+    && propertyName
+    && ts.isStringLiteralLike(propertyName)
+    && apiNames.has(propertyName.text)
+  ) {
+    return 1;
+  }
+
+  if (
+    isObjectStaticMethodCall(node, 'defineProperties', sourceFile)
+    && propertyName
+  ) {
+    return countCanonicalPreloadObjectLiteralProperties(propertyName, sourceFile, apiNames);
+  }
+
+  return 0;
 }
 
 export function collectInlineMockAssignments(projectRoot) {
@@ -336,6 +384,8 @@ export function collectInlineMockAssignments(projectRoot) {
       ) {
         count += 1;
       }
+
+      count += countCanonicalPreloadCallAssignments(node, sourceFile, apiNames);
 
       ts.forEachChild(node, visit);
     }
@@ -385,22 +435,7 @@ function collectTsConfigAliases(projectRoot, configFileName) {
 
 function collectJsAliasKeys(projectRoot, jsFileName) {
   const source = fs.readFileSync(path.join(projectRoot, jsFileName), 'utf8');
-  const aliases = new Set();
-  const aliasRegex = /['"](@(?:\/|main|renderer|preload|shared|prismgb\/gpu)?|url)['"]\s*:/g;
-  const plainUrlRegex = /^\s*(url)\s*:/gm;
-
-  for (const match of source.matchAll(aliasRegex)) {
-    const rawAlias = normalizeAliasKey(match[1]);
-    if (rawAlias) {
-      aliases.add(rawAlias);
-    }
-  }
-
-  for (const match of source.matchAll(plainUrlRegex)) {
-    aliases.add(match[1]);
-  }
-
-  return aliases;
+  return new Set(extractAliasKeysFromConfigSource(source, jsFileName).map((alias) => normalizeAliasKey(alias)));
 }
 
 export function collectAliasDriftMetrics(projectRoot) {

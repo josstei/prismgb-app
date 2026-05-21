@@ -237,9 +237,12 @@ describe('phase 4 enforcement metrics', () => {
         + `delete ${deviceApiReference};\n`
         + `${metricsApiReference} = {};\n`
         + "global.window = { shellAPI: {}, gpuAPI: {} };\n"
+        + "Object.assign(window, { updateAPI: {}, loginItemAPI: {} });\n"
+        + "Object.defineProperty(window, 'transcodeAPI', { value: {} });\n"
+        + "Object.defineProperties(globalThis.window, { windowAPI: { value: {} } });\n"
     );
     const mutant = collectInlineMockAssignments(tempRoot);
-    expect(mutant.inlineCanonicalMockAssignmentCount).toBe(5);
+    expect(mutant.inlineCanonicalMockAssignmentCount).toBe(9);
     expect(mutant.filesWithAssignments).toHaveLength(1);
   });
 
@@ -332,7 +335,7 @@ describe('phase 4 enforcement metrics', () => {
     fs.writeFileSync(path.join(tempRoot, 'tsconfig.app.json'), JSON.stringify(tsconfig));
     fs.writeFileSync(
       path.join(tempRoot, 'vite.config.js'),
-      "export default { resolve: { alias: { '@': '/src', 'url': 'url/' } } };\n"
+      "export default { resolve: { alias: { '@': '/src', '@extra': '/src/extra', 'url': 'url/' } } };\n"
     );
     fs.writeFileSync(
       path.join(tempRoot, 'vitest.config.js'),
@@ -341,10 +344,14 @@ describe('phase 4 enforcement metrics', () => {
 
     const metrics = collectAliasDriftMetrics(tempRoot);
 
-    expect(metrics.driftCount).toBe(1);
+    expect(metrics.driftCount).toBe(2);
     expect(metrics.manifestMissing).toContainEqual({
       source: 'vite.config.js',
       alias: '@shared'
+    });
+    expect(metrics.manifestExtras).toContainEqual({
+      source: 'vite.config.js',
+      alias: '@extra'
     });
   });
 
