@@ -10,6 +10,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
+import { createChromaticUsbDeviceInfo } from '../../support/chromatic-device-specs.js';
+import { IPC_CHANNELS } from '../../support/ipc-channels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -150,8 +152,13 @@ export async function waitForAppReady(page, options = {}) {
   // Wait for header to be fully rendered
   await page.waitForSelector('.header', { timeout, state: 'visible' });
 
-  // Wait for app to complete initialization by checking for aria-expanded attribute
-  // which is only set after the component binds its event listeners
+  // Wait for app bootstrap to finish attaching orchestrator-managed DOM listeners.
+  await page.waitForFunction(
+    () => document.body.dataset.prismgbAppStarted === 'true',
+    { timeout }
+  );
+
+  // Wait for settings button to expose its interaction state.
   await page.waitForFunction(
     () => {
       const btn = document.getElementById('settingsBtn');
@@ -159,9 +166,6 @@ export async function waitForAppReady(page, options = {}) {
     },
     { timeout }
   );
-
-  // Small delay to ensure all event listeners are attached after DOM setup
-  await page.waitForTimeout(300);
 }
 
 /**
@@ -220,17 +224,6 @@ export async function getAppInfo(app) {
 }
 
 /**
- * IPC channel names for test injection
- * Must match src/shared/ipc/channels.json
- */
-const IPC_CHANNELS = {
-  DEVICE: {
-    CONNECTED: 'device:connected',
-    DISCONNECTED: 'device:disconnected',
-  },
-};
-
-/**
  * Set up mock device status in main process
  * This allows getDeviceStatus IPC calls to return mock data
  *
@@ -270,14 +263,7 @@ export async function clearMockDeviceStatus(app) {
  * @param {Object} deviceInfo - Device information to inject
  */
 export async function injectDeviceConnectedEvent(app, deviceInfo = {}) {
-  const device = {
-    vendorId: 0x374e,
-    productId: 0x0101,
-    deviceName: 'Chromatic',
-    configName: 'Mod Retro Chromatic',
-    serialNumber: 'MOCK-001',
-    ...deviceInfo,
-  };
+  const device = createChromaticUsbDeviceInfo(deviceInfo);
 
   await app.evaluate(
     async ({ BrowserWindow }, payload) => {

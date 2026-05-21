@@ -17,6 +17,10 @@ function projectPath(relativePath) {
   return path.join(projectRoot, relativePath);
 }
 
+function expectMissing(relativePath) {
+  expect(fs.existsSync(projectPath(relativePath))).toBe(false);
+}
+
 describe('Phase 4 clean-break enforcement', () => {
   it('records Phase 4 as current delivered work instead of future work', () => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
@@ -119,5 +123,38 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(renderLoopSource).toContain('createPipeline');
     expect(renderLoopSource).toContain("preferredAPI: 'canvas2d'");
     expect(renderLoopSource).not.toMatch(/\.getContext\(|\.drawImage\(|imageSmoothingEnabled|CanvasRenderingContext2D/);
+  });
+
+  it('keeps stale test contracts and duplicate E2E device mocks deleted', () => {
+    [
+      'tests/contracts/event-contracts.js',
+      'tests/contracts/index.js',
+      'tests/e2e/mocks/mock-chromatic-device.js',
+      'tests/e2e/mocks/index.js'
+    ].forEach(expectMissing);
+
+    const electronFixture = readProjectFile('tests/e2e/fixtures/electron.fixture.js');
+    const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
+    const mockDevice = readProjectFile('tests/mocks/MockDevice.js');
+
+    expect(electronFixture).toContain("from '../../support/ipc-channels.js'");
+    expect(electronFixture).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
+    expect(chromaticHelper).toContain("from '../../support/chromatic-device-specs.js'");
+    expect(mockDevice).toContain("from '../support/chromatic-device-specs.js'");
+  });
+
+  it('uses streaming-mode as the single streaming body-state contract', () => {
+    [
+      'src/renderer/presentation/effects/body-class.class.ts',
+      'src/renderer/presentation/styles/base.css',
+      'src/renderer/infrastructure/services/performance/performance-animation.service.ts',
+      'src/renderer/application/orchestrators/performance-animation.orchestrator.ts',
+      'tests/e2e/device-streaming.spec.js',
+      'tests/e2e/streaming-smoke.spec.js'
+    ].forEach((relativePath) => {
+      expect(readProjectFile(relativePath)).not.toContain('app-streaming');
+    });
+
+    expect(readProjectFile('src/renderer/presentation/styles/base.css')).toContain('body.streaming-mode::after');
   });
 });

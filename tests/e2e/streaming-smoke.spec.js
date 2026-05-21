@@ -16,6 +16,7 @@ import {
 } from './fixtures/electron.fixture.js';
 import {
   cleanupMockDevice,
+  CHROMATIC_SPECS,
   injectMockChromaticDevice,
 } from './helpers/mock-chromatic.helper.js';
 
@@ -24,10 +25,10 @@ async function connectMockChromatic(electronApp, window) {
   await setMockDeviceStatus(electronApp, {
     connected: true,
     device: {
-      vendorId: 0x374e,
-      productId: 0x0101,
-      deviceName: 'Chromatic',
-      configName: 'Mod Retro Chromatic',
+      vendorId: CHROMATIC_SPECS.vendorId,
+      productId: CHROMATIC_SPECS.productId,
+      deviceName: CHROMATIC_SPECS.label,
+      configName: CHROMATIC_SPECS.configName,
     },
   });
   await injectDeviceConnectedEvent(electronApp);
@@ -47,8 +48,8 @@ async function connectMockChromatic(electronApp, window) {
     });
 
     expect(devices).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'videoinput', label: 'Chromatic' }),
-      expect.objectContaining({ kind: 'audioinput', label: 'Chromatic Audio' }),
+      expect.objectContaining({ kind: 'videoinput', label: CHROMATIC_SPECS.label }),
+      expect.objectContaining({ kind: 'audioinput', label: `${CHROMATIC_SPECS.label} Audio` }),
     ]));
   }).toPass({ timeout: 5000 });
 
@@ -64,7 +65,7 @@ async function startStreaming(window) {
 
   await expect(async () => {
     const bodyClasses = await window.evaluate(() => document.body.className);
-    expect(bodyClasses).toContain('app-streaming');
+    expect(bodyClasses).toContain('streaming-mode');
   }).toPass({ timeout: 10000 });
 
   await expect(window.locator('#screenshotBtn')).toBeEnabled();
@@ -75,7 +76,7 @@ async function stopStreaming(window) {
   await window.locator('#streamCanvas').click({ force: true });
   await expect(async () => {
     const bodyClasses = await window.evaluate(() => document.body.className);
-    expect(bodyClasses).not.toContain('app-streaming');
+    expect(bodyClasses).not.toContain('streaming-mode');
   }).toPass({ timeout: 5000 });
 }
 
@@ -194,7 +195,7 @@ test.describe('Streaming Smoke with Mock Chromatic', () => {
 
     await expect(async () => {
       const bodyClasses = await window.evaluate(() => document.body.className);
-      expect(bodyClasses).not.toContain('app-streaming');
+      expect(bodyClasses).not.toContain('streaming-mode');
     }).toPass({ timeout: 5000 });
   });
 });

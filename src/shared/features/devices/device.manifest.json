@@ -54,6 +54,15 @@
       },
       "fixture": {
         "defaultFrameRate": 60,
+        "supportedFrameRates": [30, 60],
+        "label": "Chromatic",
+        "videoDeviceId": "mock-chromatic-video-device",
+        "audioDeviceId": "mock-chromatic-audio-device",
+        "groupId": "mock-chromatic-group",
+        "audio": {
+          "sampleRate": 48000,
+          "channels": 2
+        },
         "e2eHelper": "tests/e2e/helpers/mock-chromatic.helper.js"
       }
     }

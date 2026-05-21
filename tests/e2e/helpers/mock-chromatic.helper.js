@@ -13,25 +13,8 @@
  * - Then inject IPC event (triggers device connected UI state)
  */
 
-/**
- * Chromatic device specifications - matches device-chromatic.config.js
- */
-export const CHROMATIC_SPECS = {
-  vendorId: 0x374e,
-  productId: 0x0101,
-  nativeWidth: 160,
-  nativeHeight: 144,
-  aspectRatio: 160 / 144,
-  defaultFrameRate: 60,
-  supportedFrameRates: [30, 60],
-  audioSampleRate: 48000,
-  audioChannels: 2,
-  deviceId: 'mock-chromatic-video-device',
-  audioDeviceId: 'mock-chromatic-audio-device',
-  groupId: 'mock-chromatic-group',
-  label: 'Chromatic',
-  labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101'],
-};
+import { CHROMATIC_SPECS } from '../../support/chromatic-device-specs.js';
+export { CHROMATIC_SPECS };
 
 /**
  * Test pattern types for video generation
@@ -355,7 +338,7 @@ export async function simulateDeviceConnect(page) {
       vendorId: specs.vendorId,
       productId: specs.productId,
       deviceName: specs.label,
-      configName: 'Mod Retro Chromatic',
+      configName: specs.configName,
       serialNumber: 'MOCK-001',
     };
 

@@ -25,6 +25,16 @@ import {
 } from './helpers/mock-chromatic.helper.js';
 import { getDeviceStatus } from './helpers/ipc-mock.js';
 
+function createChromaticStatusDevice(overrides = {}) {
+  return {
+    vendorId: CHROMATIC_SPECS.vendorId,
+    productId: CHROMATIC_SPECS.productId,
+    deviceName: CHROMATIC_SPECS.label,
+    configName: CHROMATIC_SPECS.configName,
+    ...overrides,
+  };
+}
+
 test.describe('Device Streaming with Mock Device', () => {
   test.afterEach(async ({ window }) => {
     await cleanupMockDevice(window);
@@ -93,11 +103,11 @@ test.describe('Device Streaming with Mock Device', () => {
     expect(devices.length).toBe(0);
 
     // Connect device
-    await window.evaluate(() => {
+    await window.evaluate((deviceName) => {
       const state = window.__mockChromaticState;
       state.isConnected = true;
-      state.deviceInfo = { deviceName: 'Chromatic' };
-    });
+      state.deviceInfo = { deviceName };
+    }, CHROMATIC_SPECS.label);
 
     // Enumerate again - should now show mock device
     devices = await window.evaluate(async () => {
@@ -146,8 +156,8 @@ test.describe('Device Streaming with Mock Device', () => {
 
     expect(streamInfo.hasVideo).toBe(true);
     expect(streamInfo.hasAudio).toBe(true);
-    expect(streamInfo.videoSettings.width).toBe(160);
-    expect(streamInfo.videoSettings.height).toBe(144);
+    expect(streamInfo.videoSettings.width).toBe(CHROMATIC_SPECS.nativeWidth);
+    expect(streamInfo.videoSettings.height).toBe(CHROMATIC_SPECS.nativeHeight);
   });
 
   test('should fail getUserMedia when device disconnected', async ({ window }) => {
@@ -478,12 +488,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     // Set mock device status in main process (so getDeviceStatus returns connected)
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: {
-        vendorId: 0x374e,
-        productId: 0x0101,
-        deviceName: 'Chromatic',
-        configName: 'Mod Retro Chromatic',
-      },
+      device: createChromaticStatusDevice(),
     });
 
     // Inject device connected event via main process IPC
@@ -507,7 +512,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     // First connect the device
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -538,7 +543,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     // Set mock device status in main process
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
 
     // Then inject IPC event to trigger UI update
@@ -626,7 +631,7 @@ test.describe('Stream Playback', () => {
     await injectMockChromaticDevice(window, { autoConnect: true });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -642,9 +647,9 @@ test.describe('Stream Playback', () => {
     // Wait for streaming to start
     await window.waitForTimeout(1000);
 
-    // Verify streaming state: body should have streaming class
+    // Verify streaming state: body should have the canonical UI streaming class
     const bodyClasses = await window.evaluate(() => document.body.className);
-    expect(bodyClasses).toContain('app-streaming');
+    expect(bodyClasses).toContain('streaming-mode');
 
     // Verify overlay is hidden during streaming
     const overlayClassesAfter = await overlayBefore.getAttribute('class');
@@ -661,7 +666,7 @@ test.describe('Stream Playback', () => {
     });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -719,7 +724,7 @@ test.describe('Stream Playback', () => {
     await injectMockChromaticDevice(window, { autoConnect: true });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -730,7 +735,7 @@ test.describe('Stream Playback', () => {
 
     // Verify streaming started
     let bodyClasses = await window.evaluate(() => document.body.className);
-    expect(bodyClasses).toContain('app-streaming');
+    expect(bodyClasses).toContain('streaming-mode');
 
     // Click canvas to stop streaming
     await window.locator('#streamCanvas').click({ force: true });
@@ -738,7 +743,7 @@ test.describe('Stream Playback', () => {
 
     // Verify streaming stopped
     bodyClasses = await window.evaluate(() => document.body.className);
-    expect(bodyClasses).not.toContain('app-streaming');
+    expect(bodyClasses).not.toContain('streaming-mode');
 
     // Verify overlay is visible again
     const overlayClasses = await window.locator('#streamOverlay').getAttribute('class');
@@ -752,7 +757,7 @@ test.describe('Stream Playback', () => {
     await injectMockChromaticDevice(window, { autoConnect: true });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -774,7 +779,7 @@ test.describe('Stream Playback', () => {
     await injectMockChromaticDevice(window, { autoConnect: true });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);
@@ -796,7 +801,7 @@ test.describe('Stream Playback', () => {
     await injectMockChromaticDevice(window, { autoConnect: true });
     await setMockDeviceStatus(electronApp, {
       connected: true,
-      device: { deviceName: 'Chromatic', configName: 'Mod Retro Chromatic' },
+      device: createChromaticStatusDevice(),
     });
     await injectDeviceConnectedEvent(electronApp);
     await window.waitForTimeout(500);

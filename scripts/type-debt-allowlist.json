@@ -73,7 +73,7 @@
     {
       "file": "src/renderer/application/orchestrators/performance-animation.orchestrator.ts",
       "code": "TS7006",
-      "maxCount": 4,
+      "maxCount": 3,
       "expiresOn": "2026-12-31"
     },
     {
@@ -259,7 +259,7 @@
     {
       "file": "src/renderer/infrastructure/services/performance/performance-animation.service.ts",
       "code": "TS7006",
-      "maxCount": 5,
+      "maxCount": 4,
       "expiresOn": "2026-12-31"
     },
     {
@@ -385,7 +385,7 @@
     {
       "file": "src/renderer/presentation/effects/body-class.class.ts",
       "code": "TS7006",
-      "maxCount": 8,
+      "maxCount": 7,
       "expiresOn": "2026-12-31"
     },
     {

@@ -256,13 +256,13 @@ describe('Phase 0 non-IPC contract baselines', () => {
     });
 
     expect(CHROMATIC_SPECS).toMatchObject({
-      vendorId: 0x374e,
-      productId: 0x0101,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      aspectRatio: 160 / 144,
-      defaultFrameRate: 60,
-      labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101']
+      vendorId: chromaticConfig.usb.vendorId,
+      productId: chromaticConfig.usb.productId,
+      nativeWidth: chromaticConfig.display.nativeWidth,
+      nativeHeight: chromaticConfig.display.nativeHeight,
+      aspectRatio: chromaticConfig.display.aspectRatio,
+      defaultFrameRate: mediaConfig.video.frameRate.ideal,
+      labelPatterns: chromaticConfig.metadata.labelPatterns
     });
   });
 

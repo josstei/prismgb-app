@@ -239,6 +239,17 @@ describe('phase 4 enforcement metrics', () => {
     expect(metrics.unexpectedContractFiles).toContain('src/shared/contracts/custom.contract.ts');
   });
 
+  it('fails contract ownership checks when stale tests/contracts files appear', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-stale-test-contract-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'tests/contracts'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'tests/contracts/event-contracts.js'), 'export const EventContracts = {};\n');
+
+    const metrics = collectContractMetrics(tempRoot);
+    expect(metrics.unexpectedContractFileCount).toBe(1);
+    expect(metrics.unexpectedContractFiles).toContain('tests/contracts/event-contracts.js');
+  });
+
   it('reports baseline inline canonical API mock assignments and detects additions', () => {
     const baseline = collectInlineMockAssignments(process.cwd());
     expect(baseline.inlineCanonicalMockAssignmentCount).toBe(0);

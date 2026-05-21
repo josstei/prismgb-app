@@ -40,14 +40,12 @@ export class ReducedMotionAdapter {
       callback(Boolean(event.matches));
     };
 
-    // Support both modern addEventListener and MediaQueryList.addListener.
-    if (typeof this._mediaQuery.addEventListener === 'function') {
-      this._mediaQuery.addEventListener('change', handleChange);
-      this._cleanupFn = () => this._mediaQuery.removeEventListener('change', handleChange);
-    } else if (typeof this._mediaQuery.addListener === 'function') {
-      this._mediaQuery.addListener(handleChange);
-      this._cleanupFn = () => this._mediaQuery.removeListener(handleChange);
+    if (typeof this._mediaQuery.addEventListener !== 'function') {
+      return () => {};
     }
+
+    this._mediaQuery.addEventListener('change', handleChange);
+    this._cleanupFn = () => this._mediaQuery.removeEventListener('change', handleChange);
 
     return () => this.dispose();
   }

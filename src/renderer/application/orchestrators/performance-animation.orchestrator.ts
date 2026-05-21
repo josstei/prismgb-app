@@ -27,8 +27,6 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
 
   async onInitialize() {
     this.subscribeWithCleanup({
-      [EventChannels.STREAM.STARTED]: () => this._handleStreamingStateChanged(true),
-      [EventChannels.STREAM.STOPPED]: () => this._handleStreamingStateChanged(false),
       [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => this._handlePerformanceStateChanged(state)
     });
   }
@@ -38,13 +36,7 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
     this._applyBodyClasses(state);
   }
 
-  _handleStreamingStateChanged(isStreaming) {
-    const state = this.animationPerformanceService.setStreaming(isStreaming);
-    this._applyBodyClasses(state);
-  }
-
   _applyBodyClasses(state) {
-    this.bodyClassManager.setStreaming(state.streaming);
     this.bodyClassManager.setIdle(state.idle);
     this.bodyClassManager.setHidden(state.hidden);
     this.bodyClassManager.setAnimationsOff(state.animationsOff);

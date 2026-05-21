@@ -6,19 +6,8 @@
  */
 
 import { vi } from 'vitest';
-
-/**
- * Chromatic device specifications
- */
-export const CHROMATIC_SPECS = {
-  vendorId: 0x374e,
-  productId: 0x0101,
-  name: 'Chromatic',
-  nativeWidth: 160,
-  nativeHeight: 144,
-  frameRates: [30, 60],
-  defaultFrameRate: 60,
-};
+import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+export { CHROMATIC_SPECS };
 
 /**
  * Creates a mock MediaStreamTrack that simulates Chromatic video
@@ -28,8 +17,8 @@ export function createMockVideoTrack(options = {}) {
     width = CHROMATIC_SPECS.nativeWidth,
     height = CHROMATIC_SPECS.nativeHeight,
     frameRate = CHROMATIC_SPECS.defaultFrameRate,
-    deviceId = 'mock-chromatic-device-id',
-    label = 'Chromatic (Mock)',
+    deviceId = CHROMATIC_SPECS.deviceId,
+    label = CHROMATIC_SPECS.label,
   } = options;
 
   const track = {
@@ -132,9 +121,9 @@ export function createMockStream(options = {}) {
  */
 export function createMockDeviceInfo(options = {}) {
   const {
-    deviceId = 'mock-chromatic-device-id',
-    label = 'Chromatic',
-    groupId = 'mock-group-id',
+    deviceId = CHROMATIC_SPECS.deviceId,
+    label = CHROMATIC_SPECS.label,
+    groupId = CHROMATIC_SPECS.groupId,
   } = options;
 
   return {
@@ -153,8 +142,8 @@ export class MockDevice {
   constructor(options = {}) {
     this.specs = { ...CHROMATIC_SPECS, ...options };
     this.deviceInfo = createMockDeviceInfo({
-      deviceId: options.deviceId || 'mock-chromatic-device-id',
-      label: options.label || 'Chromatic',
+      deviceId: options.deviceId || CHROMATIC_SPECS.deviceId,
+      label: options.label || CHROMATIC_SPECS.label,
     });
     this.isConnected = true;
     this.activeStream = null;

@@ -168,6 +168,11 @@ describe('Phase 1 manifests', () => {
       media: {
         video: mediaConfig.video
       },
+      fixture: {
+        defaultFrameRate: 60,
+        supportedFrameRates: [30, 60],
+        label: 'Chromatic'
+      },
       labelPatterns: chromaticConfig.metadata.labelPatterns
     });
 

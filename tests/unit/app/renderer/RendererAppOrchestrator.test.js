@@ -99,6 +99,7 @@ describe('RendererAppOrchestrator', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    delete document.body.dataset.prismgbAppStarted;
 
     app = new RendererAppOrchestrator();
   });
@@ -166,6 +167,13 @@ describe('RendererAppOrchestrator', () => {
 
       expect(app.orchestrator.start).toHaveBeenCalled();
     });
+
+    it('should expose app-started lifecycle state after orchestrator start', async () => {
+      await app.initialize();
+      await app.start();
+
+      expect(document.body.dataset.prismgbAppStarted).toBe('true');
+    });
   });
 
   describe('cleanup', () => {
@@ -188,6 +196,14 @@ describe('RendererAppOrchestrator', () => {
       await app.cleanup();
 
       expect(app.isInitialized).toBe(false);
+    });
+
+    it('should clear app-started lifecycle state on cleanup', async () => {
+      await app.initialize();
+      await app.start();
+      await app.cleanup();
+
+      expect(document.body.dataset.prismgbAppStarted).toBeUndefined();
     });
 
     it('should handle cleanup without initialization', async () => {

@@ -18,30 +18,14 @@ class PerformanceAnimationService extends BaseService {
       performanceMode: false
     };
 
-    this._isStreaming = false;
     this._isHidden = false;
     this._isIdle = false;
   }
 
   /**
-   * Update streaming state
-   * @param {boolean} isStreaming - Whether streaming is active
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
-   */
-  setStreaming(isStreaming) {
-    this._isStreaming = Boolean(isStreaming);
-    if (this._isStreaming) {
-      this.logger.debug('Streaming started - pausing decorative animations');
-    } else {
-      this.logger.debug('Streaming stopped - starting idle timer');
-    }
-    return this._getState();
-  }
-
-  /**
    * Update performance state
    * @param {Object} performanceState - Performance state object
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
+   * @returns {Object} Current state: { idle, hidden, animationsOff }
    */
   setPerformanceState(performanceState) {
     const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
@@ -79,7 +63,6 @@ class PerformanceAnimationService extends BaseService {
    */
   _getState() {
     return {
-      streaming: this._isStreaming,
       idle: this._isIdle,
       hidden: this._isHidden,
       animationsOff: Object.values(this._animationSuppression).some(Boolean)

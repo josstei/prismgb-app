@@ -136,13 +136,13 @@ body::after {
 }
 
 /* Pause decorative animations when streaming or idle to save GPU cycles */
-body.app-streaming::after,
+body.streaming-mode::after,
 body.app-idle::after {
   animation-play-state: paused;
 }
 
-body.app-streaming .prismatic-orbs::before,
-body.app-streaming .prismatic-orbs::after,
+body.streaming-mode .prismatic-orbs::before,
+body.streaming-mode .prismatic-orbs::after,
 body.app-idle .prismatic-orbs::before,
 body.app-idle .prismatic-orbs::after {
   animation-play-state: paused;

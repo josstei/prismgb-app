@@ -129,6 +129,7 @@ class RendererAppOrchestrator {
         throw new Error('App orchestrator not initialized');
       }
       await this.orchestrator.start();
+      document.body.dataset.prismgbAppStarted = 'true';
 
       this.logger.info('Renderer application started successfully');
 
@@ -174,6 +175,7 @@ class RendererAppOrchestrator {
       await safeDispose(this.logger, 'container', this.container as Object);
     }
 
+    delete document.body.dataset.prismgbAppStarted;
     this.isInitialized = false;
     this.logger.info('Renderer application cleanup complete');
   }

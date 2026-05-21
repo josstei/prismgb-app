@@ -33,7 +33,8 @@ const DEFAULT_CONTRACT_PATTERNS = [
   /\.contract\.(json|ts)$/,
   /channels\.json$/,
   /settings\.definitions\.json$/,
-  /preload-api\.contract\.(ts|js|mjs)$/
+  /preload-api\.contract\.(ts|js|mjs)$/,
+  /[\\/]tests[\\/]contracts[\\/].+\.[cm]?[jt]sx?$/
 ];
 const CANONICAL_CONTRACT_ALLOWLIST = [
   'src/shared/ipc/channels.json',
@@ -160,7 +161,7 @@ function collectContractAllowlist() {
 
 function collectContractLikeFiles(projectRoot) {
   const contractLikeFiles = [];
-  const roots = ['src', 'scripts', 'packages'];
+  const roots = ['src', 'scripts', 'packages', 'tests'];
 
   for (const root of roots) {
     const rootPath = path.join(projectRoot, root);

@@ -9,7 +9,6 @@ import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 
 const APP_CSS_CLASSES = Object.freeze({
-  STREAMING: 'app-streaming',
   IDLE: 'app-idle',
   HIDDEN: 'app-hidden',
   ANIMATIONS_OFF: 'app-animations-off'
@@ -20,19 +19,6 @@ export class BodyClassManager {
 
   constructor() {
     this._minimalistTransitionTimer = null;
-  }
-
-  /**
-   * Set streaming state
-   * @param {boolean} isStreaming - Whether the app is streaming
-   */
-  setStreaming(isStreaming) {
-    if (isStreaming) {
-      document.body.classList.add(APP_CSS_CLASSES.STREAMING);
-      document.body.classList.remove(APP_CSS_CLASSES.IDLE);
-    } else {
-      document.body.classList.remove(APP_CSS_CLASSES.STREAMING);
-    }
   }
 
   /**
