@@ -14,6 +14,7 @@ describe('codebase phase 1 drift report', () => {
     expect(report.status).toBe('pass');
     expect(report.checks.map((check) => check.name)).toContain('ipc channels manifest matches channels.json');
     expect(report.checks.map((check) => check.name)).toContain('platform manifest labels match release build matrix');
+    expect(report.checks.map((check) => check.name)).toContain('render pass manifest owns uniform upload metadata');
     expect(
       report.checks.find((check) => check.name === 'architecture aliases cover tsconfig.base aliases')
     ).toMatchObject({

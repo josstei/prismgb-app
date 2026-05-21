@@ -149,6 +149,19 @@ function collectRenderPassShaderFiles(renderPassManifest) {
   return [...webgpu, ...webgl2, ...utilities];
 }
 
+function renderPassOwnsUniformMetadata(pass) {
+  return Boolean(
+    pass.webgpuUniformLayout &&
+    typeof pass.webgpuUniformLayout.byteLength === 'number' &&
+    Array.isArray(pass.webgpuUniformLayout.members) &&
+    pass.webgpuUniformLayout.members.length > 0 &&
+    pass.webgpuUniformLayout.members.every((member) => member.source) &&
+    pass.webgl2Uniforms &&
+    pass.webgl2Uniforms.texture &&
+    Array.isArray(pass.webgl2Uniforms.additional)
+  );
+}
+
 function collectTsconfigAliases(tsconfigPath) {
   const parsed = readProjectJson(tsconfigPath);
   return [...new Set(
@@ -309,6 +322,18 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     expectedCount: collectRenderPassShaderFiles(manifests.renderPasses).length,
     actualCount: collectRenderPassShaderFiles(manifests.renderPasses).length - missingShaderFiles.length,
     missing: missingShaderFiles,
+    extra: []
+  });
+
+  const renderPassesMissingUniformMetadata = manifests.renderPasses.passes
+    .filter((pass) => !renderPassOwnsUniformMetadata(pass))
+    .map((pass) => pass.id);
+  checks.push({
+    name: 'render pass manifest owns uniform upload metadata',
+    status: renderPassesMissingUniformMetadata.length === 0 ? 'pass' : 'fail',
+    expectedCount: manifests.renderPasses.passes.length,
+    actualCount: manifests.renderPasses.passes.length - renderPassesMissingUniformMetadata.length,
+    missing: renderPassesMissingUniformMetadata,
     extra: []
   });
 

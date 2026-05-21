@@ -2,6 +2,17 @@ import { RenderPassContract, type RenderPassDefinition } from './render-passes.c
 import type { PipelineUniforms } from '../shaders';
 import type { IPreset } from '../presets';
 
+type UniformBlock = keyof PipelineUniforms;
+
+export type UniformValueSource = {
+  kind: 'uniformField';
+  uniformBlock: UniformBlock;
+  uniformField: string;
+} | {
+  kind: 'constant';
+  value: number;
+};
+
 export type WebGPUUniformNumericType = 'f32' | 'vec2<f32>';
 
 export interface WebGPUUniformMember {
@@ -9,6 +20,7 @@ export interface WebGPUUniformMember {
   type: WebGPUUniformNumericType;
   offsetBytes: number;
   byteLength: number;
+  source: UniformValueSource;
 }
 
 export interface WebGPUUniformLayout {
@@ -23,6 +35,7 @@ type UniformSetterMethod = 'setUniform1i' | 'setUniform1f' | 'setUniform2f';
 export interface WebGLUniformBinding {
   name: string;
   method: UniformSetterMethod;
+  source: UniformValueSource;
 }
 
 export type WebGLUniformScalar = number;
@@ -63,8 +76,6 @@ export interface WebGLPassProgram {
 }
 
 type UniformCompareOperator = '>' | '>=' | '<' | '<=' | '==' | '!=';
-
-type UniformBlock = keyof PipelineUniforms;
 
 type RenderPassEnablementAlways = {
   kind: 'always';
@@ -163,7 +174,7 @@ function readUniformField(
   const record = blockValues as unknown as Record<string, unknown>;
 
   if (!Object.prototype.hasOwnProperty.call(record, fieldName)) {
-    throw new Error(`Enablement condition references missing uniform field '${uniformBlock}.${fieldName}'`);
+    throw new Error(`Render pass contract references missing uniform field '${uniformBlock}.${fieldName}'`);
   }
 
   return record[fieldName];
@@ -248,15 +259,14 @@ function parseEnablementCondition(
   }
 }
 
-const VALID_UNIFORM_BLOCKS = ['upscale', 'unsharp', 'color', 'crt'] as const;
-type ManifestUniformBlock = typeof VALID_UNIFORM_BLOCKS[number];
+const MANIFEST_UNIFORM_BLOCKS = new Set(RenderPassContract.passes.map((pass) => pass.uniformBlock));
 
 function normalizeUniformBlock(candidate: string): UniformBlock {
-  if ((VALID_UNIFORM_BLOCKS as readonly string[]).includes(candidate)) {
-    return candidate as ManifestUniformBlock;
+  if (MANIFEST_UNIFORM_BLOCKS.has(candidate)) {
+    return candidate as UniformBlock;
   }
 
-  throw new Error(`Invalid uniform block '${candidate}' in render pass enablement condition`);
+  throw new Error(`Invalid uniform block '${candidate}' in render pass contract`);
 }
 
 function isSupportedCompareOperator(operator: string): operator is UniformCompareOperator {
@@ -270,125 +280,288 @@ function buildEnablementPredicate(
   return (uniforms, preset) => evaluateRenderPassEnablement(enablement, uniforms, preset);
 }
 
-const WEBGPU_UNIFORM_LAYOUTS: Record<string, WebGPUUniformLayout> = {
-  upscale: {
-    passId: 'pixel-upscale',
-    uniformBlock: 'upscale',
-    byteLength: 24,
-    members: [
-      { name: 'inputSize', type: 'vec2<f32>', offsetBytes: 0, byteLength: 8 },
-      { name: 'outputSize', type: 'vec2<f32>', offsetBytes: 8, byteLength: 8 },
-      { name: 'scaleFactor', type: 'f32', offsetBytes: 16, byteLength: 4 },
-      { name: '_padding', type: 'f32', offsetBytes: 20, byteLength: 4 }
-    ]
-  },
-  unsharp: {
-    passId: 'unsharp-mask',
-    uniformBlock: 'unsharp',
-    byteLength: 16,
-    members: [
-      { name: 'texelSize', type: 'vec2<f32>', offsetBytes: 0, byteLength: 8 },
-      { name: 'strength', type: 'f32', offsetBytes: 8, byteLength: 4 },
-      { name: 'scaleFactor', type: 'f32', offsetBytes: 12, byteLength: 4 }
-    ]
-  },
-  color: {
-    passId: 'color-elevation',
-    uniformBlock: 'color',
-    byteLength: 32,
-    members: [
-      { name: 'gamma', type: 'f32', offsetBytes: 0, byteLength: 4 },
-      { name: 'saturation', type: 'f32', offsetBytes: 4, byteLength: 4 },
-      { name: 'greenBias', type: 'f32', offsetBytes: 8, byteLength: 4 },
-      { name: 'brightness', type: 'f32', offsetBytes: 12, byteLength: 4 },
-      { name: 'contrast', type: 'f32', offsetBytes: 16, byteLength: 4 },
-      { name: '_padding1', type: 'f32', offsetBytes: 20, byteLength: 4 },
-      { name: '_padding2', type: 'f32', offsetBytes: 24, byteLength: 4 },
-      { name: '_padding3', type: 'f32', offsetBytes: 28, byteLength: 4 }
-    ]
-  },
-  crt: {
-    passId: 'crt-lcd',
-    uniformBlock: 'crt',
-    byteLength: 32,
-    members: [
-      { name: 'resolution', type: 'vec2<f32>', offsetBytes: 0, byteLength: 8 },
-      { name: 'scaleFactor', type: 'f32', offsetBytes: 8, byteLength: 4 },
-      { name: 'scanlineStrength', type: 'f32', offsetBytes: 12, byteLength: 4 },
-      { name: 'pixelMaskStrength', type: 'f32', offsetBytes: 16, byteLength: 4 },
-      { name: 'bloomStrength', type: 'f32', offsetBytes: 20, byteLength: 4 },
-      { name: 'curvature', type: 'f32', offsetBytes: 24, byteLength: 4 },
-      { name: 'vignetteStrength', type: 'f32', offsetBytes: 28, byteLength: 4 }
-    ]
-  }
-};
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
-const WEBGL_UNIFORM_BINDINGS: Record<
-  string,
-  {
-    textureUniform: WebGLUniformBindingWithValue;
-    additionalUniforms: readonly WebGLUniformBindingWithValue[];
+function getManifestString(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): string {
+  const value = record[key];
+  if (typeof value !== 'string') {
+    throw new Error(`${context} requires string '${key}'`);
   }
-> = {
-  upscale: {
-    textureUniform: { name: 'uSourceTex', method: 'setUniform1i', readValue: () => 0 },
-    additionalUniforms: [
-      {
-        name: 'uSourceSize',
-        method: 'setUniform2f',
-        readValue: (uniforms) => uniforms.upscale.inputSize
-      },
-      {
-        name: 'uTargetSize',
-        method: 'setUniform2f',
-        readValue: (uniforms) => uniforms.upscale.outputSize
-      },
-      {
-        name: 'uScaleFactor',
-        method: 'setUniform1f',
-        readValue: (uniforms) => uniforms.upscale.scaleFactor
-      }
-    ]
-  },
-  unsharp: {
-    textureUniform: { name: 'uInputTex', method: 'setUniform1i', readValue: () => 0 },
-    additionalUniforms: [
-      {
-        name: 'uTexelSize',
-        method: 'setUniform2f',
-        readValue: (uniforms) => uniforms.unsharp.texelSize
-      },
-      { name: 'uStrength', method: 'setUniform1f', readValue: (uniforms) => uniforms.unsharp.strength },
-      { name: 'uScaleFactor', method: 'setUniform1f', readValue: (uniforms) => uniforms.unsharp.scaleFactor }
-    ]
-  },
-  color: {
-    textureUniform: { name: 'uInputTex', method: 'setUniform1i', readValue: () => 0 },
-    additionalUniforms: [
-      { name: 'uGamma', method: 'setUniform1f', readValue: (uniforms) => uniforms.color.gamma },
-      { name: 'uSaturation', method: 'setUniform1f', readValue: (uniforms) => uniforms.color.saturation },
-      { name: 'uGreenBias', method: 'setUniform1f', readValue: (uniforms) => uniforms.color.greenBias },
-      { name: 'uBrightness', method: 'setUniform1f', readValue: (uniforms) => uniforms.color.brightness },
-      { name: 'uContrast', method: 'setUniform1f', readValue: (uniforms) => uniforms.color.contrast }
-    ]
-  },
-  crt: {
-    textureUniform: { name: 'uInputTex', method: 'setUniform1i', readValue: () => 0 },
-    additionalUniforms: [
-      {
-        name: 'uResolution',
-        method: 'setUniform2f',
-        readValue: (uniforms) => uniforms.crt.resolution
-      },
-      { name: 'uScaleFactor', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.scaleFactor },
-      { name: 'uScanlineStrength', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.scanlineStrength },
-      { name: 'uPixelMaskStrength', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.pixelMaskStrength },
-      { name: 'uBloomStrength', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.bloomStrength },
-      { name: 'uCurvature', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.curvature },
-      { name: 'uVignetteStrength', method: 'setUniform1f', readValue: (uniforms) => uniforms.crt.vignetteStrength }
-    ]
+
+  return value;
+}
+
+function getManifestNumber(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): number {
+  const value = record[key];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${context} requires finite number '${key}'`);
   }
-};
+
+  return value;
+}
+
+function getManifestRecord(
+  record: Record<string, unknown>,
+  key: string,
+  context: string
+): Record<string, unknown> {
+  const value = record[key];
+  if (!isRecord(value)) {
+    throw new Error(`${context} requires object '${key}'`);
+  }
+
+  return value;
+}
+
+function normalizeUniformValueSource(
+  input: unknown,
+  defaultUniformBlock: string,
+  context: string
+): UniformValueSource {
+  if (!isRecord(input)) {
+    throw new Error(`${context} requires uniform value source`);
+  }
+
+  const kind = input.kind;
+  if (kind === 'constant') {
+    return {
+      kind: 'constant',
+      value: getManifestNumber(input, 'value', context)
+    };
+  }
+
+  if (kind === 'uniformField') {
+    const rawUniformBlock = input.uniformBlock;
+    const uniformBlock = typeof rawUniformBlock === 'string'
+      ? rawUniformBlock
+      : defaultUniformBlock;
+
+    return {
+      kind: 'uniformField',
+      uniformBlock: normalizeUniformBlock(uniformBlock),
+      uniformField: getManifestString(input, 'uniformField', context)
+    };
+  }
+
+  throw new Error(`${context} has unsupported uniform value source kind '${String(kind)}'`);
+}
+
+function isSupportedWebGPUUniformType(value: string): value is WebGPUUniformNumericType {
+  return value === 'f32' || value === 'vec2<f32>';
+}
+
+function normalizeWebGPUUniformType(value: string, context: string): WebGPUUniformNumericType {
+  if (isSupportedWebGPUUniformType(value)) {
+    return value;
+  }
+
+  throw new Error(`${context} uses unsupported WebGPU uniform type '${value}'`);
+}
+
+function normalizeWebGPUUniformMember(
+  input: unknown,
+  defaultUniformBlock: string,
+  passId: string
+): WebGPUUniformMember {
+  const context = `Render pass '${passId}' WebGPU uniform member`;
+  if (!isRecord(input)) {
+    throw new Error(`${context} must be an object`);
+  }
+
+  const name = getManifestString(input, 'name', context);
+  return {
+    name,
+    type: normalizeWebGPUUniformType(getManifestString(input, 'type', context), context),
+    offsetBytes: getManifestNumber(input, 'offsetBytes', context),
+    byteLength: getManifestNumber(input, 'byteLength', context),
+    source: normalizeUniformValueSource(input.source, defaultUniformBlock, `${context} '${name}'`)
+  };
+}
+
+function getWebGPULayoutFromManifest(pass: RenderPassDefinition): WebGPUUniformLayout {
+  const context = `Render pass '${pass.id}' WebGPU uniform layout`;
+  const layout = pass.webgpuUniformLayout as unknown;
+  if (!isRecord(layout)) {
+    throw new Error(`${context} is missing`);
+  }
+
+  const rawMembers = layout.members;
+  if (!Array.isArray(rawMembers)) {
+    throw new Error(`${context} requires array 'members'`);
+  }
+
+  return {
+    passId: pass.id,
+    uniformBlock: normalizeUniformBlock(pass.uniformBlock),
+    byteLength: getManifestNumber(layout, 'byteLength', context),
+    members: rawMembers.map((member) => normalizeWebGPUUniformMember(member, pass.uniformBlock, pass.id))
+  };
+}
+
+function isSupportedWebGLUniformSetter(value: string): value is UniformSetterMethod {
+  return value === 'setUniform1i' || value === 'setUniform1f' || value === 'setUniform2f';
+}
+
+function normalizeWebGLUniformSetter(value: string, context: string): UniformSetterMethod {
+  if (isSupportedWebGLUniformSetter(value)) {
+    return value;
+  }
+
+  throw new Error(`${context} uses unsupported WebGL uniform setter '${value}'`);
+}
+
+function isNumberPair(value: unknown): value is WebGLUniformVec2 {
+  return Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((item) => typeof item === 'number' && Number.isFinite(item));
+}
+
+function readUniformSourceValue(
+  uniforms: PipelineUniforms,
+  source: UniformValueSource
+): unknown {
+  if (source.kind === 'constant') {
+    return source.value;
+  }
+
+  return readUniformField(uniforms, source.uniformBlock, source.uniformField);
+}
+
+function readWebGLBindingValue(
+  uniforms: PipelineUniforms,
+  binding: WebGLUniformBinding
+): WebGLUniformValue {
+  const value = readUniformSourceValue(uniforms, binding.source);
+
+  if (binding.method === 'setUniform2f') {
+    if (!isNumberPair(value)) {
+      throw new Error(`WebGL uniform '${binding.name}' requires vec2 numeric source`);
+    }
+
+    return value;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`WebGL uniform '${binding.name}' requires numeric source`);
+  }
+
+  return value;
+}
+
+function createWebGLBindingWithValue(
+  binding: WebGLUniformBinding
+): WebGLUniformBindingWithValue {
+  return {
+    ...binding,
+    readValue: (uniforms) => readWebGLBindingValue(uniforms, binding)
+  };
+}
+
+function normalizeWebGLUniformBinding(
+  input: unknown,
+  defaultUniformBlock: string,
+  passId: string
+): WebGLUniformBindingWithValue {
+  const context = `Render pass '${passId}' WebGL uniform binding`;
+  if (!isRecord(input)) {
+    throw new Error(`${context} must be an object`);
+  }
+
+  const name = getManifestString(input, 'name', context);
+  const binding: WebGLUniformBinding = {
+    name,
+    method: normalizeWebGLUniformSetter(getManifestString(input, 'method', context), context),
+    source: normalizeUniformValueSource(input.source, defaultUniformBlock, `${context} '${name}'`)
+  };
+
+  return createWebGLBindingWithValue(binding);
+}
+
+function getWebGLUniformBindingsFromManifest(
+  pass: RenderPassDefinition
+): {
+  textureUniform: WebGLUniformBindingWithValue;
+  additionalUniforms: readonly WebGLUniformBindingWithValue[];
+} {
+  const context = `Render pass '${pass.id}' WebGL uniform bindings`;
+  const webglUniforms = pass.webgl2Uniforms as unknown;
+  if (!isRecord(webglUniforms)) {
+    throw new Error(`${context} are missing`);
+  }
+
+  const rawAdditional = webglUniforms.additional;
+  if (!Array.isArray(rawAdditional)) {
+    throw new Error(`${context} require array 'additional'`);
+  }
+
+  return {
+    textureUniform: normalizeWebGLUniformBinding(
+      getManifestRecord(webglUniforms, 'texture', context),
+      pass.uniformBlock,
+      pass.id
+    ),
+    additionalUniforms: rawAdditional.map((binding) => normalizeWebGLUniformBinding(
+      binding,
+      pass.uniformBlock,
+      pass.id
+    ))
+  };
+}
+
+function writeWebGPUUniformMember(
+  output: Float32Array,
+  member: WebGPUUniformMember,
+  uniforms: PipelineUniforms
+): void {
+  const outputIndex = member.offsetBytes / Float32Array.BYTES_PER_ELEMENT;
+  if (!Number.isInteger(outputIndex)) {
+    throw new Error(`WebGPU uniform member '${member.name}' offset must be 4-byte aligned`);
+  }
+
+  const value = readUniformSourceValue(uniforms, member.source);
+  if (member.type === 'vec2<f32>') {
+    if (!isNumberPair(value)) {
+      throw new Error(`WebGPU uniform member '${member.name}' requires vec2 numeric source`);
+    }
+
+    output[outputIndex] = value[0];
+    output[outputIndex + 1] = value[1];
+    return;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`WebGPU uniform member '${member.name}' requires numeric source`);
+  }
+
+  output[outputIndex] = value;
+}
+
+function buildWebGPUDataBuilder(
+  layout: WebGPUUniformLayout
+): (uniforms: PipelineUniforms) => Float32Array {
+  if (layout.byteLength % Float32Array.BYTES_PER_ELEMENT !== 0) {
+    throw new Error(`WebGPU uniform layout for pass '${layout.passId}' must be 4-byte aligned`);
+  }
+
+  return (uniforms) => {
+    const output = new Float32Array(layout.byteLength / Float32Array.BYTES_PER_ELEMENT);
+    for (const member of layout.members) {
+      writeWebGPUUniformMember(output, member, uniforms);
+    }
+
+    return output;
+  };
+}
 
 function toSamplerPolicy(sampler: string): RenderPassHelpers['sampler'] {
   if (sampler === 'nearest' || sampler === 'linear') {
@@ -396,56 +569,6 @@ function toSamplerPolicy(sampler: string): RenderPassHelpers['sampler'] {
   }
 
   throw new Error(`Invalid sampler policy '${sampler}'`);
-}
-
-function getWebGPUDataBuilder(block: string): (uniforms: PipelineUniforms) => Float32Array {
-  if (block === 'upscale') {
-    return (uniforms) => new Float32Array([
-      uniforms.upscale.inputSize[0],
-      uniforms.upscale.inputSize[1],
-      uniforms.upscale.outputSize[0],
-      uniforms.upscale.outputSize[1],
-      uniforms.upscale.scaleFactor,
-      0
-    ]);
-  }
-
-  if (block === 'unsharp') {
-    return (uniforms) => new Float32Array([
-      uniforms.unsharp.texelSize[0],
-      uniforms.unsharp.texelSize[1],
-      uniforms.unsharp.strength,
-      uniforms.unsharp.scaleFactor
-    ]);
-  }
-
-  if (block === 'color') {
-    return (uniforms) => new Float32Array([
-      uniforms.color.gamma,
-      uniforms.color.saturation,
-      uniforms.color.greenBias,
-      uniforms.color.brightness,
-      uniforms.color.contrast,
-      0,
-      0,
-      0
-    ]);
-  }
-
-  if (block === 'crt') {
-    return (uniforms) => new Float32Array([
-      uniforms.crt.resolution[0],
-      uniforms.crt.resolution[1],
-      uniforms.crt.scaleFactor,
-      uniforms.crt.scanlineStrength,
-      uniforms.crt.pixelMaskStrength,
-      uniforms.crt.bloomStrength,
-      uniforms.crt.curvature,
-      uniforms.crt.vignetteStrength
-    ]);
-  }
-
-  return () => new Float32Array([]);
 }
 
 export function getEnabledRenderPasses(
@@ -495,16 +618,12 @@ function createPassHelpers(): readonly RenderPassHelpers[] {
   const sortedPasses = [...RenderPassContract.passes].sort((left, right) => left.order - right.order);
 
   return sortedPasses.map((pass) => {
-    const layout = WEBGPU_UNIFORM_LAYOUTS[pass.uniformBlock];
-    const webgl = WEBGL_UNIFORM_BINDINGS[pass.uniformBlock];
-
-    if (!layout || !webgl) {
-      throw new Error(`Missing helper definitions for pass '${pass.id}'`);
-    }
+    const layout = getWebGPULayoutFromManifest(pass);
+    const webgl = getWebGLUniformBindingsFromManifest(pass);
 
     const isEnabled = buildEnablementPredicate(pass);
     const enablement = getEnablementFromManifest(pass);
-    const buildData = getWebGPUDataBuilder(pass.uniformBlock);
+    const buildData = buildWebGPUDataBuilder(layout);
 
     return {
       passId: pass.id,

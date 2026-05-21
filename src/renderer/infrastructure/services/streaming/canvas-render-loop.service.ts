@@ -3,6 +3,7 @@ import {
   type IPipeline,
   type IPipelineCapabilities
 } from '@prismgb/gpu';
+import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
 import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 type AnimationCacheLike = {
@@ -14,11 +15,6 @@ type NativeResolution = {
   width: number;
   height: number;
 };
-
-const DEFAULT_NATIVE_RESOLUTION = Object.freeze({
-  width: 160,
-  height: 144
-});
 
 function createCanvas2DCapabilities(maxTextureSize: number): IPipelineCapabilities {
   return {
@@ -59,12 +55,12 @@ export class StreamingCanvasRenderLoopService {
     this._displayWidth = 0;
     this._displayHeight = 0;
     this._devicePixelRatio = 1;
-    this._nativeResolution = { ...DEFAULT_NATIVE_RESOLUTION };
+    this._nativeResolution = getDefaultNativeResolution();
   }
 
   async initialize(
     canvasElement: HTMLCanvasElement,
-    nativeResolution: NativeResolution = DEFAULT_NATIVE_RESOLUTION
+    nativeResolution: NativeResolution = getDefaultNativeResolution()
   ): Promise<void> {
     const sameNativeResolution = this._nativeResolution.width === nativeResolution.width &&
       this._nativeResolution.height === nativeResolution.height;

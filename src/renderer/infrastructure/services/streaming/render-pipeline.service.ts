@@ -13,6 +13,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
@@ -351,7 +352,7 @@ export class StreamingRenderPipelineService extends BaseService {
    */
   private async _startRendering(capabilities: StreamingCapabilities): Promise<void> {
     this._currentCapabilities = capabilities;
-    const nativeRes = capabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = capabilities?.nativeResolution || getDefaultNativeResolution();
     const video = this.streamViewService.getVideo();
 
     // Determine renderer type
@@ -537,7 +538,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();
     this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
 
     const canvas = this.streamViewService.getCanvas();
@@ -561,7 +562,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
-    const nativeRes = this._currentCapabilities?.nativeResolution || { width: 160, height: 144 };
+    const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();
     this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
 
     const canvas = this.streamViewService.getCanvas();

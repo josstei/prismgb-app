@@ -32,6 +32,7 @@ import type {
   RenderAPI
 } from '@prismgb/gpu';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type {
   LoggerFactoryLike,
@@ -39,27 +40,17 @@ import type {
 } from '@shared/interfaces/infrastructure.types.js';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 import type { GpuWorkerManager } from './gpu-worker-manager';
+import {
+  calculateNativeScaleFactor,
+  createNativeBitmapOptions,
+  normalizeNativeResolution
+} from './native-resolution.utils';
 
 /**
  * Maximum number of frames that can be pending render
  * This implements triple buffering
  */
 const MAX_PENDING_FRAMES = 2;
-
-/**
- * Native resolution of the Chromatic device
- */
-const NATIVE_WIDTH = 160;
-const NATIVE_HEIGHT = 144;
-
-/**
- * Frozen options for createImageBitmap to avoid per-frame allocation
- */
-const BITMAP_OPTIONS = Object.freeze({
-  resizeWidth: NATIVE_WIDTH,
-  resizeHeight: NATIVE_HEIGHT,
-  resizeQuality: 'pixelated'
-} satisfies ImageBitmapOptions);
 
 type RendererCapabilities = IPipelineCapabilities & {
   gpuPolicyApplied: boolean;
@@ -101,11 +92,15 @@ export class StreamingGpuRendererService extends BaseService {
   private _currentPresetId: string | null;
   private _currentPreset: IPreset | null;
   private _globalBrightness: number;
+  private _nativeResolution: Dimensions;
+  private _bitmapOptions: ImageBitmapOptions;
   private _scaleFactor: number;
   private _targetWidth: number;
   private _targetHeight: number;
   private _cachedUniforms: PipelineUniforms | null;
   private _cachedPresetId: string | null;
+  private _cachedNativeWidth: number | null;
+  private _cachedNativeHeight: number | null;
   private _cachedScaleFactor: number | null;
   private _cachedTargetWidth: number | null;
   private _cachedTargetHeight: number | null;
@@ -147,12 +142,16 @@ export class StreamingGpuRendererService extends BaseService {
     this._currentPresetId = null;
     this._currentPreset = null;
     this._globalBrightness = 1.0;
+    this._nativeResolution = getDefaultNativeResolution();
+    this._bitmapOptions = createNativeBitmapOptions(this._nativeResolution);
     this._scaleFactor = 1;
-    this._targetWidth = NATIVE_WIDTH;
-    this._targetHeight = NATIVE_HEIGHT;
+    this._targetWidth = this._nativeResolution.width;
+    this._targetHeight = this._nativeResolution.height;
 
     this._cachedUniforms = null;
     this._cachedPresetId = null;
+    this._cachedNativeWidth = null;
+    this._cachedNativeHeight = null;
     this._cachedScaleFactor = null;
     this._cachedTargetWidth = null;
     this._cachedTargetHeight = null;
@@ -182,14 +181,19 @@ export class StreamingGpuRendererService extends BaseService {
    * Detects GPU capabilities, delegates worker creation to GpuWorkerManager,
    * and sets up the rendering pipeline.
    * @param {HTMLCanvasElement} canvasElement - Canvas to render to (control will be transferred)
-   * @param {Object} [nativeResolution={width: 160, height: 144}] - Native device resolution
+   * @param {Object} [nativeResolution] - Native device resolution
    * @returns {Promise<boolean>} True if GPU rendering is available, false if fallback needed
    */
   async initialize(
     canvasElement: HTMLCanvasElement,
-    nativeResolution: Dimensions = { width: NATIVE_WIDTH, height: NATIVE_HEIGHT }
+    nativeResolution: Dimensions = getDefaultNativeResolution()
   ): Promise<boolean> {
     this.logger.info('Initializing GPU renderer...');
+
+    const activeNativeResolution = normalizeNativeResolution(nativeResolution);
+    this._nativeResolution = activeNativeResolution;
+    this._bitmapOptions = createNativeBitmapOptions(activeNativeResolution);
+    this._cachedUniforms = null;
 
     this._globalBrightness = this.settingsService.getNumberSetting('globalBrightness');
     if (!this._brightnessUnsubscribe) {
@@ -226,12 +230,13 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     try {
-      this._scaleFactor = Math.max(1, Math.floor(Math.min(
-        canvasElement.clientWidth / nativeResolution.width,
-        canvasElement.clientHeight / nativeResolution.height
-      )));
-      this._targetWidth = nativeResolution.width * this._scaleFactor;
-      this._targetHeight = nativeResolution.height * this._scaleFactor;
+      this._scaleFactor = calculateNativeScaleFactor(
+        activeNativeResolution,
+        canvasElement.clientWidth,
+        canvasElement.clientHeight
+      );
+      this._targetWidth = activeNativeResolution.width * this._scaleFactor;
+      this._targetHeight = activeNativeResolution.height * this._scaleFactor;
 
       const savedPresetId = this.settingsService.getStringSetting('renderPreset') || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
@@ -244,8 +249,8 @@ export class StreamingGpuRendererService extends BaseService {
       }
 
       const config: WorkerRendererConfig = {
-        nativeWidth: nativeResolution.width,
-        nativeHeight: nativeResolution.height,
+        nativeWidth: activeNativeResolution.width,
+        nativeHeight: activeNativeResolution.height,
         targetWidth: this._targetWidth,
         targetHeight: this._targetHeight,
         scaleFactor: this._scaleFactor,
@@ -375,7 +380,7 @@ export class StreamingGpuRendererService extends BaseService {
     let imageBitmap: ImageBitmap | null = null;
 
     try {
-      imageBitmap = await createImageBitmap(videoElement, BITMAP_OPTIONS);
+      imageBitmap = await createImageBitmap(videoElement, this._bitmapOptions);
 
       const uniforms = this._getCachedUniforms();
 
@@ -404,6 +409,8 @@ export class StreamingGpuRendererService extends BaseService {
   _getCachedUniforms(): PipelineUniforms {
     if (this._cachedUniforms &&
         this._cachedPresetId === this._currentPresetId &&
+        this._cachedNativeWidth === this._nativeResolution.width &&
+        this._cachedNativeHeight === this._nativeResolution.height &&
         this._cachedScaleFactor === this._scaleFactor &&
         this._cachedTargetWidth === this._targetWidth &&
         this._cachedTargetHeight === this._targetHeight &&
@@ -413,8 +420,8 @@ export class StreamingGpuRendererService extends BaseService {
 
     const baseUniforms = buildUniforms({
       preset: this._currentPreset ?? PresetRegistry.getDefault(),
-      nativeWidth: NATIVE_WIDTH,
-      nativeHeight: NATIVE_HEIGHT,
+      nativeWidth: this._nativeResolution.width,
+      nativeHeight: this._nativeResolution.height,
       outputWidth: this._targetWidth,
       outputHeight: this._targetHeight,
       brightness: this._globalBrightness
@@ -422,6 +429,8 @@ export class StreamingGpuRendererService extends BaseService {
     this._cachedUniforms = baseUniforms;
 
     this._cachedPresetId = this._currentPresetId;
+    this._cachedNativeWidth = this._nativeResolution.width;
+    this._cachedNativeHeight = this._nativeResolution.height;
     this._cachedScaleFactor = this._scaleFactor;
     this._cachedTargetWidth = this._targetWidth;
     this._cachedTargetHeight = this._targetHeight;
@@ -473,13 +482,10 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {number} height - New height in CSS pixels
    */
   resize(width: number, height: number): void {
-    this._scaleFactor = Math.max(1, Math.floor(Math.min(
-      width / NATIVE_WIDTH,
-      height / NATIVE_HEIGHT
-    )));
+    this._scaleFactor = calculateNativeScaleFactor(this._nativeResolution, width, height);
 
-    this._targetWidth = NATIVE_WIDTH * this._scaleFactor;
-    this._targetHeight = NATIVE_HEIGHT * this._scaleFactor;
+    this._targetWidth = this._nativeResolution.width * this._scaleFactor;
+    this._targetHeight = this._nativeResolution.height * this._scaleFactor;
 
     if (this._workerManager.isReady()) {
       this._workerManager.sendCommand(WorkerMessageType.RESIZE, {

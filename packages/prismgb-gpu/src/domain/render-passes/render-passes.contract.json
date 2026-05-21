@@ -12,6 +12,63 @@
       "webgl2FragmentShader": "pixel-upscale.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "upscale",
+      "webgpuUniformLayout": {
+        "byteLength": 24,
+        "members": [
+          {
+            "name": "inputSize",
+            "type": "vec2<f32>",
+            "offsetBytes": 0,
+            "byteLength": 8,
+            "source": { "kind": "uniformField", "uniformField": "inputSize" }
+          },
+          {
+            "name": "outputSize",
+            "type": "vec2<f32>",
+            "offsetBytes": 8,
+            "byteLength": 8,
+            "source": { "kind": "uniformField", "uniformField": "outputSize" }
+          },
+          {
+            "name": "scaleFactor",
+            "type": "f32",
+            "offsetBytes": 16,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          },
+          {
+            "name": "_padding",
+            "type": "f32",
+            "offsetBytes": 20,
+            "byteLength": 4,
+            "source": { "kind": "constant", "value": 0 }
+          }
+        ]
+      },
+      "webgl2Uniforms": {
+        "texture": {
+          "name": "uSourceTex",
+          "method": "setUniform1i",
+          "source": { "kind": "constant", "value": 0 }
+        },
+        "additional": [
+          {
+            "name": "uSourceSize",
+            "method": "setUniform2f",
+            "source": { "kind": "uniformField", "uniformField": "inputSize" }
+          },
+          {
+            "name": "uTargetSize",
+            "method": "setUniform2f",
+            "source": { "kind": "uniformField", "uniformField": "outputSize" }
+          },
+          {
+            "name": "uScaleFactor",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          }
+        ]
+      },
       "sampler": "nearest",
       "outputsToCanvas": false
     },
@@ -39,6 +96,56 @@
       "webgl2FragmentShader": "unsharp-mask.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "unsharp",
+      "webgpuUniformLayout": {
+        "byteLength": 16,
+        "members": [
+          {
+            "name": "texelSize",
+            "type": "vec2<f32>",
+            "offsetBytes": 0,
+            "byteLength": 8,
+            "source": { "kind": "uniformField", "uniformField": "texelSize" }
+          },
+          {
+            "name": "strength",
+            "type": "f32",
+            "offsetBytes": 8,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "strength" }
+          },
+          {
+            "name": "scaleFactor",
+            "type": "f32",
+            "offsetBytes": 12,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          }
+        ]
+      },
+      "webgl2Uniforms": {
+        "texture": {
+          "name": "uInputTex",
+          "method": "setUniform1i",
+          "source": { "kind": "constant", "value": 0 }
+        },
+        "additional": [
+          {
+            "name": "uTexelSize",
+            "method": "setUniform2f",
+            "source": { "kind": "uniformField", "uniformField": "texelSize" }
+          },
+          {
+            "name": "uStrength",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "strength" }
+          },
+          {
+            "name": "uScaleFactor",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          }
+        ]
+      },
       "sampler": "linear",
       "outputsToCanvas": false
     },
@@ -54,6 +161,101 @@
       "webgl2FragmentShader": "color-elevation.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "color",
+      "webgpuUniformLayout": {
+        "byteLength": 32,
+        "members": [
+          {
+            "name": "gamma",
+            "type": "f32",
+            "offsetBytes": 0,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "gamma" }
+          },
+          {
+            "name": "saturation",
+            "type": "f32",
+            "offsetBytes": 4,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "saturation" }
+          },
+          {
+            "name": "greenBias",
+            "type": "f32",
+            "offsetBytes": 8,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "greenBias" }
+          },
+          {
+            "name": "brightness",
+            "type": "f32",
+            "offsetBytes": 12,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "brightness" }
+          },
+          {
+            "name": "contrast",
+            "type": "f32",
+            "offsetBytes": 16,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "contrast" }
+          },
+          {
+            "name": "_padding1",
+            "type": "f32",
+            "offsetBytes": 20,
+            "byteLength": 4,
+            "source": { "kind": "constant", "value": 0 }
+          },
+          {
+            "name": "_padding2",
+            "type": "f32",
+            "offsetBytes": 24,
+            "byteLength": 4,
+            "source": { "kind": "constant", "value": 0 }
+          },
+          {
+            "name": "_padding3",
+            "type": "f32",
+            "offsetBytes": 28,
+            "byteLength": 4,
+            "source": { "kind": "constant", "value": 0 }
+          }
+        ]
+      },
+      "webgl2Uniforms": {
+        "texture": {
+          "name": "uInputTex",
+          "method": "setUniform1i",
+          "source": { "kind": "constant", "value": 0 }
+        },
+        "additional": [
+          {
+            "name": "uGamma",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "gamma" }
+          },
+          {
+            "name": "uSaturation",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "saturation" }
+          },
+          {
+            "name": "uGreenBias",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "greenBias" }
+          },
+          {
+            "name": "uBrightness",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "brightness" }
+          },
+          {
+            "name": "uContrast",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "contrast" }
+          }
+        ]
+      },
       "sampler": "linear",
       "outputsToCanvas": false
     },
@@ -104,6 +306,104 @@
       "webgl2FragmentShader": "crt-lcd.frag.glsl",
       "webgl2VertexShader": "common.vert.glsl",
       "uniformBlock": "crt",
+      "webgpuUniformLayout": {
+        "byteLength": 32,
+        "members": [
+          {
+            "name": "resolution",
+            "type": "vec2<f32>",
+            "offsetBytes": 0,
+            "byteLength": 8,
+            "source": { "kind": "uniformField", "uniformField": "resolution" }
+          },
+          {
+            "name": "scaleFactor",
+            "type": "f32",
+            "offsetBytes": 8,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          },
+          {
+            "name": "scanlineStrength",
+            "type": "f32",
+            "offsetBytes": 12,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "scanlineStrength" }
+          },
+          {
+            "name": "pixelMaskStrength",
+            "type": "f32",
+            "offsetBytes": 16,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "pixelMaskStrength" }
+          },
+          {
+            "name": "bloomStrength",
+            "type": "f32",
+            "offsetBytes": 20,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "bloomStrength" }
+          },
+          {
+            "name": "curvature",
+            "type": "f32",
+            "offsetBytes": 24,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "curvature" }
+          },
+          {
+            "name": "vignetteStrength",
+            "type": "f32",
+            "offsetBytes": 28,
+            "byteLength": 4,
+            "source": { "kind": "uniformField", "uniformField": "vignetteStrength" }
+          }
+        ]
+      },
+      "webgl2Uniforms": {
+        "texture": {
+          "name": "uInputTex",
+          "method": "setUniform1i",
+          "source": { "kind": "constant", "value": 0 }
+        },
+        "additional": [
+          {
+            "name": "uResolution",
+            "method": "setUniform2f",
+            "source": { "kind": "uniformField", "uniformField": "resolution" }
+          },
+          {
+            "name": "uScaleFactor",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "scaleFactor" }
+          },
+          {
+            "name": "uScanlineStrength",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "scanlineStrength" }
+          },
+          {
+            "name": "uPixelMaskStrength",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "pixelMaskStrength" }
+          },
+          {
+            "name": "uBloomStrength",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "bloomStrength" }
+          },
+          {
+            "name": "uCurvature",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "curvature" }
+          },
+          {
+            "name": "uVignetteStrength",
+            "method": "setUniform1f",
+            "source": { "kind": "uniformField", "uniformField": "vignetteStrength" }
+          }
+        ]
+      },
       "sampler": "linear",
       "outputsToCanvas": true
     }

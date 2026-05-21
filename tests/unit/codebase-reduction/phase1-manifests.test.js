@@ -220,6 +220,14 @@ describe('Phase 1 manifests', () => {
     for (const pass of renderPassManifest.passes) {
       expect(pass.enabledWhen).toEqual(expect.objectContaining({ kind: expect.any(String) }));
       expect(typeof pass.enabledWhen).not.toBe('string');
+      expect(pass.webgpuUniformLayout).toEqual(expect.objectContaining({
+        byteLength: expect.any(Number),
+        members: expect.any(Array)
+      }));
+      expect(pass.webgl2Uniforms).toEqual(expect.objectContaining({
+        texture: expect.objectContaining({ name: expect.any(String), method: expect.any(String) }),
+        additional: expect.any(Array)
+      }));
       expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', pass.webgpuShader))).toBe(true);
       expect(fs.existsSync(path.join(projectRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders', pass.webgl2FragmentShader))).toBe(true);
     }

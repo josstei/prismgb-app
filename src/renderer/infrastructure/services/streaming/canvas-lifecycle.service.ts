@@ -6,6 +6,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
 
 class StreamingCanvasLifecycleService extends BaseService {
   constructor(dependencies) {
@@ -42,7 +43,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     const section = this.streamViewService.getCanvasSection();
     if (!canvas || !container || !section) return;
 
-    const resolution = nativeResolution || { width: 160, height: 144 };
+    const resolution = nativeResolution || getDefaultNativeResolution();
     this._nativeResolution = resolution;
     this._useGpuRenderer = useGpu;
 

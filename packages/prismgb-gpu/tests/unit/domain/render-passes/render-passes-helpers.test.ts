@@ -19,6 +19,21 @@ type WebGLUniformCall = {
   args: number[];
 };
 
+type ContractUniformSource = {
+  kind: 'constant';
+  value: number;
+} | {
+  kind: 'uniformField';
+  uniformBlock?: string;
+  uniformField: string;
+};
+
+type ContractWebGLUniformBinding = {
+  method: WebGLUniformCall['method'];
+  name: string;
+  source: ContractUniformSource;
+};
+
 const WEBGPU_UNIFORM_TYPE_BYTES: Record<string, number> = {
   'f32': 4,
   'vec2<f32>': 8
@@ -52,24 +67,50 @@ function callArgsFromBinding(bindingMethod: string, value: unknown): number[] {
   return [value as number];
 }
 
+function readContractUniformSource(
+  uniforms: PipelineUniforms,
+  source: ContractUniformSource,
+  defaultUniformBlock: string
+): unknown {
+  if (source.kind === 'constant') {
+    return source.value;
+  }
+
+  const uniformBlock = source.uniformBlock ?? defaultUniformBlock;
+  const blockValues = uniforms[uniformBlock as keyof PipelineUniforms] as unknown as Record<string, unknown>;
+  return blockValues[source.uniformField];
+}
+
+function contractWebGLBindings(pass: typeof RenderPassContract.passes[number]): ContractWebGLUniformBinding[] {
+  return [
+    pass.webgl2Uniforms.texture,
+    ...pass.webgl2Uniforms.additional
+  ] as ContractWebGLUniformBinding[];
+}
+
 function expectedWebGLCalls(uniforms: PipelineUniforms): WebGLUniformCall[] {
   const calls: WebGLUniformCall[] = [];
-  for (const pass of RENDER_PASS_HELPERS) {
-    const allBindings = [
-      pass.webgl.textureUniform,
-      ...pass.webgl.additionalUniforms
-    ];
+  const sortedPasses = [...RenderPassContract.passes].sort((left, right) => left.order - right.order);
 
-    for (const binding of allBindings) {
+  for (const pass of sortedPasses) {
+    for (const binding of contractWebGLBindings(pass)) {
+      const value = readContractUniformSource(uniforms, binding.source, pass.uniformBlock);
       calls.push({
         method: binding.method,
         name: binding.name,
-        args: callArgsFromBinding(binding.method, binding.readValue(uniforms))
+        args: callArgsFromBinding(binding.method, value)
       });
     }
   }
 
   return calls;
+}
+
+function extractWebGLUniformNames(shaderSource: string): string[] {
+  const sourceWithoutComments = shaderSource.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...sourceWithoutComments.matchAll(/^\s*uniform\s+\w+\s+(\w+)\s*;/gm)]
+    .map((match) => match[1])
+    .sort();
 }
 
 function makeWebGLProgramSpy() {
@@ -160,6 +201,45 @@ describe('RENDER_PASS_HELPERS', () => {
     }
   });
 
+  it('derives uniform layout and WebGL binding metadata from the render-pass contract', () => {
+    for (const contractPass of RenderPassContract.passes) {
+      const helper = RENDER_PASS_HELPERS.find((pass) => pass.passId === contractPass.id)!;
+
+      expect(helper.webgpu.layout.byteLength).toBe(contractPass.webgpuUniformLayout.byteLength);
+      expect(helper.webgpu.layout.members).toEqual(
+        contractPass.webgpuUniformLayout.members.map((member) => ({
+          ...member,
+          source: member.source.kind === 'uniformField'
+            ? {
+              ...member.source,
+              uniformBlock: 'uniformBlock' in member.source
+                ? member.source.uniformBlock
+                : contractPass.uniformBlock
+            }
+            : member.source
+        }))
+      );
+      expect([
+        helper.webgl.textureUniform,
+        ...helper.webgl.additionalUniforms
+      ].map((binding) => ({
+        method: binding.method,
+        name: binding.name,
+        source: binding.source
+      }))).toEqual(
+        contractWebGLBindings(contractPass).map((binding) => ({
+          ...binding,
+          source: binding.source.kind === 'uniformField'
+            ? {
+              ...binding.source,
+              uniformBlock: binding.source.uniformBlock ?? contractPass.uniformBlock
+            }
+            : binding.source
+        }))
+      );
+    }
+  });
+
   it('owns shader file routing through WebGPU and WebGL2 loaders', () => {
     const webgpuShaders = Object.keys(loadWebGPULoaders().byFileName).sort();
     const webgl2Shaders = Object.keys(loadWebGL2Loaders().byFileName).sort();
@@ -179,6 +259,20 @@ describe('RENDER_PASS_HELPERS', () => {
 
     expect(webgpuShaders).toEqual(passBasedWebGPUFiles);
     expect(webgl2Shaders).toEqual(expectedWebGL2Files);
+  });
+
+  it('keeps manifest WebGL uniform names aligned with GLSL declarations', () => {
+    const webgl2Shaders = loadWebGL2Loaders().byFileName;
+
+    for (const pass of RenderPassContract.passes) {
+      const shaderSource = webgl2Shaders[pass.webgl2FragmentShader];
+      expect(shaderSource).toBeTruthy();
+
+      const declaredUniforms = extractWebGLUniformNames(shaderSource);
+      const manifestUniforms = contractWebGLBindings(pass).map((binding) => binding.name).sort();
+
+      expect(manifestUniforms).toEqual(declaredUniforms);
+    }
   });
 
   it('maps all WebGL uniform setters and values from manifest bindings', () => {
