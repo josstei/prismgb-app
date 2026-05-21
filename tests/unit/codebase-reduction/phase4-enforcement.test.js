@@ -144,6 +144,30 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(mockDevice).toContain("from '../support/chromatic-device-specs.js'");
   });
 
+  it('keeps preload exposures and E2E device mocks on current manifest-owned contracts', () => {
+    const preloadIndex = readProjectFile('src/preload/index.js');
+    const preloadExposureFactory = readProjectFile('src/preload/exposure.factory.js');
+    const ipcManifest = readProjectJson('src/shared/ipc/ipc.manifest.json');
+    const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
+    const deviceStreamingSpec = readProjectFile('tests/e2e/device-streaming.spec.js');
+    const exposureCall = preloadIndex.match(/exposePreloadApis\(contextBridge,\s*\{([\s\S]*?)\n\}\);/);
+
+    expect(preloadIndex).toContain("from '@preload/exposure.factory.js'");
+    expect(preloadIndex).toContain('exposePreloadApis(contextBridge');
+    expect(preloadIndex).not.toMatch(/contextBridge\.exposeInMainWorld\('[^']+',\s*\{/);
+    expect(exposureCall).not.toBeNull();
+    for (const namespace of ipcManifest.namespaces) {
+      expect(exposureCall[1]).toMatch(new RegExp(`\\b${namespace.apiName}\\b`));
+    }
+    expect(preloadExposureFactory).toContain("from '@shared/ipc/ipc.manifest.json'");
+    expect(preloadExposureFactory).toContain('manifest.namespaces.map');
+    expect(preloadExposureFactory).toContain('namespace.exposedMethods.map');
+
+    expect(chromaticHelper).not.toMatch(/connectedCallbacks|disconnectedCallbacks/);
+    expect(chromaticHelper).not.toContain('Trigger deviceAPI callbacks');
+    expect(deviceStreamingSpec).not.toContain('deviceAPI callback tests are skipped');
+  });
+
   it('keeps Phase 6 shader source ownership discovered from package shader directories', () => {
     [
       'packages/prismgb-gpu/src/infrastructure/webgpu/webgpu-shader-loader.ts',

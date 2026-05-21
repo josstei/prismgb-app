@@ -146,7 +146,17 @@ function collectMainEventChannelValues(sourceText, eventManifest) {
   return collectEventManifestValues(eventManifest, 'main');
 }
 
-function extractPreloadExposures(sourceText) {
+function extractPreloadExposures(sourceText, ipcManifest = null) {
+  const usesManifestExposureFactory = sourceText.includes('@preload/exposure.factory.js')
+    && sourceText.includes('exposePreloadApis(contextBridge');
+
+  if (usesManifestExposureFactory) {
+    if (!ipcManifest) {
+      return {};
+    }
+    return collectIpcManifestMethods(ipcManifest);
+  }
+
   const exposeRegex = /contextBridge\.exposeInMainWorld\('([^']+)',\s*\{([\s\S]*?)\}\);/g;
   const exposures = {};
 
@@ -305,8 +315,17 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     actual: collectIpcManifestRequestEntries(manifests.ipc)
   }));
 
-  const currentPreloadExposures = extractPreloadExposures(readProjectText('src/preload/index.js'));
+  const preloadIndexSource = readProjectText('src/preload/index.js');
+  const currentPreloadExposures = extractPreloadExposures(preloadIndexSource, manifests.ipc);
   const manifestPreloadExposures = collectIpcManifestMethods(manifests.ipc);
+  checks.push(createDerivedSourceCheck({
+    name: 'preload index delegates exposure shape to manifest factory',
+    sourceText: preloadIndexSource,
+    requiredFragments: [
+      "@preload/exposure.factory.js",
+      "exposePreloadApis(contextBridge"
+    ]
+  }));
   checks.push(compareSortedValues({
     name: 'ipc manifest exposed API names match preload index',
     expected: Object.keys(currentPreloadExposures),

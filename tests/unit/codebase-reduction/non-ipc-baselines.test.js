@@ -278,6 +278,8 @@ describe('Phase 0 non-IPC contract baselines', () => {
     const settingsSpecSource = readProjectFile('tests/e2e/settings.spec.js');
     const streamingSpecSource = readProjectFile('tests/e2e/streaming-smoke.spec.js');
     const preloadSource = readProjectFile('src/preload/index.js');
+    const ipcManifest = JSON.parse(readProjectFile('src/shared/ipc/ipc.manifest.json'));
+    const deviceNamespace = ipcManifest.namespaces.find((namespace) => namespace.apiName === 'deviceAPI');
 
     expect(fixtureSource).toContain("waitForSelector('#streamContainer'");
     expect(fixtureSource).toContain("waitForSelector('#statusIndicator'");
@@ -297,8 +299,15 @@ describe('Phase 0 non-IPC contract baselines', () => {
     expect(readProjectFile('tests/e2e/device-streaming.spec.js')).toContain(
       "from './helpers/device-status.helper.js'"
     );
-    expect(preloadSource).toContain('onDeviceConnected: deviceAPI.onDeviceConnected');
-    expect(preloadSource).toContain('onDeviceDisconnected: deviceAPI.onDeviceDisconnected');
+    expect(deviceNamespace.exposedMethods).toEqual([
+      'getDeviceStatus',
+      'onDeviceConnected',
+      'onDeviceDisconnected'
+    ]);
+    expect(preloadSource).toContain('exposePreloadApis(contextBridge');
+    expect(preloadSource).toContain('deviceAPI,');
+    expect(preloadSource).not.toContain('onDeviceConnected: deviceAPI.onDeviceConnected');
+    expect(preloadSource).not.toContain('onDeviceDisconnected: deviceAPI.onDeviceDisconnected');
   });
 
   it('keeps E2E Chromatic media-device patches fully restorable', () => {

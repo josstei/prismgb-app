@@ -8,11 +8,12 @@ import {
 import { extractAliasKeysFromConfigSource } from '../../../scripts/lib/alias-config.js';
 
 describe('codebase phase 1 drift report', () => {
-  it('passes against the current hand-maintained surfaces', () => {
+  it('passes against the current manifest-owned surfaces', () => {
     const { report } = buildPhase1DriftReport();
 
     expect(report.status).toBe('pass');
     expect(report.checks.map((check) => check.name)).toContain('ipc channels manifest matches channels.json');
+    expect(report.checks.map((check) => check.name)).toContain('preload index delegates exposure shape to manifest factory');
     expect(report.checks.map((check) => check.name)).toContain('platform manifest labels match release build matrix');
     expect(report.checks.map((check) => check.name)).toContain('render pass manifest owns uniform upload metadata');
     expect(

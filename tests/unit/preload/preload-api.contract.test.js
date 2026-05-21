@@ -1,42 +1,30 @@
 import fs from 'fs';
 import path from 'path';
-import { describe, it, expect } from 'vitest';
-import channelsJson from '@shared/ipc/channels.json';
+import { describe, it, expect, vi } from 'vitest';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { createPreloadExposureMap, exposePreloadApis } from '@preload/exposure.factory.js';
 
-function readPreloadSource() {
-  const preloadPath = path.resolve(process.cwd(), 'src/preload/index.js');
-  return fs.readFileSync(preloadPath, 'utf8');
+function createApiImplementations(overrides = {}) {
+  return Object.fromEntries(
+    IpcContractManifest.namespaces.map((namespace) => [
+      namespace.apiName,
+      {
+        ...Object.fromEntries(
+          namespace.exposedMethods.map((methodName) => [methodName, vi.fn()])
+        ),
+        ...(overrides[namespace.apiName] || {})
+      }
+    ])
+  );
 }
 
-function extractExposedApis(source) {
-  const exposeRegex = /contextBridge\.exposeInMainWorld\('([^']+)',\s*\{([\s\S]*?)\}\);/g;
-  const apiMap = new Map();
-
-  for (const match of source.matchAll(exposeRegex)) {
-    const apiName = match[1];
-    const body = match[2];
-    const methods = [];
-
-    for (const methodMatch of body.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:/gm)) {
-      methods.push(methodMatch[1]);
-    }
-
-    apiMap.set(apiName, methods);
-  }
-
-  return apiMap;
-}
-
-function extractIpcChannelReferences(source) {
-  const refs = [];
-  const channelRefPattern = /IPC_CHANNELS\.([A-Z_]+)\.([A-Z_]+)/g;
-  for (const match of source.matchAll(channelRefPattern)) {
-    refs.push({
-      namespace: match[1],
-      key: match[2]
-    });
-  }
-  return refs;
+function getManifestExposureShape() {
+  return Object.fromEntries(
+    IpcContractManifest.namespaces.map((namespace) => [
+      namespace.apiName,
+      namespace.exposedMethods
+    ])
+  );
 }
 
 function readPreloadTypeSource() {
@@ -45,35 +33,54 @@ function readPreloadTypeSource() {
 }
 
 describe('Preload API contract', () => {
-  it('matches the expected preload exposure shape', () => {
-    const source = readPreloadSource();
-    const apiMap = extractExposedApis(source);
+  it('derives the preload exposure shape from the IPC manifest', () => {
+    const apiImplementations = createApiImplementations();
+    const exposureMap = createPreloadExposureMap(apiImplementations);
 
-    const expected = {
-      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected'],
-      shellAPI: ['openExternal'],
-      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen'],
-      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
-      metricsAPI: ['getProcessMetrics'],
-      gpuAPI: ['getPolicy'],
-      loginItemAPI: ['get', 'set'],
-      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
-    };
+    expect(Object.keys(exposureMap)).toEqual(
+      IpcContractManifest.namespaces.map((namespace) => namespace.apiName)
+    );
+    expect(Object.fromEntries(
+      Object.entries(exposureMap).map(([apiName, exposedApi]) => [
+        apiName,
+        Object.keys(exposedApi)
+      ])
+    )).toEqual(getManifestExposureShape());
 
-    expect(Array.from(apiMap.keys()).sort()).toEqual(Object.keys(expected).sort());
-
-    for (const [apiName, methods] of Object.entries(expected)) {
-      expect(apiMap.get(apiName)).toEqual(methods);
+    for (const namespace of IpcContractManifest.namespaces) {
+      for (const methodName of namespace.exposedMethods) {
+        expect(exposureMap[namespace.apiName][methodName]).toBe(
+          apiImplementations[namespace.apiName][methodName]
+        );
+      }
     }
   });
 
-  it('references only channels defined in channels.json', () => {
-    const source = readPreloadSource();
-    const refs = extractIpcChannelReferences(source);
+  it('fails fast when the manifest references an unimplemented preload method', () => {
+    const apiImplementations = createApiImplementations({
+      deviceAPI: { onDeviceDisconnected: undefined }
+    });
 
-    for (const { namespace, key } of refs) {
-      expect(channelsJson[namespace]).toBeDefined();
-      expect(channelsJson[namespace][key]).toBeDefined();
+    expect(() => createPreloadExposureMap(apiImplementations)).toThrow(
+      'Preload API deviceAPI.onDeviceDisconnected is not implemented'
+    );
+  });
+
+  it('exposes every manifest-owned preload API through contextBridge', () => {
+    const contextBridge = { exposeInMainWorld: vi.fn() };
+    const apiImplementations = createApiImplementations();
+
+    exposePreloadApis(contextBridge, apiImplementations);
+
+    expect(contextBridge.exposeInMainWorld).toHaveBeenCalledTimes(
+      IpcContractManifest.namespaces.length
+    );
+    expect(contextBridge.exposeInMainWorld.mock.calls.map(([apiName]) => apiName)).toEqual(
+      IpcContractManifest.namespaces.map((namespace) => namespace.apiName)
+    );
+
+    for (const [apiName, exposedApi] of contextBridge.exposeInMainWorld.mock.calls) {
+      expect(Object.keys(exposedApi)).toEqual(getManifestExposureShape()[apiName]);
     }
   });
 

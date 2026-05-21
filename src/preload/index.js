@@ -24,6 +24,7 @@ import {
   createGpuPreloadAPI,
   createLoginItemPreloadAPI
 } from '@preload/apis/inline.preload-api.js';
+import { exposePreloadApis } from '@preload/exposure.factory.js';
 
 const listenerRegistry = createListenerRegistry();
 
@@ -96,55 +97,13 @@ window.addEventListener('beforeunload', () => {
   transcodeAPI.dispose();
 });
 
-contextBridge.exposeInMainWorld('deviceAPI', {
-  getDeviceStatus: deviceAPI.getDeviceStatus,
-  onDeviceConnected: deviceAPI.onDeviceConnected,
-  onDeviceDisconnected: deviceAPI.onDeviceDisconnected
-});
-
-contextBridge.exposeInMainWorld('shellAPI', {
-  openExternal: shellAPI.openExternal
-});
-
-contextBridge.exposeInMainWorld('windowAPI', {
-  onEnterFullscreen: windowAPI.onEnterFullscreen,
-  onLeaveFullscreen: windowAPI.onLeaveFullscreen,
-  onResized: windowAPI.onResized,
-  setFullScreen: windowAPI.setFullScreen,
-  isFullScreen: windowAPI.isFullScreen
-});
-
-contextBridge.exposeInMainWorld('updateAPI', {
-  getStatus: updateAPI.getStatus,
-  checkForUpdates: updateAPI.checkForUpdates,
-  downloadUpdate: updateAPI.downloadUpdate,
-  installUpdate: updateAPI.installUpdate,
-  onAvailable: updateAPI.onAvailable,
-  onNotAvailable: updateAPI.onNotAvailable,
-  onProgress: updateAPI.onProgress,
-  onDownloaded: updateAPI.onDownloaded,
-  onError: updateAPI.onError
-});
-
-contextBridge.exposeInMainWorld('metricsAPI', {
-  getProcessMetrics: metricsAPI.getProcessMetrics
-});
-
-contextBridge.exposeInMainWorld('gpuAPI', {
-  getPolicy: gpuAPI.getPolicy
-});
-
-contextBridge.exposeInMainWorld('loginItemAPI', {
-  get: loginItemAPI.get,
-  set: loginItemAPI.set
-});
-
-contextBridge.exposeInMainWorld('transcodeAPI', {
-  start: transcodeAPI.start,
-  cancel: transcodeAPI.cancel,
-  getStatus: transcodeAPI.getStatus,
-  onProgress: transcodeAPI.onProgress,
-  onCompleted: transcodeAPI.onCompleted,
-  onError: transcodeAPI.onError,
-  onCancelled: transcodeAPI.onCancelled
+exposePreloadApis(contextBridge, {
+  deviceAPI,
+  shellAPI,
+  windowAPI,
+  updateAPI,
+  metricsAPI,
+  gpuAPI,
+  loginItemAPI,
+  transcodeAPI
 });

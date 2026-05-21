@@ -48,8 +48,6 @@ export async function injectMockChromaticDevice(page, options = {}) {
         testPattern,
         includeAudio,
         specs,
-        connectedCallbacks: [],
-        disconnectedCallbacks: [],
         deviceChangeListeners: [],
         _activeVideoStream: null,
         _activeAudioStream: null,
@@ -342,15 +340,6 @@ export async function simulateDeviceConnect(page) {
       serialNumber: 'MOCK-001',
     };
 
-    // Trigger deviceAPI callbacks
-    state.connectedCallbacks.forEach((cb) => {
-      try {
-        cb(state.deviceInfo);
-      } catch (e) {
-        console.error(e);
-      }
-    });
-
     // Trigger devicechange event
     const event = new Event('devicechange');
     state.deviceChangeListeners.forEach((listener) => {
@@ -384,15 +373,6 @@ export async function simulateDeviceDisconnect(page) {
     state.deviceInfo = null;
     state._activeVideoStream = null;
     state._activeAudioStream = null;
-
-    // Trigger deviceAPI callbacks
-    state.disconnectedCallbacks.forEach((cb) => {
-      try {
-        cb();
-      } catch (e) {
-        console.error(e);
-      }
-    });
 
     // Trigger devicechange event
     const event = new Event('devicechange');

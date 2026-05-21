@@ -79,11 +79,6 @@ test.describe('Device Streaming with Mock Device', () => {
     expect(mockStatus.deviceInfo).toBeNull();
   });
 
-  // NOTE: deviceAPI callback tests are skipped because contextBridge.exposeInMainWorld
-  // creates non-configurable properties that cannot be replaced from the renderer context.
-  // The mock focuses on navigator.mediaDevices which CAN be mocked.
-  // For real device connection testing, use integration tests with actual USB devices.
-
   test('should enumerate mock device in media devices', async ({ window }) => {
     await waitForAppReady(window);
 

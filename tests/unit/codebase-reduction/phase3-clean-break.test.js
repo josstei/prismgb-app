@@ -5,7 +5,8 @@ import {
   getShaderDuplicateStatus
 } from '../../../scripts/codebase-size-report.js';
 import {
-  extractPreloadExposures
+  extractPreloadExposures,
+  loadManifests
 } from '../../../scripts/codebase-phase1-drift-report.js';
 
 const projectRoot = process.cwd();
@@ -71,7 +72,10 @@ describe('Phase 3 clean-break consolidation', () => {
   });
 
   it('does not expose obsolete preload listener cleanup or old public listener names', () => {
-    const exposures = extractPreloadExposures(readProjectFile('src/preload/index.js'));
+    const exposures = extractPreloadExposures(
+      readProjectFile('src/preload/index.js'),
+      loadManifests().ipc
+    );
     const exposedMethods = Object.values(exposures).flat();
 
     expect(exposures.deviceAPI).toEqual([
