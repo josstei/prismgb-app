@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
+import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('SettingsService', () => {
   let service;
@@ -49,7 +50,7 @@ describe('SettingsService', () => {
 
   afterEach(() => {
     localStorageMock.clear();
-    delete window.loginItemAPI;
+    clearPreloadApi('loginItemAPI');
   });
 
   describe('manifest contract', () => {
@@ -163,7 +164,7 @@ describe('SettingsService', () => {
 
   describe('launchOnLogin', () => {
     it('queries loginItemAPI through getSetting when available', async () => {
-      window.loginItemAPI = { get: vi.fn(() => Promise.resolve(true)), set: vi.fn() };
+      setPreloadApi('loginItemAPI', { get: vi.fn(() => Promise.resolve(true)), set: vi.fn() });
 
       const result = await service.getSetting('launchOnLogin');
 
@@ -179,7 +180,7 @@ describe('SettingsService', () => {
     });
 
     it('updates loginItemAPI and cache through setSetting', async () => {
-      window.loginItemAPI = { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) };
+      setPreloadApi('loginItemAPI', { get: vi.fn(), set: vi.fn(() => Promise.resolve({ success: true })) });
 
       await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(true);
 

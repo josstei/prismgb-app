@@ -53,8 +53,7 @@ screenshots/
 *.mp4
 *.webm
 
-# Test coverage
-tests/coverage/
+# Test coverage and generated reports
 .vitest/
 artifacts/
 

@@ -132,7 +132,7 @@ describe('WindowService', () => {
       windowService.createWindow();
 
       expect(windowService.mainWindow.loadURL).toHaveBeenCalledWith(
-        'http://localhost:3000/src/renderer/index.html'
+        'http://127.0.0.1:3000/src/renderer/index.html'
       );
     });
 

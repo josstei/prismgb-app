@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
 import { UpdateState } from '@shared/config/update-state.config';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('UpdateService', () => {
   let service;
@@ -43,7 +44,7 @@ describe('UpdateService', () => {
       onError: vi.fn(() => vi.fn())
     };
 
-    global.window = { updateAPI: mockUpdateAPI };
+    setPreloadApi('updateAPI', mockUpdateAPI);
 
     service = new UpdateService({
       eventBus: mockEventBus,
@@ -53,7 +54,7 @@ describe('UpdateService', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-    delete global.window;
+    clearPreloadApi('updateAPI');
   });
 
   describe('constructor', () => {
@@ -103,7 +104,7 @@ describe('UpdateService', () => {
     });
 
     it('should warn if updateAPI not available', async () => {
-      delete global.window.updateAPI;
+      clearPreloadApi('updateAPI');
 
       await service.initialize();
 
@@ -212,7 +213,7 @@ describe('UpdateService', () => {
     });
 
     it('should return error if updateAPI not available', async () => {
-      delete global.window.updateAPI;
+      clearPreloadApi('updateAPI');
 
       const result = await service.checkForUpdates();
 
@@ -256,7 +257,7 @@ describe('UpdateService', () => {
     });
 
     it('should return error if updateAPI not available', async () => {
-      delete global.window.updateAPI;
+      clearPreloadApi('updateAPI');
 
       const result = await service.downloadUpdate();
 
@@ -298,7 +299,7 @@ describe('UpdateService', () => {
     });
 
     it('should return error if updateAPI not available', async () => {
-      delete global.window.updateAPI;
+      clearPreloadApi('updateAPI');
 
       const result = await service.installUpdate();
 

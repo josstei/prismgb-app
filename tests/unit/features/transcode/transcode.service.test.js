@@ -6,6 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import {
+  clearPreloadApi,
+  resetPreloadApis,
+  setPreloadApi
+} from '../../../support/mocks/preload-api-globals.js';
 
 describe('TranscodeService', () => {
   let service;
@@ -44,15 +49,14 @@ describe('TranscodeService', () => {
       onCancelled: vi.fn().mockReturnValue(vi.fn())
     };
 
-    // Set up window.transcodeAPI
-    global.window = { transcodeAPI: mockTranscodeAPI };
+    setPreloadApi('transcodeAPI', mockTranscodeAPI);
 
     vi.clearAllMocks();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete global.window;
+    resetPreloadApis();
   });
 
   describe('Constructor', () => {
@@ -132,7 +136,7 @@ describe('TranscodeService', () => {
     });
 
     it('should warn and skip if transcodeAPI is not available', () => {
-      global.window = {};
+      clearPreloadApi('transcodeAPI');
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -230,7 +234,7 @@ describe('TranscodeService', () => {
     });
 
     it('should return error if transcodeAPI is not available', async () => {
-      global.window = {};
+      clearPreloadApi('transcodeAPI');
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -279,7 +283,7 @@ describe('TranscodeService', () => {
     });
 
     it('should return error if transcodeAPI is not available', async () => {
-      global.window = {};
+      clearPreloadApi('transcodeAPI');
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -323,7 +327,7 @@ describe('TranscodeService', () => {
     });
 
     it('should return false when transcodeAPI is missing', () => {
-      global.window = {};
+      clearPreloadApi('transcodeAPI');
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -519,7 +523,7 @@ describe('TranscodeService', () => {
     });
 
     it('should be safe when transcodeAPI is missing', () => {
-      global.window = {};
+      clearPreloadApi('transcodeAPI');
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory

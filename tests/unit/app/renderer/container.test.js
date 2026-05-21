@@ -7,6 +7,7 @@ import {
   initializeContainer,
   resetContainer
 } from '@renderer/application/container.ts';
+import { clearPreloadApi, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
 
 const expectedRegistrationKeys = [
   'eventBus',
@@ -78,7 +79,7 @@ const expectedRegistrationKeys = [
 
 describe('Renderer container', () => {
   beforeEach(() => {
-    window.deviceAPI = { test: true };
+    setPreloadApi('deviceAPI', { test: true });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -87,7 +88,7 @@ describe('Renderer container', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetContainer();
-    window.deviceAPI = undefined;
+    clearPreloadApi('deviceAPI');
   });
 
   it('creates renderer container with expected descriptor registrations', () => {

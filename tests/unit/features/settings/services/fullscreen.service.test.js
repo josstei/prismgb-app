@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('SettingsFullscreenService', () => {
   let service;
@@ -71,8 +72,7 @@ describe('SettingsFullscreenService', () => {
       }
     };
 
-    // Setup global mocks
-    global.window = { windowAPI: mockWindowAPI };
+    setPreloadApi('windowAPI', mockWindowAPI);
     global.document = mockDocument;
 
     // Create service (no longer requires uiController - auto-hide moved to UIEventBridge)
@@ -86,6 +86,7 @@ describe('SettingsFullscreenService', () => {
     vi.restoreAllMocks();
     enterFullscreenCallback = null;
     leaveFullscreenCallback = null;
+    clearPreloadApi('windowAPI');
   });
 
   describe('constructor', () => {
@@ -128,7 +129,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should handle missing windowAPI gracefully', () => {
-      global.window.windowAPI = undefined;
+      clearPreloadApi('windowAPI');
       const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
@@ -176,7 +177,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should handle dispose without windowAPI', () => {
-      global.window.windowAPI = undefined;
+      clearPreloadApi('windowAPI');
       const serviceWithoutAPI = new SettingsFullscreenService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory

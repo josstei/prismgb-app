@@ -19,7 +19,7 @@ const sharedAlias = {
 
 const baseCoverageConfig = {
   provider: 'v8',
-  reporter: ['text', 'json', 'html'],
+  reporter: ['text', 'json', 'json-summary', 'html'],
   reportsDirectory: './artifacts/coverage',
   all: true,
   include: ['src/**/*.{js,ts}'],

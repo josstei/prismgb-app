@@ -8,10 +8,10 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 ## Execution Status
 
-Last updated: 2026-05-19
+Last updated: 2026-05-21
 
-- Status: Phase 3 implementation complete on branch `refactor/codebase-reduction-phase-3`; clean-break audit applied and ready for review before Phase 4.
-- Completed phase: Phase 3, High-Impact Consolidation.
+- Status: Phase 4 enforcement and ratchets are implemented on branch `codex/codebase-reduction-phase-4`; the Phase 0/4 clean-break audit is current in this plan instead of a separate stale audit artifact.
+- Completed phase: Phase 4, Enforcement And Ratchets.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
 - Verification at Phase 0 commit:
@@ -52,7 +52,16 @@ Last updated: 2026-05-19
   - Vitest is split into explicit `shared-node`, `renderer-happy-dom`, `main-preload`, and `gpu-package` projects; browser API mocks moved to project-scoped installers and the lazy/global sandbox helpers were deleted.
   - Runtime `channels.json` imports now use one import style across main/preload sources so Vite cannot emit mixed JSON import-attribute warnings during dev builds.
   - The device preload factory now uses the current `getDeviceStatus`, `onDeviceConnected`, and `onDeviceDisconnected` names internally; the old listener method names are no longer public or internal compatibility surfaces.
-  - The stale Phase 0/1 audit artifact was replaced with `CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md`, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
+  - The stale Phase 0/1 audit artifact was retired into this implementation plan, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
+- Phase 4 delivered:
+  - `scripts/architecture-scorecard.js` now enforces no unexpected hand-maintained contract files, no renderer shader duplicate files, no shader divergence, no runtime JS plus `.d.ts` twins, no JS/`.d.ts` leftovers in `src/shared/base` or `src/shared/interfaces`, no inline canonical preload API mocks, and no alias/platform drift outside manifests.
+  - `src/shared/base/*` and `src/shared/interfaces/*` completed the JS plus `.d.ts` twin cutover to TypeScript sources; the old runtime/declaration files were deleted rather than kept as compatibility shims.
+  - `scripts/typecheck-app.js` and `scripts/type-debt-allowlist.json` enforce strict TypeScript debt with expiring, owned allowlist metadata; stale or overflowed buckets fail the gate.
+  - `scripts/coverage-ratchet.js` and `scripts/coverage-thresholds.json` enforce owned, expiring coverage ratchets by runtime area/project, with the main/preload gap explicitly report-only until a dedicated Electron-runtime coverage artifact exists.
+  - Generated and local artifact cleanup is cut to current ignored outputs under `artifacts/**`, `.vitest`, and Playwright result directories; the old `tests/coverage` cleanup and ignore path was removed.
+  - `npm run dev:smoke` starts `npm run dev` on explicit IPv4 localhost, captures startup output, fails on renderer errors, Awilix missing-token failures, and Vite JSON import-attribute warnings, then tears down the process tree.
+  - `npm run release:preflight` and `.github/workflows/reusable-ci-tests.yml` run native ABI checks, architecture thresholds, manifest drift checks, strict type debt checks, coverage plus coverage ratchets, and dev boot preflight before release readiness.
+  - `tests/unit/codebase-reduction/phase4-enforcement.test.js` guards the Phase 4 clean-break requirements so the old paths and future-phase status cannot drift back in.
 - Verification for Phase 1:
   - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
   - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
@@ -87,7 +96,17 @@ Last updated: 2026-05-19
   - The focused Phase 0-3 audit loop was run 5 times; each pass verified manifest drift, size/shader ownership, obsolete source-name absence, deleted legacy-path absence, and the Phase 3 clean-break regression test.
   - `npm run dev` was run until the renderer logged `Renderer application started successfully`; the prior `uiEffects -> elements` Awilix resolution failure is covered by container tests.
   - Dev build output was rechecked after aligning `channels.json` imports; the prior Vite mixed JSON import-attribute warning is covered by the runtime IPC import-style test.
-- Next phase when resumed: Phase 4, Enforcement And Ratchets.
+- Verification for Phase 4:
+  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
+  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 4 enforcement gates.
+  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
+  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero unexpected contract files, zero renderer shader duplicate files, zero runtime JS plus `.d.ts` twins, zero shared base/interface JS or `.d.ts` leftovers, zero inline canonical preload mocks, and zero alias/platform drift.
+  - `npm run codebase:phase1 -- --json` exits 0 and all manifest drift checks pass, including IPC/preload, event, settings, device, render-pass, architecture alias, and platform build matrix ownership.
+  - `npm run codebase:size -- --json` exits 0 and reports tracked source separately from current ignored artifact buckets without the old `tests/coverage` artifact path.
+  - `npm run architecture:type-debt:check` exits 0 with strict mode enabled, owned expiring allowlist metadata, and no stale type-debt buckets.
+  - `npm run test:run -- tests/unit/codebase-reduction/phase-ci-gates.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/codebase-reduction/phase4-enforcement.test.js tests/unit/scripts/architecture-scorecard.test.js tests/unit/scripts/clean-generated.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/coverage-ratchet.test.js tests/unit/scripts/dev-boot-smoke.test.js tests/unit/scripts/typecheck-app.test.js` exits 0 for the focused Phase 0/4 clean-break audit suite.
+  - `npm run test:coverage` followed by `npm run coverage:ratchet` exits 0, proving coverage artifacts are generated under `artifacts/coverage` and the Phase 4 ratchet policy is enforced.
+  - `xvfb-run -a npm run dev:smoke` is the CI form of the dev boot preflight; `npm run dev:smoke` is the local equivalent.
 
 ## Phase 0 Grounding Snapshot
 

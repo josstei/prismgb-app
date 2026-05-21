@@ -8,13 +8,29 @@
     "noImplicitAny": true,
     "strictNullChecks": true,
     "anyOccurrenceCountMax": 23,
-    "topRuntimeFileLocMax": 700
+    "topRuntimeFileLocMax": 700,
+    "unexpectedContractFileCountMax": 0,
+    "shaderDuplicateDivergenceCountMax": 0,
+    "shaderDuplicateFileCountMax": 0,
+    "runtimeJsDtsTwinCountMax": 0,
+    "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
+    "inlineCanonicalMockAssignmentCountMax": 0,
+    "aliasManifestDriftCountMax": 0,
+    "platformManifestDriftCountMax": 0
   },
   "nextReleaseTargets": {
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "anyOccurrenceCountMax": 0,
+    "unexpectedContractFileCountMax": 0,
+    "shaderDuplicateDivergenceCountMax": 0,
+    "shaderDuplicateFileCountMax": 0,
+    "runtimeJsDtsTwinCountMax": 0,
+    "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
+    "inlineCanonicalMockAssignmentCountMax": 0,
+    "aliasManifestDriftCountMax": 0,
+    "platformManifestDriftCountMax": 0,
     "topRuntimeFileLocMax": 700
   }
 }
