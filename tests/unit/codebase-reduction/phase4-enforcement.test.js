@@ -129,6 +129,7 @@ describe('Phase 4 clean-break enforcement', () => {
     [
       'tests/contracts/event-contracts.js',
       'tests/contracts/index.js',
+      'tests/e2e/helpers/ipc-mock.js',
       'tests/e2e/mocks/mock-chromatic-device.js',
       'tests/e2e/mocks/index.js'
     ].forEach(expectMissing);
@@ -141,6 +142,19 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(electronFixture).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
     expect(chromaticHelper).toContain("from '../../support/chromatic-device-specs.js'");
     expect(mockDevice).toContain("from '../support/chromatic-device-specs.js'");
+  });
+
+  it('keeps Phase 6 shader source ownership discovered from package shader directories', () => {
+    [
+      'packages/prismgb-gpu/src/infrastructure/webgpu/webgpu-shader-loader.ts',
+      'packages/prismgb-gpu/src/infrastructure/webgl2/webgl2-shader-loader.ts'
+    ].forEach((relativePath) => {
+      const loaderSource = readProjectFile(relativePath);
+
+      expect(loaderSource).toContain('import.meta.glob');
+      expect(loaderSource).not.toMatch(/import\s+\w+\s+from\s+['"]\.\/shaders\/[^'"]+\?raw['"]/);
+      expect(loaderSource).not.toMatch(/['"][^'"]+\.(?:wgsl|glsl)['"]\s*:/);
+    });
   });
 
   it('uses streaming-mode as the single streaming body-state contract', () => {

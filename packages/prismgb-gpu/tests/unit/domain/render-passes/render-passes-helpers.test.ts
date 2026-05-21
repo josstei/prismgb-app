@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { RenderPassContract } from '@/domain/render-passes/render-passes.contract';
 import {
@@ -12,6 +15,12 @@ import { loadShaders as loadWebGL2Loaders } from '@/infrastructure/webgl2/webgl2
 import type { PipelineUniforms } from '@/domain/shaders';
 
 PresetRegistry.registerMany(BUILT_IN_PRESETS);
+
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+
+function readPackageSource(relativePath: string): string {
+  return fs.readFileSync(path.join(packageRoot, relativePath), 'utf8');
+}
 
 type WebGLUniformCall = {
   method: 'setUniform1i' | 'setUniform1f' | 'setUniform2f';
@@ -259,6 +268,19 @@ describe('RENDER_PASS_HELPERS', () => {
 
     expect(webgpuShaders).toEqual(passBasedWebGPUFiles);
     expect(webgl2Shaders).toEqual(expectedWebGL2Files);
+  });
+
+  it('discovers shader loader maps instead of hand-maintaining pass file lists', () => {
+    const loaderSources = [
+      readPackageSource('src/infrastructure/webgpu/webgpu-shader-loader.ts'),
+      readPackageSource('src/infrastructure/webgl2/webgl2-shader-loader.ts')
+    ];
+
+    for (const loaderSource of loaderSources) {
+      expect(loaderSource).toContain('import.meta.glob');
+      expect(loaderSource).not.toMatch(/import\s+\w+\s+from\s+['"]\.\/shaders\/[^'"]+\?raw['"]/);
+      expect(loaderSource).not.toMatch(/['"][^'"]+\.(?:wgsl|glsl)['"]\s*:/);
+    }
   });
 
   it('keeps manifest WebGL uniform names aligned with GLSL declarations', () => {

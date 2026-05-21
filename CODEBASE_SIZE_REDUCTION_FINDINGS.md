@@ -982,7 +982,7 @@ Current repetition:
 
 - Device specs repeat across unit mocks, fixtures, E2E helpers, and browser-injected mocks.
 - VID/PID, native resolution, device labels, stream settings, and media constraints appear in multiple files.
-- `tests/e2e/helpers/ipc-mock.js` now derives USB IDs from shared Chromatic E2E specs and no longer calls obsolete device callback names.
+- The stale `tests/e2e/helpers/ipc-mock.js` helper is retired; active E2E Chromatic helpers derive USB IDs from shared Chromatic E2E specs and no longer call obsolete device callback names.
 - `mock-chromatic.helper.js` now restores media-device event listener patches during cleanup, matching its stored original method set.
 
 Recommended end state:

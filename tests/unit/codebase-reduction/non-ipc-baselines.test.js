@@ -277,7 +277,6 @@ describe('Phase 0 non-IPC contract baselines', () => {
     const fixtureSource = readProjectFile('tests/e2e/fixtures/electron.fixture.js');
     const settingsSpecSource = readProjectFile('tests/e2e/settings.spec.js');
     const streamingSpecSource = readProjectFile('tests/e2e/streaming-smoke.spec.js');
-    const ipcMockSource = readProjectFile('tests/e2e/helpers/ipc-mock.js');
     const preloadSource = readProjectFile('src/preload/index.js');
 
     expect(fixtureSource).toContain("waitForSelector('#streamContainer'");
@@ -291,8 +290,13 @@ describe('Phase 0 non-IPC contract baselines', () => {
     expect(streamingSpecSource).toContain("window.locator('#streamCanvas')");
     expect(streamingSpecSource).toContain("window.locator('#shaderBtn')");
 
-    expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onConnected/);
-    expect(ipcMockSource).not.toMatch(/window\.deviceAPI\?\.onDisconnected/);
+    expect(fs.existsSync(path.join(projectRoot, 'tests/e2e/helpers/ipc-mock.js'))).toBe(false);
+    expect(readProjectFile('tests/e2e/device-connection.spec.js')).toContain(
+      "from './helpers/device-status.helper.js'"
+    );
+    expect(readProjectFile('tests/e2e/device-streaming.spec.js')).toContain(
+      "from './helpers/device-status.helper.js'"
+    );
     expect(preloadSource).toContain('onDeviceConnected: deviceAPI.onDeviceConnected');
     expect(preloadSource).toContain('onDeviceDisconnected: deviceAPI.onDeviceDisconnected');
   });

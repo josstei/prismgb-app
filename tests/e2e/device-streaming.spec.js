@@ -23,7 +23,7 @@ import {
   TestPatterns,
   CHROMATIC_SPECS,
 } from './helpers/mock-chromatic.helper.js';
-import { getDeviceStatus } from './helpers/ipc-mock.js';
+import { getDeviceStatus } from './helpers/device-status.helper.js';
 
 function createChromaticStatusDevice(overrides = {}) {
   return {

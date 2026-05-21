@@ -71,9 +71,10 @@ Last updated: 2026-05-21
 - Phase 6 delivered:
   - `packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json` now declares pass canvas-output ownership and package-owned enablement conditions for pixel upscale, unsharp mask, color elevation, and CRT/LCD.
   - `render-passes-helpers.ts` derives typed WebGPU uniform buffer layouts, WebGPU uniform payload builders, WebGL uniform setter metadata, pass lookup maps, and preset enablement from the render-pass contract without runtime expression compilation.
-  - WebGPU and WebGL2 shader loaders now expose manifest-keyed shader source maps, so backend pipelines no longer hard-code shader filename fields outside the pass contract.
+  - WebGPU and WebGL2 shader loaders now discover package shader files with `import.meta.glob()` and expose manifest-keyed shader source maps, so backend pipelines no longer hard-code shader filename fields outside the pass contract.
   - WebGPU and WebGL2 pipelines now iterate enabled render-pass descriptors from the shared helpers instead of maintaining duplicated hand-written pass sequences.
   - WebGL2 ping-pong output ownership is covered by a regression test that verifies multi-pass presets blit from the most recent non-canvas framebuffer when CRT output is disabled.
+  - The stale E2E `ipc-mock.js` helper was retired; E2E status reads now use a UI-only device status helper, while active device/media IPC test seams remain owned by the Electron fixture and Chromatic helper.
 - Verification for Phase 1:
   - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
   - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
@@ -760,7 +761,7 @@ Grounded repo truth:
 - Built-in device identity is in `src/shared/features/devices/device.registry.js`.
 - Chromatic constants are in `src/shared/features/devices/profiles/chromatic/device-chromatic.config.js`.
 - Renderer adapters, CSS, tests, and E2E helpers still repeat native resolution, labels, and capability assumptions.
-- `tests/e2e/helpers/ipc-mock.js` now derives Chromatic USB IDs from the shared E2E Chromatic specs.
+- The stale `tests/e2e/helpers/ipc-mock.js` helper is retired; active E2E Chromatic device mocks derive metadata from the shared E2E Chromatic specs and the device status helper remains UI-only.
 
 Long-term target:
 
@@ -1769,7 +1770,7 @@ Expected outcome:
 Grounded repo truth:
 
 - Unit mocks, fixtures, E2E helpers, and browser-injected mocks repeat Chromatic VID/PID, native resolution, labels, stream settings, and media constraints.
-- `tests/e2e/helpers/ipc-mock.js` now uses production-aligned VID/PID values and current preload names.
+- The retired `tests/e2e/helpers/ipc-mock.js` no longer carries duplicate device/API mocks; current E2E Chromatic helpers use production-aligned VID/PID values and current preload names.
 - `mock-chromatic.helper.js` now restores the media-device listener patches it stores during setup.
 
 Long-term target:
@@ -1787,7 +1788,7 @@ Phases and tasks:
   - Add cleanup tests for media device listener restoration.
 - Phase 1: Generate serialized test data.
   - Emit JSON-safe Chromatic specs from the device manifest for Playwright browser contexts.
-  - Replace constants in `ipc-mock.js` and `mock-chromatic.helper.js`.
+  - Keep the retired `ipc-mock.js` helper absent and replace constants in `mock-chromatic.helper.js`.
 - Phase 2: Generate unit fixtures.
   - Replace `tests/mocks/MockDevice.js`, factories, and settings/media fixtures where values duplicate manifest data.
 - Phase 3: Integrate with E2E fixtures.

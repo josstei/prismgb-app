@@ -9,7 +9,7 @@
  */
 
 import { test, expect, waitForAppReady } from './fixtures/electron.fixture.js';
-import { getDeviceStatus } from './helpers/ipc-mock.js';
+import { getDeviceStatus } from './helpers/device-status.helper.js';
 
 test.describe('Device Connection', () => {
   test('should show disconnected state initially', async ({ window }) => {
