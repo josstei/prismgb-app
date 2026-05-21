@@ -5,7 +5,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 const DEFAULT_ALLOWLIST_PATH = 'scripts/type-debt-allowlist.json';
-const DEFAULT_EXPIRY_DATE = '2026-04-30';
+const DEFAULT_EXPIRY_DATE = '2026-12-31';
 const DEFAULT_OWNER = 'platform:type-safety';
 
 function parseArgs(argv) {
@@ -425,7 +425,7 @@ function main() {
     }
   }
 
-  const hasFailures = unexpected.length > 0 || overflow.length > 0 || expired.length > 0;
+  const hasFailures = unexpected.length > 0 || overflow.length > 0 || expired.length > 0 || stale.length > 0;
 
   printFindingSummary(
     'Unexpected strict diagnostics (not allowlisted)',
@@ -441,6 +441,11 @@ function main() {
     'Expired allowlist entries',
     expired,
     (entry) => `${entry.file} ${entry.code}: expiresOn=${entry.expiresOn}`
+  );
+  printFindingSummary(
+    'Stale strict diagnostics allowlist entries',
+    stale,
+    (entry) => `${entry.file} ${entry.code}: max ${entry.maxCount}, actual ${entry.actualCount}`
   );
 
   if (hasFailures) {

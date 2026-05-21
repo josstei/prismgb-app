@@ -13,6 +13,10 @@ function readProjectJson(relativePath) {
   return JSON.parse(readProjectFile(relativePath));
 }
 
+function projectPath(relativePath) {
+  return path.join(projectRoot, relativePath);
+}
+
 describe('Phase 4 clean-break enforcement', () => {
   it('records Phase 4 as current delivered work instead of future work', () => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
@@ -58,5 +62,15 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(typeDebt.entries.every((entry) => entry.expiresOn)).toBe(true);
     expect(coverageThresholds.mode).toBe('enforce');
     expect(coverageThresholds.targets.every((target) => target.owner && target.expiresOn)).toBe(true);
+  });
+
+  it('keeps asset module typings current without legacy shim naming', () => {
+    expect(fs.existsSync(projectPath('src/types/legacy-js-modules.d.ts'))).toBe(false);
+    expect(fs.existsSync(projectPath('src/types/asset-modules.d.ts'))).toBe(true);
+
+    const assetModules = readProjectFile('src/types/asset-modules.d.ts');
+
+    expect(assetModules).toContain("declare module '*.svg?raw'");
+    expect(assetModules).not.toMatch(/legacy|compat/i);
   });
 });

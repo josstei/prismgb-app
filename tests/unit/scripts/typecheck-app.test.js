@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  compareDiagnosticsToAllowlist,
   ensureIsoDate,
   loadAllowlist,
   parseArgs,
@@ -25,6 +26,13 @@ afterEach(() => {
 });
 
 describe('typecheck-app', () => {
+  it('defaults allowlist writes to the current Phase 4 expiry window', () => {
+    const options = parseArgs(['--write-allowlist', 'tmp/allowlist.json']);
+
+    expect(options.defaultExpiresOn).toBe('2026-12-31');
+    validateAllowlistWriteOptions(options, '2026-05-21');
+  });
+
   it('parses explicit allowlist expiry options for writes', () => {
     expect(
       parseArgs([
@@ -129,5 +137,29 @@ describe('typecheck-app', () => {
       owner: 'platform:shared',
       expiresOn: '2026-12-31'
     });
+  });
+
+  it('treats stale allowlist buckets as reducible debt that must fail the gate', () => {
+    const findings = compareDiagnosticsToAllowlist(
+      new Map([['src/shared/example.ts::TS7006', 1]]),
+      [
+        {
+          file: 'src/shared/example.ts',
+          code: 'TS7006',
+          maxCount: 2,
+          owner: 'platform:shared',
+          expiresOn: '2026-12-31'
+        }
+      ]
+    );
+
+    expect(findings.stale).toEqual([
+      {
+        file: 'src/shared/example.ts',
+        code: 'TS7006',
+        maxCount: 2,
+        actualCount: 1
+      }
+    ]);
   });
 });
