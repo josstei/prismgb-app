@@ -37,6 +37,7 @@ function createMetrics(overrides = {}) {
     totalContractLikeFiles: 13,
     unexpectedContractFiles: [],
     shaderDuplicateDivergenceCount: 0,
+    shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
@@ -148,6 +149,7 @@ describe('evaluateThresholds', () => {
       inlineCanonicalMockAssignmentCountMax: 0,
       unexpectedContractFileCountMax: 0,
       shaderDuplicateDivergenceCountMax: 0,
+      shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -166,6 +168,7 @@ describe('evaluateThresholds', () => {
     const metrics = createMetrics({
       unexpectedContractFileCount: 1,
       shaderDuplicateDivergenceCount: 1,
+      shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       aliasManifestDriftCount: 1,
@@ -174,6 +177,7 @@ describe('evaluateThresholds', () => {
     const limits = {
       unexpectedContractFileCountMax: 0,
       shaderDuplicateDivergenceCountMax: 0,
+      shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
@@ -182,10 +186,11 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(6);
+    expect(evaluation.failures).toHaveLength(7);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
+      'shaderDuplicateFileCount',
       'runtimeJsDtsTwinCount',
       'inlineCanonicalMockAssignmentCount',
       'aliasManifestDriftCount',
@@ -271,6 +276,7 @@ describe('phase 4 enforcement metrics', () => {
   it('detects shader duplicate divergence introduced by mismatched copies', () => {
     const baseline = collectShaderDuplicateMetrics(process.cwd());
     expect(baseline.divergentPairCount).toBe(0);
+    expect(baseline.duplicateFileCount).toBe(0);
 
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shaders-'));
     tempRoots.push(tempRoot);
@@ -303,6 +309,30 @@ describe('phase 4 enforcement metrics', () => {
 
     const mutant = collectShaderDuplicateMetrics(tempRoot);
     expect(mutant.divergentPairCount).toBe(1);
+    expect(mutant.duplicateFileCount).toBe(2);
+  });
+
+  it('detects synchronized renderer shader copies as duplicate ownership', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shader-duplicates-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), {
+      recursive: true
+    });
+    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu'), {
+      recursive: true
+    });
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', 'pixel.wgsl'),
+      'fn main() {}\n'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu', 'pixel.wgsl'),
+      'fn main() {}\n'
+    );
+
+    const mutant = collectShaderDuplicateMetrics(tempRoot);
+    expect(mutant.divergentPairCount).toBe(0);
+    expect(mutant.duplicateFileCount).toBe(1);
   });
 
   it('reports no alias/platform manifest drift for current architecture', () => {

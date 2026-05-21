@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url';
 
 const DEFAULT_ALLOWLIST_PATH = 'scripts/type-debt-allowlist.json';
 const DEFAULT_EXPIRY_DATE = '2026-04-30';
+const DEFAULT_OWNER = 'platform:type-safety';
 
 function parseArgs(argv) {
   const options = {
@@ -13,6 +14,7 @@ function parseArgs(argv) {
     writeAllowlist: false,
     outputPath: DEFAULT_ALLOWLIST_PATH,
     defaultExpiresOn: DEFAULT_EXPIRY_DATE,
+    defaultOwner: DEFAULT_OWNER,
     allowExpiredWrite: false
   };
 
@@ -47,6 +49,16 @@ function parseArgs(argv) {
         throw new Error('Missing value for --default-expires-on');
       }
       options.defaultExpiresOn = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--default-owner') {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('Missing value for --default-owner');
+      }
+      options.defaultOwner = value;
       index += 1;
       continue;
     }
@@ -180,6 +192,9 @@ function getTodayIsoDate(now = new Date()) {
 
 function validateAllowlistWriteOptions(options, today = getTodayIsoDate()) {
   ensureIsoDate(options.defaultExpiresOn, 'defaultExpiresOn');
+  if (!String(options.defaultOwner || '').trim()) {
+    throw new Error('Type debt allowlist writes require --default-owner.');
+  }
 
   if (!options.allowExpiredWrite && options.defaultExpiresOn < today) {
     throw new Error(
@@ -190,7 +205,17 @@ function validateAllowlistWriteOptions(options, today = getTodayIsoDate()) {
   }
 }
 
-function writeAllowlist(outputPath, entries, defaultExpiresOn = DEFAULT_EXPIRY_DATE) {
+function writeAllowlist(
+  outputPath,
+  entries,
+  defaultExpiresOn = DEFAULT_EXPIRY_DATE,
+  defaultOwner = DEFAULT_OWNER
+) {
+  const normalizedDefaultOwner = String(defaultOwner || '').trim();
+  if (!normalizedDefaultOwner) {
+    throw new Error('Type debt allowlist writes require defaultOwner.');
+  }
+
   const absolutePath = path.isAbsolute(outputPath)
     ? outputPath
     : path.resolve(process.cwd(), outputPath);
@@ -199,8 +224,10 @@ function writeAllowlist(outputPath, entries, defaultExpiresOn = DEFAULT_EXPIRY_D
     version: 1,
     generatedAt: new Date().toISOString(),
     defaultExpiresOn,
+    defaultOwner: normalizedDefaultOwner,
     entries: entries.map((entry) => ({
       ...entry,
+      owner: entry.owner || normalizedDefaultOwner,
       expiresOn: defaultExpiresOn
     }))
   };
@@ -222,8 +249,12 @@ function loadAllowlist(allowlistPath) {
 
   const parsed = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
   const defaultExpiresOn = parsed.defaultExpiresOn || DEFAULT_EXPIRY_DATE;
+  const defaultOwner = String(parsed.defaultOwner || '').trim();
 
   ensureIsoDate(defaultExpiresOn, 'defaultExpiresOn');
+  if (!defaultOwner) {
+    throw new Error('Allowlist file is missing "defaultOwner".');
+  }
 
   const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
   const normalized = entries.map((entry) => {
@@ -235,6 +266,7 @@ function loadAllowlist(allowlistPath) {
     const code = String(entry.code || '').trim();
     const maxCount = Number(entry.maxCount);
     const expiresOn = String(entry.expiresOn || defaultExpiresOn);
+    const owner = String(entry.owner || defaultOwner).trim();
 
     if (!file) {
       throw new Error('Allowlist entry is missing "file".');
@@ -248,12 +280,17 @@ function loadAllowlist(allowlistPath) {
       throw new Error(`Invalid maxCount for ${file} ${code}. Expected non-negative integer.`);
     }
 
+    if (!owner) {
+      throw new Error(`Allowlist entry ${file} ${code} is missing "owner".`);
+    }
+
     ensureIsoDate(expiresOn, `expiresOn for ${file} ${code}`);
 
     return {
       file: normalizeRelativePath(file),
       code,
       maxCount,
+      owner,
       expiresOn
     };
   });
@@ -352,7 +389,12 @@ function main() {
 
   if (options.writeAllowlist) {
     validateAllowlistWriteOptions(options);
-    const outputPath = writeAllowlist(options.outputPath, aggregated, options.defaultExpiresOn);
+    const outputPath = writeAllowlist(
+      options.outputPath,
+      aggregated,
+      options.defaultExpiresOn,
+      options.defaultOwner
+    );
     console.log(`Wrote type debt allowlist: ${outputPath}`);
     console.log(`- tracked diagnostic buckets: ${aggregated.length}`);
     console.log(`- total strict diagnostics: ${diagnostics.length}`);

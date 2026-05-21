@@ -27,6 +27,9 @@ describe('Phase 3 clean-break consolidation', () => {
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_1_AUDIT.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md');
     expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
+      'Phase 4 delivered'
+    );
+    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).not.toContain(
       'Next phase when resumed: Phase 4'
     );
   });

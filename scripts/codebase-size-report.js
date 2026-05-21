@@ -58,7 +58,6 @@ const SHADER_EXTENSIONS = new Set(['.glsl', '.wgsl']);
 
 const DEFAULT_ARTIFACT_PATHS = [
   'artifacts',
-  'tests/coverage',
   '.vitest',
   'tests/e2e/test-results',
   'tests/e2e/screenshots',

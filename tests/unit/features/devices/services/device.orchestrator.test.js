@@ -114,8 +114,8 @@ describe('DeviceOrchestrator', () => {
   describe('IPC event handling via adapter', () => {
     it('should queue connected operation when adapter triggers connected event', async () => {
       let connectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        connectedCallback = onConnected;
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
+        connectedCallback = onDeviceConnected;
         return vi.fn();
       });
 
@@ -129,8 +129,8 @@ describe('DeviceOrchestrator', () => {
 
     it('should queue disconnected operation when adapter triggers disconnected event', async () => {
       let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        disconnectedCallback = onDisconnected;
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
+        disconnectedCallback = onDeviceDisconnected;
         return vi.fn();
       });
 
@@ -144,8 +144,8 @@ describe('DeviceOrchestrator', () => {
 
     it('should publish disconnect event via callback when disconnected', async () => {
       let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onConnected, onDisconnected) => {
-        disconnectedCallback = onDisconnected;
+      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
+        disconnectedCallback = onDeviceDisconnected;
         return vi.fn();
       });
 

@@ -189,9 +189,19 @@ export function collectContractMetrics(projectRoot) {
 
 export function collectShaderDuplicateMetrics(projectRoot) {
   const shaderStatus = getShaderDuplicateStatus(projectRoot);
+  const duplicateFiles = shaderStatus.pairs
+    .filter((pair) => pair.rightFileCount > 0)
+    .map((pair) => ({
+      name: pair.name,
+      source: pair.sourceB,
+      fileCount: pair.rightFileCount,
+      status: pair.status
+    }));
   return {
     duplicatePairs: shaderStatus.pairs,
     divergentPairs: shaderStatus.pairs.filter((pair) => pair.status === 'diverged'),
+    duplicateFiles,
+    duplicateFileCount: duplicateFiles.reduce((sum, pair) => sum + pair.fileCount, 0),
     totalPairs: shaderStatus.pairs.length,
     divergentPairCount: shaderStatus.pairs.filter((pair) => pair.status === 'diverged').length
   };
@@ -742,6 +752,7 @@ function printSummary(scorecard) {
   console.log(`- boundary violations: ${metrics.boundaryViolationCount}`);
   console.log(`- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`);
   console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
+  console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
@@ -783,6 +794,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['topRuntimeFileLocMax', ensureNonNegativeIntegerLimit],
     ['unexpectedContractFileCountMax', ensureNonNegativeIntegerLimit],
     ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
+    ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
@@ -863,6 +875,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'shaderDuplicateFileCountMax',
+    'shaderDuplicateFileCount',
+    metrics.shaderDuplicateFileCount,
+    'max'
+  );
+  addCheck(
     'runtimeJsDtsTwinCountMax',
     'runtimeJsDtsTwinCount',
     metrics.runtimeJsDtsTwinCount,
@@ -925,6 +943,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
       + `across ${metrics.any.filesWithAnyCount} files`,
   `- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`,
   `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
+  `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
@@ -983,6 +1002,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       totalContractLikeFiles: contractOwnershipMetrics.totalContractLikeFiles,
       unexpectedContractFiles: contractOwnershipMetrics.unexpectedContractFiles,
       shaderDuplicateDivergenceCount: shaderDuplicateMetrics.divergentPairCount,
+      shaderDuplicateFileCount: shaderDuplicateMetrics.duplicateFileCount,
+      shaderDuplicateFiles: shaderDuplicateMetrics.duplicateFiles,
       shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
       runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,

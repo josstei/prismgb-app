@@ -18,10 +18,6 @@ export const GENERATED_ARTIFACT_PATHS = [
     owner: 'Vitest coverage report'
   },
   {
-    path: 'tests/coverage',
-    owner: 'Legacy Vitest coverage report'
-  },
-  {
     path: '.vitest',
     owner: 'Vitest cache'
   },

@@ -135,8 +135,8 @@ class WindowService extends BaseService {
     this.mainWindow.webContents.session.on('will-download', this._downloadHandler);
 
     if (isDev) {
-      this.mainWindow.loadURL('http://localhost:3000/src/renderer/index.html');
-      this.logger.info('Loading from Vite dev server: http://localhost:3000/src/renderer/index.html');
+      this.mainWindow.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
+      this.logger.info('Loading from Vite dev server: http://127.0.0.1:3000/src/renderer/index.html');
     } else {
       this.mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
       this.logger.info('Loading built files');

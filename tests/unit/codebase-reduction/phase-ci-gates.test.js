@@ -8,7 +8,8 @@ const phaseVerificationMarkers = [
   'Verification at Phase 0 commit',
   'Verification for Phase 1',
   'Verification for Phase 2',
-  'Verification for Phase 3'
+  'Verification for Phase 3',
+  'Verification for Phase 4'
 ];
 
 function readProjectFile(relativePath) {
@@ -26,7 +27,7 @@ function extractBulletBlock(source, marker) {
   return nextBlock < 0 ? rest : rest.slice(0, nextBlock + 1);
 }
 
-describe('Phase 0-3 CI parity gates', () => {
+describe('Phase 0-4 CI parity gates', () => {
   it.each(phaseVerificationMarkers)('%s includes PR lint and scorecard enforcement', (marker) => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
     const verificationBlock = extractBulletBlock(implementationPlan, marker);
