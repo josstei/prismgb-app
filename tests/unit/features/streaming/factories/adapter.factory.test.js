@@ -81,9 +81,10 @@ describe('StreamingAdapterFactory', () => {
       expect(factory.logger).toBe(mockLogger);
     });
 
-    it('should initialize adapter and metadata registries', () => {
-      expect(factory.adapterRegistry).toBeInstanceOf(Map);
-      expect(factory.metadataRegistry).toBeInstanceOf(Map);
+    it('should keep registry state behind the factory API', () => {
+      expect(factory.adapterRegistry).toBeUndefined();
+      expect(factory.metadataRegistry).toBeUndefined();
+      expect(factory.getRegisteredTypes()).toEqual([]);
     });
 
     it('should initialize as not initialized', () => {

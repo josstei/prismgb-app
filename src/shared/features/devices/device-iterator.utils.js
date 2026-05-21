@@ -1,6 +1,6 @@
 /**
  * Device Registry Iterator
- * Shared helper for iterating DEVICE_REGISTRY with consistent filtering.
+ * Shared helper for iterating DeviceRegistry entries with consistent filtering.
  * Used by both main process (DeviceServiceMain) and renderer process (StreamingAdapterFactory).
  */
 

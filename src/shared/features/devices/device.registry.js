@@ -30,8 +30,29 @@ const BUILT_IN_DEVICES = DeviceManifest.devices.map((device) => ({
   adapterModule: device.modules.adapter
 }));
 
+function freezeDeviceEntry(deviceEntry) {
+  return Object.freeze({
+    ...deviceEntry,
+    usb: deviceEntry.usb
+      ? Object.freeze({ ...deviceEntry.usb })
+      : deviceEntry.usb,
+    labelPatterns: Array.isArray(deviceEntry.labelPatterns)
+      ? Object.freeze([...deviceEntry.labelPatterns])
+      : deviceEntry.labelPatterns
+  });
+}
+
+function replaceDeviceEntry(deviceId, nextEntry) {
+  const index = _registeredDevices.findIndex(device => device.id === deviceId);
+  if (index < 0) {
+    throw new Error(`Device ${deviceId} not found in registry`);
+  }
+
+  _registeredDevices[index] = freezeDeviceEntry(nextEntry);
+}
+
 // Mutable internal registry initialized with built-in devices
-const _registeredDevices = [...BUILT_IN_DEVICES];
+const _registeredDevices = BUILT_IN_DEVICES.map(freezeDeviceEntry);
 
 /**
  * DeviceRegistry - Extensible API for device registration
@@ -69,7 +90,7 @@ export const DeviceRegistry = {
     if (this.get(deviceEntry.id)) {
       throw new Error(`Device ${deviceEntry.id} already registered`);
     }
-    _registeredDevices.push(Object.freeze(deviceEntry));
+    _registeredDevices.push(freezeDeviceEntry(deviceEntry));
   },
 
   /**
@@ -96,7 +117,10 @@ export const DeviceRegistry = {
     if (!device) {
       throw new Error(`Device ${deviceId} not found in registry`);
     }
-    device.ProfileClass = ProfileClass;
+    replaceDeviceEntry(deviceId, {
+      ...device,
+      ProfileClass
+    });
   },
 
   /**
@@ -109,7 +133,10 @@ export const DeviceRegistry = {
     if (!device) {
       throw new Error(`Device ${deviceId} not found in registry`);
     }
-    device.AdapterClass = AdapterClass;
+    replaceDeviceEntry(deviceId, {
+      ...device,
+      AdapterClass
+    });
   },
 
   /**
@@ -132,9 +159,3 @@ export const DeviceRegistry = {
     return device?.AdapterClass || null;
   }
 };
-
-/**
- * DEVICE_REGISTRY - Array alias for DeviceRegistry
- * Returns reference to internal array.
- */
-export const DEVICE_REGISTRY = _registeredDevices;

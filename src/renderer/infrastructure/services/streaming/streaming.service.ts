@@ -339,7 +339,7 @@ export class StreamingService extends BaseService {
   }
 
   /**
-   * Check if streaming is active (alias for isStreaming)
+   * Check if streaming is active through the service method contract.
    * @returns {boolean} True if streaming
    */
   isActive() {

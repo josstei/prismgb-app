@@ -87,6 +87,14 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(assetModules).not.toMatch(/legacy|compat/i);
   });
 
+  it('keeps migrated registry surfaces free of mutable compatibility aliases', () => {
+    const deviceRegistrySource = readProjectFile('src/shared/features/devices/device.registry.js');
+    const typedRegistrySource = readProjectFile('src/shared/registry/typed-registry.factory.ts');
+
+    expect(deviceRegistrySource).not.toMatch(/\bDEVICE_REGISTRY\b/);
+    expect(typedRegistrySource).not.toMatch(/getValueMap|getMetadataMap|getFactoryMap/);
+  });
+
   it('keeps renderer worker protocol-only and package-owned', () => {
     const workerSource = readProjectFile('src/renderer/infrastructure/rendering/workers/render.worker.ts');
 

@@ -12,12 +12,11 @@ type RenderPipelines = Map<string, GPURenderPipeline>;
 type UniformBuffers = Map<string, GPUBuffer>;
 
 /**
- * WebGPU 4-pass rendering pipeline.
+ * WebGPU manifest-driven rendering pipeline.
  *
- * Renders Game Boy frames through a configurable shader chain:
- * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
- * Uses ping-pong intermediate textures, bind group caching, and
- * uniform change tracking for optimized per-frame overhead.
+ * Renders Game Boy frames through the render-pass contract and uses ping-pong
+ * intermediate textures, bind group caching, and uniform change tracking for
+ * optimized per-frame overhead.
  */
 export class WebGPUPipeline extends BasePipeline {
   private device: GPUDevice | null = null;

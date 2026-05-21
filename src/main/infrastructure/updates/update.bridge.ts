@@ -9,7 +9,7 @@ import { BaseService } from '@shared/base/service.base.js';
 interface UpdateService {
   initialize(): void;
   startAutoCheck(intervalMs: number): void;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 }
 
 interface LoggerFactory {
@@ -43,8 +43,9 @@ class UpdateBridge extends BaseService {
     (this.updateService as UpdateService).startAutoCheck(60 * 60 * 1000);
   }
 
-  dispose(): void {
-    (this.updateService as UpdateService).dispose();
+  async dispose(): Promise<void> {
+    await (this.updateService as UpdateService).dispose();
+    await super.dispose();
   }
 }
 

@@ -100,13 +100,6 @@ export function createMockLoggerFactory() {
       return loggers.get(name);
     }),
 
-    createLogger: vi.fn((name) => {
-      if (!loggers.has(name)) {
-        loggers.set(name, createMockLogger(name));
-      }
-      return loggers.get(name);
-    }),
-
     getLogger: vi.fn((name) => {
       return loggers.get(name) || createMockLogger(name);
     }),
@@ -145,7 +138,6 @@ export function createMockAppState(initialState = {}) {
     // State setters
     setStreaming: vi.fn((value) => { state.isStreaming = value; }),
     setSelectedDeviceId: vi.fn((value) => { state.selectedDeviceId = value; }),
-    setCinematicModeEnabled: vi.fn((value) => { state.isCinematicModeEnabled = value; }),
     setRecording: vi.fn((value) => { state.isRecording = value; }),
     setRecordingBlob: vi.fn((value) => { state.recordingBlob = value; }),
     setDeviceConnected: vi.fn((value) => { state.deviceConnected = value; }),

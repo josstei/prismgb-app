@@ -9,28 +9,13 @@ export interface RegistryEntry<TValue, TMetadata, TArgs extends unknown[]> {
 export class TypedRegistryFactory<TValue, TMetadata = Record<string, unknown>, TArgs extends unknown[] = []> {
   private readonly factories: Map<string, RegistryFactory<TValue, TArgs>>;
   private readonly metadata: Map<string, TMetadata>;
-  private readonly values: Map<string, TValue>;
 
   constructor(
     factories: Map<string, RegistryFactory<TValue, TArgs>> = new Map(),
-    metadata: Map<string, TMetadata> = new Map(),
-    values: Map<string, TValue> = new Map()
+    metadata: Map<string, TMetadata> = new Map()
   ) {
     this.factories = factories;
     this.metadata = metadata;
-    this.values = values;
-  }
-
-  getFactoryMap(): Map<string, RegistryFactory<TValue, TArgs>> {
-    return this.factories;
-  }
-
-  getMetadataMap(): Map<string, TMetadata> {
-    return this.metadata;
-  }
-
-  getValueMap(): Map<string, TValue> {
-    return this.values;
   }
 
   register(id: string, factory: RegistryFactory<TValue, TArgs>, metadata: TMetadata): void {
@@ -40,12 +25,10 @@ export class TypedRegistryFactory<TValue, TMetadata = Record<string, unknown>, T
 
     this.factories.set(id, factory);
     this.metadata.set(id, metadata);
-    this.values.delete(id);
   }
 
   registerValue(id: string, value: TValue, metadata: TMetadata): void {
     this.register(id, () => value, metadata);
-    this.values.set(id, value);
   }
 
   registerMany(entries: readonly RegistryEntry<TValue, TMetadata, TArgs>[]): void {
@@ -78,13 +61,11 @@ export class TypedRegistryFactory<TValue, TMetadata = Record<string, unknown>, T
   unregister(id: string): boolean {
     const removedFactory = this.factories.delete(id);
     const removedMetadata = this.metadata.delete(id);
-    const removedValue = this.values.delete(id);
-    return removedFactory || removedMetadata || removedValue;
+    return removedFactory || removedMetadata;
   }
 
   clear(): void {
     this.factories.clear();
     this.metadata.clear();
-    this.values.clear();
   }
 }

@@ -21,8 +21,6 @@ export class StreamingRendererFactory {
   logger: LoggerLike;
   _rendererClasses: Map<string, RendererConstructor>;
   _commonDependencies: Record<string, unknown>;
-  rendererRegistry: Map<string, RendererConstructor>;
-  metadataRegistry: Map<string, Record<string, unknown>>;
   _rendererRegistry: TypedRegistryFactory<RendererConstructor, Record<string, unknown>>;
   _initialized: boolean;
 
@@ -49,8 +47,6 @@ export class StreamingRendererFactory {
     };
 
     this._rendererRegistry = new TypedRegistryFactory();
-    this.rendererRegistry = this._rendererRegistry.getValueMap();
-    this.metadataRegistry = this._rendererRegistry.getMetadataMap();
 
     // Track initialization
     this._initialized = false;
@@ -72,7 +68,7 @@ export class StreamingRendererFactory {
       }
 
       this._initialized = true;
-      this.logger.info(`Loaded ${this.rendererRegistry.size} renderer(s)`);
+      this.logger.info(`Loaded ${this._rendererRegistry.listIds().length} renderer(s)`);
     } catch (error) {
       this.logger.error('Failed to initialize renderer registry', error);
       throw error;

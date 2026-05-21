@@ -84,10 +84,10 @@ export class BrowserMediaAdapter {
   }
 
   /**
-   * Remove all tracked event listeners
-   * Call this during cleanup to prevent listener leaks
+   * Remove event listeners owned by this adapter.
+   * @private
    */
-  removeAllListeners() {
+  _removeTrackedListeners() {
     if (!this.isAvailable()) return;
 
     for (const [event, handlers] of this._listeners) {
@@ -102,6 +102,6 @@ export class BrowserMediaAdapter {
    * Dispose the adapter and cleanup all listeners
    */
   dispose() {
-    this.removeAllListeners();
+    this._removeTrackedListeners();
   }
 }

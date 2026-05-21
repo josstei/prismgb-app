@@ -6,7 +6,7 @@
  * that can be used consistently across main process (USB detection)
  * and renderer process (MediaStream device detection).
  *
- * Uses DEVICE_REGISTRY for detection patterns - no device-specific imports needed.
+ * Uses DeviceRegistry for detection patterns - no device-specific imports needed.
  */
 
 import { DeviceRegistry } from './device.registry.js';

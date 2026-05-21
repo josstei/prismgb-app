@@ -19,6 +19,7 @@ vi.mock('electron-updater', () => ({
     allowPrerelease: false,
     on: vi.fn(),
     removeAllListeners: vi.fn(),
+    removeListener: vi.fn(),
     checkForUpdates: vi.fn(),
     downloadUpdate: vi.fn(),
     quitAndInstall: vi.fn()
@@ -83,9 +84,9 @@ describe('UpdateService', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (service._initialized) {
-      service.dispose();
+      await service.dispose();
     }
   });
 
@@ -518,21 +519,28 @@ describe('UpdateService', () => {
       vi.useRealTimers();
     });
 
-    it('should stop auto-check', () => {
+    it('should stop auto-check', async () => {
       service.startAutoCheck(60000);
-      service.dispose();
+      await service.dispose();
 
       expect(service._autoCheckIntervalId).toBeNull();
     });
 
-    it('should remove all listeners', () => {
-      service.dispose();
+    it('should remove only listeners owned by the update service', async () => {
+      await service.dispose();
 
-      expect(autoUpdater.removeAllListeners).toHaveBeenCalled();
+      expect(autoUpdater.removeAllListeners).not.toHaveBeenCalled();
+      expect(autoUpdater.removeListener).toHaveBeenCalledTimes(6);
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('checking-for-update', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-available', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-not-available', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('download-progress', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-downloaded', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
-    it('should set initialized to false', () => {
-      service.dispose();
+    it('should set initialized to false', async () => {
+      await service.dispose();
 
       expect(service._initialized).toBe(false);
     });

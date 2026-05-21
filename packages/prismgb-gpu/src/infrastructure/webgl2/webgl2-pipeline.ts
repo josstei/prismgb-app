@@ -11,11 +11,10 @@ import { ShaderProgram } from './shader-program';
 type ShaderPrograms = Map<string, ShaderProgram>;
 
 /**
- * WebGL2 4-pass rendering pipeline.
+ * WebGL2 manifest-driven rendering pipeline.
  *
- * Renders Game Boy frames through a configurable shader chain:
- * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
- * Uses ping-pong intermediate textures for multi-pass rendering.
+ * Renders Game Boy frames through the render-pass contract and uses ping-pong
+ * intermediate textures for multi-pass rendering.
  */
 export class WebGL2Pipeline extends BasePipeline {
   private gl: WebGL2RenderingContext | null = null;

@@ -194,11 +194,6 @@ export function createLoggerFactory(options = {}) {
     }),
 
     /**
-     * Alias for create
-     */
-    createLogger: vi.fn((name) => factory.create(name)),
-
-    /**
      * Get an existing logger
      */
     getLogger: vi.fn((name) => {

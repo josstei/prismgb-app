@@ -1,5 +1,5 @@
 import type { IPipeline, IPipelineCapabilities, IPipelineStats, RenderCanvas, RenderAPI, WebGL2Info } from '../domain/pipeline';
-import type { IPreset as IPresetAlias } from '../domain/presets';
+import type { IPreset } from '../domain/presets';
 import { createPipeline } from './pipeline.factory';
 
 export interface CreateWorkerPipelineOptions {
@@ -7,7 +7,7 @@ export interface CreateWorkerPipelineOptions {
   api?: RenderAPI;
   nativeSize: readonly [number, number];
   outputSize: readonly [number, number];
-  preset?: IPresetAlias;
+  preset?: IPreset;
 }
 
 export interface WorkerPipeline {
@@ -16,7 +16,7 @@ export interface WorkerPipeline {
   captureFrame: () => Promise<ImageBitmap>;
   getStats: () => IPipelineStats;
   dispose: () => Promise<void>;
-  setPreset: (preset: IPresetAlias) => void;
+  setPreset: (preset: IPreset) => void;
   setBrightness: (value: number) => void;
 }
 
@@ -126,7 +126,7 @@ export async function createWorkerPipeline(options: CreateWorkerPipelineOptions)
     dispose: async (): Promise<void> => {
       await pipeline.dispose();
     },
-    setPreset: (preset: IPresetAlias): void => {
+    setPreset: (preset: IPreset): void => {
       pipeline.setPreset(preset);
     },
     setBrightness: (value: number): void => {

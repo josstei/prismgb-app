@@ -82,8 +82,7 @@ export function createAppState(options = {}) {
 
     setStreaming: createSetter('isStreaming'),
     setSelectedDeviceId: createSetter('selectedDeviceId'),
-    setCinematicModeEnabled: createSetter('isCinematicModeEnabled'),
-    setCinematicMode: createSetter('isCinematicModeEnabled'), // Alias
+    setCinematicMode: createSetter('isCinematicModeEnabled'),
     setRecording: createSetter('isRecording'),
     setRecordingBlob: createSetter('recordingBlob'),
     setDeviceConnected: createSetter('deviceConnected'),

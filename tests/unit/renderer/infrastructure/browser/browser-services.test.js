@@ -163,14 +163,14 @@ describe('BrowserMediaAdapter', () => {
     });
   });
 
-  describe('removeAllListeners', () => {
-    it('should remove all tracked event listeners', () => {
+  describe('dispose', () => {
+    it('should remove tracked event listeners', () => {
       const handler1 = vi.fn();
       const handler2 = vi.fn();
       service.addEventListener('devicechange', handler1);
       service.addEventListener('devicechange', handler2);
 
-      service.removeAllListeners();
+      service.dispose();
 
       expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
       expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler2);
@@ -183,7 +183,7 @@ describe('BrowserMediaAdapter', () => {
       service.addEventListener('devicechange', handler1);
       service.addEventListener('someevent', handler2);
 
-      service.removeAllListeners();
+      service.dispose();
 
       expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
       expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('someevent', handler2);
@@ -195,23 +195,11 @@ describe('BrowserMediaAdapter', () => {
       service.addEventListener('devicechange', handler);
       global.navigator = undefined;
 
-      expect(() => service.removeAllListeners()).not.toThrow();
+      expect(() => service.dispose()).not.toThrow();
     });
 
     it('should do nothing when no listeners registered', () => {
-      expect(() => service.removeAllListeners()).not.toThrow();
-      expect(service._listeners.size).toBe(0);
-    });
-  });
-
-  describe('dispose', () => {
-    it('should call removeAllListeners', () => {
-      const handler = vi.fn();
-      service.addEventListener('devicechange', handler);
-
-      service.dispose();
-
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler);
+      expect(() => service.dispose()).not.toThrow();
       expect(service._listeners.size).toBe(0);
     });
   });

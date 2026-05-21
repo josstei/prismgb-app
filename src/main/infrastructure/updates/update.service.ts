@@ -70,6 +70,9 @@ interface UpdateStatus {
   error: string | null;
 }
 
+type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
+type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
+
 class UpdateService extends BaseService {
 
   state: UpdateStateType;
@@ -142,26 +145,26 @@ class UpdateService extends BaseService {
    * @private
    */
   private _setupEventListeners(): void {
-    autoUpdater.on('checking-for-update', () => {
+    this._listenToAutoUpdater('checking-for-update', () => {
       this.logger.info('Checking for updates...');
       this._setState(UpdateState.CHECKING);
     });
 
-    autoUpdater.on('update-available', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-available', (info: UpdateInfo) => {
       this.logger.info('Update available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.AVAILABLE);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.AVAILABLE, info);
     });
 
-    autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-not-available', (info: UpdateInfo) => {
       this.logger.info('No updates available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.NOT_AVAILABLE);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
     });
 
-    autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    this._listenToAutoUpdater('download-progress', (progress: ProgressInfo) => {
       this.logger.debug('Download progress', {
         percent: progress.percent?.toFixed(1),
         transferred: progress.transferred,
@@ -171,14 +174,14 @@ class UpdateService extends BaseService {
       this._notifyRenderer(IPC_CHANNELS.UPDATE.PROGRESS, progress);
     });
 
-    autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-downloaded', (info: UpdateInfo) => {
       this.logger.info('Update downloaded', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.DOWNLOADED);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
     });
 
-    autoUpdater.on('error', (error: Error) => {
+    this._listenToAutoUpdater('error', (error: Error) => {
       if (this._isPlatformNotFoundError(error)) {
         this.logger.info('No updates available for this platform');
         this._setState(UpdateState.NOT_AVAILABLE);
@@ -193,6 +196,13 @@ class UpdateService extends BaseService {
       this.error = error;
       this._setState(UpdateState.ERROR);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
+    });
+  }
+
+  private _listenToAutoUpdater(eventName: AutoUpdaterEventName, listener: AutoUpdaterListener): void {
+    autoUpdater.on(eventName, listener);
+    this.disposables.add(() => {
+      autoUpdater.removeListener(eventName, listener);
     });
   }
 
@@ -391,9 +401,9 @@ class UpdateService extends BaseService {
   /**
    * Clean up resources
    */
-  dispose(): void {
+  async dispose(): Promise<void> {
     this.stopAutoCheck();
-    autoUpdater.removeAllListeners();
+    await super.dispose();
     this._initialized = false;
     this.logger.info('UpdateService disposed');
   }
