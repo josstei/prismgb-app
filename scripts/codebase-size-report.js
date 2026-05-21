@@ -35,6 +35,7 @@ const AREA_PREFIXES = [
   ['src/renderer', 'renderer'],
   ['src/preload', 'preload'],
   ['src/shared', 'shared'],
+  ['packages/prismgb-gpu/tests', 'tests'],
   ['packages/prismgb-gpu', 'gpu-package'],
   ['scripts', 'scripts'],
   ['tests', 'tests'],
@@ -69,6 +70,8 @@ const DEFAULT_ARTIFACT_PATHS = [
   'out'
 ];
 
+const DEFAULT_THRESHOLD_PATH = 'scripts/codebase-size-thresholds.json';
+
 const PACKAGE_ARTIFACT_DIRECTORIES = [
   'dist',
   'build',
@@ -85,7 +88,9 @@ export function parseArgs(argv) {
   const options = {
     root: process.cwd(),
     json: false,
-    artifactPaths: DEFAULT_ARTIFACT_PATHS
+    artifactPaths: DEFAULT_ARTIFACT_PATHS,
+    enforceThresholds: false,
+    thresholdPath: DEFAULT_THRESHOLD_PATH
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -102,6 +107,21 @@ export function parseArgs(argv) {
         throw new Error('Missing value for --root');
       }
       options.root = path.resolve(process.cwd(), value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--enforce-thresholds') {
+      options.enforceThresholds = true;
+      continue;
+    }
+
+    if (arg === '--thresholds') {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('Missing value for --thresholds');
+      }
+      options.thresholdPath = value;
       index += 1;
     }
   }
@@ -222,6 +242,61 @@ function getTrackedFiles(projectRoot) {
   } catch {
     return walkFiles(projectRoot);
   }
+}
+
+export function collectGitSourceDelta(projectRoot, { baseRef, scopes }) {
+  if (!baseRef || typeof baseRef !== 'string') {
+    return null;
+  }
+
+  const sourceScopes = Array.isArray(scopes) && scopes.length > 0 ? scopes : ['.'];
+  const result = spawnSync('git', ['-C', projectRoot, 'diff', '--numstat', baseRef, '--', ...sourceScopes], {
+    encoding: 'utf8'
+  });
+
+  if (result.status !== 0) {
+    return {
+      baseRef,
+      scopes: sourceScopes,
+      status: 'unavailable',
+      error: result.stderr || result.stdout || 'git diff failed',
+      added: 0,
+      deleted: 0,
+      net: 0,
+      filesChanged: 0
+    };
+  }
+
+  let added = 0;
+  let deleted = 0;
+  let filesChanged = 0;
+
+  for (const line of result.stdout.split('\n')) {
+    if (!line.trim()) {
+      continue;
+    }
+
+    const [rawAdded, rawDeleted] = line.split('\t');
+    const addedLines = Number(rawAdded);
+    const deletedLines = Number(rawDeleted);
+    if (!Number.isFinite(addedLines) || !Number.isFinite(deletedLines)) {
+      continue;
+    }
+
+    added += addedLines;
+    deleted += deletedLines;
+    filesChanged += 1;
+  }
+
+  return {
+    baseRef,
+    scopes: sourceScopes,
+    status: 'available',
+    added,
+    deleted,
+    net: added - deleted,
+    filesChanged
+  };
 }
 
 export function summarizeTrackedFileCounts(trackedFiles, projectRoot) {
@@ -620,6 +695,112 @@ export function countGeneratedArtifacts(projectRoot, artifactPaths = DEFAULT_ART
   };
 }
 
+export function readCodebaseSizeThresholds(thresholdPath = DEFAULT_THRESHOLD_PATH) {
+  const absolutePath = path.isAbsolute(thresholdPath)
+    ? thresholdPath
+    : path.resolve(process.cwd(), thresholdPath);
+  const thresholds = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+
+  if (thresholds.version !== 1) {
+    throw new Error('Codebase size thresholds file missing supported "version": 1 payload.');
+  }
+
+  if (!thresholds.limits || typeof thresholds.limits !== 'object') {
+    throw new Error('Codebase size thresholds file is missing "limits".');
+  }
+
+  return {
+    absolutePath,
+    mode: thresholds.mode || 'warning',
+    limits: thresholds.limits,
+    baseline: thresholds.baseline || null
+  };
+}
+
+function addLimitFailure(failures, { limit, actual, type, message }) {
+  if (typeof limit !== 'number') {
+    return;
+  }
+
+  if (actual > limit) {
+    failures.push({
+      type,
+      actual,
+      limit,
+      message
+    });
+  }
+}
+
+export function evaluateCodebaseSizeReport(report, thresholds) {
+  const limits = thresholds.limits || {};
+  const failures = [];
+
+  addLimitFailure(failures, {
+    type: 'tracked-file-count',
+    actual: report.trackedFileCounts.total,
+    limit: limits.trackedFilesTotalMax,
+    message: `Tracked file count ${report.trackedFileCounts.total} exceeds limit ${limits.trackedFilesTotalMax}.`
+  });
+  addLimitFailure(failures, {
+    type: 'source-loc-total',
+    actual: report.sourceLocByArea.totalLines,
+    limit: limits.sourceLocTotalMax,
+    message: `Source LOC ${report.sourceLocByArea.totalLines} exceeds limit ${limits.sourceLocTotalMax}.`
+  });
+
+  for (const [area, limit] of Object.entries(limits.sourceLocByAreaMax || {})) {
+    addLimitFailure(failures, {
+      type: 'source-loc-area',
+      actual: report.sourceLocByArea.byArea[area]?.loc || 0,
+      limit,
+      message: `Source LOC for ${area} exceeds limit ${limit}.`
+    });
+  }
+
+  const shaderDuplicateDivergenceCount = report.duplicateShaders.pairs
+    .filter((pair) => pair.status === 'diverged').length;
+  addLimitFailure(failures, {
+    type: 'shader-duplicate-divergence',
+    actual: shaderDuplicateDivergenceCount,
+    limit: limits.shaderDuplicateDivergenceCountMax,
+    message: `Shader duplicate divergence count ${shaderDuplicateDivergenceCount} exceeds limit ${limits.shaderDuplicateDivergenceCountMax}.`
+  });
+
+  const rendererShaderDuplicateFileCount = report.duplicateShaders.pairs
+    .reduce((sum, pair) => sum + pair.rightFileCount, 0);
+  addLimitFailure(failures, {
+    type: 'renderer-shader-duplicate-files',
+    actual: rendererShaderDuplicateFileCount,
+    limit: limits.rendererShaderDuplicateFileCountMax,
+    message: `Renderer shader duplicate file count ${rendererShaderDuplicateFileCount} exceeds limit ${limits.rendererShaderDuplicateFileCountMax}.`
+  });
+
+  if (thresholds.baseline?.ref) {
+    if (!report.runtimeSourceDelta || report.runtimeSourceDelta.status !== 'available') {
+      failures.push({
+        type: 'runtime-source-delta-unavailable',
+        actual: report.runtimeSourceDelta?.status || 'missing',
+        limit: 'available',
+        message: `Runtime source delta against ${thresholds.baseline.ref} could not be computed.`
+      });
+    } else {
+      addLimitFailure(failures, {
+        type: 'runtime-source-net-growth',
+        actual: report.runtimeSourceDelta.net,
+        limit: limits.runtimeSourceNetGrowthMax,
+        message: `Runtime source net growth ${report.runtimeSourceDelta.net} exceeds limit ${limits.runtimeSourceNetGrowthMax}.`
+      });
+    }
+  }
+
+  return {
+    mode: thresholds.mode,
+    passed: failures.length === 0,
+    failures
+  };
+}
+
 export function buildCodebaseSizeReport(projectRoot = process.cwd(), options = {}) {
   const trackedFiles = options.trackedFiles || getTrackedFiles(projectRoot);
   const trackedFileCounts = summarizeTrackedFileCounts(trackedFiles, projectRoot);
@@ -632,6 +813,12 @@ export function buildCodebaseSizeReport(projectRoot = process.cwd(), options = {
     projectRoot,
     options.generatedArtifactPaths || DEFAULT_ARTIFACT_PATHS
   );
+  const runtimeSourceDelta = options.baseline
+    ? collectGitSourceDelta(projectRoot, {
+      baseRef: options.baseline.ref,
+      scopes: options.baseline.scopes
+    })
+    : null;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -642,7 +829,8 @@ export function buildCodebaseSizeReport(projectRoot = process.cwd(), options = {
     eventContract,
     testMockCounts: mockCounts,
     duplicateShaders,
-    generatedArtifacts
+    generatedArtifacts,
+    runtimeSourceDelta
   };
 }
 
@@ -687,18 +875,60 @@ function printTextReport(report) {
     }
     console.log(`  - ${location.path}: category=${location.category}, files=${location.fileCount}`);
   }
+
+  if (report.runtimeSourceDelta) {
+    console.log('Runtime source delta:');
+    console.log(
+      `  - base=${report.runtimeSourceDelta.baseRef}, status=${report.runtimeSourceDelta.status}, `
+        + `added=${report.runtimeSourceDelta.added}, deleted=${report.runtimeSourceDelta.deleted}, net=${report.runtimeSourceDelta.net}`
+    );
+  }
+}
+
+function printThresholdEvaluation(evaluation) {
+  if (!evaluation) {
+    return;
+  }
+
+  if (evaluation.passed) {
+    console.log('Codebase size thresholds satisfied.');
+    return;
+  }
+
+  console.error(`Codebase size threshold failures: ${evaluation.failures.length}`);
+  for (const failure of evaluation.failures) {
+    console.error(`- ${failure.type}: ${failure.message}`);
+  }
 }
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const report = buildCodebaseSizeReport(options.root);
+  const thresholds = options.enforceThresholds
+    ? readCodebaseSizeThresholds(options.thresholdPath)
+    : null;
+  const report = buildCodebaseSizeReport(options.root, {
+    baseline: thresholds?.baseline || null
+  });
+  const evaluation = thresholds
+    ? evaluateCodebaseSizeReport(report, thresholds)
+    : null;
 
   if (options.json) {
-    console.log(JSON.stringify(report, null, 2));
+    console.log(JSON.stringify({
+      ...report,
+      thresholdEvaluation: evaluation
+    }, null, 2));
+    if (evaluation && thresholds.mode === 'enforce' && !evaluation.passed) {
+      process.exit(1);
+    }
     return;
   }
 
   printTextReport(report);
+  printThresholdEvaluation(evaluation);
+  if (evaluation && thresholds.mode === 'enforce' && !evaluation.passed) {
+    process.exit(1);
+  }
 }
 
 const invokedScript = process.argv[1]

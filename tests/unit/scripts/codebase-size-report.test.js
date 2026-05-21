@@ -8,8 +8,10 @@ import {
   countGeneratedArtifacts,
   countIpcContractEntries,
   countMockFiles,
+  evaluateCodebaseSizeReport,
   getShaderDuplicateStatus,
   parseArgs,
+  readCodebaseSizeThresholds,
   summarizeSourceLocByArea,
   summarizeTrackedFileCounts
 } from '../../../scripts/codebase-size-report.js';
@@ -27,9 +29,18 @@ function writeWorkspaceFile(root, relativePath, content = '') {
 
 describe('codebase-size-report args', () => {
   it('parses --json and --root flags', () => {
-    const options = parseArgs(['--json', '--root', 'repo-root']);
+    const options = parseArgs([
+      '--json',
+      '--root',
+      'repo-root',
+      '--enforce-thresholds',
+      '--thresholds',
+      'scripts/size-thresholds.json'
+    ]);
     expect(options.json).toBe(true);
     expect(options.root).toBe(path.resolve(process.cwd(), 'repo-root'));
+    expect(options.enforceThresholds).toBe(true);
+    expect(options.thresholdPath).toBe('scripts/size-thresholds.json');
   });
 });
 
@@ -43,26 +54,29 @@ describe('codebase-size-report metrics', () => {
         writeWorkspaceFile(workspace, 'src/renderer/index.ts', 'function run() {}\n'),
         writeWorkspaceFile(workspace, 'src/shared/contract.ts', 'export const x = {}\n'),
         writeWorkspaceFile(workspace, 'scripts/report.js', 'module.exports = {}\n'),
-        writeWorkspaceFile(workspace, 'packages/prismgb-gpu/index.ts', 'export default true\n')
+        writeWorkspaceFile(workspace, 'packages/prismgb-gpu/index.ts', 'export default true\n'),
+        writeWorkspaceFile(workspace, 'packages/prismgb-gpu/tests/unit/pipeline.test.ts', 'test(() => {})\n')
       ];
 
       const trackedSummary = summarizeTrackedFileCounts(trackedFiles, workspace);
       const locSummary = summarizeSourceLocByArea(trackedFiles, workspace);
 
-      expect(trackedSummary.total).toBe(6);
+      expect(trackedSummary.total).toBe(7);
       expect(trackedSummary.byArea).toEqual({
         main: 2,
         renderer: 1,
         shared: 1,
         scripts: 1,
-        'gpu-package': 1
+        'gpu-package': 1,
+        tests: 1
       });
 
-      expect(locSummary.totalLines).toBe(7);
+      expect(locSummary.totalLines).toBe(8);
       expect(locSummary.byArea.main).toEqual({ files: 2, loc: 3 });
       expect(locSummary.byArea.renderer).toEqual({ files: 1, loc: 1 });
       expect(locSummary.byArea.shared).toEqual({ files: 1, loc: 1 });
       expect(locSummary.byArea['gpu-package']).toEqual({ files: 1, loc: 1 });
+      expect(locSummary.byArea.tests).toEqual({ files: 1, loc: 1 });
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
@@ -289,6 +303,67 @@ describe('codebase-size-report metrics', () => {
 
       expect(fullReport.ipcContract.channels).toBe(5);
       expect(fullReport.eventContract.channels).toBe(3);
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('reads and evaluates enforced codebase-size thresholds', () => {
+    const workspace = createTempWorkspace();
+    try {
+      const thresholdPath = writeWorkspaceFile(
+        workspace,
+        'scripts/codebase-size-thresholds.json',
+        JSON.stringify({
+          version: 1,
+          mode: 'enforce',
+          baseline: {
+            ref: 'base-ref',
+            scopes: ['src/main']
+          },
+          limits: {
+            trackedFilesTotalMax: 2,
+            sourceLocTotalMax: 10,
+            sourceLocByAreaMax: {
+              main: 4
+            },
+            runtimeSourceNetGrowthMax: 0,
+            shaderDuplicateDivergenceCountMax: 0,
+            rendererShaderDuplicateFileCountMax: 0
+          }
+        })
+      );
+      const thresholds = readCodebaseSizeThresholds(thresholdPath);
+      const report = {
+        trackedFileCounts: { total: 3 },
+        sourceLocByArea: {
+          totalLines: 11,
+          byArea: {
+            main: { files: 1, loc: 5 }
+          }
+        },
+        duplicateShaders: {
+          pairs: [
+            { status: 'diverged', rightFileCount: 1 }
+          ]
+        },
+        runtimeSourceDelta: {
+          status: 'available',
+          net: 1
+        }
+      };
+
+      const evaluation = evaluateCodebaseSizeReport(report, thresholds);
+
+      expect(evaluation.passed).toBe(false);
+      expect(evaluation.failures.map((failure) => failure.type)).toEqual([
+        'tracked-file-count',
+        'source-loc-total',
+        'source-loc-area',
+        'shader-duplicate-divergence',
+        'renderer-shader-duplicate-files',
+        'runtime-source-net-growth'
+      ]);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

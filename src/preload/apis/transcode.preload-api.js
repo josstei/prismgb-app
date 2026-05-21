@@ -1,4 +1,7 @@
-import { createSubscription } from '../subscription.factory.js';
+import {
+  createSubscription,
+  createSubscriptionDisposer
+} from '../subscription.factory.js';
 
 function createTranscodePreloadAPI({
   ipcRenderer,
@@ -13,24 +16,56 @@ function createTranscodePreloadAPI({
   isValidFfmpegArgs
 }) {
   const isValidCancelledData = (data) => data && typeof data === 'object';
-  const listenerKeys = {
-    onProgress: 'transcode.onProgress',
-    onCompleted: 'transcode.onCompleted',
-    onError: 'transcode.onError',
-    onCancelled: 'transcode.onCancelled'
-  };
-
-  const disposeListenersForKey = (channel, registryKey) => {
-    const listeners = listenerRegistry.get(registryKey);
-    if (!listeners) {
-      return;
+  const subscriptions = [
+    {
+      methodName: 'onProgress',
+      channel: channels.TRANSCODE.PROGRESS,
+      registryKey: 'transcode.onProgress',
+      validatePayload: isValidTranscodeProgress,
+      invalidPayloadMessage: 'transcodeAPI.onProgress: Invalid progress received'
+    },
+    {
+      methodName: 'onCompleted',
+      channel: channels.TRANSCODE.COMPLETED,
+      registryKey: 'transcode.onCompleted',
+      validatePayload: isValidTranscodeResult,
+      invalidPayloadMessage: 'transcodeAPI.onCompleted: Invalid result received'
+    },
+    {
+      methodName: 'onError',
+      channel: channels.TRANSCODE.ERROR,
+      registryKey: 'transcode.onError',
+      validatePayload: isValidError,
+      invalidPayloadMessage: 'transcodeAPI.onError: Invalid error received'
+    },
+    {
+      methodName: 'onCancelled',
+      channel: channels.TRANSCODE.CANCELLED,
+      registryKey: 'transcode.onCancelled',
+      validatePayload: isValidCancelledData,
+      invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
     }
-
-    for (const listener of listeners) {
-      ipcRenderer.removeListener(channel, listener);
-    }
-    listeners.clear();
-  };
+  ];
+  const [
+    progressSubscription,
+    completedSubscription,
+    errorSubscription,
+    cancelledSubscription
+  ] = subscriptions;
+  const subscribe = (subscription, callback) =>
+    createSubscription({
+      apiName: 'transcodeAPI',
+      ipcRenderer,
+      registry: listenerRegistry,
+      maxListeners,
+      validateCallback: isValidCallback,
+      ...subscription
+    })(callback);
+  const disposeSubscriptions = createSubscriptionDisposer({
+    ipcRenderer,
+    registry: listenerRegistry,
+    subscriptions
+  });
 
   return {
     start: (arrayBuffer, format, outputFilename, options = {}) => {
@@ -61,68 +96,15 @@ function createTranscodePreloadAPI({
 
     getStatus: () => ipcRenderer.invoke(channels.TRANSCODE.GET_STATUS),
 
-    onProgress: (callback) =>
-      createSubscription({
-        apiName: 'transcodeAPI',
-        methodName: 'onProgress',
-        channel: channels.TRANSCODE.PROGRESS,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onProgress,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidTranscodeProgress,
-        invalidPayloadMessage: 'transcodeAPI.onProgress: Invalid progress received'
-      })(callback),
+    onProgress: (callback) => subscribe(progressSubscription, callback),
 
-    onCompleted: (callback) =>
-      createSubscription({
-        apiName: 'transcodeAPI',
-        methodName: 'onCompleted',
-        channel: channels.TRANSCODE.COMPLETED,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onCompleted,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidTranscodeResult,
-        invalidPayloadMessage: 'transcodeAPI.onCompleted: Invalid result received'
-      })(callback),
+    onCompleted: (callback) => subscribe(completedSubscription, callback),
 
-    onError: (callback) =>
-      createSubscription({
-        apiName: 'transcodeAPI',
-        methodName: 'onError',
-        channel: channels.TRANSCODE.ERROR,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onError,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidError,
-        invalidPayloadMessage: 'transcodeAPI.onError: Invalid error received'
-      })(callback),
+    onError: (callback) => subscribe(errorSubscription, callback),
 
-    onCancelled: (callback) =>
-      createSubscription({
-        apiName: 'transcodeAPI',
-        methodName: 'onCancelled',
-        channel: channels.TRANSCODE.CANCELLED,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onCancelled,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidCancelledData,
-        invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
-      })(callback),
+    onCancelled: (callback) => subscribe(cancelledSubscription, callback),
 
-    dispose: () => {
-      disposeListenersForKey(channels.TRANSCODE.PROGRESS, listenerKeys.onProgress);
-      disposeListenersForKey(channels.TRANSCODE.COMPLETED, listenerKeys.onCompleted);
-      disposeListenersForKey(channels.TRANSCODE.ERROR, listenerKeys.onError);
-      disposeListenersForKey(channels.TRANSCODE.CANCELLED, listenerKeys.onCancelled);
-    }
+    dispose: disposeSubscriptions
   };
 }
 

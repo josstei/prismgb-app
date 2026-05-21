@@ -52,7 +52,7 @@ export type IStreamingRenderer = {
   initialize(canvasElement: HTMLCanvasElement, nativeResolution?: Dimensions): Promise<boolean>;
   renderFrame(videoElement: HTMLVideoElement): Promise<void> | void;
   resize(width: number, height: number): void;
-  cleanup?(): void;
+  cleanup?(): void | Promise<void>;
   isActive?(): boolean;
   isFallback?(): boolean;
 };

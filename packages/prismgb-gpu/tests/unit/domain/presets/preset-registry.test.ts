@@ -92,6 +92,13 @@ describe('PresetRegistry', () => {
         expect(preset.description.length).toBeGreaterThan(0);
       });
     });
+
+    it('should keep the performance preset available internally and hidden from the UI list', () => {
+      const uiPresetIds = PresetRegistry.getForUI().map((preset) => preset.id);
+
+      expect(PresetRegistry.get('performance')).toBeDefined();
+      expect(uiPresetIds).not.toContain('performance');
+    });
   });
 
   describe('registerMany', () => {

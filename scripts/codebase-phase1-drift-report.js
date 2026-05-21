@@ -85,6 +85,46 @@ function collectEventManifestValues(eventManifest, scope) {
     .flatMap((entry) => entry.events.map((event) => event.value));
 }
 
+function normalizePayloadType(payloadType) {
+  return String(payloadType).replace(/\s+/g, ' ').trim();
+}
+
+function collectEventManifestPayloadEntries(eventManifest) {
+  return eventManifest.scopes
+    .filter((entry) => entry.scope === 'renderer')
+    .flatMap((entry) => entry.events.map((event) =>
+      `${event.value} ${normalizePayloadType(event.payload)}`
+    ));
+}
+
+function collectEventChannelReferenceValues(sourceText) {
+  const channelValues = new Map();
+  const domainBlocks = sourceText.matchAll(/([A-Z0-9_]+):\s*\{([\s\S]*?)\n\s*\}/g);
+
+  for (const [, domain, body] of domainBlocks) {
+    for (const [, channelKey, value] of body.matchAll(/([A-Z0-9_]+):\s*['"]([^'"]+)['"]/g)) {
+      channelValues.set(`EventChannels.${domain}.${channelKey}`, value);
+    }
+  }
+
+  return channelValues;
+}
+
+function collectEventPayloadMapEntries(payloadSourceText, channelSourceText) {
+  const channelValues = collectEventChannelReferenceValues(channelSourceText);
+  const payloadMapBody = payloadSourceText.match(/export type EventPayloadMap = \{([\s\S]*?)\n\};/);
+  if (!payloadMapBody) {
+    return [];
+  }
+
+  return [...payloadMapBody[1].matchAll(/\[EventChannels\.([A-Z0-9_]+)\.([A-Z0-9_]+)\]:\s*([^;]+);/g)]
+    .map(([, domain, channelKey, payloadType]) => {
+      const channelReference = `EventChannels.${domain}.${channelKey}`;
+      const channelValue = channelValues.get(channelReference) || channelReference;
+      return `${channelValue} ${normalizePayloadType(payloadType)}`;
+    });
+}
+
 function extractStringValuesFromSource(sourceText) {
   const matches = [...sourceText.matchAll(/['"]([a-z][a-z0-9-]*:[a-z][a-z0-9-]*)['"]/g)];
   return matches.map((match) => match[1]);
@@ -237,6 +277,18 @@ function loadManifests() {
   );
 }
 
+function createDerivedSourceCheck({ name, sourceText, requiredFragments }) {
+  const missingFragments = requiredFragments.filter((fragment) => !sourceText.includes(fragment));
+  return {
+    name,
+    status: missingFragments.length === 0 ? 'pass' : 'fail',
+    expectedCount: requiredFragments.length,
+    actualCount: requiredFragments.length - missingFragments.length,
+    missing: missingFragments,
+    extra: []
+  };
+}
+
 function buildPhase1DriftReport(manifests = loadManifests()) {
   const checks = [];
 
@@ -273,6 +325,22 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     expected: extractStringValuesFromSource(readProjectText('src/shared/events/event-channels.ts')),
     actual: collectEventManifestValues(manifests.events, 'renderer')
   }));
+  checks.push({
+    name: 'event manifest is enforced',
+    status: manifests.events.mode === 'enforced' ? 'pass' : 'fail',
+    expected: 'enforced',
+    actual: manifests.events.mode,
+    missing: manifests.events.mode === 'enforced' ? [] : ['mode=enforced'],
+    extra: []
+  });
+  checks.push(compareSortedValues({
+    name: 'renderer event manifest payloads match EventPayloadMap',
+    expected: collectEventPayloadMapEntries(
+      readProjectText('src/shared/events/event-payloads.ts'),
+      readProjectText('src/shared/events/event-channels.ts')
+    ),
+    actual: collectEventManifestPayloadEntries(manifests.events)
+  }));
 
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
@@ -291,6 +359,53 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     actualCount: chromatic ? 1 : 0,
     missing: chromatic ? [] : ['chromatic-mod-retro'],
     extra: []
+  });
+  checks.push({
+    name: 'device manifest is enforced',
+    status: manifests.devices.mode === 'enforced' ? 'pass' : 'fail',
+    expected: 'enforced',
+    actual: manifests.devices.mode,
+    missing: manifests.devices.mode === 'enforced' ? [] : ['mode=enforced'],
+    extra: []
+  });
+  checks.push(createDerivedSourceCheck({
+    name: 'device registry derives built-in metadata from device manifest',
+    sourceText: readProjectText('src/shared/features/devices/device.registry.js'),
+    requiredFragments: [
+      'DeviceManifest.devices.map',
+      'device.modules.profile',
+      'device.modules.adapter',
+      '[...device.labelPatterns]'
+    ]
+  }));
+  checks.push(createDerivedSourceCheck({
+    name: 'Chromatic runtime config derives hardware metadata from device manifest',
+    sourceText: readProjectText('src/shared/features/devices/profiles/chromatic/device-chromatic.config.js'),
+    requiredFragments: [
+      'DeviceManifest.devices.find',
+      'CHROMATIC_MANIFEST_ENTRY.usb.vendorId',
+      'CHROMATIC_MANIFEST_ENTRY.display.nativeWidth',
+      'CHROMATIC_MANIFEST_ENTRY.media.video',
+      'CHROMATIC_MANIFEST_ENTRY.labelPatterns'
+    ]
+  }));
+  const layoutCss = readProjectText('src/renderer/presentation/styles/layout.css');
+  checks.push({
+    name: 'stream canvas aspect ratio derives from device manifest resolution',
+    status: layoutCss.includes('aspect-ratio: var(--stream-native-aspect-ratio)') &&
+      readProjectText('src/renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts')
+        .includes('--stream-native-aspect-ratio') &&
+      !/aspect-ratio\s*:\s*160\s*\/\s*144/.test(layoutCss)
+      ? 'pass'
+      : 'fail',
+    expected: 'CSS variable populated from native resolution',
+    actual: layoutCss.includes('aspect-ratio: var(--stream-native-aspect-ratio)')
+      ? 'css-variable'
+      : 'manual-or-missing',
+    missing: layoutCss.includes('aspect-ratio: var(--stream-native-aspect-ratio)')
+      ? []
+      : ['aspect-ratio: var(--stream-native-aspect-ratio)'],
+    extra: /aspect-ratio\s*:\s*160\s*\/\s*144/.test(layoutCss) ? ['aspect-ratio: 160 / 144'] : []
   });
 
   const storageConfigSource = readProjectText('src/shared/config/storage-keys.config.ts');

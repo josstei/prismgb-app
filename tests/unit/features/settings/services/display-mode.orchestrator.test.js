@@ -57,6 +57,10 @@ describe('SettingsDisplayModeOrchestrator', () => {
   });
 
   afterEach(() => {
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: false
+    });
     vi.restoreAllMocks();
   });
 
@@ -141,6 +145,22 @@ describe('SettingsDisplayModeOrchestrator', () => {
       orchestrator._applyStartupBehaviors();
 
       expect(mockSettingsFullscreenService.enterFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should remove deferred startup fullscreen listener during cleanup', async () => {
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        value: true
+      });
+      const addListenerSpy = vi.spyOn(document, 'addEventListener');
+      const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+      orchestrator._applyStartupBehaviors();
+      await orchestrator.onCleanup();
+
+      expect(addListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+      expect(removeListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
     });
   });
 });

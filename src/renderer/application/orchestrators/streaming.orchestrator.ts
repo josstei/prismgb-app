@@ -53,14 +53,14 @@ type StreamViewServiceLike = {
 
 type RenderPipelineServiceLike = {
   initialize(): void;
-  handleCanvasExpired(): void;
+  handleCanvasExpired(): Promise<void>;
   handlePerformanceStateChanged(state: PerformanceStatePayload): void;
   handleFullscreenChange(): void;
   handleRenderPresetChanged(presetId: string): void;
-  handlePerformanceModeChanged(enabled: boolean): void;
+  handlePerformanceModeChanged(enabled: boolean): Promise<void>;
   startPipeline(capabilities: StreamingCapabilities): Promise<void>;
   stopPipeline(): void;
-  cleanup(): void;
+  cleanup(): Promise<void>;
 };
 
 type GpuRecordingServiceLike = {
@@ -126,9 +126,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     // Subscribe to canvas expiration (GPU worker terminated)
     // and UI command events (decoupled from UISetupOrchestrator)
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_EXPIRED]: () => {
-        this.renderPipelineService.handleCanvasExpired();
-      },
+      [EventChannels.RENDER.CANVAS_EXPIRED]: () => this.renderPipelineService.handleCanvasExpired(),
       // UI command events - decoupled from UISetupOrchestrator
       [EventChannels.UI.STREAM_START_REQUESTED]: () => this.start(),
       [EventChannels.UI.STREAM_STOP_REQUESTED]: () => this.stop()
@@ -244,13 +242,13 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * @param {boolean} enabled - Whether performance mode is enabled
    * @private
    */
-  _handlePerformanceModeChanged(enabled: unknown): void {
+  async _handlePerformanceModeChanged(enabled: unknown): Promise<void> {
     if (typeof enabled !== 'boolean') {
       this.logger.warn('Ignoring invalid performance mode payload', enabled);
       return;
     }
 
-    this.renderPipelineService.handlePerformanceModeChanged(enabled);
+    await this.renderPipelineService.handlePerformanceModeChanged(enabled);
   }
 
   /**
@@ -402,7 +400,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
    * Note: EventBus subscriptions are automatically cleaned up by BaseOrchestrator
    */
   async onCleanup(): Promise<void> {
-    this.renderPipelineService.cleanup();
+    await this.renderPipelineService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {

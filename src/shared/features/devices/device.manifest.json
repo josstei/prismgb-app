@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "mode": "report-only",
+  "mode": "enforced",
   "devices": [
     {
       "id": "chromatic-mod-retro",
@@ -59,4 +59,3 @@
     }
   ]
 }
-

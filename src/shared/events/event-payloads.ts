@@ -19,6 +19,15 @@ export type NativeResolution = Dimensions;
 
 export type RenderApi = 'webgpu' | 'webgl2' | 'canvas2d';
 
+export type HandlerErrorPayload = {
+  eventName: string;
+  error: {
+    name?: string;
+    message: string;
+    stack?: string;
+  };
+};
+
 export type StreamingCapabilities = {
   nativeResolution?: NativeResolution;
   frameRate?: number;
@@ -231,14 +240,7 @@ export type TranscodeCancelledPayload = {
 };
 
 export type EventPayloadMap = {
-  [EventChannels.SYSTEM.HANDLER_ERROR]: {
-    eventName: string;
-    error: {
-      name?: string;
-      message: string;
-      stack?: string;
-    };
-  };
+  [EventChannels.SYSTEM.HANDLER_ERROR]: HandlerErrorPayload;
 
   [EventChannels.DEVICE.STATUS_CHANGED]: unknown;
   [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: SupportedDeviceAvailablePayload;

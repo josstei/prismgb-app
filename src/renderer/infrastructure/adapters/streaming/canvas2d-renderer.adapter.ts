@@ -21,8 +21,8 @@ interface CanvasRenderLoopServiceLike {
   clearCanvas(canvasElement: HTMLCanvasElement): void;
   resize(canvasElement: HTMLCanvasElement, width: number, height: number): void;
   isActive(): boolean;
-  resetCanvasState(): void;
-  cleanup(): void;
+  resetCanvasState(): Promise<void>;
+  cleanup(): Promise<void>;
 }
 
 interface AppStateLike {
@@ -154,7 +154,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   /**
    * Cleanup Canvas2D renderer resources
    */
-  cleanup() {
+  async cleanup() {
     if (this._videoElement) {
       this.canvasRenderLoopService.stopRendering(this._videoElement);
     }
@@ -163,7 +163,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this._videoElement = null;
     this._isInitialized = false;
 
-    this.canvasRenderLoopService.cleanup();
+    await this.canvasRenderLoopService.cleanup();
     this.logger.info('Canvas2D renderer adapter cleaned up');
   }
 
@@ -179,8 +179,8 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   /**
    * Reset canvas state (after canvas replacement)
    */
-  resetCanvasState() {
-    this.canvasRenderLoopService.resetCanvasState();
+  async resetCanvasState() {
+    await this.canvasRenderLoopService.resetCanvasState();
     this._canvasElement = null;
     this._isInitialized = false;
   }

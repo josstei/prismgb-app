@@ -1,12 +1,4 @@
-/**
- * Device Registry - Process-agnostic device metadata
- *
- * Contains only device detection metadata (USB IDs, label patterns).
- * ProfileClass and AdapterClass are registered at runtime by each process.
- *
- * Main process registers: ProfileClass (via device.service.main.js)
- * Renderer registers: AdapterClass (via streaming-adapter.factory.js)
- */
+import { DeviceManifest } from './device.manifest.js';
 
 /**
  * Device Registry - Central registry for all supported devices
@@ -22,27 +14,21 @@
  * ProfileClass/AdapterClass are registered at runtime by each process.
  */
 
-// Built-in devices that ship with PrismGB
-const BUILT_IN_DEVICES = [
-  {
-    id: 'chromatic-mod-retro',
-    name: 'Mod Retro Chromatic',
-    manufacturer: 'ModRetro',
-    enabled: true,
-    usb: {
-      vendorId: 0x374e,  // 14158 decimal
-      productId: 0x0101  // 257 decimal
-    },
-    labelPatterns: [
-      'chromatic',
-      'modretro',
-      'mod retro',
-      '374e:0101'
-    ],
-    profileModule: 'device-chromatic.profile',
-    adapterModule: 'device-chromatic.adapter'
-  }
-];
+// Built-in devices that ship with PrismGB. Detection metadata comes from the
+// device manifest; process-specific classes are registered at runtime.
+const BUILT_IN_DEVICES = DeviceManifest.devices.map((device) => ({
+  id: device.id,
+  name: device.name,
+  manufacturer: device.manufacturer,
+  enabled: device.enabled,
+  usb: {
+    vendorId: device.usb.vendorId,
+    productId: device.usb.productId
+  },
+  labelPatterns: [...device.labelPatterns],
+  profileModule: device.modules.profile,
+  adapterModule: device.modules.adapter
+}));
 
 // Mutable internal registry initialized with built-in devices
 const _registeredDevices = [...BUILT_IN_DEVICES];

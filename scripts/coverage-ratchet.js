@@ -312,10 +312,6 @@ function hasMinimums(minimums) {
   return Object.keys(minimums).length > 0;
 }
 
-function hasPositiveMinimums(minimums) {
-  return Object.values(minimums).some((value) => Number(value) > 0);
-}
-
 function evaluateCoverageRatchet(summary, thresholds, options = {}) {
   const projectRoot = options.projectRoot || process.cwd();
   const asOfDate = options.asOfDate || getTodayIsoDate();
@@ -384,7 +380,7 @@ function evaluateCoverageRatchet(summary, thresholds, options = {}) {
       }
     }
 
-    if (shouldEnforceTarget && aggregate.fileCount === 0 && hasPositiveMinimums(minimums)) {
+    if (shouldEnforceTarget && aggregate.fileCount === 0 && hasMinimums(minimums)) {
       failures.push({
         target: target.id,
         owner: target.owner,

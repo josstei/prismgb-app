@@ -12,8 +12,7 @@ vi.mock('@prismgb/gpu', () => ({
     getForUI: () => [
       { id: 'sharp', name: 'Sharp' },
       { id: 'soft', name: 'Soft' },
-      { id: 'crt', name: 'CRT' },
-      { id: 'performance', name: 'Performance' }
+      { id: 'crt', name: 'CRT' }
     ]
   }
 }));
@@ -101,7 +100,6 @@ describe('ShaderPresetListComponent', () => {
 
     it('should render preset list', () => {
       component.initialize({ optionsContainer, unavailableMessage });
-      // Should render 3 presets (excluding 'performance')
       const options = optionsContainer.querySelectorAll('.shader-option');
       expect(options.length).toBe(3);
     });

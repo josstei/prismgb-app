@@ -193,9 +193,9 @@ export class StreamingCanvasRenderLoopService {
     return this._isRenderLoopActive;
   }
 
-  resetCanvasState(): void {
+  async resetCanvasState(): Promise<void> {
     this.stopRendering(this._currentVideoElement);
-    void this._disposePipeline();
+    await this._disposePipeline();
     this._displayWidth = 0;
     this._displayHeight = 0;
     this._devicePixelRatio = 1;
@@ -206,7 +206,7 @@ export class StreamingCanvasRenderLoopService {
     return this._pipelineCanvas === canvasElement && this._pipeline !== null;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this._isRenderLoopActive = false;
     this._removeLoadedDataListener();
 
@@ -217,7 +217,7 @@ export class StreamingCanvasRenderLoopService {
     this.animationCache.cancelAllAnimations();
     this._rvfcHandle = null;
     this._currentVideoElement = null;
-    void this._disposePipeline();
+    await this._disposePipeline();
     this._displayWidth = 0;
     this._displayHeight = 0;
     this._devicePixelRatio = 1;

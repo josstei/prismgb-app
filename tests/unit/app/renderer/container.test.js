@@ -85,9 +85,9 @@ describe('Renderer container', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
-    resetContainer();
+    await resetContainer();
     clearPreloadApi('deviceAPI');
   });
 
@@ -128,10 +128,10 @@ describe('Renderer container', () => {
     expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');
   });
 
-  it('disposes and clears container state on reset', () => {
+  it('disposes and clears container state on reset', async () => {
     const container = initializeContainer();
     const disposeSpy = vi.spyOn(container, 'dispose');
-    resetContainer();
+    await resetContainer();
 
     expect(disposeSpy).toHaveBeenCalled();
     expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');

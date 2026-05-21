@@ -32,7 +32,7 @@ type StreamingRendererLike = {
   isActive(): boolean;
   pause(videoElement: HTMLVideoElement): void;
   resume(videoElement: HTMLVideoElement): void;
-  cleanup(): void;
+  cleanup(): void | Promise<void>;
   handlePipelineStop(): void;
   supportsPresets(): boolean;
   getPresetId(): string | null;
@@ -54,10 +54,10 @@ type StreamViewServiceLike = {
 
 type CanvasLifecycleServiceLike = {
   initialize(): void;
-  handleCanvasExpired(): void;
+  handleCanvasExpired(): Promise<void>;
   handleFullscreenChange(): void;
   setupCanvasSize(nativeResolution?: Dimensions, useGpuCanvas?: boolean): void;
-  recreateCanvas(): void;
+  recreateCanvas(): Promise<void>;
   cleanup(): void;
 };
 
@@ -82,7 +82,7 @@ type StreamingRendererFactoryLike = {
 
 type CanvasRenderLoopServiceLike = {
   hasContextFor(canvas: HTMLCanvasElement): boolean;
-  cleanup(): void;
+  cleanup(): Promise<void>;
 };
 
 type GpuRendererServiceLike = {
@@ -161,8 +161,8 @@ export class StreamingRenderPipelineService extends BaseService {
     this.canvasLifecycleService.initialize();
   }
 
-  handleCanvasExpired(): void {
-    this.canvasLifecycleService.handleCanvasExpired();
+  async handleCanvasExpired(): Promise<void> {
+    await this.canvasLifecycleService.handleCanvasExpired();
   }
 
   handlePerformanceStateChanged(state: unknown): void {
@@ -198,13 +198,13 @@ export class StreamingRenderPipelineService extends BaseService {
     this.canvasLifecycleService.handleFullscreenChange();
   }
 
-  handlePerformanceModeChanged(enabled: boolean): void {
+  async handlePerformanceModeChanged(enabled: boolean): Promise<void> {
     this._performanceModeEnabled = enabled;
 
     if (enabled) {
-      this._handlePerformanceModeEnabled();
+      await this._handlePerformanceModeEnabled();
     } else {
-      this._handlePerformanceModeDisabled();
+      await this._handlePerformanceModeDisabled();
     }
   }
 
@@ -240,19 +240,22 @@ export class StreamingRenderPipelineService extends BaseService {
     this._activeRendererType = null;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this._performanceModeEnabled = false;
     this._userPresetId = null;
+    const activeRendererType = this._activeRendererType;
 
     if (this._activeRenderer) {
       const video = this.streamViewService.getVideo();
       this._activeRenderer.pause(video);
-      this._activeRenderer.cleanup();
+      await this._activeRenderer.cleanup();
       this._activeRenderer = null;
       this._activeRendererType = null;
     }
 
-    this.canvasRenderLoopService.cleanup();
+    if (activeRendererType !== 'canvas2d') {
+      await this.canvasRenderLoopService.cleanup();
+    }
     this.canvasLifecycleService.cleanup();
     this.streamHealthService.cleanup();
   }
@@ -277,7 +280,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  private _handlePerformanceModeEnabled(): void {
+  private async _handlePerformanceModeEnabled(): Promise<void> {
     // Cache user preset if GPU is active
     if (this.appState.isStreaming && this._activeRendererType === 'gpu' && this._activeRenderer?.isActive()) {
       const currentPresetId = this._activeRenderer.getPresetId();
@@ -286,7 +289,7 @@ export class StreamingRenderPipelineService extends BaseService {
       }
 
       // Switch to Canvas2D mid-stream
-      void this._switchToCanvas2DMidStream();
+      await this._switchToCanvas2DMidStream();
       this.logger.info('Performance mode enabled mid-stream - switched to Canvas2D renderer');
       return;
     }
@@ -300,7 +303,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
   }
 
-  private _handlePerformanceModeDisabled(): void {
+  private async _handlePerformanceModeDisabled(): Promise<void> {
     // Restore preset if GPU is already active
     if (this._activeRendererType === 'gpu' && this._activeRenderer?.isActive() && this._userPresetId) {
       this._activeRenderer.setPreset(this._userPresetId);
@@ -310,14 +313,14 @@ export class StreamingRenderPipelineService extends BaseService {
 
     // Switch to GPU mid-stream if Canvas2D was being used
     if (this.appState.isStreaming && this._activeRendererType === 'canvas2d') {
-      void this._switchToGPUMidStream();
+      await this._switchToGPUMidStream();
       return;
     }
 
     // Recreate canvas for GPU if Canvas2D context was active
     if (this._canvas2dContextCreated && !this.appState.isStreaming) {
       this.logger.info('Performance mode disabled - recreating canvas for GPU');
-      this.canvasLifecycleService.recreateCanvas();
+      await this.canvasLifecycleService.recreateCanvas();
       this.canvasLifecycleService.setupCanvasSize();
       this._activeRenderer = null;
       this._activeRendererType = null;
@@ -374,7 +377,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
     if (rendererType === 'gpu' && canvasHasContext) {
       this.logger.info('Recreating canvas before GPU init (canvas has 2D context)');
-      this.canvasLifecycleService.recreateCanvas();
+      await this.canvasLifecycleService.recreateCanvas();
       this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
       this._canvas2dContextCreated = false;
     }
@@ -447,7 +450,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
         if (isContextError && canRetry) {
           this.logger.warn('GPU init failed due to existing canvas context, recreating canvas and retrying');
-          this.canvasLifecycleService.recreateCanvas();
+          await this.canvasLifecycleService.recreateCanvas();
           this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
           currentCanvas = this.streamViewService.getCanvas();
           continue; // Retry with fresh canvas
@@ -513,7 +516,7 @@ export class StreamingRenderPipelineService extends BaseService {
     if (this.gpuRendererService.isCanvasTransferred()) {
       this.logger.warn('Canvas control was transferred to GPU. Recreating canvas for Canvas2D fallback.');
       this.gpuRendererService.terminateAndReset(false);
-      this.canvasLifecycleService.recreateCanvas();
+      await this.canvasLifecycleService.recreateCanvas();
       this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
       this._canvas2dContextCreated = false;
       currentCanvas = this.streamViewService.getCanvas();
@@ -535,7 +538,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Recreate canvas
-    this.canvasLifecycleService.recreateCanvas();
+    await this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
     const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();
@@ -559,7 +562,7 @@ export class StreamingRenderPipelineService extends BaseService {
     }
 
     // Recreate canvas for GPU
-    this.canvasLifecycleService.recreateCanvas();
+    await this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
     const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();

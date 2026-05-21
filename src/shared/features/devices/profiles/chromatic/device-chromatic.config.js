@@ -5,39 +5,39 @@
  * No Node.js dependencies - safe for renderer process.
  */
 
+import { DeviceManifest } from '../../device.manifest.js';
+
 // =============================================================================
 // CHROMATIC DEVICE CONFIGURATION
 // =============================================================================
 
+const CHROMATIC_MANIFEST_ENTRY = DeviceManifest.devices.find((device) => device.id === 'chromatic-mod-retro');
+if (!CHROMATIC_MANIFEST_ENTRY) {
+  throw new Error('Device manifest must define chromatic-mod-retro');
+}
+
 const CHROMATIC_USB = Object.freeze({
-  vendorId: 0x374e,  // 14158 decimal
-  productId: 0x0101,  // 257 decimal
-  deviceClass: 0x0E,  // Video class
-  alternateDeviceClass: 0xEF  // Miscellaneous class (alternate detection)
+  vendorId: CHROMATIC_MANIFEST_ENTRY.usb.vendorId,
+  productId: CHROMATIC_MANIFEST_ENTRY.usb.productId,
+  deviceClass: CHROMATIC_MANIFEST_ENTRY.usb.deviceClass,
+  alternateDeviceClass: CHROMATIC_MANIFEST_ENTRY.usb.alternateDeviceClass
 });
 
 const CHROMATIC_NATIVE = Object.freeze({
-  width: 160,
-  height: 144,
-  aspectRatio: 160 / 144,  // ~1.111 (10:9)
-  aspectRatioLabel: '10:9',
-  pixelPerfect: true
+  width: CHROMATIC_MANIFEST_ENTRY.display.nativeWidth,
+  height: CHROMATIC_MANIFEST_ENTRY.display.nativeHeight,
+  aspectRatio: CHROMATIC_MANIFEST_ENTRY.display.aspectRatio,
+  aspectRatioLabel: CHROMATIC_MANIFEST_ENTRY.display.aspectRatioLabel,
+  pixelPerfect: CHROMATIC_MANIFEST_ENTRY.display.pixelPerfect
 });
 
-const RESOLUTIONS = Object.freeze([
-  Object.freeze({ label: '160x144 (Chromatic Native)', width: 160, height: 144, scale: 1 }),
-  Object.freeze({ label: '320x288 (2x)', width: 320, height: 288, scale: 2 }),
-  Object.freeze({ label: '640x576 (4x)', width: 640, height: 576, scale: 4 }),
-  Object.freeze({ label: '1280x1152 (8x)', width: 1280, height: 1152, scale: 8 }),
-  Object.freeze({ label: '1280x720 (HD)', width: 1280, height: 720, scale: null })
-]);
+const RESOLUTIONS = Object.freeze(
+  CHROMATIC_MANIFEST_ENTRY.display.resolutions.map((resolution) =>
+    Object.freeze({ ...resolution })
+  )
+);
 
-const DEVICE_LABEL_PATTERNS = Object.freeze([
-  'chromatic',
-  'modretro',
-  'mod retro',
-  '374e:0101'  // VID:PID pattern in device label
-]);
+const DEVICE_LABEL_PATTERNS = Object.freeze([...CHROMATIC_MANIFEST_ENTRY.labelPatterns]);
 
 // =============================================================================
 // MEDIA CONFIGURATION
@@ -60,10 +60,9 @@ const AUDIO_SIMPLE = Object.freeze({
 });
 
 const VIDEO_CONFIG = Object.freeze({
-  // Relaxed to avoid OverconstrainedError on some hosts: prefer native but do not require exact
-  width: { ideal: CHROMATIC_NATIVE.width },
-  height: { ideal: CHROMATIC_NATIVE.height },
-  frameRate: { ideal: 60 }
+  width: Object.freeze({ ...CHROMATIC_MANIFEST_ENTRY.media.video.width }),
+  height: Object.freeze({ ...CHROMATIC_MANIFEST_ENTRY.media.video.height }),
+  frameRate: Object.freeze({ ...CHROMATIC_MANIFEST_ENTRY.media.video.frameRate })
 });
 
 // =============================================================================
@@ -111,10 +110,10 @@ const RENDERING_CONFIG = Object.freeze({
 
 export const chromaticConfig = Object.freeze({
   // Device identification
-  name: 'Mod Retro Chromatic',
-  id: 'chromatic-mod-retro',
-  manufacturer: 'ModRetro',
-  version: '1.0.0',
+  name: CHROMATIC_MANIFEST_ENTRY.name,
+  id: CHROMATIC_MANIFEST_ENTRY.id,
+  manufacturer: CHROMATIC_MANIFEST_ENTRY.manufacturer,
+  version: CHROMATIC_MANIFEST_ENTRY.version,
 
   // USB identifiers
   usb: CHROMATIC_USB,
@@ -130,15 +129,7 @@ export const chromaticConfig = Object.freeze({
   }),
 
   // Device capabilities
-  capabilities: Object.freeze([
-    'video-capture',
-    'audio-capture',
-    'screenshot',
-    'recording',
-    'pixel-perfect',
-    'low-latency',
-    'discord-integration'
-  ]),
+  capabilities: Object.freeze([...CHROMATIC_MANIFEST_ENTRY.capabilities]),
 
   // Behavior settings
   behavior: Object.freeze({
@@ -170,7 +161,7 @@ export const mediaConfig = Object.freeze({
   audioFull: AUDIO_FULL,
   audioSimple: AUDIO_SIMPLE,
   resolutions: RESOLUTIONS,
-  fallbackStrategy: 'audio-simple'
+  fallbackStrategy: CHROMATIC_MANIFEST_ENTRY.media.fallbackStrategy
 });
 
 // =============================================================================
@@ -212,4 +203,3 @@ export const chromaticHelpers = Object.freeze({
     };
   }
 });
-

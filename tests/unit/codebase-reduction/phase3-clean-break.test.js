@@ -113,8 +113,45 @@ describe('Phase 3 clean-break consolidation', () => {
     const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.js');
     expect(deviceFactorySource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
 
+    const subscriptionFactorySource = readProjectFile('src/preload/subscription.factory.js');
+    expect(subscriptionFactorySource).toContain('createSubscriptionDisposer');
+    expect(subscriptionFactorySource).toContain('registryInput instanceof Map');
+    expect(subscriptionFactorySource).not.toMatch(/return\s+registry\s*;/);
+
+    [
+      'src/preload/apis/device.preload-api.js',
+      'src/preload/apis/window.preload-api.js',
+      'src/preload/apis/update.preload-api.js',
+      'src/preload/apis/transcode.preload-api.js'
+    ].forEach((relativePath) => {
+      const source = readProjectFile(relativePath);
+      expect(source).toContain('createSubscriptionDisposer');
+      expect(source).not.toContain('disposeListenersForKey');
+      expect(source).not.toContain('listenerKeys');
+    });
+
     const deviceIpcAdapterSource = readProjectFile('src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts');
     expect(deviceIpcAdapterSource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
+  });
+
+  it('awaits cleanup ownership instead of fire-and-forget disposal shims', () => {
+    const mainIndex = readProjectFile('src/main/index.ts');
+    const transcodeSource = readProjectFile('src/main/infrastructure/transcode/transcode.service.ts');
+    const renderLoopSource = readProjectFile('src/renderer/infrastructure/services/streaming/canvas-render-loop.service.ts');
+    const renderPipelineSource = readProjectFile('src/renderer/infrastructure/services/streaming/render-pipeline.service.ts');
+    const rendererContainerSource = readProjectFile('src/renderer/application/container.ts');
+
+    expect(mainIndex).toContain('quitCleanupPromise = application.cleanup()');
+    expect(mainIndex).not.toContain('setTimeout(() => {\n          app.quit();');
+    expect(transcodeSource).not.toContain("app.on('before-quit'");
+    expect(transcodeSource).not.toContain('_cleanupOnQuit');
+    expect(renderLoopSource).toContain('async resetCanvasState(): Promise<void>');
+    expect(renderLoopSource).toContain('await this._disposePipeline()');
+    expect(renderLoopSource).not.toContain('void this._disposePipeline()');
+    expect(renderPipelineSource).toContain('async cleanup(): Promise<void>');
+    expect(renderPipelineSource).toContain('await this._activeRenderer.cleanup()');
+    expect(rendererContainerSource).toContain('async function resetContainer(): Promise<void>');
+    expect(rendererContainerSource).toContain('await container.dispose()');
   });
 
   it('keeps test mocks project-scoped without the deleted lazy/global sandbox helpers', () => {

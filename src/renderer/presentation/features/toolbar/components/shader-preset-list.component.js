@@ -65,8 +65,6 @@ class ShaderPresetListComponent {
 
     const presets = PresetRegistry.getForUI();
     presets.forEach((preset) => {
-      if (preset.id === 'performance') return;
-
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'shader-option';

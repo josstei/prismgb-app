@@ -12,7 +12,7 @@ export const BUILT_IN_PRESETS: readonly PresetRecord[] = [
   { preset: hiDefPreset },
   { preset: vintagePreset },
   { preset: pixelPreset },
-  { preset: performancePreset }
+  { preset: performancePreset, visibleInUI: false }
 ];
 
 export type BuiltInPreset = (typeof BUILT_IN_PRESETS)[number];

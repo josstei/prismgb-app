@@ -1,4 +1,7 @@
-import { createSubscription } from '../subscription.factory.js';
+import {
+  createSubscription,
+  createSubscriptionDisposer
+} from '../subscription.factory.js';
 
 function createUpdatePreloadAPI({
   ipcRenderer,
@@ -10,25 +13,64 @@ function createUpdatePreloadAPI({
   isValidProgress,
   isValidError
 }) {
-  const listenerKeys = {
-    onAvailable: 'update.onAvailable',
-    onNotAvailable: 'update.onNotAvailable',
-    onProgress: 'update.onProgress',
-    onDownloaded: 'update.onDownloaded',
-    onError: 'update.onError'
-  };
-
-  const disposeListenersForKey = (channel, registryKey) => {
-    const listeners = listenerRegistry.get(registryKey);
-    if (!listeners) {
-      return;
+  const subscriptions = [
+    {
+      methodName: 'onAvailable',
+      channel: channels.UPDATE.AVAILABLE,
+      registryKey: 'update.onAvailable',
+      validatePayload: isValidUpdateInfo,
+      invalidPayloadMessage: 'updateAPI.onAvailable: Invalid update info received'
+    },
+    {
+      methodName: 'onNotAvailable',
+      channel: channels.UPDATE.NOT_AVAILABLE,
+      registryKey: 'update.onNotAvailable',
+      validatePayload: isValidUpdateInfo,
+      invalidPayloadMessage: 'updateAPI.onNotAvailable: Invalid update info received'
+    },
+    {
+      methodName: 'onProgress',
+      channel: channels.UPDATE.PROGRESS,
+      registryKey: 'update.onProgress',
+      validatePayload: isValidProgress,
+      invalidPayloadMessage: 'updateAPI.onProgress: Invalid progress received'
+    },
+    {
+      methodName: 'onDownloaded',
+      channel: channels.UPDATE.DOWNLOADED,
+      registryKey: 'update.onDownloaded',
+      validatePayload: isValidUpdateInfo,
+      invalidPayloadMessage: 'updateAPI.onDownloaded: Invalid update info received'
+    },
+    {
+      methodName: 'onError',
+      channel: channels.UPDATE.ERROR,
+      registryKey: 'update.onError',
+      validatePayload: isValidError,
+      invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
     }
-
-    for (const listener of listeners) {
-      ipcRenderer.removeListener(channel, listener);
-    }
-    listeners.clear();
-  };
+  ];
+  const [
+    availableSubscription,
+    notAvailableSubscription,
+    progressSubscription,
+    downloadedSubscription,
+    errorSubscription
+  ] = subscriptions;
+  const subscribe = (subscription, callback) =>
+    createSubscription({
+      apiName: 'updateAPI',
+      ipcRenderer,
+      registry: listenerRegistry,
+      maxListeners,
+      validateCallback: isValidCallback,
+      ...subscription
+    })(callback);
+  const disposeSubscriptions = createSubscriptionDisposer({
+    ipcRenderer,
+    registry: listenerRegistry,
+    subscriptions
+  });
 
   return {
     getStatus: () => ipcRenderer.invoke(channels.UPDATE.GET_STATUS),
@@ -36,83 +78,17 @@ function createUpdatePreloadAPI({
     downloadUpdate: () => ipcRenderer.invoke(channels.UPDATE.DOWNLOAD),
     installUpdate: () => ipcRenderer.invoke(channels.UPDATE.INSTALL),
 
-    onAvailable: (callback) =>
-      createSubscription({
-        apiName: 'updateAPI',
-        methodName: 'onAvailable',
-        channel: channels.UPDATE.AVAILABLE,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onAvailable,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidUpdateInfo,
-        invalidPayloadMessage: 'updateAPI.onAvailable: Invalid update info received'
-      })(callback),
+    onAvailable: (callback) => subscribe(availableSubscription, callback),
 
-    onNotAvailable: (callback) =>
-      createSubscription({
-        apiName: 'updateAPI',
-        methodName: 'onNotAvailable',
-        channel: channels.UPDATE.NOT_AVAILABLE,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onNotAvailable,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidUpdateInfo,
-        invalidPayloadMessage: 'updateAPI.onNotAvailable: Invalid update info received'
-      })(callback),
+    onNotAvailable: (callback) => subscribe(notAvailableSubscription, callback),
 
-    onProgress: (callback) =>
-      createSubscription({
-        apiName: 'updateAPI',
-        methodName: 'onProgress',
-        channel: channels.UPDATE.PROGRESS,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onProgress,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidProgress,
-        invalidPayloadMessage: 'updateAPI.onProgress: Invalid progress received'
-      })(callback),
+    onProgress: (callback) => subscribe(progressSubscription, callback),
 
-    onDownloaded: (callback) =>
-      createSubscription({
-        apiName: 'updateAPI',
-        methodName: 'onDownloaded',
-        channel: channels.UPDATE.DOWNLOADED,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onDownloaded,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidUpdateInfo,
-        invalidPayloadMessage: 'updateAPI.onDownloaded: Invalid update info received'
-      })(callback),
+    onDownloaded: (callback) => subscribe(downloadedSubscription, callback),
 
-    onError: (callback) =>
-      createSubscription({
-        apiName: 'updateAPI',
-        methodName: 'onError',
-        channel: channels.UPDATE.ERROR,
-        ipcRenderer,
-        registry: listenerRegistry,
-        registryKey: listenerKeys.onError,
-        maxListeners,
-        validateCallback: isValidCallback,
-        validatePayload: isValidError,
-        invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
-      })(callback),
+    onError: (callback) => subscribe(errorSubscription, callback),
 
-    dispose: () => {
-      disposeListenersForKey(channels.UPDATE.AVAILABLE, listenerKeys.onAvailable);
-      disposeListenersForKey(channels.UPDATE.NOT_AVAILABLE, listenerKeys.onNotAvailable);
-      disposeListenersForKey(channels.UPDATE.PROGRESS, listenerKeys.onProgress);
-      disposeListenersForKey(channels.UPDATE.DOWNLOADED, listenerKeys.onDownloaded);
-      disposeListenersForKey(channels.UPDATE.ERROR, listenerKeys.onError);
-    }
+    dispose: disposeSubscriptions
   };
 }
 

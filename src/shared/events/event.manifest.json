@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "mode": "report-only",
+  "mode": "enforced",
   "scopes": [
     {
       "scope": "renderer",
@@ -90,4 +90,3 @@
     }
   ]
 }
-

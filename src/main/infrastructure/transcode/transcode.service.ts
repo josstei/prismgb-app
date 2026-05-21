@@ -123,11 +123,6 @@ class TranscodeService extends BaseService {
       // Don't throw - service can still be initialized, but transcode will fail
     }
 
-    // Register cleanup on app quit
-    app.on('before-quit', () => {
-      this._cleanupOnQuit();
-    });
-
     this._isInitialized = true;
     this.logger.info('TranscodeService initialized');
   }
@@ -343,26 +338,6 @@ class TranscodeService extends BaseService {
       }
     }, 5 * 60 * 1000);
     this._cleanupTimeouts.set(jobId, timeoutHandle);
-  }
-
-  /**
-   * Cleanup on app quit
-   * @private
-   */
-  private _cleanupOnQuit(): void {
-    this.logger.info('Cleaning up transcode resources on quit');
-
-    // Cancel all running processes - process.cancel() is synchronous (sends SIGTERM),
-    // so signals are sent in quick succession without blocking
-    for (const [jobId, process] of this._processes) {
-      if (process.isRunning) {
-        this.logger.info('Cancelling running transcode on quit', { jobId });
-        process.cancel();
-      }
-    }
-
-    // Clean up all temp sessions
-    cleanupAllSessions();
   }
 
   /**

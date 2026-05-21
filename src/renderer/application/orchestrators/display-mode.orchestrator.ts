@@ -8,6 +8,7 @@ import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
+  private _removeStartupVisibilityListener: (() => void) | null = null;
 
   constructor(dependencies) {
     super(
@@ -32,23 +33,38 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   }
 
   _applyStartupBehaviors() {
+    this._clearStartupVisibilityListener();
+
     if (this.settingsService.getBooleanSetting('fullscreenOnStartup')) {
       if (document.hidden) {
         const onVisible = () => {
-          document.removeEventListener('visibilitychange', onVisible);
+          if (document.hidden) {
+            return;
+          }
+
+          this._clearStartupVisibilityListener();
           this.fullscreenService.enterFullscreen();
         };
         document.addEventListener('visibilitychange', onVisible);
+        this._removeStartupVisibilityListener = () => {
+          document.removeEventListener('visibilitychange', onVisible);
+        };
       } else {
         this.fullscreenService.enterFullscreen();
       }
     }
   }
 
+  _clearStartupVisibilityListener() {
+    this._removeStartupVisibilityListener?.();
+    this._removeStartupVisibilityListener = null;
+  }
+
   /**
    * Cleanup - remove fullscreen listeners
    */
   async onCleanup() {
+    this._clearStartupVisibilityListener();
     this.fullscreenService.dispose();
   }
 

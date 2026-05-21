@@ -56,9 +56,9 @@ function getContainer(): RendererServiceContainer {
   return container;
 }
 
-function resetContainer() {
+async function resetContainer(): Promise<void> {
   if (container) {
-    container.dispose();
+    await container.dispose();
     container = null;
   }
 }

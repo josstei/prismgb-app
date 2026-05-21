@@ -57,12 +57,24 @@ describe('Phase 4 clean-break enforcement', () => {
   it('keeps type and coverage debt ratchets owned and expiring', () => {
     const typeDebt = readProjectJson('scripts/type-debt-allowlist.json');
     const coverageThresholds = readProjectJson('scripts/coverage-thresholds.json');
+    const sizeThresholds = readProjectJson('scripts/codebase-size-thresholds.json');
+    const packageJson = readProjectJson('package.json');
 
     expect(typeDebt.defaultOwner).toBeTruthy();
     expect(typeDebt.defaultExpiresOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(typeDebt.entries.every((entry) => entry.expiresOn)).toBe(true);
     expect(coverageThresholds.mode).toBe('enforce');
     expect(coverageThresholds.targets.every((target) => target.owner && target.expiresOn)).toBe(true);
+    expect(sizeThresholds.mode).toBe('enforce');
+    expect(sizeThresholds.baseline.scopes).toEqual([
+      'src/main',
+      'src/renderer',
+      'src/preload',
+      'src/shared',
+      'packages/prismgb-gpu/src'
+    ]);
+    expect(sizeThresholds.limits.runtimeSourceNetGrowthMax).toBe(0);
+    expect(packageJson.scripts['release:preflight']).toContain('codebase:size -- --enforce-thresholds');
   });
 
   it('keeps asset module typings current without legacy shim naming', () => {

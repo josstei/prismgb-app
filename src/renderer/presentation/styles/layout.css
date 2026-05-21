@@ -163,7 +163,7 @@ body.fullscreen-active .stream-section {
   /* Initial size prevents flash; JS overrides with exact calculated values */
   width: 640px;
   height: 576px;
-  aspect-ratio: 160 / 144;
+  aspect-ratio: var(--stream-native-aspect-ratio);
   background: #000;
   cursor: pointer;
   backface-visibility: hidden;

@@ -132,6 +132,7 @@ describe('Phase 1 manifests', () => {
   });
 
   it('describes current renderer and main EventBus channels by scope', () => {
+    expect(eventManifest.mode).toBe('enforced');
     expectNoDrift(flattenStringValues(EventChannels), collectEventValues('renderer'));
     expectNoDrift(flattenStringValues(MainEventChannels), collectEventValues('main'));
 
@@ -148,6 +149,7 @@ describe('Phase 1 manifests', () => {
   it('describes current Chromatic metadata and generated-fixture targets', () => {
     const [chromatic] = deviceManifest.devices;
 
+    expect(deviceManifest.mode).toBe('enforced');
     expect(chromatic).toMatchObject({
       id: chromaticConfig.id,
       name: chromaticConfig.name,
@@ -176,6 +178,13 @@ describe('Phase 1 manifests', () => {
       },
       labelPatterns: chromatic.labelPatterns
     });
+
+    expect(fs.readFileSync(path.join(projectRoot, 'src/shared/features/devices/device.registry.js'), 'utf8'))
+      .toContain('DeviceManifest.devices.map');
+    expect(fs.readFileSync(
+      path.join(projectRoot, 'src/shared/features/devices/profiles/chromatic/device-chromatic.config.js'),
+      'utf8'
+    )).toContain('CHROMATIC_MANIFEST_ENTRY.media.video');
   });
 
   it('describes current settings defaults, keys, events, and known recording-format drift', async () => {
@@ -270,6 +279,18 @@ describe('Phase 1 manifests', () => {
     expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/webgpu/**');
     expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/webgl2/**');
     expect(vitestConfig).toContain('packages/prismgb-gpu/src/infrastructure/canvas2d/**');
+  });
+
+  it('keeps stream canvas aspect ratio derived from device metadata instead of fixed CSS literals', () => {
+    const layoutCss = fs.readFileSync(path.join(projectRoot, 'src/renderer/presentation/styles/layout.css'), 'utf8');
+    const canvasLifecycleSource = fs.readFileSync(
+      path.join(projectRoot, 'src/renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts'),
+      'utf8'
+    );
+
+    expect(layoutCss).toContain('aspect-ratio: var(--stream-native-aspect-ratio)');
+    expect(layoutCss).not.toMatch(/aspect-ratio\s*:\s*160\s*\/\s*144/);
+    expect(canvasLifecycleSource).toContain('--stream-native-aspect-ratio');
   });
 
   it('documents explicit Vitest project topology for browser, node, and GPU tests', () => {

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "mode": "enforce",
+  "generatedAt": "2026-05-21T00:00:00.000Z",
+  "baseline": {
+    "ref": "20ac639",
+    "scopes": [
+      "src/main",
+      "src/renderer",
+      "src/preload",
+      "src/shared",
+      "packages/prismgb-gpu/src"
+    ]
+  },
+  "limits": {
+    "trackedFilesTotalMax": 690,
+    "sourceLocTotalMax": 117200,
+    "sourceLocByAreaMax": {
+      "main": 4900,
+      "renderer": 27900,
+      "preload": 830,
+      "shared": 3600,
+      "gpu-package": 4100,
+      "scripts": 7000,
+      "tests": 53500,
+      "docs": 700,
+      "other": 15250
+    },
+    "runtimeSourceNetGrowthMax": 0,
+    "shaderDuplicateDivergenceCountMax": 0,
+    "rendererShaderDuplicateFileCountMax": 0
+  }
+}

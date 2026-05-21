@@ -24,8 +24,8 @@ class StreamingCanvasLifecycleService extends BaseService {
     this.setupCanvasSize(nativeResolution);
   }
 
-  handleCanvasExpired() {
-    this.recreateCanvas();
+  async handleCanvasExpired() {
+    await this.recreateCanvas();
     this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer);
   }
 
@@ -46,6 +46,12 @@ class StreamingCanvasLifecycleService extends BaseService {
     const resolution = nativeResolution || getDefaultNativeResolution();
     this._nativeResolution = resolution;
     this._useGpuRenderer = useGpu;
+    const nativeAspectRatio = `${resolution.width} / ${resolution.height}`;
+    if (typeof canvas.style?.setProperty === 'function') {
+      canvas.style.setProperty('--stream-native-aspect-ratio', nativeAspectRatio);
+    } else if (canvas.style) {
+      canvas.style['--stream-native-aspect-ratio'] = nativeAspectRatio;
+    }
 
     const dimensions = this.viewportService.calculateDimensions(canvas, resolution);
     if (!dimensions) return;
@@ -65,7 +71,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     }
   }
 
-  recreateCanvas() {
+  async recreateCanvas() {
     const oldCanvas = this.streamViewService.getCanvas();
     if (!oldCanvas) return;
 
@@ -86,7 +92,7 @@ class StreamingCanvasLifecycleService extends BaseService {
 
     this.streamViewService.setCanvas(newCanvas);
 
-    this.canvasRenderLoopService.resetCanvasState();
+    await this.canvasRenderLoopService.resetCanvasState();
     this.viewportService.resetDimensions();
 
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });

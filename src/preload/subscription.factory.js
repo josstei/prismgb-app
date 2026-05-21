@@ -1,24 +1,44 @@
+function requireListenerRegistry(registryInput) {
+  if (!(registryInput instanceof Map)) {
+    throw new TypeError('Preload listener registry must be a Map');
+  }
+
+  return registryInput;
+}
+
 function getListenerSet(registry, key) {
-  if (!registry) {
-    return null;
+  const listenerRegistry = requireListenerRegistry(registry);
+
+  if (typeof key !== 'string' || key.length === 0) {
+    throw new TypeError('Preload listener registry key must be a non-empty string');
   }
 
-  if (typeof registry.get === 'function' && typeof registry.set === 'function') {
-    if (key == null) {
-      return null;
-    }
-
-    const listeners = registry.get(key);
-    if (listeners instanceof Set) {
-      return listeners;
-    }
-
-    const newListeners = new Set();
-    registry.set(key, newListeners);
-    return newListeners;
+  const listeners = listenerRegistry.get(key);
+  if (listeners instanceof Set) {
+    return listeners;
   }
 
-  return registry;
+  const newListeners = new Set();
+  listenerRegistry.set(key, newListeners);
+  return newListeners;
+}
+
+function createSubscriptionDisposer({ ipcRenderer, registry, subscriptions }) {
+  const listenerRegistry = requireListenerRegistry(registry);
+
+  return () => {
+    for (const { channel, registryKey } of subscriptions) {
+      const listeners = listenerRegistry.get(registryKey);
+      if (!(listeners instanceof Set)) {
+        continue;
+      }
+
+      for (const listener of listeners) {
+        ipcRenderer.removeListener(channel, listener);
+      }
+      listeners.clear();
+    }
+  };
 }
 
 function createSubscription({
@@ -44,10 +64,6 @@ function createSubscription({
     }
 
     const listenerSet = getListenerSet(registry, registryKey);
-
-    if (!listenerSet) {
-      return () => {};
-    }
 
     if (listenerSet.size >= maxListeners) {
       console.warn(listenerLimitMessage);
@@ -77,4 +93,7 @@ function createSubscription({
   };
 }
 
-export { createSubscription };
+export {
+  createSubscription,
+  createSubscriptionDisposer
+};

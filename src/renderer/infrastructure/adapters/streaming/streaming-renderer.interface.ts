@@ -62,7 +62,7 @@ export class IStreamingRenderer {
   /**
    * Cleanup all resources
    */
-  cleanup(): void {
+  cleanup(): void | Promise<void> {
     throw new Error('cleanup() must be implemented');
   }
 

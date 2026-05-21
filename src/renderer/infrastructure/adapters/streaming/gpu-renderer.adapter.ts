@@ -25,7 +25,7 @@ interface GpuRendererServiceLike {
   isCanvasTransferred(): boolean;
   releaseGpuResources(): void;
   terminateAndReset(emitCanvasExpired: boolean): void;
-  cleanup(): void;
+  cleanup(): void | Promise<void>;
 }
 
 interface GpuRenderLoopServiceLike {
@@ -157,13 +157,13 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   /**
    * Cleanup GPU renderer resources
    */
-  cleanup() {
+  async cleanup() {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
     }
     this._renderLoopActive = false;
     this._videoElement = null;
-    this.gpuRendererService.cleanup();
+    await this.gpuRendererService.cleanup();
     this.logger.info('GPU renderer adapter cleaned up');
   }
 
