@@ -5,6 +5,7 @@ import {
   createPreloadDeclarationPreview,
   loadManifests
 } from '../../../scripts/codebase-phase1-drift-report.js';
+import { extractAliasKeysFromConfigSource } from '../../../scripts/lib/alias-config.js';
 
 describe('codebase phase 1 drift report', () => {
   it('passes against the current hand-maintained surfaces', () => {
@@ -47,5 +48,27 @@ describe('codebase phase 1 drift report', () => {
     expect(docs).toContain('CODEBASE_PHASE1_MANIFESTS:START');
     expect(docs).toContain('| IPC namespaces | 8 |');
     expect(docs).toContain('| Platform targets | 5 |');
+  });
+
+  it('extracts arbitrary Vite/Vitest alias keys from direct objects and shared bindings', () => {
+    const source = `
+      const sharedAlias = {
+        '@': '/src',
+        '@shared': '/src/shared',
+        ['@computed']: '/src/computed'
+      };
+      export default defineConfig({
+        resolve: { alias: { ...sharedAlias, '@extra': '/src/extra', url: 'url/' } },
+        test: { alias: sharedAlias }
+      });
+    `;
+
+    expect(extractAliasKeysFromConfigSource(source, 'vitest.config.js')).toEqual([
+      '@',
+      '@computed',
+      '@extra',
+      '@shared',
+      'url'
+    ]);
   });
 });

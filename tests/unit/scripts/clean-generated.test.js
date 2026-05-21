@@ -38,6 +38,8 @@ describe('clean-generated script', () => {
   });
 
   it('removes configured generated artifact directories and marks ownership', () => {
+    expect(GENERATED_PATHS).not.toContain('tests/coverage');
+
     GENERATED_ARTIFACT_PATHS.forEach((entry) => {
       createFile(workspace, entry.path);
     });

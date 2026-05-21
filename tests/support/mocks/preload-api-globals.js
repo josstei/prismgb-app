@@ -1,9 +1,11 @@
-const PRELOAD_API_NAMES = [
+export const PRELOAD_API_NAMES = [
   'deviceAPI',
+  'shellAPI',
   'windowAPI',
   'updateAPI',
   'transcodeAPI',
   'metricsAPI',
+  'gpuAPI',
   'loginItemAPI'
 ];
 

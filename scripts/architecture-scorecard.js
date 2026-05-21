@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { pathToFileURL } from 'url';
 import * as ts from 'typescript';
 import { getShaderDuplicateStatus } from './codebase-size-report.js';
@@ -12,6 +12,7 @@ import {
   resolveTargetLayer,
   walkCodeFiles
 } from './check-layer-boundaries.js';
+import { extractAliasKeysFromConfigSource } from './lib/alias-config.js';
 
 const RUNTIME_LAYER_PREFIXES = ['main', 'renderer', 'preload'];
 const DEFAULT_TOP_FILES = 10;
@@ -50,16 +51,31 @@ const CANONICAL_CONTRACT_ALLOWLIST = [
   'scripts/manifests/architecture.manifest.json',
   'scripts/manifests/platforms.manifest.json'
 ];
-const CANONICAL_PRELOAD_APIS = [
+const FALLBACK_CANONICAL_PRELOAD_APIS = [
   'deviceAPI',
+  'shellAPI',
   'windowAPI',
   'updateAPI',
   'transcodeAPI',
   'metricsAPI',
+  'gpuAPI',
   'loginItemAPI'
 ];
 const TS_ALIAS_KEY_PATTERN = /^(.+?)\s*\/\*$/;
-const BUILD_MATRIX_COMMAND = 'node scripts/ci/build-matrix.mjs --mode release --platforms all';
+const BUILD_MATRIX_SOURCES = [
+  {
+    name: 'release',
+    args: ['--mode', 'release', '--platforms', 'all']
+  },
+  {
+    name: 'smoke',
+    args: ['--mode', 'smoke', '--platform', 'all']
+  }
+];
+const SHARED_TYPESCRIPT_CUTOVER_ROOTS = [
+  'src/shared/base',
+  'src/shared/interfaces'
+];
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -177,9 +193,19 @@ export function collectContractMetrics(projectRoot) {
 
 export function collectShaderDuplicateMetrics(projectRoot) {
   const shaderStatus = getShaderDuplicateStatus(projectRoot);
+  const duplicateFiles = shaderStatus.pairs
+    .filter((pair) => pair.rightFileCount > 0)
+    .map((pair) => ({
+      name: pair.name,
+      source: pair.sourceB,
+      fileCount: pair.rightFileCount,
+      status: pair.status
+    }));
   return {
     duplicatePairs: shaderStatus.pairs,
     divergentPairs: shaderStatus.pairs.filter((pair) => pair.status === 'diverged'),
+    duplicateFiles,
+    duplicateFileCount: duplicateFiles.reduce((sum, pair) => sum + pair.fileCount, 0),
     totalPairs: shaderStatus.pairs.length,
     divergentPairCount: shaderStatus.pairs.filter((pair) => pair.status === 'diverged').length
   };
@@ -218,6 +244,134 @@ export function collectRuntimeTwinMetrics(projectRoot) {
   };
 }
 
+export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
+  const files = SHARED_TYPESCRIPT_CUTOVER_ROOTS.flatMap((relativeRoot) => {
+    const absoluteRoot = path.join(projectRoot, relativeRoot);
+    return walkFiles(
+      absoluteRoot,
+      (absolutePath) => absolutePath.endsWith('.js') || absolutePath.endsWith('.d.ts')
+    );
+  })
+    .map((filePath) => normalizeRelativePath(path.relative(projectRoot, filePath)))
+    .sort();
+
+  return {
+    fileCount: files.length,
+    files
+  };
+}
+
+function collectCanonicalPreloadApis(projectRoot) {
+  const ipcManifest = readJson(projectRoot, 'src/shared/ipc/ipc.manifest.json');
+  const apiNames = Array.isArray(ipcManifest?.namespaces)
+    ? ipcManifest.namespaces.map((namespace) => namespace.apiName).filter(Boolean)
+    : FALLBACK_CANONICAL_PRELOAD_APIS;
+
+  return sortUniq(apiNames);
+}
+
+function getPropertyName(node, sourceFile) {
+  if (ts.isPropertyAccessExpression(node)) {
+    return node.name.text;
+  }
+
+  if (ts.isElementAccessExpression(node)) {
+    const argument = node.argumentExpression;
+    if (argument && ts.isStringLiteralLike(argument)) {
+      return argument.text;
+    }
+  }
+
+  if (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) {
+    if (ts.isIdentifier(node.name) || ts.isStringLiteralLike(node.name)) {
+      return node.name.text;
+    }
+  }
+
+  return node.getText(sourceFile);
+}
+
+function isCanonicalWindowObjectExpression(node, sourceFile) {
+  const text = node.getText(sourceFile);
+  return text === 'window'
+    || text === 'globalThis'
+    || text === 'global.window'
+    || text === 'globalThis.window';
+}
+
+function getCanonicalPreloadPropertyAccessName(node, sourceFile, apiNames) {
+  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+    const apiName = getPropertyName(node, sourceFile);
+    if (apiNames.has(apiName) && isCanonicalWindowObjectExpression(node.expression, sourceFile)) {
+      return apiName;
+    }
+  }
+
+  return null;
+}
+
+function isObjectStaticMethodCall(node, methodName, sourceFile) {
+  if (!ts.isPropertyAccessExpression(node.expression)) {
+    return false;
+  }
+
+  return node.expression.getText(sourceFile) === `Object.${methodName}`
+    || node.expression.getText(sourceFile) === `Reflect.${methodName}`;
+}
+
+function countCanonicalPreloadObjectLiteralProperties(node, sourceFile, apiNames) {
+  if (!ts.isObjectLiteralExpression(node)) {
+    return 0;
+  }
+
+  let count = 0;
+  for (const property of node.properties) {
+    const apiName = getPropertyName(property, sourceFile);
+    if (apiNames.has(apiName)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function countCanonicalPreloadCallAssignments(node, sourceFile, apiNames) {
+  if (!ts.isCallExpression(node)) {
+    return 0;
+  }
+
+  const [target, propertyName, descriptor] = node.arguments;
+  if (!target || !isCanonicalWindowObjectExpression(target, sourceFile)) {
+    return 0;
+  }
+
+  if (isObjectStaticMethodCall(node, 'assign', sourceFile)) {
+    return node.arguments
+      .slice(1)
+      .reduce(
+        (sum, argument) => sum + countCanonicalPreloadObjectLiteralProperties(argument, sourceFile, apiNames),
+        0
+      );
+  }
+
+  if (
+    isObjectStaticMethodCall(node, 'defineProperty', sourceFile)
+    && propertyName
+    && ts.isStringLiteralLike(propertyName)
+    && apiNames.has(propertyName.text)
+  ) {
+    return 1;
+  }
+
+  if (
+    isObjectStaticMethodCall(node, 'defineProperties', sourceFile)
+    && propertyName
+  ) {
+    return countCanonicalPreloadObjectLiteralProperties(propertyName, sourceFile, apiNames);
+  }
+
+  return 0;
+}
+
 export function collectInlineMockAssignments(projectRoot) {
   const testsRoot = path.join(projectRoot, 'tests');
   if (!fs.existsSync(testsRoot)) {
@@ -227,32 +381,47 @@ export function collectInlineMockAssignments(projectRoot) {
     };
   }
 
-  const assignmentApiPattern = CANONICAL_PRELOAD_APIS.join('|');
-  const assignmentPattern = new RegExp(
-    `\\b(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\s*[+\\-*/%|&^]?=`,
-    'g'
-  );
-  const deletePattern = new RegExp(`\\bdelete\\s+(?:window|globalThis|global\\.window)\\.(${assignmentApiPattern})\\b`, 'g');
+  const apiNames = new Set(collectCanonicalPreloadApis(projectRoot));
   const filesWithAssignments = [];
 
   const files = walkFiles(testsRoot, (absolutePath) => absolutePath.endsWith('.ts') || absolutePath.endsWith('.js'));
   for (const filePath of files) {
     const source = fs.readFileSync(filePath, 'utf8');
+    const sourceFile = ts.createSourceFile(
+      filePath,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      filePath.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS
+    );
     let count = 0;
 
-    const assignments = source.matchAll(assignmentPattern);
-    const deletes = source.matchAll(deletePattern);
-    for (const match of assignments) {
-      if (match[1]) {
+    function visit(node) {
+      if (ts.isBinaryExpression(node)) {
+        const isAssignment = node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+          && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+        if (isAssignment) {
+          if (getCanonicalPreloadPropertyAccessName(node.left, sourceFile, apiNames)) {
+            count += 1;
+          } else if (isCanonicalWindowObjectExpression(node.left, sourceFile)) {
+            count += countCanonicalPreloadObjectLiteralProperties(node.right, sourceFile, apiNames);
+          }
+        }
+      }
+
+      if (
+        ts.isDeleteExpression(node)
+        && getCanonicalPreloadPropertyAccessName(node.expression, sourceFile, apiNames)
+      ) {
         count += 1;
       }
+
+      count += countCanonicalPreloadCallAssignments(node, sourceFile, apiNames);
+
+      ts.forEachChild(node, visit);
     }
 
-    for (const match of deletes) {
-      if (match[1]) {
-        count += 1;
-      }
-    }
+    visit(sourceFile);
 
     if (count > 0) {
       filesWithAssignments.push({
@@ -277,6 +446,18 @@ function collectAliasManifestSet(projectRoot) {
   return new Set(sortUniq(aliases));
 }
 
+function compareAliasSet(source, configuredAliases, expectedAliases) {
+  const configured = new Set(configuredAliases);
+  const expected = new Set(expectedAliases);
+  return {
+    source,
+    extras: sortUniq([...configured].filter((alias) => !expected.has(alias))),
+    missing: sortUniq([...expected].filter((alias) => !configured.has(alias))),
+    configuredAliases: sortUniq([...configured]),
+    expectedAliases: sortUniq([...expected])
+  };
+}
+
 function collectTsConfigAliases(projectRoot, configFileName) {
   const config = readJson(projectRoot, configFileName);
   const entries = Object.keys(config?.compilerOptions?.paths || {});
@@ -285,52 +466,41 @@ function collectTsConfigAliases(projectRoot, configFileName) {
 
 function collectJsAliasKeys(projectRoot, jsFileName) {
   const source = fs.readFileSync(path.join(projectRoot, jsFileName), 'utf8');
-  const aliases = new Set();
-  const aliasRegex = /['"](@(?:\/|main|renderer|preload|shared|prismgb\/gpu)?|url)['"]\s*:/g;
-  const plainUrlRegex = /^\s*(url)\s*:/gm;
-
-  for (const match of source.matchAll(aliasRegex)) {
-    const rawAlias = normalizeAliasKey(match[1]);
-    if (rawAlias) {
-      aliases.add(rawAlias);
-    }
-  }
-
-  for (const match of source.matchAll(plainUrlRegex)) {
-    aliases.add(match[1]);
-  }
-
-  return aliases;
+  return new Set(extractAliasKeysFromConfigSource(source, jsFileName).map((alias) => normalizeAliasKey(alias)));
 }
 
 export function collectAliasDriftMetrics(projectRoot) {
   const manifestAliases = collectAliasManifestSet(projectRoot);
+  const nonRuntimeManifestAliases = new Set([...manifestAliases].filter((alias) => alias !== 'url'));
   const tsBaseAliases = collectTsConfigAliases(projectRoot, 'tsconfig.base.json');
   const tsAppAliases = collectTsConfigAliases(projectRoot, 'tsconfig.app.json');
   const viteAliases = collectJsAliasKeys(projectRoot, 'vite.config.js');
   const vitestAliases = collectJsAliasKeys(projectRoot, 'vitest.config.js');
 
-  const configuredAliases = new Set([
-    ...tsBaseAliases,
-    ...tsAppAliases,
-    ...viteAliases,
-    ...vitestAliases
-  ]);
-
-  const manifestExtras = [...configuredAliases].filter((alias) => !manifestAliases.has(alias));
-  const manifestMissing = [...manifestAliases].filter((alias) => !configuredAliases.has(alias));
+  const sources = [
+    compareAliasSet('tsconfig.base.json', tsBaseAliases, nonRuntimeManifestAliases),
+    compareAliasSet('tsconfig.app.json', tsAppAliases, nonRuntimeManifestAliases),
+    compareAliasSet('vite.config.js', viteAliases, manifestAliases),
+    compareAliasSet('vitest.config.js', vitestAliases, nonRuntimeManifestAliases)
+  ];
+  const manifestExtras = sources.flatMap((entry) =>
+    entry.extras.map((alias) => ({ source: entry.source, alias }))
+  );
+  const manifestMissing = sources.flatMap((entry) =>
+    entry.missing.map((alias) => ({ source: entry.source, alias }))
+  );
   const driftCount = manifestExtras.length + manifestMissing.length;
 
   return {
     driftCount,
     manifestExtras,
     manifestMissing,
-    configuredAliases: sortUniq(Array.from(configuredAliases))
+    sources
   };
 }
 
-function collectBuildMatrixPlatforms(projectRoot) {
-  const output = execSync(BUILD_MATRIX_COMMAND, {
+function collectBuildMatrixPlatforms(projectRoot, args) {
+  const output = execFileSync(process.execPath, ['scripts/ci/build-matrix.mjs', ...args], {
     cwd: projectRoot,
     encoding: 'utf8'
   });
@@ -343,11 +513,22 @@ export function collectPlatformDriftMetrics(projectRoot) {
   const manifestLabels = new Set(
     (platformsManifest?.platforms || []).map((platform) => platform.label).filter(Boolean)
   );
-  const buildMatrixLabels = collectBuildMatrixPlatforms(projectRoot);
-  const matrixSet = new Set(buildMatrixLabels);
-
-  const matrixExtras = [...matrixSet].filter((entry) => !manifestLabels.has(entry));
-  const manifestMissing = [...manifestLabels].filter((label) => !matrixSet.has(label));
+  const sources = BUILD_MATRIX_SOURCES.map((source) => {
+    const buildMatrixLabels = collectBuildMatrixPlatforms(projectRoot, source.args);
+    const matrixSet = new Set(buildMatrixLabels);
+    return {
+      source: source.name,
+      matrixExtras: sortUniq([...matrixSet].filter((entry) => !manifestLabels.has(entry))),
+      manifestMissing: sortUniq([...manifestLabels].filter((label) => !matrixSet.has(label))),
+      matrixLabelCount: matrixSet.size
+    };
+  });
+  const matrixExtras = sources.flatMap((entry) =>
+    entry.matrixExtras.map((label) => ({ source: entry.source, label }))
+  );
+  const manifestMissing = sources.flatMap((entry) =>
+    entry.manifestMissing.map((label) => ({ source: entry.source, label }))
+  );
   const driftCount = matrixExtras.length + manifestMissing.length;
 
   return {
@@ -355,7 +536,7 @@ export function collectPlatformDriftMetrics(projectRoot) {
     matrixExtras,
     manifestMissing,
     manifestLabelCount: manifestLabels.size,
-    matrixLabelCount: matrixSet.size
+    sources
   };
 }
 
@@ -592,7 +773,9 @@ function printSummary(scorecard) {
   console.log(`- boundary violations: ${metrics.boundaryViolationCount}`);
   console.log(`- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`);
   console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
+  console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
+  console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
@@ -633,7 +816,9 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['topRuntimeFileLocMax', ensureNonNegativeIntegerLimit],
     ['unexpectedContractFileCountMax', ensureNonNegativeIntegerLimit],
     ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
+    ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
+    ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
     ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
@@ -713,9 +898,21 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'shaderDuplicateFileCountMax',
+    'shaderDuplicateFileCount',
+    metrics.shaderDuplicateFileCount,
+    'max'
+  );
+  addCheck(
     'runtimeJsDtsTwinCountMax',
     'runtimeJsDtsTwinCount',
     metrics.runtimeJsDtsTwinCount,
+    'max'
+  );
+  addCheck(
+    'sharedBaseInterfaceJsOrDtsFileCountMax',
+    'sharedBaseInterfaceJsOrDtsFileCount',
+    metrics.sharedBaseInterfaceJsOrDtsFileCount,
     'max'
   );
   addCheck(
@@ -775,7 +972,9 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
       + `across ${metrics.any.filesWithAnyCount} files`,
   `- unexpected contract-like files: ${metrics.unexpectedContractFileCount}`,
   `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
+  `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
+  `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
@@ -818,6 +1017,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const contractOwnershipMetrics = collectContractMetrics(projectRoot);
   const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
   const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
+  const sharedTypeScriptCutoverMetrics = collectSharedTypeScriptCutoverMetrics(projectRoot);
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
@@ -833,9 +1033,13 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       totalContractLikeFiles: contractOwnershipMetrics.totalContractLikeFiles,
       unexpectedContractFiles: contractOwnershipMetrics.unexpectedContractFiles,
       shaderDuplicateDivergenceCount: shaderDuplicateMetrics.divergentPairCount,
+      shaderDuplicateFileCount: shaderDuplicateMetrics.duplicateFileCount,
+      shaderDuplicateFiles: shaderDuplicateMetrics.duplicateFiles,
       shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
       runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
+      sharedBaseInterfaceJsOrDtsFileCount: sharedTypeScriptCutoverMetrics.fileCount,
+      sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,
       inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
       aliasManifestDriftCount: aliasDriftMetrics.driftCount,

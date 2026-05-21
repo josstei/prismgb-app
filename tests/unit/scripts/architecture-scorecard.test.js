@@ -11,9 +11,11 @@ import {
   collectPlatformDriftMetrics,
   collectRuntimeTwinMetrics,
   collectShaderDuplicateMetrics,
+  collectSharedTypeScriptCutoverMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
+import { PRELOAD_API_NAMES } from '../../support/mocks/preload-api-globals.js';
 
 function createMetrics(overrides = {}) {
   return {
@@ -36,7 +38,9 @@ function createMetrics(overrides = {}) {
     totalContractLikeFiles: 13,
     unexpectedContractFiles: [],
     shaderDuplicateDivergenceCount: 0,
+    shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
+    sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
     platformManifestDriftCount: 0,
@@ -147,7 +151,9 @@ describe('evaluateThresholds', () => {
       inlineCanonicalMockAssignmentCountMax: 0,
       unexpectedContractFileCountMax: 0,
       shaderDuplicateDivergenceCountMax: 0,
+      shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
     };
@@ -165,7 +171,9 @@ describe('evaluateThresholds', () => {
     const metrics = createMetrics({
       unexpectedContractFileCount: 1,
       shaderDuplicateDivergenceCount: 1,
+      shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
+      sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       aliasManifestDriftCount: 1,
       platformManifestDriftCount: 1
@@ -173,7 +181,9 @@ describe('evaluateThresholds', () => {
     const limits = {
       unexpectedContractFileCountMax: 0,
       shaderDuplicateDivergenceCountMax: 0,
+      shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -181,11 +191,13 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(6);
+    expect(evaluation.failures).toHaveLength(8);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
+      'shaderDuplicateFileCount',
       'runtimeJsDtsTwinCount',
+      'sharedBaseInterfaceJsOrDtsFileCount',
       'inlineCanonicalMockAssignmentCount',
       'aliasManifestDriftCount',
       'platformManifestDriftCount'
@@ -232,11 +244,26 @@ describe('phase 4 enforcement metrics', () => {
     const metricsApiReference = ['globalThis', 'metricsAPI'].join('.');
     fs.writeFileSync(
       path.join(tempRoot, 'tests', 'adapter-mocks.test.ts'),
-      `${deviceApiReference} = {}\ndelete ${deviceApiReference};\n${metricsApiReference} = {};\n`
+      `${deviceApiReference} = {}\n`
+        + `delete ${deviceApiReference};\n`
+        + `${metricsApiReference} = {};\n`
+        + "global.window = { shellAPI: {}, gpuAPI: {} };\n"
+        + "Object.assign(window, { updateAPI: {}, loginItemAPI: {} });\n"
+        + "Object.defineProperty(window, 'transcodeAPI', { value: {} });\n"
+        + "Object.defineProperties(globalThis.window, { windowAPI: { value: {} } });\n"
     );
     const mutant = collectInlineMockAssignments(tempRoot);
-    expect(mutant.inlineCanonicalMockAssignmentCount).toBe(3);
+    expect(mutant.inlineCanonicalMockAssignmentCount).toBe(9);
     expect(mutant.filesWithAssignments).toHaveLength(1);
+  });
+
+  it('keeps the preload mock helper aligned with the IPC manifest API surface', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'src/shared/ipc/ipc.manifest.json'), 'utf8')
+    );
+    const manifestApiNames = manifest.namespaces.map((namespace) => namespace.apiName).sort();
+
+    expect([...PRELOAD_API_NAMES].sort()).toEqual(manifestApiNames);
   });
 
   it('reports runtime JS + d.ts twin count and catches additions', () => {
@@ -252,9 +279,31 @@ describe('phase 4 enforcement metrics', () => {
     expect(mutant.pairCount).toBe(1);
   });
 
+  it('reports no shared base/interface JS or d.ts cutover leftovers', () => {
+    const baseline = collectSharedTypeScriptCutoverMetrics(process.cwd());
+    expect(baseline.fileCount).toBe(0);
+
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shared-cutover-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'src/shared/base'), { recursive: true });
+    fs.mkdirSync(path.join(tempRoot, 'src/shared/interfaces'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'src/shared/base/listener.js'), 'export {}');
+    fs.writeFileSync(path.join(tempRoot, 'src/shared/interfaces/service.d.ts'), 'export {};');
+
+    const mutant = collectSharedTypeScriptCutoverMetrics(tempRoot);
+    expect(mutant).toEqual({
+      fileCount: 2,
+      files: [
+        'src/shared/base/listener.js',
+        'src/shared/interfaces/service.d.ts'
+      ]
+    });
+  });
+
   it('detects shader duplicate divergence introduced by mismatched copies', () => {
     const baseline = collectShaderDuplicateMetrics(process.cwd());
     expect(baseline.divergentPairCount).toBe(0);
+    expect(baseline.duplicateFileCount).toBe(0);
 
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shaders-'));
     tempRoots.push(tempRoot);
@@ -287,6 +336,30 @@ describe('phase 4 enforcement metrics', () => {
 
     const mutant = collectShaderDuplicateMetrics(tempRoot);
     expect(mutant.divergentPairCount).toBe(1);
+    expect(mutant.duplicateFileCount).toBe(2);
+  });
+
+  it('detects synchronized renderer shader copies as duplicate ownership', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shader-duplicates-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), {
+      recursive: true
+    });
+    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu'), {
+      recursive: true
+    });
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', 'pixel.wgsl'),
+      'fn main() {}\n'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu', 'pixel.wgsl'),
+      'fn main() {}\n'
+    );
+
+    const mutant = collectShaderDuplicateMetrics(tempRoot);
+    expect(mutant.divergentPairCount).toBe(0);
+    expect(mutant.duplicateFileCount).toBe(1);
   });
 
   it('reports no alias/platform manifest drift for current architecture', () => {
@@ -295,5 +368,77 @@ describe('phase 4 enforcement metrics', () => {
 
     expect(aliasMetrics.driftCount).toBe(0);
     expect(platformMetrics.driftCount).toBe(0);
+  });
+
+  it('detects alias drift in each config source instead of masking drift through unioning', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-alias-drift-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'scripts/manifests'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'scripts/manifests/architecture.manifest.json'),
+      JSON.stringify({
+        aliases: [{ id: '@' }, { id: '@shared' }, { id: 'url' }]
+      })
+    );
+    const tsconfig = {
+      compilerOptions: {
+        paths: {
+          '@/*': ['./src/*'],
+          '@shared/*': ['./src/shared/*']
+        }
+      }
+    };
+    fs.writeFileSync(path.join(tempRoot, 'tsconfig.base.json'), JSON.stringify(tsconfig));
+    fs.writeFileSync(path.join(tempRoot, 'tsconfig.app.json'), JSON.stringify(tsconfig));
+    fs.writeFileSync(
+      path.join(tempRoot, 'vite.config.js'),
+      "export default { resolve: { alias: { '@': '/src', '@extra': '/src/extra', 'url': 'url/' } } };\n"
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'vitest.config.js'),
+      "export default { resolve: { alias: { '@': '/src', '@shared': '/src/shared' } } };\n"
+    );
+
+    const metrics = collectAliasDriftMetrics(tempRoot);
+
+    expect(metrics.driftCount).toBe(2);
+    expect(metrics.manifestMissing).toContainEqual({
+      source: 'vite.config.js',
+      alias: '@shared'
+    });
+    expect(metrics.manifestExtras).toContainEqual({
+      source: 'vite.config.js',
+      alias: '@extra'
+    });
+  });
+
+  it('detects platform drift in both release and smoke build matrices', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-platform-drift-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'scripts/manifests'), { recursive: true });
+    fs.mkdirSync(path.join(tempRoot, 'scripts/ci'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'scripts/manifests/platforms.manifest.json'),
+      JSON.stringify({
+        platforms: [{ label: 'linux-x64' }, { label: 'windows-x64' }]
+      })
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'scripts/ci/build-matrix.mjs'),
+      [
+        "const mode = process.argv[process.argv.indexOf('--mode') + 1];",
+        "const release = [{ label: 'linux-x64' }, { label: 'windows-x64' }];",
+        "const smoke = [{ label: 'linux-x64' }];",
+        "process.stdout.write(JSON.stringify(mode === 'smoke' ? smoke : release));"
+      ].join('\n')
+    );
+
+    const metrics = collectPlatformDriftMetrics(tempRoot);
+
+    expect(metrics.driftCount).toBe(1);
+    expect(metrics.manifestMissing).toContainEqual({
+      source: 'smoke',
+      label: 'windows-x64'
+    });
   });
 });

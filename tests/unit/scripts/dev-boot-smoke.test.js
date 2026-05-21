@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { evaluateStartupChunk, runDevBootSmoke } from '../../../scripts/dev-boot-smoke.js';
 
@@ -81,6 +81,47 @@ describe('dev-boot smoke log evaluator', () => {
     );
     expect(result.success).toBe(true);
     expect(result.reason).toBe('Renderer started');
+    killSpy.mockRestore();
+  });
+
+  it('evaluates buffered stdout so split success markers are detected', async () => {
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    const fake = new FakeChildProcess();
+    const spawn = vi.fn(() => fake);
+
+    const runPromise = runDevBootSmoke({
+      spawn,
+      timeoutMs: 200,
+      gracefulShutdownMs: 10
+    });
+
+    fake.stdout.emit('data', Buffer.from('Renderer application started'));
+    fake.stdout.emit('data', Buffer.from(' successfully'));
+    const result = await runPromise;
+
+    expect(result.success).toBe(true);
+    expect(result.reason).toBe('Renderer started');
+    killSpy.mockRestore();
+  });
+
+  it('evaluates buffered stderr so split failure markers are detected', async () => {
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    const fake = new FakeChildProcess();
+    const spawn = vi.fn(() => fake);
+
+    const runPromise = runDevBootSmoke({
+      spawn,
+      timeoutMs: 200,
+      gracefulShutdownMs: 10
+    });
+
+    fake.stderr.emit('data', Buffer.from('[Renderer '));
+    fake.stderr.emit('data', Buffer.from('ERROR] Failed to initialize'));
+    const result = await runPromise;
+
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe('Renderer error log output');
+    expect(result.matchedPattern).toBe('renderer-error');
     killSpy.mockRestore();
   });
 });

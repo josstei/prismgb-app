@@ -2,6 +2,7 @@
   "version": 1,
   "generatedAt": "2026-05-20T05:01:24.496Z",
   "defaultExpiresOn": "2026-12-31",
+  "defaultOwner": "platform:type-safety",
   "entries": [
     {
       "file": "src/main/application/app.orchestrator.ts",
