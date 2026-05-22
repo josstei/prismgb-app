@@ -1,13 +1,8 @@
-export const PRELOAD_API_NAMES = [
-  'deviceAPI',
-  'shellAPI',
-  'windowAPI',
-  'updateAPI',
-  'transcodeAPI',
-  'metricsAPI',
-  'gpuAPI',
-  'loginItemAPI'
-];
+import IpcManifest from '@shared/ipc/ipc.manifest.json';
+
+export const PRELOAD_API_NAMES = Object.freeze(
+  IpcManifest.namespaces.map((namespace) => namespace.apiName)
+);
 
 function getWindowObject() {
   if (!globalThis.window) {

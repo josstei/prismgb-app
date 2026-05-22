@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
-import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
+import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('SettingsService', () => {

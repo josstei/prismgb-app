@@ -28,7 +28,10 @@ describe('Phase 3 clean-break consolidation', () => {
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_1_AUDIT.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md');
     expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
-      'Phase 4 delivered'
+      'Historical phase delivery summary'
+    );
+    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
+      'Phase 4 added architecture scorecard enforcement'
     );
     expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).not.toContain(
       'Next phase when resumed: Phase 4'
@@ -130,6 +133,7 @@ describe('Phase 3 clean-break consolidation', () => {
     ].forEach((relativePath) => {
       const source = readProjectFile(relativePath);
       expect(source).toContain('createSubscriptionDisposer');
+      expect(source).not.toMatch(/\bipcRenderer\.(on|once)\s*\(/);
       expect(source).not.toContain('disposeListenersForKey');
       expect(source).not.toContain('listenerKeys');
     });

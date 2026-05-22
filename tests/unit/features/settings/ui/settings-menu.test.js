@@ -4,6 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
+import {
+  createSettingsMenuTemplate,
+  getRecordingFormatOptions
+} from '@renderer/presentation/features/settings/settings-menu.template.js';
+import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 
 describe('SettingsMenuComponent', () => {
   let component;
@@ -78,6 +83,23 @@ describe('SettingsMenuComponent', () => {
     it('should create component with default state', () => {
       expect(component.isVisible).toBe(false);
       expect(component.disclaimerExpanded).toBe(false);
+    });
+  });
+
+  describe('template contract', () => {
+    it('derives recording format options from transcode config', () => {
+      const template = createSettingsMenuTemplate();
+      const options = getRecordingFormatOptions();
+
+      expect(options.map((option) => option.value)).toEqual(Object.keys(TRANSCODE_CONFIG.formats));
+      expect(options.find((option) => option.value === 'webm')).toMatchObject({
+        label: 'WebM',
+        active: true
+      });
+
+      for (const format of Object.keys(TRANSCODE_CONFIG.formats)) {
+        expect(template).toContain(`data-value="${format}"`);
+      }
     });
   });
 

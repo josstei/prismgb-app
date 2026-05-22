@@ -21,13 +21,36 @@ function expectMissing(relativePath) {
   expect(fs.existsSync(projectPath(relativePath))).toBe(false);
 }
 
+function collectFiles(relativeDirectory, predicate, files = []) {
+  for (const entry of fs.readdirSync(projectPath(relativeDirectory), { withFileTypes: true })) {
+    const relativePath = path.posix.join(relativeDirectory, entry.name);
+    if (entry.isDirectory()) {
+      collectFiles(relativePath, predicate, files);
+      continue;
+    }
+
+    if (entry.isFile() && predicate(relativePath)) {
+      files.push(relativePath);
+    }
+  }
+
+  return files;
+}
+
 describe('Phase 4 clean-break enforcement', () => {
   it('records Phase 4 as current delivered work instead of future work', () => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
 
-    expect(implementationPlan).toContain('Phase 4 delivered');
-    expect(implementationPlan).toContain('Verification for Phase 4');
+    expect(implementationPlan).toContain('Historical phase delivery summary');
+    expect(implementationPlan).toContain('Phase 4 added architecture scorecard enforcement');
+    expect(implementationPlan).toContain('Historical verification detail is intentionally summarized');
     expect(implementationPlan).not.toContain('Next phase when resumed: Phase 4');
+  });
+
+  it('keeps canonical test factories on ESM imports', () => {
+    const factoryIndex = readProjectFile('tests/factories/index.js');
+
+    expect(factoryIndex).not.toMatch(/\brequire\(/);
   });
 
   it('keeps generated artifact ownership on current ignored paths without legacy coverage cleanup', () => {
@@ -180,6 +203,42 @@ describe('Phase 4 clean-break enforcement', () => {
       expect(loaderSource).not.toMatch(/import\s+\w+\s+from\s+['"]\.\/shaders\/[^'"]+\?raw['"]/);
       expect(loaderSource).not.toMatch(/['"][^'"]+\.(?:wgsl|glsl)['"]\s*:/);
     });
+  });
+
+  it('keeps presentation icons discovered by glob instead of manual imports', () => {
+    const iconUtils = readProjectFile('src/renderer/presentation/icons/icon.utils.js');
+
+    expect(iconUtils).toContain('import.meta.glob');
+    expect(iconUtils).toContain("query: '?raw'");
+    expect(iconUtils).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]+\.svg\?raw['"]/);
+  });
+
+  it('keeps presentation icon assets and getIconSvg callers in lockstep', () => {
+    const iconAssets = fs.readdirSync(projectPath('src/renderer/assets/icons'))
+      .filter((filename) => filename.endsWith('.svg'))
+      .map((filename) => filename.replace(/\.svg$/, ''))
+      .sort();
+    const iconCallPattern = /getIconSvg\(\s*['"]([^'"]+)['"]/g;
+    const usedIcons = new Set();
+
+    collectFiles(
+      'src/renderer/presentation',
+      (relativePath) => /\.(?:js|ts)$/.test(relativePath) && relativePath !== 'src/renderer/presentation/icons/icon.utils.js'
+    ).forEach((relativePath) => {
+      for (const match of readProjectFile(relativePath).matchAll(iconCallPattern)) {
+        usedIcons.add(match[1]);
+      }
+    });
+
+    expect([...usedIcons].sort()).toEqual(iconAssets);
+  });
+
+  it('keeps recording format UI options derived from settings definitions', () => {
+    const settingsTemplate = readProjectFile('src/renderer/presentation/features/settings/settings-menu.template.js');
+
+    expect(settingsTemplate).toContain('SettingsDefinitions.definitions.find');
+    expect(settingsTemplate).toContain('getRecordingFormatOptions');
+    expect(settingsTemplate).not.toMatch(/data-value="(?:webm|mp4|mov)"/);
   });
 
   it('uses streaming-mode as the single streaming body-state contract', () => {

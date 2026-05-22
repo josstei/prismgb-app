@@ -5,6 +5,13 @@
  * Use these factories instead of inline mocks for consistency.
  */
 
+import { createAppState } from './app-state.factory.js';
+import { createDeviceService, createAdapterFactory } from './device.factory.js';
+import { createEventBus } from './event-bus.factory.js';
+import { createLoggerFactory } from './logger.factory.js';
+import { createStreamingService } from './stream.factory.js';
+import { createUIController } from './ui.factory.js';
+
 // EventBus factories
 export {
   createEventBus,
@@ -62,13 +69,6 @@ export {
  * @returns {Object} All mock dependencies
  */
 export function createMockDependencies(overrides = {}) {
-  const { createEventBus } = require('./event-bus.factory.js');
-  const { createLoggerFactory } = require('./logger.factory.js');
-  const { createAppState } = require('./app-state.factory.js');
-  const { createUIController } = require('./ui.factory.js');
-  const { createStreamingService } = require('./stream.factory.js');
-  const { createDeviceService, createAdapterFactory } = require('./device.factory.js');
-
   return {
     eventBus: createEventBus(),
     loggerFactory: createLoggerFactory(),

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service.ts';
+import { installGetComputedStyleMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingViewportService', () => {
   let service;
@@ -13,6 +14,28 @@ describe('StreamingViewportService', () => {
   let mockContainer;
   let mockSection;
   let mockMainContent;
+  let getComputedStyleMock;
+
+  function getViewportComputedStyle(element) {
+    if (element === mockSection) {
+      return {
+        paddingLeft: '10px',
+        paddingRight: '10px',
+        paddingTop: '10px',
+        paddingBottom: '10px',
+        gap: '0px'
+      };
+    }
+    if (element === mockContainer) {
+      return {
+        borderLeftWidth: '2px',
+        borderRightWidth: '2px',
+        borderTopWidth: '2px',
+        borderBottomWidth: '2px'
+      };
+    }
+    return {};
+  }
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -51,32 +74,13 @@ describe('StreamingViewportService', () => {
       parentElement: mockContainer
     };
 
-    // Mock window.getComputedStyle
-    global.window.getComputedStyle = vi.fn((element) => {
-      if (element === mockSection) {
-        return {
-          paddingLeft: '10px',
-          paddingRight: '10px',
-          paddingTop: '10px',
-          paddingBottom: '10px',
-          gap: '0px'
-        };
-      }
-      if (element === mockContainer) {
-        return {
-          borderLeftWidth: '2px',
-          borderRightWidth: '2px',
-          borderTopWidth: '2px',
-          borderBottomWidth: '2px'
-        };
-      }
-      return {};
-    });
+    getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
 
     service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
   });
 
   afterEach(() => {
+    getComputedStyleMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -197,8 +201,8 @@ describe('StreamingViewportService', () => {
       const mockControls = { offsetHeight: 50 };
       mockSection.children = [mockContainer, mockControls];
 
-      // Update computed style to include gap
-      global.window.getComputedStyle = vi.fn((element) => {
+      getComputedStyleMock.cleanup();
+      getComputedStyleMock = installGetComputedStyleMock((element) => {
         if (element === mockSection) {
           return {
             paddingLeft: '10px',

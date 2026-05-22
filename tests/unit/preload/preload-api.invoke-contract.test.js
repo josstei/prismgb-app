@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, vi } from 'vitest';
 import channels from '@shared/ipc/channels.json';
+import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
@@ -258,6 +259,21 @@ describe('Preload API invoke contract baselines', () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledTimes(1);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.TRANSCODE.GET_STATUS);
     expect(ipcRenderer.invoke.mock.calls[0]).toHaveLength(1);
+  });
+
+  it('validates transcode formats from shared transcode config', () => {
+    const validatorsSource = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/preload/validators.js'),
+      'utf8'
+    );
+
+    for (const format of Object.keys(TRANSCODE_CONFIG.formats)) {
+      expect(isValidTranscodeParams(new ArrayBuffer(1), format)).toBe(true);
+      expect(isValidTranscodeParams(new ArrayBuffer(1), format.toUpperCase())).toBe(true);
+    }
+    expect(isValidTranscodeParams(new ArrayBuffer(1), 'avi')).toBe(false);
+    expect(validatorsSource).toContain('TRANSCODE_CONFIG.formats');
+    expect(validatorsSource).not.toMatch(/validFormats\s*=\s*\[/);
   });
 
   it('declares transcode.getStatus without a jobId argument', () => {

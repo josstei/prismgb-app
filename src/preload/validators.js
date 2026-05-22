@@ -1,3 +1,7 @@
+import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+
+const SUPPORTED_TRANSCODE_FORMATS = new Set(Object.keys(TRANSCODE_CONFIG.formats));
+
 function isValidCallback(callback) {
   return typeof callback === 'function';
 }
@@ -47,8 +51,7 @@ function isValidTranscodeResult(result) {
 function isValidTranscodeParams(buffer, format) {
   if (!(buffer instanceof ArrayBuffer)) return false;
   if (typeof format !== 'string' || format.length === 0) return false;
-  const validFormats = ['mp4', 'webm', 'mov'];
-  if (!validFormats.includes(format.toLowerCase())) return false;
+  if (!SUPPORTED_TRANSCODE_FORMATS.has(format.toLowerCase())) return false;
   return true;
 }
 

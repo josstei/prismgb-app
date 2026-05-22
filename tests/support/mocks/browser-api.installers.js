@@ -46,6 +46,36 @@ function installProperty(target, key, value) {
   return stack;
 }
 
+function installWindowProperty(key, value) {
+  const stack = createCleanupStack();
+  const target = globalThis.window;
+
+  if (!target) {
+    throw new Error(`Cannot install window.${String(key)} mock without a window global`);
+  }
+
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+  const hadProperty = Object.prototype.hasOwnProperty.call(target, key);
+
+  Object.defineProperty(target, key, {
+    configurable: true,
+    writable: true,
+    value,
+  });
+
+  stack.add(() => {
+    if (descriptor) {
+      Object.defineProperty(target, key, descriptor);
+    } else if (hadProperty) {
+      Reflect.deleteProperty(target, key);
+    } else {
+      Reflect.deleteProperty(target, key);
+    }
+  });
+
+  return stack;
+}
+
 /**
  * Canonical RAF installer.
  */
@@ -297,6 +327,75 @@ function installResizeObserverMockInternal() {
 }
 
 /**
+ * Canonical devicePixelRatio installer.
+ */
+function installDevicePixelRatioMockInternal(value = 1) {
+  const stack = installProperty(globalThis, 'devicePixelRatio', value);
+
+  return {
+    ...stack,
+    devicePixelRatio: value,
+  };
+}
+
+/**
+ * Canonical window.getComputedStyle installer.
+ */
+function installGetComputedStyleMockInternal(implementation = () => ({})) {
+  const mockGetComputedStyle = vi.fn(implementation);
+  const stack = installWindowProperty('getComputedStyle', mockGetComputedStyle);
+
+  return {
+    ...stack,
+    getComputedStyle: mockGetComputedStyle,
+  };
+}
+
+/**
+ * Canonical window.matchMedia installer.
+ */
+function installMatchMediaMockInternal(options = {}) {
+  const mediaQuery = options.mediaQuery ?? {
+    matches: options.matches ?? false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+  const mockMatchMedia = vi.fn((query) => {
+    if (typeof options.matchMedia === 'function') {
+      return options.matchMedia(query, mediaQuery);
+    }
+    return mediaQuery;
+  });
+  const stack = installWindowProperty('matchMedia', mockMatchMedia);
+
+  return {
+    ...stack,
+    matchMedia: mockMatchMedia,
+    mediaQuery,
+  };
+}
+
+/**
+ * Canonical installer for tests that need MutationObserver absent.
+ */
+function installMissingMutationObserverMockInternal() {
+  const stack = createCleanupStack();
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
+
+  Reflect.deleteProperty(globalThis, 'MutationObserver');
+
+  stack.add(() => {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'MutationObserver', descriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, 'MutationObserver');
+    }
+  });
+
+  return stack;
+}
+
+/**
  * Canonical performance API installer.
  */
 function installPerformanceMocksInternal() {
@@ -519,7 +618,11 @@ export {
   createCleanupStack,
   installAnimationFrameMock,
   installCanvasMocks,
+  installDevicePixelRatioMock,
+  installGetComputedStyleMock,
+  installMatchMediaMock,
   installMediaMocks,
+  installMissingMutationObserverMock,
   installResizeObserverMock,
   installVideoFrameCallbacksMock,
   installPerformanceApiMock,
@@ -527,6 +630,7 @@ export {
 
 export const installRafMock = installAnimationFrameMock;
 export const installCanvasMock = installCanvasMocks;
+export const installComputedStyleMock = installGetComputedStyleMock;
 export const installVideoFrameMock = installVideoFrameCallbacksMock;
 
 function installAnimationFrameMock() {
@@ -537,8 +641,24 @@ function installCanvasMocks(options) {
   return installCanvasMocksInternal(options);
 }
 
+function installDevicePixelRatioMock(value) {
+  return installDevicePixelRatioMockInternal(value);
+}
+
+function installGetComputedStyleMock(implementation) {
+  return installGetComputedStyleMockInternal(implementation);
+}
+
+function installMatchMediaMock(options) {
+  return installMatchMediaMockInternal(options);
+}
+
 function installMediaMocks(options) {
   return installMediaMocksInternal(options);
+}
+
+function installMissingMutationObserverMock() {
+  return installMissingMutationObserverMockInternal();
 }
 
 function installResizeObserverMock() {

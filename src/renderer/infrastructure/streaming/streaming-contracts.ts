@@ -1,6 +1,5 @@
 import type {
   Dimensions,
-  NativeResolution,
   PerformanceStatePayload,
   RecordingDegradedPayload,
   RecordingErrorPayload,

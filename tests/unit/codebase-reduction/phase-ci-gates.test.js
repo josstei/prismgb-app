@@ -4,40 +4,26 @@ import { describe, expect, it } from 'vitest';
 
 const projectRoot = process.cwd();
 
-const phaseVerificationMarkers = [
-  'Verification at Phase 0 commit',
-  'Verification for Phase 1',
-  'Verification for Phase 2',
-  'Verification for Phase 3',
-  'Verification for Phase 4',
-  'Verification for Phase 5',
-  'Verification for Phase 6'
-];
-
 function readProjectFile(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
 }
 
-function extractBulletBlock(source, marker) {
-  const start = source.indexOf(`- ${marker}:`);
-  if (start < 0) {
-    return '';
-  }
-
-  const rest = source.slice(start);
-  const nextBlock = rest.slice(1).search(/\n- (?:Phase|Verification|Next phase)/);
-  return nextBlock < 0 ? rest : rest.slice(0, nextBlock + 1);
+function readProjectJson(relativePath) {
+  return JSON.parse(readProjectFile(relativePath));
 }
 
 describe('Phase 0-6 CI parity gates', () => {
-  it.each(phaseVerificationMarkers)('%s includes PR lint and scorecard enforcement', (marker) => {
+  it('keeps the compact implementation status tied to current quality gates', () => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
-    const verificationBlock = extractBulletBlock(implementationPlan, marker);
 
-    expect(verificationBlock).toContain('semantic-pull-request');
-    expect(verificationBlock).toContain('npx commitlint --from <base> --to <head> --verbose');
-    expect(verificationBlock).toContain('npm run architecture:scorecard -- --enforce-thresholds');
-    expect(verificationBlock).toContain('npm run packaging:check-native-abi');
+    expect(implementationPlan).toContain('Current audit note');
+    expect(implementationPlan).toContain('npm run codebase:size -- --enforce-thresholds');
+    expect(implementationPlan).toContain('npm run codebase:phase1 -- --json');
+    expect(implementationPlan).toContain('npm run architecture:scorecard -- --enforce-thresholds');
+    expect(implementationPlan).toContain('npm run lint');
+    expect(implementationPlan).toContain('npm run architecture:type-debt:check');
+    expect(implementationPlan).toContain('root `npm run typecheck`');
+    expect(implementationPlan).toContain('Historical verification detail is intentionally summarized');
   });
 
   it('keeps GitHub Actions wired to the same PR lint, scorecard, and packaging ABI commands used by phase testing', () => {
@@ -58,5 +44,18 @@ describe('Phase 0-6 CI parity gates', () => {
     expect(testWorkflow).toContain('npm run packaging:check-native-abi');
     expect(buildSmokeWorkflow).toContain('npm run packaging:check-native-abi');
     expect(desktopBuildWorkflow).toContain('npm run packaging:check-native-abi');
+  });
+
+  it('builds fresh Vite output before the default E2E gate launches Electron', () => {
+    const packageJson = readProjectJson('package.json');
+
+    expect(packageJson.scripts['test:e2e']).toBe('npm run build:vite && npm run test:e2e:built');
+    expect(packageJson.scripts['test:e2e:built']).toBe('playwright test');
+    expect(packageJson.scripts['test:e2e:ui']).toContain('npm run build:vite && playwright test --ui');
+    expect(packageJson.scripts['test:e2e:headed']).toContain('npm run build:vite && playwright test --headed');
+    expect(packageJson.scripts['test:e2e:debug']).toContain('npm run build:vite && playwright test --debug');
+    expect(readProjectFile('tests/e2e/fixtures/electron.fixture.js')).toContain(
+      "path.join(projectRoot, 'dist/main/index.js')"
+    );
   });
 });

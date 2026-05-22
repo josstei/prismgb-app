@@ -3,7 +3,7 @@
  *
  * Centralized test data for settings-related tests.
  */
-import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
+import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
 const settingDefaults = Object.fromEntries(
   settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])

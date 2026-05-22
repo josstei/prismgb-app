@@ -5,6 +5,50 @@
  */
 
 import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
+import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+
+function getRecordingFormatDefinition() {
+  const definition = SettingsDefinitions.definitions.find(
+    (setting) => setting.name === 'recordingFormat'
+  );
+
+  if (!definition) {
+    throw new Error('Missing recordingFormat settings definition');
+  }
+
+  return definition;
+}
+
+function formatRecordingFormatLabel(format) {
+  if (format === 'webm') {
+    return 'WebM';
+  }
+
+  return format.toUpperCase();
+}
+
+export function getRecordingFormatOptions() {
+  const definition = getRecordingFormatDefinition();
+  const allowedValues = Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
+
+  return allowedValues.map((value) => ({
+    value,
+    label: formatRecordingFormatLabel(value),
+    active: value === definition.default
+  }));
+}
+
+function createRecordingFormatOptionsTemplate() {
+  return getRecordingFormatOptions()
+    .map((option) =>
+      `<button type="button" class="settings-select-option${option.active ? ' active' : ''}" data-value="${option.value}" role="option" aria-selected="${option.active ? 'true' : 'false'}">${option.label}</button>`
+    )
+    .join('');
+}
+
+function getDefaultRecordingFormatLabel() {
+  return getRecordingFormatOptions().find((option) => option.active)?.label || '';
+}
 
 /**
  * Create settings menu HTML
@@ -75,12 +119,10 @@ export function createSettingsMenuTemplate() {
             </span>
             <div class="settings-select-wrapper" aria-describedby="recordingFormatHint">
               <button type="button" class="settings-select-trigger" id="settingRecordingFormat" aria-haspopup="listbox" aria-expanded="false">
-                <span class="settings-select-label" id="recordingFormatLabel">WebM</span>
+                <span class="settings-select-label" id="recordingFormatLabel">${getDefaultRecordingFormatLabel()}</span>
               </button>
               <div class="settings-select-menu" id="recordingFormatMenu" role="listbox">
-                <button type="button" class="settings-select-option active" data-value="webm" role="option" aria-selected="true">WebM</button>
-                <button type="button" class="settings-select-option" data-value="mp4" role="option" aria-selected="false">MP4</button>
-                <button type="button" class="settings-select-option" data-value="mov" role="option" aria-selected="false">MOV</button>
+                ${createRecordingFormatOptionsTemplate()}
               </div>
             </div>
           </div>

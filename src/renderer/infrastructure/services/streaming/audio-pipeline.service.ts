@@ -27,7 +27,6 @@ type AudioEnergyResult = {
   elapsedMs: number;
 };
 
-type AudioContextCtor = new (options?: AudioContextOptions) => AudioContext;
 type TimerHandle = ReturnType<typeof setTimeout>;
 
 type AudioEnergyOptions = {

@@ -4,26 +4,28 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
+import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('ReducedMotionAdapter', () => {
   let adapter;
   let mockMediaQuery;
+  let matchMediaMock;
 
   beforeEach(() => {
     adapter = new ReducedMotionAdapter();
 
-    // Mock matchMedia
     mockMediaQuery = {
       matches: false,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
     };
 
-    global.window.matchMedia = vi.fn(() => mockMediaQuery);
+    matchMediaMock = installMatchMediaMock({ mediaQuery: mockMediaQuery });
   });
 
   afterEach(() => {
     adapter.dispose();
+    matchMediaMock?.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -40,7 +42,7 @@ describe('ReducedMotionAdapter', () => {
 
     it('should call matchMedia with correct query', () => {
       adapter.prefersReducedMotion();
-      expect(window.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
+      expect(matchMediaMock.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
     });
   });
 

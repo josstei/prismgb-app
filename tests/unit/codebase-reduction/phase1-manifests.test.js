@@ -5,7 +5,7 @@ import channels from '@shared/ipc/channels.json';
 import ipcManifest from '@shared/ipc/ipc.manifest.json';
 import eventManifest from '@shared/events/event.manifest.json';
 import deviceManifest from '@shared/features/devices/device.manifest.json';
-import settingsDefinitions from '@shared/features/settings/settings.definitions.json';
+import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import { SETTINGS_STORAGE_KEYS } from '@shared/config/storage-keys.config';
@@ -210,8 +210,20 @@ describe('Phase 1 manifests', () => {
     );
 
     const recordingFormat = settingsDefinitions.definitions.find((definition) => definition.name === 'recordingFormat');
+    const rawSettingsDefinitions = JSON.parse(
+      fs.readFileSync(
+        path.join(projectRoot, 'src/shared/features/settings/settings.definitions.json'),
+        'utf8'
+      )
+    );
+    const rawRecordingFormat = rawSettingsDefinitions.definitions.find(
+      (definition) => definition.name === 'recordingFormat'
+    );
+
     expect(recordingFormat.default).toBe('webm');
     expect(recordingFormat.allowedValues).toEqual(Object.keys(TRANSCODE_CONFIG.formats));
+    expect(rawRecordingFormat.allowedValuesSource).toBe('TRANSCODE_CONFIG.formats');
+    expect(rawRecordingFormat).not.toHaveProperty('allowedValues');
     expect(recordingFormat.default).not.toBe(TRANSCODE_CONFIG.defaultFormat);
   });
 

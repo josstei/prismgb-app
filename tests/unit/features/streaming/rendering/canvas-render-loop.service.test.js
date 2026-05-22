@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPipeline } from '@prismgb/gpu';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service.ts';
+import { installDevicePixelRatioMock } from '../../../../support/mocks/browser-api.installers.js';
 
 vi.mock('@prismgb/gpu', async (importOriginal) => {
   const actual = await importOriginal();
@@ -17,10 +18,11 @@ describe('StreamingCanvasRenderLoopService', () => {
   let mockVideo;
   let mockPipeline;
   let mockAnimationCache;
+  let devicePixelRatioMock;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.stubGlobal('devicePixelRatio', 1);
+    devicePixelRatioMock = installDevicePixelRatioMock(1);
 
     mockLogger = {
       debug: vi.fn(),
@@ -63,9 +65,9 @@ describe('StreamingCanvasRenderLoopService', () => {
   });
 
   afterEach(() => {
+    devicePixelRatioMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
-    vi.unstubAllGlobals();
   });
 
   it('initializes a package-owned Canvas2D pipeline', async () => {
@@ -137,7 +139,8 @@ describe('StreamingCanvasRenderLoopService', () => {
   });
 
   it('resizes canvas backing store through the package pipeline after initialization', async () => {
-    vi.stubGlobal('devicePixelRatio', 2);
+    devicePixelRatioMock.cleanup();
+    devicePixelRatioMock = installDevicePixelRatioMock(2);
     await service.initialize(mockCanvas, { width: 160, height: 144 });
 
     service.resize(mockCanvas, 200, 150);

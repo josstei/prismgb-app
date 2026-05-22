@@ -284,9 +284,15 @@ describe('phase 4 enforcement metrics', () => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), 'src/shared/ipc/ipc.manifest.json'), 'utf8')
     );
+    const helperSource = fs.readFileSync(
+      path.join(process.cwd(), 'tests/support/mocks/preload-api-globals.js'),
+      'utf8'
+    );
     const manifestApiNames = manifest.namespaces.map((namespace) => namespace.apiName).sort();
 
     expect([...PRELOAD_API_NAMES].sort()).toEqual(manifestApiNames);
+    expect(helperSource).toContain("from '@shared/ipc/ipc.manifest.json'");
+    expect(helperSource).not.toMatch(/PRELOAD_API_NAMES\s*=\s*\[/);
   });
 
   it('reports no renderer backend implementation reintroduction', () => {
