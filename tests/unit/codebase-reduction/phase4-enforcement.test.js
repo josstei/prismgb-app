@@ -53,6 +53,7 @@ describe('Phase 4 clean-break enforcement', () => {
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
+      renderPassManifestOwnershipViolationCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
     });

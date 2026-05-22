@@ -73,6 +73,7 @@ Last updated: 2026-05-21
   - `render-passes-helpers.ts` derives typed WebGPU uniform buffer layouts, WebGPU uniform payload builders, WebGL uniform setter metadata, pass lookup maps, and preset enablement from the render-pass contract without runtime expression compilation.
   - WebGPU and WebGL2 shader loaders now discover package shader files with `import.meta.glob()` and expose manifest-keyed shader source maps, so backend pipelines no longer hard-code shader filename fields outside the pass contract.
   - WebGPU and WebGL2 pipelines now iterate enabled render-pass descriptors from the shared helpers instead of maintaining duplicated hand-written pass sequences.
+  - The architecture scorecard now rejects undeclared package shader files and hand-coded render-pass ids or shader filenames outside the render-pass manifest/helper boundary.
   - WebGL2 ping-pong output ownership is covered by a regression test that verifies multi-pass presets blit from the most recent non-canvas framebuffer when CRT output is disabled.
   - The stale E2E `ipc-mock.js` helper was retired; E2E status reads now use a UI-only device status helper, while active device/media IPC test seams remain owned by the Electron fixture and Chromatic helper.
 - Verification for Phase 1:
@@ -137,7 +138,7 @@ Last updated: 2026-05-21
   - `npm run test:run --workspace=@prismgb/gpu` exits 0 with 7 files and 33 tests after the WebGL2 ping-pong regression was added.
   - `npm run build --workspace=@prismgb/gpu` exits 0 and refreshes package build output for app typechecking.
   - `npm run typecheck` exits 0 for app and `@prismgb/gpu`; strict app diagnostics are 281, tracked buckets are 72, and stale buckets are 0.
-  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero renderer backend implementation violations and clean architecture thresholds.
+  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero renderer backend implementation violations, zero render-pass manifest ownership violations, and clean architecture thresholds.
   - `npm run codebase:phase1 -- --json` exits 0 and all manifest drift checks pass.
   - `npm run lint` exits 0 with two unrelated existing warnings in streaming audio/contract files.
 

@@ -13,6 +13,7 @@ import {
   collectShaderDuplicateMetrics,
   collectSharedTypeScriptCutoverMetrics,
   collectRendererBackendImplementationMetrics,
+  collectRenderPassManifestOwnershipMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
@@ -47,6 +48,8 @@ function createMetrics(overrides = {}) {
     platformManifestDriftCount: 0,
     rendererBackendImplementationViolationCount: 0,
     rendererBackendImplementationViolationFiles: [],
+    renderPassManifestOwnershipViolationCount: 0,
+    renderPassManifestOwnershipViolations: [],
     ...overrides
   };
 }
@@ -179,6 +182,7 @@ describe('evaluateThresholds', () => {
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       rendererBackendImplementationViolationCount: 1,
+      renderPassManifestOwnershipViolationCount: 1,
       aliasManifestDriftCount: 1,
       platformManifestDriftCount: 1
     });
@@ -189,6 +193,7 @@ describe('evaluateThresholds', () => {
       runtimeJsDtsTwinCountMax: 0,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
+      renderPassManifestOwnershipViolationCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -196,7 +201,7 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(9);
+    expect(evaluation.failures).toHaveLength(10);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
@@ -205,6 +210,7 @@ describe('evaluateThresholds', () => {
       'sharedBaseInterfaceJsOrDtsFileCount',
       'inlineCanonicalMockAssignmentCount',
       'rendererBackendImplementationViolationCount',
+      'renderPassManifestOwnershipViolationCount',
       'aliasManifestDriftCount',
       'platformManifestDriftCount'
     ]);
@@ -338,6 +344,80 @@ describe('phase 4 enforcement metrics', () => {
         reason: `legacy renderer backend path exists: ${backendPath}`
       }
     ]);
+  });
+
+  it('reports no render-pass manifest ownership drift in current package/runtime sources', () => {
+    const baseline = collectRenderPassManifestOwnershipMetrics(process.cwd());
+    expect(baseline.violationCount).toBe(0);
+  });
+
+  it('detects undeclared package shader files and hand-coded pass ownership outside manifest helpers', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-render-pass-'));
+    tempRoots.push(tempRoot);
+
+    const manifestPath = 'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json';
+    fs.mkdirSync(path.join(tempRoot, path.dirname(manifestPath)), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, manifestPath),
+      JSON.stringify({
+        version: 1,
+        mode: 'enforced',
+        passes: [
+          {
+            id: 'pixel-upscale',
+            webgpuShader: 'pixel-upscale.wgsl',
+            webgl2FragmentShader: 'pixel-upscale.frag.glsl',
+            webgl2VertexShader: 'common.vert.glsl'
+          }
+        ],
+        utilityShaders: [{ file: 'common.vert.glsl' }]
+      })
+    );
+
+    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), { recursive: true });
+    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/pixel-upscale.wgsl'),
+      'expected'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/rogue-pass.wgsl'),
+      'unexpected'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/pixel-upscale.frag.glsl'),
+      'expected'
+    );
+    fs.writeFileSync(
+      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/common.vert.glsl'),
+      'expected'
+    );
+
+    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempRoot, 'src/renderer/infrastructure/rendering/pass-list.ts'),
+      "export const passIds = ['pixel-upscale'];\nexport const shaderFile = 'pixel-upscale.wgsl';\n"
+    );
+
+    const metrics = collectRenderPassManifestOwnershipMetrics(tempRoot);
+
+    expect(metrics.violationCount).toBe(3);
+    expect(metrics.violations).toEqual(expect.arrayContaining([
+      {
+        file: 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/rogue-pass.wgsl',
+        reason: 'package shader file is not declared by the render-pass manifest'
+      },
+      {
+        file: 'src/renderer/infrastructure/rendering/pass-list.ts',
+        line: 1,
+        reason: 'render pass id "pixel-upscale" is hand-coded outside the render-pass manifest/helpers'
+      },
+      {
+        file: 'src/renderer/infrastructure/rendering/pass-list.ts',
+        line: 2,
+        reason: 'render pass shader (webgpuShader) "pixel-upscale.wgsl" is hand-coded outside the render-pass manifest/helpers'
+      }
+    ]));
   });
 
   it('reports runtime JS + d.ts twin count and catches additions', () => {

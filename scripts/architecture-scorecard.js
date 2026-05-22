@@ -92,6 +92,22 @@ const RENDERER_BACKEND_RENDERING_ALLOWED_FILES = new Set([
   'src/renderer/infrastructure/rendering/workers/render.worker.ts',
   'src/renderer/infrastructure/rendering/workers/worker-protocol.config.ts'
 ]);
+const RENDER_PASS_CONTRACT_PATH = 'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json';
+const RENDER_PASS_MANIFEST_ALLOWED_CODE_FILES = new Set([
+  RENDER_PASS_CONTRACT_PATH,
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.ts',
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes-helpers.ts'
+]);
+const RENDER_PASS_SHADER_DIRECTORIES = [
+  {
+    directory: 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders',
+    extension: '.wgsl'
+  },
+  {
+    directory: 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders',
+    extension: '.glsl'
+  }
+];
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -334,6 +350,167 @@ export function collectRendererBackendImplementationMetrics(projectRoot) {
   return {
     implementationViolationCount: implementationViolationFiles.length,
     implementationViolationFiles
+  };
+}
+
+function isCodeFile(absolutePath) {
+  return /\.(?:[cm]?[jt]s|tsx|jsx)$/.test(absolutePath);
+}
+
+function isRenderPassAllowedFile(relativePath) {
+  return RENDER_PASS_MANIFEST_ALLOWED_CODE_FILES.has(relativePath)
+    || RENDER_PASS_SHADER_DIRECTORIES.some((entry) => relativePath.startsWith(`${entry.directory}/`));
+}
+
+function getShaderDirectoryForFileName(fileName) {
+  return RENDER_PASS_SHADER_DIRECTORIES.find((entry) => fileName.endsWith(entry.extension))?.directory ?? null;
+}
+
+function collectRenderPassManifestOwnership(projectRoot) {
+  const manifest = readJson(projectRoot, RENDER_PASS_CONTRACT_PATH);
+  const expectedShaderFiles = new Set();
+  const ownedTokens = new Map();
+
+  if (!manifest || !Array.isArray(manifest.passes)) {
+    return { expectedShaderFiles, ownedTokens, missingManifest: true };
+  }
+
+  for (const pass of manifest.passes) {
+    if (typeof pass.id === 'string') ownedTokens.set(pass.id, 'render pass id');
+
+    const passShaderEntries = [
+      ['webgpuShader', pass.webgpuShader],
+      ['webgl2FragmentShader', pass.webgl2FragmentShader],
+      ['webgl2VertexShader', pass.webgl2VertexShader]
+    ];
+
+    for (const [field, fileName] of passShaderEntries) {
+      if (typeof fileName !== 'string') {
+        continue;
+      }
+      ownedTokens.set(fileName, `render pass shader (${field})`);
+      const shaderDirectory = getShaderDirectoryForFileName(fileName);
+      if (shaderDirectory) expectedShaderFiles.add(`${shaderDirectory}/${fileName}`);
+    }
+  }
+
+  for (const utilityShader of manifest.utilityShaders ?? []) {
+    if (typeof utilityShader.file !== 'string') {
+      continue;
+    }
+    ownedTokens.set(utilityShader.file, 'render pass utility shader');
+    const shaderDirectory = getShaderDirectoryForFileName(utilityShader.file);
+    if (shaderDirectory) expectedShaderFiles.add(`${shaderDirectory}/${utilityShader.file}`);
+  }
+
+  return {
+    expectedShaderFiles,
+    ownedTokens,
+    missingManifest: false
+  };
+}
+
+function collectStringLiterals(sourceCode, filePath) {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    sourceCode,
+    ts.ScriptTarget.Latest,
+    true,
+    filePath.endsWith('.ts') || filePath.endsWith('.tsx') ? ts.ScriptKind.TS : ts.ScriptKind.JS
+  );
+  const literals = [];
+
+  function visit(node) {
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      literals.push({
+        value: node.text,
+        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1
+      });
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return literals;
+}
+
+export function collectRenderPassManifestOwnershipMetrics(projectRoot) {
+  const ownership = collectRenderPassManifestOwnership(projectRoot);
+  const violations = [];
+
+  if (ownership.missingManifest) {
+    violations.push({
+      file: RENDER_PASS_CONTRACT_PATH,
+      reason: 'render pass manifest is missing or invalid'
+    });
+  }
+
+  for (const shaderDirectory of RENDER_PASS_SHADER_DIRECTORIES) {
+    const absoluteDirectory = path.join(projectRoot, shaderDirectory.directory);
+    if (!fs.existsSync(absoluteDirectory)) {
+      continue;
+    }
+
+    const shaderFiles = walkFiles(
+      absoluteDirectory,
+      (absolutePath) => absolutePath.endsWith(shaderDirectory.extension)
+    );
+
+    for (const absolutePath of shaderFiles) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      if (!ownership.expectedShaderFiles.has(relativePath)) {
+        violations.push({
+          file: relativePath,
+          reason: 'package shader file is not declared by the render-pass manifest'
+        });
+      }
+    }
+  }
+
+  const sourceRoots = [
+    path.join(projectRoot, 'src'),
+    path.join(projectRoot, 'packages/prismgb-gpu/src')
+  ];
+
+  for (const sourceRoot of sourceRoots) {
+    if (!fs.existsSync(sourceRoot)) {
+      continue;
+    }
+
+    for (const absolutePath of walkFiles(sourceRoot, isCodeFile)) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      if (isRenderPassAllowedFile(relativePath)) {
+        continue;
+      }
+
+      const sourceCode = fs.readFileSync(absolutePath, 'utf8');
+      const literals = collectStringLiterals(sourceCode, absolutePath);
+      for (const literal of literals) {
+        const tokenType = ownership.ownedTokens.get(literal.value);
+        if (!tokenType) {
+          continue;
+        }
+
+        violations.push({
+          file: relativePath,
+          line: literal.line,
+          reason: `${tokenType} "${literal.value}" is hand-coded outside the render-pass manifest/helpers`
+        });
+      }
+    }
+  }
+
+  violations.sort((left, right) => {
+    const fileOrder = left.file.localeCompare(right.file);
+    if (fileOrder !== 0) {
+      return fileOrder;
+    }
+    return (left.line ?? 0) - (right.line ?? 0);
+  });
+
+  return {
+    violationCount: violations.length,
+    violations
   };
 }
 
@@ -854,6 +1031,7 @@ function printSummary(scorecard) {
   console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`);
+  console.log(`- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
   console.log('- top runtime files:');
@@ -898,6 +1076,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['rendererBackendImplementationViolationCountMax', ensureNonNegativeIntegerLimit],
+    ['renderPassManifestOwnershipViolationCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
     ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
   ];
@@ -1006,6 +1185,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'renderPassManifestOwnershipViolationCountMax',
+    'renderPassManifestOwnershipViolationCount',
+    metrics.renderPassManifestOwnershipViolationCount,
+    'max'
+  );
+  addCheck(
     'aliasManifestDriftCountMax',
     'aliasManifestDriftCount',
     metrics.aliasManifestDriftCount,
@@ -1061,6 +1246,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`,
+  `- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
   '',
@@ -1107,6 +1293,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
   const rendererBackendMetrics = collectRendererBackendImplementationMetrics(projectRoot);
+  const renderPassOwnershipMetrics = collectRenderPassManifestOwnershipMetrics(projectRoot);
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -1130,6 +1317,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
       rendererBackendImplementationViolationCount: rendererBackendMetrics.implementationViolationCount,
       rendererBackendImplementationViolationFiles: rendererBackendMetrics.implementationViolationFiles,
+      renderPassManifestOwnershipViolationCount: renderPassOwnershipMetrics.violationCount,
+      renderPassManifestOwnershipViolations: renderPassOwnershipMetrics.violations,
       aliasManifestDriftCount: aliasDriftMetrics.driftCount,
       aliasManifestDrift: {
         missing: aliasDriftMetrics.manifestMissing,
