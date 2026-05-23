@@ -41,6 +41,7 @@
   },
   "include": [
     "src/main/**/*.ts",
+    "src/preload/**/*.ts",
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",
     "src/types/**/*.d.ts"

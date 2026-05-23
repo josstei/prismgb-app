@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PresetRegistry, BUILT_IN_PRESETS } from '@/domain/presets';
+import { BUILT_IN_PRESETS, PRESET_POLICY, PresetRegistry } from '@/domain/presets';
+import { PRESET_POLICY as publicPresetPolicy, PresetRegistry as PublicPresetRegistry } from '@/index';
 
 PresetRegistry.registerMany(BUILT_IN_PRESETS);
 
@@ -28,6 +29,17 @@ const phase2BulkPreset = {
 };
 
 describe('PresetRegistry', () => {
+  describe('public exports', () => {
+    it('exposes the preset policy and registry through the package entrypoint', () => {
+      expect(publicPresetPolicy).toEqual(PRESET_POLICY);
+      expect(PublicPresetRegistry).toBe(PresetRegistry);
+      expect(PublicPresetRegistry.get(PRESET_POLICY.rendererDefaultId)).toBeDefined();
+      expect(PublicPresetRegistry.getForUI().map((preset) => preset.id)).not.toContain(
+        PRESET_POLICY.performancePresetId
+      );
+    });
+  });
+
   describe('getAll', () => {
     it('should return all registered presets', () => {
       const presets = PresetRegistry.getAll();
@@ -69,7 +81,9 @@ describe('PresetRegistry', () => {
       const preset = PresetRegistry.getDefault();
 
       expect(preset).toBeDefined();
-      expect(preset.id).toBe('true-color');
+      expect(preset.id).toBe(PRESET_POLICY.packageDefaultId);
+      expect(PRESET_POLICY.rendererDefaultId).toBe('vibrant');
+      expect(PRESET_POLICY.rendererDefaultId).not.toBe(PRESET_POLICY.packageDefaultId);
     });
   });
 
@@ -95,9 +109,13 @@ describe('PresetRegistry', () => {
 
     it('should keep the performance preset available internally and hidden from the UI list', () => {
       const uiPresetIds = PresetRegistry.getForUI().map((preset) => preset.id);
+      const builtInVisiblePresetIds = BUILT_IN_PRESETS
+        .filter((entry) => entry.visibleInUI !== false)
+        .map((entry) => entry.preset.id);
 
-      expect(PresetRegistry.get('performance')).toBeDefined();
-      expect(uiPresetIds).not.toContain('performance');
+      expect(PresetRegistry.get(PRESET_POLICY.performancePresetId)).toBeDefined();
+      expect(uiPresetIds).toEqual(builtInVisiblePresetIds);
+      expect(uiPresetIds).not.toContain(PRESET_POLICY.performancePresetId);
     });
   });
 

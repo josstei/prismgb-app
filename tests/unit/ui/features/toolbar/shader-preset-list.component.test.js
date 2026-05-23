@@ -6,20 +6,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
 import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 
-vi.mock('@prismgb/gpu', () => ({
-  PresetRegistry: {
-    getForUI: () => [
-      { id: 'sharp', name: 'Sharp' },
-      { id: 'soft', name: 'Soft' },
-      { id: 'crt', name: 'CRT' }
-    ]
-  }
-}));
+const uiPresets = PresetRegistry.getForUI();
+const selectablePresetId = uiPresets.find(
+  (preset) => preset.id !== PRESET_POLICY.rendererDefaultId
+)?.id;
 
 function createMockSettingsService(overrides = {}) {
   return {
-    getStringSetting: vi.fn(() => 'sharp'),
+    getStringSetting: vi.fn(() => PRESET_POLICY.rendererDefaultId),
     getBooleanSetting: vi.fn(() => false),
     setSetting: vi.fn(() => true),
     ...overrides
@@ -90,7 +86,7 @@ describe('ShaderPresetListComponent', () => {
     it('should load current preset from settings', () => {
       component.initialize({ optionsContainer, unavailableMessage });
       expect(mockSettingsService.getStringSetting).toHaveBeenCalledWith('renderPreset');
-      expect(component.currentPresetId).toBe('sharp');
+      expect(component.currentPresetId).toBe(PRESET_POLICY.rendererDefaultId);
     });
 
     it('should load performance mode state', () => {
@@ -101,14 +97,20 @@ describe('ShaderPresetListComponent', () => {
     it('should render preset list', () => {
       component.initialize({ optionsContainer, unavailableMessage });
       const options = optionsContainer.querySelectorAll('.shader-option');
-      expect(options.length).toBe(3);
+      expect(options.length).toBe(uiPresets.length);
+      expect([...options].map((option) => option.dataset.presetId)).toEqual(
+        uiPresets.map((preset) => preset.id)
+      );
+      expect([...options].map((option) => option.dataset.presetId)).not.toContain(
+        PRESET_POLICY.performancePresetId
+      );
     });
 
     it('should mark current preset as active', () => {
       component.initialize({ optionsContainer, unavailableMessage });
       const activeOption = optionsContainer.querySelector('.shader-option.active');
       expect(activeOption).not.toBeNull();
-      expect(activeOption.dataset.presetId).toBe('sharp');
+      expect(activeOption.dataset.presetId).toBe(PRESET_POLICY.rendererDefaultId);
     });
 
     it('should subscribe to events', () => {
@@ -135,32 +137,36 @@ describe('ShaderPresetListComponent', () => {
     });
 
     it('should select preset on click', () => {
-      const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
-      softOption.click();
+      const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
+      targetOption.click();
 
-      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('renderPreset', 'soft');
-      expect(component.currentPresetId).toBe('soft');
+      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('renderPreset', selectablePresetId);
+      expect(component.currentPresetId).toBe(selectablePresetId);
     });
 
     it('should update active state on selection', () => {
-      const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
-      softOption.click();
+      const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
+      targetOption.click();
 
-      expect(softOption.classList.contains('active')).toBe(true);
-      const sharpOption = optionsContainer.querySelector('[data-preset-id="sharp"]');
-      expect(sharpOption.classList.contains('active')).toBe(false);
+      expect(targetOption.classList.contains('active')).toBe(true);
+      const defaultOption = optionsContainer.querySelector(
+        `[data-preset-id="${PRESET_POLICY.rendererDefaultId}"]`
+      );
+      expect(defaultOption.classList.contains('active')).toBe(false);
     });
 
     it('should add just-selected class for animation', () => {
-      const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
-      softOption.click();
+      const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
+      targetOption.click();
 
-      expect(softOption.classList.contains('just-selected')).toBe(true);
+      expect(targetOption.classList.contains('just-selected')).toBe(true);
     });
 
     it('should not re-select current preset', () => {
-      const sharpOption = optionsContainer.querySelector('[data-preset-id="sharp"]');
-      sharpOption.click();
+      const defaultOption = optionsContainer.querySelector(
+        `[data-preset-id="${PRESET_POLICY.rendererDefaultId}"]`
+      );
+      defaultOption.click();
 
       expect(mockSettingsService.setSetting).not.toHaveBeenCalled();
     });
@@ -169,8 +175,8 @@ describe('ShaderPresetListComponent', () => {
       mockSettingsService.getBooleanSetting.mockReturnValue(true);
       component._performanceModeEnabled = true;
 
-      const softOption = optionsContainer.querySelector('[data-preset-id="soft"]');
-      softOption.click();
+      const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
+      targetOption.click();
 
       expect(mockSettingsService.setSetting).not.toHaveBeenCalled();
     });
@@ -205,19 +211,19 @@ describe('ShaderPresetListComponent', () => {
     });
 
     it('should update when preset changed externally', () => {
-      mockEventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, 'crt');
+      mockEventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, selectablePresetId);
 
-      expect(component.currentPresetId).toBe('crt');
-      const crtOption = optionsContainer.querySelector('[data-preset-id="crt"]');
-      expect(crtOption.classList.contains('active')).toBe(true);
+      expect(component.currentPresetId).toBe(selectablePresetId);
+      const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
+      expect(targetOption.classList.contains('active')).toBe(true);
     });
 
     it('should not update if preset is the same', () => {
       const initialActiveOption = optionsContainer.querySelector('.shader-option.active');
-      mockEventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, 'sharp');
+      mockEventBus.publish(EventChannels.SETTINGS.RENDER_PRESET_CHANGED, PRESET_POLICY.rendererDefaultId);
 
       // Should still be the same
-      expect(component.currentPresetId).toBe('sharp');
+      expect(component.currentPresetId).toBe(PRESET_POLICY.rendererDefaultId);
     });
   });
 

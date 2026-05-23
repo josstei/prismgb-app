@@ -276,6 +276,15 @@ export function collectRuntimeTwinMetrics(projectRoot) {
   };
 }
 
+export function collectSourceRuntimeJsMetrics(projectRoot) {
+  const srcRoot = path.join(projectRoot, 'src');
+  const files = walkFiles(srcRoot, (absolutePath) => absolutePath.endsWith('.js'))
+    .map((filePath) => normalizeRelativePath(path.relative(projectRoot, filePath)))
+    .sort();
+
+  return { fileCount: files.length, files };
+}
+
 export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
   const files = SHARED_TYPESCRIPT_CUTOVER_ROOTS.flatMap((relativeRoot) => {
     const absoluteRoot = path.join(projectRoot, relativeRoot);
@@ -1028,6 +1037,7 @@ function printSummary(scorecard) {
   console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
   console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
+  console.log(`- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`);
   console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`);
@@ -1073,6 +1083,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
     ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
+    ['sourceRuntimeJsFileCountMax', ensureNonNegativeIntegerLimit],
     ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['rendererBackendImplementationViolationCountMax', ensureNonNegativeIntegerLimit],
@@ -1167,6 +1178,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'sourceRuntimeJsFileCountMax',
+    'sourceRuntimeJsFileCount',
+    metrics.sourceRuntimeJsFileCount,
+    'max'
+  );
+  addCheck(
     'sharedBaseInterfaceJsOrDtsFileCountMax',
     'sharedBaseInterfaceJsOrDtsFileCount',
     metrics.sharedBaseInterfaceJsOrDtsFileCount,
@@ -1243,6 +1260,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
   `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
+  `- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`,
   `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`,
@@ -1288,6 +1306,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const contractOwnershipMetrics = collectContractMetrics(projectRoot);
   const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
   const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
+  const sourceRuntimeJsMetrics = collectSourceRuntimeJsMetrics(projectRoot);
   const sharedTypeScriptCutoverMetrics = collectSharedTypeScriptCutoverMetrics(projectRoot);
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
@@ -1311,6 +1330,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
       runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
+      sourceRuntimeJsFileCount: sourceRuntimeJsMetrics.fileCount,
+      sourceRuntimeJsFiles: sourceRuntimeJsMetrics.files,
       sharedBaseInterfaceJsOrDtsFileCount: sharedTypeScriptCutoverMetrics.fileCount,
       sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,

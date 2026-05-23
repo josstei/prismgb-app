@@ -6,6 +6,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { PRESET_POLICY } from '@prismgb/gpu';
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
@@ -192,7 +193,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
     expect(defaults).toEqual({
       gameVolume: 70,
       statusStripVisible: false,
-      renderPreset: 'vibrant',
+      renderPreset: PRESET_POLICY.rendererDefaultId,
       globalBrightness: 1.0,
       performanceMode: false,
       fullscreenOnStartup: false,

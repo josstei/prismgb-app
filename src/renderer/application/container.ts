@@ -8,7 +8,7 @@ import {
   InjectionMode,
 } from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { AwilixContainer } from 'awilix';
-import { PresetRegistry } from '@prismgb/gpu';
+import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 import { registerInfrastructure } from '@renderer/application/di/register-infrastructure';
 import { registerDevices } from '@renderer/application/di/register-devices';
 import { registerStreaming } from '@renderer/application/di/register-streaming';
@@ -17,7 +17,7 @@ import { registerUi } from '@renderer/application/di/register-ui';
 import { registerOrchestrators } from '@renderer/application/di/register-orchestrators';
 import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
 
-PresetRegistry.setDefault('vibrant');
+PresetRegistry.setDefault(PRESET_POLICY.rendererDefaultId);
 
 type RendererServiceContainer = AwilixContainer<RendererContainerMap>;
 

@@ -14,6 +14,7 @@ import {
   collectSharedTypeScriptCutoverMetrics,
   collectRendererBackendImplementationMetrics,
   collectRenderPassManifestOwnershipMetrics,
+  collectSourceRuntimeJsMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
@@ -42,6 +43,7 @@ function createMetrics(overrides = {}) {
     shaderDuplicateDivergenceCount: 0,
     shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
+    sourceRuntimeJsFileCount: 62,
     sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
@@ -159,6 +161,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sourceRuntimeJsFileCountMax: 62,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -179,6 +182,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCount: 1,
       shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
+      sourceRuntimeJsFileCount: 63,
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       rendererBackendImplementationViolationCount: 1,
@@ -191,6 +195,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sourceRuntimeJsFileCountMax: 62,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
       renderPassManifestOwnershipViolationCountMax: 0,
@@ -201,12 +206,13 @@ describe('evaluateThresholds', () => {
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(10);
+    expect(evaluation.failures).toHaveLength(11);
     expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
       'unexpectedContractFileCount',
       'shaderDuplicateDivergenceCount',
       'shaderDuplicateFileCount',
       'runtimeJsDtsTwinCount',
+      'sourceRuntimeJsFileCount',
       'sharedBaseInterfaceJsOrDtsFileCount',
       'inlineCanonicalMockAssignmentCount',
       'rendererBackendImplementationViolationCount',
@@ -437,6 +443,24 @@ describe('phase 4 enforcement metrics', () => {
     fs.writeFileSync(path.join(tempRoot, 'src/shared/base.class.d.ts'), 'export {};');
     const mutant = collectRuntimeTwinMetrics(tempRoot);
     expect(mutant.pairCount).toBe(1);
+  });
+
+  it('ratchets source runtime JS file count against unchecked additions', () => {
+    const baseline = collectSourceRuntimeJsMetrics(process.cwd());
+    expect(baseline.fileCount).toBe(62);
+    expect(baseline.files).toContain('src/renderer/presentation/icons/icon.utils.js');
+
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-runtime-js-'));
+    tempRoots.push(tempRoot);
+    fs.mkdirSync(path.join(tempRoot, 'src/main'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'src/main/new-runtime.js'), 'export {};\n');
+    fs.writeFileSync(path.join(tempRoot, 'src/main/typed.ts'), 'export {};\n');
+
+    const mutant = collectSourceRuntimeJsMetrics(tempRoot);
+    expect(mutant).toEqual({
+      fileCount: 1,
+      files: ['src/main/new-runtime.js']
+    });
   });
 
   it('reports no shared base/interface JS or d.ts cutover leftovers', () => {

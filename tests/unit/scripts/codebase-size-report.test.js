@@ -1,9 +1,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { spawnSync } from 'child_process';
 import { describe, expect, it } from 'vitest';
 import {
   buildCodebaseSizeReport,
+  collectGitSourceDelta,
   countEventContractEntries,
   countGeneratedArtifacts,
   countIpcContractEntries,
@@ -27,6 +29,13 @@ function writeWorkspaceFile(root, relativePath, content = '') {
   return absolutePath;
 }
 
+function runGit(root, args) {
+  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || `git ${args.join(' ')} failed`);
+  }
+}
+
 describe('codebase-size-report args', () => {
   it('parses --json and --root flags', () => {
     const options = parseArgs([
@@ -45,6 +54,60 @@ describe('codebase-size-report args', () => {
 });
 
 describe('codebase-size-report metrics', () => {
+  it('counts existing tracked and untracked non-ignored files in git worktrees', () => {
+    const workspace = createTempWorkspace();
+    try {
+      runGit(workspace, ['init']);
+      const deletedTracked = writeWorkspaceFile(workspace, 'src/preload/deleted.js', 'export {};\n');
+      runGit(workspace, ['add', 'src/preload/deleted.js']);
+      fs.rmSync(deletedTracked);
+      writeWorkspaceFile(workspace, 'src/preload/current.ts', 'export const current = true;\n');
+
+      const report = buildCodebaseSizeReport(workspace);
+
+      expect(report.trackedFileCounts.total).toBe(1);
+      expect(report.sourceLocByArea.byArea.preload).toEqual({ files: 1, loc: 1 });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('adds untracked source files to runtime source delta', () => {
+    const workspace = createTempWorkspace();
+    try {
+      runGit(workspace, ['init']);
+      writeWorkspaceFile(workspace, 'src/preload/base.ts', 'export const base = true;\n');
+      runGit(workspace, ['add', 'src/preload/base.ts']);
+      runGit(workspace, [
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '-m',
+        'baseline'
+      ]);
+      writeWorkspaceFile(workspace, 'src/preload/current.ts', 'export const current = true;\n');
+
+      const delta = collectGitSourceDelta(workspace, {
+        baseRef: 'HEAD',
+        scopes: ['src/preload']
+      });
+
+      expect(delta).toMatchObject({
+        status: 'available',
+        added: 1,
+        deleted: 0,
+        net: 1,
+        filesChanged: 1
+      });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('counts tracked files and LOC by source area', () => {
     const workspace = createTempWorkspace();
     try {

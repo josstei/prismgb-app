@@ -3,6 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  BUILD_OUTPUT_ARTIFACT_PATHS,
+  BUILD_OUTPUT_PATHS,
+  cleanBuildOutputs,
   cleanGeneratedOutputs,
   GENERATED_ARTIFACT_PATHS,
   GENERATED_PATHS,
@@ -39,9 +42,13 @@ describe('clean-generated script', () => {
 
   it('removes configured generated artifact directories and marks ownership', () => {
     expect(GENERATED_PATHS).not.toContain('tests/coverage');
+    expect(GENERATED_PATHS).not.toEqual(expect.arrayContaining(BUILD_OUTPUT_PATHS));
 
     GENERATED_ARTIFACT_PATHS.forEach((entry) => {
       createFile(workspace, entry.path);
+    });
+    BUILD_OUTPUT_PATHS.forEach((relativePath) => {
+      createFile(workspace, relativePath);
     });
 
     const result = cleanGeneratedOutputs({ root: workspace });
@@ -55,6 +62,37 @@ describe('clean-generated script', () => {
         removed: true,
         failed: false
       });
+    }
+
+    for (const relativePath of BUILD_OUTPUT_PATHS) {
+      expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
+    }
+  });
+
+  it('removes configured build output directories through the build cleanup path', () => {
+    BUILD_OUTPUT_ARTIFACT_PATHS.forEach((entry) => {
+      createFile(workspace, entry.path);
+    });
+    GENERATED_PATHS.forEach((relativePath) => {
+      createFile(workspace, relativePath);
+    });
+
+    const result = cleanBuildOutputs({ root: workspace });
+
+    for (const entry of BUILD_OUTPUT_ARTIFACT_PATHS) {
+      expect(fs.existsSync(path.join(workspace, entry.path))).toBe(false);
+      expect(result.deleted).toContainEqual(
+        expect.objectContaining({
+          target: entry.path,
+          owner: entry.owner,
+          removed: true,
+          failed: false
+        })
+      );
+    }
+
+    for (const relativePath of GENERATED_PATHS) {
+      expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
     }
   });
 

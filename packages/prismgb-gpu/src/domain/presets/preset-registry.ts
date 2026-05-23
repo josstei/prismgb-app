@@ -18,10 +18,11 @@ type PresetRecordInput = PresetRecord;
 class PresetRegistryImpl {
   private readonly presets = new Map<string, IPreset>();
   private readonly uiVisibility = new Map<string, boolean>();
-  private defaultPresetId = 'true-color';
+  private defaultPresetId: string | null = null;
 
   register(preset: IPreset): void {
     this.presets.set(preset.id, Object.freeze(preset));
+    this.defaultPresetId ??= preset.id;
     if (!this.uiVisibility.has(preset.id)) {
       this.uiVisibility.set(preset.id, true);
     }
@@ -58,6 +59,10 @@ class PresetRegistryImpl {
   }
 
   getDefault(): IPreset {
+    if (!this.defaultPresetId) {
+      throw new Error('Default preset is not configured');
+    }
+
     const preset = this.presets.get(this.defaultPresetId);
     if (!preset) {
       throw new Error(`Default preset '${this.defaultPresetId}' not found`);

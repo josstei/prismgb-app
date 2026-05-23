@@ -25,6 +25,7 @@
     "coverage:ratchet": "node scripts/coverage-ratchet.js",
     "codebase:phase1": "node scripts/codebase-phase1-drift-report.js",
     "clean:generated": "node scripts/clean-generated.js",
+    "clean:build": "node scripts/clean-generated.js --build",
     "dev:smoke": "node scripts/dev-boot-smoke.js",
     "release:preflight": "npm run packaging:check-native-abi && npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md && npm run architecture:type-debt:check && npm run codebase:phase1 -- --json && npm run codebase:size -- --enforce-thresholds && npm run test:coverage && npm run coverage:ratchet && npm run dev:smoke",
     "typecheck:app": "node scripts/typecheck-app.js",

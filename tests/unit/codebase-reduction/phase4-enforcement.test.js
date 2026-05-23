@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { GENERATED_PATHS } from '../../../scripts/clean-generated.js';
+import { BUILD_OUTPUT_PATHS, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
 
 const projectRoot = process.cwd();
 
@@ -89,12 +89,17 @@ describe('Phase 4 clean-break enforcement', () => {
   it('keeps generated artifact ownership on current ignored paths without legacy coverage cleanup', () => {
     const gitignore = readProjectFile('.gitignore');
     const sizeReport = readProjectFile('scripts/codebase-size-report.js');
+    const packageJson = readProjectJson('package.json');
 
     expect(GENERATED_PATHS).toContain('artifacts/coverage');
     expect(GENERATED_PATHS).not.toContain('tests/coverage');
+    expect(GENERATED_PATHS).not.toEqual(expect.arrayContaining(BUILD_OUTPUT_PATHS));
+    expect(BUILD_OUTPUT_PATHS).toEqual(['dist', 'release', 'build', 'out']);
     expect(gitignore).toContain('artifacts/');
     expect(gitignore).not.toContain('tests/coverage/');
     expect(sizeReport).not.toContain("'tests/coverage'");
+    expect(packageJson.scripts['clean:generated']).toBe('node scripts/clean-generated.js');
+    expect(packageJson.scripts['clean:build']).toBe('node scripts/clean-generated.js --build');
   });
 
   it('keeps feature-map manifest facts inside a generated docs block', () => {
@@ -137,6 +142,7 @@ describe('Phase 4 clean-break enforcement', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
+      sourceRuntimeJsFileCountMax: 60,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
@@ -150,6 +156,7 @@ describe('Phase 4 clean-break enforcement', () => {
     const typeDebt = readProjectJson('scripts/type-debt-allowlist.json');
     const coverageThresholds = readProjectJson('scripts/coverage-thresholds.json');
     const sizeThresholds = readProjectJson('scripts/codebase-size-thresholds.json');
+    const tsconfigApp = readProjectJson('tsconfig.app.json');
     const packageJson = readProjectJson('package.json');
 
     expect(typeDebt.defaultOwner).toBeTruthy();
@@ -166,6 +173,8 @@ describe('Phase 4 clean-break enforcement', () => {
       'packages/prismgb-gpu/src'
     ]);
     expect(sizeThresholds.limits.runtimeSourceNetGrowthMax).toBe(0);
+    expect(sizeThresholds.limits.trackedFilesTotalMax).toBe(687);
+    expect(tsconfigApp.include).toContain('src/preload/**/*.ts');
     expect(packageJson.scripts['release:preflight']).toContain('codebase:size -- --enforce-thresholds');
   });
 
@@ -185,6 +194,41 @@ describe('Phase 4 clean-break enforcement', () => {
 
     expect(deviceRegistrySource).not.toMatch(/\bDEVICE_REGISTRY\b/);
     expect(typedRegistrySource).not.toMatch(/getValueMap|getMetadataMap|getFactoryMap/);
+  });
+
+  it('keeps built-in shader preset data centralized without per-preset modules', () => {
+    [
+      'packages/prismgb-gpu/src/domain/presets/presets/hi-def.preset.ts',
+      'packages/prismgb-gpu/src/domain/presets/presets/performance.preset.ts',
+      'packages/prismgb-gpu/src/domain/presets/presets/pixel.preset.ts',
+      'packages/prismgb-gpu/src/domain/presets/presets/true-color.preset.ts',
+      'packages/prismgb-gpu/src/domain/presets/presets/vibrant.preset.ts',
+      'packages/prismgb-gpu/src/domain/presets/presets/vintage.preset.ts'
+    ].forEach(expectMissing);
+
+    const presetDefinitions = readProjectFile('packages/prismgb-gpu/src/domain/presets/preset-definitions.ts');
+    const gpuEntry = readProjectFile('packages/prismgb-gpu/src/index.ts');
+    const rendererContainer = readProjectFile('src/renderer/application/container.ts');
+    const rawSettingsDefinitions = readProjectJson('src/shared/features/settings/settings.definitions.json');
+    const renderPresetDefinition = rawSettingsDefinitions.definitions.find(
+      (definition) => definition.name === 'renderPreset'
+    );
+
+    expect(presetDefinitions).toContain('BUILT_IN_PRESETS');
+    expect(presetDefinitions).toContain('PRESET_POLICY');
+    expect(presetDefinitions).toContain("rendererDefaultId: 'vibrant'");
+    expect(presetDefinitions).toContain("id: 'true-color'");
+    expect(presetDefinitions).toContain("id: 'performance'");
+    expect(presetDefinitions).toContain('visibleInUI: performancePreset.id !== PRESET_POLICY.performancePresetId');
+    expect(presetDefinitions).not.toContain("from './presets/");
+    expect(gpuEntry).toContain('PresetRegistry.registerMany(BUILT_IN_PRESETS)');
+    expect(rendererContainer).toContain('PresetRegistry.setDefault(PRESET_POLICY.rendererDefaultId)');
+    expect(rendererContainer).not.toContain("PresetRegistry.setDefault('vibrant')");
+    expect(renderPresetDefinition).toMatchObject({
+      name: 'renderPreset',
+      defaultSource: 'PRESET_POLICY.rendererDefaultId'
+    });
+    expect(renderPresetDefinition).not.toHaveProperty('default');
   });
 
   it('keeps renderer worker protocol-only and package-owned', () => {
@@ -242,7 +286,7 @@ describe('Phase 4 clean-break enforcement', () => {
 
   it('keeps preload exposures and E2E device mocks on current manifest-owned contracts', () => {
     const preloadIndex = readProjectFile('src/preload/index.js');
-    const preloadExposureFactory = readProjectFile('src/preload/exposure.factory.js');
+    const preloadExposureFactory = readProjectFile('src/preload/exposure.factory.ts');
     const ipcManifest = readProjectJson('src/shared/ipc/ipc.manifest.json');
     const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
     const deviceStreamingSpec = readProjectFile('tests/e2e/device-streaming.spec.js');

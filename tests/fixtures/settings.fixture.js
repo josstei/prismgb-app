@@ -4,6 +4,7 @@
  * Centralized test data for settings-related tests.
  */
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { PRESET_POLICY } from '@prismgb/gpu';
 
 const settingDefaults = Object.fromEntries(
   settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])
@@ -30,7 +31,7 @@ export const PERFORMANCE_MODE_SETTINGS = {
   },
   disabled: {
     performanceMode: false,
-    renderPreset: 'vibrant',
+    renderPreset: PRESET_POLICY.rendererDefaultId,
   },
   quality: {
     performanceMode: false,

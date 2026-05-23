@@ -1,12 +1,25 @@
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 
-function assertFunction(value, apiName, methodName) {
+type ExposedPreloadMethod = (...args: unknown[]) => unknown;
+type PreloadApiImplementation = Record<string, ExposedPreloadMethod>;
+type PreloadApiImplementations = Record<string, PreloadApiImplementation | undefined>;
+type PreloadExposureMap = Record<string, PreloadApiImplementation>;
+type PreloadManifest = typeof IpcManifest;
+type ContextBridgeLike = { exposeInMainWorld(apiKey: string, api: PreloadApiImplementation): void };
+function assertFunction(
+  value: unknown,
+  apiName: string,
+  methodName: string
+): asserts value is ExposedPreloadMethod {
   if (typeof value !== 'function') {
     throw new Error(`Preload API ${apiName}.${methodName} is not implemented`);
   }
 }
 
-export function createPreloadExposureMap(apiImplementations, manifest = IpcManifest) {
+export function createPreloadExposureMap(
+  apiImplementations: PreloadApiImplementations,
+  manifest: PreloadManifest = IpcManifest
+): PreloadExposureMap {
   return Object.fromEntries(
     manifest.namespaces.map((namespace) => {
       const api = apiImplementations[namespace.apiName];
@@ -27,7 +40,11 @@ export function createPreloadExposureMap(apiImplementations, manifest = IpcManif
   );
 }
 
-export function exposePreloadApis(contextBridge, apiImplementations, manifest = IpcManifest) {
+export function exposePreloadApis(
+  contextBridge: ContextBridgeLike,
+  apiImplementations: PreloadApiImplementations,
+  manifest: PreloadManifest = IpcManifest
+): PreloadExposureMap {
   const exposureMap = createPreloadExposureMap(apiImplementations, manifest);
 
   for (const [apiName, api] of Object.entries(exposureMap)) {

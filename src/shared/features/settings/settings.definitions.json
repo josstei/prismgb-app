@@ -22,7 +22,7 @@
       "name": "renderPreset",
       "storageKey": "renderPreset",
       "type": "string",
-      "default": "vibrant",
+      "defaultSource": "PRESET_POLICY.rendererDefaultId",
       "event": "settings:render-preset-changed"
     },
     {

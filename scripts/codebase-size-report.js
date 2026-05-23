@@ -189,19 +189,37 @@ export function countFileLines(filePath) {
   return normalized.split('\n').length;
 }
 
-function getTrackedFilesFromGit(projectRoot) {
-  const result = spawnSync('git', ['-C', projectRoot, 'ls-files', '-z'], {
+function listGitFiles(projectRoot, args) {
+  const result = spawnSync('git', ['-C', projectRoot, 'ls-files', '-z', ...args], {
     encoding: 'utf8'
   });
 
-  if (result.status !== 0 || !result.stdout) {
+  if (result.status !== 0) {
     throw new Error('Git ls-files is unavailable in this environment.');
   }
 
-  return result.stdout
+  const files = result.stdout
     .split('\0')
     .filter(Boolean)
-    .map((relativePath) => path.resolve(projectRoot, relativePath));
+    .map((relativePath) => path.resolve(projectRoot, relativePath))
+    .filter((filePath) => fs.existsSync(filePath));
+
+  return Array.from(new Set(files));
+}
+
+function getTrackedFilesFromGit(projectRoot) {
+  return listGitFiles(projectRoot, ['--cached', '--others', '--exclude-standard']);
+}
+
+function getUntrackedFilesFromGit(projectRoot) {
+  return listGitFiles(projectRoot, ['--others', '--exclude-standard']);
+}
+
+function isRelativePathInScope(relativePath, scope) {
+  const normalizedScope = toPosix(scope).replace(/\/$/, '');
+  return normalizedScope === '.'
+    || relativePath === normalizedScope
+    || relativePath.startsWith(`${normalizedScope}/`);
 }
 
 function walkFiles(rootDir, baseDir = rootDir, files = []) {
@@ -286,6 +304,23 @@ export function collectGitSourceDelta(projectRoot, { baseRef, scopes }) {
     added += addedLines;
     deleted += deletedLines;
     filesChanged += 1;
+  }
+
+  try {
+    for (const filePath of getUntrackedFilesFromGit(projectRoot)) {
+      const relativePath = normalizeTrackedFile(projectRoot, filePath);
+      if (
+        !sourceScopes.some((scope) => isRelativePathInScope(relativePath, scope))
+        || !SOURCE_EXTENSIONS.has(path.extname(relativePath).toLowerCase())
+      ) {
+        continue;
+      }
+
+      added += countFileLines(filePath);
+      filesChanged += 1;
+    }
+  } catch {
+    // Untracked files are a worktree-only refinement; keep the base git diff usable.
   }
 
   return {

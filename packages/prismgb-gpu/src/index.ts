@@ -37,8 +37,9 @@ export type {
   IFrameProvider
 } from './domain/frame';
 
-// Preset Registry (for UI to list/select presets)
-export { PresetRegistry } from './domain/presets';
+// Preset Registry and policy (for UI to list/select presets)
+export { PRESET_POLICY, PresetRegistry } from './domain/presets';
+export type { PresetPolicy } from './domain/presets';
 
 // Capability Detection (for UI to show GPU status)
 export { detectCapabilities } from './application/capability-detector';

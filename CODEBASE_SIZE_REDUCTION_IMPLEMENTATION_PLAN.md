@@ -100,7 +100,7 @@ Future-first target map by finding:
    The target is one settings definition source for key, type, default, parser, validation, allowed values, event, protected-key policy, async source, UI option metadata, and table-driven tests. The current generic service is aligned, recording-format allowed values now resolve from `TRANSCODE_CONFIG.formats` instead of being copied into JSON, and the recording-format UI menu is generated from the resolved settings definition. Remaining work is broader UI option metadata and deciding whether `loadAllPreferencesShape` remains an intentionally small startup subset or becomes generated from definitions.
 
 11. Convert presets to data and bulk registration:
-   The final design is a validated preset data/config array that owns preset definitions, package default policy, renderer default policy, UI visibility, and public named exports. Current `BUILT_IN_PRESETS` plus `registerMany()` removes side-effect registration. Remaining work is to make defaults and UI availability generated/contract-owned across package and renderer, including the intentional package default `true-color` versus renderer default `vibrant` distinction.
+   The final design is a validated preset data/config array that owns preset definitions, package default policy, renderer default policy, UI visibility, and public named exports. Current `BUILT_IN_PRESETS` inlines built-in preset definitions, `PRESET_POLICY` owns package and renderer defaults plus the internal performance preset id, and registration flows through `registerMany()` without per-preset module choreography. Remaining work is broader generated UI list adoption and public export validation.
 
 12. Replace presentation lifecycle boilerplate with a component base or Lit:
    The target is lifecycle-consistent presentation code where dynamic components use `PresentationComponent` or a measured Lit migration. The base should own listeners, subscriptions, refs, timers, RAF, observers, initialization, and disposal. Current adoption is narrow through auto-hide primitives. Remaining work is to migrate notes, settings, update, shader controls, and other high-churn components, measuring deleted lifecycle code and guarding focus/keyboard behavior.
@@ -124,7 +124,7 @@ Future-first target map by finding:
    The target is one typed registry/factory primitive for common map, metadata, create, unregister, clear, and list behavior, with domain policy in thin wrappers. Current streaming adapter/renderer factories use `TypedRegistryFactory`. Remaining work is to evaluate UI and device registries for shared mechanical lifecycle while keeping domain validation separate.
 
 19. Migrate JS plus `.d.ts` twins to TypeScript:
-   The final design is no runtime JS plus hand-authored declaration twins. Shared base/interfaces are converted. Future work is a directory-by-directory TS migration for presentation and remaining runtime JS only when paired with tests, generated refs/actions, or manifest migrations. Long-term policy should ban new runtime `.js` in `src` unless generated or documented by build constraints.
+   The final design is no runtime JS plus hand-authored declaration twins. Shared base/interfaces are converted, the preload listener registry plus exposure factory are typed, and the app-shell renderer is typed. Future work is a directory-by-directory TS migration for presentation and remaining runtime JS only when paired with tests, generated refs/actions, or manifest migrations. Long-term policy should ban new runtime `.js` in `src` unless generated or documented by build constraints.
 
 20. Hoist official WebGPU types:
    The target is already aligned: root and GPU package typing rely on `@webgpu/types`, and app-local `webgpu-worker.d.ts` is only an augmentation point. Keep a small-file threshold check so local browser API redeclarations do not grow back.
@@ -136,7 +136,7 @@ Future-first target map by finding:
    The target is a small `scripts/lib` utility layer for CLI parsing, file walking, JSON/report output, manifest loading, TypeScript diagnostic parsing, and architecture model access. Current script utilities are partial. Continue extracting only helpers used by multiple scripts or needed by generated manifests, preserving CI output fields and exit codes.
 
 23. Make type debt a ratchet, not a permanent side system:
-   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero and the allowlist now has zero tracked buckets. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
+   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 62 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
 
 24. Build canonical test support factories:
    The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, and preload API names derive from the IPC manifest. Remaining work is generated preload API mock bodies and broader migration away from inline canonical dependency mocks.
@@ -166,7 +166,7 @@ Future-first target map by finding:
    The target is one platform manifest for platform ids, OS runners, arches, build scripts, Electron Builder targets, artifact globs, smoke executable discovery, workflow choices, and release/checksum policy. Current manifest drift checks exist, but `build-matrix.mjs`, package config, workflows, and smoke logic still duplicate platform policy. Generate matrix/smoke data first, then packaging/workflow snippets after release snapshots prove parity.
 
 33. Local generated artifact policy:
-   The final design is all local reports, coverage, scorecards, Playwright output, and caches under explicitly ignored, cleanable paths, with tracked package build outputs handled by a separate build-clean policy. Current coverage and reports are under `artifacts/**`, and `clean:generated` avoids deleting build/release outputs. Future work is to document and optionally add a separate `clean:build` path for large ignored `dist/` and `release/` directories without confusing artifact cleanup with source reduction.
+   The final design is all local reports, coverage, scorecards, Playwright output, and caches under explicitly ignored, cleanable paths, with tracked package build outputs handled by a separate build-clean policy. Current coverage and reports are under `artifacts/**`, `clean:generated` avoids deleting build/release outputs, and `clean:build` separately owns ignored `dist/`, `release/`, `build/`, and `out/` cleanup without confusing artifact cleanup with source reduction.
 
 ## Cross-Cutting Program Phases
 
@@ -907,6 +907,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Preset additions require one data entry and no module import choreography.
+- Current implementation note: `preset-definitions.ts` now owns every built-in preset record, package default `true-color`, renderer default `vibrant`, and `performance` UI visibility metadata. `settings.definitions.json` resolves `renderPreset` through `PRESET_POLICY.rendererDefaultId`, and `packages/prismgb-gpu/src/index.ts` explicitly registers `BUILT_IN_PRESETS` through `PresetRegistry.registerMany`.
 
 ## 12. Replace Presentation Lifecycle Boilerplate With A Component Base Or Lit
 
@@ -1306,6 +1307,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type drift from hand-authored declaration twins disappears and strictness can ratchet by directory.
+- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount` and enforces the current `src/**/*.js` count at 62 after migrating `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, so unchecked runtime JS cannot grow while presentation and preload TS migration continue.
 
 ## 20. Hoist Official WebGPU Types
 
@@ -1508,6 +1510,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type debt becomes an actively shrinking budget rather than permanent infrastructure.
+- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current 62-file runtime JS baseline.
 
 ## 24. Build Canonical Test Support Factories
 
@@ -1979,6 +1982,7 @@ Grounded repo truth:
 - `.gitignore` ignores `tests/coverage/`, `.vitest/`, `artifacts/`, Playwright outputs, and release/build outputs.
 - Local `tests/coverage/` and `artifacts/` exist and add workspace noise.
 - `vitest.config.js` writes coverage under `tests/coverage`.
+- Current audit note: `clean:generated` is scoped to ignored reports, caches, and test artifacts. `clean:build` separately owns ignored build and release cleanup for `dist`, `release`, `build`, and `out`.
 
 Long-term target:
 
@@ -2021,6 +2025,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Local workspace noise declines and generated outputs have a clear ownership policy.
+- Current implementation note: `scripts/clean-generated.js` keeps generated artifact cleanup and build output cleanup on separate ownership lists. `npm run clean:generated` removes report/cache/test artifacts, while `npm run clean:build` uses the same audited deletion logic for ignored build and release outputs.
 
 ## Integrated Migration Sequence
 

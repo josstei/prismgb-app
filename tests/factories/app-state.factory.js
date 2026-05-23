@@ -6,6 +6,7 @@
  */
 
 import { vi } from 'vitest';
+import { PRESET_POLICY } from '@prismgb/gpu';
 
 /**
  * Default application state
@@ -21,7 +22,7 @@ export const DEFAULT_STATE = {
   volume: 70,
   brightness: 1.0,
   performanceMode: false,
-  renderPreset: 'vibrant',
+  renderPreset: PRESET_POLICY.rendererDefaultId,
 };
 
 /**

@@ -6,6 +6,7 @@ import ipcManifest from '@shared/ipc/ipc.manifest.json';
 import eventManifest from '@shared/events/event.manifest.json';
 import deviceManifest from '@shared/features/devices/device.manifest.json';
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { PRESET_POLICY } from '@prismgb/gpu';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import { SETTINGS_STORAGE_KEYS } from '@shared/config/storage-keys.config';
@@ -244,7 +245,14 @@ describe('Phase 1 manifests', () => {
     const rawRecordingFormat = rawSettingsDefinitions.definitions.find(
       (definition) => definition.name === 'recordingFormat'
     );
+    const renderPreset = settingsDefinitions.definitions.find((definition) => definition.name === 'renderPreset');
+    const rawRenderPreset = rawSettingsDefinitions.definitions.find(
+      (definition) => definition.name === 'renderPreset'
+    );
 
+    expect(renderPreset.default).toBe(PRESET_POLICY.rendererDefaultId);
+    expect(rawRenderPreset.defaultSource).toBe('PRESET_POLICY.rendererDefaultId');
+    expect(rawRenderPreset).not.toHaveProperty('default');
     expect(recordingFormat.default).toBe('webm');
     expect(recordingFormat.allowedValues).toEqual(Object.keys(TRANSCODE_CONFIG.formats));
     expect(rawRecordingFormat.allowedValuesSource).toBe('TRANSCODE_CONFIG.formats');

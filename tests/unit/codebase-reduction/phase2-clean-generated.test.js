@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanGeneratedOutputs, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
+import { BUILD_OUTPUT_PATHS, cleanBuildOutputs, cleanGeneratedOutputs, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
 
 function createTempWorkspace() {
   const prefix = path.join(os.tmpdir(), 'prismgb-phase2-clean-');
@@ -36,22 +36,37 @@ describe('clean:generated script policy', () => {
   beforeEach(() => {
     tempRoot = createTempWorkspace();
     GENERATED_PATHS.forEach((entry) => ensureGeneratedFixture(tempRoot, entry));
-    ensureKeeptarget(tempRoot, 'dist');
+    BUILD_OUTPUT_PATHS.forEach((entry) => ensureKeeptarget(tempRoot, entry));
   });
 
   afterEach(() => {
     cleanRoot(tempRoot);
   });
 
-  it('removes configured generated output directories and leaves tracked package dist', () => {
+  it('removes configured generated output directories and leaves build outputs', () => {
     const result = cleanGeneratedOutputs({ root: tempRoot });
 
     for (const relativePath of GENERATED_PATHS) {
       expect(fs.existsSync(path.join(tempRoot, relativePath))).toBe(false);
     }
 
-    expect(fs.existsSync(path.join(tempRoot, 'dist'))).toBe(true);
+    for (const relativePath of BUILD_OUTPUT_PATHS) {
+      expect(fs.existsSync(path.join(tempRoot, relativePath))).toBe(true);
+    }
     expect(result.deleted.length).toBe(GENERATED_PATHS.length);
+  });
+
+  it('removes build outputs through clean:build without deleting generated artifacts', () => {
+    const result = cleanBuildOutputs({ root: tempRoot });
+
+    for (const relativePath of BUILD_OUTPUT_PATHS) {
+      expect(fs.existsSync(path.join(tempRoot, relativePath))).toBe(false);
+    }
+
+    for (const relativePath of GENERATED_PATHS) {
+      expect(fs.existsSync(path.join(tempRoot, relativePath))).toBe(true);
+    }
+    expect(result.deleted.length).toBe(BUILD_OUTPUT_PATHS.length);
   });
 
   it('reports cleanup targets in dry-run mode without deleting', () => {
