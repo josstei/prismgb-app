@@ -6,8 +6,10 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
 import {
   createSettingsMenuTemplate,
+  createSettingsControlsTemplate,
   getRecordingFormatOptions
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
+import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 
 describe('SettingsMenuComponent', () => {
@@ -87,6 +89,24 @@ describe('SettingsMenuComponent', () => {
   });
 
   describe('template contract', () => {
+    it('derives settings controls from settings definition UI metadata', () => {
+      const controlsTemplate = createSettingsControlsTemplate();
+      const uiDefinitions = SettingsDefinitions.definitions
+        .filter((definition) => definition.ui?.controlId)
+        .sort((a, b) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
+
+      for (const definition of uiDefinitions) {
+        expect(controlsTemplate).toContain(`id="${definition.ui.controlId}"`);
+        expect(controlsTemplate).toContain(definition.ui.title);
+      }
+
+      const renderedControlPositions = uiDefinitions.map((definition) =>
+        controlsTemplate.indexOf(`id="${definition.ui.controlId}"`)
+      );
+
+      expect(renderedControlPositions).toEqual([...renderedControlPositions].sort((a, b) => a - b));
+    });
+
     it('derives recording format options from transcode config', () => {
       const template = createSettingsMenuTemplate();
       const options = getRecordingFormatOptions();

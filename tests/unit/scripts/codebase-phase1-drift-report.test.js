@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPhase1DriftReport,
   createDocsFragment,
+  createFeatureMapGeneratedBlock,
   createPreloadDeclarationPreview,
   loadManifests
 } from '../../../scripts/codebase-phase1-drift-report.js';
@@ -43,6 +44,7 @@ describe('codebase phase 1 drift report', () => {
     const manifests = loadManifests();
     const declaration = createPreloadDeclarationPreview(manifests.ipc);
     const docs = createDocsFragment(manifests);
+    const featureMap = createFeatureMapGeneratedBlock(manifests);
 
     expect(declaration).toContain('interface Window');
     expect(declaration).toContain('deviceAPI?:');
@@ -50,6 +52,10 @@ describe('codebase phase 1 drift report', () => {
     expect(docs).toContain('CODEBASE_PHASE1_MANIFESTS:START');
     expect(docs).toContain('| IPC namespaces | 8 |');
     expect(docs).toContain('| Platform targets | 5 |');
+    expect(featureMap).toContain('CODEBASE_FEATURE_MAP:START');
+    expect(featureMap).toContain('aliases: `@`, `@main`, `@renderer`');
+    expect(featureMap).toContain('Mod Retro Chromatic (`0x374e:0x0101`, 160x144');
+    expect(featureMap).toContain('`recordingFormat` -> `settingRecordingFormat`');
   });
 
   it('extracts arbitrary Vite/Vitest alias keys from direct objects and shared bindings', () => {

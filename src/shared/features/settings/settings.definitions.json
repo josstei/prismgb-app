@@ -15,7 +15,8 @@
       "name": "statusStripVisible",
       "storageKey": "statusStripVisible",
       "type": "boolean",
-      "default": false
+      "default": false,
+      "ui": { "order": 20, "controlName": "statusStrip", "controlId": "settingStatusStrip", "controlType": "checkbox", "label": "status strip", "title": "Show Status Bar" }
     },
     {
       "name": "renderPreset",
@@ -37,26 +38,30 @@
       "storageKey": "performanceMode",
       "type": "boolean",
       "default": false,
-      "event": "settings:performance-mode-changed"
+      "event": "settings:performance-mode-changed",
+      "ui": { "order": 60, "controlName": "animationSaver", "controlId": "settingAnimationSaver", "controlType": "checkbox", "label": "performance mode", "title": "Performance mode", "hintId": "animationSaverHint", "hint": "Use basic renderer for lower CPU." }
     },
     {
       "name": "fullscreenOnStartup",
       "storageKey": "fullscreenOnStartup",
       "type": "boolean",
-      "default": false
+      "default": false,
+      "ui": { "order": 30, "controlName": "fullscreenOnStartup", "controlId": "settingFullscreenOnStartup", "controlType": "checkbox", "label": "fullscreen on startup", "title": "Fullscreen on startup" }
     },
     {
       "name": "minimalistFullscreen",
       "storageKey": "minimalistFullscreen",
       "type": "boolean",
       "default": false,
-      "event": "settings:minimalist-fullscreen-changed"
+      "event": "settings:minimalist-fullscreen-changed",
+      "ui": { "order": 50, "controlName": "minimalistFullscreen", "controlId": "settingMinimalistFullscreen", "controlType": "checkbox", "label": "minimalist fullscreen", "title": "Minimalist fullscreen", "hintId": "minimalistFullscreenHint", "hint": "Black background while streaming." }
     },
     {
       "name": "autoStreamOnConnect",
       "storageKey": "autoStreamOnConnect",
       "type": "boolean",
-      "default": false
+      "default": false,
+      "ui": { "order": 40, "controlName": "autoStreamOnConnect", "controlId": "settingAutoStreamOnConnect", "controlType": "checkbox", "label": "auto-stream", "title": "Auto-start stream", "hintId": "autoStreamHint", "hint": "Automatically start streaming when device connects." }
     },
     {
       "name": "recordingFormat",
@@ -64,7 +69,8 @@
       "type": "enum",
       "default": "webm",
       "allowedValuesSource": "TRANSCODE_CONFIG.formats",
-      "event": "settings:recording-format-changed"
+      "event": "settings:recording-format-changed",
+      "ui": { "order": 70, "controlName": "recordingFormat", "controlId": "settingRecordingFormat", "controlType": "listbox", "label": "recording format", "title": "Recording format", "hintId": "recordingFormatHint", "hint": "Output format for video recordings.", "labelId": "recordingFormatLabel", "menuId": "recordingFormatMenu", "e2eToggle": false }
     },
     {
       "name": "launchOnLogin",
@@ -72,7 +78,8 @@
       "type": "boolean",
       "default": false,
       "protected": true,
-      "externalSource": "window.loginItemAPI"
+      "externalSource": "window.loginItemAPI",
+      "ui": { "order": 10, "controlName": "launchOnLogin", "controlId": "settingLaunchOnLogin", "controlType": "checkbox", "label": "launch on startup", "title": "Launch on startup", "hintId": "launchOnLoginHint", "hint": "Start PrismGB when your computer turns on.", "e2eToggle": false }
     }
   ]
 }

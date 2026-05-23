@@ -1,118 +1,107 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const args = process.argv.slice(2);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '../..');
+const defaultManifestPath = path.join(projectRoot, 'scripts/manifests/platforms.manifest.json');
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const parsed = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
     if (!arg.startsWith('--')) {
       continue;
     }
-    const key = arg.slice(2);
-    const value = argv[i + 1];
-    parsed[key] = value;
-    i += 1;
+    parsed[arg.slice(2)] = argv[index + 1];
+    index += 1;
   }
   return parsed;
 }
 
-const options = parseArgs(args);
-const mode = options.mode;
-
-const entries = {
-  linuxX64: {
-    os: 'ubuntu-latest',
-    build_script: 'build:linux',
-    arch: 'x64',
-    name: 'Linux x64',
-    label: 'linux-x64'
-  },
-  linuxArm64: {
-    os: 'ubuntu-24.04-arm',
-    build_script: 'build:linux',
-    arch: 'arm64',
-    name: 'Linux ARM64',
-    label: 'linux-arm64'
-  },
-  macosX64: {
-    os: 'macos-15-intel',
-    build_script: 'build:mac',
-    arch: 'x64',
-    name: 'macOS x64',
-    label: 'macos-x64'
-  },
-  macosArm64: {
-    os: 'macos-15',
-    build_script: 'build:mac',
-    arch: 'arm64',
-    name: 'macOS ARM64',
-    label: 'macos-arm64'
-  },
-  windowsX64: {
-    os: 'windows-latest',
-    build_script: 'build:win',
-    arch: 'x64',
-    name: 'Windows x64',
-    label: 'windows-x64'
-  }
-};
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
+export function loadPlatformManifest(manifestPath = defaultManifestPath) {
+  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 }
 
-if (!mode) {
-  fail('Missing required --mode argument (release|smoke).');
+function toMatrixEntry(platform) {
+  return {
+    os: platform.os,
+    build_script: platform.buildScript,
+    arch: platform.arch,
+    name: platform.name,
+    label: platform.label
+  };
 }
 
-let matrix = [];
-
-if (mode === 'release') {
-  const platforms = (options.platforms || 'all').toLowerCase();
-  switch (platforms) {
-    case 'all':
-      matrix = [entries.linuxX64, entries.linuxArm64, entries.macosX64, entries.macosArm64, entries.windowsX64];
-      break;
-    case 'linux':
-      matrix = [entries.linuxX64, entries.linuxArm64];
-      break;
-    case 'macos':
-      matrix = [entries.macosX64, entries.macosArm64];
-      break;
-    case 'windows':
-      matrix = [entries.windowsX64];
-      break;
-    default:
-      fail(`Unsupported platforms value: ${platforms}`);
-  }
-} else if (mode === 'smoke') {
-  const platform = (options.platform || 'all').toLowerCase();
-  switch (platform) {
-    case 'all':
-      matrix = [entries.linuxX64, entries.linuxArm64, entries.macosX64, entries.macosArm64, entries.windowsX64];
-      break;
-    case 'linux-x64':
-      matrix = [entries.linuxX64];
-      break;
-    case 'linux-arm64':
-      matrix = [entries.linuxArm64];
-      break;
-    case 'macos-x64':
-      matrix = [entries.macosX64];
-      break;
-    case 'macos-arm64':
-      matrix = [entries.macosArm64];
-      break;
-    case 'windows':
-      matrix = [entries.windowsX64];
-      break;
-    default:
-      fail(`Unsupported platform value: ${platform}`);
-  }
-} else {
-  fail(`Unsupported mode: ${mode}`);
+function getPlatformById(manifest) {
+  return new Map(manifest.platforms.map((platform) => [platform.id, platform]));
 }
 
-process.stdout.write(JSON.stringify(matrix));
+function resolveReleasePlatformIds(manifest, groupName) {
+  const group = groupName.toLowerCase();
+  const platformIds = manifest.platformGroups?.[group];
+  if (!platformIds) {
+    throw new Error(`Unsupported platforms value: ${group}`);
+  }
+  return platformIds;
+}
+
+function resolveSmokePlatformIds(manifest, inputName) {
+  const input = inputName.toLowerCase();
+  if (input === 'all') {
+    return manifest.platformGroups.all;
+  }
+
+  const resolvedInput = manifest.smokeInputAliases?.[input] ?? input;
+  const platform = manifest.platforms.find(
+    (entry) => entry.id === resolvedInput || entry.label === resolvedInput || entry.smokeInput === input
+  );
+  if (!platform) {
+    throw new Error(`Unsupported platform value: ${input}`);
+  }
+
+  return [platform.id];
+}
+
+export function buildMatrix(manifest, options) {
+  const mode = options.mode;
+  if (!mode) {
+    throw new Error('Missing required --mode argument (release|smoke).');
+  }
+
+  const platformIds = mode === 'release'
+    ? resolveReleasePlatformIds(manifest, options.platforms || 'all')
+    : mode === 'smoke'
+      ? resolveSmokePlatformIds(manifest, options.platform || 'all')
+      : null;
+
+  if (!platformIds) {
+    throw new Error(`Unsupported mode: ${mode}`);
+  }
+
+  const platformsById = getPlatformById(manifest);
+  return platformIds.map((platformId) => {
+    const platform = platformsById.get(platformId);
+    if (!platform) {
+      throw new Error(`Platform group references unknown platform: ${platformId}`);
+    }
+    return toMatrixEntry(platform);
+  });
+}
+
+export function main(argv = process.argv.slice(2)) {
+  try {
+    const options = parseArgs(argv);
+    const matrix = buildMatrix(loadPlatformManifest(), options);
+    process.stdout.write(JSON.stringify(matrix));
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
+const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedScript) {
+  main();
+}

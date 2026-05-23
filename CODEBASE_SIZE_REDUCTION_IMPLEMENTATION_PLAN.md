@@ -8,11 +8,11 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 ## Execution Status
 
-Last updated: 2026-05-22
+Last updated: 2026-05-23
 
 - Status: Phase 6 shader pass ownership is implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
 - Completed implementation milestone: Phase 6, Data-Drive Shader Passes And Uniform Layouts.
-- Current audit note: `npm run codebase:size -- --enforce-thresholds`, `npm run codebase:phase1 -- --json`, `npm run architecture:scorecard -- --enforce-thresholds ...`, `npm run lint`, focused codebase-reduction/script tests, GPU package tests, GPU package typecheck, `npm run architecture:type-debt:check`, and root `npm run typecheck` pass in the 2026-05-22 worktree. `npm run lint` now passes without warnings. The stale 72-bucket strict type-debt allowlist was regenerated to zero buckets after the app reported zero strict diagnostics. Preload API modules now have a clean-break guard against raw `ipcRenderer.on`/`once`, preload transcode format validation and settings recording-format UI options resolve from `TRANSCODE_CONFIG.formats`, canonical test factories use ESM imports, preload API mock names derive from the IPC manifest, and presentation icons are discovered with `import.meta.glob`.
+- Current audit note: `npm run codebase:size -- --enforce-thresholds`, `npm run codebase:phase1 -- --json`, `npm run architecture:scorecard -- --enforce-thresholds ...`, `npm run lint`, focused codebase-reduction/script tests, GPU package tests, GPU package typecheck, `npm run architecture:type-debt:check`, and root `npm run typecheck` pass in the 2026-05-23 worktree. `npm run lint` now passes without warnings. The stale 72-bucket strict type-debt allowlist was regenerated to zero buckets after the app reported zero strict diagnostics. Preload API modules now have a clean-break guard against raw `ipcRenderer.on`/`once`, preload transcode format validation and settings recording-format UI options resolve from `TRANSCODE_CONFIG.formats`, canonical test factories use ESM imports, preload API mock names derive from the IPC manifest, presentation icons are discovered with `import.meta.glob`, remaining inline browser API unit-test globals for `devicePixelRatio`, `getComputedStyle`, `matchMedia`, and missing `MutationObserver` flow through explicit installers, settings UI control metadata and menu markup generation now live in `settings.definitions.json`, E2E app/settings/stream page objects plus the Chromatic device domain fixture are wired as Playwright fixtures with settings cases and browser-serialized Chromatic fixture data derived from production manifests, `docs/feature-map.md` has a generated manifest fact block enforced by the phase drift report, and platform build matrices plus smoke executable discovery now resolve from `platforms.manifest.json`.
 - Reading rule: phase verification bullets below are historical evidence from the implementation sequence. The future-first architecture section is the source of truth for the remaining long-term design intent.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
@@ -855,6 +855,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Settings additions become definition entries instead of repeated service/UI/storage/test edits.
+- Current implementation note: `SettingsDefinitions` owns storage/default/validation/event policy plus compact UI metadata for rendered settings controls. `settings-menu.template.js` generates checkbox/listbox markup from that metadata, and the recording-format listbox options still resolve from `TRANSCODE_CONFIG.formats` with the explicit `webm` UI default.
 
 ## 11. Convert Presets To Data And Bulk Registration
 
@@ -1664,6 +1665,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Test state leakage declines and test setup code shrinks to reusable installers.
+- Current implementation note: `tests/support/mocks/browser-api.installers.js` owns explicit installers for RAF, canvas, media, ResizeObserver, video-frame callbacks, performance, `devicePixelRatio`, `getComputedStyle`, `matchMedia`, and the missing-`MutationObserver` case. Phase 4 enforcement guards the migrated unit-test globals against direct inline mutation.
 
 ## 27. Standardize DOM Tests Around Testing Library
 
@@ -1814,6 +1816,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Device mocks become production-aligned and future device additions automatically produce test scaffolding.
+- Current implementation note: `tests/support/chromatic-device-specs.js` now derives `CHROMATIC_E2E_FIXTURE`, a JSON-serializable Playwright fixture payload, from `device.manifest.json`. `mock-chromatic.helper.js` passes that payload into `page.evaluate`, `chromatic-device.fixture.js` exposes manifest-derived media/device assertions, and the phase drift report enforces both the support fixture and browser injection path.
 
 ## 30. Add Playwright Page Objects And Fixtures
 
@@ -1865,6 +1868,7 @@ Risks and mitigations:
 Expected outcome:
 
 - E2E code is shorter, less brittle, and aligned with generated UI/device metadata.
+- Current implementation note: `tests/e2e/pages/app-shell.page.js`, `settings.page.js`, and `stream.page.js` provide shared page-object selectors and workflows. `settings.page.js` derives its settings control map and toggle cases from the same settings definition UI metadata that renders the settings menu instead of hardcoding E2E selectors. `tests/e2e/fixtures/electron.fixture.js` exposes `appShell`, `settingsMenu`, `streamPage`, and `chromaticDevice` fixtures, `tests/e2e/fixtures/chromatic-device.fixture.js` owns mock Chromatic connection/disconnection cleanup, media-only mock workflows, fixture-derived device expectations, and shared MediaDevices stream introspection. `settings.spec.js`, `streaming-smoke.spec.js`, `device-connection.spec.js`, `fullscreen.spec.js`, `device-streaming.spec.js`, and app-launch settings/update/link/fullscreen/status/window coverage now use fixtures instead of repeating settings, stream, fullscreen, and device setup flows.
 
 ## 31. Generate Architecture Docs And Feature Maps
 
@@ -1914,6 +1918,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Docs stop duplicating architecture/source maps manually.
+- Current implementation note: `docs/feature-map.md` contains a marked `CODEBASE_FEATURE_MAP` block generated from architecture aliases/layers, device manifest data, and settings UI metadata. `codebase-phase1-drift-report.js` generates the same block and fails when the tracked docs drift.
 
 ## 32. Generate Platform Build Matrix And Packaging Config From One Manifest
 
@@ -1965,6 +1970,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Platform/release policy stops drifting across package config, scripts, and workflows.
+- Current implementation note: `scripts/ci/build-matrix.mjs` derives release and smoke matrices from `scripts/manifests/platforms.manifest.json` platform groups, entries, and smoke aliases. `scripts/smoke-test.js` resolves the current platform entry and executable priority from the same manifest. `codebase-phase1-drift-report.js` and script/unit ratchets enforce both manifest-derived paths.
 
 ## 33. Local Generated Artifact Policy
 

@@ -23,6 +23,7 @@ import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
+import { CHROMATIC_E2E_FIXTURE } from '../../support/chromatic-device-specs.js';
 import { createEventBus, createLogger, createLoggerFactory, createStorageService } from '../../support/dependencies.js';
 import { expectNoDrift, flattenStringValues } from '../../support/contract-helpers.js';
 
@@ -190,6 +191,30 @@ describe('Phase 1 manifests', () => {
       path.join(projectRoot, 'src/shared/features/devices/profiles/chromatic/device-chromatic.config.js'),
       'utf8'
     )).toContain('CHROMATIC_MANIFEST_ENTRY.media.video');
+    expect(CHROMATIC_E2E_FIXTURE).toMatchObject({
+      manifestId: chromatic.id,
+      usbDeviceInfo: {
+        vendorId: chromatic.usb.vendorId,
+        productId: chromatic.usb.productId
+      },
+      display: {
+        nativeWidth: chromatic.display.nativeWidth,
+        nativeHeight: chromatic.display.nativeHeight,
+        aspectRatio: chromatic.display.aspectRatio
+      },
+      videoDevice: {
+        deviceId: chromatic.fixture.videoDeviceId,
+        groupId: chromatic.fixture.groupId,
+        kind: 'videoinput',
+        label: chromatic.fixture.label
+      },
+      audioDevice: {
+        deviceId: chromatic.fixture.audioDeviceId,
+        groupId: chromatic.fixture.groupId,
+        kind: 'audioinput',
+        label: `${chromatic.fixture.label} Audio`
+      }
+    });
   });
 
   it('describes current settings defaults, keys, events, and known recording-format drift', async () => {
@@ -225,6 +250,37 @@ describe('Phase 1 manifests', () => {
     expect(rawRecordingFormat.allowedValuesSource).toBe('TRANSCODE_CONFIG.formats');
     expect(rawRecordingFormat).not.toHaveProperty('allowedValues');
     expect(recordingFormat.default).not.toBe(TRANSCODE_CONFIG.defaultFormat);
+
+    const settingsUiControls = Object.fromEntries(
+      rawSettingsDefinitions.definitions
+        .filter((definition) => definition.ui?.controlId)
+        .map((definition) => [definition.name, definition.ui])
+    );
+
+    expect(settingsUiControls).toMatchObject({
+      statusStripVisible: {
+        controlName: 'statusStrip',
+        controlId: 'settingStatusStrip',
+        controlType: 'checkbox'
+      },
+      performanceMode: {
+        controlName: 'animationSaver',
+        controlId: 'settingAnimationSaver',
+        controlType: 'checkbox'
+      },
+      recordingFormat: {
+        controlName: 'recordingFormat',
+        controlId: 'settingRecordingFormat',
+        controlType: 'listbox',
+        e2eToggle: false
+      },
+      launchOnLogin: {
+        controlName: 'launchOnLogin',
+        controlId: 'settingLaunchOnLogin',
+        controlType: 'checkbox',
+        e2eToggle: false
+      }
+    });
   });
 
   it('describes current render passes and package-owned shader files', () => {
@@ -286,6 +342,10 @@ describe('Phase 1 manifests', () => {
       'macos-arm64',
       'windows-x64'
     ]);
+    expect(fs.readFileSync(path.join(projectRoot, 'scripts/ci/build-matrix.mjs'), 'utf8'))
+      .toContain('manifest.platformGroups');
+    expect(fs.readFileSync(path.join(projectRoot, 'scripts/smoke-test.js'), 'utf8'))
+      .toContain('smokeExecutablePriority');
   });
 
   it('moves Vitest coverage output under ignored artifacts for the generated-artifact policy', () => {

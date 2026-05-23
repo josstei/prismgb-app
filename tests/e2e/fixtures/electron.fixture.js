@@ -10,8 +10,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
-import { createChromaticUsbDeviceInfo } from '../../support/chromatic-device-specs.js';
-import { IPC_CHANNELS } from '../../support/ipc-channels.js';
+import { ChromaticDeviceFixture } from './chromatic-device.fixture.js';
+import { AppShellPage } from '../pages/app-shell.page.js';
+import { SettingsMenuPage } from '../pages/settings.page.js';
+import { StreamPage } from '../pages/stream.page.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../..');
@@ -123,6 +125,27 @@ export const test = base.extend({
   page: async ({ window }, use) => {
     await use(window);
   },
+
+  appShell: async ({ window }, use) => {
+    await use(new AppShellPage(window));
+  },
+
+  settingsMenu: async ({ window }, use) => {
+    await use(new SettingsMenuPage(window));
+  },
+
+  streamPage: async ({ window }, use) => {
+    await use(new StreamPage(window));
+  },
+
+  chromaticDevice: async ({ electronApp, window }, use) => {
+    const chromaticDevice = new ChromaticDeviceFixture(electronApp, window);
+    try {
+      await use(chromaticDevice);
+    } finally {
+      await chromaticDevice.cleanup();
+    }
+  },
 });
 
 /**
@@ -138,34 +161,7 @@ export { expect } from '@playwright/test';
  * @param {Object} options - Wait options
  */
 export async function waitForAppReady(page, options = {}) {
-  const { timeout = 15000 } = options;
-
-  // Wait for main container to be visible
-  await page.waitForSelector('#streamContainer', { timeout, state: 'visible' });
-
-  // Wait for status indicator (shows app is initialized)
-  await page.waitForSelector('#statusIndicator', { timeout, state: 'attached' });
-
-  // Wait for settings button to be ready (key interactive element)
-  await page.waitForSelector('#settingsBtn', { timeout, state: 'attached' });
-
-  // Wait for header to be fully rendered
-  await page.waitForSelector('.header', { timeout, state: 'visible' });
-
-  // Wait for app bootstrap to finish attaching orchestrator-managed DOM listeners.
-  await page.waitForFunction(
-    () => document.body.dataset.prismgbAppStarted === 'true',
-    { timeout }
-  );
-
-  // Wait for settings button to expose its interaction state.
-  await page.waitForFunction(
-    () => {
-      const btn = document.getElementById('settingsBtn');
-      return btn && btn.hasAttribute('aria-expanded');
-    },
-    { timeout }
-  );
+  await new AppShellPage(page).waitForReady(options);
 }
 
 /**
@@ -223,74 +219,9 @@ export async function getAppInfo(app) {
   }));
 }
 
-/**
- * Set up mock device status in main process
- * This allows getDeviceStatus IPC calls to return mock data
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- * @param {Object} mockStatus - Mock status to return
- */
-export async function setMockDeviceStatus(app, mockStatus) {
-  await app.evaluate(
-    async (_, status) => {
-      // Store mock status globally for test mode
-      global.__testMockDeviceStatus = status;
-    },
-    mockStatus
-  );
-}
-
-/**
- * Clear mock device status
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- */
-export async function clearMockDeviceStatus(app) {
-  await app.evaluate(async () => {
-    delete global.__testMockDeviceStatus;
-  });
-}
-
-/**
- * Inject a device connected event via main process IPC
- * This uses the real IPC path (webContents.send) to trigger deviceAPI callbacks
- *
- * Note: For full UI testing, you may also need to set mock device status
- * via setMockDeviceStatus() since the app's getDeviceStatus IPC call will
- * query the main process for current device state.
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- * @param {Object} deviceInfo - Device information to inject
- */
-export async function injectDeviceConnectedEvent(app, deviceInfo = {}) {
-  const device = createChromaticUsbDeviceInfo(deviceInfo);
-
-  await app.evaluate(
-    async ({ BrowserWindow }, payload) => {
-      const windows = BrowserWindow.getAllWindows();
-      const mainWindow = windows[0];
-      if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send(payload.channel, payload.device);
-      }
-    },
-    { channel: IPC_CHANNELS.DEVICE.CONNECTED, device }
-  );
-}
-
-/**
- * Inject a device disconnected event via main process IPC
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- */
-export async function injectDeviceDisconnectedEvent(app) {
-  await app.evaluate(
-    async ({ BrowserWindow }, payload) => {
-      const windows = BrowserWindow.getAllWindows();
-      const mainWindow = windows[0];
-      if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send(payload.channel);
-      }
-    },
-    { channel: IPC_CHANNELS.DEVICE.DISCONNECTED }
-  );
-}
+export {
+  clearMockDeviceStatus,
+  injectDeviceConnectedEvent,
+  injectDeviceDisconnectedEvent,
+  setMockDeviceStatus,
+} from '../helpers/device-ipc.helper.js';

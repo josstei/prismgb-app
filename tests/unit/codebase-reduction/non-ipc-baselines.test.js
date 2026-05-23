@@ -9,7 +9,7 @@ import { SettingsDefinitions as settingsDefinitions } from '@shared/features/set
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
-import { CHROMATIC_SPECS } from '../../e2e/helpers/mock-chromatic.helper.js';
+import { CHROMATIC_E2E_FIXTURE, CHROMATIC_SPECS } from '../../support/chromatic-device-specs.js';
 
 const projectRoot = process.cwd();
 
@@ -264,6 +264,31 @@ describe('Phase 0 non-IPC contract baselines', () => {
       defaultFrameRate: mediaConfig.video.frameRate.ideal,
       labelPatterns: chromaticConfig.metadata.labelPatterns
     });
+    expect(CHROMATIC_E2E_FIXTURE).toMatchObject({
+      manifestId: chromaticConfig.id,
+      usbDeviceInfo: {
+        vendorId: chromaticConfig.usb.vendorId,
+        productId: chromaticConfig.usb.productId,
+        deviceName: CHROMATIC_SPECS.label
+      },
+      display: {
+        nativeWidth: chromaticConfig.display.nativeWidth,
+        nativeHeight: chromaticConfig.display.nativeHeight,
+        aspectRatio: chromaticConfig.display.aspectRatio
+      },
+      videoSettings: {
+        width: chromaticConfig.display.nativeWidth,
+        height: chromaticConfig.display.nativeHeight,
+        frameRate: mediaConfig.video.frameRate.ideal
+      },
+      audioSettings: {
+        sampleRate: 48000,
+        channelCount: 2,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
   });
 
   it('uses package-owned shader trees after consolidation', () => {
@@ -275,28 +300,87 @@ describe('Phase 0 non-IPC contract baselines', () => {
 
   it('captures E2E selector assumptions and current deviceAPI callback naming', () => {
     const fixtureSource = readProjectFile('tests/e2e/fixtures/electron.fixture.js');
+    const appShellPageSource = readProjectFile('tests/e2e/pages/app-shell.page.js');
+    const settingsPageSource = readProjectFile('tests/e2e/pages/settings.page.js');
+    const streamPageSource = readProjectFile('tests/e2e/pages/stream.page.js');
+    const chromaticDeviceFixtureSource = readProjectFile('tests/e2e/fixtures/chromatic-device.fixture.js');
+    const appLaunchSpecSource = readProjectFile('tests/e2e/app-launch.spec.js');
+    const deviceConnectionSpecSource = readProjectFile('tests/e2e/device-connection.spec.js');
+    const deviceStreamingSpecSource = readProjectFile('tests/e2e/device-streaming.spec.js');
+    const fullscreenSpecSource = readProjectFile('tests/e2e/fullscreen.spec.js');
     const settingsSpecSource = readProjectFile('tests/e2e/settings.spec.js');
     const streamingSpecSource = readProjectFile('tests/e2e/streaming-smoke.spec.js');
     const preloadSource = readProjectFile('src/preload/index.js');
     const ipcManifest = JSON.parse(readProjectFile('src/shared/ipc/ipc.manifest.json'));
     const deviceNamespace = ipcManifest.namespaces.find((namespace) => namespace.apiName === 'deviceAPI');
 
-    expect(fixtureSource).toContain("waitForSelector('#streamContainer'");
-    expect(fixtureSource).toContain("waitForSelector('#statusIndicator'");
-    expect(fixtureSource).toContain("waitForSelector('#settingsBtn'");
-    expect(fixtureSource).toContain("waitForSelector('.header'");
-
-    expect(settingsSpecSource).toContain("window.locator('#settingsMenuContainer')");
-    expect(settingsSpecSource).toContain("window.locator('#settingStatusStrip')");
-    expect(settingsSpecSource).toContain("window.locator('#settingAnimationSaver')");
-    expect(streamingSpecSource).toContain("window.locator('#streamCanvas')");
-    expect(streamingSpecSource).toContain("window.locator('#shaderBtn')");
+    expect(fixtureSource).toContain("from '../pages/app-shell.page.js'");
+    expect(fixtureSource).toContain('appShell: async');
+    expect(fixtureSource).toContain('settingsMenu: async');
+    expect(fixtureSource).toContain('streamPage: async');
+    expect(fixtureSource).toContain('chromaticDevice: async');
+    expect(appShellPageSource).toContain("streamContainer: '#streamContainer'");
+    expect(appShellPageSource).toContain("deviceStatus: '#deviceStatus'");
+    expect(appShellPageSource).toContain("statusIndicator: '#statusIndicator'");
+    expect(appShellPageSource).toContain("settingsButton: '#settingsBtn'");
+    expect(appShellPageSource).toContain("fullscreenButton: '#fullscreenBtn'");
+    expect(appShellPageSource).toContain("fullscreenControls: '#fullscreenControls'");
+    expect(appShellPageSource).toContain("fullscreenExitButton: '#fsExitBtn'");
+    expect(appShellPageSource).toContain("header: '.header'");
+    expect(settingsPageSource).toContain("menu: AppSelectors.settingsMenu");
+    expect(settingsPageSource).toContain('settings.definitions.json');
+    expect(settingsPageSource).toContain('createSettingsControlMetadata');
+    expect(settingsPageSource).toContain('SettingsTestControls.controls');
+    expect(settingsPageSource).not.toContain("statusStrip: '#settingStatusStrip'");
+    expect(settingsPageSource).not.toContain("animationSaver: '#settingAnimationSaver'");
+    expect(settingsSpecSource).toContain('settingsMenu');
+    expect(settingsSpecSource).toContain('SettingsTestControls.toggleableBooleanControls');
+    expect(settingsSpecSource).not.toContain("window.locator('#settingsMenuContainer')");
+    expect(settingsSpecSource).not.toContain("window.locator('#settingStatusStrip')");
+    expect(settingsSpecSource).not.toContain("window.locator('#settingAnimationSaver')");
+    expect(streamPageSource).toContain("canvas: '#streamCanvas'");
+    expect(streamPageSource).toContain("shaderButton: '#shaderBtn'");
+    expect(streamPageSource).toContain("currentFps: '#currentFPS'");
+    expect(streamPageSource).toContain("currentResolution: '#currentResolution'");
+    expect(chromaticDeviceFixtureSource).toContain('class ChromaticDeviceFixture');
+    expect(chromaticDeviceFixtureSource).toContain("from '../helpers/device-ipc.helper.js'");
+    expect(chromaticDeviceFixtureSource).toContain('getMediaStreamInfo');
+    expect(chromaticDeviceFixtureSource).toContain('expectDisconnected');
+    expect(streamingSpecSource).toContain('streamPage');
+    expect(streamingSpecSource).toContain('chromaticDevice');
+    expect(streamingSpecSource).not.toContain("window.locator('#streamCanvas')");
+    expect(streamingSpecSource).not.toContain("window.locator('#shaderBtn')");
+    expect(deviceConnectionSpecSource).toContain('appShell');
+    expect(deviceConnectionSpecSource).toContain('settingsMenu');
+    expect(deviceConnectionSpecSource).toContain('streamPage');
+    expect(deviceConnectionSpecSource).not.toContain("window.locator('#settingsBtn')");
+    expect(deviceConnectionSpecSource).not.toContain("window.locator('#streamCanvas')");
+    expect(deviceStreamingSpecSource).toContain('appShell');
+    expect(deviceStreamingSpecSource).toContain('chromaticDevice');
+    expect(deviceStreamingSpecSource).toContain('streamPage');
+    expect(deviceStreamingSpecSource).toContain('SettingsTestControls.toggleableBooleanControls');
+    expect(deviceStreamingSpecSource).not.toMatch(/import\s+\{[^}]*waitForAppReady/);
+    expect(deviceStreamingSpecSource).not.toMatch(/await waitForAppReady\(/);
+    expect(deviceStreamingSpecSource).not.toContain('window.locator(');
+    expect(deviceStreamingSpecSource).not.toContain("from './helpers/device-status.helper.js'");
+    expect(appLaunchSpecSource).toContain('appShell');
+    expect(appLaunchSpecSource).toContain('settingsMenu');
+    expect(appLaunchSpecSource).toContain('SettingsTestControls.toggleableBooleanControls');
+    expect(appLaunchSpecSource).not.toMatch(/import\s+\{[^}]*waitForAppReady/);
+    expect(appLaunchSpecSource).not.toMatch(/await waitForAppReady\(/);
+    expect(appLaunchSpecSource).not.toContain("window.locator('#fullscreenBtn')");
+    expect(appLaunchSpecSource).not.toContain("window.locator('#statusIndicator')");
+    expect(appLaunchSpecSource).not.toContain("window.locator('#statusText')");
+    expect(appLaunchSpecSource).not.toContain("window.locator('#deviceStatus')");
+    expect(fullscreenSpecSource).toContain('appShell');
+    expect(fullscreenSpecSource).toContain('streamPage');
+    expect(fullscreenSpecSource).not.toContain("window.locator('#fullscreenBtn')");
+    expect(fullscreenSpecSource).not.toContain("window.locator('#fullscreenControls')");
+    expect(fullscreenSpecSource).not.toContain("window.locator('#fsExitBtn')");
+    expect(fullscreenSpecSource).not.toContain("window.locator('#streamCanvas')");
 
     expect(fs.existsSync(path.join(projectRoot, 'tests/e2e/helpers/ipc-mock.js'))).toBe(false);
     expect(readProjectFile('tests/e2e/device-connection.spec.js')).toContain(
-      "from './helpers/device-status.helper.js'"
-    );
-    expect(readProjectFile('tests/e2e/device-streaming.spec.js')).toContain(
       "from './helpers/device-status.helper.js'"
     );
     expect(deviceNamespace.exposedMethods).toEqual([

@@ -281,6 +281,53 @@ function createDocsFragment(manifests) {
   ].join('\n');
 }
 
+function formatInlineCodeList(values) {
+  if (values.length === 0) {
+    return 'None';
+  }
+
+  return values.map((value) => `\`${value}\``).join(', ');
+}
+
+function createFeatureMapGeneratedBlock(manifests) {
+  const architectureAliases = manifests.architecture.aliases.map((alias) => alias.id);
+  const architectureLayers = manifests.architecture.layers.map((layer) => layer.id);
+  const retiredAliases = manifests.architecture.retiredAliases.map((alias) => alias.id);
+  const devices = manifests.devices.devices.map((device) =>
+    `${device.name} (\`${device.usb.hexVendorId}:${device.usb.hexProductId}\`, ` +
+    `${device.display.nativeWidth}x${device.display.nativeHeight}, fixture \`${device.fixture.label}\`)`
+  );
+  const settingsUiControls = manifests.settings.definitions
+    .filter((definition) => definition.ui?.controlId)
+    .sort((left, right) => (left.ui.order ?? 0) - (right.ui.order ?? 0))
+    .map((definition) => `\`${definition.name}\` -> \`${definition.ui.controlId}\``);
+
+  return [
+    '<!-- CODEBASE_FEATURE_MAP:START -->',
+    '| Manifest surface | Generated facts |',
+    '| --- | --- |',
+    `| Architecture paths | aliases: ${formatInlineCodeList(architectureAliases)}; layers: ${formatInlineCodeList(architectureLayers)}; retired: ${formatInlineCodeList(retiredAliases)} |`,
+    `| Devices | ${devices.join('<br>')} |`,
+    `| Settings UI | ${settingsUiControls.join(', ')} |`,
+    `| Startup preferences | ${formatInlineCodeList(manifests.settings.loadAllPreferencesShape)} |`,
+    '<!-- CODEBASE_FEATURE_MAP:END -->',
+    ''
+  ].join('\n');
+}
+
+function extractMarkedBlock(sourceText, markerName) {
+  const start = `<!-- ${markerName}:START -->`;
+  const end = `<!-- ${markerName}:END -->`;
+  const startIndex = sourceText.indexOf(start);
+  const endIndex = sourceText.indexOf(end);
+
+  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    return null;
+  }
+
+  return sourceText.slice(startIndex, endIndex + end.length).trimEnd();
+}
+
 function loadManifests() {
   return Object.fromEntries(
     Object.entries(manifestPaths).map(([key, manifestPath]) => [key, readProjectJson(manifestPath)])
@@ -296,6 +343,19 @@ function createDerivedSourceCheck({ name, sourceText, requiredFragments }) {
     actualCount: requiredFragments.length - missingFragments.length,
     missing: missingFragments,
     extra: []
+  };
+}
+
+function createGeneratedBlockCheck({ name, sourceText, markerName, expectedBlock }) {
+  const actualBlock = extractMarkedBlock(sourceText, markerName);
+  const normalizedExpected = expectedBlock.trimEnd();
+  return {
+    name,
+    status: actualBlock === normalizedExpected ? 'pass' : 'fail',
+    expected: normalizedExpected,
+    actual: actualBlock ?? 'missing',
+    missing: actualBlock ? [] : [`${markerName}:START`],
+    extra: actualBlock && actualBlock !== normalizedExpected ? ['generated block drift'] : []
   };
 }
 
@@ -408,6 +468,30 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
       'CHROMATIC_MANIFEST_ENTRY.labelPatterns'
     ]
   }));
+  checks.push(createDerivedSourceCheck({
+    name: 'Chromatic E2E fixture derives serialized browser data from device manifest',
+    sourceText: readProjectText('tests/support/chromatic-device-specs.js'),
+    requiredFragments: [
+      'CHROMATIC_DEVICE_MANIFEST_ENTRY.fixture',
+      'CHROMATIC_E2E_FIXTURE',
+      'usbDeviceInfo',
+      'videoDevice',
+      'audioDevice',
+      'videoSettings',
+      'audioSettings'
+    ]
+  }));
+  checks.push(createDerivedSourceCheck({
+    name: 'Mock Chromatic helper injects serialized fixture data',
+    sourceText: readProjectText('tests/e2e/helpers/mock-chromatic.helper.js'),
+    requiredFragments: [
+      'CHROMATIC_E2E_FIXTURE',
+      '{ fixture: CHROMATIC_E2E_FIXTURE',
+      'state.fixture.usbDeviceInfo',
+      'const { display, videoDevice, audioDevice, videoSettings, audioSettings } = fixture',
+      'streamSettings.defaultFrameRate'
+    ]
+  }));
   const layoutCss = readProjectText('src/renderer/presentation/styles/layout.css');
   checks.push({
     name: 'stream canvas aspect ratio derives from device manifest resolution',
@@ -426,6 +510,12 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
       : ['aspect-ratio: var(--stream-native-aspect-ratio)'],
     extra: /aspect-ratio\s*:\s*160\s*\/\s*144/.test(layoutCss) ? ['aspect-ratio: 160 / 144'] : []
   });
+  checks.push(createGeneratedBlockCheck({
+    name: 'feature map generated manifest block is current',
+    sourceText: readProjectText('docs/feature-map.md'),
+    markerName: 'CODEBASE_FEATURE_MAP',
+    expectedBlock: createFeatureMapGeneratedBlock(manifests)
+  }));
 
   const storageConfigSource = readProjectText('src/shared/config/storage-keys.config.ts');
   const derivesSettingsKeys = storageConfigDerivesSettingsKeys(storageConfigSource);
@@ -495,6 +585,17 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
   }));
 
   const releaseLabels = runBuildMatrix(['--mode', 'release', '--platforms', 'all']).map((entry) => entry.label);
+  checks.push(createDerivedSourceCheck({
+    name: 'build matrix derives platform entries from platform manifest',
+    sourceText: readProjectText('scripts/ci/build-matrix.mjs'),
+    requiredFragments: [
+      'platforms.manifest.json',
+      'manifest.platformGroups',
+      'manifest.smokeInputAliases',
+      'platform.buildScript',
+      'platform.label'
+    ]
+  }));
   checks.push(compareSortedValues({
     name: 'platform manifest labels match release build matrix',
     expected: releaseLabels,
@@ -502,6 +603,16 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
   }));
 
   const smokeLabels = runBuildMatrix(['--mode', 'smoke', '--platform', 'all']).map((entry) => entry.label);
+  checks.push(createDerivedSourceCheck({
+    name: 'smoke test executable discovery derives from platform manifest',
+    sourceText: readProjectText('scripts/smoke-test.js'),
+    requiredFragments: [
+      'platforms.manifest.json',
+      'resolveSmokePlatformEntry',
+      'smokeExecutablePriority',
+      'nodePlatformPrefix'
+    ]
+  }));
   checks.push(compareSortedValues({
     name: 'platform manifest labels match smoke build matrix',
     expected: smokeLabels,
@@ -515,7 +626,8 @@ function buildPhase1DriftReport(manifests = loadManifests()) {
     }),
     generated: {
       preloadDeclaration: createPreloadDeclarationPreview(manifests.ipc),
-      docsFragment: createDocsFragment(manifests)
+      docsFragment: createDocsFragment(manifests),
+      featureMapFragment: createFeatureMapGeneratedBlock(manifests)
     }
   };
 }
@@ -540,8 +652,13 @@ function writeGeneratedOutputs(generated) {
     relativePath: 'manifest-docs.fragment.md',
     contents: generated.docsFragment
   });
+  const featureMapPath = writeGeneratedArtifact({
+    outputRoot,
+    relativePath: 'feature-map.generated.md',
+    contents: generated.featureMapFragment
+  });
 
-  return { declarationPath, docsPath };
+  return { declarationPath, docsPath, featureMapPath };
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -560,6 +677,7 @@ function main(argv = process.argv.slice(2)) {
     const outputs = writeGeneratedOutputs(generated);
     console.log(`Wrote generated declaration preview: ${outputs.declarationPath}`);
     console.log(`Wrote generated docs fragment: ${outputs.docsPath}`);
+    console.log(`Wrote generated feature-map fragment: ${outputs.featureMapPath}`);
   }
 
   if (options.json) {
@@ -582,6 +700,7 @@ export {
   collectIpcManifestMethods,
   collectEventManifestValues,
   createDocsFragment,
+  createFeatureMapGeneratedBlock,
   createPreloadDeclarationPreview,
   extractPreloadExposures,
   loadManifests,

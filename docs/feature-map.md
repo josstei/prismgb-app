@@ -14,20 +14,18 @@ This document maps user-facing features to the codebase for maintenance and onbo
 - Update checks, downloads, and install flow in Settings.
 - System tray integration (background device monitoring, show window, refresh, quit).
 
-## Feature Modules and Ownership
+## Generated Manifest Map
 
-| Feature | Primary directories | Notes |
-| --- | --- | --- |
-| Streaming and rendering | `src/renderer/infrastructure/services/streaming`, `src/renderer/infrastructure/rendering` | GPU pipeline, render presets, health checks, audio warmup |
-| Capture (screenshots/recording) | `src/renderer/infrastructure/services/capture` | PNG screenshots, recordings with format selection |
-| Transcode | `src/main/infrastructure/transcode`, `src/renderer/infrastructure/services/transcode`, `src/shared/features/transcode` | FFmpeg-based transcoding for MP4/MOV output |
-| Devices and adapters | `src/renderer/infrastructure/services/devices`, `src/renderer/infrastructure/adapters/devices`, `src/main/infrastructure/devices`, `src/shared/features/devices` | USB detection, device registry, adapters |
-| Settings and display modes | `src/shared/features/settings/settings.definitions.json`, `src/renderer/infrastructure/services/settings` | Cinematic, fullscreen, performance mode, status strip |
-| Notes | `src/renderer/infrastructure/services/notes`, `src/shared/config/storage-keys.config.ts` | Notes CRUD and search |
-| Updates | `src/main/infrastructure/updates`, `src/renderer/infrastructure/services/updates`, `src/preload/index.js` | electron-updater + renderer UI |
-| UI shell | `src/renderer/presentation`, `src/renderer/assets` | Templates, components, effects |
-| App lifecycle and performance | `src/renderer/application`, `src/renderer/application/di`, `src/main/application` | Orchestrators, DI registration modules, performance state |
-| IPC and preload bridge | `src/shared/ipc`, `src/preload/index.js` | Shared channel definitions |
+This section is generated from architecture, device, and settings manifests. Keep narrative details outside the markers.
+
+<!-- CODEBASE_FEATURE_MAP:START -->
+| Manifest surface | Generated facts |
+| --- | --- |
+| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@shared`, `@prismgb/gpu`, `url`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `shared`, `preload`; retired: `@core` |
+| Devices | Mod Retro Chromatic (`0x374e:0x0101`, 160x144, fixture `Chromatic`) |
+| Settings UI | `launchOnLogin` -> `settingLaunchOnLogin`, `statusStripVisible` -> `settingStatusStrip`, `fullscreenOnStartup` -> `settingFullscreenOnStartup`, `autoStreamOnConnect` -> `settingAutoStreamOnConnect`, `minimalistFullscreen` -> `settingMinimalistFullscreen`, `performanceMode` -> `settingAnimationSaver`, `recordingFormat` -> `settingRecordingFormat` |
+| Startup preferences | `gameVolume`, `statusStripVisible`, `performanceMode`, `minimalistFullscreen` |
+<!-- CODEBASE_FEATURE_MAP:END -->
 
 ## UI Surface Map (Renderer)
 

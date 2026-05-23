@@ -8,14 +8,14 @@ import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
 function getRecordingFormatDefinition() {
-  const definition = SettingsDefinitions.definitions.find(
-    (setting) => setting.name === 'recordingFormat'
-  );
+  return getSettingDefinition('recordingFormat');
+}
 
+function getSettingDefinition(name) {
+  const definition = SettingsDefinitions.definitions.find((setting) => setting.name === name);
   if (!definition) {
-    throw new Error('Missing recordingFormat settings definition');
+    throw new Error(`Missing ${name} settings definition`);
   }
-
   return definition;
 }
 
@@ -50,6 +50,77 @@ function getDefaultRecordingFormatLabel() {
   return getRecordingFormatOptions().find((option) => option.active)?.label || '';
 }
 
+function getSettingsUiDefinitions() {
+  return SettingsDefinitions.definitions
+    .filter((definition) => definition.ui?.controlId)
+    .sort((a, b) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
+}
+
+function createSettingTextTemplate(ui) {
+  const title = ui.title || ui.label;
+
+  if (!ui.hint) {
+    return `<span>${title}</span>`;
+  }
+
+  return `
+            <span class="settings-item-text">
+              <span class="settings-item-title">${title}</span>
+              <span class="settings-item-hint" id="${ui.hintId}">
+                ${ui.hint}
+              </span>
+            </span>`;
+}
+
+function createCheckboxSettingTemplate(definition) {
+  const { ui } = definition;
+  const hintClass = ui.hint ? ' settings-item-with-hint' : '';
+  const ariaDescription = ui.hintId ? ` aria-describedby="${ui.hintId}"` : '';
+
+  return `
+          <label class="settings-item toggle${hintClass}">
+            ${createSettingTextTemplate(ui)}
+            <input type="checkbox" id="${ui.controlId}"${ariaDescription}>
+            <span class="toggle-slider"></span>
+          </label>`;
+}
+
+function createListboxSettingTemplate(definition) {
+  const { ui } = definition;
+  const hintClass = ui.hint ? ' settings-item-with-hint' : '';
+
+  return `
+          <div class="settings-item${hintClass}">
+            ${createSettingTextTemplate(ui)}
+            <div class="settings-select-wrapper" aria-describedby="${ui.hintId}">
+              <button type="button" class="settings-select-trigger" id="${ui.controlId}" aria-haspopup="listbox" aria-expanded="false">
+                <span class="settings-select-label" id="${ui.labelId}">${getDefaultRecordingFormatLabel()}</span>
+              </button>
+              <div class="settings-select-menu" id="${ui.menuId}" role="listbox">
+                ${createRecordingFormatOptionsTemplate()}
+              </div>
+            </div>
+          </div>`;
+}
+
+function createSettingsControlTemplate(definition) {
+  if (definition.ui.controlType === 'checkbox') {
+    return createCheckboxSettingTemplate(definition);
+  }
+
+  if (definition.ui.controlType === 'listbox') {
+    return createListboxSettingTemplate(definition);
+  }
+
+  throw new Error(`Unsupported settings control type: ${definition.ui.controlType}`);
+}
+
+export function createSettingsControlsTemplate() {
+  return getSettingsUiDefinitions()
+    .map((definition) => createSettingsControlTemplate(definition))
+    .join('');
+}
+
 /**
  * Create settings menu HTML
  * @returns {string} Settings menu HTML string
@@ -60,72 +131,7 @@ export function createSettingsMenuTemplate() {
       <div class="settings-menu" role="menu" aria-label="Settings">
         <!-- Settings Section -->
         <section class="settings-section settings-main">
-          <label class="settings-item toggle settings-item-with-hint">
-            <span class="settings-item-text">
-              <span class="settings-item-title">Launch on startup</span>
-              <span class="settings-item-hint" id="launchOnLoginHint">
-                Start PrismGB when your computer turns on.
-              </span>
-            </span>
-            <input type="checkbox" id="settingLaunchOnLogin" aria-describedby="launchOnLoginHint">
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="settings-item toggle">
-            <span>Show Status Bar</span>
-            <input type="checkbox" id="settingStatusStrip">
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="settings-item toggle">
-            <span>Fullscreen on startup</span>
-            <input type="checkbox" id="settingFullscreenOnStartup">
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="settings-item toggle settings-item-with-hint">
-            <span class="settings-item-text">
-              <span class="settings-item-title">Auto-start stream</span>
-              <span class="settings-item-hint" id="autoStreamHint">
-                Automatically start streaming when device connects.
-              </span>
-            </span>
-            <input type="checkbox" id="settingAutoStreamOnConnect" aria-describedby="autoStreamHint">
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="settings-item toggle settings-item-with-hint">
-            <span class="settings-item-text">
-              <span class="settings-item-title">Minimalist fullscreen</span>
-              <span class="settings-item-hint" id="minimalistFullscreenHint">
-                Black background while streaming.
-              </span>
-            </span>
-            <input type="checkbox" id="settingMinimalistFullscreen" aria-describedby="minimalistFullscreenHint">
-            <span class="toggle-slider"></span>
-          </label>
-          <label class="settings-item toggle settings-item-with-hint">
-            <span class="settings-item-text">
-              <span class="settings-item-title">Performance mode</span>
-              <span class="settings-item-hint" id="animationSaverHint">
-                Use basic renderer for lower CPU.
-              </span>
-            </span>
-            <input type="checkbox" id="settingAnimationSaver" aria-describedby="animationSaverHint">
-            <span class="toggle-slider"></span>
-          </label>
-          <div class="settings-item settings-item-with-hint">
-            <span class="settings-item-text">
-              <span class="settings-item-title">Recording format</span>
-              <span class="settings-item-hint" id="recordingFormatHint">
-                Output format for video recordings.
-              </span>
-            </span>
-            <div class="settings-select-wrapper" aria-describedby="recordingFormatHint">
-              <button type="button" class="settings-select-trigger" id="settingRecordingFormat" aria-haspopup="listbox" aria-expanded="false">
-                <span class="settings-select-label" id="recordingFormatLabel">${getDefaultRecordingFormatLabel()}</span>
-              </button>
-              <div class="settings-select-menu" id="recordingFormatMenu" role="listbox">
-                ${createRecordingFormatOptionsTemplate()}
-              </div>
-            </div>
-          </div>
+          ${createSettingsControlsTemplate()}
         </section>
 
         <div class="settings-divider"></div>

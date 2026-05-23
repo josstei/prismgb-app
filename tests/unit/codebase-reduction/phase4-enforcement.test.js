@@ -53,6 +53,39 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(factoryIndex).not.toMatch(/\brequire\(/);
   });
 
+  it('keeps remaining browser API test globals behind explicit installers', () => {
+    const installerSource = readProjectFile('tests/support/mocks/browser-api.installers.js');
+    [
+      'installDevicePixelRatioMock',
+      'installGetComputedStyleMock',
+      'installMatchMediaMock',
+      'installMissingMutationObserverMock'
+    ].forEach((installerName) => {
+      expect(installerSource).toContain(installerName);
+    });
+
+    const forbiddenPatterns = [
+      { label: 'devicePixelRatio vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]devicePixelRatio['"]/ },
+      { label: 'window.getComputedStyle assignment', pattern: /\bglobal\.window\.getComputedStyle\s*=/ },
+      { label: 'window.matchMedia assignment', pattern: /\bglobal\.window\.matchMedia\s*=/ },
+      { label: 'MutationObserver delete', pattern: /\bdelete\s+globalThis\.MutationObserver\b/ },
+      { label: 'MutationObserver assignment', pattern: /\bglobalThis\.MutationObserver\s*=/ }
+    ];
+
+    const violations = [];
+    collectFiles('tests/unit', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        forbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            violations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(violations).toEqual([]);
+  });
+
   it('keeps generated artifact ownership on current ignored paths without legacy coverage cleanup', () => {
     const gitignore = readProjectFile('.gitignore');
     const sizeReport = readProjectFile('scripts/codebase-size-report.js');
@@ -62,6 +95,37 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(gitignore).toContain('artifacts/');
     expect(gitignore).not.toContain('tests/coverage/');
     expect(sizeReport).not.toContain("'tests/coverage'");
+  });
+
+  it('keeps feature-map manifest facts inside a generated docs block', () => {
+    const featureMap = readProjectFile('docs/feature-map.md');
+    const phase1Drift = readProjectFile('scripts/codebase-phase1-drift-report.js');
+
+    expect(featureMap).toContain('CODEBASE_FEATURE_MAP:START');
+    expect(featureMap).toContain('CODEBASE_FEATURE_MAP:END');
+    expect(featureMap).toContain('Architecture paths');
+    expect(featureMap).toContain('Settings UI');
+    expect(phase1Drift).toContain('feature map generated manifest block is current');
+    expect(phase1Drift).toContain('createFeatureMapGeneratedBlock');
+  });
+
+  it('keeps platform matrix and smoke executable discovery manifest-owned', () => {
+    const buildMatrix = readProjectFile('scripts/ci/build-matrix.mjs');
+    const smokeTest = readProjectFile('scripts/smoke-test.js');
+    const phase1Drift = readProjectFile('scripts/codebase-phase1-drift-report.js');
+
+    expect(buildMatrix).toContain('platforms.manifest.json');
+    expect(buildMatrix).toContain('manifest.platformGroups');
+    expect(buildMatrix).toContain('manifest.smokeInputAliases');
+    expect(buildMatrix).not.toContain('linuxX64');
+    expect(buildMatrix).not.toMatch(/const entries\s*=\s*\{/);
+    expect(smokeTest).toContain('platforms.manifest.json');
+    expect(smokeTest).toContain('smokeExecutablePriority');
+    expect(smokeTest).not.toContain('linux-unpacked');
+    expect(smokeTest).not.toContain('mac-arm64');
+    expect(smokeTest).not.toContain('win-unpacked');
+    expect(phase1Drift).toContain('build matrix derives platform entries from platform manifest');
+    expect(phase1Drift).toContain('smoke test executable discovery derives from platform manifest');
   });
 
   it('enforces every Phase 4 architecture ownership ratchet', () => {
@@ -159,12 +223,20 @@ describe('Phase 4 clean-break enforcement', () => {
     ].forEach(expectMissing);
 
     const electronFixture = readProjectFile('tests/e2e/fixtures/electron.fixture.js');
+    const deviceIpcHelper = readProjectFile('tests/e2e/helpers/device-ipc.helper.js');
     const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
+    const chromaticSupport = readProjectFile('tests/support/chromatic-device-specs.js');
     const mockDevice = readProjectFile('tests/mocks/MockDevice.js');
 
-    expect(electronFixture).toContain("from '../../support/ipc-channels.js'");
+    expect(electronFixture).toContain("from '../helpers/device-ipc.helper.js'");
+    expect(deviceIpcHelper).toContain("from '../../support/ipc-channels.js'");
     expect(electronFixture).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
+    expect(deviceIpcHelper).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
     expect(chromaticHelper).toContain("from '../../support/chromatic-device-specs.js'");
+    expect(chromaticSupport).toContain('CHROMATIC_E2E_FIXTURE');
+    expect(chromaticSupport).toContain('CHROMATIC_DEVICE_MANIFEST_ENTRY.fixture');
+    expect(chromaticHelper).toContain('CHROMATIC_E2E_FIXTURE');
+    expect(chromaticHelper).toContain('{ fixture: CHROMATIC_E2E_FIXTURE');
     expect(mockDevice).toContain("from '../support/chromatic-device-specs.js'");
   });
 
@@ -174,6 +246,7 @@ describe('Phase 4 clean-break enforcement', () => {
     const ipcManifest = readProjectJson('src/shared/ipc/ipc.manifest.json');
     const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
     const deviceStreamingSpec = readProjectFile('tests/e2e/device-streaming.spec.js');
+    const fullscreenSpec = readProjectFile('tests/e2e/fullscreen.spec.js');
     const exposureCall = preloadIndex.match(/exposePreloadApis\(contextBridge,\s*\{([\s\S]*?)\n\}\);/);
 
     expect(preloadIndex).toContain("from '@preload/exposure.factory.js'");
@@ -189,6 +262,12 @@ describe('Phase 4 clean-break enforcement', () => {
 
     expect(chromaticHelper).not.toMatch(/connectedCallbacks|disconnectedCallbacks/);
     expect(chromaticHelper).not.toContain('Trigger deviceAPI callbacks');
+    expect(deviceStreamingSpec).toContain('chromaticDevice.fixture');
+    expect(deviceStreamingSpec).not.toMatch(/CHROMATIC_SPECS|injectMockChromaticDevice|cleanupMockDevice/);
+    expect(deviceStreamingSpec).not.toContain("toBe('Chromatic')");
+    expect(deviceStreamingSpec).not.toContain("toBe('Chromatic Audio')");
+    expect(fullscreenSpec).toContain('CHROMATIC_E2E_FIXTURE.display.aspectRatio');
+    expect(fullscreenSpec).not.toContain('160 / 144');
     expect(deviceStreamingSpec).not.toContain('deviceAPI callback tests are skipped');
   });
 
@@ -233,11 +312,16 @@ describe('Phase 4 clean-break enforcement', () => {
     expect([...usedIcons].sort()).toEqual(iconAssets);
   });
 
-  it('keeps recording format UI options derived from settings definitions', () => {
+  it('keeps settings menu controls and recording format options derived from settings definitions', () => {
     const settingsTemplate = readProjectFile('src/renderer/presentation/features/settings/settings-menu.template.js');
 
     expect(settingsTemplate).toContain('SettingsDefinitions.definitions.find');
+    expect(settingsTemplate).toContain('createSettingsControlsTemplate');
+    expect(settingsTemplate).toContain('definition.ui?.controlId');
     expect(settingsTemplate).toContain('getRecordingFormatOptions');
+    expect(settingsTemplate).not.toMatch(/id="setting(?:LaunchOnLogin|StatusStrip|FullscreenOnStartup|AutoStreamOnConnect|MinimalistFullscreen|AnimationSaver|RecordingFormat)"/);
+    expect(settingsTemplate).not.toContain('Show Status Bar');
+    expect(settingsTemplate).not.toContain('Auto-start stream');
     expect(settingsTemplate).not.toMatch(/data-value="(?:webm|mp4|mov)"/);
   });
 
