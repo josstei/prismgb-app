@@ -8,26 +8,23 @@
  * - Editor state management
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
 // Timing constants
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;
+const SAVE_DEBOUNCE_TIMEOUT = Symbol('notesEditorSaveDebounceTimeout');
+const DELETE_HOLD_TIMEOUT = Symbol('notesEditorDeleteHoldTimeout');
 
-class NotesEditorViewComponent {
+class NotesEditorViewComponent extends PresentationComponent {
   constructor({ notesService, logger }) {
+    super();
     this.notesService = notesService;
     this.logger = logger;
 
     // Editor state
     this.currentNoteId = null;
     this.hasNote = false;
-
-    // Debounce timers
-    this._saveTimeout = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.editorElement = null;
@@ -192,10 +189,7 @@ class NotesEditorViewComponent {
    * Flush pending save immediately
    */
   flushSave() {
-    if (this._saveTimeout) {
-      clearTimeout(this._saveTimeout);
-      this._saveTimeout = null;
-    }
+    this.cancelManaged(SAVE_DEBOUNCE_TIMEOUT);
     this.onSave?.();
   }
 
@@ -213,14 +207,14 @@ class NotesEditorViewComponent {
   _setupEditor() {
     // Auto-save on title change
     if (this.titleInput) {
-      this._domListeners.add(this.titleInput, 'input', () => {
+      this.listen(this.titleInput, 'input', () => {
         this._scheduleSave();
       });
     }
 
     // Auto-save on content change
     if (this.contentArea) {
-      this._domListeners.add(this.contentArea, 'input', () => {
+      this.listen(this.contentArea, 'input', () => {
         this._scheduleSave();
       });
     }
@@ -233,14 +227,14 @@ class NotesEditorViewComponent {
   _setupGameTagUI() {
     // Add game button - show game input
     if (this.gameAddBtn) {
-      this._domListeners.add(this.gameAddBtn, 'click', () => {
+      this.listen(this.gameAddBtn, 'click', () => {
         this.onShowGameInput?.();
       });
     }
 
     // Game tag click - edit game
     if (this.gameTag) {
-      this._domListeners.add(this.gameTag, 'click', () => {
+      this.listen(this.gameTag, 'click', () => {
         this.onShowGameInput?.();
       });
     }
@@ -275,7 +269,6 @@ class NotesEditorViewComponent {
   _setupDeleteButton() {
     if (!this.deleteBtn) return;
 
-    this._deleteHoldTimeout = null;
     const DELETE_HOLD_MS = 2000;
 
     // Start hold on mousedown/touchstart
@@ -286,7 +279,7 @@ class NotesEditorViewComponent {
       this.deleteBtn.classList.add('holding');
       this.deleteBtn.style.setProperty('--hold-duration', `${DELETE_HOLD_MS}ms`);
 
-      this._deleteHoldTimeout = setTimeout(() => {
+      this.replaceTimeout(DELETE_HOLD_TIMEOUT, () => {
         this.onDelete?.();
         this._cancelDeleteHold();
       }, DELETE_HOLD_MS);
@@ -297,12 +290,12 @@ class NotesEditorViewComponent {
       this._cancelDeleteHold();
     };
 
-    this._domListeners.add(this.deleteBtn, 'mousedown', startHold);
-    this._domListeners.add(this.deleteBtn, 'touchstart', startHold);
-    this._domListeners.add(this.deleteBtn, 'mouseup', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'mouseleave', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'touchend', cancelHold);
-    this._domListeners.add(this.deleteBtn, 'touchcancel', cancelHold);
+    this.listen(this.deleteBtn, 'mousedown', startHold);
+    this.listen(this.deleteBtn, 'touchstart', startHold);
+    this.listen(this.deleteBtn, 'mouseup', cancelHold);
+    this.listen(this.deleteBtn, 'mouseleave', cancelHold);
+    this.listen(this.deleteBtn, 'touchend', cancelHold);
+    this.listen(this.deleteBtn, 'touchcancel', cancelHold);
   }
 
   /**
@@ -310,10 +303,7 @@ class NotesEditorViewComponent {
    * @private
    */
   _cancelDeleteHold() {
-    if (this._deleteHoldTimeout) {
-      clearTimeout(this._deleteHoldTimeout);
-      this._deleteHoldTimeout = null;
-    }
+    this.cancelManaged(DELETE_HOLD_TIMEOUT);
     this.deleteBtn?.classList.remove('holding');
   }
 
@@ -322,12 +312,7 @@ class NotesEditorViewComponent {
    * @private
    */
   _scheduleSave() {
-    if (this._saveTimeout) {
-      clearTimeout(this._saveTimeout);
-    }
-
-    this._saveTimeout = setTimeout(() => {
-      this._saveTimeout = null;
+    this.replaceTimeout(SAVE_DEBOUNCE_TIMEOUT, () => {
       this.onSave?.();
     }, SAVE_DEBOUNCE_MS);
   }
@@ -336,18 +321,7 @@ class NotesEditorViewComponent {
    * Cleanup resources
    */
   dispose() {
-    // Clear all timers
-    if (this._saveTimeout) {
-      clearTimeout(this._saveTimeout);
-      this._saveTimeout = null;
-    }
-    if (this._deleteHoldTimeout) {
-      clearTimeout(this._deleteHoldTimeout);
-      this._deleteHoldTimeout = null;
-    }
-
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
 
     // Clear references
     this.editorElement = null;

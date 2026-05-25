@@ -46,6 +46,12 @@ function collectIpcManifestChannels() {
   ]);
 }
 
+function collectIpcManifestExposedMethodOwners(namespaces = ipcManifest.namespaces) {
+  return Object.fromEntries(namespaces.map((namespace) => [namespace.apiName, [...(namespace.invoke || []), ...(namespace.subscriptions || [])]
+    .map((entry) => entry.factoryMethod || entry.method)
+    .sort()]));
+}
+
 function collectEventValues(scope) {
   return eventManifest.scopes
     .find((entry) => entry.scope === scope)
@@ -91,19 +97,17 @@ describe('Phase 1 manifests', () => {
     expectNoDrift(flattenStringValues(channels), collectIpcManifestChannels());
 
     const exposedApis = Object.fromEntries(
-      ipcManifest.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods])
+      ipcManifest.namespaces.map((namespace) => [namespace.apiName, [...namespace.exposedMethods].sort()])
     );
 
-    expect(exposedApis).toEqual({
-      deviceAPI: ['getDeviceStatus', 'onDeviceConnected', 'onDeviceDisconnected'],
-      shellAPI: ['openExternal'],
-      windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized', 'setFullScreen', 'isFullScreen'],
-      updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate', 'onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
-      metricsAPI: ['getProcessMetrics'],
-      gpuAPI: ['getPolicy'],
-      loginItemAPI: ['get', 'set'],
-      transcodeAPI: ['start', 'cancel', 'getStatus', 'onProgress', 'onCompleted', 'onError', 'onCancelled']
-    });
+    expect(exposedApis).toEqual(collectIpcManifestExposedMethodOwners());
+    expect(collectIpcManifestExposedMethodOwners([
+      {
+        apiName: 'preloadFactorySurface',
+        invoke: [{ method: 'invokeInternal', factoryMethod: 'invokePublic' }],
+        subscriptions: [{ method: 'subscribePublic' }]
+      }
+    ])).toEqual({ preloadFactorySurface: ['invokePublic', 'subscribePublic'] });
   });
 
   it('uses one import style for the runtime IPC channel contract', () => {

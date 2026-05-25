@@ -1,8 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface DeviceService {
   getStatus(): DeviceStatusPayload;
@@ -20,12 +19,9 @@ function isTestMode(): boolean {
   return process.argv.includes('--test-mode') || process.env.NODE_ENV === 'test';
 }
 
-export const deviceHandlerDescriptors = defineIpcHandlers<DeviceHandlerDependencies>([
+export const deviceHandlerDescriptors = defineManifestIpcHandlers<DeviceHandlerDependencies>('deviceAPI', [
   {
-    channel: IPC_CHANNELS.DEVICE.GET_STATUS,
-    dependencyTokens: ['deviceService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'bare',
+    method: 'getDeviceStatus',
     invoke({ deviceService, logger }: DeviceHandlerDependencies, _event: IpcMainInvokeEvent) {
       // In test mode, check for mock status first
       const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };

@@ -1,4 +1,5 @@
 import { EventChannels } from './event-channels.js';
+import { getEventManifestScopeValues } from './event.manifest.js';
 
 type LeafValues<T> = T extends string
   ? T
@@ -328,81 +329,34 @@ export type EventPayloadMap = {
 export type MissingEventPayloads = Exclude<EventChannelValue, keyof EventPayloadMap>;
 export type ExtraEventPayloads = Exclude<keyof EventPayloadMap, EventChannelValue>;
 
-export const EVENT_PAYLOAD_CHANNELS = [
-  EventChannels.SYSTEM.HANDLER_ERROR,
-  EventChannels.DEVICE.STATUS_CHANGED,
-  EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE,
-  EventChannels.DEVICE.ENUMERATION_FAILED,
-  EventChannels.DEVICE.DISCONNECTED_DURING_SESSION,
-  EventChannels.STREAM.STARTED,
-  EventChannels.STREAM.STOPPED,
-  EventChannels.STREAM.ERROR,
-  EventChannels.STREAM.HEALTH_OK,
-  EventChannels.STREAM.HEALTH_TIMEOUT,
-  EventChannels.CAPTURE.SCREENSHOT_TRIGGERED,
-  EventChannels.CAPTURE.SCREENSHOT_READY,
-  EventChannels.CAPTURE.RECORDING_STARTED,
-  EventChannels.CAPTURE.RECORDING_STOPPED,
-  EventChannels.CAPTURE.RECORDING_READY,
-  EventChannels.CAPTURE.RECORDING_ERROR,
-  EventChannels.CAPTURE.RECORDING_DEGRADED,
-  EventChannels.SETTINGS.VOLUME_CHANGED,
-  EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
-  EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
-  EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
-  EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-  EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
-  EventChannels.SETTINGS.PREFERENCES_LOADED,
-  EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED,
-  EventChannels.PERFORMANCE.STATE_CHANGED,
-  EventChannels.PERFORMANCE.UI_MODE_CHANGED,
-  EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
-  EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED,
-  EventChannels.RENDER.CAPABILITY_DETECTED,
-  EventChannels.RENDER.PIPELINE_READY,
-  EventChannels.RENDER.PIPELINE_ERROR,
-  EventChannels.RENDER.STATS_UPDATE,
-  EventChannels.RENDER.CANVAS_EXPIRED,
-  EventChannels.RENDER.CANVAS_RECREATED,
-  EventChannels.UI.STATUS_MESSAGE,
-  EventChannels.UI.DEVICE_STATUS,
-  EventChannels.UI.OVERLAY_MESSAGE,
-  EventChannels.UI.OVERLAY_VISIBLE,
-  EventChannels.UI.OVERLAY_ERROR,
-  EventChannels.UI.STREAMING_MODE,
-  EventChannels.UI.STREAM_INFO,
-  EventChannels.UI.SHUTTER_FLASH,
-  EventChannels.UI.RECORD_BUTTON_POP,
-  EventChannels.UI.RECORD_BUTTON_PRESS,
-  EventChannels.UI.BUTTON_FEEDBACK,
-  EventChannels.UI.RECORDING_STATE,
-  EventChannels.UI.RECORD_BUTTON_DISABLED,
-  EventChannels.UI.RECORD_BUTTON_ENABLED,
-  EventChannels.UI.FULLSCREEN_STATE,
-  EventChannels.UI.WINDOW_RESIZED,
-  EventChannels.UI.SCREENSHOT_REQUESTED,
-  EventChannels.UI.RECORDING_TOGGLE_REQUESTED,
-  EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED,
-  EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED,
-  EventChannels.UI.STREAM_START_REQUESTED,
-  EventChannels.UI.STREAM_STOP_REQUESTED,
-  EventChannels.UPDATE.AVAILABLE,
-  EventChannels.UPDATE.NOT_AVAILABLE,
-  EventChannels.UPDATE.PROGRESS,
-  EventChannels.UPDATE.DOWNLOADED,
-  EventChannels.UPDATE.ERROR,
-  EventChannels.UPDATE.STATE_CHANGED,
-  EventChannels.UPDATE.BADGE_SHOW,
-  EventChannels.UPDATE.BADGE_HIDE,
-  EventChannels.NOTES.NOTE_CREATED,
-  EventChannels.NOTES.NOTE_UPDATED,
-  EventChannels.NOTES.NOTE_DELETED,
-  EventChannels.TRANSCODE.STARTED,
-  EventChannels.TRANSCODE.PROGRESS,
-  EventChannels.TRANSCODE.COMPLETED,
-  EventChannels.TRANSCODE.ERROR,
-  EventChannels.TRANSCODE.CANCELLED
-] as const;
+function collectLeafChannels(node: unknown): string[] {
+  if (typeof node === 'string') {
+    return [node];
+  }
+
+  if (!node || typeof node !== 'object') {
+    return [];
+  }
+
+  return Object.values(node).flatMap((value) => collectLeafChannels(value));
+}
+
+const rendererManifestChannels = getEventManifestScopeValues('renderer');
+const runtimeEventChannels = collectLeafChannels(EventChannels);
+const rendererManifestChannelSet = new Set(rendererManifestChannels);
+const runtimeEventChannelSet = new Set(runtimeEventChannels);
+
+const manifestOnlyChannels = rendererManifestChannels.filter((channel) => !runtimeEventChannelSet.has(channel));
+const runtimeOnlyChannels = runtimeEventChannels.filter((channel) => !rendererManifestChannelSet.has(channel));
+
+if (manifestOnlyChannels.length > 0 || runtimeOnlyChannels.length > 0) {
+  throw new Error(
+    `Renderer event payload channel drift detected. Manifest-only: [${manifestOnlyChannels.join(', ')}], ` +
+      `runtime-only: [${runtimeOnlyChannels.join(', ')}]`
+  );
+}
+
+export const EVENT_PAYLOAD_CHANNELS = rendererManifestChannels as readonly EventChannelValue[];
 
 export type MissingRuntimeEventPayloadChannels = Exclude<
   EventChannelValue,

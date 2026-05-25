@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import {
   deviceHandlerDescriptors,
@@ -30,85 +31,39 @@ const mockLogger = {
   error: vi.fn()
 };
 
-const mockDeviceService = {
-  getStatus: vi.fn()
-};
+const mockDeviceService = { getStatus: vi.fn() };
+const mockUpdateService = { checkForUpdates: vi.fn(), downloadUpdate: vi.fn(), installUpdate: vi.fn(), getStatus: vi.fn() };
+const mockWindowService = { setFullScreen: vi.fn(), isFullScreen: vi.fn() };
+const mockTranscodeService = { transcode: vi.fn(), cancel: vi.fn(), getStatus: vi.fn() };
+const mockLoginItemService = { isEnabled: vi.fn(), setEnabled: vi.fn() };
 
-const mockUpdateService = {
-  checkForUpdates: vi.fn(),
-  downloadUpdate: vi.fn(),
-  installUpdate: vi.fn(),
-  getStatus: vi.fn()
-};
+const descriptorGroups = [
+  ['DEVICE', deviceHandlerDescriptors], ['SHELL', shellHandlerDescriptors], ['UPDATE', updateHandlerDescriptors], ['WINDOW', windowHandlerDescriptors],
+  ['TRANSCODE', transcodeHandlerDescriptors], ['PERFORMANCE', performanceHandlerDescriptors], ['GPU', gpuHandlerDescriptors], ['LOGIN_ITEM', loginItemHandlerDescriptors]
+];
+const allDescriptors = descriptorGroups.flatMap(([, descriptors]) => descriptors);
+const manifestInvokeEntries = (namespaceKey) => IpcContractManifest.namespaces.find(({ namespace }) => namespace === namespaceKey).invoke;
 
-const mockWindowService = {
-  setFullScreen: vi.fn(),
-  isFullScreen: vi.fn()
-};
-
-const mockTranscodeService = {
-  transcode: vi.fn(),
-  cancel: vi.fn(),
-  getStatus: vi.fn()
-};
-
-const mockLoginItemService = {
-  isEnabled: vi.fn(),
-  setEnabled: vi.fn()
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+beforeEach(() => { vi.clearAllMocks(); });
 
 describe('Main IPC handler descriptors', () => {
-  it('keeps descriptor metadata discoverable for migrated domains', () => {
-    expect(deviceHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.DEVICE.GET_STATUS
-    ]);
-    expect(shellHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.SHELL.OPEN_EXTERNAL
-    ]);
-    expect(updateHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.UPDATE.CHECK,
-      IPC_CHANNELS.UPDATE.DOWNLOAD,
-      IPC_CHANNELS.UPDATE.INSTALL,
-      IPC_CHANNELS.UPDATE.GET_STATUS
-    ]);
-    expect(windowHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
-      IPC_CHANNELS.WINDOW.IS_FULLSCREEN
-    ]);
-    expect(transcodeHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.TRANSCODE.START,
-      IPC_CHANNELS.TRANSCODE.CANCEL,
-      IPC_CHANNELS.TRANSCODE.GET_STATUS
-    ]);
-    expect(performanceHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.PERFORMANCE.GET_METRICS
-    ]);
-    expect(gpuHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.GPU.GET_POLICY
-    ]);
-    expect(loginItemHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.LOGIN_ITEM.GET,
-      IPC_CHANNELS.LOGIN_ITEM.SET
-    ]);
+  it('derives descriptor metadata from manifest invoke entries', () => {
+    descriptorGroups.forEach(([namespaceKey, descriptors]) => {
+      const invokeEntriesByChannel = new Map(manifestInvokeEntries(namespaceKey).map((entry) => [entry.channel, entry]));
+      expect(descriptors.length).toBe(invokeEntriesByChannel.size);
+
+      descriptors.forEach((descriptor) => {
+        const invokeEntry = invokeEntriesByChannel.get(descriptor.channel);
+        expect(invokeEntry).toBeDefined();
+        expect(descriptor.argumentSchema ?? []).toEqual(invokeEntry.request ?? []);
+        expect(descriptor.dependencyTokens).toEqual(invokeEntry.handler?.dependencyTokens ?? []);
+        expect(descriptor.responseMode).toBe(invokeEntry.handler?.responseMode);
+      });
+    });
   });
 
   it('requires explicit mapError handlers for migrated descriptors', () => {
-    const allDescriptors = [
-      ...deviceHandlerDescriptors,
-      ...shellHandlerDescriptors,
-      ...updateHandlerDescriptors,
-      ...windowHandlerDescriptors,
-      ...transcodeHandlerDescriptors,
-      ...performanceHandlerDescriptors,
-      ...gpuHandlerDescriptors,
-      ...loginItemHandlerDescriptors
-    ];
-
-    expect(allDescriptors.length).toBe(15);
+    expect(allDescriptors.length).toBe(IpcContractManifest.namespaces.reduce((count, namespace) => count + namespace.invoke.length, 0));
     allDescriptors.forEach((descriptor) => {
       expect(typeof descriptor.mapError).toBe('function');
     });

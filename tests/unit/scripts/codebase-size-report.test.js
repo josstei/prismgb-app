@@ -321,17 +321,25 @@ describe('codebase-size-report metrics', () => {
       writeWorkspaceFile(
         workspace,
         'src/shared/events/event-channels.ts',
-        [
-          "export const EventChannels = {",
-          "  DEVICE: {",
-          "    STATUS: 'device:status',",
-          "    CONNECTED: 'device:connected',",
-          "  },",
-          "  STREAM: {",
-          "    STARTED: 'stream:started',",
-          "  },",
-          '} as const;'
-        ].join('\n')
+        "export const EventChannels = buildEventChannelsFromManifest();\n"
+      );
+
+      writeWorkspaceFile(
+        workspace,
+        'src/shared/events/event.manifest.json',
+        JSON.stringify({
+          scopes: [
+            {
+              scope: 'renderer',
+              events: [
+                { value: 'device:status' },
+                { value: 'device:connected' },
+                { value: 'stream:started' }
+              ]
+            },
+            { scope: 'main', events: [{ value: 'device:connection-changed' }] }
+          ]
+        }) + '\n'
       );
 
       writeWorkspaceFile(
@@ -360,6 +368,7 @@ describe('codebase-size-report metrics', () => {
         trackedFiles: [
           path.join(workspace, 'src/shared/ipc/channels.json'),
           path.join(workspace, 'src/shared/events/event-channels.ts'),
+          path.join(workspace, 'src/shared/events/event.manifest.json'),
           path.join(workspace, 'src/shared/events/event-payloads.ts')
         ]
       });

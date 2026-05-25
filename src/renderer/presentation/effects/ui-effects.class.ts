@@ -10,7 +10,8 @@ import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hid
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
 import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
-import { HideTimer } from '@renderer/presentation/primitives/hide-timer.class.js';
+import { TIMING } from '@renderer/presentation/config/constants.config';
+import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
 
 type BodyClassManagerLike = {
   setCinematicMode?: (isActive: boolean) => void;
@@ -34,7 +35,7 @@ export class UIEffects {
   _cursor: CursorAutoHide;
   _toolbar: ToolbarAutoHide;
   _controls: ControlsAutoHide;
-  _unifiedTimer: HideTimer;
+  _unifiedTimer: ActivityAutoHideController;
 
   constructor(dependencies: UIEffectsDependencies = {}) {
     const { elements, bodyClassManager } = dependencies;
@@ -67,15 +68,17 @@ export class UIEffects {
     this._controls = new ControlsAutoHide({
       onShowAll: () => this._showAll(),
       onHideAll: () => this._hideAll(),
-      onEnable: () => this._unifiedTimer.clear(),
+      onEnable: () => this._unifiedTimer.clearTimer(),
       onDisable: () => this._handleActivity()
     });
 
     // Unified hide timer for cursor and toolbar
-    this._unifiedTimer = new HideTimer({
+    this._unifiedTimer = new ActivityAutoHideController({
       onTimeout: () => this._handleUnifiedTimeout(),
-      shouldStart: () => this._shouldStartUnifiedTimer()
+      shouldStartTimer: () => this._shouldStartUnifiedTimer(),
+      timeoutMs: TIMING.CURSOR_HIDE_DELAY_MS
     });
+    this._unifiedTimer.enable();
   }
 
   // =====================================================
@@ -132,7 +135,7 @@ export class UIEffects {
   disableCursorAutoHide() {
     this._cursor.disable();
     if (!this._toolbar.isEnabled) {
-      this._unifiedTimer.clear();
+      this._unifiedTimer.clearTimer();
     }
   }
 
@@ -150,7 +153,7 @@ export class UIEffects {
   disableToolbarAutoHide() {
     this._toolbar.disable();
     if (!this._cursor.isEnabled) {
-      this._unifiedTimer.clear();
+      this._unifiedTimer.clearTimer();
     }
   }
 
@@ -206,11 +209,11 @@ export class UIEffects {
       this._toolbar.show();
     }
 
-    this._unifiedTimer.start();
+    this._unifiedTimer.startTimer();
   }
 
   _handleToolbarHoverStart() {
-    this._unifiedTimer.clear();
+    this._unifiedTimer.clearTimer();
     if (this._cursor.isEnabled) {
       this._cursor.show();
     }
@@ -218,7 +221,7 @@ export class UIEffects {
 
   _handleToolbarHoverEnd() {
     if (!this._toolbar.isPanelOpen()) {
-      this._unifiedTimer.start();
+      this._unifiedTimer.startTimer();
     }
   }
 

@@ -8,23 +8,22 @@
  * - Keyboard navigation
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
-import { renderListboxOptions, updateListboxActiveState } from '@renderer/presentation/primitives/listbox.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
+import { renderListboxOptions } from '@renderer/presentation/primitives/listbox.utils.js';
 
-class GameFilterComponent {
+const FILTER_SETUP_LIFECYCLE = Symbol('notesGameFilterSetupLifecycle');
+
+class GameFilterComponent extends PresentationComponent {
   constructor({ notesService, logger }) {
+    super();
     this.notesService = notesService;
     this.logger = logger;
 
     // Filter state
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
-    this._menuDisclosure = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
+    this._filterDropdown = null;
 
     // Elements
     this.filterButton = null;
@@ -41,6 +40,8 @@ class GameFilterComponent {
    * @param {Function} options.onFilterChange - Callback when filter changes (value, label)
    */
   initialize({ filterButton, filterLabel, filterMenu, onFilterChange }) {
+    this.cancelManaged(FILTER_SETUP_LIFECYCLE);
+    this.isGameFilterOpen = false;
     this.filterButton = filterButton;
     this.filterLabel = filterLabel;
     this.filterMenu = filterMenu;
@@ -113,53 +114,26 @@ class GameFilterComponent {
   _setupGameFilter() {
     if (!this.filterButton || !this.filterMenu) return;
 
-    this._setupFilterDisclosure();
-
-    // Button click
-    this._domListeners.add(this.filterButton, 'click', (event) => {
-      event.preventDefault();
-      this._toggleGameFilterMenu();
+    this.replaceManaged(FILTER_SETUP_LIFECYCLE, () => {
+      this._filterDropdown?.hide();
+      this._filterDropdown?.dispose();
+      this._filterDropdown = null;
+      this.isGameFilterOpen = false;
     });
 
-    // Button keyboard
-    this._domListeners.add(this.filterButton, 'keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        this._toggleGameFilterMenu();
-        return;
-      }
-
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        this._showGameFilterMenu();
-        this._focusCurrentGameFilterOption();
-      }
-    });
-
-    // Menu click
-    this._domListeners.add(this.filterMenu, 'click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      const option = target?.closest('.notes-game-filter-option');
-      if (!option) return;
-
-      this._selectGameFilterOption(option.dataset.value, option.textContent || '');
-    });
-
-  }
-
-  /**
-   * Setup filter menu disclosure behavior
-   * @private
-   */
-  _setupFilterDisclosure() {
-    if (!this.filterButton || !this.filterMenu) return;
-
-    this._menuDisclosure = new DisclosureController({
-      toggleElement: this.filterButton,
-      panelElement: this.filterMenu,
-      visibleClass: CSSClasses.VISIBLE,
+    this._filterDropdown = new ListboxDropdownController({
+      triggerElement: this.filterButton,
+      menuElement: this.filterMenu,
+      labelElement: this.filterLabel,
+      optionSelector: '.notes-game-filter-option',
       outsideEvent: 'pointerdown',
+      closeOnEscape: false,
       ignoreOutsideSelectors: ['.notes-filter-wrapper'],
+      enableTriggerKeyboard: true,
+      focusOnTriggerOpen: true,
+      onChange: (value, label) => {
+        this._selectGameFilterOption(value, label);
+      },
       onShow: () => {
         this.isGameFilterOpen = true;
       },
@@ -168,8 +142,7 @@ class GameFilterComponent {
       },
       logger: this.logger
     });
-
-    this._menuDisclosure.initialize();
+    this._filterDropdown.initialize({ activeValue: this.currentGameFilter });
   }
 
   /**
@@ -205,11 +178,7 @@ class GameFilterComponent {
    * @private
    */
   _updateGameFilterActiveState() {
-    updateListboxActiveState({
-      container: this.filterMenu,
-      optionSelector: '.notes-game-filter-option',
-      activeValue: this.currentGameFilter
-    });
+    this._filterDropdown?.setActive(this.currentGameFilter);
   }
 
   /**
@@ -221,14 +190,12 @@ class GameFilterComponent {
   _selectGameFilterOption(value, label) {
     const nextValue = value || '';
     if (this.currentGameFilter === nextValue) {
-      this._hideGameFilterMenu();
       return;
     }
 
     this.currentGameFilter = nextValue;
     this._updateGameFilterLabel(label);
     this._updateGameFilterActiveState();
-    this._hideGameFilterMenu();
 
     this.onFilterChange?.(nextValue, label);
   }
@@ -238,13 +205,7 @@ class GameFilterComponent {
    * @private
    */
   _toggleGameFilterMenu() {
-    if (this.isGameFilterOpen) {
-      this._hideGameFilterMenu();
-      return;
-    }
-
-    this._showGameFilterMenu();
-    this._focusCurrentGameFilterOption();
+    this._filterDropdown?.toggle();
   }
 
   /**
@@ -252,7 +213,7 @@ class GameFilterComponent {
    * @private
    */
   _showGameFilterMenu() {
-    this._menuDisclosure?.show();
+    this._filterDropdown?.show();
   }
 
   /**
@@ -260,29 +221,14 @@ class GameFilterComponent {
    * @private
    */
   _hideGameFilterMenu() {
-    this._menuDisclosure?.hide();
-  }
-
-  /**
-   * Focus the current or first option in the filter menu
-   * @private
-   */
-  _focusCurrentGameFilterOption() {
-    if (!this.filterMenu) return;
-
-    const activeOption = this.filterMenu.querySelector('.notes-game-filter-option.active');
-    const option = activeOption || this.filterMenu.querySelector('.notes-game-filter-option');
-    option?.focus();
+    this._filterDropdown?.hide();
   }
 
   /**
    * Cleanup resources
    */
   dispose() {
-    // Remove DOM listeners
-    this._domListeners.removeAll();
-    this._menuDisclosure?.dispose();
-    this._menuDisclosure = null;
+    super.dispose();
 
     // Clear references
     this.filterButton = null;
@@ -293,6 +239,7 @@ class GameFilterComponent {
     this.logger = null;
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
+    this._filterDropdown = null;
   }
 }
 

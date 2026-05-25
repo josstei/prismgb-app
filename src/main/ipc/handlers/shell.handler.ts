@@ -5,21 +5,17 @@
 
 import type { IpcMainInvokeEvent, Shell } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface ShellHandlerDependencies {
   shell: Shell;
   logger: Logger;
 }
 
-export const shellHandlerDescriptors = defineIpcHandlers<ShellHandlerDependencies>([
+export const shellHandlerDescriptors = defineManifestIpcHandlers<ShellHandlerDependencies>('shellAPI', [
   {
-    channel: IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
-    dependencyTokens: ['shell', 'logger'],
-    argumentSchema: ['url:string'],
-    responseMode: 'result-envelope',
+    method: 'openExternal',
     async invoke({ shell }: ShellHandlerDependencies, _event: IpcMainInvokeEvent, url: string) {
       const parsedUrl = new URL(url);
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {

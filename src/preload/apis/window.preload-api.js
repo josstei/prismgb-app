@@ -1,7 +1,4 @@
-import {
-  createSubscription,
-  createSubscriptionDisposer
-} from '../subscription.factory.js';
+import { createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer } from '../subscription.factory.js';
 
 function createWindowPreloadAPI({
   ipcRenderer,
@@ -10,33 +7,16 @@ function createWindowPreloadAPI({
   maxListeners,
   isValidCallback
 }) {
-  const subscriptions = [
-    {
-      methodName: 'onEnterFullscreen',
-      channel: channels.WINDOW.ENTER_FULLSCREEN,
-      registryKey: 'window.onEnterFullscreen'
-    },
-    {
-      methodName: 'onLeaveFullscreen',
-      channel: channels.WINDOW.LEAVE_FULLSCREEN,
-      registryKey: 'window.onLeaveFullscreen'
-    },
-    {
-      methodName: 'onResized',
-      channel: channels.WINDOW.RESIZED,
-      registryKey: 'window.onResized'
-    }
-  ];
-  const [enterFullscreenSubscription, leaveFullscreenSubscription, resizedSubscription] = subscriptions;
-  const subscribe = (subscription, callback) =>
+  const subscriptionSet = createManifestSubscriptionSet('windowAPI'), { subscriptions } = subscriptionSet;
+  const invokeSet = createManifestInvokeSet('windowAPI', channels).requireMethod, setFullScreenChannel = invokeSet('setFullScreen'), isFullScreenChannel = invokeSet('isFullScreen');
+  const subscribe = (methodName, callback) =>
     createSubscription({
-      apiName: 'windowAPI',
       ipcRenderer,
       registry: listenerRegistry,
       maxListeners,
       validateCallback: isValidCallback,
       dispatchPayload: false,
-      ...subscription
+      ...subscriptionSet.requireMethod(methodName)
     })(callback);
   const disposeSubscriptions = createSubscriptionDisposer({
     ipcRenderer,
@@ -45,15 +25,15 @@ function createWindowPreloadAPI({
   });
 
   return {
-    onEnterFullscreen: (callback) => subscribe(enterFullscreenSubscription, callback),
+    onEnterFullscreen: (callback) => subscribe('onEnterFullscreen', callback),
 
-    onLeaveFullscreen: (callback) => subscribe(leaveFullscreenSubscription, callback),
+    onLeaveFullscreen: (callback) => subscribe('onLeaveFullscreen', callback),
 
-    onResized: (callback) => subscribe(resizedSubscription, callback),
+    onResized: (callback) => subscribe('onResized', callback),
 
-    setFullScreen: (enabled) => ipcRenderer.invoke(channels.WINDOW.SET_FULLSCREEN, enabled),
+    setFullScreen: (enabled) => ipcRenderer.invoke(setFullScreenChannel, enabled),
 
-    isFullScreen: () => ipcRenderer.invoke(channels.WINDOW.IS_FULLSCREEN),
+    isFullScreen: () => ipcRenderer.invoke(isFullScreenChannel),
 
     dispose: disposeSubscriptions
   };

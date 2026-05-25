@@ -5,16 +5,10 @@
     {
       "namespace": "DEVICE",
       "apiName": "deviceAPI",
+      "registryNamespace": "device",
       "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected"],
       "invoke": [
-        {
-          "method": "getDeviceStatus",
-          "factoryMethod": "getDeviceStatus",
-          "channelKey": "GET_STATUS",
-          "channel": "device:get-status",
-          "request": [],
-          "response": "DeviceStatusPayload"
-        }
+        { "method": "getDeviceStatus", "factoryMethod": "getDeviceStatus", "channelKey": "GET_STATUS", "channel": "device:get-status", "request": [], "response": "DeviceStatusPayload", "handler": { "dependencyTokens": ["deviceService", "logger"], "responseMode": "bare" } }
       ],
       "subscriptions": [
         {
@@ -38,19 +32,13 @@
       "apiName": "shellAPI",
       "exposedMethods": ["openExternal"],
       "invoke": [
-        {
-          "method": "openExternal",
-          "channelKey": "OPEN_EXTERNAL",
-          "channel": "shell:open-external",
-          "request": ["url:string"],
-          "response": "ShellOpenExternalResponse",
-          "securityPolicy": "validated-external-url"
-        }
+        { "method": "openExternal", "channelKey": "OPEN_EXTERNAL", "channel": "shell:open-external", "request": ["url:string"], "response": "ShellOpenExternalResponse", "handler": { "dependencyTokens": ["shell", "logger"], "responseMode": "result-envelope" }, "securityPolicy": "validated-external-url" }
       ]
     },
     {
       "namespace": "WINDOW",
       "apiName": "windowAPI",
+      "registryNamespace": "window",
       "exposedMethods": ["onEnterFullscreen", "onLeaveFullscreen", "onResized", "setFullScreen", "isFullScreen"],
       "invoke": [
         {
@@ -58,14 +46,16 @@
           "channelKey": "SET_FULLSCREEN",
           "channel": "window:set-fullscreen",
           "request": ["enabled:boolean"],
-          "response": "WindowSetFullscreenResponse"
+          "response": "WindowSetFullscreenResponse",
+          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "isFullScreen",
           "channelKey": "IS_FULLSCREEN",
           "channel": "window:is-fullscreen",
           "request": [],
-          "response": "WindowIsFullscreenResponse"
+          "response": "WindowIsFullscreenResponse",
+          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "bare" }
         }
       ],
       "subscriptions": [
@@ -92,6 +82,7 @@
     {
       "namespace": "UPDATE",
       "apiName": "updateAPI",
+      "registryNamespace": "update",
       "exposedMethods": ["getStatus", "checkForUpdates", "downloadUpdate", "installUpdate", "onAvailable", "onNotAvailable", "onProgress", "onDownloaded", "onError"],
       "invoke": [
         {
@@ -99,28 +90,32 @@
           "channelKey": "GET_STATUS",
           "channel": "update:get-status",
           "request": [],
-          "response": "UpdateGetStatusResponse"
+          "response": "UpdateGetStatusResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "checkForUpdates",
           "channelKey": "CHECK",
           "channel": "update:check",
           "request": [],
-          "response": "UpdateCheckResponse"
+          "response": "UpdateCheckResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "downloadUpdate",
           "channelKey": "DOWNLOAD",
           "channel": "update:download",
           "request": [],
-          "response": "UpdateDownloadResponse"
+          "response": "UpdateDownloadResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "installUpdate",
           "channelKey": "INSTALL",
           "channel": "update:install",
           "request": [],
-          "response": "UpdateInstallResponse"
+          "response": "UpdateInstallResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
         }
       ],
       "subscriptions": [
@@ -161,13 +156,7 @@
       "apiName": "metricsAPI",
       "exposedMethods": ["getProcessMetrics"],
       "invoke": [
-        {
-          "method": "getProcessMetrics",
-          "channelKey": "GET_METRICS",
-          "channel": "performance:get-metrics",
-          "request": [],
-          "response": "ProcessMetricsResponse"
-        }
+        { "method": "getProcessMetrics", "channelKey": "GET_METRICS", "channel": "performance:get-metrics", "request": [], "response": "ProcessMetricsResponse", "handler": { "dependencyTokens": ["app", "logger"], "responseMode": "result-envelope" } }
       ]
     },
     {
@@ -175,13 +164,7 @@
       "apiName": "gpuAPI",
       "exposedMethods": ["getPolicy"],
       "invoke": [
-        {
-          "method": "getPolicy",
-          "channelKey": "GET_POLICY",
-          "channel": "gpu:get-policy",
-          "request": [],
-          "response": "GpuPolicyPayload"
-        }
+        { "method": "getPolicy", "channelKey": "GET_POLICY", "channel": "gpu:get-policy", "request": [], "response": "GpuPolicyPayload", "handler": { "dependencyTokens": ["logger"], "responseMode": "result-envelope" } }
       ]
     },
     {
@@ -189,25 +172,14 @@
       "apiName": "loginItemAPI",
       "exposedMethods": ["get", "set"],
       "invoke": [
-        {
-          "method": "get",
-          "channelKey": "GET",
-          "channel": "login-item:get",
-          "request": [],
-          "response": "LoginItemGetResponse"
-        },
-        {
-          "method": "set",
-          "channelKey": "SET",
-          "channel": "login-item:set",
-          "request": ["enabled:boolean"],
-          "response": "LoginItemSetResponse"
-        }
+        { "method": "get", "channelKey": "GET", "channel": "login-item:get", "request": [], "response": "LoginItemGetResponse", "handler": { "dependencyTokens": ["loginItemService"], "responseMode": "bare" } },
+        { "method": "set", "channelKey": "SET", "channel": "login-item:set", "request": ["enabled:boolean"], "response": "LoginItemSetResponse", "handler": { "dependencyTokens": ["loginItemService", "logger"], "responseMode": "result-envelope" } }
       ]
     },
     {
       "namespace": "TRANSCODE",
       "apiName": "transcodeAPI",
+      "registryNamespace": "transcode",
       "exposedMethods": ["start", "cancel", "getStatus", "onProgress", "onCompleted", "onError", "onCancelled"],
       "invoke": [
         {
@@ -221,7 +193,8 @@
             "outputFilename?:string",
             "options?:TranscodeStartOptions"
           ],
-          "response": "TranscodeStartResponse"
+          "response": "TranscodeStartResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "cancel",
@@ -229,14 +202,16 @@
           "channel": "transcode:cancel",
           "request": ["options:object"],
           "parameters": ["jobId:string"],
-          "response": "TranscodeCancelResponse"
+          "response": "TranscodeCancelResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" }
         },
         {
           "method": "getStatus",
           "channelKey": "GET_STATUS",
           "channel": "transcode:get-status",
           "request": [],
-          "response": "TranscodeStatusResponse"
+          "response": "TranscodeStatusResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" }
         }
       ],
       "subscriptions": [

@@ -77,6 +77,26 @@ const SHARED_TYPESCRIPT_CUTOVER_ROOTS = [
   'src/shared/base',
   'src/shared/interfaces'
 ];
+const RETIRED_HIDE_TIMER_PATHS = [
+  'src/renderer/presentation/primitives/hide-timer.class.js',
+  'tests/unit/ui/primitives/hide-timer.test.js'
+];
+const RETIRED_HIDE_TIMER_REFERENCE_SCAN_ROOTS = [
+  'src',
+  'tests/unit/ui',
+  'tests/unit/features/notes/ui',
+  'tests/unit/renderer/presentation/primitives'
+];
+const RETIRED_HIDE_TIMER_REFERENCE_PATTERNS = [
+  {
+    label: 'HideTimer identifier reference',
+    pattern: /\bHideTimer\b/
+  },
+  {
+    label: 'hide-timer module/path reference',
+    pattern: /hide-timer/
+  }
+];
 const RENDERER_BACKEND_PROHIBITED_RENDERING_PATHS = [
   'src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts',
   'src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts',
@@ -132,6 +152,10 @@ function toPosix(value) {
 
 function normalizeRelativePath(value) {
   return toPosix(value);
+}
+
+function getLineNumberForIndex(source, index) {
+  return source.slice(0, index).split('\n').length;
 }
 
 function isContractLikeFile(filePath) {
@@ -283,6 +307,56 @@ export function collectSourceRuntimeJsMetrics(projectRoot) {
     .sort();
 
   return { fileCount: files.length, files };
+}
+
+export function collectRetiredHideTimerMetrics(projectRoot) {
+  const violations = [];
+
+  for (const relativePath of RETIRED_HIDE_TIMER_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      violations.push({
+        file: relativePath,
+        reason: `retired file exists: ${relativePath}`
+      });
+    }
+  }
+
+  for (const relativeRoot of RETIRED_HIDE_TIMER_REFERENCE_SCAN_ROOTS) {
+    const absoluteRoot = path.join(projectRoot, relativeRoot);
+    if (!fs.existsSync(absoluteRoot)) {
+      continue;
+    }
+
+    for (const absolutePath of walkFiles(absoluteRoot, (candidatePath) => /\.[cm]?[jt]sx?$/.test(candidatePath))) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      const source = fs.readFileSync(absolutePath, 'utf8');
+
+      for (const { label, pattern } of RETIRED_HIDE_TIMER_REFERENCE_PATTERNS) {
+        const match = source.match(pattern);
+        if (!match || match.index == null) {
+          continue;
+        }
+
+        violations.push({
+          file: relativePath,
+          line: getLineNumberForIndex(source, match.index),
+          reason: `retired HideTimer reference (${label})`
+        });
+      }
+    }
+  }
+
+  const orderedViolations = violations.sort((left, right) =>
+    left.file.localeCompare(right.file)
+    || (left.line ?? 0) - (right.line ?? 0)
+    || left.reason.localeCompare(right.reason)
+  );
+
+  return {
+    violationCount: orderedViolations.length,
+    violations: orderedViolations
+  };
 }
 
 export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
@@ -1038,6 +1112,7 @@ function printSummary(scorecard) {
   console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
   console.log(`- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`);
+  console.log(`- retired hide timer violations: ${metrics.hideTimerRetirementViolationCount}`);
   console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
   console.log(`- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`);
@@ -1084,6 +1159,7 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
     ['sourceRuntimeJsFileCountMax', ensureNonNegativeIntegerLimit],
+    ['hideTimerRetirementViolationCountMax', ensureNonNegativeIntegerLimit],
     ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
     ['rendererBackendImplementationViolationCountMax', ensureNonNegativeIntegerLimit],
@@ -1184,6 +1260,12 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'hideTimerRetirementViolationCountMax',
+    'hideTimerRetirementViolationCount',
+    metrics.hideTimerRetirementViolationCount,
+    'max'
+  );
+  addCheck(
     'sharedBaseInterfaceJsOrDtsFileCountMax',
     'sharedBaseInterfaceJsOrDtsFileCount',
     metrics.sharedBaseInterfaceJsOrDtsFileCount,
@@ -1261,6 +1343,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
   `- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`,
+  `- retired hide timer violations: ${metrics.hideTimerRetirementViolationCount}`,
   `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
   `- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`,
@@ -1307,6 +1390,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
   const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
   const sourceRuntimeJsMetrics = collectSourceRuntimeJsMetrics(projectRoot);
+  const retiredHideTimerMetrics = collectRetiredHideTimerMetrics(projectRoot);
   const sharedTypeScriptCutoverMetrics = collectSharedTypeScriptCutoverMetrics(projectRoot);
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
@@ -1332,6 +1416,8 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
       sourceRuntimeJsFileCount: sourceRuntimeJsMetrics.fileCount,
       sourceRuntimeJsFiles: sourceRuntimeJsMetrics.files,
+      hideTimerRetirementViolationCount: retiredHideTimerMetrics.violationCount,
+      hideTimerRetirementViolations: retiredHideTimerMetrics.violations,
       sharedBaseInterfaceJsOrDtsFileCount: sharedTypeScriptCutoverMetrics.fileCount,
       sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,

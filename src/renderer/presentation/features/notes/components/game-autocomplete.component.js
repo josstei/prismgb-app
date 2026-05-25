@@ -1,41 +1,25 @@
 /**
  * Game Autocomplete Component
  *
- * Handles game autocomplete functionality, including:
- * - Game input handling
- * - Autocomplete dropdown
- * - Keyboard navigation
- * - Item selection
+ * Notes-specific wrapper around a reusable combobox/listbox controller.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@shared/utils/string.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { ComboboxListboxController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
-// Autocomplete debounce
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 
-class GameAutocompleteComponent {
+class GameAutocompleteComponent extends PresentationComponent {
   constructor({ notesService, logger }) {
+    super();
     this.notesService = notesService;
     this.logger = logger;
-
-    // Autocomplete state
-    this.autocompleteHighlightIndex = -1;
-
-    // Debounce timer
-    this._autocompleteTimeout = null;
-
-    // Blur timer (tracked for cleanup)
-    this._blurTimerId = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.gameInput = null;
     this.autocompleteDropdown = null;
+    this.comboboxController = null;
   }
 
   /**
@@ -60,6 +44,8 @@ class GameAutocompleteComponent {
     onBlur,
     onFocus
   }) {
+    this.comboboxController?.dispose();
+    this.comboboxController = null;
     this.gameInput = gameInput;
     this.autocompleteDropdown = autocompleteDropdown;
     this.onInput = onInput;
@@ -74,7 +60,28 @@ class GameAutocompleteComponent {
       return;
     }
 
-    this._setupGameInput();
+    this.comboboxController = new ComboboxListboxController({
+      logger: this.logger,
+      optionSelector: '.notes-game-autocomplete-item',
+      optionClassName: 'notes-game-autocomplete-item',
+      optionIdPrefix: 'autocomplete-option',
+      listboxAriaLabel: 'Game suggestions',
+      debounceMs: AUTOCOMPLETE_DEBOUNCE_MS,
+      blurDelayMs: NotesPanelConfig.BLUR_DELAY_MS,
+      getOptions: (query) => this._getMatchingGames(query),
+      getOptionValue: (game) => game,
+      getOptionLabel: (game) => game,
+      onInput: () => this.onInput?.(),
+      onSelect: (value) => this.onSelect?.(value),
+      onEnter: () => this.onEnter?.(),
+      onEscape: () => this.onEscape?.(),
+      onBlur: () => this.onBlur?.(),
+      onFocus: () => this.onFocus?.()
+    });
+    this.comboboxController.initialize({
+      inputElement: this.gameInput,
+      listboxElement: this.autocompleteDropdown
+    });
   }
 
   /**
@@ -82,7 +89,7 @@ class GameAutocompleteComponent {
    * @returns {string}
    */
   getValue() {
-    return this.gameInput?.value || '';
+    return this.comboboxController?.getValue() || this.gameInput?.value || '';
   }
 
   /**
@@ -90,8 +97,13 @@ class GameAutocompleteComponent {
    * @param {string} value
    */
   setValue(value) {
+    if (this.comboboxController) {
+      this.comboboxController.setValue(value);
+      return;
+    }
+
     if (this.gameInput) {
-      this.gameInput.value = value;
+      this.gameInput.value = value ?? '';
     }
   }
 
@@ -99,14 +111,14 @@ class GameAutocompleteComponent {
    * Show autocomplete dropdown
    */
   show() {
-    this._showAutocomplete();
+    this.comboboxController?.show();
   }
 
   /**
    * Hide autocomplete dropdown
    */
   hide() {
-    this._hideAutocomplete();
+    this.comboboxController?.hide();
   }
 
   /**
@@ -114,7 +126,7 @@ class GameAutocompleteComponent {
    * @returns {boolean}
    */
   isVisible() {
-    return this.autocompleteDropdown?.classList.contains(CSSClasses.VISIBLE) || false;
+    return this.comboboxController?.isVisible() || false;
   }
 
   /**
@@ -122,13 +134,18 @@ class GameAutocompleteComponent {
    * @returns {number}
    */
   getHighlightedIndex() {
-    return this.autocompleteHighlightIndex;
+    return this.comboboxController?.getHighlightedIndex() ?? -1;
   }
 
   /**
    * Focus game input
    */
   focus() {
+    if (this.comboboxController) {
+      this.comboboxController.focus();
+      return;
+    }
+
     this.gameInput?.focus();
   }
 
@@ -136,240 +153,39 @@ class GameAutocompleteComponent {
    * Select all text in game input
    */
   select() {
+    if (this.comboboxController) {
+      this.comboboxController.select();
+      return;
+    }
+
     this.gameInput?.select();
   }
 
   /**
-   * Setup game input with autocomplete
+   * Filter unique games by query
+   * @param {string} query
+   * @returns {string[]}
    * @private
    */
-  _setupGameInput() {
-    if (!this.gameInput) return;
+  _getMatchingGames(query) {
+    const normalizedQuery = String(query || '').toLowerCase().trim();
+    const games = this.notesService?.getUniqueGames?.() || [];
 
-    // Add combobox ARIA attributes
-    this.gameInput.setAttribute('role', 'combobox');
-    this.gameInput.setAttribute('aria-autocomplete', 'list');
-    this.gameInput.setAttribute('aria-expanded', 'false');
-    this.gameInput.setAttribute('aria-controls', 'notesGameAutocomplete');
-
-    // Autocomplete on input
-    this._domListeners.add(this.gameInput, 'input', () => {
-      this._scheduleAutocomplete();
-      this.onInput?.();
-    });
-
-    // Keyboard navigation
-    this._domListeners.add(this.gameInput, 'keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        // Check if autocomplete has a highlighted item to select
-        const isAutocompleteVisible = this.isVisible();
-        if (isAutocompleteVisible && this.autocompleteHighlightIndex >= 0) {
-          const items = this.autocompleteDropdown.querySelectorAll('.notes-game-autocomplete-item');
-          const selectedItem = items[this.autocompleteHighlightIndex];
-          if (selectedItem) {
-            this._selectAutocompleteItem(selectedItem.dataset.value);
-            return;
-          }
-        }
-        // No highlighted item - trigger onEnter callback
-        this.onEnter?.();
-        return;
-      }
-      if (e.key === 'Escape') {
-        this._hideAutocomplete();
-        this.onEscape?.();
-        return;
-      }
-      this._handleAutocompleteKeydown(e);
-    });
-
-    // Delay hiding autocomplete on blur to allow click events on dropdown items
-    // to fire before the dropdown is hidden. 150ms is sufficient for most click
-    // interactions while still feeling responsive.
-    // See: https://stackoverflow.com/questions/17769005/onclick-and-onblur-ordering-issue
-    this._domListeners.add(this.gameInput, 'blur', () => {
-      this._blurTimerId = setTimeout(() => {
-        this._blurTimerId = null;
-        this._hideAutocomplete();
-        this.onBlur?.();
-      }, NotesPanelConfig.BLUR_DELAY_MS);
-    });
-
-    // Show autocomplete on focus (cancel any pending blur timer to prevent race condition)
-    this._domListeners.add(this.gameInput, 'focus', () => {
-      if (this._blurTimerId) {
-        clearTimeout(this._blurTimerId);
-        this._blurTimerId = null;
-      }
-      this._showAutocomplete();
-      this.onFocus?.();
-    });
-
-    // Delegated selection handler for autocomplete items (avoids untracked listeners)
-    if (this.autocompleteDropdown) {
-      const handleAutocompleteSelect = (e) => {
-        const target = e.target instanceof Element ? e.target : e.target?.parentElement;
-        const item = target?.closest('.notes-game-autocomplete-item');
-        if (!item) return;
-
-        // Prevent blur from cancelling the selection before it applies.
-        e.preventDefault();
-        this._selectAutocompleteItem(item.dataset.value);
-      };
-
-      this._domListeners.add(this.autocompleteDropdown, 'pointerdown', handleAutocompleteSelect);
-      this._domListeners.add(this.autocompleteDropdown, 'click', handleAutocompleteSelect);
-    }
-  }
-
-  /**
-   * Schedule autocomplete update with debounce
-   * @private
-   */
-  _scheduleAutocomplete() {
-    if (this._autocompleteTimeout) {
-      clearTimeout(this._autocompleteTimeout);
+    if (!normalizedQuery) {
+      return games;
     }
 
-    this._autocompleteTimeout = setTimeout(() => {
-      this._autocompleteTimeout = null;
-      this._showAutocomplete();
-    }, AUTOCOMPLETE_DEBOUNCE_MS);
-  }
-
-  /**
-   * Show autocomplete dropdown
-   * @private
-   */
-  _showAutocomplete() {
-    if (!this.autocompleteDropdown || !this.gameInput) return;
-
-    const query = this.gameInput.value.toLowerCase().trim();
-    const games = this.notesService.getUniqueGames();
-
-    // Filter games matching query
-    const matches = query
-      ? games.filter(g => g.toLowerCase().includes(query))
-      : games;
-
-    if (matches.length === 0) {
-      this._hideAutocomplete();
-      return;
-    }
-
-    this.autocompleteHighlightIndex = -1;
-
-    // Add listbox role to container
-    this.autocompleteDropdown.setAttribute('role', 'listbox');
-    this.autocompleteDropdown.setAttribute('aria-label', 'Game suggestions');
-
-    this.autocompleteDropdown.innerHTML = matches
-      .map((game, i) => `<div class="notes-game-autocomplete-item" data-index="${i}" data-value="${escapeHtml(game)}" role="option" id="autocomplete-option-${i}" aria-selected="false">${escapeHtml(game)}</div>`)
-      .join('');
-
-    // Click handlers use event delegation (see _setupGameInput)
-    this.autocompleteDropdown.classList.add(CSSClasses.VISIBLE);
-
-    // Update aria-expanded on input
-    this.gameInput.setAttribute('aria-expanded', 'true');
-  }
-
-  /**
-   * Hide autocomplete dropdown
-   * @private
-   */
-  _hideAutocomplete() {
-    this.autocompleteDropdown?.classList.remove(CSSClasses.VISIBLE);
-    this.autocompleteHighlightIndex = -1;
-
-    // Update aria-expanded on input
-    if (this.gameInput) {
-      this.gameInput.setAttribute('aria-expanded', 'false');
-      this.gameInput.removeAttribute('aria-activedescendant');
-    }
-  }
-
-  /**
-   * Handle keyboard navigation in autocomplete
-   * @param {KeyboardEvent} e
-   * @private
-   */
-  _handleAutocompleteKeydown(e) {
-    const items = this.autocompleteDropdown?.querySelectorAll('.notes-game-autocomplete-item');
-    if (!items || items.length === 0) return;
-
-    const isVisible = this.isVisible();
-    if (!isVisible) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      this.autocompleteHighlightIndex = Math.min(this.autocompleteHighlightIndex + 1, items.length - 1);
-      this._updateAutocompleteHighlight(items);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      this.autocompleteHighlightIndex = Math.max(this.autocompleteHighlightIndex - 1, 0);
-      this._updateAutocompleteHighlight(items);
-    } else if (e.key === 'Enter' && this.autocompleteHighlightIndex >= 0) {
-      e.preventDefault();
-      const selectedItem = items[this.autocompleteHighlightIndex];
-      if (selectedItem) {
-        this._selectAutocompleteItem(selectedItem.dataset.value);
-      }
-    } else if (e.key === 'Escape') {
-      this._hideAutocomplete();
-    }
-  }
-
-  /**
-   * Update autocomplete highlight
-   * @param {NodeList} items
-   * @private
-   */
-  _updateAutocompleteHighlight(items) {
-    items.forEach((item, i) => {
-      const isHighlighted = i === this.autocompleteHighlightIndex;
-      item.classList.toggle('highlighted', isHighlighted);
-      item.setAttribute('aria-selected', isHighlighted ? 'true' : 'false');
-    });
-
-    // Update aria-activedescendant on input
-    if (this.autocompleteHighlightIndex >= 0 && items[this.autocompleteHighlightIndex]) {
-      this.gameInput.setAttribute('aria-activedescendant', items[this.autocompleteHighlightIndex].id);
-    } else {
-      this.gameInput.removeAttribute('aria-activedescendant');
-    }
-  }
-
-  /**
-   * Select an autocomplete item
-   * @param {string} value
-   * @private
-   */
-  _selectAutocompleteItem(value) {
-    if (this.gameInput) {
-      this.gameInput.value = value;
-    }
-    this._hideAutocomplete();
-    this.onSelect?.(value);
+    return games.filter((game) => game.toLowerCase().includes(normalizedQuery));
   }
 
   /**
    * Cleanup resources
    */
   dispose() {
-    // Clear timers
-    if (this._autocompleteTimeout) {
-      clearTimeout(this._autocompleteTimeout);
-      this._autocompleteTimeout = null;
-    }
-    if (this._blurTimerId) {
-      clearTimeout(this._blurTimerId);
-      this._blurTimerId = null;
-    }
+    this.comboboxController?.dispose();
+    this.comboboxController = null;
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
 
     // Clear references
     this.gameInput = null;
@@ -382,7 +198,6 @@ class GameAutocompleteComponent {
     this.onFocus = null;
     this.notesService = null;
     this.logger = null;
-    this.autocompleteHighlightIndex = -1;
   }
 }
 

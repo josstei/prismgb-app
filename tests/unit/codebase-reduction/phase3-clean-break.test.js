@@ -25,17 +25,12 @@ function expectMissing(relativePath) {
 
 describe('Phase 3 clean-break consolidation', () => {
   it('keeps stale phase audit artifacts retired after status moved into the implementation plan', () => {
+    const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_1_AUDIT.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md');
-    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
-      'Historical phase delivery summary'
-    );
-    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
-      'Phase 4 added architecture scorecard enforcement'
-    );
-    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).not.toContain(
-      'Next phase when resumed: Phase 4'
-    );
+    expect(implementationPlan).toContain('Historical phase delivery summary');
+    expect(implementationPlan).toContain('Phase 4-6 added scorecard enforcement');
+    expect(implementationPlan).not.toContain('Next phase when resumed: Phase 4');
   });
 
   it('keeps renderer GPU consolidation package-owned without renderer-private engines or shader trees', () => {
@@ -80,39 +75,12 @@ describe('Phase 3 clean-break consolidation', () => {
       loadManifests().ipc
     );
     const exposedMethods = Object.values(exposures).flat();
+    const manifestExposures = Object.fromEntries(loadManifests().ipc.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods]));
 
-    expect(exposures.deviceAPI).toEqual([
-      'getDeviceStatus',
-      'onDeviceConnected',
-      'onDeviceDisconnected'
-    ]);
-    expect(exposures.windowAPI).toEqual([
-      'onEnterFullscreen',
-      'onLeaveFullscreen',
-      'onResized',
-      'setFullScreen',
-      'isFullScreen'
-    ]);
-    expect(exposures.updateAPI).toEqual([
-      'getStatus',
-      'checkForUpdates',
-      'downloadUpdate',
-      'installUpdate',
-      'onAvailable',
-      'onNotAvailable',
-      'onProgress',
-      'onDownloaded',
-      'onError'
-    ]);
-    expect(exposures.transcodeAPI).toEqual([
-      'start',
-      'cancel',
-      'getStatus',
-      'onProgress',
-      'onCompleted',
-      'onError',
-      'onCancelled'
-    ]);
+    expect(exposures.deviceAPI).toEqual(manifestExposures.deviceAPI);
+    expect(exposures.windowAPI).toEqual(manifestExposures.windowAPI);
+    expect(exposures.updateAPI).toEqual(manifestExposures.updateAPI);
+    expect(exposures.transcodeAPI).toEqual(manifestExposures.transcodeAPI);
     expect(exposedMethods).not.toContain('removeListeners');
     expect(exposedMethods).not.toContain('onConnected');
     expect(exposedMethods).not.toContain('onDisconnected');

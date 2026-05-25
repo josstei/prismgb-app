@@ -8,7 +8,7 @@
  * - Click-to-collapse toggle
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 
@@ -18,8 +18,16 @@ const LIST_WIDTH_MIN = NotesPanelConfig.LIST_WIDTH.MIN;
 const LIST_WIDTH_MAX = NotesPanelConfig.LIST_WIDTH.MAX;
 const LIST_WIDTH_DEFAULT = NotesPanelConfig.LIST_WIDTH.DEFAULT;
 
-class NotesResizeHandlerComponent {
+const DRAG_MOVE_MOUSE_LIFECYCLE = Symbol('notesResizeDragMoveMouseLifecycle');
+const DRAG_MOVE_TOUCH_LIFECYCLE = Symbol('notesResizeDragMoveTouchLifecycle');
+const DRAG_END_MOUSE_LIFECYCLE = Symbol('notesResizeDragEndMouseLifecycle');
+const DRAG_END_TOUCH_LIFECYCLE = Symbol('notesResizeDragEndTouchLifecycle');
+const DRAG_CANCEL_TOUCH_LIFECYCLE = Symbol('notesResizeDragCancelTouchLifecycle');
+const DRAG_FRAME_LIFECYCLE = Symbol('notesResizeDragFrameLifecycle');
+
+class NotesResizeHandlerComponent extends PresentationComponent {
   constructor({ logger }) {
+    super();
     this.logger = logger;
 
     // Resize state
@@ -34,9 +42,7 @@ class NotesResizeHandlerComponent {
     // RAF throttling for drag
     this._dragFramePending = false;
     this._rafId = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
+    this._dragBodyStyleSnapshot = null;
 
     // Elements (cached for performance)
     this.listToggle = null;
@@ -115,14 +121,13 @@ class NotesResizeHandlerComponent {
       this._boundDragMove = handleMove;
       this._boundDragEnd = endDrag;
 
-      document.addEventListener('mousemove', handleMove);
-      document.addEventListener('mouseup', endDrag);
-      document.addEventListener('touchmove', handleMove, { passive: false });
-      document.addEventListener('touchend', endDrag);
-      document.addEventListener('touchcancel', endDrag);
+      this.replaceManaged(DRAG_MOVE_MOUSE_LIFECYCLE, this.listen(document, 'mousemove', handleMove));
+      this.replaceManaged(DRAG_END_MOUSE_LIFECYCLE, this.listen(document, 'mouseup', endDrag));
+      this.replaceManaged(DRAG_MOVE_TOUCH_LIFECYCLE, this.listen(document, 'touchmove', handleMove, { passive: false }));
+      this.replaceManaged(DRAG_END_TOUCH_LIFECYCLE, this.listen(document, 'touchend', endDrag));
+      this.replaceManaged(DRAG_CANCEL_TOUCH_LIFECYCLE, this.listen(document, 'touchcancel', endDrag));
 
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
+      this._applyDragVisualState();
     };
 
     const handleMove = (e) => {
@@ -146,10 +151,20 @@ class NotesResizeHandlerComponent {
           Math.max(LIST_WIDTH_MIN, this._dragStartWidth + delta)
         );
 
-        this._rafId = requestAnimationFrame(() => {
+        const rafId = requestAnimationFrame(() => {
           this._dragFramePending = false;
+          this._rafId = null;
+          this.cancelManaged(DRAG_FRAME_LIFECYCLE);
           this._setListWidth(newWidth);
         });
+        this._rafId = rafId;
+        this.replaceManaged(DRAG_FRAME_LIFECYCLE, this.track(() => {
+          cancelAnimationFrame(rafId);
+          if (this._rafId === rafId) {
+            this._rafId = null;
+          }
+          this._dragFramePending = false;
+        }));
       }
     };
 
@@ -157,15 +172,14 @@ class NotesResizeHandlerComponent {
       this._cleanupDragListeners();
 
       // Cancel any pending RAF
+      this.cancelManaged(DRAG_FRAME_LIFECYCLE);
       if (this._rafId) {
         cancelAnimationFrame(this._rafId);
         this._rafId = null;
       }
       this._dragFramePending = false;
 
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      this.listToggle?.classList.remove('dragging');
+      this._cleanupDragVisualState();
 
       if (!this._isDragging) {
         this._toggleListVisibility();
@@ -178,8 +192,8 @@ class NotesResizeHandlerComponent {
       this._boundDragEnd = null;
     };
 
-    this._domListeners.add(this.listToggle, 'mousedown', startDrag);
-    this._domListeners.add(this.listToggle, 'touchstart', startDrag, { passive: false });
+    this.listen(this.listToggle, 'mousedown', startDrag);
+    this.listen(this.listToggle, 'touchstart', startDrag, { passive: false });
   }
 
   /**
@@ -228,15 +242,35 @@ class NotesResizeHandlerComponent {
    * @private
    */
   _cleanupDragListeners() {
-    if (this._boundDragMove) {
-      document.removeEventListener('mousemove', this._boundDragMove);
-      document.removeEventListener('touchmove', this._boundDragMove);
+    this.cancelManaged(DRAG_MOVE_MOUSE_LIFECYCLE);
+    this.cancelManaged(DRAG_END_MOUSE_LIFECYCLE);
+    this.cancelManaged(DRAG_MOVE_TOUCH_LIFECYCLE);
+    this.cancelManaged(DRAG_END_TOUCH_LIFECYCLE);
+    this.cancelManaged(DRAG_CANCEL_TOUCH_LIFECYCLE);
+  }
+
+  _applyDragVisualState() {
+    if (!this._dragBodyStyleSnapshot) {
+      this._dragBodyStyleSnapshot = {
+        cursor: document.body.style.cursor,
+        userSelect: document.body.style.userSelect
+      };
     }
-    if (this._boundDragEnd) {
-      document.removeEventListener('mouseup', this._boundDragEnd);
-      document.removeEventListener('touchend', this._boundDragEnd);
-      document.removeEventListener('touchcancel', this._boundDragEnd);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  /**
+   * Cleanup drag visual state
+   * @private
+   */
+  _cleanupDragVisualState() {
+    if (this._dragBodyStyleSnapshot) {
+      document.body.style.cursor = this._dragBodyStyleSnapshot.cursor;
+      document.body.style.userSelect = this._dragBodyStyleSnapshot.userSelect;
+      this._dragBodyStyleSnapshot = null;
     }
+    this.listToggle?.classList.remove('dragging');
   }
 
   /**
@@ -245,19 +279,20 @@ class NotesResizeHandlerComponent {
   dispose() {
     // Clean up drag state
     this._cleanupDragListeners();
+    this._cleanupDragVisualState();
     this._isDragging = false;
     this._boundDragMove = null;
     this._boundDragEnd = null;
 
     // Cancel any pending RAF
+    this.cancelManaged(DRAG_FRAME_LIFECYCLE);
     if (this._rafId) {
       cancelAnimationFrame(this._rafId);
       this._rafId = null;
     }
     this._dragFramePending = false;
-
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    this._dragBodyStyleSnapshot = null;
+    super.dispose();
 
     // Clear references
     this.listToggle = null;

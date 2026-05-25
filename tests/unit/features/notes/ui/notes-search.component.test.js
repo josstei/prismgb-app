@@ -173,16 +173,18 @@ describe('NotesSearchComponent', () => {
   });
 
   describe('dispose', () => {
-    it('should clear active search timeout', () => {
+    it('should prevent pending debounce callback after dispose', () => {
       const searchInput = document.createElement('input');
-      component.initialize({ searchInput, onSearch: vi.fn() });
+      const onSearch = vi.fn();
+      component.initialize({ searchInput, onSearch });
 
       searchInput.value = 'test';
       searchInput.dispatchEvent(new Event('input'));
 
       component.dispose();
+      vi.advanceTimersByTime(200);
 
-      expect(component._searchTimeout).toBeNull();
+      expect(onSearch).not.toHaveBeenCalled();
     });
 
     it('should handle dispose when no timeout is active', () => {

@@ -1,3 +1,4 @@
+import { createManifestInvokeSet } from '../subscription.factory.js';
 function createInvokeMethod({
   channel,
   ipcRenderer,
@@ -81,12 +82,14 @@ function createLoginItemInvoker({ apiName, methodName, ipcRenderer, channel, val
   });
 }
 
-function createShellPreloadAPI({ ipcRenderer, channels, isValidExternalUrl }) {
+function createShellPreloadAPI({ ipcRenderer, channels, isValidExternalUrl, manifest }) {
+  const invokeSet = createManifestInvokeSet('shellAPI', channels, manifest).requireMethod;
+
   return {
     openExternal: createInvokeMethod({
       apiName: 'shellAPI',
       methodName: 'openExternal',
-      channel: channels.SHELL.OPEN_EXTERNAL,
+      channel: invokeSet('openExternal'),
       ipcRenderer,
       validateArgs: isValidExternalUrl,
       invalidArgMessage: 'shellAPI.openExternal: Invalid URL provided',
@@ -95,34 +98,40 @@ function createShellPreloadAPI({ ipcRenderer, channels, isValidExternalUrl }) {
   };
 }
 
-function createMetricsPreloadAPI({ ipcRenderer, channels }) {
+function createMetricsPreloadAPI({ ipcRenderer, channels, manifest }) {
+  const invokeSet = createManifestInvokeSet('metricsAPI', channels, manifest).requireMethod;
+
   return {
     getProcessMetrics: createInvokeMethod({
       apiName: 'metricsAPI',
       methodName: 'getProcessMetrics',
-      channel: channels.PERFORMANCE.GET_METRICS,
+      channel: invokeSet('getProcessMetrics'),
       ipcRenderer
     })
   };
 }
 
-function createGpuPreloadAPI({ ipcRenderer, channels, isValidGpuPolicy }) {
+function createGpuPreloadAPI({ ipcRenderer, channels, isValidGpuPolicy, manifest }) {
+  const invokeSet = createManifestInvokeSet('gpuAPI', channels, manifest).requireMethod;
+
   return {
     getPolicy: createGpuPolicyInvoker({
       apiName: 'gpuAPI',
       ipcRenderer,
-      channel: channels.GPU.GET_POLICY,
+      channel: invokeSet('getPolicy'),
       isValidGpuPolicy
     })
   };
 }
 
-function createLoginItemPreloadAPI({ ipcRenderer, channels }) {
+function createLoginItemPreloadAPI({ ipcRenderer, channels, manifest }) {
+  const invokeSet = createManifestInvokeSet('loginItemAPI', channels, manifest).requireMethod;
+
   return {
     get: createResponseFallbackInvoker({
       apiName: 'loginItemAPI',
       methodName: 'get',
-      channel: channels.LOGIN_ITEM.GET,
+      channel: invokeSet('get'),
       ipcRenderer,
       fallback: false
     }),
@@ -130,7 +139,7 @@ function createLoginItemPreloadAPI({ ipcRenderer, channels }) {
       apiName: 'loginItemAPI',
       methodName: 'set',
       ipcRenderer,
-      channel: channels.LOGIN_ITEM.SET,
+      channel: invokeSet('set'),
       validator: (enabled) => typeof enabled === 'boolean',
       fallback: { success: false, error: 'Invalid parameter' }
     })

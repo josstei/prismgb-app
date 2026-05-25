@@ -375,6 +375,34 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.listToggle).toBeNull();
     });
 
+    it('should clear drag visual state when disposed during active drag', () => {
+      const listToggle = document.createElement('button');
+      document.body.style.cursor = 'wait';
+      document.body.style.userSelect = 'text';
+      component.initialize({
+        listToggle,
+        panelElement: document.createElement('div'),
+        panelContent: document.createElement('div'),
+        listWrapper: document.createElement('div'),
+        onToggle: vi.fn()
+      });
+
+      listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 104 }));
+
+      expect(document.body.style.cursor).toBe('col-resize');
+      expect(document.body.style.userSelect).toBe('none');
+      expect(listToggle.classList.contains('dragging')).toBe(true);
+
+      component.dispose();
+
+      expect(document.body.style.cursor).toBe('wait');
+      expect(document.body.style.userSelect).toBe('text');
+      expect(listToggle.classList.contains('dragging')).toBe(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+
     it('should reset all state', () => {
       component.dispose();
 

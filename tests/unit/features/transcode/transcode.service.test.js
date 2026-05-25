@@ -1,16 +1,7 @@
-/**
- * TranscodeService (Renderer) Unit Tests
- * Tests the bridge between window.transcodeAPI and EventBus
- */
-
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import {
-  clearPreloadApi,
-  resetPreloadApis,
-  setPreloadApi
-} from '../../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createPreloadApiMock, resetPreloadApis, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
 
 describe('TranscodeService', () => {
   let service;
@@ -20,13 +11,11 @@ describe('TranscodeService', () => {
   let mockTranscodeAPI;
 
   beforeEach(() => {
-    // Create mock EventBus
     mockEventBus = {
       subscribe: vi.fn(),
       publish: vi.fn()
     };
 
-    // Create mock logger
     mockLogger = {
       info: vi.fn(),
       debug: vi.fn(),
@@ -38,16 +27,10 @@ describe('TranscodeService', () => {
       create: vi.fn(() => mockLogger)
     };
 
-    // Create mock transcodeAPI
-    mockTranscodeAPI = {
+    mockTranscodeAPI = createPreloadApiMock('transcodeAPI', {
       start: vi.fn().mockResolvedValue({ success: true, jobId: 'job-123' }),
-      cancel: vi.fn().mockResolvedValue({ success: true }),
-      getStatus: vi.fn().mockResolvedValue({ isTranscoding: false }),
-      onProgress: vi.fn().mockReturnValue(vi.fn()),
-      onCompleted: vi.fn().mockReturnValue(vi.fn()),
-      onError: vi.fn().mockReturnValue(vi.fn()),
-      onCancelled: vi.fn().mockReturnValue(vi.fn())
-    };
+      cancel: vi.fn().mockResolvedValue({ success: true })
+    });
 
     setPreloadApi('transcodeAPI', mockTranscodeAPI);
 
@@ -349,7 +332,6 @@ describe('TranscodeService', () => {
         loggerFactory: mockLoggerFactory
       });
 
-      // Capture the handlers when initialize is called
       mockTranscodeAPI.onProgress.mockImplementation((handler) => {
         progressHandler = handler;
         return vi.fn();

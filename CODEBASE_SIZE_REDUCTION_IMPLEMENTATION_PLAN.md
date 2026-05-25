@@ -10,20 +10,14 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-25
 
-- Status: Phase 6 shader pass ownership is implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
-- Completed implementation milestone: Phase 6, Data-Drive Shader Passes And Uniform Layouts.
+- Status: Phase 6 shader pass ownership and Phase 14 headless controller consolidation are implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
+- Completed implementation milestones: Phase 6, Data-Drive Shader Passes And Uniform Layouts; and Phase 14, Promote Headless UI Controllers For Disclosure, Listbox, Combobox, And Auto-Hide.
 - Current audit note: Phase 1 completion was repaired in the 2026-05-25 worktree. Manifest drift now enforces duplicate cardinality, IPC `mode: enforced`, exact preload declaration generation parity, generated preload import/type validation, scoped `declare global` API vars, optional `Window` API properties, invoke/subscription public signatures, and tracked docs blocks. `npm run release:preflight`, `npm run test:run`, `npm run lint`, root `npm run typecheck`, `npm run architecture:type-debt:check`, `npm run codebase:size -- --enforce-thresholds`, `npm run architecture:scorecard -- --enforce-thresholds ...`, and `npm run codebase:phase1 -- --json` pass; two read-only final audits found no blockers.
 - Reading rule: phase verification bullets below are historical evidence from the implementation sequence. The future-first architecture section is the source of truth for the remaining long-term design intent.
-- Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
-- Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
+- Phase 0 baseline: commit `20ac639 chore(codebase): add size reduction baselines`; GPT-5.5 xhigh review found no blockers after fixes.
 - Historical phase delivery summary:
-  - Phase 0 added tracked size measurement, behavior baselines, and inline preload API extraction.
-  - Phase 1 added shared foundations, report-only manifests, WebGPU type hoisting, and ignored coverage output.
-  - Phase 2 moved preload subscriptions, main IPC handlers, renderer event imports, settings accessors, registries, and generated cleanup onto shared primitives.
-  - Phase 3 moved renderer rendering internals to `@prismgb/gpu`, replaced renderer DI with Awilix descriptors, added presentation lifecycle primitives, split Vitest projects, and retired stale preload/device compatibility seams.
-  - Phase 4 added architecture scorecard enforcement, JS plus `.d.ts` twin cleanup, strict type-debt and coverage ratchets, generated-artifact cleanup, dev smoke preflight, and release preflight wiring.
-  - Phase 5 moved Canvas2D fallback ownership into `@prismgb/gpu`, enforced renderer backend ownership, and removed old Canvas2D backend type-debt buckets.
-  - Phase 6 data-driven shader pass ownership through the GPU package render-pass contract, package shader discovery, manifest-driven backend pass iteration, render-pass scorecard gates, and WebGL2 ping-pong regression coverage.
+  - Phase 0-3 added tracked size measurement, behavior baselines, inline preload API extraction, shared foundations, report-only manifests, WebGPU type hoisting, generated cleanup, renderer `@prismgb/gpu` ownership, Awilix renderer DI descriptors, presentation lifecycle primitives, split Vitest projects, and stale compatibility cleanup.
+  - Phase 4-6 added scorecard enforcement, JS plus `.d.ts` twin cleanup, strict type-debt and coverage ratchets, generated-artifact cleanup, smoke/preflight wiring, Canvas2D fallback ownership in `@prismgb/gpu`, renderer backend enforcement, and render-pass contract ownership with WebGL2 ping-pong coverage.
 - Historical verification detail is intentionally summarized here to keep the tracked plan below size thresholds. The current audit note above and the named regression gates are the authoritative verification targets for new work.
 
 ## Phase 0 Grounding Snapshot
@@ -109,7 +103,7 @@ Future-first target map by finding:
    The future design is template-owned UI metadata through `data-ref` and `data-action`, generating typed refs, selector maps, UI component definitions, dependency slices, and command descriptors. Existing IDs can remain stable for CSS/E2E while generated refs replace manual selector drift. Current `DOMSelectors`, `createDomBindings()`, and `register-ui.ts` are still hand-maintained and should be treated as migration targets.
 
 14. Promote headless UI controllers for disclosure, listbox, combobox, and auto-hide:
-   The target is a small controller library for repeated UI behavior: disclosure, listbox, combobox/autocomplete, activity auto-hide, and positioning. Visual components keep their markup and styles; behavior and accessibility live in reusable headless primitives. Existing `ActivityAutoHideController`, `Disclosure`, and listbox work are partial. Remaining work is to fold notes filter, game autocomplete, fullscreen controls, and positioning/clamping into shared controllers or a justified library such as Floating UI.
+   The target is a small controller library for repeated UI behavior: disclosure, listbox, combobox/autocomplete, activity auto-hide, and positioning. Visual components keep their markup and styles; behavior and accessibility live in reusable headless primitives. Current implementation note: Phase 14 delivery is complete for the owned controller scope, with shared disclosure/listbox/auto-hide primitives backing migrated notes/fullscreen consumers and explicit clean-break guards blocking `HideTimer`/`hide-timer` reintroduction. Future work is limited to optional positioning-library adoption when it can prove measurable deletion and accessibility parity.
 
 15. Consolidate CSS into semantic tokens and utilities:
    The final design is semantic tokens plus utility classes for repeated surfaces, option rows, fields, pills, scrollbars, gradient borders, and range controls. Feature CSS should keep layout and unique variants only. Current token files exist, but planned utilities such as `.ui-popover`, `.ui-option`, `.ui-field`, `.ui-pill`, `.ui-scrollbar-thin`, `.ui-gradient-border`, and `.range-control` are not broadly present. Add parser-backed reports and screenshot checks before migrating repeated CSS.
@@ -136,7 +130,7 @@ Future-first target map by finding:
    The target is a small `scripts/lib` utility layer for CLI parsing, file walking, JSON/report output, manifest loading, TypeScript diagnostic parsing, and architecture model access. Current script utilities are partial. Continue extracting only helpers used by multiple scripts or needed by generated manifests, preserving CI output fields and exit codes.
 
 23. Make type debt a ratchet, not a permanent side system:
-   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 60 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
+   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 59 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
 
 24. Build canonical test support factories:
    The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, and preload API names derive from the IPC manifest. Remaining work is generated preload API mock bodies and broader migration away from inline canonical dependency mocks.
@@ -1061,6 +1055,7 @@ Risks and mitigations:
 Expected outcome:
 
 - UI behavior code shrinks and accessibility-sensitive logic becomes centralized.
+- Current implementation note: Phase 14 is complete for this plan scope. `src/renderer/presentation/primitives/hide-timer.class.js` and `tests/unit/ui/primitives/hide-timer.test.js` stay retired, and governance enforcement now rejects `HideTimer`/`hide-timer` references in owned source/test roots.
 
 ## 15. Consolidate CSS Into Semantic Tokens And Utilities
 
@@ -1307,7 +1302,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type drift from hand-authored declaration twins disappears and strictness can ratchet by directory.
-- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount` and enforces the current `src/**/*.js` count at 60 after migrating `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, so unchecked runtime JS cannot grow while presentation and preload TS migration continue.
+- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount`, enforces the current `src/**/*.js` count at 59 after migrating `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, and separately enforces zero retired-HideTimer violations (`hide-timer.class.js`, `hide-timer.test.js`, and `HideTimer`/`hide-timer` references), so unchecked runtime JS growth cannot mask that clean break while presentation and preload TS migration continue.
 
 ## 20. Hoist Official WebGPU Types
 
@@ -1510,7 +1505,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type debt becomes an actively shrinking budget rather than permanent infrastructure.
-- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current 60-file runtime JS baseline.
+- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current 59-file runtime JS baseline.
 
 ## 24. Build Canonical Test Support Factories
 
@@ -2099,148 +2094,18 @@ Expected outcome:
 
 ## Ten Audit Rounds
 
-These audit rounds were used to harden this implementation plan after drafting. Each round states the check and the refinement applied or confirmed.
-
-### Audit Round 1: Finding Coverage
-
-Check:
-
-- Compare plan sections against the 33 numbered headings in `CODEBASE_SIZE_REDUCTION_FINDINGS.md`.
-
-Result:
-
-- The plan includes sections for findings 1 through 33, with titles matching the source finding names.
-
-Refinement:
-
-- Added this audit log and the explicit source mapping statement at the top.
-
-### Audit Round 2: Repository Grounding
-
-Check:
-
-- Verify that plan claims reference actual files or observed repo facts instead of generic advice.
-
-Result:
-
-- The plan cites the current IPC/preload files, renderer DI files, GPU package paths, duplicated shader directories, settings/transcode config, device config, Vitest config, tests, scripts, docs, workflows, and `.gitignore`.
-
-Refinement:
-
-- Added the `Grounding Snapshot` section so the evidence is visible before the plan details.
-
-### Audit Round 3: Long-Term Design Bias
-
-Check:
-
-- Ensure recommendations favor durable architecture rather than quick patches.
-
-Result:
-
-- Each finding targets manifests, generated outputs, shared lifecycle utilities, typed registries, or ratcheted enforcement.
-
-Refinement:
-
-- Added program-level success criteria requiring deletion, generation ownership, and CI enforcement.
-
-### Audit Round 4: Phase Structure
-
-Check:
-
-- Ensure every finding is broken into phases with concrete tasks.
-
-Result:
-
-- Every finding has phased tasks, generally starting with baseline/inventory, then report-only foundations, migration, deletion, and enforcement.
-
-Refinement:
-
-- Normalized phase wording across sections so auditability is consistent.
-
-### Audit Round 5: Success Criteria
-
-Check:
-
-- Ensure every finding and global program has testable success criteria.
-
-Result:
-
-- Every finding has a `Success criteria` subsection, and the program has overall success criteria.
-
-Refinement:
-
-- Tightened criteria to require deletion/reduction of old surfaces, not just introduction of new abstractions.
-
-### Audit Round 6: Risks And Mitigations
-
-Check:
-
-- Ensure every finding includes risks and mitigations, especially for rendering, IPC, settings, and release work.
-
-Result:
-
-- Every finding has risks and mitigations.
-
-Refinement:
-
-- Added extra mitigation language for generated-code opacity, release packaging, and tests comparing generated code to itself.
-
-### Audit Round 7: Expected Outcomes
-
-Check:
-
-- Ensure each finding states expected outcomes in codebase-size and maintainability terms.
-
-Result:
-
-- Every finding has an `Expected outcome` subsection.
-
-Refinement:
-
-- Reworded outcomes to focus on reducing repeated maintenance surfaces and preventing future growth.
-- Added explicit authoritative-owner wording where long-term intent was implied but not mechanically auditable.
-
-### Audit Round 8: Cross-Finding Dependencies
-
-Check:
-
-- Ensure dependent work is sequenced correctly.
-
-Result:
-
-- The integrated sequence puts measurement, lifecycle utilities, subscription factory, and canonical tests before generated runtime adoption and high-risk rendering/UI changes.
-
-Refinement:
-
-- Added an `Integrated Migration Sequence` section tying findings together.
-
-### Audit Round 9: Known Drift Handling
-
-Check:
-
-- Ensure known live drift from the findings is not lost.
-
-Result:
-
-- The plan calls out the resolved `transcodeAPI.getStatus` argument drift, resolved E2E device VID/PID and preload-name drift, settings `webm` versus transcode `mp4`, ignored coverage/artifact noise, and event scope collisions.
-
-Refinement:
-
-- Added explicit baseline tests for these drift areas in their finding phases.
-
-### Audit Round 10: Completion And Enforcement
-
-Check:
-
-- Ensure the plan does not stop at implementation ideas and includes deletion/enforcement gates.
-
-Result:
-
-- Each finding includes final deletion or enforcement phases where applicable.
-
-Refinement:
-
-- Added global risks and mitigations plus enforcement language that CI/lint/scorecard checks must prevent regression.
+These rounds hardened the plan after drafting:
+
+1. Finding coverage: all 33 source findings are represented with matching section intent.
+2. Repository grounding: claims cite concrete PrismGB files, configs, scripts, docs, workflows, and observed duplication.
+3. Long-term design bias: each finding targets manifests, generation, shared primitives, typed registries, or ratcheted enforcement.
+4. Phase structure: every finding moves through baseline, report-only foundation, migration, deletion, and enforcement where applicable.
+5. Success criteria: every finding and the overall program require testable deletion or reduction of old surfaces.
+6. Risks and mitigations: rendering, IPC, settings, generated code, release packaging, and test-oracle risks are called out.
+7. Expected outcomes: outcomes focus on reducing repeated maintenance surfaces and preventing future growth.
+8. Cross-finding dependencies: the integrated sequence puts measurement, lifecycle utilities, subscription factory, and canonical tests before high-risk runtime adoption.
+9. Known drift handling: known IPC, device, settings, coverage/artifact, and event-scope drift points are kept visible.
+10. Completion and enforcement: each finding has final deletion or enforcement gates, backed by CI/lint/scorecard checks where applicable.
 
 ## Completion Checklist
 

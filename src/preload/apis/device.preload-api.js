@@ -1,7 +1,4 @@
-import {
-  createSubscription,
-  createSubscriptionDisposer
-} from '../subscription.factory.js';
+import { createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer } from '../subscription.factory.js';
 
 function createDevicePreloadAPI({
   ipcRenderer,
@@ -10,27 +7,15 @@ function createDevicePreloadAPI({
   maxListeners,
   isValidCallback
 }) {
-  const subscriptions = [
-    {
-      methodName: 'onDeviceConnected',
-      channel: channels.DEVICE.CONNECTED,
-      registryKey: 'device.onDeviceConnected'
-    },
-    {
-      methodName: 'onDeviceDisconnected',
-      channel: channels.DEVICE.DISCONNECTED,
-      registryKey: 'device.onDeviceDisconnected'
-    }
-  ];
-  const [connectedSubscription, disconnectedSubscription] = subscriptions;
-  const subscribe = (subscription, callback) =>
+  const subscriptionSet = createManifestSubscriptionSet('deviceAPI'), { subscriptions } = subscriptionSet;
+  const getDeviceStatusChannel = createManifestInvokeSet('deviceAPI', channels).requireMethod('getDeviceStatus');
+  const subscribe = (methodName, callback) =>
     createSubscription({
-      apiName: 'deviceAPI',
       ipcRenderer,
       registry: listenerRegistry,
       maxListeners,
       validateCallback: isValidCallback,
-      ...subscription
+      ...subscriptionSet.requireMethod(methodName)
     })(callback);
   const disposeSubscriptions = createSubscriptionDisposer({
     ipcRenderer,
@@ -39,11 +24,11 @@ function createDevicePreloadAPI({
   });
 
   return {
-    getDeviceStatus: () => ipcRenderer.invoke(channels.DEVICE.GET_STATUS),
+    getDeviceStatus: () => ipcRenderer.invoke(getDeviceStatusChannel),
 
-    onDeviceConnected: (callback) => subscribe(connectedSubscription, callback),
+    onDeviceConnected: (callback) => subscribe('onDeviceConnected', callback),
 
-    onDeviceDisconnected: (callback) => subscribe(disconnectedSubscription, callback),
+    onDeviceDisconnected: (callback) => subscribe('onDeviceDisconnected', callback),
 
     dispose: disposeSubscriptions
   };

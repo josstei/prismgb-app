@@ -6,32 +6,42 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import {
+  createManifestPreloadEventBridge,
+  type PreloadEventBridge
+} from '@renderer/infrastructure/services/preload-event-bridge.factory';
 
 class SettingsFullscreenService extends BaseService {
+  declare _eventBridge: PreloadEventBridge | null;
 
   constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
-    this._unsubscribeEnterFullscreen = null;
-    this._unsubscribeLeaveFullscreen = null;
-    this._unsubscribeResized = null;
+    this._eventBridge = null;
   }
 
   initialize() {
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
 
+    this._eventBridge?.dispose();
+    this._eventBridge = null;
+
     if (window.windowAPI) {
-      this._unsubscribeEnterFullscreen = window.windowAPI.onEnterFullscreen(() => {
-        this._handleNativeFullscreen(true);
-      });
-      this._unsubscribeLeaveFullscreen = window.windowAPI.onLeaveFullscreen(() => {
-        this._handleNativeFullscreen(false);
-      });
-      this._unsubscribeResized = window.windowAPI.onResized(() => {
-        this._syncFullscreenState();
-        this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
+      this._eventBridge = createManifestPreloadEventBridge({
+        api: window.windowAPI,
+        apiName: 'windowAPI',
+        bridgeName: 'SettingsFullscreenService',
+        logger: this.logger,
+        handlers: {
+          onEnterFullscreen: () => this._handleNativeFullscreen(true),
+          onLeaveFullscreen: () => this._handleNativeFullscreen(false),
+          onResized: () => {
+            this._syncFullscreenState();
+            this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
+          }
+        }
       });
     }
 
@@ -41,18 +51,8 @@ class SettingsFullscreenService extends BaseService {
   dispose() {
     document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange);
 
-    if (this._unsubscribeEnterFullscreen) {
-      this._unsubscribeEnterFullscreen();
-      this._unsubscribeEnterFullscreen = null;
-    }
-    if (this._unsubscribeLeaveFullscreen) {
-      this._unsubscribeLeaveFullscreen();
-      this._unsubscribeLeaveFullscreen = null;
-    }
-    if (this._unsubscribeResized) {
-      this._unsubscribeResized();
-      this._unsubscribeResized = null;
-    }
+    this._eventBridge?.dispose();
+    this._eventBridge = null;
   }
 
   async toggleFullscreen() {

@@ -8,12 +8,13 @@
  * - Search term highlighting
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@shared/utils/string.utils.js';
 
-class NotesListViewComponent {
+class NotesListViewComponent extends PresentationComponent {
   constructor({ notesService, logger }) {
+    super();
     this.notesService = notesService;
     this.logger = logger;
 
@@ -21,9 +22,6 @@ class NotesListViewComponent {
     this.currentNoteId = null;
     this.currentGameFilter = '';
     this.collapsedGameGroups = new Set();
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.listElement = null;
@@ -148,7 +146,7 @@ class NotesListViewComponent {
   _setupListClickHandler() {
     if (!this.listElement) return;
 
-    this._domListeners.add(this.listElement, 'click', (e) => {
+    this.listen(this.listElement, 'click', (e) => {
       // Handle game group header click (expand/collapse)
       const gameHeader = e.target.closest('.notes-game-header');
       if (gameHeader) {
@@ -262,8 +260,7 @@ class NotesListViewComponent {
    * Cleanup resources
    */
   dispose() {
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
 
     // Clear state
     this.collapsedGameGroups.clear();

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import * as HandlerDescriptors from '@main/ipc/handlers/index.js';
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -20,6 +20,9 @@ vi.mock('electron', () => ({
 
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { ipcMain } from 'electron';
+
+const registryDescriptorOrder = ['deviceHandlerDescriptors', 'shellHandlerDescriptors', 'updateHandlerDescriptors', 'performanceHandlerDescriptors', 'windowHandlerDescriptors', 'transcodeHandlerDescriptors', 'gpuHandlerDescriptors', 'loginItemHandlerDescriptors'];
+const expectedRegisteredChannels = () => registryDescriptorOrder.flatMap((key) => HandlerDescriptors[key].map(({ channel }) => channel));
 
 describe('IpcHandlerRegistry', () => {
   let ipcHandlerRegistry;
@@ -106,23 +109,7 @@ describe('IpcHandlerRegistry', () => {
     it('should register each expected IPC channel exactly once', () => {
       ipcHandlerRegistry.registerHandlers();
 
-      expect(ipcMain.handle.mock.calls.map(call => call[0])).toEqual([
-        IPC_CHANNELS.DEVICE.GET_STATUS,
-        IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
-        IPC_CHANNELS.UPDATE.CHECK,
-        IPC_CHANNELS.UPDATE.DOWNLOAD,
-        IPC_CHANNELS.UPDATE.INSTALL,
-        IPC_CHANNELS.UPDATE.GET_STATUS,
-        IPC_CHANNELS.PERFORMANCE.GET_METRICS,
-        IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
-        IPC_CHANNELS.WINDOW.IS_FULLSCREEN,
-        IPC_CHANNELS.TRANSCODE.START,
-        IPC_CHANNELS.TRANSCODE.CANCEL,
-        IPC_CHANNELS.TRANSCODE.GET_STATUS,
-        IPC_CHANNELS.GPU.GET_POLICY,
-        IPC_CHANNELS.LOGIN_ITEM.GET,
-        IPC_CHANNELS.LOGIN_ITEM.SET
-      ]);
+      expect(ipcMain.handle.mock.calls.map(call => call[0])).toEqual(expectedRegisteredChannels());
     });
 
     it('rejects duplicate registrations', () => {
@@ -148,7 +135,7 @@ describe('IpcHandlerRegistry', () => {
       ipcHandlerRegistry.dispose();
       ipcHandlerRegistry.dispose();
 
-      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(15);
+      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(expectedRegisteredChannels().length);
     });
   });
 

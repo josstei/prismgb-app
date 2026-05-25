@@ -262,7 +262,7 @@ class SettingsService extends BaseService {
    */
   loadAllPreferences() {
     const preferences = Object.fromEntries(
-      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this.getSetting(name)])
+      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this._getSynchronousSetting(name)])
     );
 
     this.logger.info(

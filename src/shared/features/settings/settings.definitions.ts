@@ -36,9 +36,27 @@ function resolveSettingDefinition(definition: RawSettingsDefinition): ResolvedSe
   };
 }
 
+function shouldLoadAtStartup(definition: ResolvedSettingsDefinition): boolean {
+  if (!('startupPreference' in definition) || definition.startupPreference !== true) {
+    return false;
+  }
+  if ('externalSource' in definition) {
+    throw new Error(`Startup preference must be synchronously readable: ${definition.name}`);
+  }
+  return true;
+}
+
+const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
+const loadAllPreferencesShape = Object.freeze(
+  resolvedDefinitions
+    .filter((definition) => shouldLoadAtStartup(definition))
+    .map((definition) => definition.name)
+);
+
 export const SettingsDefinitions = Object.freeze({
   ...definitions,
-  definitions: Object.freeze(definitions.definitions.map(resolveSettingDefinition))
+  definitions: resolvedDefinitions,
+  loadAllPreferencesShape
 });
 
 export type SettingsDefinitionsManifest = typeof SettingsDefinitions;

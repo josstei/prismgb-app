@@ -21,6 +21,20 @@ function expectMissing(relativePath) {
   expect(fs.existsSync(projectPath(relativePath))).toBe(false);
 }
 
+function expectContainsAll(source, values) {
+  values.forEach((value) => expect(source).toContain(value));
+}
+
+function expectExcludesAll(source, values) {
+  values.forEach((value) => {
+    if (value instanceof RegExp) {
+      expect(source).not.toMatch(value);
+      return;
+    }
+    expect(source).not.toContain(value);
+  });
+}
+
 function collectFiles(relativeDirectory, predicate, files = []) {
   for (const entry of fs.readdirSync(projectPath(relativeDirectory), { withFileTypes: true })) {
     const relativePath = path.posix.join(relativeDirectory, entry.name);
@@ -38,19 +52,45 @@ function collectFiles(relativeDirectory, predicate, files = []) {
 }
 
 describe('Phase 4 clean-break enforcement', () => {
-  it('records Phase 4 as current delivered work instead of future work', () => {
+  it('records Phase 4 as delivered work and keeps canonical test factories on ESM imports', () => {
     const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
-
-    expect(implementationPlan).toContain('Historical phase delivery summary');
-    expect(implementationPlan).toContain('Phase 4 added architecture scorecard enforcement');
-    expect(implementationPlan).toContain('Historical verification detail is intentionally summarized');
-    expect(implementationPlan).not.toContain('Next phase when resumed: Phase 4');
-  });
-
-  it('keeps canonical test factories on ESM imports', () => {
     const factoryIndex = readProjectFile('tests/factories/index.js');
 
+    expect(implementationPlan).toContain('Historical phase delivery summary');
+    expect(implementationPlan).toContain('Phase 4-6 added scorecard enforcement');
+    expect(implementationPlan).toContain('Historical verification detail is intentionally summarized');
+    expect(implementationPlan).not.toContain('Next phase when resumed: Phase 4');
     expect(factoryIndex).not.toMatch(/\brequire\(/);
+  });
+
+  it('keeps HideTimer retirement protected by explicit file and reference guards', () => {
+    expectMissing('src/renderer/presentation/primitives/hide-timer.class.js');
+    expectMissing('tests/unit/ui/primitives/hide-timer.test.js');
+
+    const forbiddenPatterns = [
+      { label: 'HideTimer identifier reference', pattern: /\bHideTimer\b/ },
+      { label: 'hide-timer module/path reference', pattern: /hide-timer/ }
+    ];
+    const violations = [];
+    const candidateFiles = [
+      ...collectFiles('src', (relativePath) => /\.[cm]?[jt]sx?$/.test(relativePath)),
+      ...[
+        'tests/unit/ui',
+        'tests/unit/features/notes/ui',
+        'tests/unit/renderer/presentation/primitives'
+      ].flatMap((root) => collectFiles(root, (relativePath) => /\.[cm]?[jt]sx?$/.test(relativePath)))
+    ];
+
+    candidateFiles.forEach((relativePath) => {
+      const source = readProjectFile(relativePath);
+      forbiddenPatterns.forEach(({ label, pattern }) => {
+        if (pattern.test(source)) {
+          violations.push(`${relativePath}: ${label}`);
+        }
+      });
+    });
+
+    expect(violations).toEqual([]);
   });
 
   it('keeps remaining browser API test globals behind explicit installers', () => {
@@ -91,46 +131,34 @@ describe('Phase 4 clean-break enforcement', () => {
     const sizeReport = readProjectFile('scripts/codebase-size-report.js');
     const packageJson = readProjectJson('package.json');
 
-    expect(GENERATED_PATHS).toContain('artifacts/coverage');
-    expect(GENERATED_PATHS).not.toContain('tests/coverage');
+    expectContainsAll(GENERATED_PATHS, ['artifacts/coverage']);
+    expectExcludesAll(GENERATED_PATHS, ['tests/coverage']);
     expect(GENERATED_PATHS).not.toEqual(expect.arrayContaining(BUILD_OUTPUT_PATHS));
     expect(BUILD_OUTPUT_PATHS).toEqual(['dist', 'release', 'build', 'out']);
-    expect(gitignore).toContain('artifacts/');
-    expect(gitignore).not.toContain('tests/coverage/');
-    expect(sizeReport).not.toContain("'tests/coverage'");
+    expectContainsAll(gitignore, ['artifacts/']);
+    expectExcludesAll(gitignore, ['tests/coverage/']);
+    expectExcludesAll(sizeReport, ["'tests/coverage'"]);
     expect(packageJson.scripts['clean:generated']).toBe('node scripts/clean-generated.js');
     expect(packageJson.scripts['clean:build']).toBe('node scripts/clean-generated.js --build');
   });
 
-  it('keeps feature-map manifest facts inside a generated docs block', () => {
+  it('keeps phase-1 manifest ownership checks tied to generated feature-map and platform facts', () => {
     const featureMap = readProjectFile('docs/feature-map.md');
-    const phase1Drift = readProjectFile('scripts/codebase-phase1-drift-report.js');
-
-    expect(featureMap).toContain('CODEBASE_FEATURE_MAP:START');
-    expect(featureMap).toContain('CODEBASE_FEATURE_MAP:END');
-    expect(featureMap).toContain('Architecture paths');
-    expect(featureMap).toContain('Settings UI');
-    expect(phase1Drift).toContain('feature map generated manifest block is current');
-    expect(phase1Drift).toContain('createFeatureMapGeneratedBlock');
-  });
-
-  it('keeps platform matrix and smoke executable discovery manifest-owned', () => {
     const buildMatrix = readProjectFile('scripts/ci/build-matrix.mjs');
     const smokeTest = readProjectFile('scripts/smoke-test.js');
     const phase1Drift = readProjectFile('scripts/codebase-phase1-drift-report.js');
 
-    expect(buildMatrix).toContain('platforms.manifest.json');
-    expect(buildMatrix).toContain('manifest.platformGroups');
-    expect(buildMatrix).toContain('manifest.smokeInputAliases');
-    expect(buildMatrix).not.toContain('linuxX64');
-    expect(buildMatrix).not.toMatch(/const entries\s*=\s*\{/);
-    expect(smokeTest).toContain('platforms.manifest.json');
-    expect(smokeTest).toContain('smokeExecutablePriority');
-    expect(smokeTest).not.toContain('linux-unpacked');
-    expect(smokeTest).not.toContain('mac-arm64');
-    expect(smokeTest).not.toContain('win-unpacked');
-    expect(phase1Drift).toContain('build matrix derives platform entries from platform manifest');
-    expect(phase1Drift).toContain('smoke test executable discovery derives from platform manifest');
+    expectContainsAll(featureMap, ['CODEBASE_FEATURE_MAP:START', 'CODEBASE_FEATURE_MAP:END', 'Architecture paths', 'Settings UI']);
+    expectContainsAll(buildMatrix, ['platforms.manifest.json', 'manifest.platformGroups', 'manifest.smokeInputAliases']);
+    expectContainsAll(smokeTest, ['platforms.manifest.json', 'smokeExecutablePriority']);
+    expectContainsAll(phase1Drift, [
+      'feature map generated manifest block is current',
+      'createFeatureMapGeneratedBlock',
+      'build matrix derives platform entries from platform manifest',
+      'smoke test executable discovery derives from platform manifest'
+    ]);
+    expectExcludesAll(buildMatrix, ['linuxX64', /const entries\s*=\s*\{/]);
+    expectExcludesAll(smokeTest, ['linux-unpacked', 'mac-arm64', 'win-unpacked']);
   });
 
   it('enforces every Phase 4 architecture ownership ratchet', () => {
@@ -142,7 +170,8 @@ describe('Phase 4 clean-break enforcement', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 60,
+      sourceRuntimeJsFileCountMax: 59,
+      hideTimerRetirementViolationCountMax: 0,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
@@ -178,20 +207,16 @@ describe('Phase 4 clean-break enforcement', () => {
     expect(packageJson.scripts['release:preflight']).toContain('codebase:size -- --enforce-thresholds');
   });
 
-  it('keeps asset module typings current without legacy shim naming', () => {
+  it('keeps asset typings and migrated registries free of legacy compatibility aliases', () => {
     expect(fs.existsSync(projectPath('src/types/legacy-js-modules.d.ts'))).toBe(false);
     expect(fs.existsSync(projectPath('src/types/asset-modules.d.ts'))).toBe(true);
+    const deviceRegistrySource = readProjectFile('src/shared/features/devices/device.registry.js');
+    const typedRegistrySource = readProjectFile('src/shared/registry/typed-registry.factory.ts');
 
     const assetModules = readProjectFile('src/types/asset-modules.d.ts');
 
     expect(assetModules).toContain("declare module '*.svg?raw'");
     expect(assetModules).not.toMatch(/legacy|compat/i);
-  });
-
-  it('keeps migrated registry surfaces free of mutable compatibility aliases', () => {
-    const deviceRegistrySource = readProjectFile('src/shared/features/devices/device.registry.js');
-    const typedRegistrySource = readProjectFile('src/shared/registry/typed-registry.factory.ts');
-
     expect(deviceRegistrySource).not.toMatch(/\bDEVICE_REGISTRY\b/);
     expect(typedRegistrySource).not.toMatch(/getValueMap|getMetadataMap|getFactoryMap/);
   });
@@ -272,16 +297,13 @@ describe('Phase 4 clean-break enforcement', () => {
     const chromaticSupport = readProjectFile('tests/support/chromatic-device-specs.js');
     const mockDevice = readProjectFile('tests/mocks/MockDevice.js');
 
-    expect(electronFixture).toContain("from '../helpers/device-ipc.helper.js'");
-    expect(deviceIpcHelper).toContain("from '../../support/ipc-channels.js'");
-    expect(electronFixture).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
-    expect(deviceIpcHelper).not.toMatch(/const IPC_CHANNELS\s*=\s*\{/);
-    expect(chromaticHelper).toContain("from '../../support/chromatic-device-specs.js'");
-    expect(chromaticSupport).toContain('CHROMATIC_E2E_FIXTURE');
-    expect(chromaticSupport).toContain('CHROMATIC_DEVICE_MANIFEST_ENTRY.fixture');
-    expect(chromaticHelper).toContain('CHROMATIC_E2E_FIXTURE');
-    expect(chromaticHelper).toContain('{ fixture: CHROMATIC_E2E_FIXTURE');
-    expect(mockDevice).toContain("from '../support/chromatic-device-specs.js'");
+    expectContainsAll(electronFixture, ["from '../helpers/device-ipc.helper.js'"]);
+    expectContainsAll(deviceIpcHelper, ["from '../../support/ipc-channels.js'"]);
+    expectExcludesAll(electronFixture, [/const IPC_CHANNELS\s*=\s*\{/]);
+    expectExcludesAll(deviceIpcHelper, [/const IPC_CHANNELS\s*=\s*\{/]);
+    expectContainsAll(chromaticHelper, ["from '../../support/chromatic-device-specs.js'", 'CHROMATIC_E2E_FIXTURE', '{ fixture: CHROMATIC_E2E_FIXTURE']);
+    expectContainsAll(chromaticSupport, ['CHROMATIC_E2E_FIXTURE', 'CHROMATIC_DEVICE_MANIFEST_ENTRY.fixture']);
+    expectContainsAll(mockDevice, ["from '../support/chromatic-device-specs.js'"]);
   });
 
   it('keeps preload exposures and E2E device mocks on current manifest-owned contracts', () => {
@@ -359,14 +381,18 @@ describe('Phase 4 clean-break enforcement', () => {
   it('keeps settings menu controls and recording format options derived from settings definitions', () => {
     const settingsTemplate = readProjectFile('src/renderer/presentation/features/settings/settings-menu.template.js');
 
-    expect(settingsTemplate).toContain('SettingsDefinitions.definitions.find');
-    expect(settingsTemplate).toContain('createSettingsControlsTemplate');
-    expect(settingsTemplate).toContain('definition.ui?.controlId');
-    expect(settingsTemplate).toContain('getRecordingFormatOptions');
-    expect(settingsTemplate).not.toMatch(/id="setting(?:LaunchOnLogin|StatusStrip|FullscreenOnStartup|AutoStreamOnConnect|MinimalistFullscreen|AnimationSaver|RecordingFormat)"/);
-    expect(settingsTemplate).not.toContain('Show Status Bar');
-    expect(settingsTemplate).not.toContain('Auto-start stream');
-    expect(settingsTemplate).not.toMatch(/data-value="(?:webm|mp4|mov)"/);
+    expectContainsAll(settingsTemplate, [
+      'SettingsDefinitions.definitions.find',
+      'createSettingsControlsTemplate',
+      'definition.ui?.controlId',
+      'getRecordingFormatOptions'
+    ]);
+    expectExcludesAll(settingsTemplate, [
+      /id="setting(?:LaunchOnLogin|StatusStrip|FullscreenOnStartup|AutoStreamOnConnect|MinimalistFullscreen|AnimationSaver|RecordingFormat)"/,
+      'Show Status Bar',
+      'Auto-start stream',
+      /data-value="(?:webm|mp4|mov)"/
+    ]);
   });
 
   it('uses streaming-mode as the single streaming body-state contract', () => {

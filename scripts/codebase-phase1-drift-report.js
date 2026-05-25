@@ -10,10 +10,8 @@ import { writeGeneratedArtifact } from './lib/generate-artifacts.js';
 import { createReport, writeJsonReport } from './lib/json-report.js';
 import { compareSortedValues, flattenStringLeaves } from './lib/manifest-drift.js';
 import { extractAliasKeysFromConfigSource } from './lib/alias-config.js';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
-
 const manifestPaths = {
   ipc: 'src/shared/ipc/ipc.manifest.json',
   events: 'src/shared/events/event.manifest.json',
@@ -23,12 +21,9 @@ const manifestPaths = {
   architecture: 'scripts/manifests/architecture.manifest.json',
   platforms: 'scripts/manifests/platforms.manifest.json'
 };
-
 function resolveProjectPath(relativePath) { return path.resolve(projectRoot, relativePath); }
-
 function readProjectJson(relativePath) { return readJsonFile(resolveProjectPath(relativePath)); }
 function readProjectText(relativePath) { return fs.readFileSync(resolveProjectPath(relativePath), 'utf8'); }
-
 function resolvePreloadDeclarationSources(options = {}) {
   if (Array.isArray(options.preloadTypeSources) && options.preloadTypeSources.length > 0) return options.preloadTypeSources;
   if (typeof options.preloadTypeSource === 'string') return [{ filePath: 'src/types/preload-api.d.ts', sourceText: options.preloadTypeSource }];
@@ -36,41 +31,61 @@ function resolvePreloadDeclarationSources(options = {}) {
     .sort()
     .map((filePath) => ({ filePath: path.relative(projectRoot, filePath).split(path.sep).join('/'), sourceText: fs.readFileSync(filePath, 'utf8') }));
 }
-
-function collectIpcManifestChannels(ipcManifest) {
-  return ipcManifest.namespaces.flatMap((namespace) => [...(namespace.invoke || []), ...(namespace.subscriptions || [])].map((entry) => entry.channel));
+function collectIpcManifestEntries(ipcManifest) { return ipcManifest.namespaces.flatMap((namespace) => [...(namespace.invoke || []), ...(namespace.subscriptions || [])].map((entry) => ({ namespace, entry }))); }
+function collectIpcManifestChannels(ipcManifest) { return collectIpcManifestEntries(ipcManifest).map(({ entry }) => entry.channel); }
+function collectIpcManifestMethods(ipcManifest) { return Object.fromEntries(ipcManifest.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods || []])); }
+const resolveIpcChannelFromKey = (ipcChannels, namespaceKey, channelKey) => ipcChannels[namespaceKey]?.[channelKey] || `IPC_CHANNELS.${namespaceKey}.${channelKey}`;
+function collectIpcManifestChannelKeyEntries(ipcManifest, resolveChannel) { return collectIpcManifestEntries(ipcManifest).map(({ namespace, entry }) => `${namespace.namespace}.${entry.channelKey} ${resolveChannel(namespace, entry)}`); }
+function collectIpcManifestSignatureEntries(ipcManifest, section, createManifestSignature) { return ipcManifest.namespaces.flatMap((namespace) => (namespace[section] || []).map((entry) => `${entry.channel} ${createManifestSignature(entry)}`)); }
+const normalizeRegistryMetadataValue = (value) => typeof value === 'string' ? value.trim() : '';
+const derivePublicMethodName = (entry) => normalizeRegistryMetadataValue(entry.factoryMethod || entry.method);
+function collectIpcManifestOwnedMethodIdentities(ipcManifest) { return collectIpcManifestEntries(ipcManifest).map(({ namespace, entry }) => `${namespace.apiName}.${derivePublicMethodName(entry)}`); }
+function createSubscriptionRegistryMetadataCheck(ipcManifest) {
+  const name = 'ipc manifest subscription registry namespaces are explicit';
+  const registryMetadata = ipcManifest.namespaces.flatMap((namespace) => (namespace.subscriptions || []).map((entry) => {
+    const methodName = derivePublicMethodName(entry);
+    const registryNamespace = normalizeRegistryMetadataValue(namespace.registryNamespace);
+    return { methodIdentity: `${namespace.apiName}.${methodName || 'unknown'}`, methodName, registryNamespace };
+  }));
+  const validRegistryMetadata = registryMetadata.filter(({ methodName, registryNamespace }) => methodName && registryNamespace);
+  const metadataCheck = compareSortedValues({ name, expected: registryMetadata.map(({ methodIdentity }) => methodIdentity), actual: validRegistryMetadata.map(({ methodIdentity }) => methodIdentity) });
+  const derivedRegistryKeys = validRegistryMetadata.map(({ methodName, registryNamespace }) => `${registryNamespace}.${methodName}`);
+  const duplicateRegistryKeyCheck = compareSortedValues({ name, expected: [...new Set(derivedRegistryKeys)], actual: derivedRegistryKeys });
+  return { ...metadataCheck, status: metadataCheck.status === 'pass' && duplicateRegistryKeyCheck.status === 'pass' ? 'pass' : 'fail', extra: [...metadataCheck.extra, ...duplicateRegistryKeyCheck.extra] };
 }
-function collectIpcManifestMethods(ipcManifest) {
-  return Object.fromEntries(ipcManifest.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods || []]));
-}
-function collectIpcManifestRequestEntries(ipcManifest) {
-  return ipcManifest.namespaces.flatMap((namespace) => (namespace.invoke || []).map((entry) => `${entry.channel} ${JSON.stringify(entry.request || [])}`));
-}
-function collectIpcManifestSignatureEntries(ipcManifest, section, createManifestSignature) {
-  return ipcManifest.namespaces.flatMap((namespace) => (namespace[section] || []).map((entry) => `${entry.channel} ${createManifestSignature(entry)}`));
-}
-function collectIpcManifestOwnedMethodIdentities(ipcManifest) {
-  return ipcManifest.namespaces.flatMap((namespace) =>
-    [...(namespace.invoke || []), ...(namespace.subscriptions || [])].map((entry) => `${namespace.apiName}.${entry.method}`));
-}
-function collectPreloadDeclarationMethodIdentities({ interfaces, windowApis }) {
-  return [...windowApis.entries()].flatMap(([apiName, interfaceName]) => [...(interfaces.get(interfaceName) || new Map()).entries()]
-    .flatMap(([method, signatures]) => signatures.map(() => `${apiName}.${method}`)));
-}
+function collectPreloadDeclarationMethodIdentities({ interfaces, windowApis }) { return [...windowApis.entries()].flatMap(([apiName, interfaceName]) => [...(interfaces.get(interfaceName) || new Map()).entries()].flatMap(([method, signatures]) => signatures.map(() => `${apiName}.${method}`))); }
 function collectPreloadDeclarationGlobalApiTypeEntries({ globalApis }) {
   return globalApis.filter(({ apiName }) => apiName.endsWith('API')).map(({ apiName, type }) => `${apiName} ${type}`);
 }
 function collectPreloadDeclarationWindowApiEntries({ windowApiEntries }) {
   return windowApiEntries.filter(({ apiName }) => apiName.endsWith('API')).map(({ apiName, optional, type }) => `${apiName}${optional ? '?' : ''}: ${type}`);
 }
-function collectManifestGlobalApiTypeEntries(ipcManifest, { windowApis }) {
-  return ipcManifest.namespaces.map((namespace) => `${namespace.apiName} ${windowApis.get(namespace.apiName) || 'missing-window-api'} | undefined`);
-}
-function collectManifestWindowApiEntries(ipcManifest) {
-  return ipcManifest.namespaces.map((namespace) => `${namespace.apiName}?: ${apiInterfaceName(namespace.apiName)}`);
-}
-
+function collectManifestGlobalApiTypeEntries(ipcManifest, { windowApis }) { return ipcManifest.namespaces.map((namespace) => `${namespace.apiName} ${windowApis.get(namespace.apiName) || 'missing-window-api'} | undefined`); }
+function collectManifestWindowApiEntries(ipcManifest) { return ipcManifest.namespaces.map((namespace) => `${namespace.apiName}?: ${apiInterfaceName(namespace.apiName)}`); }
 function propertyName(node, sourceFile) { return ts.isIdentifier(node) || ts.isStringLiteral(node) ? node.text : node?.getText(sourceFile) || null; }
+function staticStringValue(node) { const value = unwrappedExpression(node); if (!value) return null; if (ts.isStringLiteralLike(value)) return value.text; if (!ts.isBinaryExpression(value) || value.operatorToken.kind !== ts.SyntaxKind.PlusToken) return null; const left = staticStringValue(value.left), right = staticStringValue(value.right); return left === null || right === null ? null : `${left}${right}`; }
+function resolvedPropertyName(node, sourceFile) { if (!node) return { name: null, unresolvedComputed: false }; if (ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) return { name: node.text, unresolvedComputed: false }; if (!ts.isComputedPropertyName(node)) return { name: node?.getText(sourceFile) || null, unresolvedComputed: false }; const resolvedName = staticStringValue(node.expression); return { name: resolvedName, unresolvedComputed: resolvedName === null }; }
+function hasLocalBinding(sourceFile, names) {
+  let found = false;
+  const bindingHasName = (name) => ts.isIdentifier(name) ? names.has(name.text) : ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name) ? name.elements.some((element) => element.name && bindingHasName(element.name)) : false;
+  const visit = (node) => {
+    if (found) return;
+    const importClause = ts.isImportDeclaration(node) ? node.importClause : null;
+    const importBindings = importClause?.namedBindings || null;
+    if (
+      (ts.isVariableDeclaration(node) || ts.isParameter(node)) && bindingHasName(node.name)
+      || (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name && names.has(node.name.text)
+      || importClause && (
+        importClause.name && names.has(importClause.name.text)
+        || importBindings && ts.isNamedImports(importBindings) && importBindings.elements.some((element) => names.has(element.name.text))
+        || importBindings && ts.isNamespaceImport(importBindings) && names.has(importBindings.name.text)
+      )
+    ) found = true;
+    else ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
 function unwrappedType(node) { while (node && ts.isParenthesizedTypeNode(node)) node = node.type; return node; }
 function typeText(node, sourceFile) { return normalizePayloadType(node?.getText(sourceFile) || 'unknown'); }
 function callableType(node) { return ts.isPropertySignature(node) ? unwrappedType(node.type) : null; }
@@ -91,7 +106,6 @@ function createSubscriptionManifestSignature(entry) {
   const payloadType = normalizePayloadType(entry.payload || 'unknown'), callbackSignature = payloadType === 'void' ? 'callback: () => void' : `callback: (payload: ${payloadType}) => void`;
   return `(${callbackSignature}): ${normalizePayloadType(entry.return || 'Unsubscribe')}`;
 }
-
 function collectPreloadDeclarationSurface(preloadDeclarationSources) {
   const interfaces = new Map(), windowApis = new Map(), windowApiEntries = [], globalApis = [];
   for (const { filePath = 'src/types/preload-api.d.ts', sourceText = '' } of preloadDeclarationSources) {
@@ -159,7 +173,7 @@ function collectPreloadDeclarationSignatureEntries(ipcManifest, preloadDeclarati
     const methods = interfaces.get(windowApis.get(namespace.apiName)) || new Map();
     return (namespace[section] || []).map((entry) => {
       const manifestSignature = createManifestSignature(entry);
-      const methodSignatures = methods.get(entry.method) || [];
+      const methodSignatures = methods.get(derivePublicMethodName(entry)) || [];
       return `${entry.channel} ${resolveManifestOwnedDeclarationSignature(methodSignatures, manifestSignature, extractDeclarationSignature)}`;
     });
   });
@@ -173,7 +187,6 @@ function collectTypeReferencesFromTypeText(typeText) {
 function collectTypeReferencesFromManifestParameters(entry) {
   return (entry.parameters || entry.request || []).flatMap((descriptor) => collectTypeReferencesFromTypeText(parseManifestParameterDescriptor(descriptor).type));
 }
-
 function collectIpcManifestPreloadTypeReferences(ipcManifest) {
   return [...new Set(ipcManifest.namespaces.flatMap((namespace) => [
     ...(namespace.invoke || []).flatMap((entry) => collectTypeReferencesFromManifestParameters(entry)),
@@ -182,169 +195,107 @@ function collectIpcManifestPreloadTypeReferences(ipcManifest) {
     ...(namespace.subscriptions || []).flatMap((entry) => collectTypeReferencesFromTypeText(entry.return || 'Unsubscribe'))
   ]))].sort();
 }
-
 function createTypeImportLines(ipcManifest) {
   const typeReferences = collectIpcManifestPreloadTypeReferences(ipcManifest);
   return typeReferences.length === 0 ? [] : ['import type {', ...typeReferences.map((typeName, index) => `  ${typeName}${index === typeReferences.length - 1 ? '' : ','}`), "} from '@shared/ipc/preload-api.contract.js';", ''];
 }
-
-function parseArgumentSchema(schemaSource) {
-  return [...schemaSource.matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
+function collectIpcManifestHandlerMetadataEntries(ipcManifest, validateMetadata = false) {
+  const valid = (metadata) => metadata && Array.isArray(metadata.dependencyTokens) && metadata.dependencyTokens.every((token) => typeof token === 'string' && token.trim()) && ['bare', 'result-envelope'].includes(metadata.responseMode);
+  return ipcManifest.namespaces.flatMap((namespace) => (namespace.invoke || []).flatMap((entry) => !validateMetadata || valid(entry.handler) ? [entry.channel] : []));
 }
-
-function collectIpcHandlerRequestEntries(ipcChannels) {
+function resolveManifestBackedHandlerSources(options = {}) {
+  if (Array.isArray(options.handlerSources) && options.handlerSources.length > 0) return options.handlerSources;
+  const overrideByPath = options.handlerSourceOverrides && typeof options.handlerSourceOverrides === 'object' ? options.handlerSourceOverrides : {};
   const handlersRoot = resolveProjectPath('src/main/ipc/handlers');
-  return fs.readdirSync(handlersRoot)
-    .filter((fileName) => fileName.endsWith('.handler.ts'))
-    .flatMap((fileName) => {
-      const sourceText = fs.readFileSync(path.join(handlersRoot, fileName), 'utf8');
-      return [...sourceText.matchAll(
-        /channel:\s*IPC_CHANNELS\.([A-Z0-9_]+)\.([A-Z0-9_]+)[\s\S]*?argumentSchema:\s*\[([\s\S]*?)\]/g
-      )].map((match) => {
-        const [, namespace, channelKey, schemaSource] = match;
-        const channel = ipcChannels[namespace]?.[channelKey] || `IPC_CHANNELS.${namespace}.${channelKey}`;
-        return `${channel} ${JSON.stringify(parseArgumentSchema(schemaSource))}`;
-      });
-    });
+  return fs.readdirSync(handlersRoot).filter((fileName) => fileName.endsWith('.handler.ts')).sort().map((fileName) => {
+    const filePath = `src/main/ipc/handlers/${fileName}`;
+    return { filePath, sourceText: Object.prototype.hasOwnProperty.call(overrideByPath, filePath) ? String(overrideByPath[filePath] ?? '') : fs.readFileSync(path.join(handlersRoot, fileName), 'utf8') };
+  });
 }
-
 function collectEventManifestValues(eventManifest, scope) {
-  return eventManifest.scopes
-    .filter((entry) => entry.scope === scope)
-    .flatMap((entry) => entry.events.map((event) => event.value));
+  return eventManifest.scopes.filter((entry) => entry.scope === scope).flatMap((entry) => entry.events.map((event) => event.value));
 }
-
-function normalizePayloadType(payloadType) {
-  return String(payloadType).replace(/\s+/g, ' ').trim();
-}
-
+function normalizePayloadType(payloadType) { return String(payloadType).replace(/\s+/g, ' ').trim(); }
 function collectEventManifestPayloadEntries(eventManifest) {
-  return eventManifest.scopes
-    .filter((entry) => entry.scope === 'renderer')
-    .flatMap((entry) => entry.events.map((event) =>
-      `${event.value} ${normalizePayloadType(event.payload)}`
-    ));
+  return eventManifest.scopes.filter((entry) => entry.scope === 'renderer').flatMap((entry) => entry.events.map((event) => `${event.value} ${normalizePayloadType(event.payload)}`));
 }
-
-function collectEventChannelReferenceValues(sourceText) {
+const eventKeyPart = (value) => value.toUpperCase().replace(/-/g, '_'), isSatisfiesExpression = typeof ts.isSatisfiesExpression === 'function' ? ts.isSatisfiesExpression : () => false;
+function unwrappedExpression(node) { while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || isSatisfiesExpression(node) || ts.isNonNullExpression(node))) node = node.expression; return node; }
+function resolveEventChannelValueExpression(node) {
+  if (!node) return null; if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'getRendererChannel') { const [domainArg, nameArg] = node.arguments; return ts.isStringLiteralLike(domainArg) && ts.isStringLiteralLike(nameArg) ? `${domainArg.text}:${nameArg.text}` : null; }
+  return null;
+}
+function collectEventChannelReferenceValues(sourceText, filePath = 'src/shared/events/event-channels.ts') {
+  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true); if (sourceFile.parseDiagnostics.length > 0) return new Map();
   const channelValues = new Map();
-  const domainBlocks = sourceText.matchAll(/([A-Z0-9_]+):\s*\{([\s\S]*?)\n\s*\}/g);
-
-  for (const [, domain, body] of domainBlocks) {
-    for (const [, channelKey, value] of body.matchAll(/([A-Z0-9_]+):\s*['"]([^'"]+)['"]/g)) {
-      channelValues.set(`EventChannels.${domain}.${channelKey}`, value);
+  const visit = (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'EventChannels' && node.initializer) {
+      const initializer = unwrappedExpression(node.initializer); if (!initializer || !ts.isObjectLiteralExpression(initializer)) return;
+      for (const domainProperty of initializer.properties) {
+        if (!ts.isPropertyAssignment(domainProperty)) continue;
+        const domainName = propertyName(domainProperty.name, sourceFile), domainValue = unwrappedExpression(domainProperty.initializer);
+        if (!domainName || !domainValue || !ts.isObjectLiteralExpression(domainValue)) continue;
+        for (const channelProperty of domainValue.properties) {
+          if (!ts.isPropertyAssignment(channelProperty)) continue;
+          const channelKey = propertyName(channelProperty.name, sourceFile), channelValue = resolveEventChannelValueExpression(unwrappedExpression(channelProperty.initializer));
+          if (channelKey && channelValue) channelValues.set(`EventChannels.${domainName}.${channelKey}`, channelValue);
+        }
+      }
     }
-  }
-
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
   return channelValues;
 }
-
+function collectEventManifestChannelPathValueEntries(eventManifest, scope) {
+  return eventManifest.scopes.filter((entry) => entry.scope === scope).flatMap((entry) => entry.events.map((event) => `EventChannels.${eventKeyPart(event.domain)}.${eventKeyPart(event.name)} ${event.value}`));
+}
 function collectEventPayloadMapEntries(payloadSourceText, channelSourceText) {
   const channelValues = collectEventChannelReferenceValues(channelSourceText);
   const payloadMapBody = payloadSourceText.match(/export type EventPayloadMap = \{([\s\S]*?)\n\};/);
   if (!payloadMapBody) return [];
-
-  return [...payloadMapBody[1].matchAll(/\[EventChannels\.([A-Z0-9_]+)\.([A-Z0-9_]+)\]:\s*([^;]+);/g)]
-    .map(([, domain, channelKey, payloadType]) => {
-      const channelReference = `EventChannels.${domain}.${channelKey}`;
-      const channelValue = channelValues.get(channelReference) || channelReference;
-      return `${channelValue} ${normalizePayloadType(payloadType)}`;
-    });
+  return [...payloadMapBody[1].matchAll(/\[EventChannels\.([A-Z0-9_]+)\.([A-Z0-9_]+)\]:\s*([^;]+);/g)].map(([, domain, channelKey, payloadType]) => {
+    const channelReference = `EventChannels.${domain}.${channelKey}`, channelValue = channelValues.get(channelReference) || channelReference;
+    return `${channelValue} ${normalizePayloadType(payloadType)}`;
+  });
 }
-
-function extractStringValuesFromSource(sourceText) {
-  const matches = [...sourceText.matchAll(/['"]([a-z][a-z0-9-]*:[a-z][a-z0-9-]*)['"]/g)];
-  return matches.map((match) => match[1]);
-}
-
+const extractStringValuesFromSource = (sourceText) => [...sourceText.matchAll(/['"]([a-z][a-z0-9-]*:[a-z][a-z0-9-]*)['"]/g)].map((match) => match[1]);
+function collectRendererEventChannelPathValueEntries(sourceText) { return [...collectEventChannelReferenceValues(sourceText).entries()].map(([pathKey, channelValue]) => `${pathKey} ${channelValue}`); }
 function collectMainEventChannelValues(sourceText, eventManifest) {
-  const literalValues = extractStringValuesFromSource(sourceText);
-  if (literalValues.length > 0) return literalValues;
-
-  const derivesFromManifest = sourceText.includes('event.manifest.json');
-  const selectsMainScope = /scope\s*===\s*['"]main['"]/.test(sourceText);
-  const buildsChannelsFromMainScope = /MainEventChannels/.test(sourceText) && /mainScope\.events/.test(sourceText);
+  const literalValues = extractStringValuesFromSource(sourceText); if (literalValues.length > 0) return literalValues;
+  const derivesFromManifest = sourceText.includes('event.manifest.json'), selectsMainScope = /scope\s*===\s*['"]main['"]/.test(sourceText), buildsChannelsFromMainScope = /MainEventChannels/.test(sourceText) && /mainScope\.events/.test(sourceText);
   return derivesFromManifest && selectsMainScope && buildsChannelsFromMainScope ? collectEventManifestValues(eventManifest, 'main') : [];
 }
-
 function extractPreloadExposures(sourceText, ipcManifest = null) {
-  const usesManifestExposureFactory = sourceText.includes('@preload/exposure.factory.js')
-    && sourceText.includes('exposePreloadApis(contextBridge');
-
+  const usesManifestExposureFactory = sourceText.includes('@preload/exposure.factory.js') && sourceText.includes('exposePreloadApis(contextBridge');
   if (usesManifestExposureFactory) return ipcManifest ? collectIpcManifestMethods(ipcManifest) : {};
-
   const exposeRegex = /contextBridge\.exposeInMainWorld\('([^']+)',\s*\{([\s\S]*?)\}\);/g;
   const exposures = {};
-
   for (const match of sourceText.matchAll(exposeRegex)) {
-    const [, apiName, body] = match;
-    exposures[apiName] = [...body.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:/gm)]
-      .map((methodMatch) => methodMatch[1]);
+    const [, apiName, body] = match; exposures[apiName] = [...body.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:/gm)].map((methodMatch) => methodMatch[1]);
   }
-
   return exposures;
 }
-
-function collectManifestDefaults(settingsManifest) {
-  return Object.fromEntries(
-    settingsManifest.definitions.map((definition) => [definition.name, definition.default])
-  );
-}
-
-function collectManifestStorageKeys(settingsManifest) {
-  return settingsManifest.definitions.map((definition) => definition.storageKey);
-}
-
-function storageConfigDerivesSettingsKeys(sourceText) {
-  return sourceText.includes('SettingsDefinitions.definitions.map')
-    && sourceText.includes('definition.storageKey')
-    && sourceText.includes('...SETTINGS_STORAGE_KEYS');
-}
-
+function collectManifestDefaults(settingsManifest) { return Object.fromEntries(settingsManifest.definitions.map((definition) => [definition.name, definition.default])); }
+function collectManifestStorageKeys(settingsManifest) { return settingsManifest.definitions.map((definition) => definition.storageKey); }
+function storageConfigDerivesSettingsKeys(sourceText) { return sourceText.includes('SettingsDefinitions.definitions.map') && sourceText.includes('definition.storageKey') && sourceText.includes('...SETTINGS_STORAGE_KEYS'); }
 function collectRenderPassShaderFiles(renderPassManifest) {
-  const webgpu = renderPassManifest.passes.map((pass) =>
-    `packages/prismgb-gpu/src/infrastructure/webgpu/shaders/${pass.webgpuShader}`
-  );
-  const webgl2 = renderPassManifest.passes.map((pass) =>
-    `packages/prismgb-gpu/src/infrastructure/webgl2/shaders/${pass.webgl2FragmentShader}`
-  );
-  const utilities = renderPassManifest.utilityShaders.map((shader) =>
-    `packages/prismgb-gpu/src/infrastructure/webgl2/shaders/${shader.file}`
-  );
-
+  const webgpu = renderPassManifest.passes.map((pass) => `packages/prismgb-gpu/src/infrastructure/webgpu/shaders/${pass.webgpuShader}`);
+  const webgl2 = renderPassManifest.passes.map((pass) => `packages/prismgb-gpu/src/infrastructure/webgl2/shaders/${pass.webgl2FragmentShader}`);
+  const utilities = renderPassManifest.utilityShaders.map((shader) => `packages/prismgb-gpu/src/infrastructure/webgl2/shaders/${shader.file}`);
   return [...webgpu, ...webgl2, ...utilities];
 }
-
-function renderPassOwnsUniformMetadata(pass) {
-  return Boolean(
-    pass.webgpuUniformLayout &&
-    typeof pass.webgpuUniformLayout.byteLength === 'number' &&
-    Array.isArray(pass.webgpuUniformLayout.members) &&
-    pass.webgpuUniformLayout.members.length > 0 &&
-    pass.webgpuUniformLayout.members.every((member) => member.source) &&
-    pass.webgl2Uniforms &&
-    pass.webgl2Uniforms.texture &&
-    Array.isArray(pass.webgl2Uniforms.additional)
-  );
-}
-
-function collectTsconfigAliases(tsconfigPath) {
-  const parsed = readProjectJson(tsconfigPath);
-  return [...new Set(
-    Object.keys(parsed.compilerOptions?.paths || {}).map((alias) => alias.replace(/\/\*$/, ''))
-  )];
-}
-
+function renderPassOwnsUniformMetadata(pass) { return Boolean(pass.webgpuUniformLayout && typeof pass.webgpuUniformLayout.byteLength === 'number' && Array.isArray(pass.webgpuUniformLayout.members) && pass.webgpuUniformLayout.members.length > 0 && pass.webgpuUniformLayout.members.every((member) => member.source) && pass.webgl2Uniforms && pass.webgl2Uniforms.texture && Array.isArray(pass.webgl2Uniforms.additional)); }
+function collectTsconfigAliases(tsconfigPath) { return [...new Set(Object.keys(readProjectJson(tsconfigPath).compilerOptions?.paths || {}).map((alias) => alias.replace(/\/\*$/, '')))]; }
 function extractViteAliasKeys() {
   const sourceText = readProjectText('vite.config.js');
   return extractAliasKeysFromConfigSource(sourceText, 'vite.config.js');
 }
-
 function extractVitestAliasKeys() {
   const sourceText = readProjectText('vitest.config.js');
   return extractAliasKeysFromConfigSource(sourceText, 'vitest.config.js');
 }
-
 function runBuildMatrix(args) {
   const output = execFileSync(process.execPath, ['scripts/ci/build-matrix.mjs', ...args], {
     cwd: projectRoot,
@@ -352,9 +303,7 @@ function runBuildMatrix(args) {
   });
   return JSON.parse(output);
 }
-
 function apiInterfaceName(apiName) { return `${apiName[0].toUpperCase()}${apiName.slice(1)}`; }
-
 function createPreloadDeclarationPreview(ipcManifest) {
   const lines = [
     '// Generated by PrismGB tooling.',
@@ -366,19 +315,17 @@ function createPreloadDeclarationPreview(ipcManifest) {
     'type Unsubscribe = () => void;',
     ''
   ];
-
   for (const namespace of ipcManifest.namespaces) {
     lines.push(`interface ${apiInterfaceName(namespace.apiName)} {`);
     for (const method of namespace.exposedMethods) {
-      const invokeEntries = (namespace.invoke || []).filter((entry) => entry.method === method);
-      const subscriptionEntries = (namespace.subscriptions || []).filter((entry) => entry.method === method);
+      const invokeEntries = (namespace.invoke || []).filter((entry) => derivePublicMethodName(entry) === method);
+      const subscriptionEntries = (namespace.subscriptions || []).filter((entry) => derivePublicMethodName(entry) === method);
       if (invokeEntries.length === 1 && subscriptionEntries.length === 0) { lines.push(`  ${method}${createInvokeManifestSignature(invokeEntries[0])};`); continue; }
       if (subscriptionEntries.length === 1 && invokeEntries.length === 0) { lines.push(`  ${method}${createSubscriptionManifestSignature(subscriptionEntries[0])};`); continue; }
       lines.push(`  ${method}(...args: unknown[]): unknown;`);
     }
     lines.push('}', '');
   }
-
   lines.push('declare global {', '  interface Window {');
   for (const namespace of ipcManifest.namespaces) lines.push(`    ${namespace.apiName}?: ${apiInterfaceName(namespace.apiName)};`);
   lines.push('  }', '');
@@ -386,7 +333,6 @@ function createPreloadDeclarationPreview(ipcManifest) {
   lines.push('}', '');
   return `${lines.join('\n')}`;
 }
-
 function createDocsFragment(manifests) {
   const rows = [
     ['IPC namespaces', manifests.ipc.namespaces.length],
@@ -399,7 +345,6 @@ function createDocsFragment(manifests) {
     ['Architecture aliases', manifests.architecture.aliases.length],
     ['Platform targets', manifests.platforms.platforms.length]
   ];
-
   return [
     '<!-- CODEBASE_PHASE1_MANIFESTS:START -->',
     '| Surface | Count |',
@@ -409,9 +354,12 @@ function createDocsFragment(manifests) {
     ''
   ].join('\n');
 }
-
 function formatInlineCodeList(values) { return values.length === 0 ? 'None' : values.map((value) => `\`${value}\``).join(', '); }
-
+function collectStartupPreferenceNames(settingsManifest) {
+  return (settingsManifest.definitions || [])
+    .filter((definition) => definition.startupPreference === true)
+    .map((definition) => definition.name);
+}
 function createFeatureMapGeneratedBlock(manifests) {
   const architectureAliases = manifests.architecture.aliases.map((alias) => alias.id);
   const architectureLayers = manifests.architecture.layers.map((layer) => layer.id);
@@ -424,7 +372,6 @@ function createFeatureMapGeneratedBlock(manifests) {
     .filter((definition) => definition.ui?.controlId)
     .sort((left, right) => (left.ui.order ?? 0) - (right.ui.order ?? 0))
     .map((definition) => `\`${definition.name}\` -> \`${definition.ui.controlId}\``);
-
   return [
     '<!-- CODEBASE_FEATURE_MAP:START -->',
     '| Manifest surface | Generated facts |',
@@ -432,54 +379,103 @@ function createFeatureMapGeneratedBlock(manifests) {
     `| Architecture paths | aliases: ${formatInlineCodeList(architectureAliases)}; layers: ${formatInlineCodeList(architectureLayers)}; retired: ${formatInlineCodeList(retiredAliases)} |`,
     `| Devices | ${devices.join('<br>')} |`,
     `| Settings UI | ${settingsUiControls.join(', ')} |`,
-    `| Startup preferences | ${formatInlineCodeList(manifests.settings.loadAllPreferencesShape)} |`,
+    `| Startup preferences | ${formatInlineCodeList(collectStartupPreferenceNames(manifests.settings))} |`,
     '<!-- CODEBASE_FEATURE_MAP:END -->',
     ''
   ].join('\n');
 }
-
-function extractMarkedBlock(sourceText, markerName) {
-  const start = `<!-- ${markerName}:START -->`;
-  const end = `<!-- ${markerName}:END -->`;
-  const startIndex = sourceText.indexOf(start);
-  const endIndex = sourceText.indexOf(end);
-
-  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-    return null;
-  }
-
-  return sourceText.slice(startIndex, endIndex + end.length).trimEnd();
-}
-
+function extractMarkedBlock(sourceText, markerName) { const start = `<!-- ${markerName}:START -->`, end = `<!-- ${markerName}:END -->`, startIndex = sourceText.indexOf(start), endIndex = sourceText.indexOf(end); return startIndex === -1 || endIndex === -1 || endIndex < startIndex ? null : sourceText.slice(startIndex, endIndex + end.length).trimEnd(); }
 function loadManifests() {
   return Object.fromEntries(Object.entries(manifestPaths).map(([key, manifestPath]) => [key, readProjectJson(manifestPath)]));
 }
-
-function createDerivedSourceCheck({ name, sourceText, requiredFragments }) {
-  const missingFragments = requiredFragments.filter((fragment) => !sourceText.includes(fragment));
-  return { name, status: missingFragments.length === 0 ? 'pass' : 'fail', expectedCount: requiredFragments.length, actualCount: requiredFragments.length - missingFragments.length, missing: missingFragments, extra: [] };
+function createDerivedSourceCheck({ name, sourceText, requiredFragments }) { const missingFragments = requiredFragments.filter((fragment) => !sourceText.includes(fragment)); return { name, status: missingFragments.length === 0 ? 'pass' : 'fail', expectedCount: requiredFragments.length, actualCount: requiredFragments.length - missingFragments.length, missing: missingFragments, extra: [] }; }
+const defaultRendererManifestBridgeConsumers = Object.freeze({ updateAPI: { filePath: 'src/renderer/infrastructure/services/updates/update.service.ts', mode: 'bridge' }, transcodeAPI: { filePath: 'src/renderer/infrastructure/services/transcode/transcode.service.ts', mode: 'bridge' }, deviceAPI: { filePath: 'src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', mode: 'bridge' }, windowAPI: { filePath: 'src/renderer/infrastructure/services/settings/fullscreen.service.ts', mode: 'direct' } });
+function normalizeRendererManifestBridgeConsumerEntry(consumer) {
+  if (typeof consumer === 'string') return { filePath: consumer, mode: 'bridge' };
+  if (!consumer || typeof consumer !== 'object') return null;
+  const filePath = typeof consumer.filePath === 'string' ? consumer.filePath : null;
+  const mode = consumer.mode === 'direct' ? 'direct' : 'bridge';
+  return filePath ? { filePath, mode } : null;
 }
-
-function createGeneratedBlockCheck({ name, sourceText, markerName, expectedBlock }) {
-  const actualBlock = extractMarkedBlock(sourceText, markerName);
-  const expected = expectedBlock.trimEnd(), pass = actualBlock === expected;
-  return {
-    name,
-    status: pass ? 'pass' : 'fail',
-    expected,
-    actual: actualBlock ?? 'missing',
-    missing: actualBlock ? [] : [`${markerName}:START`],
-    extra: actualBlock && !pass ? ['generated block drift'] : []
+function resolveRendererManifestBridgeConsumers(options = {}) {
+  const consumers = new Map(Object.entries(defaultRendererManifestBridgeConsumers).map(([apiName, consumer]) => [apiName, { ...consumer }]));
+  const configuredConsumers = options.rendererBridgeConsumers && typeof options.rendererBridgeConsumers === 'object' ? options.rendererBridgeConsumers : {};
+  for (const [apiName, consumer] of Object.entries(configuredConsumers)) { if (consumer === null) { consumers.delete(apiName); continue; } const normalized = normalizeRendererManifestBridgeConsumerEntry(consumer); if (normalized) consumers.set(apiName, normalized); }
+  return consumers;
+}
+const memberAccessName = (node) => ts.isPropertyAccessExpression(node) ? node.name.text : ts.isElementAccessExpression(node) ? staticStringValue(node.argumentExpression) : null;
+const memberAccessTarget = (node) => ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) ? node.expression : null;
+const isCallNamed = (node, name) => ts.isCallExpression(node) && (ts.isIdentifier(node.expression) && node.expression.text === name || memberAccessName(node.expression) === name);
+const isLiveEventBridgeAssignment = (node) => ts.isBinaryExpression(node.parent) && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken && node.parent.right === node && ts.isPropertyAccessExpression(node.parent.left) && node.parent.left.expression.kind === ts.SyntaxKind.ThisKeyword && node.parent.left.name.text === '_eventBridge';
+const isTrackedPreloadApiExpression = (node, apiName, sourceFile) => { const value = unwrappedExpression(node), target = value && memberAccessTarget(value); return Boolean(value && memberAccessName(value) === apiName && ['window', 'globalThis'].includes(target?.getText(sourceFile))); };
+const isExpectedGlobalApiExpression = (node, apiName, sourceFile, globalsShadowed = false) => !globalsShadowed && isTrackedPreloadApiExpression(node, apiName, sourceFile);
+const allowedManifestBridgeOptionKeys = new Set(['api', 'apiName', 'bridgeName', 'logger', 'handlers']), allowedTrackedApiArgumentCalls = new Set(['Boolean']);
+const isTrackedPreloadApiRoute = (node, trackedApiValues) => { const receiver = ts.isCallExpression(node) ? memberAccessTarget(node.expression) : null, args = node.arguments || [], opaque = (argument) => { const value = unwrappedExpression(argument); return Boolean(value && (ts.isCallExpression(value) || ts.isNewExpression(value) || ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value) || ts.isSpreadElement(value) && opaque(value.expression) || ts.isConditionalExpression(value) && (opaque(value.whenTrue) || opaque(value.whenFalse)) || ts.isBinaryExpression(value) && (opaque(value.left) || opaque(value.right)) || ts.isObjectLiteralExpression(value) && value.properties.some((property) => ts.isPropertyAssignment(property) && opaque(property.initializer) || ts.isSpreadAssignment(property) && opaque(property.expression)) || ts.isArrayLiteralExpression(value) && value.elements.some(opaque))); }, safeReceiver = (expression) => { const target = memberAccessTarget(expression)?.getText() || '', name = memberAccessName(expression) || ''; return /^(console|Array)\b/.test(target) || /^this\.(logger|eventBus|_eventBridge)\b/.test(target) || target === 'this' && name.startsWith('_') || /^window\.(updateAPI|transcodeAPI|shellAPI|metricsAPI|gpuAPI|loginItemAPI)\b/.test(target) || /^globalThis\./.test(target); }, helperCallee = ts.isNewExpression(node) || ts.isCallExpression(node) && (ts.isIdentifier(node.expression) || memberAccessName(node.expression) && !safeReceiver(node.expression)); return Boolean(receiver && trackedApiValues.containsContainer(receiver) || args.some((argument) => trackedApiValues.contains(argument)) || helperCallee && args.some(opaque)); };
+function collectTrackedPreloadApiValueAliases(sourceFile, expectedApiName) {
+  const aliases = new Set(), containers = new Set(), getters = new Set(), classGetters = new Set(), mark = (set, name) => { if (!set.has(name)) { set.add(name); return true; } return false; }, bindingNames = (name) => ts.isIdentifier(name) ? [name.text] : ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name) ? name.elements.flatMap((element) => element.name ? bindingNames(element.name) : []) : ts.isObjectLiteralExpression(name) ? name.properties.flatMap((property) => ts.isShorthandPropertyAssignment(property) ? [property.name.text] : ts.isPropertyAssignment(property) ? bindingNames(property.initializer) : ts.isSpreadAssignment(property) ? bindingNames(property.expression) : []) : ts.isArrayLiteralExpression(name) ? name.elements.flatMap(bindingNames) : ts.isSpreadElement(name) ? bindingNames(name.expression) : [];
+  const valueKey = (node) => { const value = unwrappedExpression(node); if (!value) return null; if (ts.isIdentifier(value)) return value.text; if (ts.isPropertyAccessExpression(value)) { const target = valueKey(value.expression); return target ? `${target}.${value.name.text}` : value.getText(sourceFile); } if (ts.isElementAccessExpression(value) && ts.isStringLiteralLike(value.argumentExpression)) { const target = valueKey(value.expression); return target ? `${target}.${value.argumentExpression.text}` : value.getText(sourceFile); } return null; }, bindingKeys = (name) => { const key = valueKey(name); return [...bindingNames(name), ...(key ? [key] : [])]; }, functionReturns = (node) => { const body = node?.body; return Boolean(body && (ts.isBlock(body) ? body.statements.some((statement) => ts.isReturnStatement(statement) && contains(statement.expression)) : contains(body))); }, containerTargets = (left, rightContainer) => rightContainer ? bindingKeys(left) : ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left) ? bindingKeys(left.expression) : [], hasGetterPrefix = (source) => { const key = valueKey(source); return Boolean(key && [...getters].some((getter) => getter.startsWith(`${key}.`))); }, copyGetters = (target, source) => { const key = valueKey(source); return Boolean(key && bindingKeys(target).flatMap((targetKey) => [...getters].filter((getter) => getter.startsWith(`${key}.`)).map((getter) => mark(getters, `${targetKey}.${getter.slice(key.length + 1)}`))).some(Boolean)); }, classGetterCall = (call) => { const expression = unwrappedExpression(call.expression), receiver = expression && ts.isPropertyAccessExpression(expression) ? unwrappedExpression(expression.expression) : null; return Boolean(expression && ts.isPropertyAccessExpression(expression) && receiver && ts.isNewExpression(receiver) && ts.isIdentifier(receiver.expression) && classGetters.has(`${receiver.expression.text}.${expression.name.text}`)); }, markObjectGetters = (target, source) => { const object = unwrappedExpression(source), bases = bindingKeys(target); return Boolean(object && ts.isObjectLiteralExpression(object) && bases.flatMap((base) => object.properties.map((property) => [base, property])).some(([base, property]) => { const name = property.name && propertyName(property.name, sourceFile), returns = ts.isPropertyAssignment(property) && functionReturns(property.initializer) || (ts.isMethodDeclaration(property) || ts.isGetAccessorDeclaration(property)) && functionReturns(property); return Boolean(name && returns && mark(ts.isGetAccessorDeclaration(property) ? aliases : getters, `${base}.${name}`)); })); };
+  const providerOpaque = (node) => { const value = unwrappedExpression(node); return Boolean(value && (ts.isCallExpression(value) || ts.isNewExpression(value) || ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value) || ts.isSpreadElement(value) && providerOpaque(value.expression) || ts.isConditionalExpression(value) && (providerOpaque(value.whenTrue) || providerOpaque(value.whenFalse)) || ts.isBinaryExpression(value) && (providerOpaque(value.left) || providerOpaque(value.right)) || ts.isObjectLiteralExpression(value) && value.properties.some((property) => ts.isPropertyAssignment(property) && providerOpaque(property.initializer) || ts.isSpreadAssignment(property) && providerOpaque(property.expression)) || ts.isArrayLiteralExpression(value) && value.elements.some(providerOpaque))); };
+  const opaqueAssignment = (target, source) => { const value = unwrappedExpression(source); return Boolean(providerOpaque(value) && (bindingKeys(target).some((name) => /api|args|deps/i.test(name)) || value && (ts.isObjectLiteralExpression(value) || ts.isArrayLiteralExpression(value)))); };
+  const containsContainer = (node) => { const value = unwrappedExpression(node), key = valueKey(value); return Boolean(value && (key && containers.has(key) || ts.isSpreadElement(value) && containsContainer(value.expression) || (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) && containsContainer(value.expression) || ts.isObjectLiteralExpression(value) && value.properties.some((property) => ts.isPropertyAssignment(property) && contains(property.initializer) || ts.isShorthandPropertyAssignment(property) && aliases.has(property.name.text) || ts.isSpreadAssignment(property) && contains(property.expression)) || ts.isArrayLiteralExpression(value) && value.elements.some(contains))); };
+  const contains = (node) => { const value = unwrappedExpression(node), key = valueKey(value); return Boolean(value && (isTrackedPreloadApiExpression(value, expectedApiName, sourceFile) || key && aliases.has(key) || ts.isSpreadElement(value) && contains(value.expression) || (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) && contains(value.expression) || ts.isConditionalExpression(value) && (contains(value.whenTrue) || contains(value.whenFalse)) || ts.isBinaryExpression(value) && (contains(value.left) || contains(value.right)) || ts.isCallExpression(value) && (getters.has(valueKey(value.expression)) || classGetterCall(value)) || containsContainer(value))); };
+  let grew = true; while (grew) { grew = false; const visit = (node) => { if (ts.isVariableDeclaration(node) && (functionReturns(node.initializer) || getters.has(valueKey(node.initializer)))) grew = bindingKeys(node.name).some((name) => mark(getters, name)) || grew; if (ts.isVariableDeclaration(node) && (markObjectGetters(node.name, node.initializer) || copyGetters(node.name, node.initializer) || hasGetterPrefix(node.initializer) && bindingNames(node.name).some((name) => mark(getters, name)))) grew = true; if (ts.isFunctionDeclaration(node) && node.name && functionReturns(node)) grew = mark(getters, node.name.text) || grew; if (ts.isClassDeclaration(node) && node.name) for (const member of node.members) { const name = member.name && propertyName(member.name, sourceFile); if (name && (ts.isMethodDeclaration(member) || ts.isGetAccessorDeclaration(member)) && functionReturns(member)) grew = mark(classGetters, `${node.name.text}.${name}`) || grew; } if (ts.isVariableDeclaration(node) && (contains(node.initializer) || opaqueAssignment(node.name, node.initializer))) grew = bindingNames(node.name).some((name) => mark(aliases, name)) || grew; if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && containsContainer(node.initializer)) grew = mark(containers, node.name.text) || grew; if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && (markObjectGetters(node.left, node.right) || copyGetters(node.left, node.right) || functionReturns(node.right) && valueKey(node.left) && mark(getters, valueKey(node.left)) || hasGetterPrefix(node.right) && bindingNames(node.left).some((name) => mark(getters, name)))) grew = true; if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && (contains(node.right) || opaqueAssignment(node.left, node.right))) grew = bindingKeys(node.left).some((name) => mark(aliases, name)) || containerTargets(node.left, containsContainer(node.right)).some((name) => mark(containers, name)) || grew; ts.forEachChild(node, visit); }; visit(sourceFile); }
+  return { contains, containsContainer };
+}
+function collectRendererSubscriptionReferenceEntries(sourceFile, expectedApiName, subscriptionMethods, allowedRanges, trackedApiValues) {
+  const subscriptionReferences = new Set(), directSubscriptionCalls = new Set(), computedPropertyEntries = new Set();
+  const globalsShadowed = hasLocalBinding(sourceFile, new Set(['window', 'globalThis']));
+  const isAllowed = (node) => Boolean(node && allowedRanges.some(([start, end]) => node.pos >= start && node.end <= end));
+  const addSubscriptionReference = (value, node) => { if (value && subscriptionMethods.has(value) && !isAllowed(node)) subscriptionReferences.add(`${expectedApiName}.${value}`); };
+  const visit = (node) => {
+    const value = ts.isIdentifier(node) || ts.isStringLiteralLike(node) ? node.text : null;
+    addSubscriptionReference(value, node);
+    if (ts.isCallExpression(node)) { const methodName = memberAccessName(node.expression), receiver = memberAccessTarget(node.expression); if (!globalsShadowed && methodName && subscriptionMethods.has(methodName) && receiver && isTrackedPreloadApiExpression(receiver, expectedApiName, sourceFile) && !isAllowed(node.expression)) directSubscriptionCalls.add(`${expectedApiName}.${methodName}`); }
+    if (ts.isElementAccessExpression(node)) { const resolvedName = staticStringValue(node.argumentExpression); if (resolvedName) addSubscriptionReference(resolvedName, node.argumentExpression || node); else if (trackedApiValues.contains(node.expression) && !isAllowed(node)) computedPropertyEntries.add(`${expectedApiName}.computedProperty`); }
+    ts.forEachChild(node, visit);
   };
+  visit(sourceFile);
+  return { subscriptionReferences: [...subscriptionReferences], directSubscriptionCalls: [...directSubscriptionCalls], computedPropertyEntries: [...computedPropertyEntries] };
+}
+function collectRendererManifestBridgeEntries(ipcManifest, options = {}) {
+  const consumers = resolveRendererManifestBridgeConsumers(options), actual = [], extra = [], expected = [], overrides = options.rendererBridgeSourceOverrides || {}, totalManifestSubscriptionCount = ipcManifest.namespaces.reduce((count, namespace) => count + (namespace.subscriptions || []).length, 0);
+  for (const [expectedApiName, consumer] of consumers.entries()) {
+    const subscriptions = ipcManifest.namespaces.find((namespace) => namespace.apiName === expectedApiName)?.subscriptions || [], filePath = consumer.filePath;
+    expected.push(...subscriptions.map((entry) => `${expectedApiName}.${derivePublicMethodName(entry)}`)); const sourceText = Object.prototype.hasOwnProperty.call(overrides, filePath) ? String(overrides[filePath] ?? '') : readProjectText(filePath), sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
+    if (sourceFile.parseDiagnostics.length > 0) { extra.push(`${filePath}: parseDiagnostics`); continue; }
+    const allowedSubscriptionNameRanges = [], subscriptionMethods = new Set(subscriptions.map((entry) => derivePublicMethodName(entry))), globalsShadowed = hasLocalBinding(sourceFile, new Set(['window', 'globalThis'])), trackedApiValues = collectTrackedPreloadApiValueAliases(sourceFile, expectedApiName);
+    let liveBridgeAssignmentDetected = false;
+    if (sourceText.includes('createPreloadEventBridge')) extra.push(`${filePath}: createPreloadEventBridge`);
+    const visit = (node) => {
+      if (isCallNamed(node, 'createManifestPreloadEventBridge') && isLiveEventBridgeAssignment(node)) { const optionsArg = unwrappedExpression(node.arguments[0]); if (optionsArg && ts.isObjectLiteralExpression(optionsArg)) {
+        liveBridgeAssignmentDetected = true;
+        let apiName = null, apiExpression = null, apiMatchesExpected = false, handlers = null; for (const property of optionsArg.properties) { if (ts.isSpreadAssignment(property)) { extra.push(`${filePath}: options spread`); continue; } if (ts.isPropertyAssignment(property)) { const { name: key, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile), value = unwrappedExpression(property.initializer); if (unresolvedComputed) { extra.push(`${filePath}: option computedProperty`); continue; } if (!allowedManifestBridgeOptionKeys.has(key)) extra.push(`${filePath}: option ${key || 'unknown'}`); if (key === 'apiName' && value && ts.isStringLiteralLike(value)) apiName = value.text; if (key === 'api') { apiExpression = value?.getText(sourceFile); apiMatchesExpected = isExpectedGlobalApiExpression(value, expectedApiName, sourceFile, globalsShadowed); } if (key === 'handlers') handlers = value; } else extra.push(`${filePath}: option ${property.getText(sourceFile)}`); }
+        if (apiName !== expectedApiName) extra.push(`${filePath}: apiName ${apiName || 'missing'}`);
+        if (!apiMatchesExpected) extra.push(`${filePath}: api ${apiExpression || 'missing'}`);
+        if (apiName && handlers && ts.isObjectLiteralExpression(handlers)) for (const property of handlers.properties) { if (ts.isSpreadAssignment(property)) extra.push(`${filePath}: handler spread`); else if (property.name) { allowedSubscriptionNameRanges.push([property.name.pos, property.name.end]); const { name: handlerName, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile); if (unresolvedComputed) extra.push(`${filePath}: handler computedProperty`); else if (handlerName) actual.push(`${apiName}.${handlerName}`); } }
+      } }
+      if (consumer.mode === 'bridge' && (ts.isCallExpression(node) || ts.isNewExpression(node)) && !(ts.isCallExpression(node) && (isCallNamed(node, 'createManifestPreloadEventBridge') || ts.isIdentifier(node.expression) && allowedTrackedApiArgumentCalls.has(node.expression.text))) && isTrackedPreloadApiRoute(node, trackedApiValues)) extra.push(`${filePath}: ${expectedApiName} helper argument`);
+      ts.forEachChild(node, visit); };
+    visit(sourceFile);
+    const { subscriptionReferences, directSubscriptionCalls, computedPropertyEntries } = collectRendererSubscriptionReferenceEntries(sourceFile, expectedApiName, subscriptionMethods, allowedSubscriptionNameRanges, trackedApiValues);
+    if (consumer.mode === 'direct' && !liveBridgeAssignmentDetected) actual.push(...directSubscriptionCalls); else extra.push(...subscriptionReferences.map((entry) => `${filePath}: ${entry}`));
+    extra.push(...computedPropertyEntries.map((entry) => `${filePath}: ${entry}`));
+  } return { expected, actual, extra, totalManifestSubscriptionCount };
+}
+function createRendererManifestBridgeUsageCheck(ipcManifest, options = {}) {
+  const { expected, actual, extra, totalManifestSubscriptionCount } = collectRendererManifestBridgeEntries(ipcManifest, options), check = compareSortedValues({ name: 'renderer preload bridge wiring derives subscriptions from ipc manifest', expected, actual });
+  const expectedCountMatchesManifest = check.expectedCount === totalManifestSubscriptionCount;
+  const coverageFailures = expectedCountMatchesManifest ? [] : [`renderer subscription coverage mismatch expected=${check.expectedCount} manifest=${totalManifestSubscriptionCount}`];
+  return { ...check, status: check.status === 'pass' && coverageFailures.length === 0 && extra.length === 0 ? 'pass' : 'fail', extra: [...check.extra, ...coverageFailures, ...extra] };
+}
+function createGeneratedBlockCheck({ name, sourceText, markerName, expectedBlock }) {
+  const actualBlock = extractMarkedBlock(sourceText, markerName), expected = expectedBlock.trimEnd(), pass = actualBlock === expected;
+  return { name, status: pass ? 'pass' : 'fail', expected, actual: actualBlock ?? 'missing', missing: actualBlock ? [] : [`${markerName}:START`], extra: actualBlock && !pass ? ['generated block drift'] : [] };
 }
 function createExactSourceCheck({ name, sourceText, expectedText }) {
   const expected = expectedText.trimEnd(), actual = sourceText.trimEnd(), pass = actual === expected;
   return { name, status: pass ? 'pass' : 'fail', expected, actual, missing: pass ? [] : ['generated source parity'], extra: pass ? [] : ['checked-in source drift'] };
 }
-function createModeCheck(name, mode) {
-  const pass = mode === 'enforced';
-  return { name, status: pass ? 'pass' : 'fail', expected: 'enforced', actual: mode, missing: pass ? [] : ['mode=enforced'], extra: [] };
-}
+function createModeCheck(name, mode) { const pass = mode === 'enforced'; return { name, status: pass ? 'pass' : 'fail', expected: 'enforced', actual: mode, missing: pass ? [] : ['mode=enforced'], extra: [] }; }
 function createTypecheckSourceCheck({ name, filePath, sourceText }) {
   const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
   const importedContractTypes = sourceFile.statements.flatMap((statement) => ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) && statement.moduleSpecifier.text === '@shared/ipc/preload-api.contract.js' && ts.isNamedImports(statement.importClause?.namedBindings) ? statement.importClause.namedBindings.elements.map((element) => (element.propertyName || element.name).text) : []);
@@ -498,38 +494,60 @@ function createTypecheckSourceCheck({ name, filePath, sourceText }) {
   const failures = [...missingExports, ...diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, ' '))];
   return { name, status: failures.length === 0 ? 'pass' : 'fail', expected: 'valid TypeScript declaration', actual: failures.join('\n') || 'valid', missing: failures, extra: [] };
 }
-
+const manifestBackedHandlerForbiddenMetadataKeys = new Set(['channel', 'argumentSchema', 'dependencyTokens', 'responseMode']);
+function collectManifestBackedHandlerDescriptors(options = {}) {
+  const methodIdentities = [], localMetadataEntries = [];
+  for (const { filePath = 'src/main/ipc/handlers/unknown.handler.ts', sourceText = '' } of resolveManifestBackedHandlerSources(options)) {
+    const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true); if (sourceFile.parseDiagnostics.length > 0) { localMetadataEntries.push(`${filePath}.parseDiagnostics`); continue; }
+    const visit = (node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'defineManifestIpcHandlers') {
+        const [apiNameArgument, descriptorsArgument] = node.arguments;
+        if (!ts.isStringLiteralLike(apiNameArgument)) return; const apiName = apiNameArgument.text, descriptors = unwrappedExpression(descriptorsArgument);
+        if (!descriptors || !ts.isArrayLiteralExpression(descriptors)) return;
+        for (const descriptorExpression of descriptors.elements) { if (ts.isSpreadElement(descriptorExpression)) { localMetadataEntries.push(`${apiName}.unknown.descriptorSpread`); continue; }
+          const descriptorObject = unwrappedExpression(descriptorExpression); if (!descriptorObject || !ts.isObjectLiteralExpression(descriptorObject)) continue;
+          let methodName = null;
+          for (const property of descriptorObject.properties) if (ts.isPropertyAssignment(property) && resolvedPropertyName(property.name, sourceFile).name === 'method') {
+            const methodValue = unwrappedExpression(property.initializer);
+            if (methodValue && ts.isStringLiteralLike(methodValue)) methodName = methodValue.text;
+          }
+          for (const property of descriptorObject.properties) {
+            if (ts.isSpreadAssignment(property)) { localMetadataEntries.push(`${apiName}.${methodName || 'unknown'}.spread`); continue; }
+            if (!property.name) continue;
+            const { name: propertyKey, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile);
+            if (unresolvedComputed) {
+              localMetadataEntries.push(`${apiName}.${methodName || 'unknown'}.computedPropertyName`);
+              continue;
+            }
+            if (propertyKey && manifestBackedHandlerForbiddenMetadataKeys.has(propertyKey)) localMetadataEntries.push(`${apiName}.${methodName || 'unknown'}.${propertyKey}`);
+          }
+          if (methodName) methodIdentities.push(`${apiName}.${methodName}`);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+  }
+  return { methodIdentities, localMetadataEntries };
+}
 function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   const checks = [];
-
   const ipcChannels = readProjectJson('src/shared/ipc/channels.json');
   const currentChannels = flattenStringLeaves(ipcChannels);
-  const ipcExposureIdentities = manifests.ipc.namespaces.flatMap((namespace) => [
-    namespace.apiName,
-    ...(namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`)
-  ]);
-  const ipcExposedMethodIdentities = manifests.ipc.namespaces.flatMap((namespace) =>
-    (namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`));
-  checks.push(compareSortedValues({
-    name: 'ipc manifest preload exposure entries are unique',
-    expected: [...new Set(ipcExposureIdentities)],
-    actual: ipcExposureIdentities
-  }));
-  checks.push(compareSortedValues({
-    name: 'ipc manifest exposed methods are owned by exactly one invoke or subscription entry',
-    expected: ipcExposedMethodIdentities,
-    actual: collectIpcManifestOwnedMethodIdentities(manifests.ipc)
-  }));
-  checks.push(compareSortedValues({
-    name: 'ipc channels manifest matches channels.json',
-    expected: currentChannels,
-    actual: collectIpcManifestChannels(manifests.ipc)
-  }));
-  checks.push(compareSortedValues({
-    name: 'ipc manifest request schemas match main handler descriptors',
-    expected: collectIpcHandlerRequestEntries(ipcChannels),
-    actual: collectIpcManifestRequestEntries(manifests.ipc)
-  }));
+  const ipcExposureIdentities = manifests.ipc.namespaces.flatMap((namespace) => [namespace.apiName, ...(namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`)]);
+  const ipcExposedMethodIdentities = manifests.ipc.namespaces.flatMap((namespace) => (namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`));
+  checks.push(compareSortedValues({ name: 'ipc manifest preload exposure entries are unique', expected: [...new Set(ipcExposureIdentities)], actual: ipcExposureIdentities }));
+  checks.push(compareSortedValues({ name: 'ipc manifest exposed methods are owned by exactly one invoke or subscription entry', expected: ipcExposedMethodIdentities, actual: collectIpcManifestOwnedMethodIdentities(manifests.ipc) }));
+  checks.push(createSubscriptionRegistryMetadataCheck(manifests.ipc));
+  checks.push(compareSortedValues({ name: 'ipc channels manifest matches channels.json', expected: currentChannels, actual: collectIpcManifestChannels(manifests.ipc) }));
+  checks.push(compareSortedValues({ name: 'ipc manifest channel keys resolve to declared channels',
+    expected: collectIpcManifestChannelKeyEntries(manifests.ipc, (_namespace, entry) => entry.channel),
+    actual: collectIpcManifestChannelKeyEntries(manifests.ipc, (namespace, entry) => resolveIpcChannelFromKey(ipcChannels, namespace.namespace, entry.channelKey)) }));
+  checks.push(compareSortedValues({ name: 'ipc manifest handler metadata is explicit', expected: collectIpcManifestHandlerMetadataEntries(manifests.ipc), actual: collectIpcManifestHandlerMetadataEntries(manifests.ipc, true) }));
+  const handlerDescriptors = collectManifestBackedHandlerDescriptors(options);
+  checks.push(compareSortedValues({ name: 'main IPC handlers derive descriptor metadata from manifest', expected: manifests.ipc.namespaces.flatMap((namespace) => (namespace.invoke || []).map((entry) => `${namespace.apiName}.${derivePublicMethodName(entry)}`)), actual: handlerDescriptors.methodIdentities }));
+  checks.push(compareSortedValues({ name: 'main IPC handlers do not define local descriptor metadata', expected: [], actual: handlerDescriptors.localMetadataEntries }));
+  checks.push(createRendererManifestBridgeUsageCheck(manifests.ipc, options));
   checks.push(createModeCheck('ipc manifest is enforced', manifests.ipc.mode));
   const preloadDeclarationSurface = collectPreloadDeclarationSurface(resolvePreloadDeclarationSources(options));
   const generatedPreloadDeclaration = createPreloadDeclarationPreview(manifests.ipc);
@@ -580,7 +598,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     ),
     actual: collectIpcManifestSignatureEntries(manifests.ipc, 'subscriptions', createSubscriptionManifestSignature)
   }));
-
   const preloadIndexSource = readProjectText('src/preload/index.js');
   const currentPreloadExposures = extractPreloadExposures(preloadIndexSource, manifests.ipc);
   const manifestPreloadExposures = collectIpcManifestMethods(manifests.ipc);
@@ -604,22 +621,17 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
       actual: manifestPreloadExposures[apiName] || []
     }));
   }
-
-  checks.push(compareSortedValues({
-    name: 'renderer event manifest matches EventChannels values',
-    expected: extractStringValuesFromSource(readProjectText('src/shared/events/event-channels.ts')),
-    actual: collectEventManifestValues(manifests.events, 'renderer')
-  }));
+  const eventChannelsSource = options.eventChannelsSource || readProjectText('src/shared/events/event-channels.ts');
+  checks.push(compareSortedValues({ name: 'renderer event manifest matches EventChannels values', expected: collectEventManifestChannelPathValueEntries(manifests.events, 'renderer'), actual: collectRendererEventChannelPathValueEntries(eventChannelsSource) }));
   checks.push(createModeCheck('event manifest is enforced', manifests.events.mode));
   checks.push(compareSortedValues({
     name: 'renderer event manifest payloads match EventPayloadMap',
     expected: collectEventPayloadMapEntries(
       readProjectText('src/shared/events/event-payloads.ts'),
-      readProjectText('src/shared/events/event-channels.ts')
+      eventChannelsSource
     ),
     actual: collectEventManifestPayloadEntries(manifests.events)
   }));
-
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
     expected: collectMainEventChannelValues(
@@ -628,7 +640,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     ),
     actual: collectEventManifestValues(manifests.events, 'main')
   }));
-
   const chromatic = manifests.devices.devices.find((device) => device.id === 'chromatic-mod-retro');
   checks.push({
     name: 'device manifest contains Chromatic profile',
@@ -714,7 +725,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     markerName: 'CODEBASE_FEATURE_MAP',
     expectedBlock: createFeatureMapGeneratedBlock(manifests)
   }));
-
   const storageConfigSource = readProjectText('src/shared/config/storage-keys.config.ts');
   const derivesSettingsKeys = storageConfigDerivesSettingsKeys(storageConfigSource);
   checks.push({
@@ -725,7 +735,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     missing: derivesSettingsKeys ? [] : ['SETTINGS_STORAGE_KEYS derived from SettingsDefinitions.definitions'],
     extra: []
   });
-
   const defaults = collectManifestDefaults(manifests.settings);
   checks.push({
     name: 'settings manifest records recording format default',
@@ -735,7 +744,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     missing: defaults.recordingFormat === 'webm' ? [] : ['recordingFormat=webm'],
     extra: []
   });
-
   const missingShaderFiles = collectRenderPassShaderFiles(manifests.renderPasses)
     .filter((relativePath) => !fs.existsSync(resolveProjectPath(relativePath)));
   checks.push({
@@ -746,7 +754,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     missing: missingShaderFiles,
     extra: []
   });
-
   const renderPassesMissingUniformMetadata = manifests.renderPasses.passes
     .filter((pass) => !renderPassOwnsUniformMetadata(pass))
     .map((pass) => pass.id);
@@ -758,7 +765,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     missing: renderPassesMissingUniformMetadata,
     extra: []
   });
-
   const manifestAliases = manifests.architecture.aliases.map((alias) => alias.id);
   const nonRuntimeManifestAliases = manifestAliases.filter((alias) => alias !== 'url');
   checks.push(compareSortedValues({
@@ -781,7 +787,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     expected: [...new Set(extractVitestAliasKeys())],
     actual: manifestAliases.filter((alias) => alias !== 'url')
   }));
-
   const releaseLabels = runBuildMatrix(['--mode', 'release', '--platforms', 'all']).map((entry) => entry.label);
   checks.push(createDerivedSourceCheck({
     name: 'build matrix derives platform entries from platform manifest',
@@ -799,7 +804,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     expected: releaseLabels,
     actual: manifests.platforms.platforms.map((platform) => platform.label)
   }));
-
   const smokeLabels = runBuildMatrix(['--mode', 'smoke', '--platform', 'all']).map((entry) => entry.label);
   checks.push(createDerivedSourceCheck({
     name: 'smoke test executable discovery derives from platform manifest',
@@ -816,7 +820,6 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     expected: smokeLabels,
     actual: manifests.platforms.platforms.map((platform) => platform.label)
   }));
-
   return {
     report: createReport({
       name: 'codebase-size-reduction-phase1-drift',
@@ -829,13 +832,11 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     }
   };
 }
-
 function printSummary(report) {
   console.log('Codebase Size Reduction Phase 1 Drift Report');
   console.log(`- status: ${report.status}`);
   for (const check of report.checks) console.log(`- ${check.status}: ${check.name}`);
 }
-
 function writeGeneratedOutputs(generated) {
   const outputRoot = resolveProjectPath('artifacts/codebase-reduction/phase1');
   return {
@@ -844,19 +845,16 @@ function writeGeneratedOutputs(generated) {
     featureMapPath: writeGeneratedArtifact({ outputRoot, relativePath: 'feature-map.generated.md', contents: generated.featureMapFragment })
   };
 }
-
 function main(argv = process.argv.slice(2)) {
   const options = parseFlagArgs(argv, {
     json: { boolean: true },
     'write-generated': { boolean: true }
   });
   const { report, generated } = buildPhase1DriftReport();
-
   if (options.output) {
     const outputPath = writeJsonReport(options.output, report, projectRoot);
     console.log(`Wrote report: ${outputPath}`);
   }
-
   if (options['write-generated']) {
     const outputs = writeGeneratedOutputs(generated);
     for (const [label, outputPath] of Object.entries({
@@ -865,15 +863,12 @@ function main(argv = process.argv.slice(2)) {
       'feature-map fragment': outputs.featureMapPath
     })) console.log(`Wrote generated ${label}: ${outputPath}`);
   }
-
   if (options.json) console.log(JSON.stringify(report, null, 2));
   else printSummary(report);
   process.exit(report.status === 'pass' ? 0 : 1);
 }
-
 const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
 if (import.meta.url === invokedScript) {
   main();
 }
-
 export { buildPhase1DriftReport, collectIpcManifestChannels, collectIpcManifestMethods, collectEventManifestValues, createDocsFragment, createFeatureMapGeneratedBlock, createPreloadDeclarationPreview, extractPreloadExposures, loadManifests, writeGeneratedOutputs };

@@ -1,7 +1,4 @@
-import {
-  createSubscription,
-  createSubscriptionDisposer
-} from '../subscription.factory.js';
+import { applyRequiredSubscriptionMetadata, createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer, requireSubscriptionMethod } from '../subscription.factory.js';
 
 function createUpdatePreloadAPI({
   ipcRenderer,
@@ -13,58 +10,41 @@ function createUpdatePreloadAPI({
   isValidProgress,
   isValidError
 }) {
-  const subscriptions = [
-    {
-      methodName: 'onAvailable',
-      channel: channels.UPDATE.AVAILABLE,
-      registryKey: 'update.onAvailable',
+  const localValidators = {
+    onAvailable: {
       validatePayload: isValidUpdateInfo,
       invalidPayloadMessage: 'updateAPI.onAvailable: Invalid update info received'
     },
-    {
-      methodName: 'onNotAvailable',
-      channel: channels.UPDATE.NOT_AVAILABLE,
-      registryKey: 'update.onNotAvailable',
+    onNotAvailable: {
       validatePayload: isValidUpdateInfo,
       invalidPayloadMessage: 'updateAPI.onNotAvailable: Invalid update info received'
     },
-    {
-      methodName: 'onProgress',
-      channel: channels.UPDATE.PROGRESS,
-      registryKey: 'update.onProgress',
+    onProgress: {
       validatePayload: isValidProgress,
       invalidPayloadMessage: 'updateAPI.onProgress: Invalid progress received'
     },
-    {
-      methodName: 'onDownloaded',
-      channel: channels.UPDATE.DOWNLOADED,
-      registryKey: 'update.onDownloaded',
+    onDownloaded: {
       validatePayload: isValidUpdateInfo,
       invalidPayloadMessage: 'updateAPI.onDownloaded: Invalid update info received'
     },
-    {
-      methodName: 'onError',
-      channel: channels.UPDATE.ERROR,
-      registryKey: 'update.onError',
+    onError: {
       validatePayload: isValidError,
       invalidPayloadMessage: 'updateAPI.onError: Invalid error received'
     }
-  ];
-  const [
-    availableSubscription,
-    notAvailableSubscription,
-    progressSubscription,
-    downloadedSubscription,
-    errorSubscription
-  ] = subscriptions;
-  const subscribe = (subscription, callback) =>
+  };
+  const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet('updateAPI');
+  const invokeSet = createManifestInvokeSet('updateAPI', channels).requireMethod, getStatusChannel = invokeSet('getStatus'), checkForUpdatesChannel = invokeSet('checkForUpdates'), downloadUpdateChannel = invokeSet('downloadUpdate'), installUpdateChannel = invokeSet('installUpdate');
+  const subscriptions = applyRequiredSubscriptionMetadata('updateAPI', manifestSubscriptions, localValidators);
+  const subscriptionsByMethod = Object.fromEntries(
+    subscriptions.map((subscription) => [subscription.methodName, subscription])
+  );
+  const subscribe = (methodName, callback) =>
     createSubscription({
-      apiName: 'updateAPI',
       ipcRenderer,
       registry: listenerRegistry,
       maxListeners,
       validateCallback: isValidCallback,
-      ...subscription
+      ...requireSubscriptionMethod('updateAPI', subscriptionsByMethod, methodName)
     })(callback);
   const disposeSubscriptions = createSubscriptionDisposer({
     ipcRenderer,
@@ -73,20 +53,20 @@ function createUpdatePreloadAPI({
   });
 
   return {
-    getStatus: () => ipcRenderer.invoke(channels.UPDATE.GET_STATUS),
-    checkForUpdates: () => ipcRenderer.invoke(channels.UPDATE.CHECK),
-    downloadUpdate: () => ipcRenderer.invoke(channels.UPDATE.DOWNLOAD),
-    installUpdate: () => ipcRenderer.invoke(channels.UPDATE.INSTALL),
+    getStatus: () => ipcRenderer.invoke(getStatusChannel),
+    checkForUpdates: () => ipcRenderer.invoke(checkForUpdatesChannel),
+    downloadUpdate: () => ipcRenderer.invoke(downloadUpdateChannel),
+    installUpdate: () => ipcRenderer.invoke(installUpdateChannel),
 
-    onAvailable: (callback) => subscribe(availableSubscription, callback),
+    onAvailable: (callback) => subscribe('onAvailable', callback),
 
-    onNotAvailable: (callback) => subscribe(notAvailableSubscription, callback),
+    onNotAvailable: (callback) => subscribe('onNotAvailable', callback),
 
-    onProgress: (callback) => subscribe(progressSubscription, callback),
+    onProgress: (callback) => subscribe('onProgress', callback),
 
-    onDownloaded: (callback) => subscribe(downloadedSubscription, callback),
+    onDownloaded: (callback) => subscribe('onDownloaded', callback),
 
-    onError: (callback) => subscribe(errorSubscription, callback),
+    onError: (callback) => subscribe('onError', callback),
 
     dispose: disposeSubscriptions
   };

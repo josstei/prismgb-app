@@ -1,8 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { LoginItemSetResponse } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface LoginItemService {
   isEnabled(): boolean;
@@ -14,12 +13,9 @@ export interface LoginItemHandlerDependencies {
   logger: Logger;
 }
 
-export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDependencies>([
+export const loginItemHandlerDescriptors = defineManifestIpcHandlers<LoginItemHandlerDependencies>('loginItemAPI', [
   {
-    channel: IPC_CHANNELS.LOGIN_ITEM.GET,
-    dependencyTokens: ['loginItemService'],
-    argumentSchema: [],
-    responseMode: 'bare',
+    method: 'get',
     async invoke({ loginItemService }: LoginItemHandlerDependencies) {
       return loginItemService.isEnabled();
     },
@@ -28,10 +24,7 @@ export const loginItemHandlerDescriptors = defineIpcHandlers<LoginItemHandlerDep
     }
   },
   {
-    channel: IPC_CHANNELS.LOGIN_ITEM.SET,
-    dependencyTokens: ['loginItemService', 'logger'],
-    argumentSchema: ['enabled:boolean'],
-    responseMode: 'result-envelope',
+    method: 'set',
     async invoke({ loginItemService, logger }: LoginItemHandlerDependencies, _event: IpcMainInvokeEvent, enabled: boolean) {
       logger.debug(`Setting login item: ${enabled}`);
       loginItemService.setEnabled(enabled);

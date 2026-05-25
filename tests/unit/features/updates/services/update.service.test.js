@@ -1,19 +1,11 @@
-/**
- * UpdateService Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
 import { UpdateState } from '@shared/config/update-state.config';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 
 describe('UpdateService', () => {
-  let service;
-  let mockEventBus;
-  let mockLogger;
-  let mockLoggerFactory;
-  let mockUpdateAPI;
+  let service, mockEventBus, mockLogger, mockLoggerFactory, mockUpdateAPI;
 
   beforeEach(() => {
     mockLogger = {
@@ -32,17 +24,7 @@ describe('UpdateService', () => {
       subscribe: vi.fn(() => vi.fn())
     };
 
-    mockUpdateAPI = {
-      getStatus: vi.fn(),
-      checkForUpdates: vi.fn(),
-      downloadUpdate: vi.fn(),
-      installUpdate: vi.fn(),
-      onAvailable: vi.fn(() => vi.fn()),
-      onNotAvailable: vi.fn(() => vi.fn()),
-      onProgress: vi.fn(() => vi.fn()),
-      onDownloaded: vi.fn(() => vi.fn()),
-      onError: vi.fn(() => vi.fn())
-    };
+    mockUpdateAPI = createPreloadApiMock('updateAPI');
 
     setPreloadApi('updateAPI', mockUpdateAPI);
 

@@ -1,7 +1,6 @@
 {
   "version": 1,
   "mode": "enforced",
-  "loadAllPreferencesShape": ["gameVolume", "statusStripVisible", "performanceMode", "minimalistFullscreen"],
   "definitions": [
     {
       "name": "gameVolume",
@@ -9,13 +8,15 @@
       "type": "number",
       "default": 70,
       "validation": { "min": 0, "max": 100, "clamp": true },
-      "event": "settings:volume-changed"
+      "event": "settings:volume-changed",
+      "startupPreference": true
     },
     {
       "name": "statusStripVisible",
       "storageKey": "statusStripVisible",
       "type": "boolean",
       "default": false,
+      "startupPreference": true,
       "ui": { "order": 20, "controlName": "statusStrip", "controlId": "settingStatusStrip", "controlType": "checkbox", "label": "status strip", "title": "Show Status Bar" }
     },
     {
@@ -38,6 +39,7 @@
       "storageKey": "performanceMode",
       "type": "boolean",
       "default": false,
+      "startupPreference": true,
       "event": "settings:performance-mode-changed",
       "ui": { "order": 60, "controlName": "animationSaver", "controlId": "settingAnimationSaver", "controlType": "checkbox", "label": "performance mode", "title": "Performance mode", "hintId": "animationSaverHint", "hint": "Use basic renderer for lower CPU." }
     },
@@ -53,6 +55,7 @@
       "storageKey": "minimalistFullscreen",
       "type": "boolean",
       "default": false,
+      "startupPreference": true,
       "event": "settings:minimalist-fullscreen-changed",
       "ui": { "order": 50, "controlName": "minimalistFullscreen", "controlId": "settingMinimalistFullscreen", "controlType": "checkbox", "label": "minimalist fullscreen", "title": "Minimalist fullscreen", "hintId": "minimalistFullscreenHint", "hint": "Black background while streaming." }
     },

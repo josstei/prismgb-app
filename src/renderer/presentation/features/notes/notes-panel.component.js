@@ -5,7 +5,7 @@
  * Orchestrates sub-components for search, filtering, editing, and list management.
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { NotesListViewComponent } from './components/notes-list-view.component.js';
@@ -16,8 +16,14 @@ import { GameAutocompleteComponent } from './components/game-autocomplete.compon
 import { NotesResizeHandlerComponent } from './components/notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './components/notes-panel-layout.component.js';
 
-class NotesPanelComponent {
+const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
+const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');
+const NOTES_UPDATED_SUBSCRIPTION = Symbol('notesPanelUpdatedSubscription');
+const NOTES_PANEL_SETUP_LIFECYCLE = Symbol('notesPanelSetupLifecycle');
+
+class NotesPanelComponent extends PresentationComponent {
   constructor({ notesService, eventBus, logger }) {
+    super();
     this.notesService = notesService;
     this.eventBus = eventBus;
     this.logger = logger;
@@ -25,19 +31,38 @@ class NotesPanelComponent {
     // Panel state
     this.isVisible = false;
     this.currentNoteId = null;
+    this.elements = null;
 
-    // Sub-components
-    this.listView = new NotesListViewComponent({ notesService, logger });
-    this.editorView = new NotesEditorViewComponent({ notesService, logger });
-    this.searchComponent = new NotesSearchComponent({ logger });
-    this.gameFilter = new GameFilterComponent({ notesService, logger });
-    this.gameAutocomplete = new GameAutocompleteComponent({ notesService, logger });
-    this.resizeHandler = new NotesResizeHandlerComponent({ logger });
-    this.layout = new NotesPanelLayoutComponent({ logger });
+    this._createSubComponents();
+  }
 
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
-    this._eventSubscriptions = [];
+  _createSubComponents() {
+    this.listView = new NotesListViewComponent({ notesService: this.notesService, logger: this.logger });
+    this.editorView = new NotesEditorViewComponent({ notesService: this.notesService, logger: this.logger });
+    this.searchComponent = new NotesSearchComponent({ logger: this.logger });
+    this.gameFilter = new GameFilterComponent({ notesService: this.notesService, logger: this.logger });
+    this.gameAutocomplete = new GameAutocompleteComponent({ notesService: this.notesService, logger: this.logger });
+    this.resizeHandler = new NotesResizeHandlerComponent({ logger: this.logger });
+    this.layout = new NotesPanelLayoutComponent({ logger: this.logger });
+  }
+
+  _disposeSubComponents() {
+    this.listView?.dispose();
+    this.editorView?.dispose();
+    this.searchComponent?.dispose();
+    this.gameFilter?.dispose();
+    this.gameAutocomplete?.dispose();
+    this.resizeHandler?.dispose();
+    this.layout?.dispose();
+  }
+
+  _resetPanelVisibilityState() {
+    this.editorView?.flushSave?.();
+    this.gameFilter?.hide?.();
+    this.elements?.notesPanel?.classList.remove(CSSClasses.VISIBLE);
+    this.elements?.notesBtn?.classList.remove(CSSClasses.PANEL_OPEN);
+    this.elements?.notesBtn?.setAttribute('aria-expanded', 'false');
+    this.isVisible = false;
   }
 
   /**
@@ -45,6 +70,13 @@ class NotesPanelComponent {
    * @param {Object} elements - DOM element references
    */
   initialize(elements) {
+    this._resetPanelVisibilityState();
+    const currentGameFilter = this.gameFilter?.getCurrentFilter?.() || '';
+    this.cancelManaged(NOTES_PANEL_SETUP_LIFECYCLE);
+    [NOTES_CREATED_SUBSCRIPTION, NOTES_DELETED_SUBSCRIPTION, NOTES_UPDATED_SUBSCRIPTION].forEach((key) => this.cancelManaged(key));
+    this._disposeSubComponents();
+    this._createSubComponents();
+
     this.elements = {
       notesBtn: elements.notesBtn,
       notesPanel: elements.notesPanel,
@@ -77,11 +109,18 @@ class NotesPanelComponent {
 
     // Initialize sub-components
     this._initializeSubComponents();
+    if (currentGameFilter) {
+      this.gameFilter.setCurrentFilter(currentGameFilter);
+      this._refreshGameFilterOptionsAndRenderList(this.searchComponent.getQuery());
+    }
+    this._restoreSelectedNote();
 
     // Setup main panel controls
-    this._setupToggleButton();
-    this._setupNewButton();
-    this._setupEscapeKey();
+    const setupDisposers = [];
+    this.replaceManaged(NOTES_PANEL_SETUP_LIFECYCLE, () => setupDisposers.splice(0).reverse().forEach((dispose) => dispose()));
+    this._setupToggleButton(setupDisposers);
+    this._setupNewButton(setupDisposers);
+    this._setupEscapeKey(setupDisposers);
     this.layout.initialize({
       panelElement: this.elements.notesPanel,
       toolbarElement: this.elements.streamToolbar,
@@ -154,12 +193,8 @@ class NotesPanelComponent {
       onToggle: () => {}
     });
 
-    // Set initial game filter on list view
-    this.listView.setGameFilter(this.gameFilter.getCurrentFilter());
-
-    // Render initial state
-    this.gameFilter.updateOptions();
-    this.listView.render();
+    // Render initial state with normalized game filter
+    this._refreshGameFilterOptionsAndRenderList();
   }
 
   /**
@@ -177,7 +212,7 @@ class NotesPanelComponent {
    * Show panel
    */
   show() {
-    if (!this.elements.notesPanel) return;
+    if (!this.elements?.notesPanel) return;
 
     this.layout.updatePosition();
     this.elements.notesPanel.classList.add(CSSClasses.VISIBLE);
@@ -195,7 +230,7 @@ class NotesPanelComponent {
    * Hide panel
    */
   hide() {
-    if (!this.elements.notesPanel) return;
+    if (!this.elements?.notesPanel) return;
 
     // Flush pending save immediately
     this.editorView.flushSave();
@@ -215,12 +250,12 @@ class NotesPanelComponent {
    * Setup toggle button click handler
    * @private
    */
-  _setupToggleButton() {
+  _setupToggleButton(setupDisposers) {
     if (!this.elements.notesBtn) return;
 
-    this._domListeners.add(this.elements.notesBtn, 'click', () => {
+    setupDisposers.push(this.listen(this.elements.notesBtn, 'click', () => {
       this.toggle();
-    });
+    }));
   }
 
   /**
@@ -243,6 +278,27 @@ class NotesPanelComponent {
   }
 
   /**
+   * Refresh filter options, sync normalized filter to list view, and render.
+   * @param {string} [searchQuery='']
+   * @returns {string} normalized current game filter
+   * @private
+   */
+  _refreshGameFilterOptionsAndRenderList(searchQuery = '') {
+    this.gameFilter.updateOptions();
+    const normalizedGameFilter = this.gameFilter.getCurrentFilter();
+    this.listView.setGameFilter(normalizedGameFilter);
+    this.listView.render(searchQuery);
+    return normalizedGameFilter;
+  }
+
+  _selectFirstNoteForFilter(gameFilter, searchQuery = '') {
+    const notes = this.notesService.searchNotes(searchQuery, gameFilter);
+    if (notes.length > 0) {
+      this._selectNote(notes[0].id);
+    }
+  }
+
+  /**
    * Handle note selection from list
    * @param {string} noteId
    * @private
@@ -251,6 +307,25 @@ class NotesPanelComponent {
     // Save current note before switching
     this.editorView.flushSave();
     this._selectNote(noteId);
+  }
+
+  _restoreSelectedNote() {
+    if (!this.currentNoteId) {
+      this.listView.setCurrentNoteId(null);
+      this.listView.updateActiveState(null);
+      return;
+    }
+
+    const note = this.notesService.getNote(this.currentNoteId);
+    if (!note) {
+      this.currentNoteId = null;
+      this.editorView.clear();
+      this.listView.setCurrentNoteId(null);
+      this.listView.updateActiveState(null);
+      return;
+    }
+
+    this._loadNoteIntoViews(note);
   }
 
   /**
@@ -321,8 +396,7 @@ class NotesPanelComponent {
 
     // If game changed, update filter options and re-render list for proper grouping
     if (result.gameChanged) {
-      this.gameFilter.updateOptions();
-      this.listView.render(this.searchComponent.getQuery());
+      this._refreshGameFilterOptionsAndRenderList(this.searchComponent.getQuery());
     } else {
       // Update only the current item in the list (not full rebuild)
       this.listView.updateItemDisplay(this.currentNoteId, title, gameName);
@@ -333,12 +407,12 @@ class NotesPanelComponent {
    * Setup new note button
    * @private
    */
-  _setupNewButton() {
+  _setupNewButton(setupDisposers) {
     if (!this.elements.notesNewBtn) return;
 
-    this._domListeners.add(this.elements.notesNewBtn, 'click', () => {
+    setupDisposers.push(this.listen(this.elements.notesNewBtn, 'click', () => {
       this._createNewNote();
-    });
+    }));
   }
 
   /**
@@ -355,8 +429,7 @@ class NotesPanelComponent {
     }
 
     this._selectNote(note.id);
-    this.gameFilter.updateOptions();
-    this.listView.render();
+    this._refreshGameFilterOptionsAndRenderList(this.searchComponent.getQuery());
 
     // Focus title input
     this.editorView.focusTitle();
@@ -380,16 +453,10 @@ class NotesPanelComponent {
     // Clear editor
     this.editorView.clear();
 
-    // Update game filter options (game might no longer have notes)
-    this.gameFilter.updateOptions();
-
-    // Re-render list and select first note if available, or show empty state
-    const currentFilter = this.gameFilter.getCurrentFilter();
-    this.listView.render();
-    const notes = this.notesService.searchNotes('', currentFilter);
-    if (notes.length > 0) {
-      this._selectNote(notes[0].id);
-    }
+    // Update options and list with normalized filter, then select first note if available
+    const searchQuery = this.searchComponent.getQuery();
+    const currentFilter = this._refreshGameFilterOptionsAndRenderList(searchQuery);
+    this._selectFirstNoteForFilter(currentFilter, searchQuery);
   }
 
   /**
@@ -401,24 +468,24 @@ class NotesPanelComponent {
     const note = this.notesService.getNote(noteId);
     if (!note) return;
 
-    this.currentNoteId = noteId;
-
-    // Update editor view
-    this.editorView.loadNote(note);
-
-    // Update list view active state
-    this.listView.setCurrentNoteId(noteId);
-    this.listView.updateActiveState(noteId);
+    this._loadNoteIntoViews(note);
 
     this.logger?.debug(`Selected note: ${noteId}`);
+  }
+
+  _loadNoteIntoViews(note) {
+    this.currentNoteId = note.id;
+    this.editorView.loadNote(note);
+    this.listView.setCurrentNoteId(note.id);
+    this.listView.updateActiveState(note.id);
   }
 
   /**
    * Setup escape key to close panel
    * @private
    */
-  _setupEscapeKey() {
-    this._domListeners.add(document, 'keydown', (e) => {
+  _setupEscapeKey(setupDisposers) {
+    setupDisposers.push(this.listen(document, 'keydown', (e) => {
       if (e.key === 'Escape' && this.isVisible) {
         // Check if game filter is open
         if (this.gameFilter && this.gameFilter.isGameFilterOpen) {
@@ -428,7 +495,7 @@ class NotesPanelComponent {
 
         this.hide();
       }
-    });
+    }));
   }
 
   /**
@@ -437,61 +504,68 @@ class NotesPanelComponent {
    */
   _subscribeToEvents() {
     // Listen for note changes from other sources (e.g., sync, import)
-    const unsubscribeCreated = this.eventBus.subscribe(
-      EventChannels.NOTES.NOTE_CREATED,
-      (note) => {
-        // Only re-render if note was created externally (not by this component)
-        if (note && note.id !== this.currentNoteId) {
-          this.listView.render(this.searchComponent.getQuery());
-        }
-      }
+    this.replaceManaged(
+      NOTES_CREATED_SUBSCRIPTION,
+      this.trackSubscription(
+        this.eventBus.subscribe(
+          EventChannels.NOTES.NOTE_CREATED,
+          (note) => {
+            // Only re-render if note was created externally (not by this component)
+            if (note && note.id !== this.currentNoteId) {
+              this._refreshGameFilterOptionsAndRenderList(this.searchComponent.getQuery());
+            }
+          }
+        ),
+        (error) => this.logger?.warn('Error unsubscribing from event', error)
+      )
     );
-    this._eventSubscriptions.push(unsubscribeCreated);
 
-    const unsubscribeDeleted = this.eventBus.subscribe(
-      EventChannels.NOTES.NOTE_DELETED,
-      () => {
-        this.listView.render(this.searchComponent.getQuery());
-      }
+    this.replaceManaged(
+      NOTES_DELETED_SUBSCRIPTION,
+      this.trackSubscription(
+        this.eventBus.subscribe(
+          EventChannels.NOTES.NOTE_DELETED,
+          (payload) => {
+            const searchQuery = this.searchComponent.getQuery();
+            const currentFilter = this._refreshGameFilterOptionsAndRenderList(searchQuery);
+            if (payload?.id === this.currentNoteId) {
+              this.currentNoteId = null;
+              this.editorView.clear();
+              this._selectFirstNoteForFilter(currentFilter, searchQuery);
+            }
+          }
+        ),
+        (error) => this.logger?.warn('Error unsubscribing from event', error)
+      )
     );
-    this._eventSubscriptions.push(unsubscribeDeleted);
 
-    const unsubscribeUpdated = this.eventBus.subscribe(
-      EventChannels.NOTES.NOTE_UPDATED,
-      (note) => {
-        if (note && note.id !== this.currentNoteId) {
-          this.listView.render(this.searchComponent.getQuery());
-        }
-      }
+    this.replaceManaged(
+      NOTES_UPDATED_SUBSCRIPTION,
+      this.trackSubscription(
+        this.eventBus.subscribe(
+          EventChannels.NOTES.NOTE_UPDATED,
+          (note) => {
+            if (note) {
+              this._refreshGameFilterOptionsAndRenderList(this.searchComponent.getQuery());
+            }
+          }
+        ),
+        (error) => this.logger?.warn('Error unsubscribing from event', error)
+      )
     );
-    this._eventSubscriptions.push(unsubscribeUpdated);
+  }
+
+  onDisposeError(error) {
+    this.logger?.warn('Error disposing notes panel lifecycle resources', error);
   }
 
   /**
    * Cleanup resources
    */
   dispose() {
-    // Dispose sub-components
-    this.listView?.dispose();
-    this.editorView?.dispose();
-    this.searchComponent?.dispose();
-    this.gameFilter?.dispose();
-    this.gameAutocomplete?.dispose();
-    this.resizeHandler?.dispose();
-    this.layout?.dispose();
+    this._disposeSubComponents();
 
-    // Remove DOM listeners
-    this._domListeners.removeAll();
-
-    // Unsubscribe from events (with error protection)
-    this._eventSubscriptions.forEach(unsubscribe => {
-      try {
-        unsubscribe();
-      } catch (error) {
-        this.logger?.warn('Error unsubscribing from event', error);
-      }
-    });
-    this._eventSubscriptions = [];
+    super.dispose();
 
     // Nullify references to allow GC
     this.elements = null;

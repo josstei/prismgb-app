@@ -1,22 +1,7 @@
-/**
- * Update Service (Renderer)
- *
- * Bridges window.updateAPI (preload) with EventBus for renderer-side update handling.
- * Tracks update state and re-emits IPC events as EventBus events.
- *
- * Events emitted:
- * - 'update:available' - Update is available
- * - 'update:not-available' - No update available
- * - 'update:progress' - Download progress
- * - 'update:downloaded' - Update downloaded and ready
- * - 'update:error' - Update error occurred
- * - 'update:state-changed' - State transition
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
-  createPreloadEventBridge,
+  createManifestPreloadEventBridge,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { UpdateState } from '@shared/config/update-state.config';
@@ -75,17 +60,18 @@ class UpdateService extends BaseService {
 
     await this._loadInitialStatus();
 
-    this._eventBridge = createPreloadEventBridge({
+    this._eventBridge = createManifestPreloadEventBridge({
       api: window.updateAPI,
+      apiName: 'updateAPI',
       bridgeName: 'UpdateService',
       logger: this.logger,
-      subscriptions: [
-        { id: 'available', subscribe: (api) => api.onAvailable((info) => this._handleAvailable(info)) },
-        { id: 'notAvailable', subscribe: (api) => api.onNotAvailable((info) => this._handleNotAvailable(info)) },
-        { id: 'progress', subscribe: (api) => api.onProgress((progress) => this._handleProgress(progress)) },
-        { id: 'downloaded', subscribe: (api) => api.onDownloaded((info) => this._handleDownloaded(info)) },
-        { id: 'error', subscribe: (api) => api.onError((error) => this._handleError(error)) }
-      ]
+      handlers: {
+        onAvailable: (info: UpdateInfoPayload) => this._handleAvailable(info),
+        onNotAvailable: (info: UpdateInfoPayload) => this._handleNotAvailable(info),
+        onProgress: (progress: UpdateProgressPayload) => this._handleProgress(progress),
+        onDownloaded: (info: UpdateInfoPayload) => this._handleDownloaded(info),
+        onError: (error: UpdateErrorPayload) => this._handleError(error)
+      }
     });
 
     this._initialized = true;

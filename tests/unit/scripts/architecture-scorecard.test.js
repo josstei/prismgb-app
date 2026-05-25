@@ -14,11 +14,31 @@ import {
   collectSharedTypeScriptCutoverMetrics,
   collectRendererBackendImplementationMetrics,
   collectRenderPassManifestOwnershipMetrics,
+  collectRetiredHideTimerMetrics,
   collectSourceRuntimeJsMetrics,
   evaluateThresholds,
   parseCliArgs
 } from '../../../scripts/architecture-scorecard.js';
 import { PRELOAD_API_NAMES } from '../../support/mocks/preload-api-globals.js';
+
+const tempRoots = [];
+
+afterEach(() => {
+  while (tempRoots.length > 0) {
+    fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
+  }
+});
+
+function createTempProject(prefix, files = {}) {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempRoots.push(tempRoot);
+  for (const [relativePath, source] of Object.entries(files)) {
+    const absolutePath = path.join(tempRoot, relativePath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, source);
+  }
+  return tempRoot;
+}
 
 function createMetrics(overrides = {}) {
   return {
@@ -43,7 +63,8 @@ function createMetrics(overrides = {}) {
     shaderDuplicateDivergenceCount: 0,
     shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
-    sourceRuntimeJsFileCount: 60,
+    sourceRuntimeJsFileCount: 59,
+    hideTimerRetirementViolationCount: 0,
     sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
@@ -73,14 +94,6 @@ describe('architecture-scorecard cli args', () => {
 });
 
 describe('architecture-scorecard explicit any metrics', () => {
-  const tempRoots = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
-    }
-  });
-
   it('counts TypeScript any keywords without counting comments, strings, or property names', () => {
     const source = `
       // any in a comment should not count
@@ -97,17 +110,10 @@ describe('architecture-scorecard explicit any metrics', () => {
   });
 
   it('reports explicit any counts by source file', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-any-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'renderer'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'renderer', 'typed.ts'),
-      'type Payload = unknown; // any comment only\n'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'renderer', 'loose.ts'),
-      'export function loose(value: any): any { return value; }\n'
-    );
+    const tempRoot = createTempProject('prismgb-scorecard-any-', {
+      'renderer/typed.ts': 'type Payload = unknown; // any comment only\n',
+      'renderer/loose.ts': 'export function loose(value: any): any { return value; }\n'
+    });
 
     expect(collectAnyMetrics(tempRoot)).toMatchObject({
       occurrenceCount: 2,
@@ -123,6 +129,9 @@ describe('architecture-scorecard explicit any metrics', () => {
 });
 
 describe('evaluateThresholds', () => {
+  const ownershipLimitKeys = ['unexpectedContractFileCountMax', 'shaderDuplicateDivergenceCountMax', 'shaderDuplicateFileCountMax', 'runtimeJsDtsTwinCountMax', 'sourceRuntimeJsFileCountMax', 'hideTimerRetirementViolationCountMax', 'sharedBaseInterfaceJsOrDtsFileCountMax', 'inlineCanonicalMockAssignmentCountMax', 'rendererBackendImplementationViolationCountMax', 'renderPassManifestOwnershipViolationCountMax', 'aliasManifestDriftCountMax', 'platformManifestDriftCountMax'];
+  const ownershipLimits = Object.fromEntries(ownershipLimitKeys.map((key) => [key, key === 'sourceRuntimeJsFileCountMax' ? 59 : 0]));
+
   it('passes when all configured limits are satisfied', () => {
     const metrics = createMetrics();
     const limits = {
@@ -153,27 +162,12 @@ describe('evaluateThresholds', () => {
         filesWithAnyCount: 3
       }
     });
-    const limits = {
-      strict: true,
-      anyOccurrenceCountMax: 10,
-      inlineCanonicalMockAssignmentCountMax: 0,
-      unexpectedContractFileCountMax: 0,
-      shaderDuplicateDivergenceCountMax: 0,
-      shaderDuplicateFileCountMax: 0,
-      runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 60,
-      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
-      aliasManifestDriftCountMax: 0,
-      platformManifestDriftCountMax: 0
-    };
+    const limits = { strict: true, anyOccurrenceCountMax: 10, ...ownershipLimits };
 
     const evaluation = evaluateThresholds(metrics, limits);
     expect(evaluation.passed).toBe(false);
     expect(evaluation.failures).toHaveLength(2);
-    expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
-      'tsStrictness.strict',
-      'any.occurrenceCount'
-    ]);
+    expect(evaluation.failures.map((failure) => failure.metric)).toEqual(['tsStrictness.strict', 'any.occurrenceCount']);
   });
 
   it('fails when new ownership violations exceed thresholds', () => {
@@ -182,7 +176,8 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCount: 1,
       shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
-      sourceRuntimeJsFileCount: 61,
+      sourceRuntimeJsFileCount: 60,
+      hideTimerRetirementViolationCount: 1,
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       rendererBackendImplementationViolationCount: 1,
@@ -190,97 +185,60 @@ describe('evaluateThresholds', () => {
       aliasManifestDriftCount: 1,
       platformManifestDriftCount: 1
     });
-    const limits = {
-      unexpectedContractFileCountMax: 0,
-      shaderDuplicateDivergenceCountMax: 0,
-      shaderDuplicateFileCountMax: 0,
-      runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 60,
-      sharedBaseInterfaceJsOrDtsFileCountMax: 0,
-      rendererBackendImplementationViolationCountMax: 0,
-      renderPassManifestOwnershipViolationCountMax: 0,
-      inlineCanonicalMockAssignmentCountMax: 0,
-      aliasManifestDriftCountMax: 0,
-      platformManifestDriftCountMax: 0
-    };
 
-    const evaluation = evaluateThresholds(metrics, limits);
+    const evaluation = evaluateThresholds(metrics, ownershipLimits);
     expect(evaluation.passed).toBe(false);
-    expect(evaluation.failures).toHaveLength(11);
-    expect(evaluation.failures.map((failure) => failure.metric)).toEqual([
-      'unexpectedContractFileCount',
-      'shaderDuplicateDivergenceCount',
-      'shaderDuplicateFileCount',
-      'runtimeJsDtsTwinCount',
-      'sourceRuntimeJsFileCount',
-      'sharedBaseInterfaceJsOrDtsFileCount',
-      'inlineCanonicalMockAssignmentCount',
-      'rendererBackendImplementationViolationCount',
-      'renderPassManifestOwnershipViolationCount',
-      'aliasManifestDriftCount',
-      'platformManifestDriftCount'
-    ]);
+    expect(evaluation.failures).toHaveLength(12);
+    expect(evaluation.failures.map((failure) => failure.metric)).toEqual(['unexpectedContractFileCount', 'shaderDuplicateDivergenceCount', 'shaderDuplicateFileCount', 'runtimeJsDtsTwinCount', 'sourceRuntimeJsFileCount', 'hideTimerRetirementViolationCount', 'sharedBaseInterfaceJsOrDtsFileCount', 'inlineCanonicalMockAssignmentCount', 'rendererBackendImplementationViolationCount', 'renderPassManifestOwnershipViolationCount', 'aliasManifestDriftCount', 'platformManifestDriftCount']);
   });
 });
 
 describe('phase 4 enforcement metrics', () => {
-  const tempRoots = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
-    }
-  });
-
   it('reports no unexpected hand-maintained contract files in current ownership', () => {
     const metrics = collectContractMetrics(process.cwd());
     expect(metrics.totalContractLikeFiles).toBe(13);
     expect(metrics.unexpectedContractFileCount).toBe(0);
   });
 
-  it('fails contract ownership checks when a new contract-like file appears', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-contract-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'src/shared/ipc'), { recursive: true });
-    fs.mkdirSync(path.join(tempRoot, 'src/shared/contracts'), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/ipc/channels.json'), '{}');
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/contracts/custom.contract.ts'), 'export {}');
-
-    const metrics = collectContractMetrics(tempRoot);
-    expect(metrics.unexpectedContractFileCount).toBe(1);
-    expect(metrics.unexpectedContractFiles).toContain('src/shared/contracts/custom.contract.ts');
-  });
-
-  it('fails contract ownership checks when stale tests/contracts files appear', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-stale-test-contract-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'tests/contracts'), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, 'tests/contracts/event-contracts.js'), 'export const EventContracts = {};\n');
-
-    const metrics = collectContractMetrics(tempRoot);
-    expect(metrics.unexpectedContractFileCount).toBe(1);
-    expect(metrics.unexpectedContractFiles).toContain('tests/contracts/event-contracts.js');
+  it('fails contract ownership checks for new or stale contract-like files', () => {
+    [
+      {
+        prefix: 'prismgb-scorecard-contract-',
+        files: {
+          'src/shared/ipc/channels.json': '{}',
+          'src/shared/contracts/custom.contract.ts': 'export {}'
+        },
+        unexpected: 'src/shared/contracts/custom.contract.ts'
+      },
+      {
+        prefix: 'prismgb-scorecard-stale-test-contract-',
+        files: {
+          'tests/contracts/event-contracts.js': 'export const EventContracts = {};\n'
+        },
+        unexpected: 'tests/contracts/event-contracts.js'
+      }
+    ].forEach(({ prefix, files, unexpected }) => {
+      const metrics = collectContractMetrics(createTempProject(prefix, files));
+      expect(metrics.unexpectedContractFileCount).toBe(1);
+      expect(metrics.unexpectedContractFiles).toContain(unexpected);
+    });
   });
 
   it('reports baseline inline canonical API mock assignments and detects additions', () => {
     const baseline = collectInlineMockAssignments(process.cwd());
     expect(baseline.inlineCanonicalMockAssignmentCount).toBe(0);
 
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-mock-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'tests'), { recursive: true });
     const deviceApiReference = ['window', 'deviceAPI'].join('.');
     const metricsApiReference = ['globalThis', 'metricsAPI'].join('.');
-    fs.writeFileSync(
-      path.join(tempRoot, 'tests', 'adapter-mocks.test.ts'),
-      `${deviceApiReference} = {}\n`
+    const tempRoot = createTempProject('prismgb-scorecard-mock-', {
+      'tests/adapter-mocks.test.ts': `${deviceApiReference} = {}\n`
         + `delete ${deviceApiReference};\n`
         + `${metricsApiReference} = {};\n`
         + "global.window = { shellAPI: {}, gpuAPI: {} };\n"
         + "Object.assign(window, { updateAPI: {}, loginItemAPI: {} });\n"
         + "Object.defineProperty(window, 'transcodeAPI', { value: {} });\n"
         + "Object.defineProperties(globalThis.window, { windowAPI: { value: {} } });\n"
-    );
+    });
     const mutant = collectInlineMockAssignments(tempRoot);
     expect(mutant.inlineCanonicalMockAssignmentCount).toBe(9);
     expect(mutant.filesWithAssignments).toHaveLength(1);
@@ -306,56 +264,46 @@ describe('phase 4 enforcement metrics', () => {
     expect(baseline.implementationViolationCount).toBe(0);
   });
 
-  it('detects renderer backend implementation reintroduction in the rendering layer', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-backend-'));
-    tempRoots.push(tempRoot);
-
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'src/renderer/infrastructure/rendering/my-webgpu-engine.ts'),
-      'export class WebGPUEngine {}\n'
-    );
-
-    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
-    expect(metrics.implementationViolationCount).toBe(1);
-    expect(metrics.implementationViolationFiles).toEqual([
-      {
-        file: 'src/renderer/infrastructure/rendering/my-webgpu-engine.ts',
-        reason: 'backend implementation filename leaked into rendering layer: my-webgpu-engine.ts'
-      }
-    ]);
-  });
-
-  it('detects any shader tree returned to the renderer rendering layer', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-shaders-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders'), { recursive: true });
-
-    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
-    expect(metrics.implementationViolationCount).toBe(1);
-    expect(metrics.implementationViolationFiles).toEqual([
-      {
-        file: 'src/renderer/infrastructure/rendering/shaders',
-        reason: 'legacy renderer backend path exists: src/renderer/infrastructure/rendering/shaders'
-      }
-    ]);
-  });
-
-  it('detects the deleted renderer-owned Canvas2D backend path', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-renderer-canvas-backend-'));
-    tempRoots.push(tempRoot);
+  it('detects renderer backend implementation and legacy path reintroductions', () => {
     const backendPath = 'src/renderer/infrastructure/services/streaming/canvas-renderer.ts';
-    fs.mkdirSync(path.join(tempRoot, path.dirname(backendPath)), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, backendPath), 'export class StreamingCanvasRenderer {}\n');
-
-    const metrics = collectRendererBackendImplementationMetrics(tempRoot);
-    expect(metrics.implementationViolationCount).toBe(1);
-    expect(metrics.implementationViolationFiles).toEqual([
+    const cases = [
       {
-        file: backendPath,
-        reason: `legacy renderer backend path exists: ${backendPath}`
+        prefix: 'prismgb-scorecard-renderer-backend-',
+        files: {
+          'src/renderer/infrastructure/rendering/my-webgpu-engine.ts': 'export class WebGPUEngine {}\n'
+        },
+        expected: {
+          file: 'src/renderer/infrastructure/rendering/my-webgpu-engine.ts',
+          reason: 'backend implementation filename leaked into rendering layer: my-webgpu-engine.ts'
+        }
+      },
+      {
+        prefix: 'prismgb-scorecard-renderer-shaders-',
+        files: {
+          'src/renderer/infrastructure/rendering/shaders/.gitkeep': ''
+        },
+        expected: {
+          file: 'src/renderer/infrastructure/rendering/shaders',
+          reason: 'legacy renderer backend path exists: src/renderer/infrastructure/rendering/shaders'
+        }
+      },
+      {
+        prefix: 'prismgb-scorecard-renderer-canvas-backend-',
+        files: {
+          [backendPath]: 'export class StreamingCanvasRenderer {}\n'
+        },
+        expected: {
+          file: backendPath,
+          reason: `legacy renderer backend path exists: ${backendPath}`
+        }
       }
-    ]);
+    ];
+
+    cases.forEach(({ prefix, files, expected }) => {
+      const metrics = collectRendererBackendImplementationMetrics(createTempProject(prefix, files));
+      expect(metrics.implementationViolationCount).toBe(1);
+      expect(metrics.implementationViolationFiles).toEqual([expected]);
+    });
   });
 
   it('reports no render-pass manifest ownership drift in current package/runtime sources', () => {
@@ -364,14 +312,9 @@ describe('phase 4 enforcement metrics', () => {
   });
 
   it('detects undeclared package shader files and hand-coded pass ownership outside manifest helpers', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-render-pass-'));
-    tempRoots.push(tempRoot);
-
     const manifestPath = 'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json';
-    fs.mkdirSync(path.join(tempRoot, path.dirname(manifestPath)), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, manifestPath),
-      JSON.stringify({
+    const tempRoot = createTempProject('prismgb-scorecard-render-pass-', {
+      [manifestPath]: JSON.stringify({
         version: 1,
         mode: 'enforced',
         passes: [
@@ -383,33 +326,13 @@ describe('phase 4 enforcement metrics', () => {
           }
         ],
         utilityShaders: [{ file: 'common.vert.glsl' }]
-      })
-    );
-
-    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), { recursive: true });
-    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/pixel-upscale.wgsl'),
-      'expected'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/rogue-pass.wgsl'),
-      'unexpected'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/pixel-upscale.frag.glsl'),
-      'expected'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/common.vert.glsl'),
-      'expected'
-    );
-
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'src/renderer/infrastructure/rendering/pass-list.ts'),
-      "export const passIds = ['pixel-upscale'];\nexport const shaderFile = 'pixel-upscale.wgsl';\n"
-    );
+      }),
+      'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/pixel-upscale.wgsl': 'expected',
+      'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/rogue-pass.wgsl': 'unexpected',
+      'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/pixel-upscale.frag.glsl': 'expected',
+      'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/common.vert.glsl': 'expected',
+      'src/renderer/infrastructure/rendering/pass-list.ts': "export const passIds = ['pixel-upscale'];\nexport const shaderFile = 'pixel-upscale.wgsl';\n"
+    });
 
     const metrics = collectRenderPassManifestOwnershipMetrics(tempRoot);
 
@@ -436,25 +359,23 @@ describe('phase 4 enforcement metrics', () => {
     const baseline = collectRuntimeTwinMetrics(process.cwd());
     expect(baseline.pairCount).toBe(0);
 
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-twins-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'src/shared'), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/base.class.js'), 'module.exports = {}');
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/base.class.d.ts'), 'export {};');
+    const tempRoot = createTempProject('prismgb-scorecard-twins-', {
+      'src/shared/base.class.js': 'module.exports = {}',
+      'src/shared/base.class.d.ts': 'export {};'
+    });
     const mutant = collectRuntimeTwinMetrics(tempRoot);
     expect(mutant.pairCount).toBe(1);
   });
 
   it('ratchets source runtime JS file count against unchecked additions', () => {
     const baseline = collectSourceRuntimeJsMetrics(process.cwd());
-    expect(baseline.fileCount).toBe(60);
+    expect(baseline.fileCount).toBe(59);
     expect(baseline.files).toContain('src/renderer/presentation/icons/icon.utils.js');
 
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-runtime-js-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'src/main'), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, 'src/main/new-runtime.js'), 'export {};\n');
-    fs.writeFileSync(path.join(tempRoot, 'src/main/typed.ts'), 'export {};\n');
+    const tempRoot = createTempProject('prismgb-scorecard-runtime-js-', {
+      'src/main/new-runtime.js': 'export {};\n',
+      'src/main/typed.ts': 'export {};\n'
+    });
 
     const mutant = collectSourceRuntimeJsMetrics(tempRoot);
     expect(mutant).toEqual({
@@ -463,16 +384,60 @@ describe('phase 4 enforcement metrics', () => {
     });
   });
 
+  it('reports no retired HideTimer files or references', () => {
+    const baseline = collectRetiredHideTimerMetrics(process.cwd());
+    expect(baseline.violationCount).toBe(0);
+    expect(baseline.violations).toEqual([]);
+  });
+
+  it('detects retired HideTimer file and reference reintroduction', () => {
+    const tempRoot = createTempProject('prismgb-scorecard-hide-timer-', {
+      'src/renderer/presentation/primitives/hide-timer.class.js': 'export {};\n',
+      'tests/unit/ui/primitives/hide-timer.test.js': 'export {};\n',
+      'src/renderer/presentation/effects/legacy-reference.ts': 'const HideTimer = null;\nvoid HideTimer;\n',
+      'src/renderer/presentation/effects/legacy-import.ts': "import '../primitives/hide-timer.class.js';\n",
+      'tests/unit/features/notes/ui/legacy-reference.test.js': 'const HideTimer = null;\nvoid HideTimer;\n',
+      'tests/unit/renderer/presentation/primitives/legacy-import.test.ts': "import './hide-timer.class.js';\n"
+    });
+
+    const mutant = collectRetiredHideTimerMetrics(tempRoot);
+    expect(mutant.violationCount).toBe(6);
+    expect(mutant.violations).toEqual(expect.arrayContaining([
+      {
+        file: 'src/renderer/presentation/primitives/hide-timer.class.js',
+        reason: 'retired file exists: src/renderer/presentation/primitives/hide-timer.class.js'
+      },
+      {
+        file: 'tests/unit/ui/primitives/hide-timer.test.js',
+        reason: 'retired file exists: tests/unit/ui/primitives/hide-timer.test.js'
+      },
+      expect.objectContaining({
+        file: 'src/renderer/presentation/effects/legacy-reference.ts',
+        reason: 'retired HideTimer reference (HideTimer identifier reference)'
+      }),
+      expect.objectContaining({
+        file: 'src/renderer/presentation/effects/legacy-import.ts',
+        reason: 'retired HideTimer reference (hide-timer module/path reference)'
+      }),
+      expect.objectContaining({
+        file: 'tests/unit/features/notes/ui/legacy-reference.test.js',
+        reason: 'retired HideTimer reference (HideTimer identifier reference)'
+      }),
+      expect.objectContaining({
+        file: 'tests/unit/renderer/presentation/primitives/legacy-import.test.ts',
+        reason: 'retired HideTimer reference (hide-timer module/path reference)'
+      })
+    ]));
+  });
+
   it('reports no shared base/interface JS or d.ts cutover leftovers', () => {
     const baseline = collectSharedTypeScriptCutoverMetrics(process.cwd());
     expect(baseline.fileCount).toBe(0);
 
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shared-cutover-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'src/shared/base'), { recursive: true });
-    fs.mkdirSync(path.join(tempRoot, 'src/shared/interfaces'), { recursive: true });
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/base/listener.js'), 'export {}');
-    fs.writeFileSync(path.join(tempRoot, 'src/shared/interfaces/service.d.ts'), 'export {};');
+    const tempRoot = createTempProject('prismgb-scorecard-shared-cutover-', {
+      'src/shared/base/listener.js': 'export {}',
+      'src/shared/interfaces/service.d.ts': 'export {};'
+    });
 
     const mutant = collectSharedTypeScriptCutoverMetrics(tempRoot);
     expect(mutant).toEqual({
@@ -489,34 +454,12 @@ describe('phase 4 enforcement metrics', () => {
     expect(baseline.divergentPairCount).toBe(0);
     expect(baseline.duplicateFileCount).toBe(0);
 
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shaders-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), {
-      recursive: true
+    const tempRoot = createTempProject('prismgb-scorecard-shaders-', {
+      'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/vertex-shader.wgsl': 'left',
+      'src/renderer/infrastructure/rendering/shaders/webgpu/vertex-shader.wgsl': 'right',
+      'packages/prismgb-gpu/src/infrastructure/webgl2/shaders/fragment-shader.frag.glsl': 'left',
+      'src/renderer/infrastructure/rendering/shaders/webgl2/fragment-shader.frag.glsl': 'left'
     });
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu'), {
-      recursive: true
-    });
-
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', 'vertex-shader.wgsl'),
-      'left'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu', 'vertex-shader.wgsl'),
-      'right'
-    );
-
-    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders'), { recursive: true });
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgl2'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders', 'fragment-shader.frag.glsl'),
-      'left'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgl2', 'fragment-shader.frag.glsl'),
-      'left'
-    );
 
     const mutant = collectShaderDuplicateMetrics(tempRoot);
     expect(mutant.divergentPairCount).toBe(1);
@@ -524,22 +467,10 @@ describe('phase 4 enforcement metrics', () => {
   });
 
   it('detects synchronized renderer shader copies as duplicate ownership', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-shader-duplicates-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders'), {
-      recursive: true
+    const tempRoot = createTempProject('prismgb-scorecard-shader-duplicates-', {
+      'packages/prismgb-gpu/src/infrastructure/webgpu/shaders/pixel.wgsl': 'fn main() {}\n',
+      'src/renderer/infrastructure/rendering/shaders/webgpu/pixel.wgsl': 'fn main() {}\n'
     });
-    fs.mkdirSync(path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu'), {
-      recursive: true
-    });
-    fs.writeFileSync(
-      path.join(tempRoot, 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders', 'pixel.wgsl'),
-      'fn main() {}\n'
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'src/renderer/infrastructure/rendering/shaders/webgpu', 'pixel.wgsl'),
-      'fn main() {}\n'
-    );
 
     const mutant = collectShaderDuplicateMetrics(tempRoot);
     expect(mutant.divergentPairCount).toBe(0);
@@ -555,15 +486,6 @@ describe('phase 4 enforcement metrics', () => {
   });
 
   it('detects alias drift in each config source instead of masking drift through unioning', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-alias-drift-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'scripts/manifests'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'scripts/manifests/architecture.manifest.json'),
-      JSON.stringify({
-        aliases: [{ id: '@' }, { id: '@shared' }, { id: 'url' }]
-      })
-    );
     const tsconfig = {
       compilerOptions: {
         paths: {
@@ -572,16 +494,15 @@ describe('phase 4 enforcement metrics', () => {
         }
       }
     };
-    fs.writeFileSync(path.join(tempRoot, 'tsconfig.base.json'), JSON.stringify(tsconfig));
-    fs.writeFileSync(path.join(tempRoot, 'tsconfig.app.json'), JSON.stringify(tsconfig));
-    fs.writeFileSync(
-      path.join(tempRoot, 'vite.config.js'),
-      "export default { resolve: { alias: { '@': '/src', '@extra': '/src/extra', 'url': 'url/' } } };\n"
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'vitest.config.js'),
-      "export default { resolve: { alias: { '@': '/src', '@shared': '/src/shared' } } };\n"
-    );
+    const tempRoot = createTempProject('prismgb-scorecard-alias-drift-', {
+      'scripts/manifests/architecture.manifest.json': JSON.stringify({
+        aliases: [{ id: '@' }, { id: '@shared' }, { id: 'url' }]
+      }),
+      'tsconfig.base.json': JSON.stringify(tsconfig),
+      'tsconfig.app.json': JSON.stringify(tsconfig),
+      'vite.config.js': "export default { resolve: { alias: { '@': '/src', '@extra': '/src/extra', 'url': 'url/' } } };\n",
+      'vitest.config.js': "export default { resolve: { alias: { '@': '/src', '@shared': '/src/shared' } } };\n"
+    });
 
     const metrics = collectAliasDriftMetrics(tempRoot);
 
@@ -597,25 +518,17 @@ describe('phase 4 enforcement metrics', () => {
   });
 
   it('detects platform drift in both release and smoke build matrices', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-platform-drift-'));
-    tempRoots.push(tempRoot);
-    fs.mkdirSync(path.join(tempRoot, 'scripts/manifests'), { recursive: true });
-    fs.mkdirSync(path.join(tempRoot, 'scripts/ci'), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempRoot, 'scripts/manifests/platforms.manifest.json'),
-      JSON.stringify({
+    const tempRoot = createTempProject('prismgb-scorecard-platform-drift-', {
+      'scripts/manifests/platforms.manifest.json': JSON.stringify({
         platforms: [{ label: 'linux-x64' }, { label: 'windows-x64' }]
-      })
-    );
-    fs.writeFileSync(
-      path.join(tempRoot, 'scripts/ci/build-matrix.mjs'),
-      [
+      }),
+      'scripts/ci/build-matrix.mjs': [
         "const mode = process.argv[process.argv.indexOf('--mode') + 1];",
         "const release = [{ label: 'linux-x64' }, { label: 'windows-x64' }];",
         "const smoke = [{ label: 'linux-x64' }];",
         "process.stdout.write(JSON.stringify(mode === 'smoke' ? smoke : release));"
       ].join('\n')
-    );
+    });
 
     const metrics = collectPlatformDriftMetrics(tempRoot);
 

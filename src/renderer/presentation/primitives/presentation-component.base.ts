@@ -13,8 +13,21 @@ type EventTargetLike = {
   ): void;
 };
 
+type LifecycleKey = string | symbol;
+
+type LifecycleDisposable =
+  | (() => void)
+  | {
+      dispose?: () => void;
+      unsubscribe?: () => void;
+      abort?: () => void;
+    }
+  | null
+  | undefined;
+
 export class PresentationComponent {
   protected readonly _disposables = new DisposableBag();
+  private readonly _managedDisposables = new Map<LifecycleKey, () => void>();
 
   protected listen(
     target: EventTargetLike | null,
@@ -53,7 +66,93 @@ export class PresentationComponent {
     return this._disposables.addObserver(observer);
   }
 
+  protected track(disposable: LifecycleDisposable) {
+    return this._disposables.add(disposable);
+  }
+
+  protected replaceManaged(key: LifecycleKey, disposer: (() => void) | null | undefined) {
+    this.cancelManaged(key);
+
+    if (typeof disposer !== 'function') {
+      return () => {};
+    }
+
+    let active = true;
+    const managedDisposer = () => {
+      if (!active) {
+        return;
+      }
+      active = false;
+      disposer();
+      if (this._managedDisposables.get(key) === managedDisposer) {
+        this._managedDisposables.delete(key);
+      }
+    };
+
+    this._managedDisposables.set(key, managedDisposer);
+    return managedDisposer;
+  }
+
+  protected cancelManaged(key: LifecycleKey) {
+    this._managedDisposables.get(key)?.();
+  }
+
+  protected replaceTimeout(
+    key: LifecycleKey,
+    handler: (...args: unknown[]) => void,
+    delay: number,
+    ...args: unknown[]
+  ) {
+    let managedDisposer = () => {};
+    const timeoutDisposer = this.timeout(() => {
+      managedDisposer();
+      handler(...args);
+    }, delay);
+
+    managedDisposer = this.replaceManaged(key, timeoutDisposer);
+    return managedDisposer;
+  }
+
+  protected replaceAnimationFrame(key: LifecycleKey, handler: FrameRequestCallback) {
+    let managedDisposer = () => {};
+    const frameDisposer = this.animationFrame((time) => {
+      managedDisposer();
+      handler(time);
+    });
+
+    managedDisposer = this.replaceManaged(key, frameDisposer);
+    return managedDisposer;
+  }
+
+  protected trackSubscription(
+    unsubscribe: (() => void) | null | undefined,
+    onError?: (error: unknown) => void
+  ) {
+    if (typeof unsubscribe !== 'function') {
+      return () => {};
+    }
+
+    return this.track(() => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        onError?.(error);
+      }
+    });
+  }
+
+  protected onDisposeError(_error: unknown): void {}
+
+  private _clearManagedDisposables() {
+    const managedDisposers = [...this._managedDisposables.values()];
+    this._managedDisposables.clear();
+    for (const dispose of managedDisposers) {
+      dispose();
+    }
+  }
+
   dispose(): void {
-    void this._disposables.clear();
+    this._clearManagedDisposables();
+    void this._disposables.clear().catch((error) => this.onDisposeError(error));
   }
 }

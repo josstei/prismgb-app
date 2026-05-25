@@ -7,23 +7,19 @@
  * - Search query management
  */
 
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 // Timing constant
 const SEARCH_DEBOUNCE_MS = 200;
+const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesSearchDebounceTimeout');
 
-class NotesSearchComponent {
+class NotesSearchComponent extends PresentationComponent {
   constructor({ logger }) {
+    super();
     this.logger = logger;
 
     // Search state
     this.currentQuery = '';
-
-    // Debounce timer
-    this._searchTimeout = null;
-
-    // Track DOM listeners for cleanup
-    this._domListeners = createDomListenerManager({ logger });
 
     // Elements
     this.searchInput = null;
@@ -79,7 +75,7 @@ class NotesSearchComponent {
   _setupSearch() {
     if (!this.searchInput) return;
 
-    this._domListeners.add(this.searchInput, 'input', () => {
+    this.listen(this.searchInput, 'input', () => {
       this._scheduleSearch();
     });
   }
@@ -89,12 +85,7 @@ class NotesSearchComponent {
    * @private
    */
   _scheduleSearch() {
-    if (this._searchTimeout) {
-      clearTimeout(this._searchTimeout);
-    }
-
-    this._searchTimeout = setTimeout(() => {
-      this._searchTimeout = null;
+    this.replaceTimeout(SEARCH_DEBOUNCE_TIMEOUT, () => {
       this._handleSearch();
     }, SEARCH_DEBOUNCE_MS);
   }
@@ -113,14 +104,7 @@ class NotesSearchComponent {
    * Cleanup resources
    */
   dispose() {
-    // Clear timer
-    if (this._searchTimeout) {
-      clearTimeout(this._searchTimeout);
-      this._searchTimeout = null;
-    }
-
-    // Remove DOM listeners
-    this._domListeners.removeAll();
+    super.dispose();
 
     // Clear references
     this.searchInput = null;

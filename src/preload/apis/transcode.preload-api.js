@@ -1,7 +1,4 @@
-import {
-  createSubscription,
-  createSubscriptionDisposer
-} from '../subscription.factory.js';
+import { applyRequiredSubscriptionMetadata, createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer, requireSubscriptionMethod } from '../subscription.factory.js';
 
 function createTranscodePreloadAPI({
   ipcRenderer,
@@ -16,50 +13,37 @@ function createTranscodePreloadAPI({
   isValidFfmpegArgs
 }) {
   const isValidCancelledData = (data) => data && typeof data === 'object';
-  const subscriptions = [
-    {
-      methodName: 'onProgress',
-      channel: channels.TRANSCODE.PROGRESS,
-      registryKey: 'transcode.onProgress',
+  const localValidators = {
+    onProgress: {
       validatePayload: isValidTranscodeProgress,
       invalidPayloadMessage: 'transcodeAPI.onProgress: Invalid progress received'
     },
-    {
-      methodName: 'onCompleted',
-      channel: channels.TRANSCODE.COMPLETED,
-      registryKey: 'transcode.onCompleted',
+    onCompleted: {
       validatePayload: isValidTranscodeResult,
       invalidPayloadMessage: 'transcodeAPI.onCompleted: Invalid result received'
     },
-    {
-      methodName: 'onError',
-      channel: channels.TRANSCODE.ERROR,
-      registryKey: 'transcode.onError',
+    onError: {
       validatePayload: isValidError,
       invalidPayloadMessage: 'transcodeAPI.onError: Invalid error received'
     },
-    {
-      methodName: 'onCancelled',
-      channel: channels.TRANSCODE.CANCELLED,
-      registryKey: 'transcode.onCancelled',
+    onCancelled: {
       validatePayload: isValidCancelledData,
       invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
     }
-  ];
-  const [
-    progressSubscription,
-    completedSubscription,
-    errorSubscription,
-    cancelledSubscription
-  ] = subscriptions;
-  const subscribe = (subscription, callback) =>
+  };
+  const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet('transcodeAPI');
+  const invokeSet = createManifestInvokeSet('transcodeAPI', channels).requireMethod, startChannel = invokeSet('start'), cancelChannel = invokeSet('cancel'), getStatusChannel = invokeSet('getStatus');
+  const subscriptions = applyRequiredSubscriptionMetadata('transcodeAPI', manifestSubscriptions, localValidators);
+  const subscriptionsByMethod = Object.fromEntries(
+    subscriptions.map((subscription) => [subscription.methodName, subscription])
+  );
+  const subscribe = (methodName, callback) =>
     createSubscription({
-      apiName: 'transcodeAPI',
       ipcRenderer,
       registry: listenerRegistry,
       maxListeners,
       validateCallback: isValidCallback,
-      ...subscription
+      ...requireSubscriptionMethod('transcodeAPI', subscriptionsByMethod, methodName)
     })(callback);
   const disposeSubscriptions = createSubscriptionDisposer({
     ipcRenderer,
@@ -77,7 +61,7 @@ function createTranscodePreloadAPI({
         console.warn('transcodeAPI.start: Invalid input arguments provided');
         return Promise.resolve({ success: false, error: 'Invalid input arguments' });
       }
-      return ipcRenderer.invoke(channels.TRANSCODE.START, {
+      return ipcRenderer.invoke(startChannel, {
         inputBuffer: arrayBuffer,
         format,
         outputFilename: typeof outputFilename === 'string' ? outputFilename : undefined,
@@ -91,18 +75,18 @@ function createTranscodePreloadAPI({
         console.warn('transcodeAPI.cancel: Invalid jobId provided');
         return Promise.resolve({ success: false, error: 'Invalid jobId' });
       }
-      return ipcRenderer.invoke(channels.TRANSCODE.CANCEL, { jobId });
+      return ipcRenderer.invoke(cancelChannel, { jobId });
     },
 
-    getStatus: () => ipcRenderer.invoke(channels.TRANSCODE.GET_STATUS),
+    getStatus: () => ipcRenderer.invoke(getStatusChannel),
 
-    onProgress: (callback) => subscribe(progressSubscription, callback),
+    onProgress: (callback) => subscribe('onProgress', callback),
 
-    onCompleted: (callback) => subscribe(completedSubscription, callback),
+    onCompleted: (callback) => subscribe('onCompleted', callback),
 
-    onError: (callback) => subscribe(errorSubscription, callback),
+    onError: (callback) => subscribe('onError', callback),
 
-    onCancelled: (callback) => subscribe(cancelledSubscription, callback),
+    onCancelled: (callback) => subscribe('onCancelled', callback),
 
     dispose: disposeSubscriptions
   };

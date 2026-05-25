@@ -1,21 +1,7 @@
-/**
- * Transcode Service (Renderer)
- *
- * Bridges window.transcodeAPI (preload) with EventBus for renderer-side transcode handling.
- * Manages transcoding state and re-emits IPC events as EventBus events.
- *
- * Events emitted:
- * - 'transcode:started' - Transcoding started
- * - 'transcode:progress' - Transcoding progress update
- * - 'transcode:completed' - Transcoding completed successfully
- * - 'transcode:error' - Transcoding error occurred
- * - 'transcode:cancelled' - Transcoding was cancelled
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
-  createPreloadEventBridge,
+  createManifestPreloadEventBridge,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import type {
@@ -54,9 +40,6 @@ class TranscodeService extends BaseService {
     this._initialized = false;
   }
 
-  /**
-   * Initialize the service - subscribe to IPC events via window.transcodeAPI
-   */
   initialize() {
     if (this._initialized) {
       this.logger.warn('TranscodeService already initialized');
@@ -70,34 +53,23 @@ class TranscodeService extends BaseService {
 
     this.logger.info('Initializing TranscodeService');
 
-    // Note: No onStarted handler - the main process doesn't emit a STARTED event.
-    // The started state is determined by the successful return of transcode() call.
-    this._eventBridge = createPreloadEventBridge({
+    this._eventBridge = createManifestPreloadEventBridge({
       api: window.transcodeAPI,
+      apiName: 'transcodeAPI',
       bridgeName: 'TranscodeService',
       logger: this.logger,
-      subscriptions: [
-        { id: 'progress', subscribe: (api) => api.onProgress((data) => this._handleProgress(data)) },
-        { id: 'completed', subscribe: (api) => api.onCompleted((data) => this._handleCompleted(data)) },
-        { id: 'error', subscribe: (api) => api.onError((data) => this._handleError(data)) },
-        { id: 'cancelled', subscribe: (api) => api.onCancelled((data) => this._handleCancelled(data)) }
-      ]
+      handlers: {
+        onProgress: (data: TranscodeProgressPayload) => this._handleProgress(data),
+        onCompleted: (data: TranscodeCompletedPayload) => this._handleCompleted(data),
+        onError: (data: TranscodeErrorPayload) => this._handleError(data),
+        onCancelled: (data: TranscodeCancelledPayload) => this._handleCancelled(data)
+      }
     });
 
     this._initialized = true;
     this.logger.info('TranscodeService initialized');
   }
 
-  /**
-   * Start transcoding a blob to a different format
-   * @param {Blob} blob - The source video blob
-   * @param {string} format - Target format (e.g., 'mp4', 'mov')
-   * @param {string} [outputBaseName] - Base name for output file (without extension)
-   * @param {Object} [options]
-   * @param {string[]} [options.inputArgs] - FFmpeg input args (applied before -i)
-   * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
-   * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
-   */
   async transcode(
     blob: Blob,
     format: TranscodeFormat,
@@ -117,10 +89,7 @@ class TranscodeService extends BaseService {
     try {
       this.logger.info(`Starting transcode to ${format}`);
 
-      // Convert blob to ArrayBuffer for IPC transfer
       const arrayBuffer = await blob.arrayBuffer();
-
-      // Call the main process transcode API
       const result = await window.transcodeAPI.start(
         arrayBuffer,
         format,
@@ -132,7 +101,6 @@ class TranscodeService extends BaseService {
       );
 
       if (result.success && result.jobId) {
-        // Track state locally since main process doesn't emit STARTED event
         this._isTranscoding = true;
         this._activeJobId = result.jobId;
         this.logger.info('Transcode started', { jobId: result.jobId, format });
@@ -149,10 +117,6 @@ class TranscodeService extends BaseService {
     }
   }
 
-  /**
-   * Cancel the current transcoding operation
-   * @returns {Promise<{success: boolean, error?: string}>}
-   */
   async cancel(): Promise<TranscodeCancelResponse> {
     if (!window.transcodeAPI) {
       this.logger.warn('transcodeAPI not available');
@@ -168,37 +132,18 @@ class TranscodeService extends BaseService {
     return window.transcodeAPI.cancel(this._activeJobId);
   }
 
-  /**
-   * Check if transcoding is currently in progress
-   * @returns {boolean}
-   */
   isTranscoding() {
     return this._isTranscoding;
   }
 
-  /**
-   * Check if transcoding capability is available
-   * Use this instead of directly checking window.transcodeAPI
-   * @returns {boolean}
-   */
   isAvailable() {
     return Boolean(window.transcodeAPI);
   }
 
-  /**
-   * Handle transcode progress event from IPC
-   * @param {Object} data - Progress data (percent, timeRemaining, etc.)
-   * @private
-   */
   _handleProgress(data: TranscodeProgressPayload) {
     this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
   }
 
-  /**
-   * Handle transcode completed event from IPC
-   * @param {Object} data - Completion data (outputPath, duration, etc.)
-   * @private
-   */
   _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
@@ -206,11 +151,6 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
   }
 
-  /**
-   * Handle transcode error event from IPC
-   * @param {Object} data - Error data
-   * @private
-   */
   _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
@@ -218,11 +158,6 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
   }
 
-  /**
-   * Handle transcode cancelled event from IPC
-   * @param {Object} data - Cancellation data
-   * @private
-   */
   _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
@@ -230,9 +165,6 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
   }
 
-  /**
-   * Cleanup subscriptions and reset state
-   */
   dispose() {
     this._eventBridge?.dispose();
     this._eventBridge = null;
