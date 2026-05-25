@@ -9,7 +9,7 @@
  * Safely dispose of a resource, logging errors without throwing
  * @param {Object} logger - Logger instance
  * @param {string} name - Resource name for error messages
- * @param {Object} resource - Resource to dispose
+ * @param {Object|null|undefined} resource - Resource to dispose
  * @param {string} [method='dispose'] - Method name to call
  * @returns {Promise<void>}
  */
@@ -29,7 +29,7 @@ export async function safeDispose(logger, name, resource, method = 'dispose') {
 /**
  * Safely dispose of multiple resources
  * @param {Object} logger - Logger instance
- * @param {Array<[string, Object, string?]>} resources - Array of [name, resource, method?]
+ * @param {Array<[string, (Object|null|undefined), string?]>} resources - Array of [name, resource, method?]
  * @returns {Promise<void>}
  */
 export async function safeDisposeAll(logger, resources) {

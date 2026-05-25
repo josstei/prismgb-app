@@ -199,10 +199,16 @@ class WindowService extends BaseService {
       this._downloadHandler = null;
 
       // Clean up fullscreen and resize listeners
-      if (this._enterFullscreenListener && this.mainWindow) {
-        this.mainWindow.off('enter-full-screen', this._enterFullscreenListener);
-        this.mainWindow.off('leave-full-screen', this._leaveFullscreenListener);
-        this.mainWindow.off('resized', this._resizedListener);
+      if (this.mainWindow) {
+        if (this._enterFullscreenListener) {
+          this.mainWindow.off('enter-full-screen', this._enterFullscreenListener);
+        }
+        if (this._leaveFullscreenListener) {
+          this.mainWindow.off('leave-full-screen', this._leaveFullscreenListener);
+        }
+        if (this._resizedListener) {
+          this.mainWindow.off('resized', this._resizedListener);
+        }
       }
       this._enterFullscreenListener = null;
       this._leaveFullscreenListener = null;
@@ -270,20 +276,12 @@ class WindowService extends BaseService {
     return this.mainWindow;
   }
 
-  /**
-   * Set fullscreen state
-   * @param enabled - Whether to enter or exit fullscreen
-   */
   setFullScreen(enabled: boolean): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.setFullScreen(enabled);
     }
   }
 
-  /**
-   * Check if window is in fullscreen
-   * @returns True if fullscreen
-   */
   isFullScreen(): boolean {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       return this.mainWindow.isSimpleFullScreen() || this.mainWindow.isFullScreen();

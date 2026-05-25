@@ -6,8 +6,47 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { LoggerLike } from '@shared/base/service.base.js';
+import type { StreamingCapabilities } from '@shared/events/event-payloads.js';
 
-const DEFAULT_STATE = Object.freeze({
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type PerformanceState = {
+  performanceModeEnabled: boolean;
+  weakGpuDetected: boolean;
+  hidden: boolean;
+  idle: boolean;
+  reducedMotion: boolean;
+};
+
+type PerformanceCapabilities = StreamingCapabilities & {
+  maxTextureSize?: number;
+};
+
+type VisibilityAdapterLike = {
+  isHidden: () => boolean;
+  onVisibilityChange: (callback: (hidden: boolean) => void) => () => void;
+};
+
+type UserActivityAdapterLike = {
+  onActivity: (callback: () => void) => () => void;
+};
+
+type ReducedMotionAdapterLike = {
+  prefersReducedMotion: () => boolean;
+  onChange: (callback: (reducedMotion: boolean) => void) => () => void;
+};
+
+type PerformanceStateDependencies = {
+  loggerFactory: LoggerFactoryLike;
+  visibilityAdapter: VisibilityAdapterLike;
+  userActivityAdapter: UserActivityAdapterLike;
+  reducedMotionAdapter: ReducedMotionAdapterLike;
+};
+
+const DEFAULT_STATE: PerformanceState = Object.freeze({
   performanceModeEnabled: false,
   weakGpuDetected: false,
   hidden: false,
@@ -16,12 +55,27 @@ const DEFAULT_STATE = Object.freeze({
 });
 
 interface PerformanceStateInitOptions {
-  onStateChange?: (state: Record<string, boolean>) => void;
+  onStateChange?: (state: PerformanceState) => void;
 }
 
 class PerformanceStateService extends BaseService {
+  declare protected readonly logger: LoggerLike;
 
-  constructor(dependencies) {
+  _visibilityAdapter: VisibilityAdapterLike;
+  _userActivityAdapter: UserActivityAdapterLike;
+  _reducedMotionAdapter: ReducedMotionAdapterLike;
+
+  _state: PerformanceState;
+  _isStreaming: boolean;
+  _idleTimeoutId: ReturnType<typeof setTimeout> | null;
+  _idleDelayMs: number;
+  _lastIdleReset: number;
+  _onStateChange: ((state: PerformanceState) => void) | null;
+  _visibilityCleanup: (() => void) | null;
+  _activityCleanup: (() => void) | null;
+  _motionCleanup: (() => void) | null;
+
+  constructor(dependencies: PerformanceStateDependencies) {
     super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
 
     this._visibilityAdapter = dependencies.visibilityAdapter;
@@ -41,7 +95,7 @@ class PerformanceStateService extends BaseService {
   }
 
   initialize({ onStateChange }: PerformanceStateInitOptions = {}) {
-    this._onStateChange = onStateChange;
+    this._onStateChange = onStateChange || null;
     this._setupVisibilityHandling();
     this._setupReducedMotionHandling();
     this._setupIdleHandling();
@@ -69,21 +123,21 @@ class PerformanceStateService extends BaseService {
     return { ...this._state };
   }
 
-  setPerformanceModeEnabled(enabled) {
-    const changed = this._updateState({ performanceModeEnabled: enabled });
+  setPerformanceModeEnabled(enabled: boolean) {
+    const changed = this._updateState({ performanceModeEnabled: Boolean(enabled) });
     if (changed) {
       this._syncIdleTimer();
     }
     return changed;
   }
 
-  setCapabilities(capabilities) {
+  setCapabilities(capabilities: PerformanceCapabilities | null | undefined) {
     const weakGpuDetected = this._detectWeakGPU(capabilities);
     return this._updateState({ weakGpuDetected });
   }
 
-  setStreaming(isStreaming) {
-    this._isStreaming = isStreaming;
+  setStreaming(isStreaming: boolean) {
+    this._isStreaming = Boolean(isStreaming);
     if (this._state.idle) {
       this._updateState({ idle: false });
     }
@@ -92,7 +146,7 @@ class PerformanceStateService extends BaseService {
 
   _setupVisibilityHandling() {
     // Subscribe to visibility changes
-    this._visibilityCleanup = this._visibilityAdapter.onVisibilityChange((hidden) => {
+    this._visibilityCleanup = this._visibilityAdapter.onVisibilityChange((hidden: boolean) => {
       const changed = this._updateState({ hidden });
       if (hidden) {
         this._updateState({ idle: false });
@@ -109,7 +163,7 @@ class PerformanceStateService extends BaseService {
 
   _setupReducedMotionHandling() {
     // Subscribe to reduced motion preference changes
-    this._motionCleanup = this._reducedMotionAdapter.onChange((reducedMotion) => {
+    this._motionCleanup = this._reducedMotionAdapter.onChange((reducedMotion: boolean) => {
       this._updateState({ reducedMotion });
     });
 
@@ -168,27 +222,35 @@ class PerformanceStateService extends BaseService {
     }
   }
 
-  _detectWeakGPU(capabilities) {
+  _detectWeakGPU(capabilities: PerformanceCapabilities | null | undefined) {
     if (!capabilities) {
       return false;
     }
 
     const noAcceleratedPath = !capabilities.webgpu && !capabilities.webgl2;
     const usingCanvasFallback = capabilities.preferredAPI === 'canvas2d';
-    const lowTextureBudget = capabilities.maxTextureSize > 0 && capabilities.maxTextureSize < 2048;
+    const maxTextureSize = typeof capabilities.maxTextureSize === 'number'
+      ? capabilities.maxTextureSize
+      : 0;
+    const lowTextureBudget = maxTextureSize > 0 && maxTextureSize < 2048;
 
     return noAcceleratedPath || usingCanvasFallback || lowTextureBudget;
   }
 
-  _updateState(partial) {
+  _updateState(partial: Partial<PerformanceState>) {
     let changed = false;
 
-    Object.entries(partial).forEach(([key, value]) => {
+    for (const key of Object.keys(partial) as Array<keyof PerformanceState>) {
+      const value = partial[key];
+      if (value === undefined) {
+        continue;
+      }
+
       if (this._state[key] !== value) {
         this._state[key] = value;
         changed = true;
       }
-    });
+    }
 
     if (changed) {
       this._emitState();

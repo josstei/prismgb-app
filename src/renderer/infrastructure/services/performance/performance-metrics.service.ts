@@ -5,10 +5,52 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { LoggerLike } from '@shared/base/service.base.js';
+import type { MemorySnapshotRequestPayload } from '@shared/events/event-payloads.js';
+import type {
+  ProcessMetricPayload,
+  ProcessMetricsResponse
+} from '@shared/ipc/preload-api.contract.js';
+
+type ProcessMetricsErrorResponse = {
+  success: false;
+  error: string;
+};
+
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type MetricsAdapterLike = {
+  isAvailable: () => boolean;
+  getProcessMetrics: () => Promise<ProcessMetricsResponse | ProcessMetricsErrorResponse>;
+};
+
+type PerformanceMetricsDependencies = {
+  loggerFactory: LoggerFactoryLike;
+  metricsAdapter: MetricsAdapterLike;
+};
+
+function hasProcessMetricsSnapshot(snapshot: unknown): snapshot is ProcessMetricsResponse {
+  return (
+    typeof snapshot === 'object' &&
+    snapshot !== null &&
+    (snapshot as ProcessMetricsResponse).success === true &&
+    Array.isArray((snapshot as ProcessMetricsResponse).processes)
+  );
+}
 
 export class PerformanceMetricsService extends BaseService {
+  declare protected readonly logger: LoggerLike;
+  declare protected readonly metricsAdapter: MetricsAdapterLike;
 
-  constructor(dependencies) {
+  _pendingTimeouts: Set<ReturnType<typeof setTimeout>>;
+  _intervalId: ReturnType<typeof setInterval> | null;
+  _timeoutId: ReturnType<typeof setTimeout> | null;
+  _intervalMs: number;
+  _initialDelayMs: number;
+
+  constructor(dependencies: PerformanceMetricsDependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 
     this._pendingTimeouts = new Set();
@@ -18,9 +60,13 @@ export class PerformanceMetricsService extends BaseService {
     this._initialDelayMs = 2000;
   }
 
-  requestSnapshot(payload) {
-    const label = payload?.label || 'snapshot';
-    const delayMs = Number(payload?.delayMs) || 0;
+  requestSnapshot(payload: MemorySnapshotRequestPayload = {}) {
+    const label = typeof payload.label === 'string' && payload.label.length > 0
+      ? payload.label
+      : 'snapshot';
+    const delayMs = typeof payload.delayMs === 'number' && Number.isFinite(payload.delayMs)
+      ? payload.delayMs
+      : 0;
 
     if (delayMs > 0) {
       const timeoutId = setTimeout(() => {
@@ -59,7 +105,7 @@ export class PerformanceMetricsService extends BaseService {
   }
 
   clearPendingRequests() {
-    this._pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    this._pendingTimeouts.forEach((timeoutId: ReturnType<typeof setTimeout>) => clearTimeout(timeoutId));
     this._pendingTimeouts.clear();
   }
 
@@ -71,27 +117,27 @@ export class PerformanceMetricsService extends BaseService {
     this.clearPendingRequests();
   }
 
-  _logSnapshot(label) {
+  _logSnapshot(label: string) {
     if (!this.metricsAdapter.isAvailable()) {
       this.logger.debug(`[Perf] ${label} - process metrics unavailable`);
       return;
     }
 
     this.metricsAdapter.getProcessMetrics()
-      .then((snapshot) => {
-        if (!snapshot?.success) {
+      .then((snapshot: ProcessMetricsResponse | ProcessMetricsErrorResponse | null) => {
+        if (!hasProcessMetricsSnapshot(snapshot)) {
           this.logger.debug(`[Perf] ${label} - process metrics error`);
           return;
         }
 
-        const renderer = snapshot.processes?.find(proc => proc.type === 'Renderer');
-        const gpu = snapshot.processes?.find(proc => proc.type === 'GPU');
+        const renderer = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'Renderer');
+        const gpu = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'GPU');
         const rendererMem = renderer ? `${renderer.memoryMB} MB` : 'n/a';
         const gpuMem = gpu ? `${gpu.memoryMB} MB` : 'n/a';
 
         this.logger.debug(`[Perf] ${label} - total ${snapshot.totalMB} MB, renderer ${rendererMem}, gpu ${gpuMem}`);
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         this.logger.debug(`[Perf] ${label} - process metrics error`, error);
       });
   }

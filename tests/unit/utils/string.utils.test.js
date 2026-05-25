@@ -44,6 +44,11 @@ describe('String Utils', () => {
       expect(escapeHtml('')).toBe('');
     });
 
+    it('should preserve empty string behavior for falsy non-string input', () => {
+      expect(escapeHtml(0)).toBe('');
+      expect(escapeHtml(false)).toBe('');
+    });
+
     it('should convert numbers to string before escaping', () => {
       expect(escapeHtml(123)).toBe('123');
     });

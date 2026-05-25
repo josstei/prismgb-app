@@ -14,7 +14,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['settingsService', 'appState', 'eventBus', 'loggerFactory'],

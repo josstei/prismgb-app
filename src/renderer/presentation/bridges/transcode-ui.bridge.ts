@@ -9,27 +9,23 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 class TranscodeUIBridge extends BaseService {
+  _subscriptions: Array<() => void>;
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
     this._subscriptions = [];
   }
 
-  /**
-   * Get the transcode toast component
-   * @returns {TranscodeToastComponent|null}
-   * @private
-   */
   get _toast() {
     return this.uiController?.registry?.get('transcodeToastComponent');
   }
 
   initialize() {
     this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.TRANSCODE.STARTED, (data) => this._handleStarted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.PROGRESS, (data) => this._handleProgress(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.COMPLETED, (data) => this._handleCompleted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.ERROR, (data) => this._handleError(data)),
+      this.eventBus.subscribe(EventChannels.TRANSCODE.STARTED, (data: unknown) => this._handleStarted(data)),
+      this.eventBus.subscribe(EventChannels.TRANSCODE.PROGRESS, (data: unknown) => this._handleProgress(data)),
+      this.eventBus.subscribe(EventChannels.TRANSCODE.COMPLETED, (data: unknown) => this._handleCompleted(data)),
+      this.eventBus.subscribe(EventChannels.TRANSCODE.ERROR, (data: unknown) => this._handleError(data)),
       this.eventBus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this._handleCancelled())
     );
 
@@ -37,7 +33,7 @@ class TranscodeUIBridge extends BaseService {
   }
 
   dispose() {
-    this._subscriptions.forEach(unsubscribe => {
+    this._subscriptions.forEach((unsubscribe: () => void) => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
@@ -47,12 +43,7 @@ class TranscodeUIBridge extends BaseService {
     this.logger.info('TranscodeUIBridge disposed');
   }
 
-  /**
-   * Handle transcode started
-   * @param {Object} data - Started data
-   * @private
-   */
-  _handleStarted(data) {
+  _handleStarted(data: unknown) {
     this.logger.info('Transcode started', data);
 
     // Disable record button during transcode
@@ -62,21 +53,14 @@ class TranscodeUIBridge extends BaseService {
     this._toast?.show();
   }
 
-  /**
-   * Handle transcode progress update
-   * @param {Object} data - Progress data with percent (-1 if unknown)
-   * @private
-   */
-  _handleProgress(data) {
-    this._toast?.updateProgress(data?.percent ?? -1);
+  _handleProgress(data: unknown) {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { percent?: number }
+      : {};
+    this._toast?.updateProgress(payload.percent ?? -1);
   }
 
-  /**
-   * Handle transcode completed
-   * @param {Object} data - Completion data
-   * @private
-   */
-  _handleCompleted(data) {
+  _handleCompleted(data: unknown) {
     this.logger.info('Transcode completed', data);
 
     // Re-enable record button
@@ -87,12 +71,7 @@ class TranscodeUIBridge extends BaseService {
 
   }
 
-  /**
-   * Handle transcode error
-   * @param {Object} data - Error data
-   * @private
-   */
-  _handleError(data) {
+  _handleError(data: unknown) {
     this.logger.error('Transcode error', data);
 
     // Re-enable record button
@@ -102,10 +81,6 @@ class TranscodeUIBridge extends BaseService {
 
   }
 
-  /**
-   * Handle transcode cancelled
-   * @private
-   */
   _handleCancelled() {
     this.logger.info('Transcode cancelled');
 

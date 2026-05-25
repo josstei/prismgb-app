@@ -4,7 +4,7 @@ import { PRESET_POLICY } from '@prismgb/gpu';
 
 type RawSettingsDefinitionsManifest = typeof definitions;
 type RawSettingsDefinition = RawSettingsDefinitionsManifest['definitions'][number];
-type ResolvedSettingsDefinition = RawSettingsDefinition & {
+type ResolvedSettingsDefinition = Omit<RawSettingsDefinition, 'default'> & {
   default: string | number | boolean;
   allowedValues?: string[];
 };

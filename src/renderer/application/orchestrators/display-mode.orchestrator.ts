@@ -10,7 +10,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   private _removeStartupVisibilityListener: (() => void) | null = null;
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory'],

@@ -9,11 +9,6 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 
-/**
- * Operation types for logging and debugging
- * @readonly
- * @enum {string}
- */
 const OperationType = {
   CONNECTED: 'connected',
   DISCONNECTED: 'disconnected',
@@ -22,41 +17,16 @@ const OperationType = {
 
 export class DeviceOperationSequencerService extends BaseService {
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceService} dependencies.deviceService - Device service dependency
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['deviceService', 'eventBus', 'loggerFactory'], 'DeviceOperationSequencerService');
 
-    /**
-     * Promise chain for sequential operation execution
-     * @private
-     * @type {Promise<void>}
-     */
     this._operationQueue = Promise.resolve();
 
-    /**
-     * Currently executing operation type (for debugging)
-     * @private
-     * @type {string|null}
-     */
     this._currentOperation = null;
 
-    /**
-     * Count of queued operations (for metrics/debugging)
-     * @private
-     * @type {number}
-     */
     this._queueDepth = 0;
   }
 
-  /**
-   * Queue a device connected operation
-   * @returns {Promise<void>} Resolves when operation completes
-   */
   queueConnected() {
     return this._enqueue(OperationType.CONNECTED, async () => {
       await this.deviceService.updateDeviceStatus();
@@ -64,12 +34,7 @@ export class DeviceOperationSequencerService extends BaseService {
     });
   }
 
-  /**
-   * Queue a device disconnected operation
-   * @param {Function} [onComplete] - Callback after status update (for event publishing)
-   * @returns {Promise<void>} Resolves when operation completes
-   */
-  queueDisconnected(onComplete) {
+  queueDisconnected(onComplete?: (() => void) | null) {
     return this._enqueue(OperationType.DISCONNECTED, async () => {
       await this.deviceService.updateDeviceStatus();
       if (typeof onComplete === 'function') {
@@ -78,10 +43,6 @@ export class DeviceOperationSequencerService extends BaseService {
     });
   }
 
-  /**
-   * Queue a device status refresh
-   * @returns {Promise<void>} Resolves when operation completes
-   */
   queueRefresh() {
     return this._enqueue(OperationType.REFRESH, async () => {
       await this.deviceService.updateDeviceStatus();
@@ -89,22 +50,11 @@ export class DeviceOperationSequencerService extends BaseService {
     });
   }
 
-  /**
-   * Get current queue depth (for testing/debugging)
-   * @returns {number} Number of operations waiting
-   */
   getQueueDepth() {
     return this._queueDepth;
   }
 
-  /**
-   * Enqueue an operation for sequential execution
-   * @private
-   * @param {string} type - Operation type for logging
-   * @param {Function} operation - Async operation to execute
-   * @returns {Promise<void>} Resolves when operation completes
-   */
-  _enqueue(type, operation) {
+  _enqueue(type: string, operation: () => Promise<void>) {
     this._queueDepth++;
     this.logger.debug(`Queuing ${type} operation (queue depth: ${this._queueDepth})`);
 
@@ -129,11 +79,6 @@ export class DeviceOperationSequencerService extends BaseService {
     return this._operationQueue;
   }
 
-  /**
-   * Wait for all queued operations to complete
-   * Useful for testing and cleanup
-   * @returns {Promise<void>}
-   */
   async flush() {
     await this._operationQueue;
   }

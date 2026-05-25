@@ -98,7 +98,7 @@ export function isPerformanceStatePayload(value: unknown): value is PerformanceS
 export function isStreamStartedPayload(value: unknown): value is StreamStartedPayload {
   return (
     isRecord(value) &&
-    isRecord(value.settings) &&
+    (value.settings === null || isRecord(value.settings)) &&
     isStreamingCapabilities(value.capabilities) &&
     isRecord(value.stream) &&
     isRecord(value.device)

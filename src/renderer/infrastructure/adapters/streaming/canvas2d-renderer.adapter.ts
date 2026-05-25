@@ -29,6 +29,14 @@ interface AppStateLike {
   readonly isStreaming: boolean;
 }
 
+interface Canvas2DRendererAdapterDependencies {
+  canvasRenderLoopService: CanvasRenderLoopServiceLike;
+  appState: AppStateLike;
+  loggerFactory: {
+    create(name: string): LoggerLike;
+  };
+}
+
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   canvasRenderLoopService: CanvasRenderLoopServiceLike;
   appState: AppStateLike;
@@ -38,13 +46,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   _isHiddenFn: () => boolean;
   _isInitialized: boolean;
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {Object} dependencies.canvasRenderLoopService - Canvas2D render loop service
-   * @param {Object} dependencies.appState - Application state for streaming status
-   * @param {Object} dependencies.loggerFactory - Logger factory
-   */
-  constructor({ canvasRenderLoopService, appState, loggerFactory }) {
+  constructor({ canvasRenderLoopService, appState, loggerFactory }: Canvas2DRendererAdapterDependencies) {
     super();
     this.canvasRenderLoopService = canvasRenderLoopService;
     this.appState = appState;
@@ -56,22 +58,14 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this._isInitialized = false;
   }
 
-  /**
-   * Set the hidden state function for render loop control
-   * @param {Function} isHiddenFn - Returns true if window is hidden
-   */
-  setHiddenStateFn(isHiddenFn) {
+  setHiddenStateFn(isHiddenFn: () => boolean) {
     this._isHiddenFn = isHiddenFn;
   }
 
-  /**
-   * Initialize Canvas2D renderer with canvas and resolution
-   * Canvas2D is always available, so this always returns true.
-   * @param {HTMLCanvasElement} canvasElement - Canvas to render to
-   * @param {Object} _nativeResolution - Native device resolution (unused for Canvas2D)
-   * @returns {Promise<boolean>} Always true for Canvas2D
-   */
-  async initialize(canvasElement, nativeResolution) {
+  async initialize(
+    canvasElement: HTMLCanvasElement,
+    nativeResolution?: { width: number; height: number }
+  ): Promise<boolean> {
     this.logger.debug('Initializing Canvas2D renderer adapter');
 
     this._canvasElement = canvasElement;
@@ -82,41 +76,22 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     return true;
   }
 
-  /**
-   * Render a video frame
-   * Canvas2D uses RVFC internally via startRendering, so this is a no-op
-   * @param {HTMLVideoElement} _videoElement - Video element (handled internally)
-   * @returns {Promise<void>}
-   */
-  async renderFrame(_videoElement) {
+  async renderFrame(_videoElement: HTMLVideoElement): Promise<void> {
     // Canvas2D handles frame rendering internally via RVFC in startRendering
     // No manual frame-by-frame rendering needed
   }
 
-  /**
-   * Resize Canvas2D renderer to new dimensions
-   * @param {number} width - New width
-   * @param {number} height - New height
-   */
-  resize(width, height) {
+  resize(width: number, height: number): void {
     if (this._canvasElement) {
       this.canvasRenderLoopService.resize(this._canvasElement, width, height);
     }
   }
 
-  /**
-   * Check if Canvas2D renderer is active
-   * @returns {boolean} True if rendering is active
-   */
-  isActive() {
+  isActive(): boolean {
     return this.canvasRenderLoopService.isActive();
   }
 
-  /**
-   * Start the Canvas2D render loop
-   * @param {HTMLVideoElement} videoElement - Video element for frame callback
-   */
-  resume(videoElement) {
+  resume(videoElement: HTMLVideoElement): void {
     if (!this._isInitialized || !this._canvasElement) {
       this.logger.warn('Cannot resume - not initialized');
       return;
@@ -134,27 +109,19 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this.logger.debug('Canvas2D render loop started');
   }
 
-  /**
-   * Stop the Canvas2D render loop
-   * @param {HTMLVideoElement} videoElement - Video element for callback cancellation
-   */
-  pause(videoElement) {
+  pause(videoElement?: HTMLVideoElement | null): void {
     this.canvasRenderLoopService.stopRendering(videoElement || this._videoElement);
     this.logger.debug('Canvas2D render loop stopped');
   }
 
-  /**
-   * Handle pipeline stop - clear canvas to black for idle state
-   * @override
-   */
-  handlePipelineStop() {
+  handlePipelineStop(): void {
     this.clearCanvas();
   }
 
   /**
    * Cleanup Canvas2D renderer resources
    */
-  async cleanup() {
+  async cleanup(): Promise<void> {
     if (this._videoElement) {
       this.canvasRenderLoopService.stopRendering(this._videoElement);
     }
@@ -170,7 +137,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   /**
    * Clear the canvas with black background
    */
-  clearCanvas() {
+  clearCanvas(): void {
     if (this._canvasElement) {
       this.canvasRenderLoopService.clearCanvas(this._canvasElement);
     }
@@ -179,7 +146,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   /**
    * Reset canvas state (after canvas replacement)
    */
-  async resetCanvasState() {
+  async resetCanvasState(): Promise<void> {
     await this.canvasRenderLoopService.resetCanvasState();
     this._canvasElement = null;
     this._isInitialized = false;
@@ -189,11 +156,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   // Canvas2D does not support presets
   // ============================
 
-  /**
-   * Canvas2D does not support shader presets
-   * @returns {boolean} False
-   */
-  supportsPresets() {
+  supportsPresets(): boolean {
     return false;
   }
 }

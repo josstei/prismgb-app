@@ -5,15 +5,34 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type {
+  LoggerFactoryLike,
+  LoggerLike
+} from '@shared/interfaces/infrastructure.types.js';
+
+type GpuRenderLoopDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
+type GpuRenderLoopConfig = {
+  videoElement: HTMLVideoElement;
+  renderFrame: () => void | Promise<void>;
+  shouldContinue: () => boolean;
+};
 
 class StreamingGpuRenderLoopService extends BaseService {
-  constructor(dependencies) {
+  declare protected readonly logger: LoggerLike;
+
+  _rvfcHandle: number | null;
+  _active: boolean;
+
+  constructor(dependencies: GpuRenderLoopDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingGpuRenderLoopService');
     this._rvfcHandle = null;
     this._active = false;
   }
 
-  start({ videoElement, renderFrame, shouldContinue }) {
+  start({ videoElement, renderFrame, shouldContinue }: GpuRenderLoopConfig): void {
     if (!videoElement?.requestVideoFrameCallback) {
       this.logger.warn('requestVideoFrameCallback not available');
       return;
@@ -22,7 +41,7 @@ class StreamingGpuRenderLoopService extends BaseService {
     this._active = true;
     let lastFrameTime = -1;
 
-    const renderLoop = (now, metadata) => {
+    const renderLoop: VideoFrameRequestCallback = (now, metadata) => {
       if (!this._active) return;
 
       const frameTime = metadata?.mediaTime ?? now;
@@ -41,7 +60,7 @@ class StreamingGpuRenderLoopService extends BaseService {
     this._rvfcHandle = videoElement.requestVideoFrameCallback(renderLoop);
   }
 
-  stop(videoElement) {
+  stop(videoElement?: HTMLVideoElement | null): void {
     this._active = false;
 
     if (this._rvfcHandle !== null) {
@@ -52,7 +71,7 @@ class StreamingGpuRenderLoopService extends BaseService {
     }
   }
 
-  cleanup(videoElement) {
+  cleanup(videoElement?: HTMLVideoElement | null): void {
     // Delegate to stop() - handles both cancellation and state reset
     this.stop(videoElement);
   }

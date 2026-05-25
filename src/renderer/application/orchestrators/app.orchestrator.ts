@@ -14,23 +14,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class AppOrchestrator extends BaseOrchestrator {
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management
-   * @param {StreamingOrchestrator} dependencies.streamingOrchestrator - Stream management
-   * @param {StreamingAudioOrchestrator} dependencies.streamingAudioOrchestrator - Audio stream lifecycle
-   * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
-   * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
-   * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
-   * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
-   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
-   * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
-   * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
-   * @param {PerformanceStateOrchestrator} dependencies.performanceStateOrchestrator - Performance state fan-out
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       [
@@ -52,11 +36,6 @@ export class AppOrchestrator extends BaseOrchestrator {
     );
   }
 
-  /**
-   * Initialize all sub-orchestrators in order
-   * Wires high-level events before initializing to catch early events.
-   * @override
-   */
   async onInitialize() {
     // Wire high-level events FIRST (before sub-orchestrators emit events)
     this._wireHighLevelEvents();
@@ -96,28 +75,32 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('Application orchestrator started');
   }
 
-  /**
-   * Wire high-level events across orchestrators
-   * @private
-   */
   _wireHighLevelEvents() {
     this.subscribeWithCleanup({
       [EventChannels.DEVICE.STATUS_CHANGED]: (status) => this._handleDeviceStatusChanged(status),
-      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data: { reason?: string; error?: string }) => {
-        const message = data.reason === 'webcam_access'
+      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data) => {
+        const payload = (typeof data === 'object' && data !== null
+          ? data as { reason?: unknown; error?: unknown }
+          : {});
+        const reason = typeof payload.reason === 'string' ? payload.reason : '';
+        const error = typeof payload.error === 'string' ? payload.error : 'Unknown error';
+        const message = reason === 'webcam_access'
           ? 'Camera access denied. Please allow camera permissions.'
-          : `Device error: ${data.error}`;
+          : `Device error: ${error}`;
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
       }
     });
   }
 
-  /**
-   * Handle device status changed
-   * @private
-   */
-  _handleDeviceStatusChanged(status) {
-    const connected = status.connected;
+  _handleDeviceStatusChanged(status: unknown) {
+    const connected = (
+      typeof status === 'object' &&
+      status !== null &&
+      'connected' in status &&
+      typeof status.connected === 'boolean'
+    )
+      ? status.connected
+      : false;
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
 
@@ -137,11 +120,6 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Cleanup all sub-orchestrators
-   * Continues cleanup even if individual orchestrators fail.
-   * @override
-   */
   async onCleanup() {
     this.logger.info('Cleaning up AppOrchestrator...');
 

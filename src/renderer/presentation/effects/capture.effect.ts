@@ -12,12 +12,7 @@ export class CaptureEffects {
     this._createFlashOverlay('shutter-flash');
   }
 
-  /**
-   * Create a flash overlay with given class
-   * @param {string} className - CSS class for the flash overlay
-   * @private
-   */
-  _createFlashOverlay(className) {
+  _createFlashOverlay(className: string) {
     const flash = document.createElement('div');
     flash.className = className;
     document.body.appendChild(flash);

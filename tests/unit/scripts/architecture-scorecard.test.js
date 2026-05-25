@@ -43,7 +43,7 @@ function createMetrics(overrides = {}) {
     shaderDuplicateDivergenceCount: 0,
     shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
-    sourceRuntimeJsFileCount: 62,
+    sourceRuntimeJsFileCount: 60,
     sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
     aliasManifestDriftCount: 0,
@@ -161,7 +161,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 62,
+      sourceRuntimeJsFileCountMax: 60,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       aliasManifestDriftCountMax: 0,
       platformManifestDriftCountMax: 0
@@ -182,7 +182,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCount: 1,
       shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
-      sourceRuntimeJsFileCount: 63,
+      sourceRuntimeJsFileCount: 61,
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
       rendererBackendImplementationViolationCount: 1,
@@ -195,7 +195,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 62,
+      sourceRuntimeJsFileCountMax: 60,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       rendererBackendImplementationViolationCountMax: 0,
       renderPassManifestOwnershipViolationCountMax: 0,
@@ -447,7 +447,7 @@ describe('phase 4 enforcement metrics', () => {
 
   it('ratchets source runtime JS file count against unchecked additions', () => {
     const baseline = collectSourceRuntimeJsMetrics(process.cwd());
-    expect(baseline.fileCount).toBe(62);
+    expect(baseline.fileCount).toBe(60);
     expect(baseline.files).toContain('src/renderer/presentation/icons/icon.utils.js');
 
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-scorecard-runtime-js-'));

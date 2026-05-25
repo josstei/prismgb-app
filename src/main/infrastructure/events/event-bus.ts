@@ -20,10 +20,12 @@ export type UnsubscribeFn = () => void;
  */
 interface EventBusDependencies {
   loggerFactory?: {
-    create: (name: string) => {
-      error: (message: string, error: Error) => void;
-    };
+    create: (name: string) => EventBusLogger;
   };
+}
+
+interface EventBusLogger {
+  error: (message: string, error: Error) => void;
 }
 
 /**
@@ -41,18 +43,13 @@ export interface IEventBus {
  */
 class EventBus implements IEventBus {
   private readonly _emitter: EventEmitter;
-  private readonly logger?: EventBusDependencies['loggerFactory'] extends { create: (name: string) => infer L } ? L : never;
+  private readonly logger: EventBusLogger | undefined;
 
   constructor({ loggerFactory }: EventBusDependencies = {}) {
     this._emitter = new EventEmitter();
     this.logger = loggerFactory?.create('EventBus');
   }
 
-  /**
-   * Publish an event with optional data
-   * @param event - Event name
-   * @param data - Event payload
-   */
   publish<T = unknown>(event: string, data?: T): void {
     try {
       this._emitter.emit(event, data);
@@ -61,12 +58,6 @@ class EventBus implements IEventBus {
     }
   }
 
-  /**
-   * Subscribe to an event
-   * @param event - Event name to subscribe to
-   * @param handler - Event handler function
-   * @returns Unsubscribe function
-   */
   subscribe<T = unknown>(event: string, handler: EventHandler<T>): UnsubscribeFn {
     if (typeof handler !== 'function') {
       throw new TypeError('Handler must be a function');
@@ -75,11 +66,6 @@ class EventBus implements IEventBus {
     return () => this._emitter.off(event, handler);
   }
 
-  /**
-   * Unsubscribe from an event
-   * @param event - Event name to unsubscribe from
-   * @param handler - Event handler function to remove
-   */
   unsubscribe<T = unknown>(event: string, handler: EventHandler<T>): void {
     this._emitter.off(event, handler);
   }

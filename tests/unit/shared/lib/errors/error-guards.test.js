@@ -11,6 +11,8 @@ describe('error-guards', () => {
   it('normalizes unknown catch values to a message', () => {
     expect(getErrorMessage(new Error('boom'))).toBe('boom');
     expect(getErrorMessage('string failure')).toBe('string failure');
+    expect(getErrorMessage(new Error(''), 'fallback')).toBe('fallback');
+    expect(getErrorMessage({ message: '' }, 'fallback')).toBe('fallback');
     expect(getErrorMessage(null, 'fallback')).toBe('fallback');
   });
 });

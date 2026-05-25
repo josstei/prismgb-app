@@ -31,13 +31,6 @@ export class ToolbarAutoHide {
   _boundHandleMouseEnter: () => void;
   _boundHandleMouseLeave: () => void;
 
-  /**
-   * @param {Object} options
-   * @param {Function} [options.onActivity] - Callback when toolbar activity detected
-   * @param {Function} [options.onHide] - Callback when toolbar is hidden
-   * @param {Function} [options.onHoverStart] - Callback when hovering starts
-   * @param {Function} [options.onHoverEnd] - Callback when hovering ends
-   */
   constructor(options: ToolbarAutoHideOptions = {}) {
     this._enabled = false;
     this._element = null;
@@ -63,27 +56,15 @@ export class ToolbarAutoHide {
     this._panelObserver = null;
   }
 
-  /**
-   * Check if toolbar auto-hide is enabled
-   * @returns {boolean}
-   */
   get isEnabled() {
     return this._enabled;
   }
 
-  /**
-   * Check if currently hovering over toolbar
-   * @returns {boolean}
-   */
   get isHovering() {
     return this._hovering;
   }
 
-  /**
-   * Enable toolbar auto-hide
-   * @param {HTMLElement} element - The toolbar element
-   */
-  enable(element) {
+  enable(element: HTMLElement | null) {
     if (this._enabled) return;
 
     this._element = element;
@@ -129,20 +110,12 @@ export class ToolbarAutoHide {
     this._panelOpenCache = false;
   }
 
-  /**
-   * Handle mouse enter on toolbar
-   * @private
-   */
   _handleMouseEnter() {
     this._hovering = true;
     this.show();
     this._onHoverStart();
   }
 
-  /**
-   * Handle mouse leave on toolbar
-   * @private
-   */
   _handleMouseLeave() {
     this._hovering = false;
     if (!this.isPanelOpen()) {
@@ -172,11 +145,6 @@ export class ToolbarAutoHide {
     }
   }
 
-  /**
-   * Check if any toolbar panel is currently open
-   * Uses cached value when available to avoid repeated DOM queries
-   * @returns {boolean}
-   */
   isPanelOpen() {
     if (!this._element) return false;
 
@@ -200,10 +168,6 @@ export class ToolbarAutoHide {
     this._panelCacheDirty = true;
   }
 
-  /**
-   * Observe panel-related class changes to keep cache fresh
-   * @private
-   */
   _bindPanelObserver() {
     if (!this._element || typeof globalThis.MutationObserver === 'undefined') return;
 

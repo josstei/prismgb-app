@@ -5,22 +5,30 @@
  * Prevents frame drops by throttling submission when the queue is full.
  * Tracks metrics for performance monitoring.
  */
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type {
+  LoggerFactoryLike,
+  LoggerLike
+} from '@shared/interfaces/infrastructure.types.js';
+
+type BufferedFrame = {
+  frame: unknown;
+  enqueueTime: number;
+};
+
+type GpuFrameBufferDependencies = {
+  loggerFactory?: LoggerFactoryLike;
+  bufferSize?: number;
+};
 
 export class GpuFrameBuffer {
-  _logger: LoggerLike;
+  _logger: LoggerLike | undefined;
   _capacity: number;
-  _queue: Array<{ frame: unknown; enqueueTime: number }>;
+  _queue: BufferedFrame[];
   _totalEnqueued: number;
   _totalDropped: number;
   _enqueueTimes: number[];
 
-  /**
-   * @param {Object} dependencies
-   * @param {Object} dependencies.loggerFactory - Logger factory
-   * @param {number} [dependencies.bufferSize=3] - Maximum pending frames (triple buffering)
-   */
-  constructor({ loggerFactory, bufferSize = 3 }) {
+  constructor({ loggerFactory, bufferSize = 3 }: GpuFrameBufferDependencies = {}) {
     this._logger = loggerFactory?.create('GpuFrameBuffer');
     this._capacity = bufferSize;
     this._queue = [];
@@ -31,28 +39,15 @@ export class GpuFrameBuffer {
     this._enqueueTimes = [];
   }
 
-  /**
-   * Get buffer capacity
-   * @returns {number}
-   */
-  getCapacity() {
+  getCapacity(): number {
     return this._capacity;
   }
 
-  /**
-   * Get current queue size
-   * @returns {number}
-   */
-  getSize() {
+  getSize(): number {
     return this._queue.length;
   }
 
-  /**
-   * Add a frame to the queue
-   * @param {Object} frame - Frame data { imageBitmap, uniforms }
-   * @returns {boolean} True if enqueued, false if dropped due to full buffer
-   */
-  enqueue(frame) {
+  enqueue(frame: unknown): boolean {
     if (this._queue.length >= this._capacity) {
       this._totalDropped++;
       return false;
@@ -66,11 +61,7 @@ export class GpuFrameBuffer {
     return true;
   }
 
-  /**
-   * Remove and return the oldest frame from the queue
-   * @returns {Object|null} Frame data or null if empty
-   */
-  dequeue() {
+  dequeue(): unknown | null {
     const entry = this._queue.shift();
     if (!entry) {
       return null;
@@ -88,27 +79,19 @@ export class GpuFrameBuffer {
     return entry.frame;
   }
 
-  /**
-   * Check if the buffer is full
-   * @returns {boolean} True if at capacity
-   */
-  isFull() {
+  isFull(): boolean {
     return this._queue.length >= this._capacity;
   }
 
   /**
    * Clear all pending frames
    */
-  flush() {
+  flush(): void {
     this._queue = [];
     this._logger?.debug('Frame buffer flushed');
   }
 
-  /**
-   * Get buffer metrics for performance monitoring
-   * @returns {{ queued: number, dropped: number, avgLatency: number }}
-   */
-  getMetrics() {
+  getMetrics(): { queued: number; dropped: number; avgLatency: number } {
     const avgLatency = this._enqueueTimes.length > 0
       ? this._enqueueTimes.reduce((a, b) => a + b, 0) / this._enqueueTimes.length
       : 0;
@@ -123,7 +106,7 @@ export class GpuFrameBuffer {
   /**
    * Reset metrics counters (useful for diagnostics reset)
    */
-  resetMetrics() {
+  resetMetrics(): void {
     this._totalDropped = 0;
     this._enqueueTimes = [];
     this._logger?.debug('Frame buffer metrics reset');

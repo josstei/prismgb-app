@@ -78,10 +78,6 @@ class DeviceService extends BaseService {
   private _onDeviceRemove: ((device: UsbDeviceInfo) => void) | null;
   private readonly _usbMonitor: UsbDeviceMonitor;
 
-  /**
-   * @param dependencies - Service dependencies
-   * @param profileClasses - Map of device type IDs to profile classes (injected via DI)
-   */
   constructor(dependencies: DeviceServiceDependencies, profileClasses: Map<string, ProfileClass> = new Map()) {
     super(dependencies, ['profileRegistry', 'eventBus', 'loggerFactory'], 'DeviceService');
     this.profileRegistry = dependencies.profileRegistry;
@@ -153,7 +149,7 @@ class DeviceService extends BaseService {
 
       // Load profiles from registry using shared iterator
       const devices: Array<{ id: string; name: string }> = [];
-      forEachDeviceWithModule('profileModule', (device) => {
+      forEachDeviceWithModule('profileModule', (device: { id: string; name: string }) => {
         devices.push(device);
       }, { logger: this.logger });
 
@@ -218,11 +214,6 @@ class DeviceService extends BaseService {
     }
   }
 
-  /**
-   * Initialize USB monitoring
-   * Publishes DEVICE.CHECK_ERROR event if monitoring fails to start
-   * @returns True if monitoring started successfully, false otherwise
-   */
   startUSBMonitoring(): boolean {
     if (this.isUsbMonitoring) {
       this.logger.warn('USB monitoring already started');
@@ -333,11 +324,6 @@ class DeviceService extends BaseService {
     }
   }
 
-  /**
-   * Check if device matches configured devices via ProfileRegistry
-   * @param device - USB device object
-   * @returns Match result with matched flag, config, and profile
-   */
   matchDevice(device: UsbDeviceInfo): DeviceMatch {
     // Match via ProfileRegistry (profile-based)
     const detectionResult = this.profileRegistry.detectDevice(device);

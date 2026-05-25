@@ -18,27 +18,25 @@ export class MetricsAdapter {
     this._metricsAPI = (globalThis.metricsAPI || window.metricsAPI) as MetricsApiLike | undefined;
   }
 
-  /**
-   * Check if metrics API is available
-   * @returns {boolean} True if metrics API is available
-   */
   isAvailable() {
     return !!(this._metricsAPI && typeof this._metricsAPI.getProcessMetrics === 'function');
   }
 
-  /**
-   * Get process metrics from main process
-   * @returns {Promise<Object>} Process metrics snapshot
-   */
-  async getProcessMetrics() {
+  async getProcessMetrics(): Promise<ProcessMetricsResponse | { success: false; error: string }> {
     if (!this.isAvailable()) {
       return { success: false, error: 'Metrics API not available' };
     }
 
+    const metricsApi = this._metricsAPI;
+    if (!metricsApi) {
+      return { success: false, error: 'Metrics API not available' };
+    }
+
     try {
-      return await this._metricsAPI.getProcessMetrics();
+      return await metricsApi.getProcessMetrics();
     } catch (error) {
-      return { success: false, error: error.message || String(error) };
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
     }
   }
 }

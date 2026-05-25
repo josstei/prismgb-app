@@ -13,7 +13,7 @@
     "shaderDuplicateDivergenceCountMax": 0,
     "shaderDuplicateFileCountMax": 0,
     "runtimeJsDtsTwinCountMax": 0,
-    "sourceRuntimeJsFileCountMax": 62,
+    "sourceRuntimeJsFileCountMax": 60,
     "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,
     "rendererBackendImplementationViolationCountMax": 0,

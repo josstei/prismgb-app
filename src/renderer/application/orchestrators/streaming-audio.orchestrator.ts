@@ -8,8 +8,23 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
+function resolveStreamFromPayload(data: unknown): MediaStream | null {
+  if (typeof data !== 'object' || data === null || !('stream' in data)) {
+    return null;
+  }
+
+  const stream = (data as { stream?: unknown }).stream;
+  if (typeof stream !== 'object' || stream === null || !('getAudioTracks' in stream)) {
+    return null;
+  }
+
+  return typeof stream.getAudioTracks === 'function'
+    ? stream as MediaStream
+    : null;
+}
+
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory'],
@@ -31,8 +46,8 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     });
   }
 
-  _handleStreamStarted(data) {
-    const stream = data?.stream;
+  _handleStreamStarted(data: unknown) {
+    const stream = resolveStreamFromPayload(data);
     if (!stream) return;
 
     if (this._activeStream === stream) {
@@ -51,21 +66,16 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     this.streamingAudioPipelineService.stop();
   }
 
-  /**
-   * Initialize audio pipeline with fallback to video element audio
-   * @param {MediaStream} stream - The media stream
-   * @private
-   */
-  _initializeAudioPipeline(stream) {
+  _initializeAudioPipeline(stream: MediaStream) {
     const hasAudio = stream?.getAudioTracks?.().length > 0;
 
     this.streamingAudioPipelineService.start(stream)
-      .then((ready) => {
+      .then((ready: boolean) => {
         if (this._activeStream !== stream) return;
         if (ready || !hasAudio || !this.appState.isStreaming) return;
         this._applyVideoAudioFallback();
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         if (this._activeStream !== stream) return;
         if (hasAudio && this.appState.isStreaming) {
           this.logger.warn('Audio warm-up error - falling back to video element audio', error);

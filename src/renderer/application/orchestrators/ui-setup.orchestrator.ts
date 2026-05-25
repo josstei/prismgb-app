@@ -17,7 +17,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class UISetupOrchestrator extends BaseOrchestrator {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory'],
@@ -36,17 +36,22 @@ export class UISetupOrchestrator extends BaseOrchestrator {
    */
   async onInitialize() {
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_RECREATED]: (data: { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement }) => this._handleCanvasRecreated(data)
+      [EventChannels.RENDER.CANVAS_RECREATED]: (data) => this._handleCanvasRecreated(data)
     });
   }
 
-  /**
-   * Handle canvas recreation event
-   * Removes listeners from old canvas and adds them to new canvas
-   * @param {Object} data - Event data with oldCanvas and newCanvas
-   * @private
-   */
-  _handleCanvasRecreated({ oldCanvas, newCanvas }: { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement }) {
+  _handleCanvasRecreated(data: unknown) {
+    if (typeof data !== 'object' || data === null) {
+      return;
+    }
+    const { oldCanvas, newCanvas } = data as {
+      oldCanvas?: HTMLCanvasElement;
+      newCanvas?: HTMLCanvasElement;
+    };
+    if (!oldCanvas || !newCanvas) {
+      return;
+    }
+
     // Remove listeners from old canvas to allow GC
     const removed = this._domListeners.removeByTarget(oldCanvas);
     this.logger.debug(`Removed ${removed} listener(s) from old canvas`);
@@ -129,20 +134,30 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     [
       ['screenshotBtn', 'click', () => this.eventBus.publish(EventChannels.UI.SCREENSHOT_REQUESTED)],
       ['recordBtn', 'click', () => this.eventBus.publish(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)],
-      ['fullscreenBtn', 'click', (e) => this._handleFullscreenClick(e)],
-      ['settingsBtn', 'click', (e) => this._toggleSettingsMenu(e)],
-      ['shaderBtn', 'click', (e) => this._toggleShaderSelector(e)]
+      ['fullscreenBtn', 'click', (e: Event) => this._handleFullscreenClick(e)],
+      ['settingsBtn', 'click', (e: Event) => this._toggleSettingsMenu(e)],
+      ['shaderBtn', 'click', (e: Event) => this._toggleShaderSelector(e)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
     // Clear tooltip on mousedown to prevent it persisting through fullscreen transition
     [
-      ['fullscreenBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }],
-      ['fsExitBtn', 'mousedown', (e) => { e.currentTarget.title = ''; }]
+      ['fullscreenBtn', 'mousedown', (e: Event) => {
+        const target = e.currentTarget as HTMLElement | null;
+        if (target) {
+          target.title = '';
+        }
+      }],
+      ['fsExitBtn', 'mousedown', (e: Event) => {
+        const target = e.currentTarget as HTMLElement | null;
+        if (target) {
+          target.title = '';
+        }
+      }]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
     // Fullscreen controls
     [
-      ['fsExitBtn', 'click', (e) => this._handleFullscreenClick(e)]
+      ['fsExitBtn', 'click', (e: Event) => this._handleFullscreenClick(e)]
     ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
 
     this.logger.info('UI event listeners set up');
@@ -178,32 +193,18 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     this.logger.info('Overlay click handlers initialized');
   }
 
-  /**
-   * Handle fullscreen button click
-   * @param {Event} e - Click event
-   * @private
-   */
-  _handleFullscreenClick(e) {
-    e.currentTarget.blur();
+  _handleFullscreenClick(e: Event) {
+    const target = e.currentTarget as HTMLElement | null;
+    target?.blur();
     this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
   }
 
-  /**
-   * Toggle settings menu
-   * @param {Event} e - Click event
-   * @private
-   */
-  _toggleSettingsMenu(e) {
+  _toggleSettingsMenu(e: Event) {
     e.stopPropagation();
     this.uiController.toggleSettingsMenu();
   }
 
-  /**
-   * Toggle shader selector
-   * @param {Event} e - Click event
-   * @private
-   */
-  _toggleShaderSelector(e) {
+  _toggleShaderSelector(e: Event) {
     e.stopPropagation();
     this.uiController.toggleShaderSelector();
   }

@@ -9,13 +9,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
 
-  /**
-   * @param {Object} dependencies
-   * @param {EventBus} dependencies.eventBus
-   * @param {Function} dependencies.loggerFactory
-   * @param {PerformanceMetricsService} dependencies.performanceMetricsService
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['eventBus', 'loggerFactory', 'performanceMetricsService'],

@@ -10,14 +10,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
 
-  /**
-   * @param {Object} dependencies
-   * @param {EventBus} dependencies.eventBus
-   * @param {PerformanceAnimationService} dependencies.animationPerformanceService
-   * @param {BodyClassManager} dependencies.bodyClassManager
-   * @param {Function} dependencies.loggerFactory
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['eventBus', 'animationPerformanceService', 'bodyClassManager', 'loggerFactory'],
@@ -31,15 +24,15 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
     });
   }
 
-  _handlePerformanceStateChanged(performanceState) {
+  _handlePerformanceStateChanged(performanceState: unknown) {
     const state = this.animationPerformanceService.setPerformanceState(performanceState);
     this._applyBodyClasses(state);
   }
 
-  _applyBodyClasses(state) {
-    this.bodyClassManager.setIdle(state.idle);
-    this.bodyClassManager.setHidden(state.hidden);
-    this.bodyClassManager.setAnimationsOff(state.animationsOff);
+  _applyBodyClasses(state: { idle?: boolean; hidden?: boolean; animationsOff?: boolean }) {
+    this.bodyClassManager.setIdle(Boolean(state.idle));
+    this.bodyClassManager.setHidden(Boolean(state.hidden));
+    this.bodyClassManager.setAnimationsOff(Boolean(state.animationsOff));
   }
 
   async onCleanup() {

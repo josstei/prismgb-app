@@ -13,7 +13,7 @@ import { UpdateState } from '@shared/config/update-state.config';
 
 class UpdateOrchestrator extends BaseOrchestrator {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['updateService', 'updateUiService', 'loggerFactory'],

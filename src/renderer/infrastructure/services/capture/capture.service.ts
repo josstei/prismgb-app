@@ -13,17 +13,33 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { EventBusLike, LoggerLike } from '@shared/base/service.base.js';
 import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
 import { EventChannels } from '@shared/events/event-channels.js';
 
-class CaptureService extends BaseService {
+type MediaRecorderErrorEvent = Event & {
+  error?: DOMException | Error | { message?: string; name?: string };
+};
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {EventBus} dependencies.eventBus - Event publisher for capture events
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   */
-  constructor(dependencies) {
+type LoggerFactoryLike = {
+  create(name: string): LoggerLike;
+};
+
+type CaptureDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
+class CaptureService extends BaseService {
+  declare protected readonly eventBus: EventBusLike;
+  declare protected readonly logger: LoggerLike;
+
+  isRecording: boolean;
+  mediaRecorder: MediaRecorder | null;
+  recordedChunks: Blob[];
+  _isDisposing: boolean;
+
+  constructor(dependencies: CaptureDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'CaptureService');
 
     // Recording state
@@ -33,14 +49,7 @@ class CaptureService extends BaseService {
     this._isDisposing = false;
   }
 
-  /**
-   * Take screenshot from a source element
-   * Supports video elements, canvas elements, and ImageBitmap sources.
-   * @param {HTMLVideoElement|HTMLCanvasElement|ImageBitmap} source - Source to capture from
-   * @returns {Promise<Object>} Screenshot result with blob and filename
-   * @throws {Error} If source is invalid or capture fails
-   */
-  async takeScreenshot(source) {
+  async takeScreenshot(source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap) {
     // Determine source type and validate
     const isVideo = source instanceof HTMLVideoElement;
     const isCanvas = source instanceof HTMLCanvasElement;
@@ -94,6 +103,9 @@ class CaptureService extends BaseService {
       canvas.height = height;
 
       const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Failed to create 2D canvas context');
+      }
       ctx.drawImage(source, 0, 0);
 
       // Close ImageBitmap after drawing to release memory
@@ -102,7 +114,7 @@ class CaptureService extends BaseService {
       }
 
       // Convert to blob
-      const blob = await new Promise((resolve, reject) => {
+      const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((blob) => {
           if (!blob) {
             reject(new Error('Failed to create screenshot blob'));
@@ -126,14 +138,7 @@ class CaptureService extends BaseService {
     }
   }
 
-  /**
-   * Start recording from media stream
-   * Uses VP9 codec with fallback to VP8/WebM.
-   * @param {MediaStream} stream - Media stream to record
-   * @returns {Promise<void>}
-   * @throws {Error} If no stream provided or already recording
-   */
-  async startRecording(stream) {
+  async startRecording(stream: MediaStream) {
     if (!stream) {
       this.logger.warn('Cannot start recording - no stream provided');
       throw new Error('No stream provided');
@@ -155,7 +160,7 @@ class CaptureService extends BaseService {
       this.recordedChunks = [];
 
       // Collect recorded chunks
-      this.mediaRecorder.ondataavailable = (event) => {
+      this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
         if (event.data.size > 0) {
           this.recordedChunks.push(event.data);
         }
@@ -167,7 +172,7 @@ class CaptureService extends BaseService {
       };
 
       // Handle recording errors (disk full, codec failure, etc.)
-      this.mediaRecorder.onerror = (event) => {
+      this.mediaRecorder.onerror = (event: MediaRecorderErrorEvent) => {
         this._handleRecordingError(event);
       };
 
@@ -184,12 +189,6 @@ class CaptureService extends BaseService {
     }
   }
 
-  /**
-   * Stop active recording
-   * Triggers recording-stopped and recording-ready events.
-   * @returns {Promise<void>}
-   * @throws {Error} If not currently recording
-   */
   async stopRecording() {
     if (!this.isRecording || !this.mediaRecorder) {
       this.logger.warn('Not currently recording');
@@ -210,28 +209,14 @@ class CaptureService extends BaseService {
     }
   }
 
-  /**
-   * Toggle recording state (start if stopped, stop if recording)
-   * @param {MediaStream} stream - Media stream (required when starting)
-   * @returns {Promise<void>}
-   * @throws {Error} If starting without stream, already recording, or MediaRecorder fails
-   */
-  async toggleRecording(stream) {
+  async toggleRecording(stream: MediaStream) {
     return this.isRecording ? this.stopRecording() : this.startRecording(stream);
   }
 
-  /**
-   * Check if currently recording
-   * @returns {boolean} True if recording is active
-   */
   getRecordingState() {
     return this.isRecording;
   }
 
-  /**
-   * Private: Handle recording stop and prepare recording data
-   * @private
-   */
   _handleRecordingStop() {
     // Skip processing if we're disposing (avoid race with async onstop)
     if (this._isDisposing) {
@@ -256,12 +241,7 @@ class CaptureService extends BaseService {
     this.recordedChunks = [];
   }
 
-  /**
-   * Private: Handle recording error (codec failure, disk full, etc.)
-   * @param {Event} event - MediaRecorder error event
-   * @private
-   */
-  _handleRecordingError(event) {
+  _handleRecordingError(event: MediaRecorderErrorEvent) {
     if (this._isDisposing) {
       return;
     }

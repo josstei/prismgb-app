@@ -15,7 +15,7 @@ interface IpcClientLike {
 
 interface ChromaticConfigLike {
   rendering: { canvasScale: number; [key: string]: unknown };
-  display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: unknown[] };
+  display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: ReadonlyArray<unknown> };
   media?: ChromaticMediaConfig;
 }
 
@@ -45,6 +45,16 @@ interface BrowserMediaServiceLike {
   enumerateDevices(): Promise<MediaDeviceInfo[]>;
 }
 
+type ChromaticAdapterDependencies = {
+  ipcClient?: IpcClientLike;
+  config?: ChromaticConfigLike;
+  mediaConfig?: ChromaticMediaConfig;
+  helpers?: ChromaticHelpersLike;
+  browserMediaService?: BrowserMediaServiceLike | null;
+  acquisitionCoordinator?: StreamAcquisitionOrchestrator;
+  fallbackStrategy?: DeviceAwareFallbackStrategy;
+};
+
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   ipcClient: IpcClientLike;
   deviceProfile: ChromaticDeviceProfile | null;
@@ -55,34 +65,31 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   canvasScale: number;
   acquisitionCoordinator: StreamAcquisitionOrchestrator;
 
-  /**
-   * Create Chromatic adapter
-   * @param {Object} dependencies - Injected dependencies
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies);
+    const resolvedDependencies = dependencies as ChromaticAdapterDependencies;
 
-    if (!dependencies.ipcClient) {
+    if (!resolvedDependencies.ipcClient) {
       throw new Error('DeviceChromaticAdapter: ipcClient is required');
     }
 
-    this.ipcClient = dependencies.ipcClient;
+    this.ipcClient = resolvedDependencies.ipcClient;
     this.deviceProfile = null;
 
     // Allow config injection for testing, fall back to defaults
-    this.config = dependencies.config || defaultConfig;
-    this.mediaConfig = dependencies.mediaConfig || defaultMediaConfig;
-    this.helpers = dependencies.helpers || defaultHelpers;
-    this.browserMediaService = dependencies.browserMediaService || null;
+    this.config = (resolvedDependencies.config || defaultConfig) as ChromaticConfigLike;
+    this.mediaConfig = resolvedDependencies.mediaConfig || defaultMediaConfig;
+    this.helpers = resolvedDependencies.helpers || defaultHelpers;
+    this.browserMediaService = resolvedDependencies.browserMediaService || null;
 
     this.canvasScale = this.config.rendering.canvasScale;
 
     // Use injected coordinator or create with default strategy
     // Note: Coordinator needs adapter-specific constraintBuilder and streamLifecycle
-    if (dependencies.acquisitionCoordinator) {
-      this.acquisitionCoordinator = dependencies.acquisitionCoordinator;
+    if (resolvedDependencies.acquisitionCoordinator) {
+      this.acquisitionCoordinator = resolvedDependencies.acquisitionCoordinator;
     } else {
-      const fallbackStrategy = dependencies.fallbackStrategy || new DeviceAwareFallbackStrategy();
+      const fallbackStrategy = resolvedDependencies.fallbackStrategy || new DeviceAwareFallbackStrategy();
       this.acquisitionCoordinator = new StreamAcquisitionOrchestrator({
         constraintBuilder: this.constraintBuilder,
         streamLifecycle: this.streamLifecycle,
@@ -97,7 +104,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Initialize adapter with device info
    */
-  async initialize(deviceInfo) {
+  async initialize(deviceInfo: MediaDeviceInfo): Promise<void> {
     await super.initialize(deviceInfo);
 
     // Load device profile from main process
@@ -110,14 +117,11 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     };
   }
 
-  /**
-   * Get media stream from Chromatic device
-   * @param {Object} device - Device info
-   */
-  async getStream(device) {
+  async getStream(options: Record<string, unknown> = {}): Promise<MediaStream> {
+    const device = options as Partial<MediaDeviceInfo>;
     // Handle initialization if needed
     if (device && device.deviceId && !this.deviceInfo) {
-      await this.initialize(device);
+      await this.initialize(device as MediaDeviceInfo);
     }
 
     if (!this.deviceInfo || !this.deviceInfo.deviceId) {
@@ -133,7 +137,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     const context = new AcquisitionContext({
       deviceId: this.deviceInfo.deviceId,
       groupId: this.deviceInfo.groupId || null,
-      profile: this.profile
+      profile: this.profile ?? undefined
     });
 
     const audioDeviceId = await this._resolveAudioDeviceId();
@@ -209,7 +213,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Set canvas scale
    */
-  setCanvasScale(scale) {
+  setCanvasScale(scale: number) {
     if (typeof scale !== 'number' || scale < 1 || scale > 8) {
       throw new Error('DeviceChromaticAdapter.setCanvasScale: Scale must be a number between 1 and 8');
     }

@@ -41,15 +41,15 @@ export type StreamingCapabilities = {
 };
 
 export type StreamSettingsPayload = {
-  video?: Record<string, unknown>;
-  audio?: Record<string, unknown>;
+  video?: Record<string, unknown> | null;
+  audio?: Record<string, unknown> | null;
   [key: string]: unknown;
 };
 
 export type StreamStartedPayload = {
   stream: MediaStream;
   device: MediaDeviceInfo;
-  settings: StreamSettingsPayload;
+  settings: StreamSettingsPayload | null;
   capabilities: StreamingCapabilities;
 };
 
@@ -183,9 +183,9 @@ export type UiStreamInfoPayload = {
 };
 
 export type UiButtonFeedbackPayload = {
-  buttonId: string;
+  elementKey: string;
   className?: string;
-  durationMs?: number;
+  duration?: number;
   [key: string]: unknown;
 };
 

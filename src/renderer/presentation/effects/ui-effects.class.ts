@@ -107,21 +107,10 @@ export class UIEffects {
     this._buttonFeedback.triggerRecordButtonPress();
   }
 
-  /**
-   * Trigger button feedback animation
-   * @param {string} elementKey - Key of the button element
-   * @param {string} className - CSS class to add temporarily
-   * @param {number} duration - Duration in ms before removing class
-   */
   triggerButtonFeedback(elementKey: string, className: string, duration: number) {
     this._buttonFeedback.triggerButtonFeedback(elementKey, className, duration);
   }
 
-  /**
-   * Set recording button state
-   * @param {HTMLElement} element - The record button element
-   * @param {boolean} isActive - Whether recording is active
-   */
   setRecordingButtonState(element: HTMLElement, isActive: boolean) {
     this._buttonFeedback.setRecordingButtonState(element, isActive);
   }
@@ -151,10 +140,6 @@ export class UIEffects {
   // Toolbar Auto-Hide (delegated)
   // =====================================================
 
-  /**
-   * Enable toolbar auto-hide
-   * @param {HTMLElement} toolbarElement - The toolbar element to auto-hide
-   */
   enableToolbarAutoHide(toolbarElement: HTMLElement) {
     this._toolbar.enable(toolbarElement);
   }
@@ -180,10 +165,6 @@ export class UIEffects {
   // Fullscreen Controls Auto-Hide (delegated)
   // =====================================================
 
-  /**
-   * Enable fullscreen controls auto-hide
-   * @param {HTMLElement} controlsElement - The fullscreen controls element
-   */
   enableControlsAutoHide(controlsElement: HTMLElement) {
     this._controls.enable(controlsElement);
   }
@@ -199,38 +180,22 @@ export class UIEffects {
   // Body Modes (delegated)
   // =====================================================
 
-  /**
-   * Set cinematic mode body class
-   * @param {boolean} isActive - Whether cinematic mode should be visually active
-   */
   setCinematicMode(isActive: boolean) {
-    this._bodyClassManager?.setCinematicMode(isActive);
+    this._bodyClassManager?.setCinematicMode?.(isActive);
   }
 
-  /**
-   * Set minimalist fullscreen body class
-   * @param {boolean} isActive - Whether minimalist fullscreen should be active
-   */
   setMinimalistFullscreen(isActive: boolean) {
-    this._bodyClassManager?.setMinimalistFullscreen(isActive);
+    this._bodyClassManager?.setMinimalistFullscreen?.(isActive);
   }
 
-  /**
-   * Set fullscreen mode body class
-   * @param {boolean} isActive - Whether fullscreen mode is active
-   */
   setFullscreenMode(isActive: boolean) {
-    this._bodyClassManager?.setFullscreenMode(isActive);
+    this._bodyClassManager?.setFullscreenMode?.(isActive);
   }
 
   // =====================================================
   // Coordination Logic
   // =====================================================
 
-  /**
-   * Handle activity (mouse move, etc.) - start unified timer
-   * @private
-   */
   _handleActivity() {
     // Don't start unified timer if controls auto-hide is managing
     if (this._controls.isEnabled) {
@@ -244,10 +209,6 @@ export class UIEffects {
     this._unifiedTimer.start();
   }
 
-  /**
-   * Handle toolbar hover start - pause unified timer
-   * @private
-   */
   _handleToolbarHoverStart() {
     this._unifiedTimer.clear();
     if (this._cursor.isEnabled) {
@@ -255,21 +216,12 @@ export class UIEffects {
     }
   }
 
-  /**
-   * Handle toolbar hover end - resume unified timer
-   * @private
-   */
   _handleToolbarHoverEnd() {
     if (!this._toolbar.isPanelOpen()) {
       this._unifiedTimer.start();
     }
   }
 
-  /**
-   * Check if unified timer should start
-   * @returns {boolean}
-   * @private
-   */
   _shouldStartUnifiedTimer() {
     if (this._controls.isEnabled) {
       return false;
@@ -280,10 +232,6 @@ export class UIEffects {
     return true;
   }
 
-  /**
-   * Handle unified timer timeout - hide cursor and toolbar
-   * @private
-   */
   _handleUnifiedTimeout() {
     if (this._cursor.isEnabled) {
       this._cursor.hide();
@@ -293,10 +241,6 @@ export class UIEffects {
     }
   }
 
-  /**
-   * Show all - cursor and toolbar (for controls auto-hide)
-   * @private
-   */
   _showAll() {
     this._cursor.show();
     if (this._toolbar.isEnabled) {
@@ -304,10 +248,6 @@ export class UIEffects {
     }
   }
 
-  /**
-   * Hide all - cursor and toolbar (for controls auto-hide)
-   * @private
-   */
   _hideAll() {
     if (this._toolbar.isEnabled) {
       this._toolbar.hide();

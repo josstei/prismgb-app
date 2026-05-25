@@ -9,7 +9,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 class SettingsFullscreenService extends BaseService {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
@@ -128,11 +128,11 @@ class SettingsFullscreenService extends BaseService {
     this._applyFullscreenState(!!document.fullscreenElement);
   }
 
-  _handleNativeFullscreen(active) {
+  _handleNativeFullscreen(active: boolean) {
     this._applyFullscreenState(active);
   }
 
-  _applyFullscreenState(active) {
+  _applyFullscreenState(active: boolean) {
     if (this._isFullscreenActive === active) return;
     this._isFullscreenActive = active;
 

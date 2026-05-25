@@ -102,9 +102,9 @@ class UpdateService extends BaseService {
       const result: UpdateGetStatusResponse = await updateAPI.getStatus();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
-        this._updateInfo = result.updateInfo;
-        this._downloadProgress = result.downloadProgress;
-        this._error = result.error;
+        this._updateInfo = result.updateInfo ?? null;
+        this._downloadProgress = result.downloadProgress ?? null;
+        this._error = result.error ?? null;
       }
     } catch (error) {
       this.logger.warn('Failed to load initial update status', error);

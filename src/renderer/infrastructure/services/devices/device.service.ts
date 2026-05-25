@@ -9,16 +9,7 @@ import { BaseService } from '@shared/base/service.base.js';
 
 class DeviceService extends BaseService {
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   * @param {IDeviceStatusProvider} dependencies.deviceStatusProvider - USB device status provider
-   * @param {DeviceConnectionService} dependencies.deviceConnectionService - Connection status service
-   * @param {DeviceStorageService} dependencies.deviceStorageService - Device ID storage service
-   * @param {DeviceMediaService} dependencies.deviceMediaService - Media device enumeration service
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, [
       'eventBus',
       'loggerFactory',
@@ -61,7 +52,7 @@ class DeviceService extends BaseService {
     return this.deviceMediaService.discoverSupportedDevice();
   }
 
-  registerSupportedDevice(device) {
+  registerSupportedDevice(device: MediaDeviceInfo) {
     return this.deviceMediaService.registerSupportedDevice(device);
   }
 

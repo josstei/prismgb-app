@@ -89,6 +89,12 @@ interface TranscodeServiceDependencies {
   };
 }
 
+type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
+
+function isTranscodeFormat(value: string): value is TranscodeFormatKey {
+  return Object.prototype.hasOwnProperty.call(TRANSCODE_CONFIG.formats, value);
+}
+
 class TranscodeService extends BaseService {
 
   private windowService: TranscodeServiceDependencies['windowService'];
@@ -127,21 +133,16 @@ class TranscodeService extends BaseService {
     this.logger.info('TranscodeService initialized');
   }
 
-  /**
-   * Start a transcode operation
-   * @param options - Transcode options
-   * @returns Transcode result
-   */
   async transcode({ inputBuffer, format, outputFilename, inputArgs }: TranscodeOptions): Promise<TranscodeResult> {
     if (!this._isInitialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
 
     // Validate format
-    const formatConfig = TRANSCODE_CONFIG.formats[format];
-    if (!formatConfig) {
+    if (!isTranscodeFormat(format)) {
       return { success: false, error: `Unsupported format: ${format}` };
     }
+    const formatConfig = TRANSCODE_CONFIG.formats[format];
 
     // Validate outputFilename
     if (!outputFilename || typeof outputFilename !== 'string') {
@@ -266,11 +267,6 @@ class TranscodeService extends BaseService {
     }
   }
 
-  /**
-   * Cancel a transcode operation
-   * @param jobId - Job ID to cancel
-   * @returns Cancel result
-   */
   cancel(jobId: string): CancelResult {
     const process = this._processes.get(jobId);
     if (!process) {
@@ -295,12 +291,6 @@ class TranscodeService extends BaseService {
     return { success: true, jobs };
   }
 
-  /**
-   * Clean up a job's resources
-   * @param jobId - Job ID
-   * @param removeOutput - Also remove output file
-   * @private
-   */
   private _cleanupJob(jobId: string, removeOutput = false): void {
     // Remove process reference
     this._processes.delete(jobId);
@@ -340,12 +330,6 @@ class TranscodeService extends BaseService {
     this._cleanupTimeouts.set(jobId, timeoutHandle);
   }
 
-  /**
-   * Notify renderer process
-   * @param channel - IPC channel
-   * @param data - Data to send
-   * @private
-   */
   private _notifyRenderer(channel: string, data: unknown): void {
     try {
       this.windowService?.send(channel, data);

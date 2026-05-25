@@ -7,9 +7,19 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 
+type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
+
+interface PerformanceStatePayload {
+  performanceModeEnabled?: boolean;
+  weakGpuDetected?: boolean;
+  reducedMotion?: boolean;
+  hidden?: boolean;
+  idle?: boolean;
+}
+
 class PerformanceAnimationService extends BaseService {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
 
     this._animationSuppression = {
@@ -22,12 +32,7 @@ class PerformanceAnimationService extends BaseService {
     this._isIdle = false;
   }
 
-  /**
-   * Update performance state
-   * @param {Object} performanceState - Performance state object
-   * @returns {Object} Current state: { idle, hidden, animationsOff }
-   */
-  setPerformanceState(performanceState) {
+  setPerformanceState(performanceState: PerformanceStatePayload) {
     const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
     const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
     const reducedMotion = Boolean(performanceState.reducedMotion);
@@ -56,11 +61,6 @@ class PerformanceAnimationService extends BaseService {
     return this._getState();
   }
 
-  /**
-   * Get current computed state
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
-   * @private
-   */
   _getState() {
     return {
       idle: this._isIdle,
@@ -69,11 +69,7 @@ class PerformanceAnimationService extends BaseService {
     };
   }
 
-  /**
-   * Internal method to track animation suppression reasons
-   * @private
-   */
-  _setAnimationsSuppressed(reason, suppressed) {
+  _setAnimationsSuppressed(reason: AnimationSuppressionReason, suppressed: boolean) {
     this._animationSuppression[reason] = suppressed;
   }
 }

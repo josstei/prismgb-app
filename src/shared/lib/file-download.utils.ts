@@ -1,7 +1,7 @@
 /**
  * Download a blob as a file in the renderer process.
  */
-export function downloadFile(blob, filename) {
+export function downloadFile(blob: Blob, filename: string) {
   return new Promise<void>((resolve, reject) => {
     try {
       if (!blob || !(blob instanceof Blob)) {

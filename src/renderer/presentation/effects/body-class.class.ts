@@ -21,59 +21,31 @@ export class BodyClassManager {
     this._minimalistTransitionTimer = null;
   }
 
-  /**
-   * Set idle state
-   * @param {boolean} isIdle - Whether the app is idle
-   */
-  setIdle(isIdle) {
+  setIdle(isIdle: boolean) {
     document.body.classList.toggle(APP_CSS_CLASSES.IDLE, isIdle);
   }
 
-  /**
-   * Set hidden state
-   * @param {boolean} isHidden - Whether the app is hidden
-   */
-  setHidden(isHidden) {
+  setHidden(isHidden: boolean) {
     document.body.classList.toggle(APP_CSS_CLASSES.HIDDEN, isHidden);
   }
 
-  /**
-   * Set animations off state
-   * @param {boolean} animationsOff - Whether animations should be suppressed
-   */
-  setAnimationsOff(animationsOff) {
+  setAnimationsOff(animationsOff: boolean) {
     document.body.classList.toggle(APP_CSS_CLASSES.ANIMATIONS_OFF, animationsOff);
   }
 
-  /**
-   * Check if animations are disabled (performance mode)
-   * @returns {boolean}
-   */
   areAnimationsOff() {
     return document.body.classList.contains(APP_CSS_CLASSES.ANIMATIONS_OFF);
   }
 
-  /**
-   * Set streaming mode body class
-   * @param {boolean} isStreaming - Whether streaming mode is active
-   */
-  setStreamingMode(isStreaming) {
+  setStreamingMode(isStreaming: boolean) {
     document.body.classList.toggle(CSSClasses.STREAMING_MODE, isStreaming);
   }
 
-  /**
-   * Set cinematic mode body class
-   * @param {boolean} isActive - Whether cinematic mode should be visually active
-   */
-  setCinematicMode(isActive) {
+  setCinematicMode(isActive: boolean) {
     document.body.classList.toggle(CSSClasses.CINEMATIC_ACTIVE, isActive);
   }
 
-  /**
-   * Set minimalist fullscreen body class
-   * @param {boolean} isActive - Whether minimalist fullscreen should be active
-   */
-  setMinimalistFullscreen(isActive) {
+  setMinimalistFullscreen(isActive: boolean) {
     const currentlyActive = document.body.classList.contains(CSSClasses.MINIMALIST_FULLSCREEN);
     if (currentlyActive === isActive) return;
 
@@ -81,18 +53,10 @@ export class BodyClassManager {
     document.body.classList.toggle(CSSClasses.MINIMALIST_FULLSCREEN, isActive);
   }
 
-  /**
-   * Set fullscreen mode body class
-   * @param {boolean} isActive - Whether fullscreen mode is active
-   */
-  setFullscreenMode(isActive) {
+  setFullscreenMode(isActive: boolean) {
     document.body.classList.toggle(CSSClasses.FULLSCREEN_ACTIVE, isActive);
   }
 
-  /**
-   * Apply transition class for minimalist mode changes
-   * @private
-   */
   _setMinimalistTransitionActive() {
     if (this._minimalistTransitionTimer) {
       clearTimeout(this._minimalistTransitionTimer);

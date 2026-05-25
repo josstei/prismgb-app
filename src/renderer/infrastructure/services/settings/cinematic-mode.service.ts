@@ -9,7 +9,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 class SettingsCinematicModeService extends BaseService {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'SettingsCinematicModeService');
   }
 

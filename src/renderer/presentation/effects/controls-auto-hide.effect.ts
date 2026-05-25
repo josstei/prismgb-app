@@ -28,13 +28,6 @@ export class ControlsAutoHide {
   _boundHandleFocusIn: () => void;
   _boundHandleFocusOut: () => void;
 
-  /**
-   * @param {Object} options
-   * @param {Function} [options.onShowAll] - Callback to show cursor and toolbar
-   * @param {Function} [options.onHideAll] - Callback to hide cursor and toolbar
-   * @param {Function} [options.onEnable] - Callback when controls auto-hide is enabled
-   * @param {Function} [options.onDisable] - Callback when controls auto-hide is disabled
-   */
   constructor(options: ControlsAutoHideOptions = {}) {
     this._element = null;
     this._onShowAll = options.onShowAll || (() => {});
@@ -69,10 +62,6 @@ export class ControlsAutoHide {
     this._boundHandleFocusOut = this._handleFocusOut.bind(this);
   }
 
-  /**
-   * Check if controls auto-hide is enabled
-   * @returns {boolean}
-   */
   get isEnabled() {
     return this._activityController.isEnabled;
   }
@@ -85,11 +74,7 @@ export class ControlsAutoHide {
     return this._activityController.rafId;
   }
 
-  /**
-   * Enable controls auto-hide
-   * @param {HTMLElement} [element] - The fullscreen controls element
-   */
-  enable(element) {
+  enable(element: HTMLElement | null) {
     if (!element) return;
     this._element = element;
 
@@ -117,72 +102,40 @@ export class ControlsAutoHide {
     this._element = null;
   }
 
-  /**
-   * Handle mouse enter on controls
-   * @private
-   */
   _handleMouseEnter() {
     this._show();
     this._onShowAll();
     this._startHideTimer();
   }
 
-  /**
-   * Handle mouse leave on controls
-   * @private
-   */
   _handleMouseLeave() {
     this._startHideTimer();
   }
 
-  /**
-   * Handle focus in on controls
-   * @private
-   */
   _handleFocusIn() {
     this._show();
     this._onShowAll();
     this._startHideTimer();
   }
 
-  /**
-   * Handle focus out on controls
-   * @private
-   */
   _handleFocusOut() {
     this._startHideTimer();
   }
 
-  /**
-   * Start or reset the hide timer
-   * @private
-   */
   _startHideTimer() {
     this._activityController.startTimer();
   }
 
-  /**
-   * Clear the hide timer
-   * @private
-   */
   _clearHideTimer() {
     this._activityController.clearTimer();
   }
 
-  /**
-   * Hide the fullscreen controls
-   * @private
-   */
   _hide() {
     if (this._element) {
       this._element.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
     }
   }
 
-  /**
-   * Show the fullscreen controls
-   * @private
-   */
   _show() {
     if (this._element) {
       this._element.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);

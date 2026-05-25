@@ -15,6 +15,12 @@ describe('streaming contracts', () => {
       settings: { video: {} },
       capabilities: { nativeResolution: { width: 160, height: 144 } }
     })).toBe(true);
+    expect(isStreamStartedPayload({
+      stream: {},
+      device: {},
+      settings: null,
+      capabilities: {}
+    })).toBe(true);
 
     expect(isStreamStartedPayload({ stream: {}, settings: {} })).toBe(false);
   });

@@ -19,7 +19,7 @@ export class ButtonFeedback {
 
   constructor(dependencies: ButtonFeedbackDependencies = {}) {
     const { elements } = dependencies;
-    this.elements = elements;
+    this.elements = elements ?? null;
     this._activeTimeouts = new Set();
   }
 
@@ -37,13 +37,7 @@ export class ButtonFeedback {
     this.triggerButtonFeedback('recordBtn', 'btn-press', TIMING.UI_TIMEOUT_MS);
   }
 
-  /**
-   * Trigger button feedback animation
-   * @param {string} elementKey - Key of the button element
-   * @param {string} className - CSS class to add temporarily
-   * @param {number} duration - Duration in ms before removing class
-   */
-  triggerButtonFeedback(elementKey, className, duration) {
+  triggerButtonFeedback(elementKey: string, className: string, duration: number) {
     const element = this.elements?.[elementKey];
     if (!element) return;
 
@@ -62,12 +56,7 @@ export class ButtonFeedback {
     this._activeTimeouts.add(timeoutId);
   }
 
-  /**
-   * Set recording button state
-   * @param {HTMLElement} element - The record button element
-   * @param {boolean} isActive - Whether recording is active
-   */
-  setRecordingButtonState(element, isActive) {
+  setRecordingButtonState(element: HTMLElement | null, isActive: boolean) {
     if (!element) return;
 
     if (isActive) {

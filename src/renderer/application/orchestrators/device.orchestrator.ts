@@ -16,7 +16,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class DeviceOrchestrator extends BaseOrchestrator {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
@@ -50,21 +50,10 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     return this.deviceService.isDeviceConnected();
   }
 
-  /**
-   * Handle device connected IPC event
-   * Fire-and-forget: sequencer handles ordering
-   * @private
-   */
   _handleDeviceConnectedIPC() {
     this.deviceOperationSequencer.queueConnected();
   }
 
-  /**
-   * Handle device disconnected IPC event
-   * Fire-and-forget: sequencer handles ordering
-   * Event is published after status update completes
-   * @private
-   */
   _handleDeviceDisconnectedIPC() {
     this.deviceOperationSequencer.queueDisconnected(() => {
       this.eventBus.publish(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);

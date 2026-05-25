@@ -10,12 +10,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
 
-  /**
-   * @param {Object} dependencies
-   * @param {EventBus} dependencies.eventBus
-   * @param {Function} dependencies.loggerFactory
-   */
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['eventBus', 'performanceStateService', 'loggerFactory'],
@@ -41,22 +36,23 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     });
 
     this.performanceStateService.initialize({
-      onStateChange: (state) => this._handleStateChanged(state)
+      onStateChange: (state: { performanceModeEnabled?: boolean; weakGpuDetected?: boolean; [key: string]: unknown }) =>
+        this._handleStateChanged(state)
     });
   }
 
-  _handlePerformanceModeChanged(enabled) {
+  _handlePerformanceModeChanged(enabled: unknown) {
     const changed = this.performanceStateService.setPerformanceModeEnabled(enabled);
     if (changed) {
       this.eventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, enabled);
     }
   }
 
-  _handleCapabilitiesChanged(capabilities) {
+  _handleCapabilitiesChanged(capabilities: unknown) {
     this.performanceStateService.setCapabilities(capabilities);
   }
 
-  _handleStateChanged(state) {
+  _handleStateChanged(state: { performanceModeEnabled?: boolean; weakGpuDetected?: boolean; [key: string]: unknown }) {
     this.eventBus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { ...state });
 
     const uiMode = {

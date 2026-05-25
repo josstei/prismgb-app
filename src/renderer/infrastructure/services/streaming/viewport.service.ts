@@ -15,9 +15,40 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { TIMING } from '@shared/config/timing.config';
+import type {
+  LoggerFactoryLike,
+  LoggerLike
+} from '@shared/interfaces/infrastructure.types.js';
+import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type StreamingViewportDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
+type ResizeDimensions = Dimensions & {
+  scale: number;
+};
+
+type CachedViewportStyles = {
+  paddingX: number;
+  paddingY: number;
+  borderX: number;
+  borderY: number;
+  gap: number;
+};
 
 export class StreamingViewportService extends BaseService {
-  constructor(dependencies) {
+  declare protected readonly logger: LoggerLike;
+
+  _resizeObserver: ResizeObserver | null;
+  _resizeTimeout: ReturnType<typeof setTimeout> | null;
+  _forceResizeTimeout: ReturnType<typeof setTimeout> | null;
+  _onResizeCallback: (() => void) | null;
+  _lastDimensions: ResizeDimensions | null;
+  _forceResizePending: boolean;
+  _cachedStyles: CachedViewportStyles | null;
+
+  constructor(dependencies: StreamingViewportDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
@@ -41,12 +72,7 @@ export class StreamingViewportService extends BaseService {
     this._handleResize = this._handleResize.bind(this);
   }
 
-  /**
-   * Initialize viewport manager
-   * @param {HTMLElement} observeElement - Element to observe for resize (typically the section)
-   * @param {Function} onResize - Callback to invoke when resize occurs
-   */
-  initialize(observeElement, onResize) {
+  initialize(observeElement: HTMLElement | null, onResize: () => void): void {
     this._onResizeCallback = onResize;
 
     // Set up ResizeObserver
@@ -57,24 +83,14 @@ export class StreamingViewportService extends BaseService {
     }
   }
 
-  /**
-   * Check if ResizeObserver is set up
-   * @returns {boolean} True if initialized
-   */
-  isInitialized() {
+  isInitialized(): boolean {
     return Boolean(this._resizeObserver);
   }
 
-  /**
-   * Calculate dimensions for canvas based on available space and native resolution.
-   * This is a read-only method that batches all DOM reads to avoid layout thrashing.
-   * The caller is responsible for applying the returned dimensions to the canvas.
-   *
-   * @param {HTMLCanvasElement} canvas - Canvas element
-   * @param {Object} nativeResolution - Native resolution {width, height}
-   * @returns {Object|null} Calculated dimensions {width, height, scale}, or null if unchanged
-   */
-  calculateDimensions(canvas, nativeResolution) {
+  calculateDimensions(
+    canvas: HTMLCanvasElement,
+    nativeResolution: Dimensions
+  ): ResizeDimensions | null {
     const container = canvas?.parentElement;
     const section = container?.parentElement;
     const mainContent = section?.parentElement;
@@ -85,24 +101,25 @@ export class StreamingViewportService extends BaseService {
     }
 
     // === BATCH DOM READS: Cache computed styles (padding, border, gap don't change during session) ===
-    if (!this._cachedStyles) {
+    const cachedStyles = this._cachedStyles ?? (() => {
       const sectionStyle = window.getComputedStyle(section);
       const containerStyle = window.getComputedStyle(container);
-      this._cachedStyles = {
+      return {
         paddingX: parseFloat(sectionStyle.paddingLeft) + parseFloat(sectionStyle.paddingRight),
         paddingY: parseFloat(sectionStyle.paddingTop) + parseFloat(sectionStyle.paddingBottom),
         borderX: parseFloat(containerStyle.borderLeftWidth) + parseFloat(containerStyle.borderRightWidth),
         borderY: parseFloat(containerStyle.borderTopWidth) + parseFloat(containerStyle.borderBottomWidth),
         gap: parseFloat(sectionStyle.gap) || 0
       };
-    }
+    })();
+    this._cachedStyles = cachedStyles;
 
-    const { paddingX, paddingY, borderX, borderY, gap } = this._cachedStyles;
+    const { paddingX, paddingY, borderX, borderY, gap } = cachedStyles;
 
     // === BATCH DOM READS: Measure sibling elements (may show/hide) ===
     let siblingsHeight = 0;
     for (const child of section.children) {
-      if (child !== container) {
+      if (child !== container && child instanceof HTMLElement) {
         siblingsHeight += child.offsetHeight;
       }
     }
@@ -132,11 +149,7 @@ export class StreamingViewportService extends BaseService {
     return { width, height, scale };
   }
 
-  /**
-   * Handle resize events with debouncing
-   * @private
-   */
-  _handleResize() {
+  _handleResize(): void {
     // Skip if forceResize is pending (prevents race condition during fullscreen transitions)
     if (this._forceResizePending) {
       return;
@@ -154,7 +167,7 @@ export class StreamingViewportService extends BaseService {
   /**
    * Reset cached dimension tracking without tearing down observers
    */
-  resetDimensions() {
+  resetDimensions(): void {
     this._lastDimensions = null;
   }
 
@@ -163,7 +176,7 @@ export class StreamingViewportService extends BaseService {
    * Suppresses ResizeObserver callbacks while pending to prevent race conditions.
    * Uses short delay to ensure CSS layout has recalculated after fullscreen change.
    */
-  forceResize() {
+  forceResize(): void {
     // Cancel any pending resize (both ResizeObserver debounce and forceResize)
     if (this._resizeTimeout) {
       clearTimeout(this._resizeTimeout);
@@ -193,7 +206,7 @@ export class StreamingViewportService extends BaseService {
   /**
    * Cleanup resources
    */
-  cleanup() {
+  cleanup(): void {
     // Clean up ResizeObserver
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
@@ -223,7 +236,7 @@ export class StreamingViewportService extends BaseService {
   /**
    * Dispose the service
    */
-  dispose() {
+  dispose(): void {
     this.cleanup();
     this.logger.info('StreamingViewportService disposed');
   }

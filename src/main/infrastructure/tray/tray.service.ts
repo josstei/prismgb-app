@@ -13,7 +13,7 @@ import { BaseService } from '@shared/base/service.base.js';
 interface MenuConfigItem {
   label: string;
   service: 'windowService' | 'deviceService';
-  method: string;
+  method: 'showWindow' | 'refreshDeviceStatus';
 }
 
 /**
@@ -105,9 +105,13 @@ class TrayService extends BaseService {
     const menuItems: MenuItemConstructorOptions[] = MENU_CONFIG.map(({ label, service, method }) => ({
       label,
       click: () => {
-        const serviceInstance = this[service];
-        if (serviceInstance && typeof serviceInstance[method] === 'function') {
-          serviceInstance[method]();
+        if (service === 'windowService' && method === 'showWindow') {
+          this.windowService.showWindow();
+          return;
+        }
+
+        if (service === 'deviceService' && method === 'refreshDeviceStatus') {
+          this.deviceService.refreshDeviceStatus();
         }
       }
     }));

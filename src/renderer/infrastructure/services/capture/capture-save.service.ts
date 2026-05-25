@@ -24,7 +24,7 @@ interface SaveResult {
 
 class CaptureSaveService extends BaseService {
 
-  constructor(dependencies) {
+  constructor(dependencies: Record<string, unknown>) {
     super(
       dependencies,
       ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory'],
@@ -32,14 +32,6 @@ class CaptureSaveService extends BaseService {
     );
   }
 
-  /**
-   * Save a recording, transcoding if the user's format preference differs from webm
-   * @param {Blob} blob - The recording blob (webm format)
-   * @param {string} filename - The original filename (used as base for transcoded file)
-   * @param {Object} [options]
-   * @param {boolean} [options.interrupted=false] - Recording stopped due to stream interruption
-   * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
-   */
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {
     const format = this.settingsService.getStringSetting('recordingFormat');
     const interrupted = Boolean(options.interrupted);
@@ -57,23 +49,10 @@ class CaptureSaveService extends BaseService {
     return this._transcodeAndSave(blob, format, baseName, { interrupted });
   }
 
-  /**
-   * Save a screenshot directly (no transcoding needed)
-   * @param {Blob} blob - The screenshot blob
-   * @param {string} filename - The filename
-   * @returns {Promise<{success: boolean}>}
-   */
   async saveScreenshot(blob: Blob, filename: string): Promise<SaveResult> {
     return this._directSave(blob, filename);
   }
 
-  /**
-   * Direct save using browser download
-   * @param {Blob} blob - The blob to save
-   * @param {string} filename - The filename
-   * @returns {{success: boolean}}
-   * @private
-   */
   async _directSave(blob: Blob, filename: string): Promise<SaveResult> {
     try {
       await downloadFile(blob, filename);
@@ -81,21 +60,12 @@ class CaptureSaveService extends BaseService {
       this.logger.info(`Direct save completed: ${filename}`);
       return { success: true, transcoded: false };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error('Direct save failed', error);
-      return { success: false, error: error.message };
+      return { success: false, error: message };
     }
   }
 
-  /**
-   * Transcode and save via main process
-   * @param {Blob} blob - The source blob
-   * @param {string} format - Target format (mp4, mov)
-   * @param {string} outputBaseName - Base name for output file (without extension)
-   * @param {Object} [options]
-   * @param {boolean} [options.interrupted=false] - Recording stopped due to stream interruption
-   * @returns {Promise<{success: boolean, transcoded?: boolean, error?: string}>}
-   * @private
-   */
   async _transcodeAndSave(
     blob: Blob,
     format: string,
@@ -126,12 +96,13 @@ class CaptureSaveService extends BaseService {
       // Transcode started successfully - completion will be handled by TranscodeUIBridge
       return { success: true, transcoded: true };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error('Transcode and save failed', error);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-        message: `Conversion failed: ${error.message}`,
+        message: `Conversion failed: ${message}`,
         type: 'error'
       });
-      return { success: false, error: error.message };
+      return { success: false, error: message };
     }
   }
 

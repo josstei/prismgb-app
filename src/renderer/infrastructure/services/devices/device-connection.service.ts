@@ -7,14 +7,30 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
-class DeviceConnectionService extends BaseService {
+interface DeviceStatusPayload {
+  connected: boolean;
+  [key: string]: unknown;
+}
 
-  constructor(dependencies) {
+interface DeviceConnectionServiceDependencies {
+  eventBus: {
+    publish(event: string, payload?: unknown): void;
+  };
+  loggerFactory: unknown;
+  deviceStatusProvider: {
+    getDeviceStatus(): Promise<DeviceStatusPayload>;
+  };
+}
+
+class DeviceConnectionService extends BaseService {
+  isConnected: boolean | null;
+
+  constructor(dependencies: DeviceConnectionServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'deviceStatusProvider'], 'DeviceConnectionService');
     this.isConnected = null;  // null ensures first status check always publishes event
   }
 
-  async updateConnectionStatus() {
+  async updateConnectionStatus(): Promise<{ status: DeviceStatusPayload; changed: boolean }> {
     try {
       const status = await this.deviceStatusProvider.getDeviceStatus();
       const connected = status.connected;
