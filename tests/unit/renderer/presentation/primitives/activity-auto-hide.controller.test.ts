@@ -4,6 +4,13 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+
+class TestComponent extends PresentationComponent {
+  listenTo(target: EventTarget | null, type: string, handler: EventListener) {
+    return this.listen(target, type, handler);
+  }
+}
 
 describe('ActivityAutoHideController', () => {
   let controller;
@@ -105,5 +112,19 @@ describe('ActivityAutoHideController', () => {
     vi.advanceTimersByTime(2000);
 
     expect(callbacks.onTimeout).not.toHaveBeenCalled();
+  });
+
+  it('removes base listeners through disposable cleanup', () => {
+    const component = new TestComponent();
+    const handler = vi.fn();
+    const target = new EventTarget();
+
+    component.listenTo(null, 'activity', handler)();
+    component.listenTo(target, 'activity', handler);
+    target.dispatchEvent(new Event('activity'));
+    component.dispose();
+    target.dispatchEvent(new Event('activity'));
+
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,19 +4,25 @@ This document maps user-facing features to the codebase for maintenance and onbo
 
 ## User-Facing Features
 
-- Live streaming from Mod Retro Chromatic with GPU rendering and Canvas2D fallback.
-- Render presets: True Color, Vibrant, Hi-Def, Vintage, Pixel, Performance.
-- Brightness and volume controls with real-time preview.
-- Cinematic mode and fullscreen viewing (optional fullscreen-on-startup).
-- Screenshots (PNG) and recordings (WebM, MP4, or MOV with ffmpeg transcoding).
-- Notes panel with search, autosave, and local persistence.
-- Status strip with device state, resolution, and FPS.
-- Update checks, downloads, and install flow in Settings.
-- System tray integration (background device monitoring, show window, refresh, quit).
+Primary surfaces: live Mod Retro Chromatic streaming with GPU rendering and Canvas2D fallback; True Color, Vibrant, Hi-Def, Vintage, Pixel, and Performance render presets; brightness and volume controls; cinematic/fullscreen viewing; PNG screenshots; WebM, MP4, and MOV recording with ffmpeg transcoding; searchable autosaved notes; device/resolution/FPS status; Settings update flow; and system tray device monitoring.
 
 ## Generated Manifest Map
 
 This section is generated from architecture, device, and settings manifests. Keep narrative details outside the markers.
+
+<!-- CODEBASE_PHASE1_MANIFESTS:START -->
+| Surface | Count |
+| --- | ---: |
+| IPC namespaces | 8 |
+| IPC channels | 29 |
+| Renderer events | 73 |
+| Main events | 3 |
+| Device profiles | 1 |
+| Settings definitions | 10 |
+| Render passes | 4 |
+| Architecture aliases | 7 |
+| Platform targets | 5 |
+<!-- CODEBASE_PHASE1_MANIFESTS:END -->
 
 <!-- CODEBASE_FEATURE_MAP:START -->
 | Manifest surface | Generated facts |
@@ -41,85 +47,22 @@ This section is generated from architecture, device, and settings manifests. Kee
 
 UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
 
-### Start Streaming
-
-1. User clicks the overlay -> `ui:stream-start-requested`.
-2. `StreamingOrchestrator` calls `StreamingService.start`.
-3. `StreamingService` emits `stream:started`.
-4. `StreamingOrchestrator` starts the render pipeline and publishes `ui:streaming-mode`, `ui:stream-info`, and `ui:status-message`.
-5. `UIEventBridge` updates controls, overlay, and stream info.
-
-### Stop Streaming
-
-1. User clicks the stream view -> `ui:stream-stop-requested`.
-2. `StreamingOrchestrator` calls `StreamingService.stop`.
-3. `StreamingService` emits `stream:stopped`.
-4. `StreamingOrchestrator` stops the render pipeline and publishes `ui:streaming-mode` (false) and `ui:overlay-message`.
-
-### Screenshot Capture
-
-1. User clicks the screenshot button -> `ui:screenshot-requested`.
-2. `CaptureOrchestrator` publishes `ui:shutter-flash` and `capture:screenshot-triggered`, then calls `CaptureService.takeScreenshot`.
-3. `CaptureService` emits `capture:screenshot-ready`.
-4. `CaptureUIBridge` triggers the download and publishes `ui:status-message`.
-
-### Recording Start/Stop
-
-1. User clicks the record button -> `ui:recording-toggle-requested`.
-2. `CaptureOrchestrator` starts/stops recording (GPU path via `CaptureGpuRecordingService` when active).
-3. `CaptureService` emits `capture:recording-started`, `capture:recording-stopped`, and `capture:recording-ready`.
-4. `CaptureOrchestrator` calls `CaptureSaveService.saveRecording`, which checks the user's format preference:
-   - If WebM: direct download via `CaptureSaveService._directSave`.
-   - If MP4/MOV: sends blob to `TranscodeService` (main process) for ffmpeg conversion.
-5. During transcoding, `TranscodeUIBridge` shows progress toast and updates the record button with percentage.
-6. On completion, `CaptureOrchestrator` publishes `ui:status-message` for direct saves; `TranscodeUIBridge` handles status for transcoded saves.
-
-### Recording Format Selection
-
-1. User selects format in Settings dropdown -> `SettingsService.setSetting('recordingFormat', value)`.
-2. `settings:recording-format-changed` event updates UI.
-3. Format preference is persisted to localStorage and used when saving recordings.
-
-### Shader Presets, Brightness, Volume
-
-1. Shader panel updates settings via `SettingsService.setSetting()` for `renderPreset`, `globalBrightness`, and `gameVolume`.
-2. Settings events emit `settings:render-preset-changed`, `settings:brightness-changed`, `settings:volume-changed`.
-3. `StreamingOrchestrator` listens for preset changes and updates the render pipeline.
-4. `ShaderSliderControlsComponent` listens for brightness/volume updates to keep UI in sync.
-
-### Performance Mode
-
-1. Settings toggle calls `SettingsService.setSetting('performanceMode', enabled)`.
-2. `settings:performance-mode-changed` updates `PerformanceStateOrchestrator`, which emits `performance:render-mode-changed`.
-3. `StreamingOrchestrator` switches to Canvas2D rendering when performance mode is enabled.
-
-### Fullscreen and Cinematic Mode
-
-1. Fullscreen button -> `ui:fullscreen-toggle-requested`.
-2. `SettingsDisplayModeOrchestrator` toggles `SettingsFullscreenService`.
-3. `SettingsFullscreenService` emits `ui:fullscreen-state`.
-4. `UIEventBridge` updates fullscreen UI and control auto-hide.
-5. Cinematic toggle -> `ui:cinematic-toggle-requested` -> `SettingsCinematicModeService` -> `settings:cinematic-mode-changed`.
-
-### Notes Panel
-
-1. Notes button toggles `NotesPanelComponent`.
-2. Create/update/delete actions call `NotesService` methods.
-3. Notes events emit `notes:note-created`, `notes:note-updated`, and `notes:note-deleted`.
-
-### Update Check and Install
-
-1. Settings update action button calls `UpdateOrchestrator` (check/download/install).
-2. `UpdateService` uses `window.updateAPI` to call IPC and emits `update:*` events.
-3. `UpdateUiService` publishes status messages and badge visibility.
-4. `UpdateSectionComponent` listens for `update:state-changed` and `update:progress` to refresh UI.
+| Flow | Event path |
+| --- | --- |
+| Start streaming | overlay -> `ui:stream-start-requested` -> `StreamingService.start` -> `stream:started` -> render pipeline publishes `ui:streaming-mode`, `ui:stream-info`, and `ui:status-message` -> `UIEventBridge` updates controls |
+| Stop streaming | stream view -> `ui:stream-stop-requested` -> `StreamingService.stop` -> `stream:stopped` -> render pipeline stops and publishes `ui:streaming-mode` false plus `ui:overlay-message` |
+| Screenshot | screenshot button -> `ui:screenshot-requested` -> `CaptureOrchestrator` publishes `ui:shutter-flash` and `capture:screenshot-triggered` -> `capture:screenshot-ready` -> `CaptureUIBridge` downloads |
+| Recording | record button -> `ui:recording-toggle-requested` -> `CaptureOrchestrator` starts/stops capture -> `capture:recording-*`; saves use direct WebM download or MP4/MOV `TranscodeService` conversion surfaced by `TranscodeUIBridge` |
+| Recording format | Settings format dropdown -> `SettingsService.setSetting('recordingFormat', value)` -> `settings:recording-format-changed` persists and drives later saves |
+| Shader/brightness/volume | shader panel settings -> `settings:render-preset-changed`, `settings:brightness-changed`, and `settings:volume-changed` -> render pipeline and slider UI sync |
+| Performance mode | Settings toggle -> `settings:performance-mode-changed` -> `performance:render-mode-changed` -> `StreamingOrchestrator` switches to Canvas2D when enabled |
+| Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
+| Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
+| Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `window.updateAPI` IPC -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
 
 ## Data and Storage
 
-- Downloads location: screenshots and recordings go to the OS downloads folder.
-- Local storage keys: settings live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
-- Stored device IDs: `src/renderer/infrastructure/services/devices/device-storage.service.ts`.
-- Transcode temp files: during MP4/MOV conversion, temporary files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/shared/features/settings/settings.definitions.json`, shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/devices/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 
@@ -129,7 +72,7 @@ Screenshots will not be added to this repository.
 
 ### Add a New Device
 
-1. Register metadata in `src/shared/features/devices/device.registry.js`.
+1. Register manifest metadata in `src/shared/features/devices/device.manifest.json`.
 2. Add a profile class in `src/shared/features/devices/profiles/` and register it in `src/main/infrastructure/devices/device-profile.registry.ts`.
 3. Add an adapter in `src/renderer/infrastructure/adapters/devices/<device-name>/` and register it.
 4. Update docs and tests if behavior changes.

@@ -215,6 +215,12 @@
           "channelKey": "START",
           "channel": "transcode:start",
           "request": ["options:object"],
+          "parameters": [
+            "inputBuffer:ArrayBuffer",
+            "format:TranscodeFormat",
+            "outputFilename?:string",
+            "options?:TranscodeStartOptions"
+          ],
           "response": "TranscodeStartResponse"
         },
         {
@@ -222,6 +228,7 @@
           "channelKey": "CANCEL",
           "channel": "transcode:cancel",
           "request": ["options:object"],
+          "parameters": ["jobId:string"],
           "response": "TranscodeCancelResponse"
         },
         {

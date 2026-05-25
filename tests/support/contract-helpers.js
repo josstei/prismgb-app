@@ -1,4 +1,5 @@
 import { expect } from 'vitest';
+import { diffSortedValues } from '../../scripts/lib/manifest-drift.js';
 
 function flattenStringLeaves(node, path = []) {
   if (typeof node === 'string') {
@@ -19,13 +20,8 @@ function flattenStringValues(node) {
 }
 
 function compareSortedValues(expected, actual) {
-  const expectedValues = [...expected].sort();
-  const actualValues = [...actual].sort();
-
-  return {
-    missing: expectedValues.filter((value) => !actualValues.includes(value)),
-    extra: actualValues.filter((value) => !expectedValues.includes(value))
-  };
+  const { missing, extra } = diffSortedValues(expected, actual);
+  return { missing, extra };
 }
 
 function expectNoDrift(expected, actual) {

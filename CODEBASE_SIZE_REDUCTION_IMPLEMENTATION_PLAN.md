@@ -8,11 +8,11 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 ## Execution Status
 
-Last updated: 2026-05-23
+Last updated: 2026-05-25
 
 - Status: Phase 6 shader pass ownership is implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
 - Completed implementation milestone: Phase 6, Data-Drive Shader Passes And Uniform Layouts.
-- Current audit note: `npm run codebase:size -- --enforce-thresholds`, `npm run codebase:phase1 -- --json`, `npm run architecture:scorecard -- --enforce-thresholds ...`, `npm run lint`, focused codebase-reduction/script tests, GPU package tests, GPU package typecheck, `npm run architecture:type-debt:check`, and root `npm run typecheck` pass in the 2026-05-23 worktree. `npm run lint` now passes without warnings. The stale 72-bucket strict type-debt allowlist was regenerated to zero buckets after the app reported zero strict diagnostics. Preload API modules now have a clean-break guard against raw `ipcRenderer.on`/`once`, preload transcode format validation and settings recording-format UI options resolve from `TRANSCODE_CONFIG.formats`, canonical test factories use ESM imports, preload API mock names derive from the IPC manifest, presentation icons are discovered with `import.meta.glob`, remaining inline browser API unit-test globals for `devicePixelRatio`, `getComputedStyle`, `matchMedia`, and missing `MutationObserver` flow through explicit installers, settings UI control metadata and menu markup generation now live in `settings.definitions.json`, E2E app/settings/stream page objects plus the Chromatic device domain fixture are wired as Playwright fixtures with settings cases and browser-serialized Chromatic fixture data derived from production manifests, `docs/feature-map.md` has a generated manifest fact block enforced by the phase drift report, and platform build matrices plus smoke executable discovery now resolve from `platforms.manifest.json`.
+- Current audit note: Phase 1 completion was repaired in the 2026-05-25 worktree. Manifest drift now enforces duplicate cardinality, IPC `mode: enforced`, exact preload declaration generation parity, generated preload import/type validation, scoped `declare global` API vars, optional `Window` API properties, invoke/subscription public signatures, and tracked docs blocks. `npm run release:preflight`, `npm run test:run`, `npm run lint`, root `npm run typecheck`, `npm run architecture:type-debt:check`, `npm run codebase:size -- --enforce-thresholds`, `npm run architecture:scorecard -- --enforce-thresholds ...`, and `npm run codebase:phase1 -- --json` pass; two read-only final audits found no blockers.
 - Reading rule: phase verification bullets below are historical evidence from the implementation sequence. The future-first architecture section is the source of truth for the remaining long-term design intent.
 - Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
 - Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
@@ -136,7 +136,7 @@ Future-first target map by finding:
    The target is a small `scripts/lib` utility layer for CLI parsing, file walking, JSON/report output, manifest loading, TypeScript diagnostic parsing, and architecture model access. Current script utilities are partial. Continue extracting only helpers used by multiple scripts or needed by generated manifests, preserving CI output fields and exit codes.
 
 23. Make type debt a ratchet, not a permanent side system:
-   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 62 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
+   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 60 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
 
 24. Build canonical test support factories:
    The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, and preload API names derive from the IPC manifest. Remaining work is generated preload API mock bodies and broader migration away from inline canonical dependency mocks.
@@ -757,7 +757,7 @@ Expected outcome:
 
 Grounded repo truth:
 
-- Built-in device identity is in `src/shared/features/devices/device.registry.js`.
+- Built-in device identity is manifest-owned and projected through `src/shared/features/devices/device.registry.js`.
 - Chromatic constants are in `src/shared/features/devices/profiles/chromatic/device-chromatic.config.js`.
 - Renderer adapters, CSS, tests, and E2E helpers still repeat native resolution, labels, and capability assumptions.
 - The stale `tests/e2e/helpers/ipc-mock.js` helper is retired; active E2E Chromatic device mocks derive metadata from the shared E2E Chromatic specs and the device status helper remains UI-only.
@@ -1307,7 +1307,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type drift from hand-authored declaration twins disappears and strictness can ratchet by directory.
-- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount` and enforces the current `src/**/*.js` count at 62 after migrating `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, so unchecked runtime JS cannot grow while presentation and preload TS migration continue.
+- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount` and enforces the current `src/**/*.js` count at 60 after migrating `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, so unchecked runtime JS cannot grow while presentation and preload TS migration continue.
 
 ## 20. Hoist Official WebGPU Types
 
@@ -1510,7 +1510,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type debt becomes an actively shrinking budget rather than permanent infrastructure.
-- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current 62-file runtime JS baseline.
+- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current 60-file runtime JS baseline.
 
 ## 24. Build Canonical Test Support Factories
 
