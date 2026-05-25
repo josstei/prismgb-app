@@ -163,6 +163,13 @@ describe('UIEventBridge', () => {
       expect(mockUiController.deviceStatus.setOverlayVisible).toHaveBeenCalledWith(true);
     });
 
+    it('ignores invalid overlay visibility payloads', () => {
+      subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: 'true' });
+
+      expect(mockUiController.deviceStatus.setOverlayVisible).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid overlay visibility payload');
+    });
+
     it('routes overlay errors', () => {
       subscribedHandlers[EventChannels.UI.OVERLAY_ERROR]({ message: 'Error occurred' });
 
@@ -173,6 +180,13 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });
 
       expect(mockPresentationModeService.handleStreamingMode).toHaveBeenCalledWith(true);
+    });
+
+    it('ignores invalid streaming mode payloads', () => {
+      subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: 'true' });
+
+      expect(mockPresentationModeService.handleStreamingMode).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid streaming mode payload');
     });
 
     it('routes stream info updates', () => {
@@ -210,6 +224,13 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: true });
 
       expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(true);
+    });
+
+    it('ignores invalid recording state payloads', () => {
+      subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: 'true' });
+
+      expect(mockUiController.updateRecordingButtonState).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid recording state payload');
     });
 
     it('disables and enables record button when requested', () => {

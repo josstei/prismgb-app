@@ -93,14 +93,17 @@ export class AppOrchestrator extends BaseOrchestrator {
   }
 
   _handleDeviceStatusChanged(status: unknown) {
-    const connected = (
-      typeof status === 'object' &&
-      status !== null &&
-      'connected' in status &&
-      typeof status.connected === 'boolean'
-    )
-      ? status.connected
-      : false;
+    if (
+      typeof status !== 'object' ||
+      status === null ||
+      !('connected' in status) ||
+      typeof status.connected !== 'boolean'
+    ) {
+      this.logger.warn('Ignoring invalid device status payload');
+      return;
+    }
+
+    const connected = status.connected;
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
 

@@ -60,12 +60,13 @@ export class PerformanceMetricsService extends BaseService {
     this._initialDelayMs = 2000;
   }
 
-  requestSnapshot(payload: MemorySnapshotRequestPayload = {}) {
-    const label = typeof payload.label === 'string' && payload.label.length > 0
-      ? payload.label
+  requestSnapshot(payload: MemorySnapshotRequestPayload | null | undefined = {}) {
+    const request = typeof payload === 'object' && payload !== null ? payload : {};
+    const label = typeof request.label === 'string' && request.label.length > 0
+      ? request.label
       : 'snapshot';
-    const delayMs = typeof payload.delayMs === 'number' && Number.isFinite(payload.delayMs)
-      ? payload.delayMs
+    const delayMs = typeof request.delayMs === 'number' && Number.isFinite(request.delayMs)
+      ? request.delayMs
       : 0;
 
     if (delayMs > 0) {

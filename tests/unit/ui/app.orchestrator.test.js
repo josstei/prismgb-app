@@ -215,6 +215,13 @@ describe('AppOrchestrator', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-visible', { visible: true });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device disconnected', type: 'warning' });
     });
+
+    it('should ignore malformed device status payloads', () => {
+      orchestrator._handleDeviceStatusChanged({ connected: 'false' });
+
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid device status payload');
+    });
   });
 
   describe('onCleanup', () => {

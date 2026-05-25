@@ -70,6 +70,14 @@ describe('PerformanceMetricsService', () => {
       );
     });
 
+    it('should handle null payload', () => {
+      service.requestSnapshot(null);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('snapshot')
+      );
+    });
+
     it('should delay snapshot when delayMs is specified', () => {
       service.requestSnapshot({ label: 'delayed', delayMs: 1000 });
 
