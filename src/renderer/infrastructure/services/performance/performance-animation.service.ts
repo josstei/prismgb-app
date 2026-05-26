@@ -6,20 +6,32 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { PerformanceStatePayload } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
+type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;
 
-interface PerformanceStatePayload {
-  performanceModeEnabled?: boolean;
-  weakGpuDetected?: boolean;
-  reducedMotion?: boolean;
-  hidden?: boolean;
-  idle?: boolean;
+export interface AnimationPerformanceState {
+  idle: boolean;
+  hidden: boolean;
+  animationsOff: boolean;
+}
+
+interface PerformanceAnimationDependencies {
+  loggerFactory: LoggerFactoryLike;
+}
+
+function isPerformanceStatePayload(value: unknown): value is PerformanceStatePayload {
+  return typeof value === 'object' && value !== null;
 }
 
 class PerformanceAnimationService extends BaseService {
+  private readonly _animationSuppression: AnimationSuppressionState;
+  private _isHidden: boolean;
+  private _isIdle: boolean;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: PerformanceAnimationDependencies) {
     super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
 
     this._animationSuppression = {
@@ -32,17 +44,20 @@ class PerformanceAnimationService extends BaseService {
     this._isIdle = false;
   }
 
-  setPerformanceState(performanceState: PerformanceStatePayload) {
-    const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
-    const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
-    const reducedMotion = Boolean(performanceState.reducedMotion);
+  setPerformanceState(performanceState: unknown): AnimationPerformanceState {
+    const state: PerformanceStatePayload = isPerformanceStatePayload(performanceState)
+      ? performanceState
+      : {};
+    const performanceEnabled = Boolean(state.performanceModeEnabled);
+    const weakGpuDetected = Boolean(state.weakGpuDetected);
+    const reducedMotion = Boolean(state.reducedMotion);
 
     this._setAnimationsSuppressed('performanceMode', performanceEnabled);
     this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
     this._setAnimationsSuppressed('reducedMotion', reducedMotion);
 
-    this._isHidden = Boolean(performanceState.hidden);
-    this._isIdle = Boolean(performanceState.idle);
+    this._isHidden = Boolean(state.hidden);
+    this._isIdle = Boolean(state.idle);
 
     if (performanceEnabled) {
       this.logger.info('Performance mode enabled - pausing decorative animations');
@@ -61,7 +76,7 @@ class PerformanceAnimationService extends BaseService {
     return this._getState();
   }
 
-  _getState() {
+  _getState(): AnimationPerformanceState {
     return {
       idle: this._isIdle,
       hidden: this._isHidden,
@@ -69,7 +84,7 @@ class PerformanceAnimationService extends BaseService {
     };
   }
 
-  _setAnimationsSuppressed(reason: AnimationSuppressionReason, suppressed: boolean) {
+  _setAnimationsSuppressed(reason: AnimationSuppressionReason, suppressed: boolean): void {
     this._animationSuppression[reason] = suppressed;
   }
 }

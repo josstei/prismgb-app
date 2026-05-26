@@ -6,8 +6,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 
 type GpuRenderLoopDependencies = {
@@ -21,10 +20,8 @@ type GpuRenderLoopConfig = {
 };
 
 class StreamingGpuRenderLoopService extends BaseService {
-  declare protected readonly logger: LoggerLike;
-
-  _rvfcHandle: number | null;
-  _active: boolean;
+  private _rvfcHandle: number | null;
+  private _active: boolean;
 
   constructor(dependencies: GpuRenderLoopDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingGpuRenderLoopService');

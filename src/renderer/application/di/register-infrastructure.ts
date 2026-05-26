@@ -18,7 +18,7 @@ import { StreamingHealthService } from '@renderer/infrastructure/services/stream
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service';
 import {
   StreamingRendererFactory,
-  type RendererConstructor
+  type RendererProviderRegistry
 } from '@renderer/infrastructure/factories/streaming-renderer.factory';
 import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter';
 import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter';
@@ -32,7 +32,6 @@ import {
 } from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 type DeviceIpcDependencies = Pick<RendererContainerMap, 'loggerFactory'>;
 type DeviceChangeDebounceDependencies = Pick<RendererContainerMap, 'browserMediaService' | 'loggerFactory'>;
@@ -111,11 +110,9 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     kind: 'function',
     dependencies: ['loggerFactory', 'animationCache'],
     resolver: (dependencies: CanvasRenderLoopDependencies) => {
-      const loggerFactory = dependencies.loggerFactory as LoggerFactoryLike;
-      const animationCache = dependencies.animationCache as AnimationCache;
       return new StreamingCanvasRenderLoopService(
-        loggerFactory.create('StreamingCanvasRenderLoopService'),
-        animationCache
+        dependencies.loggerFactory.create('StreamingCanvasRenderLoopService'),
+        dependencies.animationCache
       );
     }
   },
@@ -160,11 +157,11 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     kind: 'function',
     dependencies: ['eventBus', 'loggerFactory'],
     resolver: ({ eventBus, loggerFactory }: StreamingRendererFactoryDependencies) => {
-      const rendererClasses = new Map<string, RendererConstructor>([
-        ['gpu', StreamingGpuRendererAdapter as unknown as RendererConstructor],
-        ['canvas2d', StreamingCanvas2DRendererAdapter as unknown as RendererConstructor]
-      ]);
-      const rendererFactory = new StreamingRendererFactory(eventBus, loggerFactory, rendererClasses);
+      const rendererProviders: RendererProviderRegistry = {
+        gpu: (dependencies) => new StreamingGpuRendererAdapter(dependencies),
+        canvas2d: (dependencies) => new StreamingCanvas2DRendererAdapter(dependencies)
+      };
+      const rendererFactory = new StreamingRendererFactory(eventBus, loggerFactory, rendererProviders);
       rendererFactory.initialize();
       return rendererFactory;
     }

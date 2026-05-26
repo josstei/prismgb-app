@@ -1,7 +1,4 @@
-/**
- * Shared preload/API contracts used across main IPC handlers, preload bridge,
- * and renderer services.
- */
+import type { UpdateStateValue } from '@shared/config/update-state.config.js';
 
 export interface IpcActionResult {
   success: boolean;
@@ -25,15 +22,6 @@ export interface DeviceStatusPayload {
   error?: string;
 }
 
-export type UpdateStateValue =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'not-available'
-  | 'downloading'
-  | 'downloaded'
-  | 'error';
-
 export interface UpdateInfoPayload {
   version?: string;
   releaseDate?: string;
@@ -54,7 +42,7 @@ export interface UpdateErrorPayload {
 }
 
 export interface UpdateStatusPayload {
-  state?: UpdateStateValue | string;
+  state?: UpdateStateValue;
   updateInfo?: UpdateInfoPayload | null;
   downloadProgress?: UpdateProgressPayload | null;
   error?: string | UpdateErrorPayload | null;

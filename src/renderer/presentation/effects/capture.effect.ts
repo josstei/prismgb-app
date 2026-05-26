@@ -4,7 +4,9 @@
  * Manages the shutter flash effect when taking screenshots.
  */
 
-export class CaptureEffects {
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+
+export class CaptureEffects extends PresentationComponent {
   /**
    * Trigger shutter flash effect
    */
@@ -17,22 +19,35 @@ export class CaptureEffects {
     flash.className = className;
     document.body.appendChild(flash);
 
+    let disposeTimeout = () => {};
+    let disposeAnimationEnd = () => {};
+    let disposeLifecycle = () => {};
+    let isCleanedUp = false;
+
     const cleanup = () => {
+      if (isCleanedUp) {
+        return;
+      }
+
+      isCleanedUp = true;
+      disposeTimeout();
+      disposeAnimationEnd();
       if (flash.parentNode) {
         flash.remove();
       }
-      clearTimeout(timer);
+      disposeLifecycle();
     };
 
     // Fallback timeout in case animation doesn't fire
-    const timer = setTimeout(cleanup, 500);
-    flash.addEventListener('animationend', cleanup, { once: true });
+    disposeTimeout = this.timeout(cleanup, 500);
+    disposeAnimationEnd = this.listen(flash, 'animationend', cleanup, { once: true });
+    disposeLifecycle = this.track(cleanup);
   }
 
   /**
-   * Dispose (no resources to cleanup)
+   * Dispose any pending flash overlays.
    */
-  dispose() {
-    // No persistent state to cleanup
+  override dispose() {
+    super.dispose();
   }
 }

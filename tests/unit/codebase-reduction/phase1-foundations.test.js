@@ -1,18 +1,10 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import channels from '@shared/ipc/channels.json';
+import { IPC_CHANNELS as channels } from '@shared/ipc/ipc.manifest.js';
 import { DisposableBag } from '@shared/base/disposable-bag.js';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
 import { createListenerRegistry, MAX_LISTENERS_PER_CHANNEL } from '@preload/listener-registry.js';
-
-function createMockIpcRenderer() {
-  return {
-    invoke: vi.fn(),
-    on: vi.fn(),
-    removeListener: vi.fn(),
-    removeAllListeners: vi.fn()
-  };
-}
+import { createMockIpcRenderer } from '../../support/mocks/preload-api-globals.js';
 
 function createUpdateApi(ipcRenderer, registry = createListenerRegistry()) {
   return createUpdatePreloadAPI({

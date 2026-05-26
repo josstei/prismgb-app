@@ -75,7 +75,9 @@ export type StreamHealthTimeoutPayload = {
 
 export type PerformanceStatePayload = {
   hidden?: boolean;
+  idle?: boolean;
   performanceModeEnabled?: boolean;
+  reducedMotion?: boolean;
   weakGpuDetected?: boolean;
   streaming?: boolean;
   [key: string]: unknown;

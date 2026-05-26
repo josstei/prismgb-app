@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import * as HandlerDescriptors from '@main/ipc/handlers/index.js';
 import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 vi.mock('electron', () => ({
@@ -20,10 +19,10 @@ vi.mock('electron', () => ({
 }));
 
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { ipcMain } from 'electron';
 
-const registryDescriptorOrder = ['deviceHandlerDescriptors', 'shellHandlerDescriptors', 'updateHandlerDescriptors', 'performanceHandlerDescriptors', 'windowHandlerDescriptors', 'transcodeHandlerDescriptors', 'gpuHandlerDescriptors', 'loginItemHandlerDescriptors'];
-const expectedRegisteredChannels = () => registryDescriptorOrder.flatMap((key) => HandlerDescriptors[key].map(({ channel }) => channel));
+const expectedRegisteredChannels = () => IpcContractManifest.namespaces.flatMap(({ invoke = [] }) => invoke.map(({ channel }) => channel));
 
 describe('IpcHandlerRegistry', () => {
   let ipcHandlerRegistry;

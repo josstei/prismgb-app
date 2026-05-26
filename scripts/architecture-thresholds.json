@@ -13,7 +13,7 @@
     "shaderDuplicateDivergenceCountMax": 0,
     "shaderDuplicateFileCountMax": 0,
     "runtimeJsDtsTwinCountMax": 0,
-    "sourceRuntimeJsFileCountMax": 59,
+    "sourceRuntimeJsFileCountMax": 0,
     "hideTimerRetirementViolationCountMax": 0,
     "sharedBaseInterfaceJsOrDtsFileCountMax": 0,
     "inlineCanonicalMockAssignmentCountMax": 0,

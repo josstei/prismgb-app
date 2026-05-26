@@ -4,26 +4,16 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
+import { createSettingsServiceHarness } from '../../../../factories/index.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 describe('SettingsService', () => {
   let service;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let localStorageMock;
   beforeEach(() => {
-    localStorageMock = createStorageService();
-    mockLoggerFactory = createLoggerFactory();
-    mockEventBus = createEventBus();
-    service = new SettingsService({
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory,
-      storageService: localStorageMock
-    });
-    mockLogger = mockLoggerFactory._getLogger('SettingsService');
+    ({ service, eventBus: mockEventBus, logger: mockLogger, storageService: localStorageMock } = createSettingsServiceHarness());
   });
   afterEach(() => {
     localStorageMock.clear();

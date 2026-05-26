@@ -27,8 +27,9 @@ vi.mock('electron-updater', () => ({
   }
 }));
 
-vi.mock('@shared/ipc/channels.js', () => ({
-  channels: {
+vi.mock('@shared/ipc/ipc.manifest.js', async (importActual) => ({
+  ...(await importActual()),
+  IPC_CHANNELS: {
     UPDATE: {
       AVAILABLE: 'update:available',
       NOT_AVAILABLE: 'update:not-available',

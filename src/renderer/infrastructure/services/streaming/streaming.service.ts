@@ -21,8 +21,7 @@ import type {
   TypedEventBusLike
 } from '@shared/events/event-payloads.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 
 const StreamState = {
@@ -96,23 +95,26 @@ function toSettingsPayload(
 }
 
 export class StreamingService extends BaseService {
-  declare protected readonly deviceService: DeviceServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly adapterFactory: StreamingAdapterFactoryLike;
-  declare protected readonly ipcClient: Record<string, unknown>;
-  declare protected readonly logger: LoggerLike;
+  private readonly deviceService: DeviceServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly adapterFactory: StreamingAdapterFactoryLike;
+  private readonly ipcClient: Record<string, unknown>;
 
-  _state: StreamLifecycleState;
-  _operationPromise: StreamOperationPromise | null;
+  private _state: StreamLifecycleState;
+  private _operationPromise: StreamOperationPromise | null;
   currentStream: MediaStream | null;
   currentAdapter: StreamingAdapterLike | null;
   currentDevice: MediaDeviceInfo | null;
   currentCapabilities: StreamingCapabilities | null;
-  _trackEndedHandler: (() => void) | null;
+  private _trackEndedHandler: (() => void) | null;
 
   constructor(dependencies: StreamingServiceDependencies) {
     super(dependencies, ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'], 'StreamingService');
 
+    this.deviceService = dependencies.deviceService;
+    this.eventBus = dependencies.eventBus;
+    this.adapterFactory = dependencies.adapterFactory;
+    this.ipcClient = dependencies.ipcClient;
     // State machine
     this._state = StreamState.IDLE;
     this._operationPromise = null;
@@ -174,7 +176,7 @@ export class StreamingService extends BaseService {
     }
   }
 
-  async _performStart(deviceId: string | null): Promise<StreamStartResult> {
+  private async _performStart(deviceId: string | null): Promise<StreamStartResult> {
     try {
       // Get device
       let device: MediaDeviceInfo;
@@ -269,7 +271,7 @@ export class StreamingService extends BaseService {
     }
   }
 
-  async _performStop(): Promise<void> {
+  private async _performStop(): Promise<void> {
     this.logger.info('Stopping stream');
 
     // Remove track monitoring before releasing stream
@@ -297,7 +299,7 @@ export class StreamingService extends BaseService {
     this.logger.info('Stream stopped');
   }
 
-  _setupTrackMonitoring(): void {
+  private _setupTrackMonitoring(): void {
     if (!this.currentStream) return;
 
     const videoTrack = this.currentStream.getVideoTracks()[0];
@@ -324,7 +326,7 @@ export class StreamingService extends BaseService {
     this.logger.debug('Track monitoring set up for video track');
   }
 
-  _removeTrackMonitoring(): void {
+  private _removeTrackMonitoring(): void {
     // Always clear handler reference to prevent leaks, even if stream is gone
     const handler = this._trackEndedHandler;
     this._trackEndedHandler = null;
@@ -342,7 +344,7 @@ export class StreamingService extends BaseService {
     this.logger.debug('Track monitoring removed');
   }
 
-  async _cleanupPartialState(): Promise<void> {
+  private async _cleanupPartialState(): Promise<void> {
     this.logger.debug('Cleaning up partial state from ERROR');
 
     // Remove any track monitoring that might have been set up
@@ -372,7 +374,7 @@ export class StreamingService extends BaseService {
     return this.isStreaming;
   }
 
-  async _getDeviceById(deviceId: string): Promise<MediaDeviceInfo> {
+  private async _getDeviceById(deviceId: string): Promise<MediaDeviceInfo> {
     // Use DeviceService to ensure permission warm-up and caching
     const { devices } = await this.deviceService.enumerateDevices();
     const device = devices.find((enumeratedDevice) => (
@@ -387,7 +389,7 @@ export class StreamingService extends BaseService {
     return device;
   }
 
-  async _autoSelectDevice(): Promise<MediaDeviceInfo> {
+  private async _autoSelectDevice(): Promise<MediaDeviceInfo> {
     this.logger.info('Auto-selecting device');
 
     const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
@@ -430,7 +432,7 @@ export class StreamingService extends BaseService {
     throw new Error('No supported device found');
   }
 
-  _getStreamSettings(): StreamSettingsSnapshot | null {
+  private _getStreamSettings(): StreamSettingsSnapshot | null {
     if (!this.currentStream) {
       return null;
     }
@@ -449,7 +451,7 @@ export class StreamingService extends BaseService {
    * Dispose and release all resources
    * Called during application shutdown
    */
-  async dispose() {
+  async dispose(): Promise<void> {
     await this.stop();
     this.logger.info('StreamingService disposed');
   }

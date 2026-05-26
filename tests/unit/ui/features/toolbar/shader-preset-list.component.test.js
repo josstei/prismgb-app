@@ -2,9 +2,9 @@
  * ShaderPresetListComponent Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
-import { createEventBus, createLogger } from '../../../../factories/index.js';
+import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../factories/index.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 
@@ -12,15 +12,6 @@ const uiPresets = PresetRegistry.getForUI();
 const selectablePresetId = uiPresets.find(
   (preset) => preset.id !== PRESET_POLICY.rendererDefaultId
 )?.id;
-
-function createMockSettingsService(overrides = {}) {
-  return {
-    getStringSetting: vi.fn(() => PRESET_POLICY.rendererDefaultId),
-    getBooleanSetting: vi.fn(() => false),
-    setSetting: vi.fn(() => true),
-    ...overrides
-  };
-}
 
 describe('ShaderPresetListComponent', () => {
   let component;
@@ -32,7 +23,7 @@ describe('ShaderPresetListComponent', () => {
 
   beforeEach(() => {
     mockEventBus = createEventBus();
-    mockSettingsService = createMockSettingsService();
+    mockSettingsService = createSettingsServiceMock();
     mockLogger = createLogger();
 
     optionsContainer = document.createElement('div');

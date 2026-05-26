@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import channelsJson from '@shared/ipc/channels.json';
+import { IPC_CHANNELS as channelsJson } from '@shared/ipc/ipc.manifest.js';
 
 function sortObjectByKeys(source) {
   return Object.keys(source)
@@ -21,7 +21,7 @@ function sortObjectByKeys(source) {
 }
 
 describe('IPC channel baseline', () => {
-  it('captures canonical channels.json namespace/shape snapshot', () => {
+  it('captures canonical manifest-derived namespace/shape snapshot', () => {
     expect(sortObjectByKeys(channelsJson)).toMatchInlineSnapshot(`
       {
         "DEVICE": {

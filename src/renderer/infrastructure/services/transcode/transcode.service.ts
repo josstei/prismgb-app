@@ -26,7 +26,7 @@ interface TranscodeServiceDependencies {
 }
 
 class TranscodeService extends BaseService {
-  declare eventBus: TranscodeEventBus;
+  private readonly eventBus: TranscodeEventBus;
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
   private _eventBridge: PreloadEventBridge | null;
@@ -35,6 +35,7 @@ class TranscodeService extends BaseService {
   constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
 
+    this.eventBus = dependencies.eventBus;
     this._isTranscoding = false;
     this._activeJobId = null;
     this._eventBridge = null;

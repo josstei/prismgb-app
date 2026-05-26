@@ -107,7 +107,7 @@ describe('UserActivityAdapter', () => {
         expect(document.removeEventListener).toHaveBeenCalledWith(
           event,
           expect.any(Function),
-          { passive: true }
+          { capture: false }
         );
       });
     });

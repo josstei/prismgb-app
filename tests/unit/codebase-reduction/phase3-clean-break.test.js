@@ -71,7 +71,7 @@ describe('Phase 3 clean-break consolidation', () => {
 
   it('does not expose obsolete preload listener cleanup or old public listener names', () => {
     const exposures = extractPreloadExposures(
-      readProjectFile('src/preload/index.js'),
+      readProjectFile('src/preload/index.ts'),
       loadManifests().ipc
     );
     const exposedMethods = Object.values(exposures).flat();
@@ -85,19 +85,19 @@ describe('Phase 3 clean-break consolidation', () => {
     expect(exposedMethods).not.toContain('onConnected');
     expect(exposedMethods).not.toContain('onDisconnected');
 
-    const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.js');
+    const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.ts');
     expect(deviceFactorySource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
 
-    const subscriptionFactorySource = readProjectFile('src/preload/subscription.factory.js');
+    const subscriptionFactorySource = readProjectFile('src/preload/subscription.factory.ts');
     expect(subscriptionFactorySource).toContain('createSubscriptionDisposer');
     expect(subscriptionFactorySource).toContain('registryInput instanceof Map');
     expect(subscriptionFactorySource).not.toMatch(/return\s+registry\s*;/);
 
     [
-      'src/preload/apis/device.preload-api.js',
-      'src/preload/apis/window.preload-api.js',
-      'src/preload/apis/update.preload-api.js',
-      'src/preload/apis/transcode.preload-api.js'
+      'src/preload/apis/device.preload-api.ts',
+      'src/preload/apis/window.preload-api.ts',
+      'src/preload/apis/update.preload-api.ts',
+      'src/preload/apis/transcode.preload-api.ts'
     ].forEach((relativePath) => {
       const source = readProjectFile(relativePath);
       expect(source).toContain('createManifestSubscriptionMethods');

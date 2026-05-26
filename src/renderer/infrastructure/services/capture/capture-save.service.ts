@@ -11,6 +11,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;
@@ -22,14 +23,47 @@ interface SaveResult {
   error?: string;
 }
 
-class CaptureSaveService extends BaseService {
+type CaptureSettingsServiceLike = {
+  getStringSetting(name: string): string;
+};
 
-  constructor(dependencies: Record<string, unknown>) {
+type CaptureTranscodeResult = {
+  success: boolean;
+  error?: string;
+};
+
+type CaptureTranscodeServiceLike = {
+  isAvailable(): boolean;
+  transcode(
+    blob: Blob,
+    format: string,
+    outputBaseName: string,
+    options: { inputArgs?: string[]; interrupted: boolean }
+  ): Promise<CaptureTranscodeResult>;
+};
+
+type CaptureSaveServiceDependencies = {
+  eventBus: EventBusLike;
+  settingsService: CaptureSettingsServiceLike;
+  transcodeService: CaptureTranscodeServiceLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
+class CaptureSaveService extends BaseService {
+  private readonly eventBus: EventBusLike;
+  private readonly settingsService: CaptureSettingsServiceLike;
+  private readonly transcodeService: CaptureTranscodeServiceLike;
+
+  constructor(dependencies: CaptureSaveServiceDependencies) {
     super(
       dependencies,
       ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory'],
       'CaptureSaveService'
     );
+
+    this.eventBus = dependencies.eventBus;
+    this.settingsService = dependencies.settingsService;
+    this.transcodeService = dependencies.transcodeService;
   }
 
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {

@@ -25,6 +25,11 @@ export interface IpcHandlerDescriptor<TDependencies> {
   ): Promise<unknown> | unknown;
 }
 
+export interface IpcHandlerRegistrationGroup {
+  apiName: string;
+  descriptors: readonly IpcHandlerDescriptor<Record<string, unknown>>[];
+}
+
 interface ManifestInvokeEntry {
   method: string;
   factoryMethod?: string;
@@ -104,6 +109,25 @@ export function defineManifestIpcHandlers<TDependencies>(
   );
 }
 
+function createRuntimeIpcHandlerDescriptor<TDependencies extends object>(
+  descriptor: IpcHandlerDescriptor<TDependencies>
+): IpcHandlerDescriptor<Record<string, unknown>> {
+  return {
+    ...descriptor,
+    mapError: (error, dependencies, event, ...args) =>
+      descriptor.mapError(error, dependencies as TDependencies, event, ...args),
+    invoke: (dependencies, event, ...args) =>
+      descriptor.invoke(dependencies as TDependencies, event, ...args)
+  };
+}
+
+export function defineIpcHandlerRegistrationGroup<TDependencies extends object>(
+  apiName: string,
+  descriptors: readonly IpcHandlerDescriptor<TDependencies>[]
+): IpcHandlerRegistrationGroup {
+  return { apiName, descriptors: descriptors.map(createRuntimeIpcHandlerDescriptor) };
+}
+
 function validateIpcArguments(schema: readonly string[] = [], args: readonly unknown[]): void {
   if (args.length > schema.length) throw new Error(`expected ${schema.length} argument(s), received ${args.length}`);
   schema.forEach((definition, index) => {
@@ -127,5 +151,26 @@ export function registerIpcHandlerDescriptors<TDependencies>(
         return descriptor.mapError(error, dependencies, event, ...args);
       }
     });
+  }
+}
+
+function resolveIpcHandlerDependencies(apiName: string, dependencyContext: Record<string, unknown>, descriptors: readonly IpcHandlerDescriptor<Record<string, unknown>>[]): Record<string, unknown> {
+  const dependencies: Record<string, unknown> = {};
+  for (const descriptor of descriptors) {
+    for (const token of descriptor.dependencyTokens) {
+      if (!Object.prototype.hasOwnProperty.call(dependencyContext, token) || dependencyContext[token] === undefined) throw new Error(`IPC handler dependency "${token}" missing for ${apiName}.${descriptor.channel}`);
+      dependencies[token] = dependencyContext[token];
+    }
+  }
+  return dependencies;
+}
+
+export function registerIpcHandlerRegistrationGroups(
+  registerHandler: RegisterHandler,
+  dependencyContext: Record<string, unknown>,
+  groups: readonly IpcHandlerRegistrationGroup[]
+): void {
+  for (const group of groups) {
+    registerIpcHandlerDescriptors(registerHandler, resolveIpcHandlerDependencies(group.apiName, dependencyContext, group.descriptors), group.descriptors);
   }
 }

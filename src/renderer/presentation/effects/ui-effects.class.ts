@@ -1,10 +1,3 @@
-/**
- * UIEffects - Facade for visual feedback effects
- *
- * Coordinates feature-specific effect classes for cursor hiding, toolbar hiding,
- * fullscreen controls, button feedback, and body mode management.
- */
-
 import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
 import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
@@ -12,6 +5,7 @@ import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type BodyClassManagerLike = {
   setCinematicMode?: (isActive: boolean) => void;
@@ -20,7 +14,7 @@ type BodyClassManagerLike = {
   dispose?: () => void;
 };
 
-type UIElements = Record<string, HTMLElement | null>;
+type UIElements = DomBindingsFlat;
 
 type UIEffectsDependencies = {
   elements?: UIElements | null;
@@ -40,23 +34,15 @@ export class UIEffects {
   constructor(dependencies: UIEffectsDependencies = {}) {
     const { elements, bodyClassManager } = dependencies;
     this.elements = elements ?? null;
-
-    // Shared body class manager (global)
     this._bodyClassManager = bodyClassManager || null;
-
-    // Initialize button feedback
     this._buttonFeedback = new ButtonFeedback({ elements });
-
-    // Initialize capture effects
     this._captureEffects = new CaptureEffects();
 
-    // Initialize cursor auto-hide with activity callback
     this._cursor = new CursorAutoHide({
       onActivity: () => this._handleActivity(),
       onHide: () => {}
     });
 
-    // Initialize toolbar auto-hide with hover callbacks
     this._toolbar = new ToolbarAutoHide({
       onActivity: () => this._handleActivity(),
       onHide: () => {},
@@ -64,7 +50,6 @@ export class UIEffects {
       onHoverEnd: () => this._handleToolbarHoverEnd()
     });
 
-    // Initialize fullscreen controls auto-hide
     this._controls = new ControlsAutoHide({
       onShowAll: () => this._showAll(),
       onHideAll: () => this._hideAll(),
@@ -72,7 +57,6 @@ export class UIEffects {
       onDisable: () => this._handleActivity()
     });
 
-    // Unified hide timer for cursor and toolbar
     this._unifiedTimer = new ActivityAutoHideController({
       onTimeout: () => this._handleUnifiedTimeout(),
       shouldStartTimer: () => this._shouldStartUnifiedTimer(),
@@ -81,31 +65,19 @@ export class UIEffects {
     this._unifiedTimer.enable();
   }
 
-  // =====================================================
-  // Capture Effects (delegated)
-  // =====================================================
+  setElements(elements: UIElements | null): void {
+    this.elements = elements;
+    this._buttonFeedback.setElements(elements);
+  }
 
-  /**
-   * Trigger shutter flash effect
-   */
   triggerShutterFlash() {
     this._captureEffects.triggerShutterFlash();
   }
 
-  // =====================================================
-  // Button Feedback (delegated)
-  // =====================================================
-
-  /**
-   * Trigger record button pop effect (for recording start)
-   */
   triggerRecordButtonPop() {
     this._buttonFeedback.triggerRecordButtonPop();
   }
 
-  /**
-   * Trigger record button press effect (for recording stop)
-   */
   triggerRecordButtonPress() {
     this._buttonFeedback.triggerRecordButtonPress();
   }
@@ -118,20 +90,10 @@ export class UIEffects {
     this._buttonFeedback.setRecordingButtonState(element, isActive);
   }
 
-  // =====================================================
-  // Cursor Auto-Hide (delegated)
-  // =====================================================
-
-  /**
-   * Enable cursor auto-hide
-   */
   enableCursorAutoHide() {
     this._cursor.enable();
   }
 
-  /**
-   * Disable cursor auto-hide
-   */
   disableCursorAutoHide() {
     this._cursor.disable();
     if (!this._toolbar.isEnabled) {
@@ -139,17 +101,10 @@ export class UIEffects {
     }
   }
 
-  // =====================================================
-  // Toolbar Auto-Hide (delegated)
-  // =====================================================
-
   enableToolbarAutoHide(toolbarElement: HTMLElement) {
     this._toolbar.enable(toolbarElement);
   }
 
-  /**
-   * Disable toolbar auto-hide
-   */
   disableToolbarAutoHide() {
     this._toolbar.disable();
     if (!this._cursor.isEnabled) {
@@ -157,31 +112,17 @@ export class UIEffects {
     }
   }
 
-  /**
-   * Invalidate the toolbar panel open state cache
-   */
   invalidateToolbarPanelCache() {
     this._toolbar.invalidatePanelCache();
   }
-
-  // =====================================================
-  // Fullscreen Controls Auto-Hide (delegated)
-  // =====================================================
 
   enableControlsAutoHide(controlsElement: HTMLElement) {
     this._controls.enable(controlsElement);
   }
 
-  /**
-   * Disable fullscreen controls auto-hide
-   */
   disableControlsAutoHide() {
     this._controls.disable();
   }
-
-  // =====================================================
-  // Body Modes (delegated)
-  // =====================================================
 
   setCinematicMode(isActive: boolean) {
     this._bodyClassManager?.setCinematicMode?.(isActive);
@@ -195,12 +136,7 @@ export class UIEffects {
     this._bodyClassManager?.setFullscreenMode?.(isActive);
   }
 
-  // =====================================================
-  // Coordination Logic
-  // =====================================================
-
   _handleActivity() {
-    // Don't start unified timer if controls auto-hide is managing
     if (this._controls.isEnabled) {
       return;
     }
@@ -258,13 +194,6 @@ export class UIEffects {
     this._cursor.hide();
   }
 
-  // =====================================================
-  // Lifecycle
-  // =====================================================
-
-  /**
-   * Dispose of UIEffects and cleanup resources
-   */
   dispose() {
     this._cursor.dispose();
     this._toolbar.dispose();
@@ -273,6 +202,6 @@ export class UIEffects {
     this._captureEffects.dispose();
     this._bodyClassManager?.dispose?.();
     this._unifiedTimer.dispose();
-    this.elements = null;
+    this.setElements(null);
   }
 }

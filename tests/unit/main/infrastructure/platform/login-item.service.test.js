@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
 import { createLoggerFactory } from '../../../../factories/index.js';
-import { installProcessRuntimeMock } from '../../../../support/mocks/node-runtime.installers.js';
+import { installProcessEnvMock, installProcessRuntimeMock } from '../../../../support/mocks/runtime-property.installers.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -13,21 +13,37 @@ vi.mock('electron', () => ({
 import { LoginItemService } from '@main/infrastructure/platform/login-item.service.js';
 
 describe('process runtime mock installers', () => {
-  it('should restore process platform and argv descriptors after cleanup', () => {
-    const originalPlatform = process.platform;
-    const originalArgv = process.argv;
+  it('should normalize and restore process runtime descriptors after cleanup', () => {
+    const [originalPlatform, originalArgv, originalEnv] = [process.platform, process.argv, process.env];
     const processRuntimeMock = installProcessRuntimeMock({
       platform: 'win32',
       argv: ['electron', '.', '--hidden'],
+      env: { NODE_ENV: 'development' },
     });
 
     expect(process.platform).toBe('win32');
     expect(process.argv).toEqual(['electron', '.', '--hidden']);
+    expect(process.env.NODE_ENV).toBe('development');
 
+    const runtimeEnv = processRuntimeMock.setEnv({
+      NODE_ENV: 'production',
+      PRISMGB_TEST_LOG_LEVEL: 'warn',
+    });
+    expect(processRuntimeMock.env).toBe(runtimeEnv);
+    expect(process.env.PRISMGB_TEST_LOG_LEVEL).toBe('warn');
+
+    const envMock = installProcessEnvMock({ PRISMGB_TEST_NUMBER_ENV: 7 });
+    const replacementEnv = envMock.setValue({ PRISMGB_TEST_BOOLEAN_ENV: false, PRISMGB_TEST_NUMBER_ENV: undefined });
+    expect(envMock.env).toBe(replacementEnv);
+    expect(process.env.PRISMGB_TEST_BOOLEAN_ENV).toBe('false');
+    expect(process.env).not.toHaveProperty('PRISMGB_TEST_NUMBER_ENV');
+
+    envMock.cleanup();
     processRuntimeMock.cleanup();
 
     expect(process.platform).toBe(originalPlatform);
     expect(process.argv).toBe(originalArgv);
+    expect(process.env).toBe(originalEnv);
   });
 });
 

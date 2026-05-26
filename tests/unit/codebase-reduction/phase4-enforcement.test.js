@@ -6,6 +6,7 @@ import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { BUILD_OUTPUT_PATHS, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
 
 const projectRoot = process.cwd();
+const assignmentOperator = String.raw`(?:=(?!=|>)|\|\|=|&&=|\?\?=|\+=|-=|\*=|\/=|%=|\+\+|--)`;
 
 function readProjectFile(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
@@ -142,30 +143,33 @@ describe('Phase 4 clean-break enforcement', () => {
     });
 
     const forbiddenPatterns = [
-      { label: 'global URL assignment', pattern: /\bglobal\.URL\s*=/ },
-      { label: 'global URL delete', pattern: /\bdelete\s+global\.URL\b/ },
-      { label: 'global Blob assignment', pattern: /\bglobal\.Blob\s*=/ },
-      { label: 'global MediaRecorder assignment', pattern: /\bglobal\.MediaRecorder\s*=/ },
-      { label: 'global MediaRecorder static assignment', pattern: /\bglobal\.MediaRecorder\.isTypeSupported\s*=/ },
+      { label: 'global URL assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*URL|\[\s*['"]URL['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'global URL delete', pattern: /\bdelete\s+global(?:This)?\s*(?:\.\s*URL|\[\s*['"]URL['"]\s*\])/ },
+      { label: 'global Blob assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*Blob|\[\s*['"]Blob['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'global MediaRecorder assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*MediaRecorder|\[\s*['"]MediaRecorder['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'global MediaRecorder static assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*MediaRecorder|\[\s*['"]MediaRecorder['"]\s*\])\s*(?:\.\s*isTypeSupported|\[\s*['"]isTypeSupported['"]\s*\])\s*${assignmentOperator}`) },
       { label: 'RAF global spy', pattern: /\bvi\.spyOn\(\s*global(?:This)?\s*,\s*['"](requestAnimationFrame|cancelAnimationFrame)['"]/ },
-      { label: 'Worker global assignment', pattern: /\bglobal(?:This)?\.Worker\s*=/ },
+      { label: 'Worker global assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*Worker|\[\s*['"]Worker['"]\s*\])\s*${assignmentOperator}`) },
       { label: 'Worker vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]Worker['"]/ },
-      { label: 'createImageBitmap global assignment', pattern: /\bglobal(?:This)?\.createImageBitmap\s*=/ },
+      { label: 'createImageBitmap global assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*createImageBitmap|\[\s*['"]createImageBitmap['"]\s*\])\s*${assignmentOperator}`) },
       { label: 'createImageBitmap vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]createImageBitmap['"]/ },
-      { label: 'ResizeObserver global assignment', pattern: /\bglobal(?:This)?\.ResizeObserver\s*=/ },
-      { label: 'ResizeObserver global delete', pattern: /\bdelete\s+global(?:This)?\.ResizeObserver\b/ },
+      { label: 'ResizeObserver global assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*ResizeObserver|\[\s*['"]ResizeObserver['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'ResizeObserver global delete', pattern: /\bdelete\s+global(?:This)?\s*(?:\.\s*ResizeObserver|\[\s*['"]ResizeObserver['"]\s*\])/ },
       { label: 'ResizeObserver vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]ResizeObserver['"]/ },
-      { label: 'window.URL.createObjectURL assignment', pattern: /\bwindow\.URL\.createObjectURL\s*=/ },
-      { label: 'window.URL.revokeObjectURL assignment', pattern: /\bwindow\.URL\.revokeObjectURL\s*=/ },
+      { label: 'window.URL.createObjectURL assignment', pattern: new RegExp(String.raw`\bwindow\s*(?:\.\s*URL|\[\s*['"]URL['"]\s*\])\s*(?:\.\s*createObjectURL|\[\s*['"]createObjectURL['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'window.URL.revokeObjectURL assignment', pattern: new RegExp(String.raw`\bwindow\s*(?:\.\s*URL|\[\s*['"]URL['"]\s*\])\s*(?:\.\s*revokeObjectURL|\[\s*['"]revokeObjectURL['"]\s*\])\s*${assignmentOperator}`) },
       { label: 'devicePixelRatio vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]devicePixelRatio['"]/ },
-      { label: 'window.getComputedStyle assignment', pattern: /\bglobal\.window\.getComputedStyle\s*=/ },
-      { label: 'window.matchMedia assignment', pattern: /\bglobal\.window\.matchMedia\s*=/ },
-      { label: 'MutationObserver delete', pattern: /\bdelete\s+globalThis\.MutationObserver\b/ },
-      { label: 'MutationObserver assignment', pattern: /\bglobalThis\.MutationObserver\s*=/ }
+      { label: 'window.getComputedStyle assignment', pattern: new RegExp(String.raw`\b(?:global(?:This)?\s*\.\s*)?window\s*(?:\.\s*getComputedStyle|\[\s*['"]getComputedStyle['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'window.matchMedia assignment', pattern: new RegExp(String.raw`\b(?:global(?:This)?\s*\.\s*)?window\s*(?:\.\s*matchMedia|\[\s*['"]matchMedia['"]\s*\])\s*${assignmentOperator}`) },
+      { label: 'MutationObserver delete', pattern: /\bdelete\s+global(?:This)?\s*(?:\.\s*MutationObserver|\[\s*['"]MutationObserver['"]\s*\])/ },
+      { label: 'MutationObserver assignment', pattern: new RegExp(String.raw`\bglobal(?:This)?\s*(?:\.\s*MutationObserver|\[\s*['"]MutationObserver['"]\s*\])\s*${assignmentOperator}`) }
     ];
 
+    ['globalThis ["URL"] = MockURL;', 'globalThis["Blob"] ||= MockBlob;', 'globalThis["MediaRecorder"] ["isTypeSupported"] = vi.fn();', 'window ["URL"] ["createObjectURL"] = vi.fn();', 'globalThis . URL = MockURL;', 'globalThis . MediaRecorder . isTypeSupported = vi.fn();', 'window . URL . createObjectURL = vi.fn();'].forEach((source) => expect(forbiddenPatterns.some(({ pattern }) => pattern.test(source)), source).toBe(true));
+
     const violations = [];
-    collectFiles('tests/unit', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => relativePath !== 'tests/support/mocks/browser-api.installers.js' && !relativePath.startsWith('tests/unit/codebase-reduction/'))
       .forEach((relativePath) => {
         const source = readProjectFile(relativePath);
         forbiddenPatterns.forEach(({ label, pattern }) => {
@@ -507,10 +511,14 @@ describe('Phase 4 clean-break enforcement', () => {
   });
 
   it('keeps Node process runtime test globals behind explicit installers', () => {
-    const installerSource = readProjectFile('tests/support/mocks/node-runtime.installers.js');
+    expectMissing('tests/support/mocks/node-runtime.installers.js');
+    const installerSource = readProjectFile('tests/support/mocks/runtime-property.installers.js');
 
     [
+      'createCleanupStack',
+      'installTargetProperty',
       'installProcessArgvMock',
+      'installProcessEnvMock',
       'installProcessPlatformMock',
       'installProcessRuntimeMock'
     ].forEach((installerName) => {
@@ -518,41 +526,54 @@ describe('Phase 4 clean-break enforcement', () => {
     });
 
     const processRuntimeViolations = [];
+    const stringLiteralQuote = '["\'`]';
+    const processRuntimePropertyNames = String.raw`(?:platform|argv|env)`;
+    const processRuntimeStringKey = String.raw`${stringLiteralQuote}${processRuntimePropertyNames}${stringLiteralQuote}`;
+    const processEnvAccess = String.raw`process(?:\s*\.\s*env|\s*\[\s*${stringLiteralQuote}env${stringLiteralQuote}\s*\])`;
+    const processArgvAccess = String.raw`process(?:\s*\.\s*argv|\s*\[\s*${stringLiteralQuote}argv${stringLiteralQuote}\s*\])`;
+    const processRuntimePropertyAccess = String.raw`process(?:\s*\.\s*${processRuntimePropertyNames}|\s*\[\s*${processRuntimeStringKey}\s*\])`;
+    const processRuntimeNestedTarget = String.raw`(?:${processEnvAccess}|${processArgvAccess})`;
+    const processEnvKeyAccess = String.raw`${processEnvAccess}(?:\s*\.\s*[A-Za-z_$][\w$]*|\s*\[[^\]]+\])`;
+    const processArgvItemAccess = String.raw`${processArgvAccess}\s*\[[^\]]+\]`;
+    const processRuntimePrefixUpdate = String.raw`(?:\+\+|--)\s*`;
+    const processPattern = (label, pattern) => ({ label, pattern: new RegExp(pattern) });
     const processRuntimeMutationPatterns = [
-      {
-        label: 'process platform or argv assignment',
-        pattern: /\bprocess(?:\.(platform|argv)|\[['"](platform|argv)['"]\])\s*=/
-      },
-      {
-        label: 'process platform descriptor mutation',
-        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*process\s*,\s*['"]platform['"]/
-      },
-      {
-        label: 'process argv descriptor mutation',
-        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*process\s*,\s*['"]argv['"]/
-      },
-      {
-        label: 'process platform or argv defineProperties',
-        pattern: /\bObject\.defineProperties\(\s*process\s*,\s*\{[\s\S]{0,800}(?:['"]?(platform|argv)['"]?|\[['"](platform|argv)['"]\])\s*:/
-      },
-      {
-        label: 'process platform Reflect.set',
-        pattern: /\bReflect\.set\(\s*process\s*,\s*['"]platform['"]/
-      },
-      {
-        label: 'process argv Reflect.set',
-        pattern: /\bReflect\.set\(\s*process\s*,\s*['"]argv['"]/
-      },
+      processPattern('process platform, argv, or env assignment', String.raw`(?:\b${processRuntimePropertyAccess}\s*${assignmentOperator}|${processRuntimePrefixUpdate}${processRuntimePropertyAccess})`),
+      processPattern('process env key assignment', String.raw`(?:\b${processEnvKeyAccess}\s*${assignmentOperator}|${processRuntimePrefixUpdate}${processEnvKeyAccess})`),
+      processPattern('process argv item assignment', String.raw`(?:\b${processArgvItemAccess}\s*${assignmentOperator}|${processRuntimePrefixUpdate}${processArgvItemAccess})`),
+      processPattern('process platform, argv, or env delete', String.raw`\bdelete\s+${processRuntimePropertyAccess}`),
+      processPattern('process env key delete', String.raw`\bdelete\s+${processEnvKeyAccess}`),
+      processPattern('process argv item delete', String.raw`\bdelete\s+${processArgvItemAccess}`),
+      processPattern('process argv mutating method', String.raw`\b${processArgvAccess}(?:\s*\.\s*(?:copyWithin|fill|pop|push|reverse|shift|sort|splice|unshift)|\s*\[\s*${stringLiteralQuote}(?:copyWithin|fill|pop|push|reverse|shift|sort|splice|unshift)${stringLiteralQuote}\s*\])\s*\(`),
+      processPattern('process platform, argv, or env descriptor mutation', String.raw`\b(?:Object|Reflect)\.defineProperty\(\s*(?:process\s*,\s*${processRuntimeStringKey}|${processRuntimeNestedTarget}\s*,)`),
+      processPattern('process env object mutation', String.raw`\bObject\.assign\(\s*${processRuntimeNestedTarget}\s*,`),
+      processPattern('process platform, argv, or env defineProperties', String.raw`\bObject\.defineProperties\(\s*(?:process\s*,\s*\{[\s\S]{0,800}(?:${processRuntimePropertyNames}|${processRuntimeStringKey}|\[\s*${processRuntimeStringKey}\s*\])\s*:|${processRuntimeNestedTarget}\s*,)`),
+      processPattern('process platform, argv, or env Reflect.set', String.raw`\bReflect\.set\(\s*(?:process\s*,\s*${processRuntimeStringKey}|${processRuntimeNestedTarget}\s*,)`),
+      processPattern('process platform, argv, or env Reflect.deleteProperty', String.raw`\bReflect\.deleteProperty\(\s*(?:process\s*,\s*${processRuntimeStringKey}|${processRuntimeNestedTarget}\s*,)`),
       {
         label: 'process vi.stubGlobal',
         pattern: /\bvi\.stubGlobal\(['"]process['"]/
-      }
+      },
+      processPattern('process installTargetProperty bypass', String.raw`\binstallTargetProperty\(\s*(?:process\s*,\s*${processRuntimeStringKey}|${processRuntimeNestedTarget}\s*,)`)
     ];
+
+    [
+      "process['env'].NODE_ENV = 'test';", 'process["env"]["NODE_ENV"] = "test";',
+      'process[`env`].NODE_ENV = "test";', "process['argv'][0] = 'node';",
+      'process["argv"].push("--flag");', "Object.defineProperty(process['env'], 'NODE_ENV', { value: 'test' });",
+      'Object.defineProperties(process, { ["env"]: { value: {} } });', 'Object.defineProperties(process["argv"], { 0: { value: "node" } });', "Reflect.set(process['argv'], '0', 'node');",
+      'delete process.env;', "delete process['argv'][0];", "Reflect.deleteProperty(process, 'env');", "Reflect.deleteProperty(process['env'], 'NODE_ENV');",
+      "installTargetProperty(process.env, 'NODE_ENV', 'test');", "installTargetProperty(process['argv'], '0', 'node');"
+    ].forEach((source) => {
+      expect(
+        processRuntimeMutationPatterns.some(({ pattern }) => pattern.test(source)),
+        source
+      ).toBe(true);
+    });
 
     collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
       .filter((relativePath) => {
-        return relativePath !== 'tests/support/mocks/node-runtime.installers.js'
-          && !relativePath.startsWith('tests/e2e/')
+        return relativePath !== 'tests/support/mocks/runtime-property.installers.js'
           && !relativePath.startsWith('tests/unit/codebase-reduction/');
       })
       .forEach((relativePath) => {
@@ -569,38 +590,38 @@ describe('Phase 4 clean-break enforcement', () => {
 
   it('keeps preload API globals behind descriptor-restoring handles', () => {
     const preloadGlobalsSource = readProjectFile('tests/support/mocks/preload-api-globals.js');
+    const preloadApiPattern = IpcContractManifest.namespaces.map((namespace) => namespace.apiName).join('|');
+    const duplicateIpcRendererFactories = collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => relativePath !== 'tests/support/mocks/preload-api-globals.js')
+      .filter((relativePath) => /\b(function|const|let|var)\s+createMockIpcRenderer\b/.test(readProjectFile(relativePath)));
 
-    expectContainsAll(preloadGlobalsSource, [
-      'activePreloadApiHandles',
-      'installTargetProperty',
-      'Object.getOwnPropertyDescriptor',
-      'Reflect.deleteProperty'
-    ]);
+    expectContainsAll(preloadGlobalsSource, ['activePreloadApiHandles', "installTargetProperty } from './runtime-property.installers.js'"]);
+    expect(duplicateIpcRendererFactories).toEqual([]);
+    expect(preloadGlobalsSource).not.toMatch(/\bObject\.defineProperty\(|\bReflect\.deleteProperty\(/);
     expectExcludesAll(preloadGlobalsSource, [
+      new RegExp(`\\b(?:globalThis|window|globalThis\\.window)\\.(?:${preloadApiPattern})\\s*=`),
+      new RegExp(`\\bdelete\\s+(?:globalThis|window|globalThis\\.window)\\.(?:${preloadApiPattern})\\b`),
       /\bglobalThis\.window\s*=/,
-      /\bwindowObject\[[^\]]+\]\s*=/,
+      /\b(?:windowObject|window|globalThis\.window)\[[^\]]+\]\s*=/,
       /\bglobalThis\[[^\]]+\]\s*=/,
-      /\bReflect\.set\(\s*(globalThis|windowObject)\s*,\s*name\b/,
-      /\bReflect\.deleteProperty\(\s*(globalThis|windowObject)\s*,\s*name\b/,
-      /\bObject\.defineProperty\(\s*(globalThis|windowObject)\s*,\s*name\b/,
-      /\bdelete\s+globalThis(?:\.window)?\[[^\]]+\]/
+      /\bReflect\.set\(\s*(globalThis|windowObject|window|globalThis\.window)\s*,\s*name\b/,
+      /\bReflect\.deleteProperty\(\s*(globalThis|windowObject|window|globalThis\.window)\s*,\s*name\b/,
+      /\bObject\.defineProperty\(\s*(globalThis|windowObject|window|globalThis\.window)\s*,\s*name\b/,
+      /\bObject\.assign\(\s*(globalThis|windowObject|window|globalThis\.window)\s*,\s*\{[\s\S]{0,400}\[name\]\s*:/,
+      new RegExp(`\\bObject\\.assign\\(\\s*(?:globalThis|window|globalThis\\.window)\\s*,\\s*\\{[\\s\\S]{0,400}(?:${preloadApiPattern})\\s*:`),
+      /\bdelete\s+(?:globalThis(?:\.window)?|window)\[[^\]]+\]/
     ]);
   });
 
   it('keeps document body installer failures from leaking createElement patches', async () => {
     const { installDocumentCreateElementMock } = await import('../../support/mocks/browser-api.installers.js');
-    const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    const { installTargetProperty } = await import('../../support/mocks/runtime-property.installers.js');
     const originalCreateElement = vi.fn();
     const documentTarget = {
       createElement: originalCreateElement
     };
     const appendChild = vi.fn();
-
-    Object.defineProperty(globalThis, 'document', {
-      configurable: true,
-      writable: true,
-      value: documentTarget
-    });
+    const documentHandle = installTargetProperty(globalThis, 'document', documentTarget);
 
     try {
       expect(() => installDocumentCreateElementMock({
@@ -610,11 +631,7 @@ describe('Phase 4 clean-break enforcement', () => {
       })).toThrow('Cannot install document.body mock without document.body');
       expect(documentTarget.createElement).toBe(originalCreateElement);
     } finally {
-      if (originalDocumentDescriptor) {
-        Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, 'document');
-      }
+      documentHandle.cleanup();
     }
   });
 
@@ -662,7 +679,7 @@ describe('Phase 4 clean-break enforcement', () => {
       shaderDuplicateDivergenceCountMax: 0,
       shaderDuplicateFileCountMax: 0,
       runtimeJsDtsTwinCountMax: 0,
-      sourceRuntimeJsFileCountMax: 59,
+      sourceRuntimeJsFileCountMax: 0,
       hideTimerRetirementViolationCountMax: 0,
       sharedBaseInterfaceJsOrDtsFileCountMax: 0,
       inlineCanonicalMockAssignmentCountMax: 0,
@@ -694,7 +711,7 @@ describe('Phase 4 clean-break enforcement', () => {
       'packages/prismgb-gpu/src'
     ]);
     expect(sizeThresholds.limits.runtimeSourceNetGrowthMax).toBe(0);
-    expect(sizeThresholds.limits.trackedFilesTotalMax).toBe(687);
+    expect(sizeThresholds.limits.trackedFilesTotalMax).toBe(686);
     expect(tsconfigApp.include).toContain('src/preload/**/*.ts');
     expect(packageJson.scripts['release:preflight']).toContain('codebase:size -- --enforce-thresholds');
   });
@@ -702,7 +719,7 @@ describe('Phase 4 clean-break enforcement', () => {
   it('keeps asset typings and migrated registries free of legacy compatibility aliases', () => {
     expect(fs.existsSync(projectPath('src/types/legacy-js-modules.d.ts'))).toBe(false);
     expect(fs.existsSync(projectPath('src/types/asset-modules.d.ts'))).toBe(true);
-    const deviceRegistrySource = readProjectFile('src/shared/features/devices/device.registry.js');
+    const deviceRegistrySource = readProjectFile('src/shared/features/devices/device.registry.ts');
     const typedRegistrySource = readProjectFile('src/shared/registry/typed-registry.factory.ts');
 
     const assetModules = readProjectFile('src/types/asset-modules.d.ts');
@@ -799,7 +816,7 @@ describe('Phase 4 clean-break enforcement', () => {
   });
 
   it('keeps preload exposures and E2E device mocks on current manifest-owned contracts', () => {
-    const preloadIndex = readProjectFile('src/preload/index.js');
+    const preloadIndex = readProjectFile('src/preload/index.ts');
     const preloadExposureFactory = readProjectFile('src/preload/exposure.factory.ts');
     const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
     const deviceStreamingSpec = readProjectFile('tests/e2e/device-streaming.spec.js');
@@ -844,7 +861,7 @@ describe('Phase 4 clean-break enforcement', () => {
   });
 
   it('keeps presentation icons discovered by glob instead of manual imports', () => {
-    const iconUtils = readProjectFile('src/renderer/presentation/icons/icon.utils.js');
+    const iconUtils = readProjectFile('src/renderer/presentation/icons/icon.utils.ts');
 
     expect(iconUtils).toContain('import.meta.glob');
     expect(iconUtils).toContain("query: '?raw'");
@@ -861,7 +878,7 @@ describe('Phase 4 clean-break enforcement', () => {
 
     collectFiles(
       'src/renderer/presentation',
-      (relativePath) => /\.(?:js|ts)$/.test(relativePath) && relativePath !== 'src/renderer/presentation/icons/icon.utils.js'
+      (relativePath) => /\.(?:js|ts)$/.test(relativePath) && relativePath !== 'src/renderer/presentation/icons/icon.utils.ts'
     ).forEach((relativePath) => {
       for (const match of readProjectFile(relativePath).matchAll(iconCallPattern)) {
         usedIcons.add(match[1]);
@@ -872,7 +889,7 @@ describe('Phase 4 clean-break enforcement', () => {
   });
 
   it('keeps settings menu controls and recording format options derived from settings definitions', () => {
-    const settingsTemplate = readProjectFile('src/renderer/presentation/features/settings/settings-menu.template.js');
+    const settingsTemplate = readProjectFile('src/renderer/presentation/features/settings/settings-menu.template.ts');
 
     expectContainsAll(settingsTemplate, [
       'SettingsDefinitions.definitions.find',

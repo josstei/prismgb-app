@@ -45,7 +45,9 @@ interface BrowserMediaServiceLike {
   enumerateDevices(): Promise<MediaDeviceInfo[]>;
 }
 
-type ChromaticAdapterDependencies = {
+type BaseDeviceAdapterDependencyBag = ConstructorParameters<typeof BaseDeviceAdapter>[0];
+
+type ChromaticAdapterDependencies = BaseDeviceAdapterDependencyBag & {
   ipcClient?: IpcClientLike;
   config?: ChromaticConfigLike;
   mediaConfig?: ChromaticMediaConfig;
@@ -65,31 +67,30 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   canvasScale: number;
   acquisitionCoordinator: StreamAcquisitionOrchestrator;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: ChromaticAdapterDependencies) {
     super(dependencies);
-    const resolvedDependencies = dependencies as ChromaticAdapterDependencies;
 
-    if (!resolvedDependencies.ipcClient) {
+    if (!dependencies.ipcClient) {
       throw new Error('DeviceChromaticAdapter: ipcClient is required');
     }
 
-    this.ipcClient = resolvedDependencies.ipcClient;
+    this.ipcClient = dependencies.ipcClient;
     this.deviceProfile = null;
 
     // Allow config injection for testing, fall back to defaults
-    this.config = (resolvedDependencies.config || defaultConfig) as ChromaticConfigLike;
-    this.mediaConfig = resolvedDependencies.mediaConfig || defaultMediaConfig;
-    this.helpers = resolvedDependencies.helpers || defaultHelpers;
-    this.browserMediaService = resolvedDependencies.browserMediaService || null;
+    this.config = (dependencies.config || defaultConfig) as ChromaticConfigLike;
+    this.mediaConfig = dependencies.mediaConfig || defaultMediaConfig;
+    this.helpers = dependencies.helpers || defaultHelpers;
+    this.browserMediaService = dependencies.browserMediaService || null;
 
     this.canvasScale = this.config.rendering.canvasScale;
 
     // Use injected coordinator or create with default strategy
     // Note: Coordinator needs adapter-specific constraintBuilder and streamLifecycle
-    if (resolvedDependencies.acquisitionCoordinator) {
-      this.acquisitionCoordinator = resolvedDependencies.acquisitionCoordinator;
+    if (dependencies.acquisitionCoordinator) {
+      this.acquisitionCoordinator = dependencies.acquisitionCoordinator;
     } else {
-      const fallbackStrategy = resolvedDependencies.fallbackStrategy || new DeviceAwareFallbackStrategy();
+      const fallbackStrategy = dependencies.fallbackStrategy || new DeviceAwareFallbackStrategy();
       this.acquisitionCoordinator = new StreamAcquisitionOrchestrator({
         constraintBuilder: this.constraintBuilder,
         streamLifecycle: this.streamLifecycle,

@@ -31,7 +31,7 @@ export class SharedEventBus implements IEventBus {
   }
   subscribe<T = unknown>(event: string, handler: EventHandler<T>): UnsubscribeFn {
     if (typeof handler !== 'function') throw new TypeError('Handler must be a function');
-    const sourceHandler = handler as unknown as EventHandler<unknown>, wrappedHandler = ((data: unknown) => handler(data as T)) as EventHandler<unknown>;
+    const sourceHandler = handler as EventHandler<unknown>, wrappedHandler = ((data: unknown) => handler(data as T)) as EventHandler<unknown>;
     const eventListeners = this.listeners.get(event) ?? new Map<EventHandler<unknown>, Set<EventHandler<unknown>>>();
     const handlerListeners = eventListeners.get(sourceHandler) ?? new Set<EventHandler<unknown>>();
     if (!this.listeners.has(event)) this.listeners.set(event, eventListeners);
@@ -41,7 +41,7 @@ export class SharedEventBus implements IEventBus {
     return () => this.removeSubscription(event, sourceHandler, wrappedHandler);
   }
   unsubscribe<T = unknown>(event: string, handler: EventHandler<T>): void {
-    const sourceHandler = handler as unknown as EventHandler<unknown>, wrappedHandler = this.listeners.get(event)?.get(sourceHandler)?.values().next().value;
+    const sourceHandler = handler as EventHandler<unknown>, wrappedHandler = this.listeners.get(event)?.get(sourceHandler)?.values().next().value;
     if (wrappedHandler) this.removeSubscription(event, sourceHandler, wrappedHandler);
   }
   private removeSubscription(event: string, sourceHandler: EventHandler<unknown>, wrappedHandler: EventHandler<unknown>): void {

@@ -28,7 +28,7 @@ export interface RendererClassDescriptor<
   TDependencies extends readonly DependencyToken<TMap>[] = readonly DependencyToken<TMap>[]
 > extends RendererDescriptorBase<TMap, TToken> {
   kind: 'class';
-  resolver: new (dependencies?: any) => TMap[TToken];
+  resolver: new (...args: never[]) => TMap[TToken];
   dependencies?: TDependencies;
 }
 
@@ -136,7 +136,7 @@ export function registerRendererDescriptors<TMap extends object>(
   container: AwilixContainer<TMap>,
   descriptors: readonly RendererDescriptor<TMap>[]
 ): void {
-  const typedContainer = container as unknown as {
+  const typedContainer = container as {
     register: (pair: Record<string, unknown>) => void;
     registrations?: Record<string, unknown>;
   };

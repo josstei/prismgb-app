@@ -44,6 +44,7 @@ function resolveDevDockIconPath(appPath: string): string | null {
 
 class AppOrchestrator extends BaseOrchestrator {
 
+  private readonly loggerFactory: MainLogger;
   private container: AwilixContainer<ContainerDependencies> | null = null;
   private _windowService: WindowService | null = null;
   private _deviceService: DeviceService | null = null;
@@ -62,6 +63,7 @@ class AppOrchestrator extends BaseOrchestrator {
 
     // Call base constructor with pre-created loggerFactory
     super({ loggerFactory } as AppOrchestratorDependencies, ['loggerFactory'], 'AppOrchestrator');
+    this.loggerFactory = loggerFactory;
   }
 
   /**
@@ -72,7 +74,7 @@ class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('Starting PrismGB...');
 
     // Create DI container with shared logger factory (eliminates duplicate instance)
-    this.container = await createAppContainer(this.loggerFactory as MainLogger);
+    this.container = await createAppContainer(this.loggerFactory);
 
     // Resolve and cache core services
     this._windowService = this.container.resolve('windowService');

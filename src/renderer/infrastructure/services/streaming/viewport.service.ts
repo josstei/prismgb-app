@@ -16,8 +16,7 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { TIMING } from '@shared/config/timing.config';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 
@@ -38,15 +37,13 @@ type CachedViewportStyles = {
 };
 
 export class StreamingViewportService extends BaseService {
-  declare protected readonly logger: LoggerLike;
-
-  _resizeObserver: ResizeObserver | null;
-  _resizeTimeout: ReturnType<typeof setTimeout> | null;
-  _forceResizeTimeout: ReturnType<typeof setTimeout> | null;
-  _onResizeCallback: (() => void) | null;
-  _lastDimensions: ResizeDimensions | null;
-  _forceResizePending: boolean;
-  _cachedStyles: CachedViewportStyles | null;
+  private _resizeObserver: ResizeObserver | null;
+  private _resizeTimeout: ReturnType<typeof setTimeout> | null;
+  private _forceResizeTimeout: ReturnType<typeof setTimeout> | null;
+  private _onResizeCallback: (() => void) | null;
+  private _lastDimensions: ResizeDimensions | null;
+  private _forceResizePending: boolean;
+  private _cachedStyles: CachedViewportStyles | null;
 
   constructor(dependencies: StreamingViewportDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingViewportService');

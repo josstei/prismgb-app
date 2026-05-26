@@ -1,11 +1,12 @@
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 
 type ExposedPreloadMethod = (...args: unknown[]) => unknown;
-type PreloadApiImplementation = Record<string, ExposedPreloadMethod>;
+type PreloadApiImplementation = object;
+type PreloadApiSurface = Record<string, ExposedPreloadMethod>;
 type PreloadApiImplementations = Record<string, PreloadApiImplementation | undefined>;
-type PreloadExposureMap = Record<string, PreloadApiImplementation>;
+type PreloadExposureMap = Record<string, PreloadApiSurface>;
 type PreloadManifest = typeof IpcManifest;
-type ContextBridgeLike = { exposeInMainWorld(apiKey: string, api: PreloadApiImplementation): void };
+type ContextBridgeLike = { exposeInMainWorld(apiKey: string, api: PreloadApiSurface): void };
 function assertFunction(
   value: unknown,
   apiName: string,
@@ -29,11 +30,11 @@ export function createPreloadExposureMap(
 
       const exposedApi = Object.fromEntries(
         namespace.exposedMethods.map((methodName) => {
-          const implementation = api[methodName];
+          const implementation = (api as Record<string, unknown>)[methodName];
           assertFunction(implementation, namespace.apiName, methodName);
           return [methodName, implementation];
         })
-      );
+      ) as PreloadApiSurface;
 
       return [namespace.apiName, exposedApi];
     })

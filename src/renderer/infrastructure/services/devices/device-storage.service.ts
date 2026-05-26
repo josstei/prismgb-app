@@ -1,26 +1,28 @@
-/**
- * Device Storage Service
- *
- * Manages persisted device IDs per device type.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import type { LoggerFactoryLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
+
+type DeviceStorageServiceDependencies = {
+  storageService: StorageServiceLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 function getDeviceStorageKey(deviceType: string | null | undefined): string {
   return `${deviceType || 'device'}_id`;
 }
 
 class DeviceStorageService extends BaseService {
+  private readonly storageService: StorageServiceLike;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: DeviceStorageServiceDependencies) {
     super(dependencies, ['storageService', 'loggerFactory'], 'DeviceStorageService');
+    this.storageService = dependencies.storageService;
   }
 
   getStoredDeviceId(deviceType: string): string | null {
     try {
       const key = getDeviceStorageKey(deviceType);
-      return this.storageService?.getItem(key) ?? null;
+      return this.storageService.getItem(key);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.debug('Failed to get stored device ID:', message);
@@ -31,7 +33,9 @@ class DeviceStorageService extends BaseService {
   storeDeviceId(deviceId: string, deviceType: string): void {
     try {
       const key = getDeviceStorageKey(deviceType);
-      this.storageService?.setItem(key, deviceId);
+      if (!this.storageService.setItem(key, deviceId)) {
+        this.logger.debug('Storage rejected device ID write');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.debug('Storage not available:', message);

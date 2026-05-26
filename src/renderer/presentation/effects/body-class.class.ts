@@ -1,12 +1,8 @@
-/**
- * Body Class Manager
- *
- * Owns toggling body CSS classes for application and UI state.
- * Responsible for DOM mutations; business logic lives in services/orchestrators.
- */
-
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+
+const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 
 const APP_CSS_CLASSES = Object.freeze({
   IDLE: 'app-idle',
@@ -14,13 +10,7 @@ const APP_CSS_CLASSES = Object.freeze({
   ANIMATIONS_OFF: 'app-animations-off'
 });
 
-export class BodyClassManager {
-  _minimalistTransitionTimer: ReturnType<typeof setTimeout> | null;
-
-  constructor() {
-    this._minimalistTransitionTimer = null;
-  }
-
+export class BodyClassManager extends PresentationComponent {
   setIdle(isIdle: boolean) {
     document.body.classList.toggle(APP_CSS_CLASSES.IDLE, isIdle);
   }
@@ -58,26 +48,16 @@ export class BodyClassManager {
   }
 
   _setMinimalistTransitionActive() {
-    if (this._minimalistTransitionTimer) {
-      clearTimeout(this._minimalistTransitionTimer);
-      this._minimalistTransitionTimer = null;
-    }
+    this.cancelManaged(MINIMALIST_TRANSITION_TIMEOUT);
 
     document.body.classList.add(CSSClasses.MINIMALIST_TRANSITION);
-    this._minimalistTransitionTimer = setTimeout(() => {
+    this.replaceTimeout(MINIMALIST_TRANSITION_TIMEOUT, () => {
       document.body.classList.remove(CSSClasses.MINIMALIST_TRANSITION);
-      this._minimalistTransitionTimer = null;
     }, TIMING.MINIMALIST_TRANSITION_MS);
   }
 
-  /**
-   * Dispose and cleanup resources
-   */
-  dispose() {
-    if (this._minimalistTransitionTimer) {
-      clearTimeout(this._minimalistTransitionTimer);
-      this._minimalistTransitionTimer = null;
-    }
+  override dispose() {
+    super.dispose();
     document.body.classList.remove(CSSClasses.MINIMALIST_TRANSITION);
   }
 }

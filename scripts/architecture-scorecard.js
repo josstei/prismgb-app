@@ -37,7 +37,6 @@ const DEFAULT_CONTRACT_PATTERNS = [
   /[\\/]tests[\\/]contracts[\\/].+\.[cm]?[jt]sx?$/
 ];
 const CANONICAL_CONTRACT_ALLOWLIST = [
-  'src/shared/ipc/channels.json',
   'src/shared/ipc/ipc.manifest.json',
   'src/shared/ipc/ipc.manifest.ts',
   'src/shared/ipc/preload-api.contract.ts',

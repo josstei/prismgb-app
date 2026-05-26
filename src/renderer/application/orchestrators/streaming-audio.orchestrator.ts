@@ -1,12 +1,27 @@
-/**
- * Streaming Audio Orchestrator
- *
- * Coordinates audio pipeline lifecycle for active streams.
- * Keeps audio warm-up and fallback handling isolated from streaming orchestration.
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type StreamingAudioPipelineServiceLike = {
+  start(stream: MediaStream): Promise<boolean>;
+  stop(): void;
+};
+
+type StreamViewServiceLike = {
+  setMuted(muted: boolean): void;
+};
+
+type AppStateLike = {
+  readonly isStreaming: boolean;
+};
+
+type StreamingAudioOrchestratorDependencies = {
+  streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
+  streamViewService: StreamViewServiceLike;
+  appState: AppStateLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 function resolveStreamFromPayload(data: unknown): MediaStream | null {
   if (typeof data !== 'object' || data === null || !('stream' in data)) {
@@ -24,13 +39,23 @@ function resolveStreamFromPayload(data: unknown): MediaStream | null {
 }
 
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
-  constructor(dependencies: Record<string, unknown>) {
+  private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly appState: AppStateLike;
+  private _activeStream: MediaStream | null;
+  private _fallbackUnmuted: boolean;
+
+  constructor(dependencies: StreamingAudioOrchestratorDependencies) {
     super(
       dependencies,
       ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory'],
       'StreamingAudioOrchestrator'
     );
 
+    this.streamingAudioPipelineService = dependencies.streamingAudioPipelineService;
+    this.streamViewService = dependencies.streamViewService;
+    this.appState = dependencies.appState;
+    this.eventBus = dependencies.eventBus;
     this._activeStream = null;
     this._fallbackUnmuted = false;
   }
@@ -38,7 +63,7 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
   /**
    * Initialize audio orchestrator
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.STREAM.STARTED]: (data) => this._handleStreamStarted(data),
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
@@ -46,7 +71,7 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     });
   }
 
-  _handleStreamStarted(data: unknown) {
+  _handleStreamStarted(data: unknown): void {
     const stream = resolveStreamFromPayload(data);
     if (!stream) return;
 
@@ -60,13 +85,13 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     this._initializeAudioPipeline(stream);
   }
 
-  _handleStreamStopped() {
+  _handleStreamStopped(): void {
     this._activeStream = null;
     this._fallbackUnmuted = false;
     this.streamingAudioPipelineService.stop();
   }
 
-  _initializeAudioPipeline(stream: MediaStream) {
+  _initializeAudioPipeline(stream: MediaStream): void {
     const hasAudio = stream?.getAudioTracks?.().length > 0;
 
     this.streamingAudioPipelineService.start(stream)
@@ -84,7 +109,7 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
       });
   }
 
-  _applyVideoAudioFallback() {
+  _applyVideoAudioFallback(): void {
     if (this._fallbackUnmuted) return;
     this._fallbackUnmuted = true;
     this.logger.warn('Audio warm-up failed - falling back to video element audio');

@@ -8,6 +8,7 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 const OperationType = {
   CONNECTED: 'connected',
@@ -15,11 +16,29 @@ const OperationType = {
   REFRESH: 'refresh'
 };
 
-export class DeviceOperationSequencerService extends BaseService {
+type DeviceOperationTargetService = {
+  updateDeviceStatus(): Promise<unknown>;
+  enumerateDevices(): Promise<unknown>;
+};
 
-  constructor(dependencies: Record<string, unknown>) {
+type DeviceOperationSequencerDependencies = {
+  deviceService: DeviceOperationTargetService;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
+export class DeviceOperationSequencerService extends BaseService {
+  private readonly deviceService: DeviceOperationTargetService;
+  private readonly eventBus: EventBusLike;
+  private _operationQueue: Promise<void>;
+  private _currentOperation: string | null;
+  private _queueDepth: number;
+
+  constructor(dependencies: DeviceOperationSequencerDependencies) {
     super(dependencies, ['deviceService', 'eventBus', 'loggerFactory'], 'DeviceOperationSequencerService');
 
+    this.deviceService = dependencies.deviceService;
+    this.eventBus = dependencies.eventBus;
     this._operationQueue = Promise.resolve();
 
     this._currentOperation = null;
@@ -54,7 +73,7 @@ export class DeviceOperationSequencerService extends BaseService {
     return this._queueDepth;
   }
 
-  _enqueue(type: string, operation: () => Promise<void>) {
+  _enqueue(type: string, operation: () => Promise<void>): Promise<void> {
     this._queueDepth++;
     this.logger.debug(`Queuing ${type} operation (queue depth: ${this._queueDepth})`);
 

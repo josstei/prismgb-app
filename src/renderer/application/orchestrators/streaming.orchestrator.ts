@@ -1,20 +1,3 @@
-/**
- * Streaming Orchestrator
- *
- * Coordinates media stream lifecycle and rendering
- * Thin coordinator - delegates to StreamingService and specialized managers
- *
- * Responsibilities:
- * - Coordinate stream start/stop
- * - Delegate render pipeline work (GPU/Canvas2D switching, health checks)
- * - Handle stream events
- * - Coordinate device selection changes
- *
- * Performance optimizations:
- * - Delegated to RenderPipelineService: RAF/RVFC, canvas sizing, renderer switching
- * - Visibility pause/resume driven by performance state signals
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { LoggerLike } from '@shared/base/service.base.js';
@@ -98,14 +81,13 @@ function getStreamErrorMessage(payload: unknown): string {
 }
 
 export class StreamingOrchestrator extends BaseOrchestrator {
-  declare protected readonly streamingService: StreamingServiceLike;
-  declare protected readonly appState: AppStateLike;
-  declare protected readonly streamViewService: StreamViewServiceLike;
-  declare protected readonly renderPipelineService: RenderPipelineServiceLike;
-  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
-  declare protected readonly settingsService: SettingsServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly streamingService: StreamingServiceLike;
+  private readonly appState: AppStateLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly renderPipelineService: RenderPipelineServiceLike;
+  private readonly gpuRecordingService: GpuRecordingServiceLike;
+  private readonly settingsService: SettingsServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
 
   constructor(dependencies: StreamingOrchestratorDependencies) {
     super(
@@ -113,6 +95,13 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
+    this.streamingService = dependencies.streamingService;
+    this.appState = dependencies.appState;
+    this.streamViewService = dependencies.streamViewService;
+    this.renderPipelineService = dependencies.renderPipelineService;
+    this.gpuRecordingService = dependencies.gpuRecordingService;
+    this.settingsService = dependencies.settingsService;
+    this.eventBus = dependencies.eventBus;
   }
 
   /**

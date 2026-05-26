@@ -14,7 +14,7 @@ import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisitio
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry, type DeviceRegistryEntry } from '@shared/features/devices/device.registry.js';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
@@ -121,8 +121,8 @@ export class StreamingAdapterFactory {
     let registeredCount = 0;
 
     // Collect all devices with adapter modules
-    const devices: Array<{ id: string; name: string }> = [];
-    forEachDeviceWithModule('adapterModule', (device: { id: string; name: string }) => {
+    const devices: DeviceRegistryEntry[] = [];
+    forEachDeviceWithModule('adapterModule', (device) => {
       devices.push(device);
     }, { logger: this.logger });
 

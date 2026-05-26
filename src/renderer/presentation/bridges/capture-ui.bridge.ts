@@ -1,43 +1,43 @@
-/**
- * Capture UI Bridge
- *
- * Translates capture events into UI feedback.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { UiButtonFeedbackPayload } from '@shared/events/event-payloads.js';
 import { TIMING } from '@renderer/presentation/config/constants.config';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type CaptureUiControllerLike = {
+  triggerDownload(blob: Blob, filename: string): void;
+};
+
+type CaptureUIBridgeDependencies = {
+  eventBus: EventBusLike;
+  uiController: CaptureUiControllerLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class CaptureUIBridge extends BaseService {
-  _subscriptions: Array<() => void>;
+  private readonly eventBus: EventBusLike;
+  private readonly uiController: CaptureUiControllerLike;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: CaptureUIBridgeDependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
-    this._subscriptions = [];
+    this.eventBus = dependencies.eventBus;
+    this.uiController = dependencies.uiController;
   }
 
   initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () => this._handleScreenshotTriggered()),
-      this.eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_READY, (data: unknown) => this._handleScreenshotReady(data)),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted()),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped()),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data: unknown) => this._handleRecordingError(data)),
-      this.eventBus.subscribe(EventChannels.CAPTURE.RECORDING_DEGRADED, (data: unknown) => this._handleRecordingDegraded(data))
-    );
-
+    this.listen(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () => this._handleScreenshotTriggered());
+    this.listen(EventChannels.CAPTURE.SCREENSHOT_READY, (data: unknown) => this._handleScreenshotReady(data));
+    this.listen(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted());
+    this.listen(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped());
+    this.listen(EventChannels.CAPTURE.RECORDING_ERROR, (data: unknown) => this._handleRecordingError(data));
+    this.listen(EventChannels.CAPTURE.RECORDING_DEGRADED, (data: unknown) => this._handleRecordingDegraded(data));
     this.logger.info('CaptureUIBridge initialized');
   }
 
-  dispose() {
-    this._subscriptions.forEach((unsubscribe: () => void) => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.logger.info('CaptureUIBridge disposed');
+    return disposed;
   }
 
   _handleScreenshotTriggered() {

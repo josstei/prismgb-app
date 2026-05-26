@@ -1,0 +1,85 @@
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+
+const SEARCH_DEBOUNCE_MS = 200;
+const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesSearchDebounceTimeout');
+
+export interface NotesSearchComponentOptions {
+  logger?: LoggerLike | null;
+}
+
+export interface NotesSearchInitializeOptions {
+  searchInput?: HTMLInputElement | null;
+  onSearch?: ((query: string) => void) | null;
+}
+
+class NotesSearchComponent extends PresentationComponent {
+  declare logger: LoggerLike | null | undefined;
+  declare currentQuery: string;
+  declare searchInput: HTMLInputElement | null | undefined;
+  declare onSearch: ((query: string) => void) | null | undefined;
+
+  constructor({ logger }: NotesSearchComponentOptions) {
+    super();
+    this.logger = logger;
+    this.currentQuery = '';
+    this.searchInput = null;
+  }
+
+  initialize({ searchInput, onSearch }: NotesSearchInitializeOptions): void {
+    this.searchInput = searchInput;
+    this.onSearch = onSearch;
+
+    if (!this.searchInput) {
+      this.logger?.warn('Search input element not found');
+      return;
+    }
+
+    this._setupSearch();
+  }
+
+  getQuery(): string {
+    return this.searchInput?.value || '';
+  }
+
+  focus(): void {
+    this.searchInput?.focus({ preventScroll: true });
+  }
+
+  clear(): void {
+    if (this.searchInput) {
+      this.searchInput.value = '';
+    }
+    this.currentQuery = '';
+  }
+
+  _setupSearch(): void {
+    if (!this.searchInput) return;
+
+    this.listen(this.searchInput, 'input', () => {
+      this._scheduleSearch();
+    });
+  }
+
+  _scheduleSearch(): void {
+    this.replaceTimeout(SEARCH_DEBOUNCE_TIMEOUT, () => {
+      this._handleSearch();
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  _handleSearch(): void {
+    const query = this.searchInput?.value || '';
+    this.currentQuery = query;
+    this.onSearch?.(query);
+  }
+
+  override dispose(): void {
+    super.dispose();
+    this.searchInput = null;
+    this.onSearch = null;
+    this.logger = null;
+    this.currentQuery = '';
+  }
+}
+
+export { NotesSearchComponent };

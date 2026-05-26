@@ -35,8 +35,7 @@ import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
 import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 import type { GpuWorkerManager } from './gpu-worker-manager';
@@ -81,9 +80,8 @@ function isWorkerRenderAPI(value: RenderAPI): value is WorkerRendererConfig['api
 }
 
 export class StreamingGpuRendererService extends BaseService {
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
-  declare protected readonly settingsService: SettingsServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly settingsService: SettingsServiceLike;
 
   private readonly _frameBuffer: GpuFrameBufferLike;
   private readonly _workerManager: GpuWorkerManager;
@@ -132,6 +130,8 @@ export class StreamingGpuRendererService extends BaseService {
       'StreamingGpuRendererService'
     );
 
+    this.eventBus = dependencies.eventBus;
+    this.settingsService = dependencies.settingsService;
     this._frameBuffer = dependencies.gpuFrameBuffer;
     this._workerManager = dependencies.gpuWorkerManager;
 

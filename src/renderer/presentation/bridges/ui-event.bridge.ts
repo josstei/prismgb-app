@@ -1,14 +1,3 @@
-/**
- * UI Event Bridge
- *
- * Bridges between EventBus events and UIController
- * Decouples orchestrators from direct UI manipulation
- *
- * This class subscribes to UI-related events published by orchestrators
- * and delegates to UIController methods, providing a clean separation
- * between business logic and UI concerns.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type {
@@ -16,7 +5,7 @@ import type {
   TypedEventBusLike,
   UiButtonFeedbackPayload
 } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 type UiControllerLike = {
   updateStatusMessage(message: string, type?: string): void;
@@ -59,71 +48,51 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 }
 
 export class UIEventBridge extends BaseService {
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly uiController: UiControllerLike;
-  declare protected readonly presentationModeService: PresentationModeServiceLike;
-  declare protected readonly logger: LoggerLike;
-
-  _subscriptions: Array<() => void>;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly uiController: UiControllerLike;
+  private readonly presentationModeService: PresentationModeServiceLike;
 
   constructor(dependencies: UIEventBridgeDependencies) {
     super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
 
-    // Track subscriptions for cleanup
-    this._subscriptions = [];
+    this.eventBus = dependencies.eventBus;
+    this.uiController = dependencies.uiController;
+    this.presentationModeService = dependencies.presentationModeService;
   }
 
-  /**
-   * Initialize event subscriptions
-   */
-  initialize() {
+  initialize(): void {
     this._subscribeToEvents();
     this.logger.info('UIEventBridge initialized');
   }
 
-  _subscribeToEvents() {
+  private _subscribeToEvents(): void {
     const eventHandlers: Array<[keyof EventPayloadMap, (data?: unknown) => void]> = [
-      // Status messages
       [EventChannels.UI.STATUS_MESSAGE, (data) => this._handleStatusMessage(data)],
-
-      // Device status
       [EventChannels.UI.DEVICE_STATUS, (data) => this._handleDeviceStatus(data)],
       [EventChannels.UI.OVERLAY_MESSAGE, (data) => this._handleOverlayMessage(data)],
       [EventChannels.UI.OVERLAY_VISIBLE, (data) => this._handleOverlayVisible(data)],
       [EventChannels.UI.OVERLAY_ERROR, (data) => this._handleOverlayError(data)],
-
-      // Streaming mode
       [EventChannels.UI.STREAMING_MODE, (data) => this._handleStreamingMode(data)],
       [EventChannels.UI.STREAM_INFO, (data) => this._handleStreamInfo(data)],
-
-      // Visual effects
       [EventChannels.UI.SHUTTER_FLASH, () => this._handleShutterFlash()],
       [EventChannels.UI.RECORD_BUTTON_POP, () => this._handleRecordButtonPop()],
       [EventChannels.UI.RECORD_BUTTON_PRESS, () => this._handleRecordButtonPress()],
       [EventChannels.UI.BUTTON_FEEDBACK, (data) => this._handleButtonFeedback(data)],
-
-      // Recording state
       [EventChannels.UI.RECORDING_STATE, (data) => this._handleRecordingState(data)],
       [EventChannels.UI.RECORD_BUTTON_DISABLED, () => this._handleRecordButtonDisabled()],
       [EventChannels.UI.RECORD_BUTTON_ENABLED, () => this._handleRecordButtonEnabled()],
-
-      // Settings events (translated to UI updates)
       [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (data) => this._handleCinematicMode(data)],
       [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (enabled) =>
         this._handleMinimalistFullscreenChanged(enabled)],
-
-      // Fullscreen
       [EventChannels.UI.FULLSCREEN_STATE, (data) => this._handleFullscreenState(data)]
     ];
 
-    // Subscribe to all events
     for (const [event, handler] of eventHandlers) {
-      const unsubscribe = this.eventBus.subscribe(event, handler);
-      this._subscriptions.push(unsubscribe);
+      this.listen(event, handler);
     }
   }
 
-  _handleStatusMessage(data: unknown) {
+  private _handleStatusMessage(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as { message?: string; type?: string }
       : {};
@@ -132,7 +101,7 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateStatusMessage(message, type);
   }
 
-  _handleDeviceStatus(data: unknown) {
+  private _handleDeviceStatus(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as { status?: unknown }
       : {};
@@ -140,7 +109,7 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateDeviceStatus(status);
   }
 
-  _handleOverlayMessage(data: unknown) {
+  private _handleOverlayMessage(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as { deviceConnected?: unknown }
       : {};
@@ -150,7 +119,7 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateOverlayMessage(deviceConnected);
   }
 
-  _handleOverlayVisible(data: unknown) {
+  private _handleOverlayVisible(data: unknown): void {
     const visible = getBooleanPayloadValue(data, 'visible');
     if (visible === null) {
       this.logger.warn('Ignoring invalid overlay visibility payload');
@@ -159,7 +128,7 @@ export class UIEventBridge extends BaseService {
     this.uiController.deviceStatus?.setOverlayVisible(visible);
   }
 
-  _handleOverlayError(data: unknown) {
+  private _handleOverlayError(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as { message?: unknown }
       : {};
@@ -167,7 +136,7 @@ export class UIEventBridge extends BaseService {
     this.uiController.showErrorOverlay(message);
   }
 
-  _handleStreamingMode(data: unknown) {
+  private _handleStreamingMode(data: unknown): void {
     const enabled = getBooleanPayloadValue(data, 'enabled');
     if (enabled === null) {
       this.logger.warn('Ignoring invalid streaming mode payload');
@@ -176,7 +145,7 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleStreamingMode(enabled);
   }
 
-  _handleStreamInfo(data: unknown) {
+  private _handleStreamInfo(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as { settings?: unknown }
       : {};
@@ -184,19 +153,19 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateStreamInfo(settings);
   }
 
-  _handleShutterFlash() {
+  private _handleShutterFlash(): void {
     this.uiController.triggerShutterFlash();
   }
 
-  _handleRecordButtonPop() {
+  private _handleRecordButtonPop(): void {
     this.uiController.triggerRecordButtonPop();
   }
 
-  _handleRecordButtonPress() {
+  private _handleRecordButtonPress(): void {
     this.uiController.triggerRecordButtonPress();
   }
 
-  _handleButtonFeedback(data: unknown) {
+  private _handleButtonFeedback(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as Partial<UiButtonFeedbackPayload>
       : {};
@@ -210,7 +179,7 @@ export class UIEventBridge extends BaseService {
     );
   }
 
-  _handleRecordingState(data: unknown) {
+  private _handleRecordingState(data: unknown): void {
     const active = getBooleanPayloadValue(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid recording state payload');
@@ -219,26 +188,25 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateRecordingButtonState(active);
   }
 
-  _handleRecordButtonDisabled() {
+  private _handleRecordButtonDisabled(): void {
     this.uiController.setRecordButtonDisabled(true);
   }
 
-  _handleRecordButtonEnabled() {
+  private _handleRecordButtonEnabled(): void {
     this.uiController.setRecordButtonDisabled(false);
   }
 
-  _handleCinematicMode(data: unknown) {
+  private _handleCinematicMode(data: unknown): void {
     const enabled = getBooleanPayloadValue(data, 'enabled');
     if (enabled === null) {
       this.logger.warn('Ignoring invalid cinematic mode payload');
       return;
     }
     this.presentationModeService.handleCinematicModeChanged(enabled);
-    // Show status message (moved from CinematicModeService for separation of concerns)
     this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
-  _handleMinimalistFullscreenChanged(enabled: unknown) {
+  private _handleMinimalistFullscreenChanged(enabled: unknown): void {
     if (typeof enabled !== 'boolean') {
       this.logger.warn('Ignoring invalid minimalist fullscreen payload');
       return;
@@ -246,7 +214,7 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleMinimalistFullscreenChanged(enabled);
   }
 
-  _handleFullscreenState(data: unknown) {
+  private _handleFullscreenState(data: unknown): void {
     const active = getBooleanPayloadValue(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid fullscreen state payload');
@@ -255,16 +223,9 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleFullscreenState(active);
   }
 
-  /**
-   * Dispose and cleanup subscriptions
-   */
-  dispose() {
-    for (const unsubscribe of this._subscriptions) {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    }
-    this._subscriptions = [];
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.logger.info('UIEventBridge disposed');
+    return disposed;
   }
 }

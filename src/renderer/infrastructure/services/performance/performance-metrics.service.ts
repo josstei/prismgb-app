@@ -5,8 +5,8 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
 import type { MemorySnapshotRequestPayload } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 import type {
   ProcessMetricPayload,
   ProcessMetricsResponse
@@ -15,10 +15,6 @@ import type {
 type ProcessMetricsErrorResponse = {
   success: false;
   error: string;
-};
-
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
 };
 
 type MetricsAdapterLike = {
@@ -40,19 +36,23 @@ function hasProcessMetricsSnapshot(snapshot: unknown): snapshot is ProcessMetric
   );
 }
 
-export class PerformanceMetricsService extends BaseService {
-  declare protected readonly logger: LoggerLike;
-  declare protected readonly metricsAdapter: MetricsAdapterLike;
+function isMemorySnapshotRequestPayload(value: unknown): value is MemorySnapshotRequestPayload {
+  return typeof value === 'object' && value !== null;
+}
 
-  _pendingTimeouts: Set<ReturnType<typeof setTimeout>>;
-  _intervalId: ReturnType<typeof setInterval> | null;
-  _timeoutId: ReturnType<typeof setTimeout> | null;
-  _intervalMs: number;
-  _initialDelayMs: number;
+export class PerformanceMetricsService extends BaseService {
+  protected readonly metricsAdapter: MetricsAdapterLike;
+
+  private readonly _pendingTimeouts: Set<ReturnType<typeof setTimeout>>;
+  private _intervalId: ReturnType<typeof setInterval> | null;
+  private _timeoutId: ReturnType<typeof setTimeout> | null;
+  private readonly _intervalMs: number;
+  private readonly _initialDelayMs: number;
 
   constructor(dependencies: PerformanceMetricsDependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 
+    this.metricsAdapter = dependencies.metricsAdapter;
     this._pendingTimeouts = new Set();
     this._intervalId = null;
     this._timeoutId = null;
@@ -60,8 +60,10 @@ export class PerformanceMetricsService extends BaseService {
     this._initialDelayMs = 2000;
   }
 
-  requestSnapshot(payload: MemorySnapshotRequestPayload | null | undefined = {}) {
-    const request = typeof payload === 'object' && payload !== null ? payload : {};
+  requestSnapshot(payload: unknown = {}): void {
+    const request: MemorySnapshotRequestPayload = isMemorySnapshotRequestPayload(payload)
+      ? payload
+      : {};
     const label = typeof request.label === 'string' && request.label.length > 0
       ? request.label
       : 'snapshot';
@@ -81,7 +83,7 @@ export class PerformanceMetricsService extends BaseService {
     this._logSnapshot(label);
   }
 
-  startPeriodicSnapshots() {
+  startPeriodicSnapshots(): void {
     if (this._intervalId || this._timeoutId) {
       return;
     }
@@ -93,7 +95,7 @@ export class PerformanceMetricsService extends BaseService {
     }, this._initialDelayMs);
   }
 
-  stopPeriodicSnapshots() {
+  stopPeriodicSnapshots(): void {
     if (this._timeoutId) {
       clearTimeout(this._timeoutId);
       this._timeoutId = null;
@@ -105,7 +107,7 @@ export class PerformanceMetricsService extends BaseService {
     }
   }
 
-  clearPendingRequests() {
+  clearPendingRequests(): void {
     this._pendingTimeouts.forEach((timeoutId: ReturnType<typeof setTimeout>) => clearTimeout(timeoutId));
     this._pendingTimeouts.clear();
   }
@@ -113,12 +115,12 @@ export class PerformanceMetricsService extends BaseService {
   /**
    * Cleanup all resources and stop all timers
    */
-  dispose() {
+  dispose(): void {
     this.stopPeriodicSnapshots();
     this.clearPendingRequests();
   }
 
-  _logSnapshot(label: string) {
+  _logSnapshot(label: string): void {
     if (!this.metricsAdapter.isAvailable()) {
       this.logger.debug(`[Perf] ${label} - process metrics unavailable`);
       return;

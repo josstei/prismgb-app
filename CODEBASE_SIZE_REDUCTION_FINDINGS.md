@@ -53,12 +53,12 @@ Baseline observations:
 
 Current repetition:
 
-- Channel names live in `src/shared/ipc/channels.json`.
-- Channel values are consumed directly from `src/shared/ipc/channels.json`.
+- Channel names live in `src/shared/ipc/ipc.manifest.json` and runtime constants derive through `src/shared/ipc/ipc.manifest.ts`.
+- Channel values are consumed through the manifest-derived `IPC_CHANNELS` map.
 - Payload types live separately in `src/shared/ipc/preload-api.contract.ts`.
 - Window globals are hand-maintained in `src/types/preload-api.d.ts`.
 - Preload exposes APIs by hand in `src/preload/index.js`.
-- Preload runtime validators are hand-maintained in `src/preload/validators.js`, including URL/update/transcode/GPU rules and allowed transcode formats.
+- Preload runtime validators are hand-maintained in `src/preload/validators.ts`, including URL/update/transcode/GPU rules and allowed transcode formats.
 - Main IPC handlers are manually registered in `src/main/ipc/ipc-handler.registry.ts`.
 - Preload contract tests regex-scan source in `tests/unit/preload/preload-api.contract.test.js`.
 - IPC channel data now has one runtime import surface, backed by drift checks against the IPC manifest and main handler descriptors.
@@ -80,7 +80,7 @@ Recommended end state:
   - main handler dependency token
   - security policy, including URL/file/system access constraints
 - Generate:
-  - `channels.json`
+  - manifest-derived runtime channel maps
   - TS payload types
   - preload bridge APIs
   - preload runtime validators
@@ -133,10 +133,10 @@ Expected deletion:
 
 Current repetition:
 
-- `src/preload/apis/device.preload-api.js`
-- `src/preload/apis/window.preload-api.js`
-- `src/preload/apis/update.preload-api.js`
-- `src/preload/apis/transcode.preload-api.js`
+- `src/preload/apis/device.preload-api.ts`
+- `src/preload/apis/window.preload-api.ts`
+- `src/preload/apis/update.preload-api.ts`
+- `src/preload/apis/transcode.preload-api.ts`
 - `src/preload/listener-registry.js`
 
 Every subscription repeats:
@@ -377,7 +377,7 @@ Impact:
 
 Current state:
 
-- `BaseService` only validates dependencies, assigns required dependency fields, and creates a logger.
+- `BaseService` now validates dependencies, creates a logger, owns `DisposableBag` helpers, and no longer assigns required dependency fields dynamically.
 - `BaseOrchestrator` has subscription cleanup, but services often implement their own cleanup arrays and timer disposal.
 - Examples include renderer update/transcode services, performance services, device lifecycle services, and streaming services.
 - Lifecycle drift also exists outside plain DOM listeners: `SettingsDisplayModeOrchestrator` adds a `visibilitychange` listener without tracking removal, and main `TranscodeService` registers an Electron `before-quit` listener that is not removed by its `dispose()` method.
@@ -453,10 +453,10 @@ This is the correct long-term path for adding more devices without multiplying f
 
 Current repetition:
 
-- `src/renderer/infrastructure/services/settings/settings.service.ts` repeats `getX`, `setX`, storage key, default, parse, clamp/validate, logging, and event publishing for each setting.
-- Recording-format allowed values now live in `src/shared/features/settings/settings.definitions.json`; `src/shared/features/transcode/transcode.config.js` still owns transcode implementation metadata.
+- `src/shared/features/settings/settings.definitions.ts` now resolves settings storage/default/validation/event policy, external-source metadata, UI refs, and listbox options from one definition surface.
+- Recording-format allowed values now derive from `TRANSCODE_CONFIG.formats`; `src/shared/features/transcode/transcode.config.ts` still owns transcode implementation metadata.
 - Storage keys and protected-key policy originally repeated settings in shared config; Phase 2 now derives settings storage keys from the settings manifest.
-- Recording-format UI options are hard-coded in the settings template.
+- Recording-format UI options are generated from the resolved settings definition with definition-owned label formatting.
 - `loadAllPreferences()` returns only a subset of defaults, so aggregate settings reads can drift from setting definitions.
 
 Recommended end state:
@@ -557,11 +557,13 @@ Risk:
 
 Current repetition:
 
-- IDs live in templates.
-- Selector constants live in `src/renderer/presentation/config/dom-selectors.config.ts`.
-- `createDomBindings()` consumes selector maps.
-- Components separately define refs and initialize shapes.
+- Stable IDs live in templates for CSS/E2E, and production templates now also carry `data-ref` metadata for static refs.
+- Static header, toolbar, fullscreen, stream overlay/video/canvas, and settings external/support controls now carry `data-action` metadata and execute through descriptor-owned wiring in `UISetupOrchestrator` or their owning component.
+- `src/renderer/presentation/config/dom-selectors.config.ts` has been retired from production source; stale tests that imported it are intentionally deferred until the test cleanup phase.
+- `createDomBindings()` consumes hand-maintained ref lists, derives settings-control refs from `SettingsDefinitions`, and binds `data-ref` first with legacy ID fallback.
+- Components separately define refs and initialize shapes, though `SettingsMenuComponent` no longer duplicates individual setting-control fields.
 - `src/renderer/application/di/register-ui.ts` manually wires component IDs, stages, constructors, and element dependency slices even though `UIComponentRegistry` already consumes component definitions generically.
+- Remaining manual action surfaces include generated descriptor drift checks and generated component dependency slices.
 
 Recommended end state:
 
@@ -582,11 +584,11 @@ const Actions = {
 };
 ```
 
-This can delete manual DOM-originated event wiring in settings, toolbar, and controller code. Renderer bridge classes that subscribe to EventBus or preload channels need a different compression path: descriptor-based bridge subscriptions plus shared disposal.
+This has started deleting manual DOM-originated event wiring for static header/toolbar/fullscreen buttons. Renderer bridge classes that subscribe to EventBus or preload channels need a different compression path: descriptor-based bridge subscriptions plus shared disposal.
 
-Also generate UI component definitions and element dependency slices from the same ref/action metadata. That connects template IDs, selector constants, component registration, and controller wiring instead of leaving `register-ui.ts` as another hand-maintained manifest.
+Also generate UI component definitions and element dependency slices from the same ref/action metadata. That connects template IDs, ref lists, component registration, and controller wiring instead of leaving `register-ui.ts` as another hand-maintained manifest.
 
-Typed ref generation should also fix the current binding root ambiguity: `createDomBindings()` is documented as accepting `Document | Element`, but `bindById()` calls `getElementById()`, which is a `Document` API. Generated refs should either narrow roots to `Document` or use typed `querySelector` against component roots.
+Typed ref generation should preserve the current root fix: `createDomBindings()` accepts `ParentNode`, resolves refs with `querySelector`, and keeps ID fallback for migration compatibility. The remaining long-term work is generator-backed drift detection rather than another manual ref catalog.
 
 ## 14. Promote Headless UI Controllers For Disclosure, Listbox, Combobox, And Auto-Hide
 
@@ -720,7 +722,7 @@ Current repetition:
 - `src/shared/interfaces/device-adapter.interface.js` mirrors `src/shared/interfaces/device-adapter.interface.d.ts`.
 - Similar patterns exist in shared base/interfaces.
 - Presentation remains heavily runtime-JS as well: `src/renderer/presentation` contains 35 `.js`, 19 `.ts`, and 38 `.css` files, and several components depend on broad element maps instead of generated typed refs.
-- Current app typechecking does not enforce presentation JS: `tsconfig.app.json` has `allowJs: true` but `checkJs: false`, and its include list targets TS plus declarations.
+- Current app typechecking rejects runtime JS re-entry: `tsconfig.app.json` has `allowJs: false`, and its include list targets TS plus declarations.
 
 Recommended end state:
 
@@ -1179,7 +1181,7 @@ Adopt these rules to prevent regression:
    - introduce `PresentationComponent`.
    - migrate auto-hide effects to `ActivityAutoHideController`.
    - migrate listbox/combobox behaviors.
-   - introduce `data-action` delegation.
+   - extend `data-action` delegation beyond static header/toolbar/fullscreen controls.
    - evaluate Lit for dynamic components.
 
 6. Unify tooling:

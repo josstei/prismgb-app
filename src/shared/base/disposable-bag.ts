@@ -18,6 +18,11 @@ type EventTargetLike = {
 type TimerHandle = ReturnType<typeof setTimeout> | number;
 type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
 
+function isPromiseLike(value: unknown): value is Promise<void> {
+  return typeof value === 'object' && value !== null && 'then' in value &&
+    typeof (value as { then?: unknown }).then === 'function';
+}
+
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
     return null;
@@ -98,29 +103,37 @@ export class DisposableBag {
     return this.add(() => observer.disconnect());
   }
 
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     const pending = [...this.disposables].reverse();
     this.disposables = [];
 
     const errors: unknown[] = [];
+    const asyncDisposals: Promise<void>[] = [];
+
     for (const dispose of pending) {
       try {
-        await dispose();
+        const result = dispose();
+        if (isPromiseLike(result)) {
+          asyncDisposals.push(result.catch((error) => {
+            errors.push(error);
+          }));
+        }
       } catch (error) {
         errors.push(error);
       }
     }
 
-    if (errors.length === 1) {
-      throw errors[0];
-    }
-
-    if (errors.length > 1) {
-      throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
-    }
+    return Promise.all(asyncDisposals).then(() => {
+      if (errors.length === 1) {
+        throw errors[0];
+      }
+      if (errors.length > 1) {
+        throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
+      }
+    });
   }
 
-  async dispose(): Promise<void> {
-    await this.clear();
+  dispose(): Promise<void> {
+    return this.clear();
   }
 }

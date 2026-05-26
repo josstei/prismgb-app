@@ -1,10 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '../..');
-const channelsPath = path.join(projectRoot, 'src/shared/ipc/channels.json');
+import { IPC_CHANNELS as manifestChannels } from '@shared/ipc/ipc.manifest.js';
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object') {
@@ -19,7 +13,7 @@ function deepFreeze(value) {
 }
 
 export function readSharedIpcChannels() {
-  return JSON.parse(fs.readFileSync(channelsPath, 'utf8'));
+  return JSON.parse(JSON.stringify(manifestChannels));
 }
 
 export const IPC_CHANNELS = deepFreeze(readSharedIpcChannels());

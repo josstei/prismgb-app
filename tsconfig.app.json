@@ -36,7 +36,7 @@
     "declaration": false,
     "declarationMap": false,
     "allowImportingTsExtensions": false,
-    "allowJs": true,
+    "allowJs": false,
     "checkJs": false
   },
   "include": [

@@ -7,19 +7,33 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { PerformanceUiModePayload } from '@shared/events/event-payloads.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type {
+  PerformanceState,
+  PerformanceStateService
+} from '@renderer/infrastructure/services/performance/performance-state.service';
 
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
+  private readonly performanceStateService: PerformanceStateService;
+  private _lastUiMode: PerformanceUiModePayload | null;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: {
+    eventBus: EventBusLike;
+    performanceStateService: PerformanceStateService;
+    loggerFactory: LoggerFactoryLike;
+  }) {
     super(
       dependencies,
       ['eventBus', 'performanceStateService', 'loggerFactory'],
       'PerformanceStateOrchestrator'
     );
+    this.eventBus = dependencies.eventBus;
+    this.performanceStateService = dependencies.performanceStateService;
     this._lastUiMode = null;
   }
 
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: (enabled) => {
         this._handlePerformanceModeChanged(Boolean(enabled));
@@ -36,26 +50,25 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     });
 
     this.performanceStateService.initialize({
-      onStateChange: (state: { performanceModeEnabled?: boolean; weakGpuDetected?: boolean; [key: string]: unknown }) =>
-        this._handleStateChanged(state)
+      onStateChange: (state) => this._handleStateChanged(state)
     });
   }
 
-  _handlePerformanceModeChanged(enabled: unknown) {
+  _handlePerformanceModeChanged(enabled: boolean): void {
     const changed = this.performanceStateService.setPerformanceModeEnabled(enabled);
     if (changed) {
       this.eventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, enabled);
     }
   }
 
-  _handleCapabilitiesChanged(capabilities: unknown) {
+  _handleCapabilitiesChanged(capabilities: unknown): void {
     this.performanceStateService.setCapabilities(capabilities);
   }
 
-  _handleStateChanged(state: { performanceModeEnabled?: boolean; weakGpuDetected?: boolean; [key: string]: unknown }) {
+  _handleStateChanged(state: PerformanceState): void {
     this.eventBus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { ...state });
 
-    const uiMode = {
+    const uiMode: PerformanceUiModePayload = {
       enabled: Boolean(state.performanceModeEnabled),
       weakGpuDetected: Boolean(state.weakGpuDetected)
     };
@@ -66,7 +79,7 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     }
   }
 
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.performanceStateService.dispose();
   }
 }

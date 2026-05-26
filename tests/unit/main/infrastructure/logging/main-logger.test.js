@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
 
 // Mock electron before importing MainLogger
 vi.mock('electron', () => ({
@@ -74,21 +75,22 @@ vi.mock('winston', () => {
 
 describe('MainLogger', () => {
   let logger;
-  let originalEnv;
+  let envMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    originalEnv = { ...process.env };
-    process.env.NODE_ENV = 'development';
-    delete process.env.LOG_LEVEL;
-    delete process.env.LOG_FILE;
-    delete process.env.LOG_DIR;
+    envMock = installProcessEnvMock({
+      NODE_ENV: 'development',
+      LOG_LEVEL: undefined,
+      LOG_FILE: undefined,
+      LOG_DIR: undefined,
+    });
 
     logger = new MainLogger();
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    envMock.cleanup();
   });
 
   describe('constructor', () => {
@@ -99,7 +101,7 @@ describe('MainLogger', () => {
 
   describe('_createRootLogger', () => {
     it('should use debug level in development', async () => {
-      process.env.NODE_ENV = 'development';
+      envMock.setEnv({ NODE_ENV: 'development' });
       const newLogger = new MainLogger();
 
       const { default: winston } = vi.mocked(await import('winston'));
@@ -107,8 +109,7 @@ describe('MainLogger', () => {
     });
 
     it('should use info level in production', async () => {
-      process.env.NODE_ENV = 'production';
-      process.env.LOG_DIR = '/tmp/logs';
+      envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: '/tmp/logs' });
 
       const newLogger = new MainLogger();
 
@@ -117,23 +118,21 @@ describe('MainLogger', () => {
     });
 
     it('should respect LOG_LEVEL env var', () => {
-      process.env.LOG_LEVEL = 'warn';
+      envMock.setEnv({ LOG_LEVEL: 'warn' });
       const newLogger = new MainLogger();
 
       expect(newLogger.rootLogger).toBeDefined();
     });
 
     it('should add file transports when LOG_FILE is set', () => {
-      process.env.LOG_FILE = 'true';
-      process.env.LOG_DIR = '/tmp/logs';
+      envMock.setEnv({ LOG_FILE: 'true', LOG_DIR: '/tmp/logs' });
       const newLogger = new MainLogger();
 
       expect(newLogger.rootLogger).toBeDefined();
     });
 
     it('should use LOG_DIR env var when provided', () => {
-      process.env.NODE_ENV = 'production';
-      process.env.LOG_DIR = '/custom/log/dir';
+      envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: '/custom/log/dir' });
       const newLogger = new MainLogger();
 
       // LOG_DIR should override Electron's getPath
@@ -141,8 +140,7 @@ describe('MainLogger', () => {
     });
 
     it('should use Electron app.getPath when LOG_DIR not set', async () => {
-      process.env.NODE_ENV = 'production';
-      delete process.env.LOG_DIR;
+      envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: undefined });
 
       const newLogger = new MainLogger();
 

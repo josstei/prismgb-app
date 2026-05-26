@@ -24,8 +24,25 @@ import {
   defineRendererDescriptors,
   registerRendererDescriptors
 } from '@renderer/infrastructure/di/renderer-container.factory.js';
+import type {
+  RendererUiComponentCatalog,
+  RendererUiComponentDefinitionUnion
+} from '@renderer/presentation/controller/ui-component.catalog.js';
+import { defineRendererUiComponent } from '@renderer/presentation/controller/ui-component.catalog.js';
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
+
+function requireDependency<TDependencies extends object, TKey extends keyof TDependencies & string>(
+  componentId: string,
+  dependencies: Partial<TDependencies>,
+  key: TKey
+): NonNullable<TDependencies[TKey]> {
+  const value = dependencies[key];
+  if (value === undefined || value === null) {
+    throw new Error(`${componentId}: missing UI component dependency "${key}"`);
+  }
+  return value as NonNullable<TDependencies[TKey]>;
+}
 
 const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
   {
@@ -67,24 +84,23 @@ const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
     token: 'uiComponentRegistry',
     kind: 'function',
     dependencies: ['loggerFactory'],
-    resolver: (dependencies: any) => {
-      const loggerFactory = dependencies.loggerFactory;
-      const componentDefinitions = [
-        {
+    resolver: ({ loggerFactory }: Pick<RendererContainerMap, 'loggerFactory'>) => {
+      const componentDefinitions: readonly RendererUiComponentDefinitionUnion[] = [
+        defineRendererUiComponent({
           id: 'statusNotificationComponent',
           stage: 'core',
-          create: (context: any) => {
-            const { elements } = context as any;
+          create: (context) => {
+            const elements = context.elements ?? {};
             return new StatusNotificationComponent({
               statusMessage: elements.statusMessage
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'deviceStatusComponent',
           stage: 'core',
-          create: (context: any) => {
-            const { elements } = context as any;
+          create: (context) => {
+            const elements = context.elements ?? {};
             return new DeviceStatusComponent({
               statusIndicator: elements.statusIndicator,
               statusText: elements.statusText,
@@ -94,12 +110,13 @@ const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
               overlayMessage: elements.overlayMessage
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'streamControlsComponent',
           stage: 'core',
-          create: (context: any) => {
-            const { elements, dependencies } = context as any;
+          create: (context) => {
+            const elements = context.elements ?? {};
+            const dependencies = context.dependencies ?? {};
             return new StreamingControlsComponent({
               elements: {
                 currentResolution: elements.currentResolution,
@@ -112,69 +129,69 @@ const rendererUiDescriptors = defineRendererDescriptors<RendererContainerMap>([
               bodyClassManager: dependencies.bodyClassManager
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'transcodeToastComponent',
           stage: 'core',
-          create: (context: any) => {
-            const { elements } = context as any;
+          create: (context) => {
+            const elements = context.elements ?? {};
             return new TranscodeToastComponent({
               recordBtn: elements.recordBtn,
               transcodeRing: elements.transcodeRing,
               transcodePercentLabel: elements.transcodePercentLabel
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'settingsMenuComponent',
           stage: 'deferred',
-          create: (context: any) => {
-            const dependencies = context.dependencies as any;
+          create: (context) => {
+            const dependencies = context.dependencies ?? {};
+            const eventBus = requireDependency('settingsMenuComponent', dependencies, 'eventBus');
+            const loggerFactory = requireDependency('settingsMenuComponent', dependencies, 'loggerFactory');
             const updateSectionComponent = dependencies.updateOrchestrator
               ? new UpdateSectionComponent({
                 updateOrchestrator: dependencies.updateOrchestrator,
-                eventBus: dependencies.eventBus,
-                loggerFactory: dependencies.loggerFactory
+                eventBus,
+                loggerFactory
               })
               : null;
 
             return new SettingsMenuComponent({
-              settingsService: dependencies.settingsService,
+              settingsService: requireDependency('settingsMenuComponent', dependencies, 'settingsService'),
               updateSectionComponent,
-              eventBus: dependencies.eventBus,
-              loggerFactory: dependencies.loggerFactory,
               logger: dependencies.logger
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'shaderSelectorComponent',
           stage: 'deferred',
-          create: (context: any) => {
-            const dependencies = context.dependencies as any;
+          create: (context) => {
+            const dependencies = context.dependencies ?? {};
             return new ShaderSelectorComponent({
-              settingsService: dependencies.settingsService,
+              settingsService: requireDependency('shaderSelectorComponent', dependencies, 'settingsService'),
               appState: dependencies.appState,
-              eventBus: dependencies.eventBus,
+              eventBus: requireDependency('shaderSelectorComponent', dependencies, 'eventBus'),
               logger: dependencies.logger
             });
           }
-        },
-        {
+        }),
+        defineRendererUiComponent({
           id: 'notesPanelComponent',
           stage: 'deferred',
-          create: (context: any) => {
-            const dependencies = context.dependencies as any;
+          create: (context) => {
+            const dependencies = context.dependencies ?? {};
             return new NotesPanelComponent({
-              notesService: dependencies.notesService,
-              eventBus: dependencies.eventBus,
+              notesService: requireDependency('notesPanelComponent', dependencies, 'notesService'),
+              eventBus: requireDependency('notesPanelComponent', dependencies, 'eventBus'),
               logger: dependencies.logger
             });
           }
-        }
+        })
       ];
 
-      return new UIComponentRegistry({ componentDefinitions, loggerFactory });
+      return new UIComponentRegistry<RendererUiComponentCatalog>({ componentDefinitions, loggerFactory });
     }
   },
   {

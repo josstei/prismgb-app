@@ -5,12 +5,42 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type PresentationModeUiControllerLike = {
+  setStreamingMode(enabled: boolean): void;
+  updateFullscreenButton(active: boolean): void;
+  updateFullscreenMode(active: boolean): void;
+  enableControlsAutoHide(): void;
+  disableControlsAutoHide(): void;
+  updateCinematicMode(active: boolean): void;
+  updateMinimalistFullscreen(active: boolean): void;
+};
+
+type PresentationModeAppStateLike = {
+  readonly isCinematicModeEnabled?: boolean;
+  readonly isStreaming?: boolean;
+};
+
+type PresentationModeServiceDependencies = {
+  uiController: PresentationModeUiControllerLike;
+  appState: PresentationModeAppStateLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class PresentationModeService extends BaseService {
+  private readonly uiController: PresentationModeUiControllerLike;
+  private readonly appState: PresentationModeAppStateLike;
+  private _minimalistEnabled: boolean;
+  private _cinematicEnabled: boolean;
+  private _isFullscreenActive: boolean;
+  private _isStreamingActive: boolean;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: PresentationModeServiceDependencies) {
     super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeService');
 
+    this.uiController = dependencies.uiController;
+    this.appState = dependencies.appState;
     this._minimalistEnabled = false;
     this._cinematicEnabled = Boolean(this.appState?.isCinematicModeEnabled);
     this._isFullscreenActive = Boolean(document.fullscreenElement);

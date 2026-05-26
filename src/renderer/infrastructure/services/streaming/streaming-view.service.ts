@@ -7,8 +7,7 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 
 type UiControllerLike = {
@@ -25,11 +24,11 @@ type StreamingViewDependencies = {
 };
 
 class StreamingViewService extends BaseService {
-  declare protected readonly uiController: UiControllerLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly uiController: UiControllerLike;
 
   constructor(dependencies: StreamingViewDependencies) {
     super(dependencies, ['uiController', 'loggerFactory'], 'StreamingViewService');
+    this.uiController = dependencies.uiController;
   }
 
   attachMutedStream(stream: MediaStream): void {

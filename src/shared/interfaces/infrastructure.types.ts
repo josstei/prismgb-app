@@ -13,3 +13,9 @@ export interface EventBusLike {
   subscribe(event: string, handler: (...args: unknown[]) => void): () => void;
   publish(event: string, data?: unknown): void;
 }
+
+export interface StorageServiceLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): boolean;
+  removeItem(key: string): void;
+}

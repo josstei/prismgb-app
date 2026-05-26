@@ -1,7 +1,6 @@
 import { BaseService } from '@shared/base/service.base.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 
 type HealthServiceDependencies = {
@@ -27,16 +26,14 @@ type StreamUnhealthyPayload = {
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
 export class StreamingHealthService extends BaseService {
-  declare protected readonly logger: LoggerLike;
-
-  _timeoutMs: number;
-  _isMonitoring: boolean;
-  _timeoutHandle: ReturnType<typeof setTimeout> | null;
-  _rvfcHandle: number | null;
-  _firstFrameReceived: boolean;
-  _onHealthy: ((payload: StreamHealthyPayload) => void) | null;
-  _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
-  _videoElement: HTMLVideoElement | null;
+  private _timeoutMs: number;
+  private _isMonitoring: boolean;
+  private _timeoutHandle: ReturnType<typeof setTimeout> | null;
+  private _rvfcHandle: number | null;
+  private _firstFrameReceived: boolean;
+  private _onHealthy: ((payload: StreamHealthyPayload) => void) | null;
+  private _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
+  private _videoElement: HTMLVideoElement | null;
 
   constructor(dependencies: HealthServiceDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingHealthService');

@@ -13,7 +13,7 @@
     ]
   },
   "limits": {
-    "trackedFilesTotalMax": 687,
+    "trackedFilesTotalMax": 686,
     "sourceLocTotalMax": 117200,
     "sourceLocByAreaMax": {
       "main": 4900,

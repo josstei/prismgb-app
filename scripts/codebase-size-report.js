@@ -112,25 +112,6 @@ export function parseArgs(argv) {
   }
   return options;
 }
-function collectStringLeaves(value, collector = []) {
-  if (typeof value === 'string') {
-    collector.push(value);
-    return collector;
-  }
-  if (!value || typeof value !== 'object') {
-    return collector;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectStringLeaves(item, collector);
-    }
-    return collector;
-  }
-  for (const child of Object.values(value)) {
-    collectStringLeaves(child, collector);
-  }
-  return collector;
-}
 function normalizeTrackedFile(projectRoot, filePath) {
   return toPosix(path.relative(projectRoot, filePath));
 }
@@ -317,18 +298,20 @@ export function summarizeSourceLocByArea(trackedFiles, projectRoot) {
   };
 }
 export function countIpcContractEntries(projectRoot) {
-  const channelsPath = path.join(projectRoot, 'src/shared/ipc/channels.json');
-  if (!fs.existsSync(channelsPath)) {
+  const manifestPath = path.join(projectRoot, 'src/shared/ipc/ipc.manifest.json');
+  if (!fs.existsSync(manifestPath)) {
     return {
       namespaces: 0,
       channels: 0
     };
   }
-  const channelsRaw = fs.readFileSync(channelsPath, 'utf8');
-  const channels = JSON.parse(channelsRaw);
-  const values = collectStringLeaves(channels);
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const values = (manifest.namespaces || []).flatMap((namespace) => [
+    ...(namespace.invoke || []).map((entry) => entry.channel),
+    ...(namespace.subscriptions || []).map((entry) => entry.channel)
+  ]);
   return {
-    namespaces: Object.keys(channels).length,
+    namespaces: (manifest.namespaces || []).length,
     channels: values.length
   };
 }

@@ -34,12 +34,19 @@ interface LoggerFactoryLike {
   create(name: string): LoggerLike;
 }
 
-export class BaseService {
-  [dependencyName: string]: any;
+function isEventBusLike(value: unknown): value is EventBusLike {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { subscribe?: unknown }).subscribe === 'function'
+  );
+}
 
+export class BaseService {
   protected logger!: LoggerLike;
   protected readonly _serviceName: string;
   protected readonly disposables: DisposableBag;
+  private readonly _eventBus: EventBusLike | null;
 
   constructor(
     dependencies: ServiceDependencies,
@@ -50,10 +57,6 @@ export class BaseService {
     validateDependencies(dependencies, requiredDeps, name);
     const dependencyMap = dependencies as Record<string, unknown>;
 
-    for (const dep of requiredDeps) {
-      this[dep] = dependencyMap[dep];
-    }
-
     const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(name);
@@ -61,16 +64,16 @@ export class BaseService {
 
     this.disposables = new DisposableBag();
     this._serviceName = name;
+    this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
   }
 
   listen(event: string, handler: (...args: unknown[]) => void): DisposableFunction {
-    const eventBus = this.eventBus as EventBusLike | undefined;
-    if (!eventBus || typeof eventBus.subscribe !== 'function') {
+    if (!this._eventBus) {
       this.logger?.warn(`Cannot subscribe to "${event}" - eventBus not available`);
       return () => {};
     }
 
-    const unsubscribe = eventBus.subscribe(event, handler);
+    const unsubscribe = this._eventBus.subscribe(event, handler);
     return this.disposables.add(unsubscribe);
   }
 

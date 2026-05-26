@@ -13,8 +13,6 @@ interface LoggerFactoryLike {
 }
 
 export class BaseOrchestrator {
-  [dependencyName: string]: any;
-
   protected logger!: LoggerLike;
   protected eventBus!: EventBusLike;
   isInitialized: boolean;
@@ -30,10 +28,6 @@ export class BaseOrchestrator {
     const orchestratorName = name || this.constructor.name;
     validateDependencies(dependencies, requiredDeps, orchestratorName);
     const dependencyMap = dependencies as Record<string, unknown>;
-
-    for (const dep of requiredDeps) {
-      this[dep] = dependencyMap[dep];
-    }
 
     const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {

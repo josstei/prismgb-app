@@ -1,15 +1,25 @@
-import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
 import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import type {
+  DeviceStatusProvider,
+  RendererDeviceStatus
+} from '@shared/interfaces/device-status-provider.interface.js';
 
-export class DeviceIpcStatusAdapter extends IDeviceStatusProvider {
-  ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> };
+type DeviceStatusIpcClient = {
+  getDeviceStatus(): Promise<DeviceStatusPayload>;
+};
 
-  constructor(ipcClient: { getDeviceStatus: () => Promise<DeviceStatusPayload> }) {
-    super();
+export class DeviceIpcStatusAdapter implements DeviceStatusProvider {
+  private readonly ipcClient: DeviceStatusIpcClient;
+
+  constructor(ipcClient: DeviceStatusIpcClient) {
     this.ipcClient = ipcClient;
   }
 
-  async getDeviceStatus(): Promise<DeviceStatusPayload> {
-    return this.ipcClient.getDeviceStatus();
+  async getDeviceStatus(): Promise<RendererDeviceStatus> {
+    const status = await this.ipcClient.getDeviceStatus();
+    return {
+      ...status,
+      connected: status.connected === true
+    };
   }
 }

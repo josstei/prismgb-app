@@ -37,11 +37,11 @@ This section is generated from architecture, device, and settings manifests. Kee
 
 | Surface | Template | Component(s) | Orchestrator/Bridge |
 | --- | --- | --- | --- |
-| Header + Settings | `src/renderer/presentation/shell/header.template.js` | `SettingsMenuComponent`, `UpdateSectionComponent`, `DeviceStatusComponent` | `UISetupOrchestrator`, `UIEventBridge` |
-| Stream viewer + toolbar | `src/renderer/presentation/features/streaming/stream-viewer.template.js` | `StreamingControlsComponent`, `ShaderSelectorComponent` | `UISetupOrchestrator`, `UIEventBridge` |
-| Notes panel | `src/renderer/presentation/features/notes/notes-panel.template.js` | `NotesPanelComponent` | `UISetupOrchestrator` |
-| Status footer | `src/renderer/presentation/shell/status-footer.template.js` | `StatusNotificationComponent`, `DeviceStatusComponent` | `UIEventBridge` |
-| Transcode toast | `src/renderer/presentation/features/streaming/stream-viewer.template.js` | `TranscodeToastComponent` | `TranscodeUIBridge` |
+| Header + Settings | `src/renderer/presentation/shell/header.template.ts` | `SettingsMenuComponent`, `UpdateSectionComponent`, `DeviceStatusComponent` | `UISetupOrchestrator`, `UIEventBridge` |
+| Stream viewer + toolbar | `src/renderer/presentation/features/streaming/stream-viewer.template.ts` | `StreamingControlsComponent`, `ShaderSelectorComponent` | `UISetupOrchestrator`, `UIEventBridge` |
+| Notes panel | `src/renderer/presentation/features/notes/notes-panel.template.ts` | `NotesPanelComponent` | `UISetupOrchestrator` |
+| Status footer | `src/renderer/presentation/shell/status-footer.template.ts` | `StatusNotificationComponent`, `DeviceStatusComponent` | `UIEventBridge` |
+| Transcode toast | `src/renderer/presentation/features/streaming/stream-viewer.template.ts` | `TranscodeToastComponent` | `TranscodeUIBridge` |
 
 ## UI Flows (Renderer)
 
@@ -93,5 +93,5 @@ Screenshots will not be added to this repository.
 ## Architecture Guardrails
 
 - Renderer infrastructure timing values come from `src/shared/config/timing.config.ts`.
-- IPC handlers import channels from `src/shared/ipc/channels.json`.
+- IPC handlers import manifest-derived channels from `src/shared/ipc/ipc.manifest.ts`.
 - Active runtime paths do not use `@core` imports.

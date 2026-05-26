@@ -11,13 +11,23 @@ import {
   RendererPreloadBridgeDescriptors,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type SettingsFullscreenServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class SettingsFullscreenService extends BaseService {
-  declare _eventBridge: PreloadEventBridge | null;
+  private readonly eventBus: EventBusLike;
+  private readonly _boundHandleFullscreenChange: () => void;
+  private _isFullscreenActive: boolean;
+  private _eventBridge: PreloadEventBridge | null;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: SettingsFullscreenServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
 
+    this.eventBus = dependencies.eventBus;
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
     this._eventBridge = null;

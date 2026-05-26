@@ -6,14 +6,10 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
 import type { StreamingCapabilities } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
-};
-
-type PerformanceState = {
+export type PerformanceState = {
   performanceModeEnabled: boolean;
   weakGpuDetected: boolean;
   hidden: boolean;
@@ -54,26 +50,28 @@ const DEFAULT_STATE: PerformanceState = Object.freeze({
   reducedMotion: false
 });
 
+function isPerformanceCapabilities(value: unknown): value is PerformanceCapabilities {
+  return typeof value === 'object' && value !== null;
+}
+
 interface PerformanceStateInitOptions {
   onStateChange?: (state: PerformanceState) => void;
 }
 
 class PerformanceStateService extends BaseService {
-  declare protected readonly logger: LoggerLike;
+  private readonly _visibilityAdapter: VisibilityAdapterLike;
+  private readonly _userActivityAdapter: UserActivityAdapterLike;
+  private readonly _reducedMotionAdapter: ReducedMotionAdapterLike;
 
-  _visibilityAdapter: VisibilityAdapterLike;
-  _userActivityAdapter: UserActivityAdapterLike;
-  _reducedMotionAdapter: ReducedMotionAdapterLike;
-
-  _state: PerformanceState;
-  _isStreaming: boolean;
-  _idleTimeoutId: ReturnType<typeof setTimeout> | null;
-  _idleDelayMs: number;
-  _lastIdleReset: number;
-  _onStateChange: ((state: PerformanceState) => void) | null;
-  _visibilityCleanup: (() => void) | null;
-  _activityCleanup: (() => void) | null;
-  _motionCleanup: (() => void) | null;
+  private readonly _state: PerformanceState;
+  private _isStreaming: boolean;
+  private _idleTimeoutId: ReturnType<typeof setTimeout> | null;
+  private readonly _idleDelayMs: number;
+  private _lastIdleReset: number;
+  private _onStateChange: ((state: PerformanceState) => void) | null;
+  private _visibilityCleanup: (() => void) | null;
+  private _activityCleanup: (() => void) | null;
+  private _motionCleanup: (() => void) | null;
 
   constructor(dependencies: PerformanceStateDependencies) {
     super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
@@ -94,7 +92,7 @@ class PerformanceStateService extends BaseService {
     this._motionCleanup = null;
   }
 
-  initialize({ onStateChange }: PerformanceStateInitOptions = {}) {
+  initialize({ onStateChange }: PerformanceStateInitOptions = {}): void {
     this._onStateChange = onStateChange || null;
     this._setupVisibilityHandling();
     this._setupReducedMotionHandling();
@@ -103,7 +101,7 @@ class PerformanceStateService extends BaseService {
     this._emitState();
   }
 
-  dispose() {
+  dispose(): void {
     this._clearIdleTimer();
     if (this._visibilityCleanup) {
       this._visibilityCleanup();
@@ -119,11 +117,11 @@ class PerformanceStateService extends BaseService {
     }
   }
 
-  getState() {
+  getState(): PerformanceState {
     return { ...this._state };
   }
 
-  setPerformanceModeEnabled(enabled: boolean) {
+  setPerformanceModeEnabled(enabled: boolean): boolean {
     const changed = this._updateState({ performanceModeEnabled: Boolean(enabled) });
     if (changed) {
       this._syncIdleTimer();
@@ -131,12 +129,12 @@ class PerformanceStateService extends BaseService {
     return changed;
   }
 
-  setCapabilities(capabilities: PerformanceCapabilities | null | undefined) {
+  setCapabilities(capabilities: unknown): boolean {
     const weakGpuDetected = this._detectWeakGPU(capabilities);
     return this._updateState({ weakGpuDetected });
   }
 
-  setStreaming(isStreaming: boolean) {
+  setStreaming(isStreaming: boolean): void {
     this._isStreaming = Boolean(isStreaming);
     if (this._state.idle) {
       this._updateState({ idle: false });
@@ -144,7 +142,7 @@ class PerformanceStateService extends BaseService {
     this._syncIdleTimer();
   }
 
-  _setupVisibilityHandling() {
+  _setupVisibilityHandling(): void {
     // Subscribe to visibility changes
     this._visibilityCleanup = this._visibilityAdapter.onVisibilityChange((hidden: boolean) => {
       const changed = this._updateState({ hidden });
@@ -161,7 +159,7 @@ class PerformanceStateService extends BaseService {
     this._updateState({ hidden: currentlyHidden });
   }
 
-  _setupReducedMotionHandling() {
+  _setupReducedMotionHandling(): void {
     // Subscribe to reduced motion preference changes
     this._motionCleanup = this._reducedMotionAdapter.onChange((reducedMotion: boolean) => {
       this._updateState({ reducedMotion });
@@ -172,7 +170,7 @@ class PerformanceStateService extends BaseService {
     this._updateState({ reducedMotion: currentlyReducedMotion });
   }
 
-  _setupIdleHandling() {
+  _setupIdleHandling(): void {
     // Subscribe to user activity events
     this._activityCleanup = this._userActivityAdapter.onActivity(() => {
       if (!this._shouldTrackIdle()) {
@@ -188,17 +186,17 @@ class PerformanceStateService extends BaseService {
     });
   }
 
-  _shouldTrackIdle() {
+  _shouldTrackIdle(): boolean {
     return !this._isStreaming && !this._state.hidden && !this._state.performanceModeEnabled;
   }
 
-  _resetIdleTimer() {
+  _resetIdleTimer(): void {
     this._lastIdleReset = performance.now();
     this._updateState({ idle: false });
     this._syncIdleTimer();
   }
 
-  _syncIdleTimer() {
+  _syncIdleTimer(): void {
     if (!this._shouldTrackIdle()) {
       this._clearIdleTimer();
       return;
@@ -215,15 +213,15 @@ class PerformanceStateService extends BaseService {
     }, this._idleDelayMs);
   }
 
-  _clearIdleTimer() {
+  _clearIdleTimer(): void {
     if (this._idleTimeoutId) {
       clearTimeout(this._idleTimeoutId);
       this._idleTimeoutId = null;
     }
   }
 
-  _detectWeakGPU(capabilities: PerformanceCapabilities | null | undefined) {
-    if (!capabilities) {
+  _detectWeakGPU(capabilities: unknown): boolean {
+    if (!isPerformanceCapabilities(capabilities)) {
       return false;
     }
 
@@ -237,7 +235,7 @@ class PerformanceStateService extends BaseService {
     return noAcceleratedPath || usingCanvasFallback || lowTextureBudget;
   }
 
-  _updateState(partial: Partial<PerformanceState>) {
+  _updateState(partial: Partial<PerformanceState>): boolean {
     let changed = false;
 
     for (const key of Object.keys(partial) as Array<keyof PerformanceState>) {
@@ -259,7 +257,7 @@ class PerformanceStateService extends BaseService {
     return changed;
   }
 
-  _emitState() {
+  _emitState(): void {
     if (this._onStateChange) {
       this._onStateChange({ ...this._state });
     }

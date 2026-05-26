@@ -34,22 +34,21 @@ describe('codebase phase 1 drift report', () => {
     const totalManifestSubscriptions = manifests.ipc.namespaces.reduce((count, namespace) => count + (namespace.subscriptions || []).length, 0);
     const { report } = buildPhase1DriftReport(manifests), checkNames = report.checks.map((check) => check.name);
     expect(report.status).toBe('pass');
-    ['ipc manifest preload exposure entries are unique', 'ipc manifest exposed methods are owned by exactly one invoke or subscription entry', 'ipc manifest subscription registry namespaces are explicit', 'preload declarations expose only manifest-owned methods', 'ipc channels manifest matches channels.json', 'ipc manifest channel keys resolve to declared channels', 'ipc manifest handler metadata is explicit', 'main IPC handlers derive descriptor metadata from manifest', 'main IPC handlers do not define local descriptor metadata', 'renderer preload bridge wiring derives subscriptions from ipc manifest', 'preload index delegates exposure shape to manifest factory', 'renderer event channels generated preview matches checked-in source', 'ipc manifest invoke public signatures match preload declaration signatures', 'ipc manifest subscription public signatures match preload declaration signatures', 'preload global declarations match manifest API globals', 'platform manifest labels match release build matrix', 'render pass manifest owns uniform upload metadata'].forEach((checkName) => expect(checkNames).toContain(checkName));
+    ['ipc manifest preload exposure entries are unique', 'ipc manifest exposed methods are owned by exactly one invoke or subscription entry', 'ipc manifest subscription registry namespaces are explicit', 'preload declarations expose only manifest-owned methods', 'ipc runtime channels derive from ipc manifest', 'ipc channel type map matches ipc manifest', 'ipc manifest channel keys resolve to declared channels', 'ipc manifest handler metadata is explicit', 'main IPC handlers derive descriptor metadata from manifest', 'main IPC handlers do not define local descriptor metadata', 'renderer preload bridge wiring derives subscriptions from ipc manifest', 'preload index delegates exposure shape to manifest factory', 'renderer event channels generated preview matches checked-in source', 'ipc manifest invoke public signatures match preload declaration signatures', 'ipc manifest subscription public signatures match preload declaration signatures', 'preload payload validator metadata matches ipc manifest subscriptions', 'preload global declarations match manifest API globals', 'platform manifest labels match release build matrix', 'render pass manifest owns uniform upload metadata'].forEach((checkName) => expect(checkNames).toContain(checkName));
     expect(checkNamed(report, 'architecture aliases cover tsconfig.base aliases')).toMatchObject({ expectedCount: 6, actualCount: 6 });
     expect(checkNamed(report, 'renderer preload bridge wiring derives subscriptions from ipc manifest')).toMatchObject({
       expectedCount: totalManifestSubscriptions,
       actualCount: totalManifestSubscriptions
     });
   });
-  it('fails when channelKey-derived channels drift from declared invoke and subscription channels', () => {
+  it('fails when channel metadata is incomplete', () => {
     const manifests = JSON.parse(JSON.stringify(loadManifests()));
-    manifests.ipc.namespaces[0].invoke[0].channelKey = 'CONNECTED';
-    manifests.ipc.namespaces[0].subscriptions[0].channelKey = 'GET_STATUS';
+    manifests.ipc.namespaces[0].invoke[0].channelKey = '';
     const { report } = buildPhase1DriftReport(manifests), channelKeyCheck = checkNamed(report, 'ipc manifest channel keys resolve to declared channels');
-    expect(report.status).toBe('fail'); expect(checkNamed(report, 'ipc channels manifest matches channels.json')).toMatchObject({ status: 'pass' });
+    expect(report.status).toBe('fail'); expect(checkNamed(report, 'ipc runtime channels derive from ipc manifest')).toMatchObject({ status: 'fail' });
     expect(channelKeyCheck).toMatchObject({ status: 'fail' });
-    expect(channelKeyCheck.missing).toEqual(expect.arrayContaining(['DEVICE.CONNECTED device:get-status', 'DEVICE.GET_STATUS device:connected']));
-    expect(channelKeyCheck.extra).toEqual(expect.arrayContaining(['DEVICE.CONNECTED device:connected', 'DEVICE.GET_STATUS device:get-status']));
+    expect(channelKeyCheck.missing).toEqual(expect.arrayContaining(['DEVICE. device:get-status']));
+    expect(channelKeyCheck.extra).toEqual(expect.arrayContaining(['DEVICE. IPC_CHANNELS.DEVICE.']));
   });
   it('fails when EventChannels path-to-value mappings drift from renderer event manifest entries', () => {
     const manifests = JSON.parse(JSON.stringify(loadManifests()));
@@ -157,12 +156,16 @@ describe('codebase phase 1 drift report', () => {
     expect(bridgeCheck.extra).toContain(`renderer subscription coverage mismatch expected=${totalManifestSubscriptions - windowSubscriptions} manifest=${totalManifestSubscriptions}`);
   });
   it('fails when renderer preload bridge descriptors drift from the IPC manifest', () => {
-    const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc), drifted = replaceOnce(generated, "methods: ['onAvailable', 'onNotAvailable'", "methods: ['onUnexpectedAvailable', 'onNotAvailable'");
+    const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc), drifted = replaceOnce(generated, '[...namespace.subscriptions].map(derivePublicMethodName)', '[]');
     expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: drifted }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' });
   });
   it('fails when renderer preload bridge descriptors are hidden in an inactive preview', () => {
     const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc);
     const source = `/*\n${generated}\n*/\nexport const RendererPreloadBridgeDescriptors = {};`;
+    expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: source }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' });
+  });
+  it('fails when a hidden renderer preload bridge preview appears before a weak active export', () => {
+    const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc), source = `/*\n${generated}\n*/\n// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:START\nexport const RendererPreloadBridgeDescriptors = {};\n// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:END`;
     expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: source }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' });
   });
   it('fails when manifest-backed descriptor metadata keys are computed', () => {
@@ -570,6 +573,10 @@ describe('codebase phase 1 drift report', () => {
       status: 'fail',
       extra: ['deviceAPI.getDeviceStatus']
     });
+  });
+  it('fails when preload payload validator metadata drifts from manifest subscriptions', () => {
+    const source = replaceOnce(fs.readFileSync('src/preload/validators.ts', 'utf8'), "UpdateProgressPayload: { validatePayload: isValidProgress, invalidPayloadLabel: 'progress' },", "UpdateProgressPayload: { validatePayload: isValidProgress, invalidPayloadLabel: 'download' },");
+    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { preloadValidatorsSource: source }).report, 'preload payload validator metadata matches ipc manifest subscriptions')).toMatchObject({ status: 'fail', extra: ['generated block drift'] });
   });
   it('generates declaration and docs fragments from manifests', () => {
     const manifests = loadManifests();

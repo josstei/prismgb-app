@@ -310,11 +310,13 @@ describe('codebase-size-report metrics', () => {
     try {
       writeWorkspaceFile(
         workspace,
-        'src/shared/ipc/channels.json',
+        'src/shared/ipc/ipc.manifest.json',
         JSON.stringify({
-          DEVICE: { GET_STATUS: 'device:get-status', CONNECTED: 'device:connected' },
-          UPDATE: { CHECK: 'update:check', DOWNLOAD: 'update:download' },
-          DUP: { TEST: 'update:check' }
+          namespaces: [
+            { namespace: 'DEVICE', invoke: [{ channel: 'device:get-status' }], subscriptions: [{ channel: 'device:connected' }] },
+            { namespace: 'UPDATE', invoke: [{ channel: 'update:check' }, { channel: 'update:download' }] },
+            { namespace: 'DUP', invoke: [{ channel: 'update:check' }] }
+          ]
         }) + '\n'
       );
 
@@ -366,7 +368,7 @@ describe('codebase-size-report metrics', () => {
 
       const fullReport = buildCodebaseSizeReport(workspace, {
         trackedFiles: [
-          path.join(workspace, 'src/shared/ipc/channels.json'),
+          path.join(workspace, 'src/shared/ipc/ipc.manifest.json'),
           path.join(workspace, 'src/shared/events/event-channels.ts'),
           path.join(workspace, 'src/shared/events/event.manifest.json'),
           path.join(workspace, 'src/shared/events/event-payloads.ts')

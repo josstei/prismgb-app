@@ -47,17 +47,67 @@ function shouldLoadAtStartup(definition: ResolvedSettingsDefinition): boolean {
 }
 
 const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
-const loadAllPreferencesShape = Object.freeze(
-  resolvedDefinitions
-    .filter((definition) => shouldLoadAtStartup(definition))
-    .map((definition) => definition.name)
-);
+const loadAllPreferencesShape = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup).map((definition) => definition.name));
 
-export const SettingsDefinitions = Object.freeze({
-  ...definitions,
-  definitions: resolvedDefinitions,
-  loadAllPreferencesShape
-});
+export const SettingsDefinitions = Object.freeze({ ...definitions, definitions: resolvedDefinitions, loadAllPreferencesShape });
 
 export type SettingsDefinitionsManifest = typeof SettingsDefinitions;
 export type SettingsDefinition = SettingsDefinitionsManifest['definitions'][number];
+export type SettingsControlUi = NonNullable<SettingsDefinition['ui']> & { controlId: string; controlType: string; labelId?: string; menuId?: string; optionLabelFormat?: string };
+export type SettingsControlDefinition = SettingsDefinition & { ui: SettingsControlUi };
+export type SettingsControlRef = SettingsControlUi['controlId'] | NonNullable<SettingsControlUi['labelId']> | NonNullable<SettingsControlUi['menuId']>;
+export type SettingsListboxDefinition = SettingsControlDefinition & {
+  default: string; allowedValues: string[];
+  ui: SettingsControlUi & { controlType: 'listbox'; labelId: string; menuId: string };
+};
+export type SettingsListboxOption = { value: string; label: string; active: boolean };
+
+const SETTINGS_OPTION_LABEL_FORMATTERS = {
+  mediaFormat: (value: string) => value === 'webm' ? 'WebM' : value.toUpperCase()
+} as const satisfies Record<string, (value: string) => string>;
+
+export function hasSettingsControl(definition: SettingsDefinition): definition is SettingsControlDefinition {
+  return Boolean(definition.ui?.controlId && definition.ui?.controlType);
+}
+
+export function hasSettingsListboxControl(definition: SettingsDefinition): definition is SettingsListboxDefinition {
+  return hasSettingsControl(definition) && definition.ui.controlType === 'listbox' && Boolean(
+    typeof definition.default === 'string' &&
+    Array.isArray(definition.allowedValues) &&
+    definition.ui.labelId &&
+    definition.ui.menuId
+  );
+}
+
+export function hasExternalSource(definition: SettingsDefinition): boolean {
+  return 'externalSource' in definition && Boolean(definition.externalSource);
+}
+
+export function getSettingsUiDefinitions(): SettingsControlDefinition[] {
+  return SettingsDefinitions.definitions.filter(hasSettingsControl).sort((a, b) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
+}
+
+export function getBooleanSettingsUiDefinitions(): SettingsControlDefinition[] {
+  return getSettingsUiDefinitions().filter((definition) => definition.type === 'boolean' && definition.ui.controlType === 'checkbox');
+}
+
+export function getListboxSettingsUiDefinitions(): SettingsListboxDefinition[] {
+  return getSettingsUiDefinitions().filter(hasSettingsListboxControl);
+}
+
+export function getSettingsControlRefs(): SettingsControlRef[] {
+  return getSettingsUiDefinitions().flatMap((definition) => (
+    hasSettingsListboxControl(definition)
+      ? [definition.ui.controlId, definition.ui.labelId, definition.ui.menuId]
+      : [definition.ui.controlId]
+  ));
+}
+
+export function getSettingsListboxOptions(definition: SettingsListboxDefinition): SettingsListboxOption[] {
+  const formatter = SETTINGS_OPTION_LABEL_FORMATTERS[definition.ui.optionLabelFormat as keyof typeof SETTINGS_OPTION_LABEL_FORMATTERS];
+  return definition.allowedValues.map((value) => ({
+    value,
+    label: formatter?.(value) ?? value,
+    active: value === definition.default
+  }));
+}

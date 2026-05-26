@@ -27,29 +27,30 @@ type CaptureGpuRecordingDependencies = {
 };
 
 class CaptureGpuRecordingService extends BaseService {
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
 
-  _recordingCanvas: HTMLCanvasElement | null;
-  _recordingCtx: CanvasRenderingContext2D | null;
-  _recordingStream: MediaStream | null;
-  _recordingFrameId: number | null;
-  _isRecording: boolean;
-  _isCapturePending: boolean;
-  _recordingDroppedFrames: number;
-  _recordingWidth: number;
-  _recordingHeight: number;
-  _cachedScaleParams: RecordingScaleParams | null;
-  _cachedFrameWidth: number;
-  _cachedFrameHeight: number;
-  _isCanvasCleared: boolean;
-  _isDraining: boolean;
-  _lastCapturePromise: Promise<ImageBitmap> | null;
+  private _recordingCanvas: HTMLCanvasElement | null;
+  private _recordingCtx: CanvasRenderingContext2D | null;
+  private _recordingStream: MediaStream | null;
+  private _recordingFrameId: number | null;
+  private _isRecording: boolean;
+  private _isCapturePending: boolean;
+  private _recordingDroppedFrames: number;
+  private _recordingWidth: number;
+  private _recordingHeight: number;
+  private _cachedScaleParams: RecordingScaleParams | null;
+  private _cachedFrameWidth: number;
+  private _cachedFrameHeight: number;
+  private _isCanvasCleared: boolean;
+  private _isDraining: boolean;
+  private _lastCapturePromise: Promise<ImageBitmap> | null;
 
   constructor(dependencies: CaptureGpuRecordingDependencies) {
     super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
 
+    this.gpuRendererService = dependencies.gpuRendererService;
+    this.eventBus = dependencies.eventBus;
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._recordingStream = null;

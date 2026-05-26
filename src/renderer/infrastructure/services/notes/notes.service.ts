@@ -1,19 +1,8 @@
-/**
- * Notes Service
- *
- * Manages CRUD operations for user notes with localStorage persistence.
- * Provides fuzzy search across note titles and content.
- *
- * Events emitted:
- * - 'notes:note-created' - New note created
- * - 'notes:note-updated' - Note content/title updated
- * - 'notes:note-deleted' - Note deleted
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
 import { NotesStorageKeys } from '@shared/config/storage-keys.config';
+import type { EventBusLike, LoggerFactoryLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
 
 interface UserNote {
   id: string;
@@ -26,14 +15,23 @@ interface UserNote {
 
 type NoteUpdates = Partial<Pick<UserNote, 'title' | 'content' | 'gameName'>>;
 
+type NotesServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  storageService: StorageServiceLike;
+};
+
 class NotesService extends BaseService {
+  private readonly eventBus: EventBusLike;
+  private readonly storageService: StorageServiceLike;
   _notesCache: UserNote[] | null;
   _cacheValid: boolean;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: NotesServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
 
-    // In-memory cache to avoid redundant JSON parsing
+    this.eventBus = dependencies.eventBus;
+    this.storageService = dependencies.storageService;
     this._notesCache = null;
     this._cacheValid = false;
   }
@@ -44,12 +42,11 @@ class NotesService extends BaseService {
   }
 
   getAllNotes(): UserNote[] {
-    // Return cached data if valid
     if (this._cacheValid && this._notesCache !== null) {
       return this._notesCache;
     }
 
-    const raw = this.storageService?.getItem(NotesStorageKeys.USER_NOTES);
+    const raw = this.storageService.getItem(NotesStorageKeys.USER_NOTES);
     if (!raw) {
       this._notesCache = [];
       this._cacheValid = true;
@@ -256,14 +253,16 @@ class NotesService extends BaseService {
     const index = text.indexOf(query);
     if (index === -1) return 0;
 
-    // Higher score for matches at start
     return 1 - (index / text.length) * 0.5;
   }
 
   _saveNotes(notes: UserNote[]): boolean {
     try {
-      this.storageService?.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes));
-      // Sort and cache the saved data to maintain getAllNotes() contract
+      if (!this.storageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes))) {
+        this.logger.error('Storage rejected notes save');
+        this._invalidateCache();
+        return false;
+      }
       this._notesCache = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       this._cacheValid = true;
       return true;

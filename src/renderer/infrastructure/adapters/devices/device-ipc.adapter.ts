@@ -5,7 +5,6 @@ import {
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 
 type DeviceEventHandler = (...args: unknown[]) => void;
-type DeviceApiLike = Record<string, (handler: DeviceEventHandler) => () => void>;
 
 export class DeviceIpcAdapter {
   _logger?: { warn?: (...args: unknown[]) => void };
@@ -27,7 +26,7 @@ export class DeviceIpcAdapter {
     }
 
     this._eventBridge = createManifestPreloadEventBridge({
-      api: window.deviceAPI as unknown as DeviceApiLike,
+      api: window.deviceAPI,
       descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
       bridgeName: 'DeviceIpcAdapter',
       logger: this._logger,

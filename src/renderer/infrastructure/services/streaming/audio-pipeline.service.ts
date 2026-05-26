@@ -12,7 +12,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -46,9 +46,8 @@ type StreamingAudioPipelineDependencies = {
 };
 
 export class StreamingAudioPipelineService extends BaseService {
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
-  declare protected readonly settingsService: SettingsServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly settingsService: SettingsServiceLike;
 
   private _audioContext: AudioContext | null;
   private _sourceNode: MediaStreamAudioSourceNode | null;
@@ -69,6 +68,8 @@ export class StreamingAudioPipelineService extends BaseService {
   constructor(dependencies: StreamingAudioPipelineDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
 
+    this.eventBus = dependencies.eventBus;
+    this.settingsService = dependencies.settingsService;
     this._audioContext = null;
     this._sourceNode = null;
     this._gainNode = null;

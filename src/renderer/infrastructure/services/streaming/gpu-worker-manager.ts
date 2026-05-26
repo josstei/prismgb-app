@@ -13,10 +13,11 @@ import {
   isValidWorkerResponse
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import type {
+  WorkerMessageTypeValue,
   WorkerMessagePayloadMap,
   WorkerRendererConfig,
   WorkerResponsePayloadMap,
-  WorkerResponseType as WorkerResponseTypeValue,
+  WorkerResponseTypeValue,
   WorkerResponse
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
@@ -295,7 +296,7 @@ export class GpuWorkerManager {
    * @param {Object} payload - Message payload
    * @param {Transferable[]} [transferables] - Objects to transfer ownership
    */
-  sendCommand<K extends WorkerMessageType>(
+  sendCommand<K extends WorkerMessageTypeValue>(
     type: K,
     payload?: WorkerMessagePayloadMap[K],
     transferables: Transferable[] = []

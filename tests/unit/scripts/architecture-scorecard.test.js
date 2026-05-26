@@ -63,7 +63,7 @@ function createMetrics(overrides = {}) {
     shaderDuplicateDivergenceCount: 0,
     shaderDuplicateFileCount: 0,
     runtimeJsDtsTwinCount: 0,
-    sourceRuntimeJsFileCount: 59,
+    sourceRuntimeJsFileCount: 0,
     hideTimerRetirementViolationCount: 0,
     sharedBaseInterfaceJsOrDtsFileCount: 0,
     inlineCanonicalMockAssignmentCount: 0,
@@ -130,7 +130,7 @@ describe('architecture-scorecard explicit any metrics', () => {
 
 describe('evaluateThresholds', () => {
   const ownershipLimitKeys = ['unexpectedContractFileCountMax', 'shaderDuplicateDivergenceCountMax', 'shaderDuplicateFileCountMax', 'runtimeJsDtsTwinCountMax', 'sourceRuntimeJsFileCountMax', 'hideTimerRetirementViolationCountMax', 'sharedBaseInterfaceJsOrDtsFileCountMax', 'inlineCanonicalMockAssignmentCountMax', 'rendererBackendImplementationViolationCountMax', 'renderPassManifestOwnershipViolationCountMax', 'aliasManifestDriftCountMax', 'platformManifestDriftCountMax'];
-  const ownershipLimits = Object.fromEntries(ownershipLimitKeys.map((key) => [key, key === 'sourceRuntimeJsFileCountMax' ? 59 : 0]));
+  const ownershipLimits = Object.fromEntries(ownershipLimitKeys.map((key) => [key, 0]));
 
   it('passes when all configured limits are satisfied', () => {
     const metrics = createMetrics();
@@ -176,7 +176,7 @@ describe('evaluateThresholds', () => {
       shaderDuplicateDivergenceCount: 1,
       shaderDuplicateFileCount: 1,
       runtimeJsDtsTwinCount: 1,
-      sourceRuntimeJsFileCount: 60,
+      sourceRuntimeJsFileCount: 1,
       hideTimerRetirementViolationCount: 1,
       sharedBaseInterfaceJsOrDtsFileCount: 1,
       inlineCanonicalMockAssignmentCount: 1,
@@ -196,7 +196,7 @@ describe('evaluateThresholds', () => {
 describe('phase 4 enforcement metrics', () => {
   it('reports no unexpected hand-maintained contract files in current ownership', () => {
     const metrics = collectContractMetrics(process.cwd());
-    expect(metrics.totalContractLikeFiles).toBe(13);
+    expect(metrics.totalContractLikeFiles).toBe(12);
     expect(metrics.unexpectedContractFileCount).toBe(0);
   });
 
@@ -205,7 +205,7 @@ describe('phase 4 enforcement metrics', () => {
       {
         prefix: 'prismgb-scorecard-contract-',
         files: {
-          'src/shared/ipc/channels.json': '{}',
+          'src/shared/ipc/ipc.manifest.json': '{}',
           'src/shared/contracts/custom.contract.ts': 'export {}'
         },
         unexpected: 'src/shared/contracts/custom.contract.ts'
@@ -369,8 +369,8 @@ describe('phase 4 enforcement metrics', () => {
 
   it('ratchets source runtime JS file count against unchecked additions', () => {
     const baseline = collectSourceRuntimeJsMetrics(process.cwd());
-    expect(baseline.fileCount).toBe(59);
-    expect(baseline.files).toContain('src/renderer/presentation/icons/icon.utils.js');
+    expect(baseline.fileCount).toBe(0);
+    expect(baseline.files).toEqual([]);
 
     const tempRoot = createTempProject('prismgb-scorecard-runtime-js-', {
       'src/main/new-runtime.js': 'export {};\n',

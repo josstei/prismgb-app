@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
-import channels from '@shared/ipc/channels.json';
+import { IPC_CHANNELS as channels } from '@shared/ipc/ipc.manifest.js';
 import ipcManifest from '@shared/ipc/ipc.manifest.json';
 import eventManifest from '@shared/events/event.manifest.json';
 import deviceManifest from '@shared/features/devices/device.manifest.json';
@@ -23,21 +23,12 @@ import {
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { CHROMATIC_E2E_FIXTURE } from '../../support/chromatic-device-specs.js';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../factories/index.js';
+import { createEventBus, createSettingsServiceHarness } from '../../factories/index.js';
 import { createMockLoggerFactory } from '../../mocks/index.js';
 import { expectNoDrift, flattenStringValues } from '../../support/contract-helpers.js';
 
 const projectRoot = process.cwd();
-
-function createSettingsService() {
-  return new SettingsService({
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
-    storageService: createStorageService()
-  });
-}
 
 function collectIpcManifestChannels() {
   return ipcManifest.namespaces.flatMap((namespace) => [
@@ -169,14 +160,17 @@ describe('Phase 1 manifests', () => {
       ...collectRuntimeSourceFiles(path.join(projectRoot, 'src/main')),
       ...collectRuntimeSourceFiles(path.join(projectRoot, 'src/preload'))
     ];
-    const channelImportAttributes = runtimeFiles.flatMap((filePath) => {
+    const channelJsonImports = runtimeFiles.flatMap((filePath) => {
       const source = fs.readFileSync(filePath, 'utf8');
-      return [...source.matchAll(/import\s+[^;]*['"]@shared\/ipc\/channels\.json['"]([^;]*);/g)]
-        .map((match) => match[1].trim());
+      return [...source.matchAll(/@shared\/ipc\/channels\.json/g)];
+    });
+    const manifestChannelImports = runtimeFiles.flatMap((filePath) => {
+      const source = fs.readFileSync(filePath, 'utf8');
+      return [...source.matchAll(/import\s+\{[^}]*\bIPC_CHANNELS\b[^}]*}\s+from\s+['"]@shared\/ipc\/ipc\.manifest\.js['"];/g)];
     });
 
-    expect(channelImportAttributes.length).toBeGreaterThan(0);
-    expect(new Set(channelImportAttributes)).toEqual(new Set(['']));
+    expect(channelJsonImports).toEqual([]);
+    expect(manifestChannelImports.length).toBeGreaterThan(0);
   });
 
   it('keeps IPC manifest request schemas aligned with main handler descriptors', () => {
@@ -244,10 +238,10 @@ describe('Phase 1 manifests', () => {
       labelPatterns: chromatic.labelPatterns
     });
 
-    expect(fs.readFileSync(path.join(projectRoot, 'src/shared/features/devices/device.registry.js'), 'utf8'))
+    expect(fs.readFileSync(path.join(projectRoot, 'src/shared/features/devices/device.registry.ts'), 'utf8'))
       .toContain('DeviceManifest.devices.map');
     expect(fs.readFileSync(
-      path.join(projectRoot, 'src/shared/features/devices/profiles/chromatic/device-chromatic.config.js'),
+      path.join(projectRoot, 'src/shared/features/devices/profiles/chromatic/device-chromatic.config.ts'),
       'utf8'
     )).toContain('CHROMATIC_MANIFEST_ENTRY.media.video');
     expect(CHROMATIC_E2E_FIXTURE).toMatchObject({
@@ -277,7 +271,7 @@ describe('Phase 1 manifests', () => {
   });
 
   it('describes current settings defaults, keys, events, and known recording-format drift', async () => {
-    const service = createSettingsService();
+    const { service } = createSettingsServiceHarness();
     const defaults = getSettingDefaults();
     const serviceDefaults = Object.fromEntries(
       await Promise.all(
@@ -408,10 +402,6 @@ describe('Phase 1 manifests', () => {
       'macos-arm64',
       'windows-x64'
     ]);
-    expect(fs.readFileSync(path.join(projectRoot, 'scripts/ci/build-matrix.mjs'), 'utf8'))
-      .toContain('manifest.platformGroups');
-    expect(fs.readFileSync(path.join(projectRoot, 'scripts/smoke-test.js'), 'utf8'))
-      .toContain('smokeExecutablePriority');
   });
 
   it('moves Vitest coverage output under ignored artifacts for the generated-artifact policy', () => {

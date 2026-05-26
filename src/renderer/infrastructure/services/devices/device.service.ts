@@ -6,18 +6,60 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { RendererDeviceStatus } from '@shared/interfaces/device-status-provider.interface.js';
+
+type DeviceConnectionUpdate = {
+  status: RendererDeviceStatus;
+  changed: boolean;
+};
+
+type DeviceConnectionServiceLike = {
+  readonly isConnected: boolean | null;
+  updateConnectionStatus(): Promise<DeviceConnectionUpdate>;
+};
+
+type DeviceStorageServiceLike = {
+  getRegisteredStoredDeviceIds(): string[];
+};
+
+type DeviceMediaServiceLike = {
+  invalidateEnumerationCache(): void;
+  enumerateDevices(): Promise<unknown>;
+  getSelectedDeviceId(): string | null;
+  discoverSupportedDevice(): Promise<MediaDeviceInfo | null>;
+  registerSupportedDevice(device: MediaDeviceInfo): unknown;
+  setupDeviceChangeListener(onDeviceChange: () => Promise<RendererDeviceStatus> | RendererDeviceStatus): void;
+  dispose(): void;
+};
+
+type DeviceServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  deviceConnectionService: DeviceConnectionServiceLike;
+  deviceStorageService: DeviceStorageServiceLike;
+  deviceMediaService: DeviceMediaServiceLike;
+};
 
 class DeviceService extends BaseService {
+  private readonly eventBus: EventBusLike;
+  private readonly deviceConnectionService: DeviceConnectionServiceLike;
+  private readonly deviceStorageService: DeviceStorageServiceLike;
+  private readonly deviceMediaService: DeviceMediaServiceLike;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: DeviceServiceDependencies) {
     super(dependencies, [
       'eventBus',
       'loggerFactory',
-      'deviceStatusProvider',
       'deviceConnectionService',
       'deviceStorageService',
       'deviceMediaService'
     ], 'DeviceService');
+
+    this.eventBus = dependencies.eventBus;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
+    this.deviceStorageService = dependencies.deviceStorageService;
+    this.deviceMediaService = dependencies.deviceMediaService;
   }
 
   get isConnected() {

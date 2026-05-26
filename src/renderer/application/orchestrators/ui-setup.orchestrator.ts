@@ -1,46 +1,105 @@
-/**
- * UI Setup Orchestrator
- *
- * Coordinates UI initialization and event listener setup
- *
- * Responsibilities:
- * - Initialize settings menu
- * - Set up UI event listeners
- * - Set up overlay click handlers
- * - Toggle settings menu
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { createDomListenerManager } from '@shared/base/dom-listener.utils.js';
+import {
+  createDomListenerManager,
+  type DomListenerManager
+} from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { getTemplateAction } from '@renderer/presentation/primitives/template-ref.utils.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { SettingsService } from '@renderer/infrastructure/services/settings';
+import type { NotesService } from '@renderer/infrastructure/services/notes';
+import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
+import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
+
+type AppStateLike = {
+  readonly isStreaming: boolean;
+  readonly isCinematicModeEnabled?: boolean;
+};
+
+const UIActionIds = { SCREENSHOT_CAPTURE: 'capture.screenshot', RECORDING_TOGGLE: 'recording.toggle', FULLSCREEN_TOGGLE: 'fullscreen.toggle', SETTINGS_TOGGLE: 'settings.toggle', SHADER_TOGGLE: 'shader.toggle', STREAM_START: 'stream.start', STREAM_STOP: 'stream.stop' } as const;
+
+type UIActionId = typeof UIActionIds[keyof typeof UIActionIds];
+
+type UIActionControllerCommand = 'toggleSettingsMenu' | 'toggleShaderSelector';
+
+type UIActionCommand =
+  | { kind: 'publish'; channel: string }
+  | { kind: 'controller'; method: UIActionControllerCommand }
+  | { kind: 'clear-title' };
+
+type UIActionCondition = 'overlay-visible' | 'streaming';
+
+interface UIActionDescriptor {
+  action: UIActionId;
+  element: keyof UIController['elements'] & string;
+  event: 'click' | 'mousedown';
+  command: UIActionCommand;
+  condition?: UIActionCondition;
+  logMessage?: string;
+  stopPropagation?: boolean;
+  blurCurrentTarget?: boolean;
+}
+
+const UIActionDescriptors = [
+  { action: UIActionIds.STREAM_START, element: 'streamOverlay', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_START_REQUESTED }, condition: 'overlay-visible', logMessage: 'Overlay clicked - requesting stream start' },
+  { action: UIActionIds.STREAM_STOP, element: 'streamVideo', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_STOP_REQUESTED }, condition: 'streaming', logMessage: 'Stream clicked - requesting stream stop' },
+  { action: UIActionIds.STREAM_STOP, element: 'streamCanvas', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_STOP_REQUESTED }, condition: 'streaming', logMessage: 'Stream clicked - requesting stream stop' },
+  { action: UIActionIds.SCREENSHOT_CAPTURE, element: 'screenshotBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.SCREENSHOT_REQUESTED } },
+  { action: UIActionIds.RECORDING_TOGGLE, element: 'recordBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.RECORDING_TOGGLE_REQUESTED } },
+  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fullscreenBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED }, blurCurrentTarget: true },
+  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fullscreenBtn', event: 'mousedown', command: { kind: 'clear-title' } },
+  { action: UIActionIds.SETTINGS_TOGGLE, element: 'settingsBtn', event: 'click', command: { kind: 'controller', method: 'toggleSettingsMenu' }, stopPropagation: true },
+  { action: UIActionIds.SHADER_TOGGLE, element: 'shaderBtn', event: 'click', command: { kind: 'controller', method: 'toggleShaderSelector' }, stopPropagation: true },
+  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fsExitBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED }, blurCurrentTarget: true },
+  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fsExitBtn', event: 'mousedown', command: { kind: 'clear-title' } }
+] as const satisfies readonly UIActionDescriptor[];
+
+type UISetupOrchestratorDependencies = {
+  appState: AppStateLike;
+  updateOrchestrator: UpdateOrchestrator;
+  settingsService: SettingsService;
+  notesService: NotesService;
+  uiController: UIController;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class UISetupOrchestrator extends BaseOrchestrator {
+  private readonly appState: AppStateLike;
+  private readonly updateOrchestrator: UpdateOrchestrator;
+  private readonly settingsService: SettingsService;
+  private readonly notesService: NotesService;
+  private readonly uiController: UIController;
+  private readonly loggerFactory: LoggerFactoryLike;
+  private readonly _domListeners: DomListenerManager;
+  private _uiActionsBound: boolean;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: UISetupOrchestratorDependencies) {
     super(
       dependencies,
       ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory'],
       'UISetupOrchestrator'
     );
 
-    // DOM listener manager for cleanup (separate from EventBus subscriptions)
+    this.appState = dependencies.appState;
+    this.updateOrchestrator = dependencies.updateOrchestrator;
+    this.settingsService = dependencies.settingsService;
+    this.notesService = dependencies.notesService;
+    this.uiController = dependencies.uiController;
+    this.eventBus = dependencies.eventBus;
+    this.loggerFactory = dependencies.loggerFactory;
     this._domListeners = createDomListenerManager({ logger: this.logger });
-
-    // Store stopStream handler so it can be reused during canvas recreation
-    this._stopStreamHandler = null;
+    this._uiActionsBound = false;
   }
 
-  /**
-   * Initialize orchestrator - subscribe to canvas recreation events
-   */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.RENDER.CANVAS_RECREATED]: (data) => this._handleCanvasRecreated(data)
     });
   }
 
-  _handleCanvasRecreated(data: unknown) {
+  _handleCanvasRecreated(data: unknown): void {
     if (typeof data !== 'object' || data === null) {
       return;
     }
@@ -52,21 +111,18 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    // Remove listeners from old canvas to allow GC
     const removed = this._domListeners.removeByTarget(oldCanvas);
     this.logger.debug(`Removed ${removed} listener(s) from old canvas`);
 
-    // Add click handler to new canvas
-    if (this._stopStreamHandler) {
-      this._domListeners.add(newCanvas, 'click', this._stopStreamHandler);
-      this.logger.debug('Rebound click handler to new canvas');
+    if (this._uiActionsBound) {
+      UIActionDescriptors
+        .filter((descriptor) => descriptor.element === 'streamCanvas')
+        .forEach((descriptor) => this._bindUiAction(descriptor));
+      this.logger.debug('Rebound stream canvas action handler');
     }
   }
 
-  /**
-   * Initialize settings menu component
-   */
-  initializeSettingsMenu() {
+  initializeSettingsMenu(): void {
     this.uiController.initSettingsMenu({
       settingsService: this.settingsService,
       updateOrchestrator: this.updateOrchestrator,
@@ -76,10 +132,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     });
   }
 
-  /**
-   * Initialize shader selector component
-   */
-  initializeShaderSelector() {
+  initializeShaderSelector(): void {
     const elements = this.uiController.dom?.streaming;
     this.uiController.initShaderSelector(
       {
@@ -95,7 +148,6 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         shaderUnavailableMessage: elements?.shaderUnavailableMessage,
         cinematicToggle: elements?.cinematicToggle,
         cinematicPillText: elements?.cinematicPillText,
-        streamToolbar: elements?.streamToolbar,
         brightnessSlider: elements?.brightnessSlider,
         brightnessPercentage: elements?.brightnessPercentage,
         brightnessControl: elements?.brightnessControl,
@@ -106,10 +158,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     );
   }
 
-  /**
-   * Initialize notes panel component
-   */
-  initializeNotesPanel() {
+  initializeNotesPanel(): void {
     const notesElements = {
       ...this.uiController.dom?.notes,
       streamContainer: this.uiController.dom?.streaming?.streamContainer,
@@ -125,96 +174,99 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     );
   }
 
-  /**
-   * Set up UI event listeners
-   * Uses event-based communication instead of direct orchestrator calls
-   */
-  setupUIEventListeners() {
-    // Header controls - publish events instead of direct orchestrator calls
-    [
-      ['screenshotBtn', 'click', () => this.eventBus.publish(EventChannels.UI.SCREENSHOT_REQUESTED)],
-      ['recordBtn', 'click', () => this.eventBus.publish(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)],
-      ['fullscreenBtn', 'click', (e: Event) => this._handleFullscreenClick(e)],
-      ['settingsBtn', 'click', (e: Event) => this._toggleSettingsMenu(e)],
-      ['shaderBtn', 'click', (e: Event) => this._toggleShaderSelector(e)]
-    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
-
-    // Clear tooltip on mousedown to prevent it persisting through fullscreen transition
-    [
-      ['fullscreenBtn', 'mousedown', (e: Event) => {
-        const target = e.currentTarget as HTMLElement | null;
-        if (target) {
-          target.title = '';
-        }
-      }],
-      ['fsExitBtn', 'mousedown', (e: Event) => {
-        const target = e.currentTarget as HTMLElement | null;
-        if (target) {
-          target.title = '';
-        }
-      }]
-    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
-
-    // Fullscreen controls
-    [
-      ['fsExitBtn', 'click', (e: Event) => this._handleFullscreenClick(e)]
-    ].forEach(([element, event, handler]) => this.uiController.on(element, event, handler));
+  setupUIEventListeners(): void {
+    if (this._uiActionsBound) {
+      return;
+    }
+    UIActionDescriptors.forEach((descriptor) => this._bindUiAction(descriptor));
+    this._uiActionsBound = true;
 
     this.logger.info('UI event listeners set up');
   }
 
-  /**
-   * Set up click handlers for overlay and video elements
-   * Uses event-based communication instead of direct orchestrator calls
-   */
-  setupOverlayClickHandlers() {
-    const { streamOverlay, streamVideo, streamCanvas } = this.uiController.elements;
+  private _bindUiAction(descriptor: UIActionDescriptor): void {
+    const element = this.uiController.elements[descriptor.element];
+    const declaredAction = getTemplateAction(element);
 
-    this._domListeners.add(streamOverlay, 'click', () => {
-      if (streamOverlay.classList.contains(CSSClasses.HIDDEN)) {
-        return;
-      }
-      this.logger.info('Overlay clicked - requesting stream start');
-      this.eventBus.publish(EventChannels.UI.STREAM_START_REQUESTED);
-    });
+    if (element && declaredAction !== descriptor.action) {
+      this.logger.warn(
+        `UI action metadata drift for ${descriptor.element}: expected ${descriptor.action}, found ${declaredAction || 'none'}`
+      );
+    }
 
-    // Store handler so it can be reused during canvas recreation
-    this._stopStreamHandler = () => {
-      if (!this.appState.isStreaming) {
-        return;
-      }
-      this.logger.info('Stream clicked - requesting stream stop');
-      this.eventBus.publish(EventChannels.UI.STREAM_STOP_REQUESTED);
-    };
+    if (!element) {
+      this.logger.warn(`Element not found: ${descriptor.element}`);
+      return;
+    }
 
-    this._domListeners.add(streamVideo, 'click', this._stopStreamHandler);
-    this._domListeners.add(streamCanvas, 'click', this._stopStreamHandler);
-
-    this.logger.info('Overlay click handlers initialized');
+    this._domListeners.add(element, descriptor.event, (event) =>
+      this._executeUiAction(descriptor, event)
+    );
   }
 
-  _handleFullscreenClick(e: Event) {
-    const target = e.currentTarget as HTMLElement | null;
-    target?.blur();
-    this.eventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
+  private _executeUiAction(descriptor: UIActionDescriptor, event: Event): void {
+    if (!this._isUiActionEnabled(descriptor, event)) {
+      return;
+    }
+
+    if (descriptor.stopPropagation) {
+      event.stopPropagation();
+    }
+
+    if (descriptor.blurCurrentTarget) {
+      (event.currentTarget as HTMLElement | null)?.blur();
+    }
+
+    if (descriptor.logMessage) {
+      this.logger.info(descriptor.logMessage);
+    }
+
+    switch (descriptor.command.kind) {
+      case 'publish':
+        this.eventBus.publish(descriptor.command.channel);
+        break;
+      case 'controller':
+        this._executeUiControllerAction(descriptor.command.method);
+        break;
+      case 'clear-title':
+        this._clearCurrentTargetTitle(event);
+        break;
+    }
   }
 
-  _toggleSettingsMenu(e: Event) {
-    e.stopPropagation();
-    this.uiController.toggleSettingsMenu();
+  private _isUiActionEnabled(descriptor: UIActionDescriptor, event: Event): boolean {
+    switch (descriptor.condition) {
+      case 'overlay-visible':
+        return !(event.currentTarget as HTMLElement | null)?.classList.contains(CSSClasses.HIDDEN);
+      case 'streaming':
+        return this.appState.isStreaming;
+      default:
+        return true;
+    }
   }
 
-  _toggleShaderSelector(e: Event) {
-    e.stopPropagation();
-    this.uiController.toggleShaderSelector();
+  private _executeUiControllerAction(method: UIActionControllerCommand): void {
+    switch (method) {
+      case 'toggleSettingsMenu':
+        this.uiController.toggleSettingsMenu();
+        break;
+      case 'toggleShaderSelector':
+        this.uiController.toggleShaderSelector();
+        break;
+    }
   }
 
-  /**
-   * Cleanup resources
-   */
-  async onCleanup() {
+  private _clearCurrentTargetTitle(event: Event): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+      target.title = '';
+    }
+  }
+
+  async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up UISetupOrchestrator...');
     this._domListeners.removeAll();
+    this._uiActionsBound = false;
     this.logger.info('UISetupOrchestrator cleanup complete');
   }
 }

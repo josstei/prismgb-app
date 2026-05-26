@@ -1,17 +1,4 @@
-/**
- * GPU Renderer Adapter
- *
- * Adapts StreamingGpuRendererService and StreamingGpuRenderLoopService
- * to the IStreamingRenderer interface for use in the render pipeline.
- *
- * Responsibilities:
- * - Coordinate GPU renderer service and render loop service
- * - Manage GPU render loop lifecycle (start/stop)
- * - Handle shader preset switching
- * - Track active state
- */
-
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
 
@@ -37,13 +24,11 @@ interface AppStateLike {
   readonly isStreaming: boolean;
 }
 
-interface GpuRendererAdapterDependencies {
+export interface GpuRendererAdapterDependencies {
   gpuRendererService: GpuRendererServiceLike;
   gpuRenderLoopService: GpuRenderLoopServiceLike;
   appState: AppStateLike;
-  loggerFactory: {
-    create(name: string): LoggerLike;
-  };
+  loggerFactory: LoggerFactoryLike;
 }
 
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
@@ -130,9 +115,6 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     this.logger.debug('GPU render loop stopped');
   }
 
-  /**
-   * Cleanup GPU renderer resources
-   */
   async cleanup(): Promise<void> {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
@@ -142,10 +124,6 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     await this.gpuRendererService.cleanup();
     this.logger.info('GPU renderer adapter cleaned up');
   }
-
-  // ============================
-  // GPU-specific methods
-  // ============================
 
   supportsPresets(): boolean {
     return true;
@@ -163,15 +141,11 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     return this.gpuRendererService.isCanvasTransferred();
   }
 
-  /**
-   * Release GPU resources while keeping worker alive
-   * Note: Only GPU resources are released; the worker stays alive.
-   */
   releaseGpuResources(): void {
     this.gpuRendererService.releaseGpuResources();
   }
 
-  terminateAndReset(emitCanvasExpired = true) {
+  terminateAndReset(emitCanvasExpired = true): void {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
     }

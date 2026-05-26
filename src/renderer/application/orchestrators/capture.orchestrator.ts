@@ -1,16 +1,3 @@
-/**
- * Capture Orchestrator
- *
- * Coordinates screenshot and video recording operations
- * Thin coordinator - delegates to CaptureService, does not contain business logic
- *
- * Responsibilities:
- * - Coordinate screenshot capture
- * - Coordinate recording start/stop
- * - Handle capture events
- * - Manage file saving
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { LoggerLike } from '@shared/base/service.base.js';
@@ -92,18 +79,17 @@ type CaptureOrchestratorDependencies = {
 };
 
 export class CaptureOrchestrator extends BaseOrchestrator {
-  declare protected readonly captureService: CaptureServiceLike;
-  declare protected readonly appState: AppStateLike;
-  declare protected readonly streamViewService: StreamViewServiceLike;
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
-  declare protected readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
-  declare protected readonly transcodeService: TranscodeServiceLike;
-  declare protected readonly captureSaveService: CaptureSaveServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly captureService: CaptureServiceLike;
+  private readonly appState: AppStateLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  private readonly gpuRecordingService: GpuRecordingServiceLike;
+  private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
+  private readonly transcodeService: TranscodeServiceLike;
+  private readonly captureSaveService: CaptureSaveServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
 
-  _recordingInterrupted: boolean;
+  private _recordingInterrupted: boolean;
 
   constructor(dependencies: CaptureOrchestratorDependencies) {
     super(
@@ -123,6 +109,15 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       'CaptureOrchestrator'
     );
 
+    this.captureService = dependencies.captureService;
+    this.appState = dependencies.appState;
+    this.streamViewService = dependencies.streamViewService;
+    this.gpuRendererService = dependencies.gpuRendererService;
+    this.gpuRecordingService = dependencies.gpuRecordingService;
+    this.canvasRenderLoopService = dependencies.canvasRenderLoopService;
+    this.transcodeService = dependencies.transcodeService;
+    this.captureSaveService = dependencies.captureSaveService;
+    this.eventBus = dependencies.eventBus;
     this._recordingInterrupted = false;
   }
 

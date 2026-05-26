@@ -31,17 +31,16 @@ type CaptureDependencies = {
 };
 
 class CaptureService extends BaseService {
-  declare protected readonly eventBus: EventBusLike;
-  declare protected readonly logger: LoggerLike;
-
+  protected readonly eventBus: EventBusLike;
   isRecording: boolean;
   mediaRecorder: MediaRecorder | null;
   recordedChunks: Blob[];
-  _isDisposing: boolean;
+  private _isDisposing: boolean;
 
   constructor(dependencies: CaptureDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'CaptureService');
 
+    this.eventBus = dependencies.eventBus;
     // Recording state
     this.isRecording = false;
     this.mediaRecorder = null;
@@ -49,7 +48,7 @@ class CaptureService extends BaseService {
     this._isDisposing = false;
   }
 
-  async takeScreenshot(source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap) {
+  async takeScreenshot(source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap): Promise<{ blob: Blob; filename: string }> {
     // Determine source type and validate
     const isVideo = source instanceof HTMLVideoElement;
     const isCanvas = source instanceof HTMLCanvasElement;
@@ -138,7 +137,7 @@ class CaptureService extends BaseService {
     }
   }
 
-  async startRecording(stream: MediaStream) {
+  async startRecording(stream: MediaStream): Promise<void> {
     if (!stream) {
       this.logger.warn('Cannot start recording - no stream provided');
       throw new Error('No stream provided');
@@ -189,7 +188,7 @@ class CaptureService extends BaseService {
     }
   }
 
-  async stopRecording() {
+  async stopRecording(): Promise<void> {
     if (!this.isRecording || !this.mediaRecorder) {
       this.logger.warn('Not currently recording');
       throw new Error('Not recording');
@@ -209,15 +208,15 @@ class CaptureService extends BaseService {
     }
   }
 
-  async toggleRecording(stream: MediaStream) {
+  async toggleRecording(stream: MediaStream): Promise<void> {
     return this.isRecording ? this.stopRecording() : this.startRecording(stream);
   }
 
-  getRecordingState() {
+  getRecordingState(): boolean {
     return this.isRecording;
   }
 
-  _handleRecordingStop() {
+  _handleRecordingStop(): void {
     // Skip processing if we're disposing (avoid race with async onstop)
     if (this._isDisposing) {
       this.logger.debug('Skipping recording stop handler during dispose');
@@ -241,7 +240,7 @@ class CaptureService extends BaseService {
     this.recordedChunks = [];
   }
 
-  _handleRecordingError(event: MediaRecorderErrorEvent) {
+  _handleRecordingError(event: MediaRecorderErrorEvent): void {
     if (this._isDisposing) {
       return;
     }
@@ -264,7 +263,7 @@ class CaptureService extends BaseService {
    * Dispose of resources and stop any active recording
    * Called during cleanup to ensure no resources are leaked.
    */
-  dispose() {
+  dispose(): void {
     this.logger.debug('Disposing CaptureService');
 
     // Set disposing flag to prevent async onstop from processing

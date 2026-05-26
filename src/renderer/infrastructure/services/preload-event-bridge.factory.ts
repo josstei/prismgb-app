@@ -11,16 +11,13 @@ export interface RendererPreloadBridgeDescriptor<TMethod extends string = string
   readonly methods: readonly TMethod[];
 }
 
-// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:START
-export const RendererPreloadBridgeDescriptors = {
-  deviceAPI: { apiName: 'deviceAPI', methods: ['onDeviceConnected', 'onDeviceDisconnected'] },
-  windowAPI: { apiName: 'windowAPI', methods: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized'] },
-  updateAPI: { apiName: 'updateAPI', methods: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'] },
-  transcodeAPI: { apiName: 'transcodeAPI', methods: ['onProgress', 'onCompleted', 'onError', 'onCancelled'] }
-} as const satisfies Record<string, RendererPreloadBridgeDescriptor>;
-// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:END
-
-export type RendererPreloadBridgeApiName = keyof typeof RendererPreloadBridgeDescriptors;
+type ManifestSubscriptionEntry = NonNullable<IpcNamespaceManifest['subscriptions']>[number];
+type ManifestPreloadEventHandler = (...args: never[]) => void;
+type ManifestPreloadEventHandlers<TMethod extends string = string> = Readonly<Record<TMethod, ManifestPreloadEventHandler>>;
+type RendererPreloadBridgeMethodMapBase = Readonly<Record<string, string>>;
+type RendererPreloadBridgeDescriptorMap<TMethodMap extends RendererPreloadBridgeMethodMapBase> = {
+  readonly [TApiName in keyof TMethodMap & string]: RendererPreloadBridgeDescriptor<TMethodMap[TApiName]>;
+};
 
 interface PreloadEventBridgeLogger {
   warn?(message: string, ...args: unknown[]): void;
@@ -38,10 +35,6 @@ interface PreloadEventBridgeOptions<TApi> {
   subscriptions: readonly PreloadEventSubscriptionDescriptor<TApi>[];
   logger?: PreloadEventBridgeLogger;
 }
-
-type ManifestSubscriptionEntry = NonNullable<IpcNamespaceManifest['subscriptions']>[number];
-type ManifestPreloadEventHandler = (...args: never[]) => void;
-type ManifestPreloadEventHandlers<TMethod extends string = string> = Readonly<Record<TMethod, ManifestPreloadEventHandler>>;
 
 interface ManifestPreloadEventBridgeOptions<TApi, TMethod extends string = string> {
   api: TApi;
@@ -62,6 +55,57 @@ const normalizeTrimmedString = (value: unknown): string =>
 
 const derivePublicMethodName = (entry: ManifestSubscriptionEntry): string =>
   normalizeTrimmedString(('factoryMethod' in entry ? entry.factoryMethod : '') || entry.method);
+
+function hasManifestSubscriptions(namespace: IpcNamespaceManifest): namespace is IpcNamespaceManifest & { subscriptions: readonly ManifestSubscriptionEntry[] } {
+  return Array.isArray(namespace.subscriptions) && namespace.subscriptions.length > 0;
+}
+
+// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:START
+type RendererPreloadBridgeMethodMap = {
+  readonly deviceAPI: 'onDeviceConnected' | 'onDeviceDisconnected';
+  readonly windowAPI: 'onEnterFullscreen' | 'onLeaveFullscreen' | 'onResized';
+  readonly updateAPI: 'onAvailable' | 'onNotAvailable' | 'onProgress' | 'onDownloaded' | 'onError';
+  readonly transcodeAPI: 'onProgress' | 'onCompleted' | 'onError' | 'onCancelled';
+};
+const rendererPreloadBridgeApiNames = ['deviceAPI', 'windowAPI', 'updateAPI', 'transcodeAPI'] as const satisfies readonly (keyof RendererPreloadBridgeMethodMap)[];
+const rendererPreloadBridgeMethodNames = {
+  deviceAPI: ['onDeviceConnected', 'onDeviceDisconnected'],
+  windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized'],
+  updateAPI: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
+  transcodeAPI: ['onProgress', 'onCompleted', 'onError', 'onCancelled']
+} as const satisfies { readonly [TApiName in keyof RendererPreloadBridgeMethodMap]: readonly RendererPreloadBridgeMethodMap[TApiName][] };
+export type RendererPreloadBridgeApiName = keyof RendererPreloadBridgeMethodMap & string;
+
+function assertManifestMethodsMatchDescriptor(apiName: string, manifestMethods: readonly string[], descriptorMethods: readonly string[]): void {
+  const missing = descriptorMethods.filter((method) => !manifestMethods.includes(method));
+  const extra = manifestMethods.filter((method) => !descriptorMethods.includes(method));
+  if (missing.length || extra.length) {
+    throw new Error(`IPC manifest subscriptions for renderer preload bridge API "${apiName}" do not match descriptor: ${[missing.length ? `missing ${missing.join(', ')}` : '', extra.length ? `extra ${extra.join(', ')}` : ''].filter(Boolean).join('; ')}`);
+  }
+}
+
+function assertRendererPreloadBridgeDescriptorManifestParity(
+  manifest: IpcManifest = IpcContractManifest
+): void {
+  for (const apiName of rendererPreloadBridgeApiNames) {
+    const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName);
+    if (!namespace || !hasManifestSubscriptions(namespace)) {
+      throw new Error(`IPC manifest subscriptions not found for renderer preload bridge API "${apiName}"`);
+    }
+    const descriptorMethods = rendererPreloadBridgeMethodNames[apiName];
+    assertManifestMethodsMatchDescriptor(apiName, [...namespace.subscriptions].map(derivePublicMethodName), descriptorMethods);
+  }
+}
+
+assertRendererPreloadBridgeDescriptorManifestParity();
+
+export const RendererPreloadBridgeDescriptors = {
+  deviceAPI: { apiName: 'deviceAPI', methods: rendererPreloadBridgeMethodNames.deviceAPI },
+  windowAPI: { apiName: 'windowAPI', methods: rendererPreloadBridgeMethodNames.windowAPI },
+  updateAPI: { apiName: 'updateAPI', methods: rendererPreloadBridgeMethodNames.updateAPI },
+  transcodeAPI: { apiName: 'transcodeAPI', methods: rendererPreloadBridgeMethodNames.transcodeAPI }
+} as const satisfies RendererPreloadBridgeDescriptorMap<RendererPreloadBridgeMethodMap>;
+// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:END
 
 function requireManifestNamespace(apiName: string, manifest: IpcManifest): IpcNamespaceManifest {
   const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName);

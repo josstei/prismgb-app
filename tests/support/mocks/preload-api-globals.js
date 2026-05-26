@@ -1,5 +1,6 @@
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 import { createManifestSubscriptionSet } from '@preload/subscription.factory.js';
+import { installTargetProperty } from './runtime-property.installers.js';
 const normalizeTrimmedString = (value) => typeof value === 'string' ? value.trim() : '';
 const derivePublicMethodName = ({ factoryMethod, method }) => normalizeTrimmedString(factoryMethod || method);
 const createNamespaceByApiName = (manifest) =>
@@ -59,27 +60,28 @@ export function createPreloadApiMocks(overridesByApi = {}, manifest = IpcManifes
   const apiNames = manifest === IpcManifest ? PRELOAD_API_NAMES : Object.keys(namespaceByApiName);
   return Object.fromEntries(apiNames.map((apiName) => [apiName, createPreloadApiMock(apiName, overridesByApi[apiName], manifest)]));
 }
-const activePreloadApiHandles = new Map();
-let syntheticWindowHandle = null;
-function installTargetProperty(target, key, value) {
-  const descriptor = Object.getOwnPropertyDescriptor(target, key);
-  const setValue = (nextValue) => Object.defineProperty(target, key, {
-    configurable: true,
-    writable: true,
-    value: nextValue
-  });
-  setValue(value);
+export function createMockIpcRenderer(overrides = {}) {
+  const fn = getVitestFn(), listeners = new Map();
   return {
-    setValue,
-    cleanup() {
-      if (descriptor) {
-        Object.defineProperty(target, key, descriptor);
-      } else {
-        Reflect.deleteProperty(target, key);
-      }
-    }
+    invoke: fn(async (channel, ...args) => {
+      if (!Object.prototype.hasOwnProperty.call(overrides, channel)) return { success: true };
+      const value = overrides[channel];
+      return typeof value === 'function' ? value(channel, args.length === 0 ? undefined : args[0], ...args.slice(1)) : value;
+    }),
+    on: fn((channel, callback) => {
+      const handlers = listeners.get(channel) || [];
+      handlers.push(callback); listeners.set(channel, handlers);
+    }),
+    removeListener: fn((channel, callback) => {
+      const handlers = listeners.get(channel);
+      if (handlers) listeners.set(channel, handlers.filter((handler) => handler !== callback));
+    }),
+    emit: (channel, ...args) => (listeners.get(channel) || []).forEach((handler) => handler({}, ...args)),
+    removeAllListeners: fn()
   };
 }
+const activePreloadApiHandles = new Map();
+let syntheticWindowHandle = null;
 function getWindowObject() {
   if (!globalThis.window) {
     syntheticWindowHandle = installTargetProperty(globalThis, 'window', {});
@@ -95,23 +97,31 @@ function cleanupSyntheticWindowIfUnused() {
 export function setPreloadApi(name, value, { exposeOnGlobalThis = true } = {}) {
   getNamespace(name);
   clearPreloadApi(name);
-  const windowObject = getWindowObject();
   const handles = {
-    window: installTargetProperty(windowObject, name, value),
+    window: null,
     globalThis: null
   };
-  if (exposeOnGlobalThis) {
-    handles.globalThis = installTargetProperty(globalThis, name, value);
+  try {
+    const windowObject = getWindowObject();
+    handles.window = installTargetProperty(windowObject, name, value);
+    if (exposeOnGlobalThis) {
+      handles.globalThis = installTargetProperty(globalThis, name, value);
+    }
+    activePreloadApiHandles.set(name, handles);
+    return value;
+  } catch (error) {
+    handles.globalThis?.cleanup();
+    handles.window?.cleanup();
+    cleanupSyntheticWindowIfUnused();
+    throw error;
   }
-  activePreloadApiHandles.set(name, handles);
-  return value;
 }
 export function clearPreloadApi(name) {
   getNamespace(name);
   const handles = activePreloadApiHandles.get(name);
   if (handles) {
     handles.globalThis?.cleanup();
-    handles.window.cleanup();
+    handles.window?.cleanup();
     activePreloadApiHandles.delete(name);
   }
   cleanupSyntheticWindowIfUnused();

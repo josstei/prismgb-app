@@ -6,7 +6,9 @@ import {
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { UpdateState } from '@shared/config/update-state.config';
+import type { UpdateStateValue } from '@shared/config/update-state.config.js';
 import type {
+  IpcActionResult,
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateErrorPayload,
@@ -17,6 +19,13 @@ import type {
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
 
+function getFailureMessage(result: IpcActionResult, fallback: string): string | null {
+  if (result.success !== false) {
+    return null;
+  }
+  return typeof result.error === 'string' && result.error.length > 0 ? result.error : fallback;
+}
+
 interface UpdateEventBus {
   publish(event: string, payload?: unknown): void;
 }
@@ -26,9 +35,13 @@ interface UpdateServiceDependencies {
   loggerFactory: unknown;
 }
 
+type UpdateStatusSnapshot = UpdateStatusPayload & {
+  state: UpdateStateValue;
+};
+
 class UpdateService extends BaseService {
-  declare eventBus: UpdateEventBus;
-  private _state: string;
+  private readonly eventBus: UpdateEventBus;
+  private _state: UpdateStateValue;
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
@@ -38,6 +51,7 @@ class UpdateService extends BaseService {
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
 
+    this.eventBus = dependencies.eventBus;
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
@@ -131,7 +145,34 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
-  _setState(newState: string) {
+  _handleResultFailure(result: IpcActionResult, fallback: string): boolean {
+    const message = getFailureMessage(result, fallback);
+    if (!message) {
+      return false;
+    }
+    this._handleError({ message });
+    return true;
+  }
+
+  _reconcileCheckResult(result: UpdateCheckResponse): void {
+    if (this._state !== UpdateState.CHECKING) {
+      return;
+    }
+
+    if (result.updateAvailable === false) {
+      this._handleNotAvailable({
+        ...(result.updateInfo ?? {}),
+        reason: result.reason
+      });
+      return;
+    }
+
+    if (result.updateAvailable === true && result.updateInfo) {
+      this._handleAvailable(result.updateInfo);
+    }
+  }
+
+  _setState(newState: UpdateStateValue) {
     const oldState = this._state;
     this._state = newState;
     this._emitStateChanged();
@@ -142,7 +183,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, this.getStatus());
   }
 
-  getStatus(): UpdateStatusPayload {
+  getStatus(): UpdateStatusSnapshot {
     return {
       state: this._state,
       updateInfo: this._updateInfo,
@@ -169,6 +210,10 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.checkForUpdates();
+      if (this._handleResultFailure(result, 'Check for updates failed')) {
+        return result;
+      }
+      this._reconcileCheckResult(result);
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -193,6 +238,9 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.downloadUpdate();
+      if (this._handleResultFailure(result, 'Download update failed')) {
+        return result;
+      }
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -217,6 +265,9 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.installUpdate();
+      if (this._handleResultFailure(result, 'Install update failed')) {
+        return result;
+      }
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

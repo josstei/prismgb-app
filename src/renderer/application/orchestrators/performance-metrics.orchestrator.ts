@@ -6,18 +6,27 @@
 
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
+  private readonly performanceMetricsService: PerformanceMetricsService;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: {
+    eventBus: EventBusLike;
+    loggerFactory: LoggerFactoryLike;
+    performanceMetricsService: PerformanceMetricsService;
+  }) {
     super(
       dependencies,
       ['eventBus', 'loggerFactory', 'performanceMetricsService'],
       'PerformanceMetricsOrchestrator'
     );
+    this.eventBus = dependencies.eventBus;
+    this.performanceMetricsService = dependencies.performanceMetricsService;
   }
 
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: (payload) => {
         this.performanceMetricsService.requestSnapshot(payload);
@@ -29,7 +38,7 @@ export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
     }
   }
 
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.performanceMetricsService.stopPeriodicSnapshots();
     this.performanceMetricsService.clearPendingRequests();
   }

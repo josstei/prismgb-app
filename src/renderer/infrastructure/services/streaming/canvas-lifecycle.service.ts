@@ -10,8 +10,7 @@ import { getDefaultNativeResolution } from '@shared/features/devices/device-defa
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 import type {
-  LoggerFactoryLike,
-  LoggerLike
+  LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 
 type StreamViewServiceLike = {
@@ -54,15 +53,14 @@ type CanvasLifecycleDependencies = {
 };
 
 class StreamingCanvasLifecycleService extends BaseService {
-  declare protected readonly streamViewService: StreamViewServiceLike;
-  declare protected readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
-  declare protected readonly viewportService: ViewportServiceLike;
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
+  private readonly viewportService: ViewportServiceLike;
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
 
-  _nativeResolution: Dimensions | null;
-  _useGpuRenderer: boolean;
+  private _nativeResolution: Dimensions | null;
+  private _useGpuRenderer: boolean;
 
   constructor(dependencies: CanvasLifecycleDependencies) {
     super(
@@ -71,15 +69,20 @@ class StreamingCanvasLifecycleService extends BaseService {
       'StreamingCanvasLifecycleService'
     );
 
+    this.streamViewService = dependencies.streamViewService;
+    this.canvasRenderLoopService = dependencies.canvasRenderLoopService;
+    this.viewportService = dependencies.viewportService;
+    this.gpuRendererService = dependencies.gpuRendererService;
+    this.eventBus = dependencies.eventBus;
     this._nativeResolution = null;
     this._useGpuRenderer = false;
   }
 
-  initialize(nativeResolution?: Dimensions) {
+  initialize(nativeResolution?: Dimensions): void {
     this.setupCanvasSize(nativeResolution);
   }
 
-  async handleCanvasExpired() {
+  async handleCanvasExpired(): Promise<void> {
     await this.recreateCanvas();
     this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer);
   }
@@ -134,6 +137,9 @@ class StreamingCanvasLifecycleService extends BaseService {
     const newCanvas = document.createElement('canvas');
     newCanvas.id = oldCanvas.id;
     newCanvas.className = oldCanvas.className;
+    Array.from(oldCanvas.attributes)
+      .filter((attribute) => attribute.name.startsWith('data-'))
+      .forEach((attribute) => newCanvas.setAttribute(attribute.name, attribute.value));
 
     const computedStyle = window.getComputedStyle(oldCanvas);
     newCanvas.style.position = computedStyle.position;

@@ -1,8 +1,9 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { createPreloadExposureMap, exposePreloadApis } from '@preload/exposure.factory.js';
-import { clearPreloadApi, createPreloadApiMock, createPreloadApiMocks, resetPreloadApis, setPreloadApi } from '../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createMockIpcRenderer, createPreloadApiMock, createPreloadApiMocks, resetPreloadApis, setPreloadApi } from '../../support/mocks/preload-api-globals.js';
 import { installMissingWindowMock, installWindowPropertyMock } from '../../support/mocks/browser-api.installers.js';
+import { installTargetProperty } from '../../support/mocks/runtime-property.installers.js';
 
 function createApiImplementations(overrides = {}) {
   return Object.fromEntries(
@@ -142,11 +143,28 @@ describe('preload-api-globals test helper', () => {
     expect(callback).toHaveBeenCalledWith();
   });
 
+  it('keeps canonical ipcRenderer mock override and listener behavior stable', async () => {
+    const zeroArgOverride = vi.fn(() => ({ success: false }));
+    const ipcRenderer = createMockIpcRenderer({ 'zero:arg': zeroArgOverride, 'object:arg': { ok: true } });
+    const callback = vi.fn(), removedCallback = vi.fn();
+
+    ipcRenderer.on('event:ready', callback);
+    ipcRenderer.on('event:ready', removedCallback);
+    ipcRenderer.removeListener('event:ready', removedCallback);
+    ipcRenderer.emit('event:ready', 'payload');
+
+    expect(await ipcRenderer.invoke('zero:arg')).toEqual({ success: false });
+    expect(await ipcRenderer.invoke('object:arg')).toEqual({ ok: true });
+    expect(zeroArgOverride).toHaveBeenCalledWith('zero:arg', undefined);
+    expect(callback).toHaveBeenCalledWith({}, 'payload');
+    expect(removedCallback).not.toHaveBeenCalled();
+  });
+
   it('restores descriptor-backed preload globals on clear', () => {
     const existingMetricsAPI = { getProcessMetrics: vi.fn() };
     const existingGlobalAPI = { getProcessMetrics: vi.fn() };
-    vi.stubGlobal('window', {});
-    vi.stubGlobal('metricsAPI', existingGlobalAPI);
+    const windowHandle = installTargetProperty(globalThis, 'window', {});
+    const globalAPIHandle = installTargetProperty(globalThis, 'metricsAPI', existingGlobalAPI);
     const existingWindowAPI = installWindowPropertyMock('metricsAPI', existingMetricsAPI);
     const mockMetricsAPI = createPreloadApiMock('metricsAPI');
 
@@ -161,12 +179,14 @@ describe('preload-api-globals test helper', () => {
     } finally {
       clearPreloadApi('metricsAPI');
       existingWindowAPI.cleanup();
-      vi.unstubAllGlobals();
+      globalAPIHandle.cleanup();
+      windowHandle.cleanup();
     }
   });
 
-  it('cleans up synthetic window globals created for preload API tests', () => {
+  it('cleans up synthetic window globals and rolls back partial installs', () => {
     const missingWindow = installMissingWindowMock();
+    const defineProperty = Object.defineProperty.bind(Object);
 
     try {
       const mockMetricsAPI = createPreloadApiMock('metricsAPI');
@@ -175,6 +195,20 @@ describe('preload-api-globals test helper', () => {
 
       resetPreloadApis();
       expect(globalThis.window).toBeUndefined();
+
+      const definePropertySpy = vi.spyOn(Object, 'defineProperty')
+        .mockImplementation((target, key, descriptor) => {
+          if (target === globalThis && key === 'metricsAPI') throw new TypeError('blocked global metricsAPI install');
+          return defineProperty(target, key, descriptor);
+        });
+      try {
+        expect(() => setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'))).toThrow('blocked global metricsAPI install');
+        expect(globalThis.window).toBeUndefined();
+        expect(globalThis.metricsAPI).toBeUndefined();
+        expect(() => clearPreloadApi('metricsAPI')).not.toThrow();
+      } finally {
+        definePropertySpy.mockRestore();
+      }
     } finally {
       resetPreloadApis();
       missingWindow.cleanup();

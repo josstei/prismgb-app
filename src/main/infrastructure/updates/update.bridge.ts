@@ -29,6 +29,7 @@ interface UpdateBridgeDependencies {
 }
 
 class UpdateBridge extends BaseService {
+  private readonly updateService: UpdateService;
 
   constructor(dependencies: UpdateBridgeDependencies) {
     super(
@@ -36,15 +37,16 @@ class UpdateBridge extends BaseService {
       ['updateService', 'loggerFactory'],
       'UpdateBridge'
     );
+    this.updateService = dependencies.updateService;
   }
 
   initialize(): void {
-    (this.updateService as UpdateService).initialize();
-    (this.updateService as UpdateService).startAutoCheck(60 * 60 * 1000);
+    this.updateService.initialize();
+    this.updateService.startAutoCheck(60 * 60 * 1000);
   }
 
   async dispose(): Promise<void> {
-    await (this.updateService as UpdateService).dispose();
+    await this.updateService.dispose();
     await super.dispose();
   }
 }

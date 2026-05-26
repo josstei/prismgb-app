@@ -48,8 +48,13 @@ export class PresentationComponent {
   }
 
   protected timeout(handler: () => void, delay: number, ...args: unknown[]) {
-    const handle = setTimeout(handler, delay, ...args);
-    return this._disposables.addTimeout(handle);
+    let disposeTimeout = () => {};
+    const handle = setTimeout(() => {
+      disposeTimeout();
+      handler();
+    }, delay, ...args);
+    disposeTimeout = this._disposables.addTimeout(handle);
+    return disposeTimeout;
   }
 
   protected interval(handler: () => void, delay: number, ...args: unknown[]) {

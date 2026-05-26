@@ -1,40 +1,33 @@
-/**
- * Update UI Service
- *
- * Translates update events into UI notifications and badge visibility.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type UpdateUiServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class UpdateUiService extends BaseService {
-  _subscriptions: Array<() => void>;
+  private readonly eventBus: EventBusLike;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: UpdateUiServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
-    this._subscriptions = [];
+    this.eventBus = dependencies.eventBus;
   }
 
   initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.UPDATE.AVAILABLE, (info: unknown) => this._handleUpdateAvailable(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate()),
-      this.eventBus.subscribe(EventChannels.UPDATE.PROGRESS, (progress: unknown) => this._handleProgress(progress)),
-      this.eventBus.subscribe(EventChannels.UPDATE.DOWNLOADED, (info: unknown) => this._handleDownloaded(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.ERROR, (error: unknown) => this._handleError(error))
-    );
-
+    this.listen(EventChannels.UPDATE.AVAILABLE, (info: unknown) => this._handleUpdateAvailable(info));
+    this.listen(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate());
+    this.listen(EventChannels.UPDATE.PROGRESS, (progress: unknown) => this._handleProgress(progress));
+    this.listen(EventChannels.UPDATE.DOWNLOADED, (info: unknown) => this._handleDownloaded(info));
+    this.listen(EventChannels.UPDATE.ERROR, (error: unknown) => this._handleError(error));
     this.logger.info('UpdateUiService initialized');
   }
 
-  dispose() {
-    this._subscriptions.forEach((unsubscribe: () => void) => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.logger.info('UpdateUiService disposed');
+    return disposed;
   }
 
   _handleUpdateAvailable(info: unknown) {

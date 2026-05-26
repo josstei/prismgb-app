@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import channels from '@shared/ipc/channels.json';
-import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { IPC_CHANNELS as channels, IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
@@ -15,6 +14,7 @@ import {
 import { createListenerRegistry, MAX_LISTENERS_PER_CHANNEL } from '@preload/listener-registry.js';
 import {
   applyRequiredSubscriptionMetadata,
+  createManifestInvokeMethods,
   createManifestInvokeSet,
   createManifestSubscriptionSet
 } from '@preload/subscription.factory.js';
@@ -28,43 +28,7 @@ import {
   isValidFfmpegArgs,
   isValidUpdateInfo
 } from '@preload/validators.js';
-function createMockIpcRenderer(overrides = {}) {
-  const listeners = new Map();
-  return {
-    invoke: vi.fn(async (channel, payload) => {
-      if (Object.prototype.hasOwnProperty.call(overrides, channel)) {
-        const value = overrides[channel];
-        if (typeof value === 'function') {
-          return value(channel, payload);
-        }
-        return value;
-      }
-      return { success: true };
-    }),
-    on: vi.fn((channel, callback) => {
-      const handlers = listeners.get(channel) || [];
-      handlers.push(callback);
-      listeners.set(channel, handlers);
-    }),
-    removeListener: vi.fn((channel, callback) => {
-      const handlers = listeners.get(channel);
-      if (!handlers) {
-        return;
-      }
-      listeners.set(
-        channel,
-        handlers.filter((handler) => handler !== callback)
-      );
-    }),
-    emit: (channel, ...args) => {
-      const handlers = listeners.get(channel) || [];
-      for (const handler of handlers) {
-        handler({}, ...args);
-      }
-    },
-    removeAllListeners: vi.fn()
-  };
-}
+import { createMockIpcRenderer } from '../../support/mocks/preload-api-globals.js';
 function createAPIWithRegistry(factory, ipcRenderer, options = {}) {
   return factory({
     ipcRenderer,
@@ -270,19 +234,15 @@ describe('Preload inline API contract baselines', () => {
     const metricsAPI = createMetricsPreloadAPI({ ipcRenderer, channels, manifest });
     const gpuAPI = createGpuPreloadAPI({ ipcRenderer, channels, manifest, isValidGpuPolicy: () => true });
     const loginItemAPI = createLoginItemPreloadAPI({ ipcRenderer, channels, manifest });
-    await expect(shellAPI.openExternal('https://example.com')).resolves.toEqual({ success: true });
+    await expect(shellAPI.openExternal('https://example.com', 'ignored-extra')).resolves.toEqual({ success: true });
     await expect(metricsAPI.getProcessMetrics()).resolves.toEqual(metricsResponse);
     await expect(gpuAPI.getPolicy()).resolves.toEqual({
       skipWebGPU: true,
       reason: 'compat-test'
     });
     await expect(loginItemAPI.get()).resolves.toBe(true);
-    await expect(loginItemAPI.set(true)).resolves.toEqual({ success: true });
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.SHELL.OPEN_EXTERNAL, 'https://example.com');
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.PERFORMANCE.GET_METRICS);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.GPU.GET_POLICY);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.LOGIN_ITEM.GET);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(channels.LOGIN_ITEM.SET, true);
+    await expect(loginItemAPI.set(true, 'ignored-extra')).resolves.toEqual({ success: true });
+    expect(ipcRenderer.invoke.mock.calls).toEqual([[channels.SHELL.OPEN_EXTERNAL, 'https://example.com'], [channels.PERFORMANCE.GET_METRICS], [channels.GPU.GET_POLICY], [channels.LOGIN_ITEM.GET], [channels.LOGIN_ITEM.SET, true]]);
   });
   it('captures inline API validation and fallback responses', async () => {
     const ipcRenderer = createMockIpcRenderer({
@@ -355,6 +315,12 @@ describe('Preload subscription API parity', () => {
       const manifestInvoke = manifestNamespace?.invoke || [];
       expect(createManifestInvokeSet(apiName, channels).byMethod).toEqual(Object.fromEntries(manifestInvoke.map((entry) => [entry.factoryMethod || entry.method, channels[manifestNamespace.namespace][entry.channelKey]])));
     }
+  });
+  it('generates invoke methods with manifest request arity and checked custom factories', async () => {
+    const ipcRenderer = createMockIpcRenderer({ [channels.WINDOW.SET_FULLSCREEN]: { success: true } });
+    const methods = createManifestInvokeMethods({ apiName: 'windowAPI', ipcRenderer, channels }); await methods.setFullScreen(true, 'ignored-extra'); await methods.isFullScreen('ignored-extra');
+    expect(ipcRenderer.invoke.mock.calls).toEqual([[channels.WINDOW.SET_FULLSCREEN, true], [channels.WINDOW.IS_FULLSCREEN]]);
+    expect(() => createManifestInvokeMethods({ apiName: 'windowAPI', ipcRenderer, channels, methodFactories: { setFullscreen: () => vi.fn() } })).toThrow(/windowAPI\.setFullscreen/);
   });
   it('derives invoke descriptors from factoryMethod when public and internal method names diverge', () => {
     const syntheticManifest = cloneManifest();

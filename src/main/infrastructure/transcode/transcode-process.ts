@@ -94,9 +94,9 @@ export async function probeDuration(inputPath: string): Promise<number> {
 export class TranscodeProcess extends EventEmitter {
   private _inputPath: string;
   private _outputPath: string;
-  private _ffmpegArgs: string[];
+  private _ffmpegArgs: readonly string[];
   private _durationUs: number;
-  private _inputArgs: string[];
+  private _inputArgs: readonly string[];
   private _process: ChildProcess | null = null;
   private _wasKilled = false;
   private _hasCompleted = false;
@@ -112,13 +112,13 @@ export class TranscodeProcess extends EventEmitter {
    * @param durationUs - Expected duration in microseconds (for progress)
    * @param inputArgs - Optional input arguments (applied before -i)
    */
-  constructor(inputPath: string, outputPath: string, ffmpegArgs: string[], durationUs: number, inputArgs: string[] = []) {
+  constructor(inputPath: string, outputPath: string, ffmpegArgs: readonly string[], durationUs: number, inputArgs: readonly string[] = []) {
     super();
     this._inputPath = inputPath;
     this._outputPath = outputPath;
-    this._ffmpegArgs = ffmpegArgs;
+    this._ffmpegArgs = [...ffmpegArgs];
     this._durationUs = durationUs;
-    this._inputArgs = inputArgs;
+    this._inputArgs = [...inputArgs];
   }
 
   /**
@@ -135,10 +135,9 @@ export class TranscodeProcess extends EventEmitter {
       this._startTime = Date.now();
 
       const ffmpegPath = getFfmpegPath();
-      const inputArgs = Array.isArray(this._inputArgs) ? this._inputArgs : [];
       const args = [
         '-y', // Overwrite output file
-        ...inputArgs,
+        ...this._inputArgs,
         '-i', this._inputPath,
         '-progress', 'pipe:1', // Progress output to stdout
         '-nostats', // Don't output stats to stderr (use -progress instead)

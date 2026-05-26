@@ -1,23 +1,5 @@
 import { vi } from 'vitest';
-
-/**
- * Lightweight cleanup stack used by mock installers.
- */
-function createCleanupStack() {
-  const cleanups = [];
-
-  return {
-    add(cleanup) {
-      cleanups.push(cleanup);
-    },
-    cleanup() {
-      while (cleanups.length > 0) {
-        const cleanup = cleanups.pop();
-        cleanup();
-      }
-    },
-  };
-}
+import { createCleanupStack, installTargetProperty } from './runtime-property.installers.js';
 
 /**
  * Restores a property on a target by its descriptor.
@@ -47,33 +29,13 @@ function installProperty(target, key, value) {
 }
 
 function installWindowProperty(key, value) {
-  const stack = createCleanupStack();
   const target = globalThis.window;
 
   if (!target) {
     throw new Error(`Cannot install window.${String(key)} mock without a window global`);
   }
 
-  const descriptor = Object.getOwnPropertyDescriptor(target, key);
-  const hadProperty = Object.prototype.hasOwnProperty.call(target, key);
-
-  Object.defineProperty(target, key, {
-    configurable: true,
-    writable: true,
-    value,
-  });
-
-  stack.add(() => {
-    if (descriptor) {
-      Object.defineProperty(target, key, descriptor);
-    } else if (hadProperty) {
-      Reflect.deleteProperty(target, key);
-    } else {
-      Reflect.deleteProperty(target, key);
-    }
-  });
-
-  return stack;
+  return installTargetProperty(target, key, value);
 }
 
 function installMissingWindowMockInternal() {
@@ -91,34 +53,6 @@ function installMissingWindowMockInternal() {
   });
 
   return stack;
-}
-
-function installTargetProperty(target, key, value) {
-  const stack = createCleanupStack();
-  const descriptor = Object.getOwnPropertyDescriptor(target, key);
-  const hadProperty = Object.prototype.hasOwnProperty.call(target, key);
-  const setValue = (nextValue) => Object.defineProperty(target, key, {
-    configurable: true,
-    writable: true,
-    value: nextValue,
-  });
-
-  setValue(value);
-
-  stack.add(() => {
-    if (descriptor) {
-      Object.defineProperty(target, key, descriptor);
-    } else if (hadProperty) {
-      Reflect.deleteProperty(target, key);
-    } else {
-      Reflect.deleteProperty(target, key);
-    }
-  });
-
-  return {
-    ...stack,
-    setValue,
-  };
 }
 
 /**
@@ -1066,6 +1000,7 @@ function installMediaMocksInternal(options = {}) {
 
 export {
   createCleanupStack,
+  installTargetProperty,
   installAnimationFrameMock,
   installBlobMock,
   installBlobDownloadMock,

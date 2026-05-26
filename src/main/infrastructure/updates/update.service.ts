@@ -1,29 +1,12 @@
-/**
- * Update Service (Main)
- * Handles automatic updates using electron-updater
- * Manages update checking, downloading, and installation
- */
-
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater';
 import { BaseService } from '@shared/base/service.base.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { IPC_CHANNELS } from '@shared/ipc/ipc.manifest.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
+import { UpdateState, type UpdateStateValue } from '@shared/config/update-state.config.js';
 
-/**
- * Update states
- */
-export const UpdateState = {
-  IDLE: 'idle',
-  CHECKING: 'checking',
-  AVAILABLE: 'available',
-  NOT_AVAILABLE: 'not-available',
-  DOWNLOADING: 'downloading',
-  DOWNLOADED: 'downloaded',
-  ERROR: 'error'
-} as const;
-
-export type UpdateStateType = (typeof UpdateState)[keyof typeof UpdateState];
+export { UpdateState };
+export type UpdateStateType = UpdateStateValue;
 
 interface WindowService {
   send(channel: string, data: unknown): void;
@@ -74,6 +57,9 @@ type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
 class UpdateService extends BaseService {
+  private readonly windowService: WindowService;
+  protected readonly eventBus: EventBus;
+  private readonly config: Config;
 
   state: UpdateStateType;
   updateInfo: UpdateInfo | null;
@@ -87,6 +73,9 @@ class UpdateService extends BaseService {
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory', 'config'], 'UpdateService');
 
+    this.windowService = dependencies.windowService;
+    this.eventBus = dependencies.eventBus;
+    this.config = dependencies.config;
     this.state = UpdateState.IDLE;
     this.updateInfo = null;
     this.downloadProgress = null;
@@ -127,7 +116,7 @@ class UpdateService extends BaseService {
     autoUpdater.autoInstallOnAppQuit = true;
 
     // Allow pre-release updates if running a beta version
-    const version = (this.config as Config)?.version || '';
+    const version = this.config.version || '';
     autoUpdater.allowPrerelease = version.includes('beta');
 
     // Set up event listeners
@@ -186,7 +175,7 @@ class UpdateService extends BaseService {
         this.logger.info('No updates available for this platform');
         this._setState(UpdateState.NOT_AVAILABLE);
         this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
-          version: (this.config as Config)?.version,
+          version: this.config.version,
           reason: 'platform-not-supported'
         });
         return;
@@ -236,7 +225,7 @@ class UpdateService extends BaseService {
   _setState(newState: UpdateStateType): void {
     const oldState = this.state;
     this.state = newState;
-    (this.eventBus as EventBus).publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
+    this.eventBus.publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
   }
 
   /**
@@ -247,7 +236,7 @@ class UpdateService extends BaseService {
    */
   _notifyRenderer(channel: string, data: unknown): void {
     try {
-      (this.windowService as WindowService)?.send(channel, data);
+      this.windowService.send(channel, data);
     } catch (error) {
       this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
     }
@@ -271,10 +260,10 @@ class UpdateService extends BaseService {
     }
 
     // Skip in development mode
-    if ((this.config as Config)?.isDevelopment) {
+    if (this.config.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
       this._setState(UpdateState.NOT_AVAILABLE);
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: (this.config as Config)?.version, reason: 'development' });
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
 
@@ -282,7 +271,7 @@ class UpdateService extends BaseService {
       this.logger.info('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
       return {
-        updateAvailable: result?.updateInfo?.version !== (this.config as Config)?.version,
+        updateAvailable: result?.updateInfo?.version !== this.config.version,
         updateInfo: result?.updateInfo
       };
     } catch (error) {

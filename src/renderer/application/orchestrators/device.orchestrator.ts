@@ -1,27 +1,50 @@
-/**
- * Device Orchestrator
- *
- * Coordinates device detection and status management across USB and WebRTC domains
- * Thin coordinator - delegates to DeviceService, does not contain business logic
- *
- * Responsibilities:
- * - Coordinate device status updates
- * - Handle USB IPC events
- * - Coordinate device enumeration
- * - Emit high-level device events
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type Unsubscribe = () => void;
+
+type DeviceServiceLike = {
+  setupDeviceChangeListener(): void;
+  isDeviceConnected(): boolean;
+  dispose(): void;
+};
+
+type DeviceIpcAdapterLike = {
+  subscribe(handleConnected: () => void, handleDisconnected: () => void): Unsubscribe;
+};
+
+type DeviceOperationSequencerLike = {
+  queueRefresh(): Promise<void>;
+  queueConnected(): void;
+  queueDisconnected(onDisconnected: () => void): void;
+  flush(): Promise<void>;
+};
+
+type DeviceOrchestratorDependencies = {
+  deviceService: DeviceServiceLike;
+  deviceIpcAdapter: DeviceIpcAdapterLike;
+  deviceOperationSequencer: DeviceOperationSequencerLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class DeviceOrchestrator extends BaseOrchestrator {
+  private readonly deviceService: DeviceServiceLike;
+  private readonly deviceIpcAdapter: DeviceIpcAdapterLike;
+  private readonly deviceOperationSequencer: DeviceOperationSequencerLike;
+  private _unsubscribeIPC: Unsubscribe | null;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: DeviceOrchestratorDependencies) {
     super(
       dependencies,
       ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
       'DeviceOrchestrator'
     );
+    this.deviceService = dependencies.deviceService;
+    this.deviceIpcAdapter = dependencies.deviceIpcAdapter;
+    this.deviceOperationSequencer = dependencies.deviceOperationSequencer;
+    this.eventBus = dependencies.eventBus;
     // Store unsubscribe function for IPC adapter
     this._unsubscribeIPC = null;
   }
@@ -29,7 +52,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   /**
    * Initialize device orchestrator
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     // Set up device change listener
     this.deviceService.setupDeviceChangeListener();
 
@@ -46,15 +69,15 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   /**
    * Get current device connection status
    */
-  isDeviceConnected() {
+  isDeviceConnected(): boolean {
     return this.deviceService.isDeviceConnected();
   }
 
-  _handleDeviceConnectedIPC() {
+  _handleDeviceConnectedIPC(): void {
     this.deviceOperationSequencer.queueConnected();
   }
 
-  _handleDeviceDisconnectedIPC() {
+  _handleDeviceDisconnectedIPC(): void {
     this.deviceOperationSequencer.queueDisconnected(() => {
       this.eventBus.publish(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
     });
@@ -63,7 +86,7 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   /**
    * Cleanup resources
    */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     // Cleanup IPC adapter listeners
     if (typeof this._unsubscribeIPC === 'function') {
       this._unsubscribeIPC();
@@ -75,8 +98,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     await this.deviceOperationSequencer.flush();
 
     // Cleanup device service
-    if (this.deviceService && typeof this.deviceService.dispose === 'function') {
-      this.deviceService.dispose();
-    }
+    this.deviceService.dispose();
   }
 }

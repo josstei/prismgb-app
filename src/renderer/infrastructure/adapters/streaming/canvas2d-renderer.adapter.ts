@@ -1,16 +1,4 @@
-/**
- * Canvas2D Render Loop Adapter
- *
- * Adapts the package-backed Canvas2D render loop to the IStreamingRenderer interface
- * for use in the render pipeline.
- *
- * Responsibilities:
- * - Wrap Canvas2D render loop lifecycle
- * - Manage render loop start/stop
- * - Keep canvas context ownership inside @prismgb/gpu
- */
-
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
 
@@ -29,12 +17,10 @@ interface AppStateLike {
   readonly isStreaming: boolean;
 }
 
-interface Canvas2DRendererAdapterDependencies {
+export interface Canvas2DRendererAdapterDependencies {
   canvasRenderLoopService: CanvasRenderLoopServiceLike;
   appState: AppStateLike;
-  loggerFactory: {
-    create(name: string): LoggerLike;
-  };
+  loggerFactory: LoggerFactoryLike;
 }
 
 export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
@@ -77,8 +63,6 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
   }
 
   async renderFrame(_videoElement: HTMLVideoElement): Promise<void> {
-    // Canvas2D handles frame rendering internally via RVFC in startRendering
-    // No manual frame-by-frame rendering needed
   }
 
   resize(width: number, height: number): void {
@@ -118,9 +102,6 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this.clearCanvas();
   }
 
-  /**
-   * Cleanup Canvas2D renderer resources
-   */
   async cleanup(): Promise<void> {
     if (this._videoElement) {
       this.canvasRenderLoopService.stopRendering(this._videoElement);
@@ -134,27 +115,17 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this.logger.info('Canvas2D renderer adapter cleaned up');
   }
 
-  /**
-   * Clear the canvas with black background
-   */
   clearCanvas(): void {
     if (this._canvasElement) {
       this.canvasRenderLoopService.clearCanvas(this._canvasElement);
     }
   }
 
-  /**
-   * Reset canvas state (after canvas replacement)
-   */
   async resetCanvasState(): Promise<void> {
     await this.canvasRenderLoopService.resetCanvasState();
     this._canvasElement = null;
     this._isInitialized = false;
   }
-
-  // ============================
-  // Canvas2D does not support presets
-  // ============================
 
   supportsPresets(): boolean {
     return false;

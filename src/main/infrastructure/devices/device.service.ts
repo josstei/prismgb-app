@@ -8,7 +8,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { appConfig } from '@shared/config/config-loader.utils.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry, type DeviceRegistryEntry } from '@shared/features/devices/device.registry.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import {
   createNodeUsbDeviceMonitor,
@@ -148,8 +148,8 @@ class DeviceService extends BaseService {
       }
 
       // Load profiles from registry using shared iterator
-      const devices: Array<{ id: string; name: string }> = [];
-      forEachDeviceWithModule('profileModule', (device: { id: string; name: string }) => {
+      const devices: DeviceRegistryEntry[] = [];
+      forEachDeviceWithModule('profileModule', (device) => {
         devices.push(device);
       }, { logger: this.logger });
 

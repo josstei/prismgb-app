@@ -4,14 +4,13 @@ import crypto from 'crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
 import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { CHROMATIC_E2E_FIXTURE, CHROMATIC_SPECS } from '../../support/chromatic-device-specs.js';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../factories/index.js';
+import { createSettingsServiceHarness } from '../../factories/index.js';
 
 const projectRoot = process.cwd();
 
@@ -34,21 +33,6 @@ function flattenStringValues(node) {
   }
 
   return values;
-}
-
-function createSettingsService() {
-  const storage = createStorageService();
-  const loggerFactory = createLoggerFactory();
-
-  const service = new SettingsService({
-    eventBus: createEventBus(),
-    loggerFactory,
-    storageService: storage
-  });
-
-  const logger = loggerFactory._getLogger('SettingsService');
-
-  return { service, storage, logger };
 }
 
 function hashFile(filePath) {
@@ -165,7 +149,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
   });
 
   it('documents settings defaults and current recording/transcode format drift', async () => {
-    const { service } = createSettingsService();
+    const { service } = createSettingsServiceHarness();
 
     const defaults = Object.fromEntries(
       await Promise.all(
@@ -297,7 +281,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
     const fullscreenSpecSource = readProjectFile('tests/e2e/fullscreen.spec.js');
     const settingsSpecSource = readProjectFile('tests/e2e/settings.spec.js');
     const streamingSpecSource = readProjectFile('tests/e2e/streaming-smoke.spec.js');
-    const preloadSource = readProjectFile('src/preload/index.js');
+    const preloadSource = readProjectFile('src/preload/index.ts');
     const ipcManifest = JSON.parse(readProjectFile('src/shared/ipc/ipc.manifest.json'));
     const deviceNamespace = ipcManifest.namespaces.find((namespace) => namespace.apiName === 'deviceAPI');
 
@@ -376,7 +360,7 @@ describe('Phase 0 non-IPC contract baselines', () => {
       'onDeviceDisconnected'
     ]);
     expect(preloadSource).toContain('exposePreloadApis(contextBridge');
-    expect(preloadSource).toContain('deviceAPI,');
+    expect(preloadSource).toContain('IpcManifest.namespaces.map');
     expect(preloadSource).not.toContain('onDeviceConnected: deviceAPI.onDeviceConnected');
     expect(preloadSource).not.toContain('onDeviceDisconnected: deviceAPI.onDeviceDisconnected');
   });

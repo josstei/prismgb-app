@@ -8,7 +8,7 @@ import { parseFlagArgs } from './lib/cli.js';
 import { listFiles, readJsonFile } from './lib/files.js';
 import { writeGeneratedArtifact } from './lib/generate-artifacts.js';
 import { createReport, writeJsonReport } from './lib/json-report.js';
-import { compareSortedValues, flattenStringLeaves } from './lib/manifest-drift.js';
+import { compareSortedValues } from './lib/manifest-drift.js';
 import { extractAliasKeysFromConfigSource } from './lib/alias-config.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -33,6 +33,9 @@ function resolvePreloadDeclarationSources(options = {}) {
 }
 function collectIpcManifestEntries(ipcManifest) { return ipcManifest.namespaces.flatMap((namespace) => [...(namespace.invoke || []), ...(namespace.subscriptions || [])].map((entry) => ({ namespace, entry }))); }
 function collectIpcManifestChannels(ipcManifest) { return collectIpcManifestEntries(ipcManifest).map(({ entry }) => entry.channel); }
+function collectIpcManifestChannelMap(ipcManifest) { return Object.fromEntries(ipcManifest.namespaces.map((namespace) => [namespace.namespace, Object.fromEntries([...(namespace.invoke || []), ...(namespace.subscriptions || [])].filter((entry) => entry.channelKey && entry.channel).map((entry) => [entry.channelKey, entry.channel]))])); }
+const ipcChannelMapBlockMarker = 'CODEBASE_IPC_CHANNEL_MAP';
+function createIpcChannelMapBlock(ipcManifest) { const namespaces = ipcManifest.namespaces, rows = namespaces.map((namespace, index) => `  ${namespace.namespace}: { ${[...(namespace.invoke || []), ...(namespace.subscriptions || [])].map((entry) => `${entry.channelKey}: ${quotedTsString(entry.channel)}`).join(', ')} }${index === namespaces.length - 1 ? '' : ','}`); return [`// ${ipcChannelMapBlockMarker}:START`, 'export const IPC_CHANNELS = {', ...rows, '} as const;', '', 'export type IpcChannels = typeof IPC_CHANNELS;', `// ${ipcChannelMapBlockMarker}:END`].join('\n'); }
 function collectIpcManifestMethods(ipcManifest) { return Object.fromEntries(ipcManifest.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods || []])); }
 const resolveIpcChannelFromKey = (ipcChannels, namespaceKey, channelKey) => ipcChannels[namespaceKey]?.[channelKey] || `IPC_CHANNELS.${namespaceKey}.${channelKey}`;
 function collectIpcManifestChannelKeyEntries(ipcManifest, resolveChannel) { return collectIpcManifestEntries(ipcManifest).map(({ namespace, entry }) => `${namespace.namespace}.${entry.channelKey} ${resolveChannel(namespace, entry)}`); }
@@ -219,6 +222,8 @@ function collectEventManifestValues(eventManifest, scope) {
 function normalizePayloadType(payloadType) { return String(payloadType).replace(/\s+/g, ' ').trim(); }
 const eventKeyPart = (value) => value.toUpperCase().replace(/-/g, '_'), isSatisfiesExpression = typeof ts.isSatisfiesExpression === 'function' ? ts.isSatisfiesExpression : () => false;
 const quotedTsString = (value) => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+const preloadPayloadValidatorBlockMarker = 'CODEBASE_PRELOAD_PAYLOAD_VALIDATORS', preloadPayloadValidatorApis = new Set(['deviceAPI', 'updateAPI', 'transcodeAPI']), preloadPayloadValidatorDescriptors = { DeviceInfoPayload: ['isValidDeviceInfo', 'device info'], 'DeviceInfoPayload | null | undefined': ['isValidNullableDeviceInfo', 'device info'], UpdateInfoPayload: ['isValidUpdateInfo', 'update info'], UpdateProgressPayload: ['isValidProgress', 'progress'], UpdateErrorPayload: ['isValidError', 'error'], TranscodeProgressPayload: ['isValidTranscodeProgress', 'progress'], TranscodeCompletedPayload: ['isValidTranscodeResult', 'result'], TranscodeErrorPayload: ['isValidError', 'error'], TranscodeCancelledPayload: ['isValidTranscodeCancelled', 'data'] };
+function createPreloadPayloadValidatorBlock(ipcManifest) { const payloads = [...new Set(ipcManifest.namespaces.filter((namespace) => preloadPayloadValidatorApis.has(namespace.apiName)).flatMap((namespace) => (namespace.subscriptions || []).map((entry) => entry.payload).filter((payload) => payload && payload !== 'void')))]; return [`// ${preloadPayloadValidatorBlockMarker}:START`, 'const payloadValidatorMetadataByPayload: PayloadValidatorMetadataByPayload = {', ...payloads.map((payload, index) => { const [validator = 'missingPreloadPayloadValidator', label = 'missing payload validator'] = preloadPayloadValidatorDescriptors[payload] || [], key = /^[A-Za-z_$][\w$]*$/.test(payload) ? payload : quotedTsString(payload); return `  ${key}: { validatePayload: ${validator}, invalidPayloadLabel: ${quotedTsString(label)} }${index === payloads.length - 1 ? '' : ','}`; }), '};', `// ${preloadPayloadValidatorBlockMarker}:END`].join('\n'); }
 const rendererEventDomainComments = new Map([['system', 'System events (EventBus internals)'], ['device', 'Device events'], ['stream', 'Stream events'], ['capture', 'Capture events'], ['settings', 'Settings events'], ['render', 'Render events (GPU rendering pipeline)'], ['ui', 'UI events'], ['update', 'Update events'], ['notes', 'Notes events'], ['transcode', 'Transcode events']]);
 const eventChannelsBlockMarker = 'CODEBASE_RENDERER_EVENT_CHANNELS';
 const eventChannelsPrelude = ['/**', ' * Event channel constants shared across renderer layers.', ' *', ' * This is the source-of-truth contract for EventBus topic names.', ' */', "import { getEventManifestScopeEvents, toManifestEventKey } from './event.manifest.js';", '', 'const rendererEventChannelsByKey = new Map(', "  getEventManifestScopeEvents('renderer').map((entry) => [", '    toManifestEventKey(entry.domain, entry.name),', '    entry.value', '  ] as const)', ');', '', 'function getRendererChannel<const TDomain extends string, const TName extends string>(', '  domain: TDomain,', '  name: TName', '): `${TDomain}:${TName}` {', '  const key = toManifestEventKey(domain, name) as `${TDomain}:${TName}`;', '  const manifestValue = rendererEventChannelsByKey.get(key);', '', '  if (!manifestValue) {', '    throw new Error(`Renderer event "${key}" not found in event manifest`);', '  }', '', '  // Keep the runtime value contract strict: value must match domain:name key form.', '  if (manifestValue !== key) {', '    throw new Error(`Renderer event "${key}" has mismatched manifest value "${manifestValue}"`);', '  }', '', '  return manifestValue as `${TDomain}:${TName}`;', '}', '', `// ${eventChannelsBlockMarker}:START`, 'export const EventChannels = {'].join('\n');
@@ -418,9 +423,16 @@ function loadManifests() { return Object.fromEntries(Object.entries(manifestPath
 function createDerivedSourceCheck({ name, sourceText, requiredFragments }) { const missingFragments = requiredFragments.filter((fragment) => !sourceText.includes(fragment)); return { name, status: missingFragments.length === 0 ? 'pass' : 'fail', expectedCount: requiredFragments.length, actualCount: requiredFragments.length - missingFragments.length, missing: missingFragments, extra: [] }; }
 const defaultRendererManifestBridgeConsumers = Object.freeze({ updateAPI: { filePath: 'src/renderer/infrastructure/services/updates/update.service.ts', mode: 'bridge' }, transcodeAPI: { filePath: 'src/renderer/infrastructure/services/transcode/transcode.service.ts', mode: 'bridge' }, deviceAPI: { filePath: 'src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', mode: 'bridge' }, windowAPI: { filePath: 'src/renderer/infrastructure/services/settings/fullscreen.service.ts', mode: 'bridge' } });
 const rendererPreloadBridgeDescriptorBlockMarker = 'CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS';
-function createRendererPreloadBridgeDescriptorPreview(ipcManifest) { const bridgeApiNames = new Set(Object.keys(defaultRendererManifestBridgeConsumers)); return [`// ${rendererPreloadBridgeDescriptorBlockMarker}:START`, 'export const RendererPreloadBridgeDescriptors = {', ...ipcManifest.namespaces.filter((namespace) => bridgeApiNames.has(namespace.apiName)).map((namespace, index, entries) => `  ${namespace.apiName}: { apiName: ${quotedTsString(namespace.apiName)}, methods: [${(namespace.subscriptions || []).map((entry) => quotedTsString(derivePublicMethodName(entry))).join(', ')}] }${index === entries.length - 1 ? '' : ','}`), '} as const satisfies Record<string, RendererPreloadBridgeDescriptor>;', `// ${rendererPreloadBridgeDescriptorBlockMarker}:END`].join('\n'); }
+function createRendererPreloadBridgeDescriptorPreview(ipcManifest) {
+  const namespaces = ipcManifest.namespaces.filter((namespace) => (namespace.subscriptions || []).length > 0);
+  const methodUnionRows = namespaces.map((namespace) => `  readonly ${namespace.apiName}: ${(namespace.subscriptions || []).map((entry) => quotedTsString(derivePublicMethodName(entry))).join(' | ') || 'never'};`);
+  const methodNameRows = namespaces.map((namespace, index) => `  ${namespace.apiName}: [${(namespace.subscriptions || []).map((entry) => quotedTsString(derivePublicMethodName(entry))).join(', ')}]${index === namespaces.length - 1 ? '' : ','}`);
+  const descriptorRows = namespaces.map((namespace, index) => `  ${namespace.apiName}: { apiName: ${quotedTsString(namespace.apiName)}, methods: rendererPreloadBridgeMethodNames.${namespace.apiName} }${index === namespaces.length - 1 ? '' : ','}`);
+  return [`// ${rendererPreloadBridgeDescriptorBlockMarker}:START`, 'type RendererPreloadBridgeMethodMap = {', ...methodUnionRows, '};', `const rendererPreloadBridgeApiNames = [${namespaces.map((namespace) => quotedTsString(namespace.apiName)).join(', ')}] as const satisfies readonly (keyof RendererPreloadBridgeMethodMap)[];`, 'const rendererPreloadBridgeMethodNames = {', ...methodNameRows, '} as const satisfies { readonly [TApiName in keyof RendererPreloadBridgeMethodMap]: readonly RendererPreloadBridgeMethodMap[TApiName][] };', 'export type RendererPreloadBridgeApiName = keyof RendererPreloadBridgeMethodMap & string;', '', 'function assertManifestMethodsMatchDescriptor(apiName: string, manifestMethods: readonly string[], descriptorMethods: readonly string[]): void {', '  const missing = descriptorMethods.filter((method) => !manifestMethods.includes(method));', '  const extra = manifestMethods.filter((method) => !descriptorMethods.includes(method));', '  if (missing.length || extra.length) {', '    throw new Error(`IPC manifest subscriptions for renderer preload bridge API "${apiName}" do not match descriptor: ${[missing.length ? `missing ${missing.join(\', \')}` : \'\', extra.length ? `extra ${extra.join(\', \')}` : \'\'].filter(Boolean).join(\'; \')}`);', '  }', '}', '', 'function assertRendererPreloadBridgeDescriptorManifestParity(', '  manifest: IpcManifest = IpcContractManifest', '): void {', '  for (const apiName of rendererPreloadBridgeApiNames) {', '    const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName);', '    if (!namespace || !hasManifestSubscriptions(namespace)) {', '      throw new Error(`IPC manifest subscriptions not found for renderer preload bridge API "${apiName}"`);', '    }', '    const descriptorMethods = rendererPreloadBridgeMethodNames[apiName];', '    assertManifestMethodsMatchDescriptor(apiName, [...namespace.subscriptions].map(derivePublicMethodName), descriptorMethods);', '  }', '}', '', 'assertRendererPreloadBridgeDescriptorManifestParity();', '', 'export const RendererPreloadBridgeDescriptors = {', ...descriptorRows, '} as const satisfies RendererPreloadBridgeDescriptorMap<RendererPreloadBridgeMethodMap>;', `// ${rendererPreloadBridgeDescriptorBlockMarker}:END`].join('\n');
+}
 const findTopLevelVariableStatement = (sourceFile, variableName, exported = false) => { const matches = sourceFile.statements.filter((node) => ts.isVariableStatement(node) && (!exported || node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) && node.declarationList.declarations.some((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === variableName)); return matches.length === 1 ? matches[0] : null; };
-function extractRendererPreloadBridgeDescriptorBlock(sourceText) { const sourceFile = ts.createSourceFile('src/renderer/infrastructure/services/preload-event-bridge.factory.ts', sourceText, ts.ScriptTarget.Latest, true), statement = findTopLevelVariableStatement(sourceFile, 'RendererPreloadBridgeDescriptors', true), startMarker = `// ${rendererPreloadBridgeDescriptorBlockMarker}:START`, endMarker = `// ${rendererPreloadBridgeDescriptorBlockMarker}:END`; if (!statement) return null; const statementLineStart = sourceText.lastIndexOf('\n', statement.getStart(sourceFile) - 1) + 1, markerLineStart = sourceText.lastIndexOf('\n', statementLineStart - 2) + 1, markerLine = sourceText.slice(markerLineStart, statementLineStart - 1).trim(), statementLineEnd = sourceText.indexOf('\n', statement.end); if (statementLineEnd === -1) return null; const endLineStart = statementLineEnd + 1, endLineEnd = sourceText.indexOf('\n', endLineStart), endLine = sourceText.slice(endLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trim(); return markerLine === startMarker && endLine === endMarker ? sourceText.slice(markerLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trimEnd() : null; }
+function extractMarkedVariableBlock(sourceText, filePath, variableName, markerName, exported = false) { const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true), statement = findTopLevelVariableStatement(sourceFile, variableName, exported), startMarker = `// ${markerName}:START`, endMarker = `// ${markerName}:END`; if (!statement) return null; const startIndex = sourceText.lastIndexOf(startMarker, statement.getStart(sourceFile)), endIndex = sourceText.indexOf(endMarker, statement.end); return startIndex !== -1 && endIndex !== -1 ? sourceText.slice(startIndex, endIndex + endMarker.length).trimEnd() : null; }
+function extractRendererPreloadBridgeDescriptorBlock(sourceText) { return extractMarkedVariableBlock(sourceText, 'src/renderer/infrastructure/services/preload-event-bridge.factory.ts', 'RendererPreloadBridgeDescriptors', rendererPreloadBridgeDescriptorBlockMarker, true); }
 function normalizeRendererManifestBridgeConsumerEntry(consumer) { if (typeof consumer === 'string') return { filePath: consumer, mode: 'bridge' }; if (!consumer || typeof consumer !== 'object') return null; const filePath = typeof consumer.filePath === 'string' ? consumer.filePath : null, mode = consumer.mode === 'direct' ? 'direct' : 'bridge'; return filePath ? { filePath, mode } : null; }
 function resolveRendererManifestBridgeConsumers(options = {}) {
   const consumers = new Map(Object.entries(defaultRendererManifestBridgeConsumers).map(([apiName, consumer]) => [apiName, { ...consumer }]));
@@ -509,6 +521,7 @@ function createGeneratedBlockCheck({ name, sourceText, markerName, expectedBlock
   const actualBlock = extractMarkedBlock(sourceText, markerName), expected = expectedBlock.trimEnd(), pass = actualBlock === expected;
   return { name, status: pass ? 'pass' : 'fail', expected, actual: actualBlock ?? 'missing', missing: actualBlock ? [] : [`${markerName}:START`], extra: actualBlock && !pass ? ['generated block drift'] : [] };
 }
+function createExactBlockCheck({ name, actualBlock, markerName, expectedBlock }) { const expected = expectedBlock.trimEnd(), actual = actualBlock?.trimEnd() ?? null, pass = actual === expected; return { name, status: pass ? 'pass' : 'fail', expected, actual: actual ?? 'missing', missing: actual ? [] : [`${markerName}:START`], extra: actual && !pass ? ['generated block drift'] : [] }; }
 function createExactSourceCheck({ name, sourceText, expectedText }) {
   const expected = expectedText.trimEnd(), actual = sourceText.trimEnd(), pass = actual === expected;
   return { name, status: pass ? 'pass' : 'fail', expected, actual, missing: pass ? [] : ['generated source parity'], extra: pass ? [] : ['checked-in source drift'] };
@@ -570,14 +583,16 @@ function collectManifestBackedHandlerDescriptors(options = {}) {
 }
 function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   const checks = [];
-  const ipcChannels = readProjectJson('src/shared/ipc/channels.json');
-  const currentChannels = flattenStringLeaves(ipcChannels);
+  const ipcChannels = collectIpcManifestChannelMap(manifests.ipc);
+  const currentChannels = Object.values(ipcChannels).flatMap((namespace) => Object.values(namespace));
+  const ipcManifestSource = options.ipcManifestSource || readProjectText('src/shared/ipc/ipc.manifest.ts');
   const ipcExposureIdentities = manifests.ipc.namespaces.flatMap((namespace) => [namespace.apiName, ...(namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`)]);
   const ipcExposedMethodIdentities = manifests.ipc.namespaces.flatMap((namespace) => (namespace.exposedMethods || []).map((method) => `${namespace.apiName}.${method}`));
   checks.push(compareSortedValues({ name: 'ipc manifest preload exposure entries are unique', expected: [...new Set(ipcExposureIdentities)], actual: ipcExposureIdentities }));
   checks.push(compareSortedValues({ name: 'ipc manifest exposed methods are owned by exactly one invoke or subscription entry', expected: ipcExposedMethodIdentities, actual: collectIpcManifestOwnedMethodIdentities(manifests.ipc) }));
   checks.push(createSubscriptionRegistryMetadataCheck(manifests.ipc));
-  checks.push(compareSortedValues({ name: 'ipc channels manifest matches channels.json', expected: currentChannels, actual: collectIpcManifestChannels(manifests.ipc) }));
+  checks.push(compareSortedValues({ name: 'ipc runtime channels derive from ipc manifest', expected: currentChannels, actual: collectIpcManifestChannels(manifests.ipc) }));
+  checks.push(createGeneratedBlockCheck({ name: 'ipc channel type map matches ipc manifest', sourceText: ipcManifestSource, markerName: ipcChannelMapBlockMarker, expectedBlock: createIpcChannelMapBlock(manifests.ipc) }));
   checks.push(compareSortedValues({ name: 'ipc manifest channel keys resolve to declared channels',
     expected: collectIpcManifestChannelKeyEntries(manifests.ipc, (_namespace, entry) => entry.channel),
     actual: collectIpcManifestChannelKeyEntries(manifests.ipc, (namespace, entry) => resolveIpcChannelFromKey(ipcChannels, namespace.namespace, entry.channelKey)) }));
@@ -585,8 +600,9 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   const handlerDescriptors = collectManifestBackedHandlerDescriptors(options);
   checks.push(compareSortedValues({ name: 'main IPC handlers derive descriptor metadata from manifest', expected: manifests.ipc.namespaces.flatMap((namespace) => (namespace.invoke || []).map((entry) => `${namespace.apiName}.${derivePublicMethodName(entry)}`)), actual: handlerDescriptors.methodIdentities }));
   checks.push(compareSortedValues({ name: 'main IPC handlers do not define local descriptor metadata', expected: [], actual: handlerDescriptors.localMetadataEntries }));
+  const rendererPreloadBridgeDescriptorsSource = options.rendererPreloadBridgeDescriptorsSource || readProjectText('src/renderer/infrastructure/services/preload-event-bridge.factory.ts');
   const generatedRendererPreloadBridgeDescriptors = createRendererPreloadBridgeDescriptorPreview(manifests.ipc);
-  checks.push(createGeneratedBlockCheck({ name: 'renderer preload bridge descriptors match ipc manifest', sourceText: extractRendererPreloadBridgeDescriptorBlock(options.rendererPreloadBridgeDescriptorsSource || readProjectText('src/renderer/infrastructure/services/preload-event-bridge.factory.ts')) || '', markerName: rendererPreloadBridgeDescriptorBlockMarker, expectedBlock: generatedRendererPreloadBridgeDescriptors }));
+  checks.push(createExactBlockCheck({ name: 'renderer preload bridge descriptors match ipc manifest', actualBlock: extractRendererPreloadBridgeDescriptorBlock(rendererPreloadBridgeDescriptorsSource), markerName: rendererPreloadBridgeDescriptorBlockMarker, expectedBlock: generatedRendererPreloadBridgeDescriptors }));
   checks.push(createRendererManifestBridgeUsageCheck(manifests.ipc, options));
   checks.push(createModeCheck('ipc manifest is enforced', manifests.ipc.mode));
   const preloadDeclarationSurface = collectPreloadDeclarationSurface(resolvePreloadDeclarationSources(options));
@@ -638,7 +654,9 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     ),
     actual: collectIpcManifestSignatureEntries(manifests.ipc, 'subscriptions', createSubscriptionManifestSignature)
   }));
-  const preloadIndexSource = readProjectText('src/preload/index.js');
+  const preloadValidatorsSource = options.preloadValidatorsSource || readProjectText('src/preload/validators.ts');
+  checks.push(createExactBlockCheck({ name: 'preload payload validator metadata matches ipc manifest subscriptions', actualBlock: extractMarkedVariableBlock(preloadValidatorsSource, 'src/preload/validators.ts', 'payloadValidatorMetadataByPayload', preloadPayloadValidatorBlockMarker), markerName: preloadPayloadValidatorBlockMarker, expectedBlock: createPreloadPayloadValidatorBlock(manifests.ipc) }));
+  const preloadIndexSource = readProjectText('src/preload/index.ts');
   const currentPreloadExposures = extractPreloadExposures(preloadIndexSource, manifests.ipc);
   const manifestPreloadExposures = collectIpcManifestMethods(manifests.ipc);
   checks.push(createDerivedSourceCheck({
@@ -707,7 +725,7 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   checks.push(createModeCheck('device manifest is enforced', manifests.devices.mode));
   checks.push(createDerivedSourceCheck({
     name: 'device registry derives built-in metadata from device manifest',
-    sourceText: readProjectText('src/shared/features/devices/device.registry.js'),
+    sourceText: readProjectText('src/shared/features/devices/device.registry.ts'),
     requiredFragments: [
       'DeviceManifest.devices.map',
       'device.modules.profile',
@@ -717,7 +735,7 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   }));
   checks.push(createDerivedSourceCheck({
     name: 'Chromatic runtime config derives hardware metadata from device manifest',
-    sourceText: readProjectText('src/shared/features/devices/profiles/chromatic/device-chromatic.config.js'),
+    sourceText: readProjectText('src/shared/features/devices/profiles/chromatic/device-chromatic.config.ts'),
     requiredFragments: [
       'DeviceManifest.devices.find',
       'CHROMATIC_MANIFEST_ENTRY.usb.vendorId',

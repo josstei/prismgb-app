@@ -174,8 +174,7 @@ jobs:
       - name: Build (Linux)
         if: runner.os == 'Linux'
         run: |
-          npx vite build
-          npx electron-builder --linux AppImage:${{ matrix.arch }} deb:${{ matrix.arch }} tar.gz:${{ matrix.arch }} --publish never
+          npm run ${{ matrix.build_script }} -- --${{ matrix.arch }} --publish never
         env:
           USE_SYSTEM_FPM: ${{ inputs.linux_use_system_fpm == 'true' && 'true' || '' }}
           npm_config_arch: ${{ matrix.arch }}

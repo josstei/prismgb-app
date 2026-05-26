@@ -1,38 +1,48 @@
-/**
- * Preferences Orchestrator
- *
- * Coordinates preferences loading and state management
- *
- * Responsibilities:
- * - Load user preferences from SettingsService
- * - Apply preferences to AppState
- * - Publish preference events for UI updates
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type PreferencesPayload = {
+  gameVolume: number;
+  performanceMode: boolean;
+  minimalistFullscreen: boolean;
+  [key: string]: unknown;
+};
+
+type SettingsServiceLike = {
+  loadAllPreferences(): PreferencesPayload;
+};
+
+type SettingsPreferencesOrchestratorDependencies = {
+  settingsService: SettingsServiceLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
+  private readonly settingsService: SettingsServiceLike;
 
-  constructor(dependencies: Record<string, unknown>) {
+  constructor(dependencies: SettingsPreferencesOrchestratorDependencies) {
     super(
       dependencies,
-      ['settingsService', 'appState', 'eventBus', 'loggerFactory'],
+      ['settingsService', 'eventBus', 'loggerFactory'],
       'SettingsPreferencesOrchestrator'
     );
+    this.settingsService = dependencies.settingsService;
+    this.eventBus = dependencies.eventBus;
   }
 
   /**
    * Initialize orchestrator - load preferences on startup
    */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     await this.loadPreferences();
   }
 
   /**
    * Load all preferences from storage and apply them
    */
-  async loadPreferences() {
+  async loadPreferences(): Promise<void> {
     try {
       const preferences = this.settingsService.loadAllPreferences();
 
