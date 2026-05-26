@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('BrowserMediaAdapter', () => {
   let service;
@@ -212,10 +213,7 @@ describe('BrowserStorageAdapter', () => {
 
   beforeEach(() => {
     storageData = {};
-    mockLogger = {
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'BrowserStorageAdapter' });
 
     global.localStorage = {
       getItem: vi.fn((key) => storageData[key] ?? null),

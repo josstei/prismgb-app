@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseDeviceAdapter } from '@renderer/infrastructure/adapters/devices/device-base.adapter.ts';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { createEventBus, createLogger } from '../../../../factories/index.js';
 
 describe('BaseDeviceAdapter', () => {
   let adapter;
@@ -14,16 +15,8 @@ describe('BaseDeviceAdapter', () => {
   let mockStreamLifecycle;
 
   beforeEach(() => {
-    mockEventBus = {
-      publish: vi.fn()
-    };
-
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLogger = createLogger({ name: 'BaseDeviceAdapter' });
 
     mockConstraintBuilder = {
       build: vi.fn(() => ({ video: { width: 160 } }))

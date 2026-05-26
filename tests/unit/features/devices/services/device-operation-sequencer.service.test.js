@@ -4,12 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('DeviceOperationSequencerService', () => {
   let service;
   let mockDeviceService;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockDeviceService = {
@@ -17,23 +19,15 @@ describe('DeviceOperationSequencerService', () => {
       enumerateDevices: vi.fn().mockResolvedValue({})
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     service = new DeviceOperationSequencerService({
       deviceService: mockDeviceService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('DeviceOperationSequencerService');
   });
 
   afterEach(() => {

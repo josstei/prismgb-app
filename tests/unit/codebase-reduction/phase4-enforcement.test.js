@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createPreloadExposureMap } from '@preload/exposure.factory.js';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { BUILD_OUTPUT_PATHS, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
 
 const projectRoot = process.cwd();
@@ -49,6 +51,17 @@ function collectFiles(relativeDirectory, predicate, files = []) {
   }
 
   return files;
+}
+
+function createManifestPreloadApiImplementations(manifest = IpcContractManifest) {
+  return Object.fromEntries(
+    manifest.namespaces.map((namespace) => [
+      namespace.apiName,
+      Object.fromEntries(
+        namespace.exposedMethods.map((methodName) => [methodName, () => undefined])
+      )
+    ])
+  );
 }
 
 describe('Phase 4 clean-break enforcement', () => {
@@ -309,18 +322,19 @@ describe('Phase 4 clean-break enforcement', () => {
   it('keeps preload exposures and E2E device mocks on current manifest-owned contracts', () => {
     const preloadIndex = readProjectFile('src/preload/index.js');
     const preloadExposureFactory = readProjectFile('src/preload/exposure.factory.ts');
-    const ipcManifest = readProjectJson('src/shared/ipc/ipc.manifest.json');
     const chromaticHelper = readProjectFile('tests/e2e/helpers/mock-chromatic.helper.js');
     const deviceStreamingSpec = readProjectFile('tests/e2e/device-streaming.spec.js');
     const fullscreenSpec = readProjectFile('tests/e2e/fullscreen.spec.js');
-    const exposureCall = preloadIndex.match(/exposePreloadApis\(contextBridge,\s*\{([\s\S]*?)\n\}\);/);
+    const exposureMap = createPreloadExposureMap(createManifestPreloadApiImplementations());
 
     expect(preloadIndex).toContain("from '@preload/exposure.factory.js'");
     expect(preloadIndex).toContain('exposePreloadApis(contextBridge');
     expect(preloadIndex).not.toMatch(/contextBridge\.exposeInMainWorld\('[^']+',\s*\{/);
-    expect(exposureCall).not.toBeNull();
-    for (const namespace of ipcManifest.namespaces) {
-      expect(exposureCall[1]).toMatch(new RegExp(`\\b${namespace.apiName}\\b`));
+    expect(Object.keys(exposureMap)).toEqual(
+      IpcContractManifest.namespaces.map((namespace) => namespace.apiName)
+    );
+    for (const namespace of IpcContractManifest.namespaces) {
+      expect(Object.keys(exposureMap[namespace.apiName])).toEqual(namespace.exposedMethods);
     }
     expect(preloadExposureFactory).toContain("from '@shared/ipc/ipc.manifest.json'");
     expect(preloadExposureFactory).toContain('manifest.namespaces.map');

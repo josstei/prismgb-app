@@ -343,29 +343,27 @@ function extractEventChannelLines(content) {
   }
   return values;
 }
-function countRendererEventManifestChannels(projectRoot) {
+function readRendererEventManifestEvents(projectRoot) {
   const manifestPath = path.join(projectRoot, 'src/shared/events/event.manifest.json');
   if (!fs.existsSync(manifestPath)) {
     return null;
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const rendererScope = (manifest.scopes || []).find((scope) => scope.scope === 'renderer');
-  if (!rendererScope) {
-    return 0;
-  }
-  return new Set((rendererScope.events || []).map((entry) => entry.value).filter(Boolean)).size;
+  return rendererScope ? rendererScope.events || [] : [];
 }
 export function countEventContractEntries(projectRoot) {
   const channelsPath = path.join(projectRoot, 'src/shared/events/event-channels.ts');
   const payloadsPath = path.join(projectRoot, 'src/shared/events/event-payloads.ts');
-  let channelCount = countRendererEventManifestChannels(projectRoot);
+  const rendererManifestEvents = readRendererEventManifestEvents(projectRoot);
+  let channelCount = rendererManifestEvents === null ? null : new Set(rendererManifestEvents.map((entry) => entry.value).filter(Boolean)).size;
   if (channelCount === null && fs.existsSync(channelsPath)) {
     const channelsSource = fs.readFileSync(channelsPath, 'utf8');
     const channelValues = extractEventChannelLines(channelsSource);
     channelCount = new Set(channelValues).size;
   }
-  let payloadEntries = 0;
-  if (fs.existsSync(payloadsPath)) {
+  let payloadEntries = rendererManifestEvents === null ? 0 : new Set(rendererManifestEvents.map((entry) => entry.value).filter(Boolean)).size;
+  if (rendererManifestEvents === null && fs.existsSync(payloadsPath)) {
     const payloadSource = fs.readFileSync(payloadsPath, 'utf8');
     payloadEntries = [...payloadSource.matchAll(/^\s*\[EventChannels\.[^\]]+\]\s*:/gm)].length;
   }

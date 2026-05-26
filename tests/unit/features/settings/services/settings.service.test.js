@@ -6,6 +6,7 @@ import path from 'path';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 describe('SettingsService', () => {
   let service;
@@ -14,33 +15,16 @@ describe('SettingsService', () => {
   let mockLoggerFactory;
   let localStorageMock;
   beforeEach(() => {
-    localStorageMock = {
-      store: {},
-      getItem: vi.fn((key) => localStorageMock.store[key] || null),
-      setItem: vi.fn((key, value) => { localStorageMock.store[key] = value; }),
-      removeItem: vi.fn((key) => { delete localStorageMock.store[key]; }),
-      clear: vi.fn(() => { localStorageMock.store = {}; })
-    };
+    localStorageMock = createStorageService();
     global.localStorage = localStorageMock;
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockEventBus = createEventBus();
     service = new SettingsService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       storageService: localStorageMock
     });
+    mockLogger = mockLoggerFactory._getLogger('SettingsService');
   });
   afterEach(() => {
     localStorageMock.clear();
@@ -97,8 +81,8 @@ describe('SettingsService', () => {
   });
   describe('generic accessors', () => {
     it('reads defaults and saved values by definition name', () => {
-      localStorageMock.store.gameVolume = '64';
-      localStorageMock.store.minimalistFullscreen = 'true';
+      localStorageMock.setItem('gameVolume', '64');
+      localStorageMock.setItem('minimalistFullscreen', 'true');
       expect(service.getSetting('gameVolume')).toBe(64);
       expect(service.getSetting('minimalistFullscreen')).toBe(true);
       expect(service.getSetting('recordingFormat')).toBe('webm');
@@ -136,10 +120,10 @@ describe('SettingsService', () => {
   });
   describe('loadAllPreferences', () => {
     it('loads preference shape from definition names', () => {
-      localStorageMock.store.gameVolume = '30';
-      localStorageMock.store.statusStripVisible = 'false';
-      localStorageMock.store.performanceMode = 'false';
-      localStorageMock.store.minimalistFullscreen = 'true';
+      localStorageMock.setItem('gameVolume', '30');
+      localStorageMock.setItem('statusStripVisible', 'false');
+      localStorageMock.setItem('performanceMode', 'false');
+      localStorageMock.setItem('minimalistFullscreen', 'true');
       expect(service.loadAllPreferences()).toEqual({
         gameVolume: 30,
         statusStripVisible: false,
@@ -169,7 +153,7 @@ describe('SettingsService', () => {
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
     });
     it('falls back to storage through getSetting when loginItemAPI is unavailable', async () => {
-      localStorageMock.store.launchOnLogin = 'true';
+      localStorageMock.setItem('launchOnLogin', 'true');
       await expect(service.getSetting('launchOnLogin')).resolves.toBe(true);
     });
     it('updates loginItemAPI and cache through setSetting', async () => {

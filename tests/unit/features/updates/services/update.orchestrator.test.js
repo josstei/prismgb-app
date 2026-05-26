@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator.ts';
 import { UpdateState } from '@shared/config/update-state.config';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('UpdateOrchestrator', () => {
   let orchestrator;
@@ -14,16 +15,7 @@ describe('UpdateOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockUpdateService = {
       initialize: vi.fn(),
@@ -49,6 +41,7 @@ describe('UpdateOrchestrator', () => {
       updateUiService: mockUpdateUiService,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UpdateOrchestrator');
   });
 
   afterEach(() => {

@@ -22,13 +22,33 @@ function getVitestFn() {
   }
   return globalThis.vi.fn;
 }
+function createSubscriptionMock(fn, { dispatchPayload }) {
+  const listeners = [];
+  const unsubscribers = [];
+  const subscription = fn((callback) => {
+    const listener = { active: typeof callback === 'function', callback };
+    const unsubscribe = fn(() => { listener.active = false; });
+    if (listener.active) {
+      listeners.push(listener);
+      unsubscribers.push(unsubscribe);
+    }
+    return unsubscribe;
+  });
+  Object.defineProperties(subscription, {
+    emit: { value: (payload) => [...listeners].forEach((listener) => { if (listener.active) dispatchPayload ? listener.callback(payload) : listener.callback(); }) },
+    listenerCount: { value: () => listeners.filter((listener) => listener.active).length },
+    getUnsubscribers: { value: () => [...unsubscribers] },
+    resetListeners: { value: () => { listeners.length = 0; unsubscribers.length = 0; } }
+  });
+  return subscription;
+}
 export function createPreloadApiMock(apiName, overrides = {}, manifest = IpcManifest) {
   const namespaceByApiName = manifest === IpcManifest ? PRELOAD_NAMESPACE_BY_API_NAME : createNamespaceByApiName(manifest);
   const namespace = getNamespace(apiName, namespaceByApiName);
   const fn = getVitestFn();
   const mocks = {
     ...Object.fromEntries((namespace.invoke ?? []).map((entry) => [derivePublicMethodName(entry), fn()])),
-    ...Object.fromEntries(createManifestSubscriptionSet(apiName, manifest).subscriptions.map(({ methodName }) => [methodName, fn(() => fn())]))
+    ...Object.fromEntries(createManifestSubscriptionSet(apiName, manifest).subscriptions.map(({ methodName, payload }) => [methodName, createSubscriptionMock(fn, { dispatchPayload: payload !== 'void' })]))
   };
   for (const methodName of Object.keys(overrides)) if (!Object.prototype.hasOwnProperty.call(mocks, methodName)) throw new Error(`Unknown preload API method "${apiName}.${methodName}"`);
   return { ...mocks, ...overrides };

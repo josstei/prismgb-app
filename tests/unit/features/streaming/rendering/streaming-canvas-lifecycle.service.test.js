@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingCanvasLifecycleService', () => {
   let service;
@@ -70,23 +71,9 @@ describe('StreamingCanvasLifecycleService', () => {
       resize: vi.fn()
     };
 
-    // Create mock EventBus
-    mockEventBus = {
-      subscribe: vi.fn(),
-      publish: vi.fn()
-    };
-
-    // Create mock logger
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('StreamingCanvasLifecycleService');
 
     // Mock window
     global.window = {

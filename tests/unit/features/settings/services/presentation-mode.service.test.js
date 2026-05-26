@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
+import { createAppState, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('PresentationModeService', () => {
   let service;
@@ -22,19 +23,13 @@ describe('PresentationModeService', () => {
       disableControlsAutoHide: vi.fn()
     };
 
-    mockAppState = {
-      isCinematicModeEnabled: true,
-      isStreaming: false
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => ({
-        info: vi.fn(),
-        debug: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-      }))
-    };
+    mockAppState = createAppState({
+      initialState: {
+        isCinematicModeEnabled: true,
+        isStreaming: false
+      }
+    });
+    mockLoggerFactory = createLoggerFactory();
 
     Object.defineProperty(document, 'fullscreenElement', {
       configurable: true,

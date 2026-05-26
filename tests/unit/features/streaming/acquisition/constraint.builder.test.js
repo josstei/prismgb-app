@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder.ts';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('ConstraintBuilder', () => {
   let builder;
@@ -11,12 +12,7 @@ describe('ConstraintBuilder', () => {
   let mockContext;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger();
 
     mockContext = {
       getDeviceConstraint: vi.fn(() => ({ exact: 'video-device-id' })),

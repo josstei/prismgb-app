@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService, UpdateState } from '@main/infrastructure/updates/update.service.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -51,25 +52,13 @@ describe('UpdateService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockWindowService = {
       send: vi.fn()
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
+    mockEventBus = createEventBus();
 
     mockConfig = {
       isDevelopment: false,
@@ -82,6 +71,7 @@ describe('UpdateService', () => {
       loggerFactory: mockLoggerFactory,
       config: mockConfig
     });
+    mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 
   afterEach(async () => {

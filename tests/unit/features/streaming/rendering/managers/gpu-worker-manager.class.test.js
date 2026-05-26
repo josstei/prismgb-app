@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
 import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 
 // Mock worker protocol
 vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', () => ({
@@ -36,19 +37,9 @@ describe('GpuWorkerManager', () => {
   let mockWorker;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('GpuWorkerManager');
+    mockEventBus = createEventBus();
 
     // Mock Worker constructor
     mockWorker = {

@@ -7,7 +7,7 @@ import {
   DisclosureController,
   calculateAnchoredDisclosureLayout
 } from '@renderer/presentation/primitives/disclosure.class.js';
-import { createMockLogger } from '../../../mocks/index.js';
+import { createLogger } from '../../../factories/index.js';
 
 describe('calculateAnchoredDisclosureLayout', () => {
   it('returns right-of-anchor placement when there is enough width', () => {
@@ -92,7 +92,7 @@ describe('DisclosureController', () => {
   let onHide;
 
   beforeEach(() => {
-    mockLogger = createMockLogger();
+    mockLogger = createLogger();
     onShow = vi.fn();
     onHide = vi.fn();
 

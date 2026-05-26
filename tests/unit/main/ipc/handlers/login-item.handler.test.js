@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createLogger } from '../../../../factories/logger.factory.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -27,7 +28,7 @@ describe('LoginItem IPC Handlers', () => {
     });
 
     mockLoginItemService = { isEnabled: vi.fn(() => false), setEnabled: vi.fn() };
-    mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    mockLogger = createLogger();
     registerIpcHandlerDescriptors(mockRegisterHandler, { loginItemService: mockLoginItemService, logger: mockLogger }, loginItemHandlerDescriptors);
   });
 

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { clearPreloadApi, createPreloadApiMock, resetPreloadApis, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 describe('TranscodeService', () => {
   let service;
@@ -11,21 +12,9 @@ describe('TranscodeService', () => {
   let mockTranscodeAPI;
 
   beforeEach(() => {
-    mockEventBus = {
-      subscribe: vi.fn(),
-      publish: vi.fn()
-    };
-
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('TranscodeService');
 
     mockTranscodeAPI = createPreloadApiMock('transcodeAPI', {
       start: vi.fn().mockResolvedValue({ success: true, jobId: 'job-123' }),
@@ -321,32 +310,10 @@ describe('TranscodeService', () => {
   });
 
   describe('IPC Event Handlers', () => {
-    let progressHandler;
-    let completedHandler;
-    let errorHandler;
-    let cancelledHandler;
-
     beforeEach(() => {
       service = new TranscodeService({
         eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
-      });
-
-      mockTranscodeAPI.onProgress.mockImplementation((handler) => {
-        progressHandler = handler;
-        return vi.fn();
-      });
-      mockTranscodeAPI.onCompleted.mockImplementation((handler) => {
-        completedHandler = handler;
-        return vi.fn();
-      });
-      mockTranscodeAPI.onError.mockImplementation((handler) => {
-        errorHandler = handler;
-        return vi.fn();
-      });
-      mockTranscodeAPI.onCancelled.mockImplementation((handler) => {
-        cancelledHandler = handler;
-        return vi.fn();
       });
 
       service.initialize();
@@ -355,7 +322,7 @@ describe('TranscodeService', () => {
     describe('_handleProgress', () => {
       it('should publish progress event', () => {
         const progressData = { percent: 50, timeRemaining: 10 };
-        progressHandler(progressData);
+        mockTranscodeAPI.onProgress.emit(progressData);
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
           EventChannels.TRANSCODE.PROGRESS,
@@ -367,7 +334,7 @@ describe('TranscodeService', () => {
     describe('_handleCompleted', () => {
       it('should publish completed event', () => {
         const completedData = { outputPath: '/path/to/file.mp4', duration: 5000 };
-        completedHandler(completedData);
+        mockTranscodeAPI.onCompleted.emit(completedData);
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
           EventChannels.TRANSCODE.COMPLETED,
@@ -380,7 +347,7 @@ describe('TranscodeService', () => {
         await service.transcode(mockBlob, 'mp4');
         expect(service._isTranscoding).toBe(true);
 
-        completedHandler({});
+        mockTranscodeAPI.onCompleted.emit({});
 
         expect(service._isTranscoding).toBe(false);
         expect(service._activeJobId).toBeNull();
@@ -388,7 +355,7 @@ describe('TranscodeService', () => {
 
       it('should log completion', () => {
         const completedData = { outputPath: '/path/to/file.mp4' };
-        completedHandler(completedData);
+        mockTranscodeAPI.onCompleted.emit(completedData);
 
         expect(mockLogger.info).toHaveBeenCalledWith('Transcode completed', completedData);
       });
@@ -397,7 +364,7 @@ describe('TranscodeService', () => {
     describe('_handleError', () => {
       it('should publish error event', () => {
         const errorData = { message: 'Encoding failed', code: 'ENCODER_ERROR' };
-        errorHandler(errorData);
+        mockTranscodeAPI.onError.emit(errorData);
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
           EventChannels.TRANSCODE.ERROR,
@@ -409,7 +376,7 @@ describe('TranscodeService', () => {
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
         await service.transcode(mockBlob, 'mp4');
 
-        errorHandler({ message: 'Failed' });
+        mockTranscodeAPI.onError.emit({ message: 'Failed' });
 
         expect(service._isTranscoding).toBe(false);
         expect(service._activeJobId).toBeNull();
@@ -417,7 +384,7 @@ describe('TranscodeService', () => {
 
       it('should log error', () => {
         const errorData = { message: 'Failed' };
-        errorHandler(errorData);
+        mockTranscodeAPI.onError.emit(errorData);
 
         expect(mockLogger.error).toHaveBeenCalledWith('Transcode error', errorData);
       });
@@ -426,7 +393,7 @@ describe('TranscodeService', () => {
     describe('_handleCancelled', () => {
       it('should publish cancelled event', () => {
         const cancelledData = { jobId: 'job-123' };
-        cancelledHandler(cancelledData);
+        mockTranscodeAPI.onCancelled.emit(cancelledData);
 
         expect(mockEventBus.publish).toHaveBeenCalledWith(
           EventChannels.TRANSCODE.CANCELLED,
@@ -438,7 +405,7 @@ describe('TranscodeService', () => {
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
         await service.transcode(mockBlob, 'mp4');
 
-        cancelledHandler({});
+        mockTranscodeAPI.onCancelled.emit({});
 
         expect(service._isTranscoding).toBe(false);
         expect(service._activeJobId).toBeNull();
@@ -446,7 +413,7 @@ describe('TranscodeService', () => {
 
       it('should log cancellation', () => {
         const cancelledData = { jobId: 'job-123' };
-        cancelledHandler(cancelledData);
+        mockTranscodeAPI.onCancelled.emit(cancelledData);
 
         expect(mockLogger.info).toHaveBeenCalledWith('Transcode cancelled', cancelledData);
       });
@@ -462,12 +429,9 @@ describe('TranscodeService', () => {
     });
 
     it('should dispose all bridge-owned unsubscribe functions', () => {
-      const cleanup1 = vi.fn();
-      const cleanup2 = vi.fn();
-      mockTranscodeAPI.onProgress.mockReturnValue(cleanup1);
-      mockTranscodeAPI.onCompleted.mockReturnValue(cleanup2);
-
       service.initialize();
+      const [cleanup1] = mockTranscodeAPI.onProgress.getUnsubscribers();
+      const [cleanup2] = mockTranscodeAPI.onCompleted.getUnsubscribers();
       service.dispose();
 
       expect(cleanup1).toHaveBeenCalled();

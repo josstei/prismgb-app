@@ -4,18 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;
   let mockLogger;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger();
 
     lifecycle = new BaseStreamLifecycle(mockLogger);
 

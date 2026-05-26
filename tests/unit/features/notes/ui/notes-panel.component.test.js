@@ -4,6 +4,7 @@ import { GameFilterComponent } from '@renderer/presentation/features/notes/compo
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/components/game-autocomplete.component.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { createEventBus, createLogger } from '../../../../factories/index.js';
 describe('NotesPanelComponent', () => {
   let component;
   let mockNotesService;
@@ -22,16 +23,8 @@ describe('NotesPanelComponent', () => {
       getUniqueGames: vi.fn(() => []),
       getNotesGroupedByGame: vi.fn(() => ({}))
     };
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLogger = createLogger({ name: 'NotesPanelComponent' });
     mockElements = {
       notesBtn: document.createElement('button'),
       notesPanel: document.createElement('div'),

@@ -4,21 +4,18 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service.ts';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingGpuRenderLoopService', () => {
   let service;
   let mockLogger;
+  let mockLoggerFactory;
   let mockVideoElement;
   let mockRenderFrame;
   let mockShouldContinue;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockRenderFrame = vi.fn();
     mockShouldContinue = vi.fn(() => true);
@@ -31,8 +28,9 @@ describe('StreamingGpuRenderLoopService', () => {
     };
 
     service = new StreamingGpuRenderLoopService({
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingGpuRenderLoopService');
   });
 
   afterEach(() => {
@@ -46,10 +44,10 @@ describe('StreamingGpuRenderLoopService', () => {
     });
 
     it('should create logger with service name', () => {
-      const mockLoggerFactory = { create: vi.fn(() => mockLogger) };
-      new StreamingGpuRenderLoopService({ loggerFactory: mockLoggerFactory });
+      const loggerFactory = createLoggerFactory();
+      new StreamingGpuRenderLoopService({ loggerFactory });
 
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamingGpuRenderLoopService');
+      expect(loggerFactory.create).toHaveBeenCalledWith('StreamingGpuRenderLoopService');
     });
   });
 

@@ -2,6 +2,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
   createManifestPreloadEventBridge,
+  RendererPreloadBridgeDescriptors,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { UpdateState } from '@shared/config/update-state.config';
@@ -62,7 +63,7 @@ class UpdateService extends BaseService {
 
     this._eventBridge = createManifestPreloadEventBridge({
       api: window.updateAPI,
-      apiName: 'updateAPI',
+      descriptor: RendererPreloadBridgeDescriptors.updateAPI,
       bridgeName: 'UpdateService',
       logger: this.logger,
       handlers: {

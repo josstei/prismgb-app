@@ -86,6 +86,7 @@ function hasLocalBinding(sourceFile, names) {
   visit(sourceFile);
   return found;
 }
+function hasNonImportBinding(sourceFile, names) { let found = false; const bindingHasName = (name) => ts.isIdentifier(name) ? names.has(name.text) : ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name) ? name.elements.some((element) => element.name && bindingHasName(element.name)) : false, visit = (node) => { if (found) return; if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && bindingHasName(node.name) || (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name && names.has(node.name.text)) found = true; else ts.forEachChild(node, visit); }; visit(sourceFile); return found; }
 function unwrappedType(node) { while (node && ts.isParenthesizedTypeNode(node)) node = node.type; return node; }
 function typeText(node, sourceFile) { return normalizePayloadType(node?.getText(sourceFile) || 'unknown'); }
 function callableType(node) { return ts.isPropertySignature(node) ? unwrappedType(node.type) : null; }
@@ -216,10 +217,47 @@ function collectEventManifestValues(eventManifest, scope) {
   return eventManifest.scopes.filter((entry) => entry.scope === scope).flatMap((entry) => entry.events.map((event) => event.value));
 }
 function normalizePayloadType(payloadType) { return String(payloadType).replace(/\s+/g, ' ').trim(); }
-function collectEventManifestPayloadEntries(eventManifest) {
-  return eventManifest.scopes.filter((entry) => entry.scope === 'renderer').flatMap((entry) => entry.events.map((event) => `${event.value} ${normalizePayloadType(event.payload)}`));
-}
 const eventKeyPart = (value) => value.toUpperCase().replace(/-/g, '_'), isSatisfiesExpression = typeof ts.isSatisfiesExpression === 'function' ? ts.isSatisfiesExpression : () => false;
+const quotedTsString = (value) => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+const rendererEventDomainComments = new Map([['system', 'System events (EventBus internals)'], ['device', 'Device events'], ['stream', 'Stream events'], ['capture', 'Capture events'], ['settings', 'Settings events'], ['render', 'Render events (GPU rendering pipeline)'], ['ui', 'UI events'], ['update', 'Update events'], ['notes', 'Notes events'], ['transcode', 'Transcode events']]);
+const eventChannelsBlockMarker = 'CODEBASE_RENDERER_EVENT_CHANNELS';
+const eventChannelsPrelude = ['/**', ' * Event channel constants shared across renderer layers.', ' *', ' * This is the source-of-truth contract for EventBus topic names.', ' */', "import { getEventManifestScopeEvents, toManifestEventKey } from './event.manifest.js';", '', 'const rendererEventChannelsByKey = new Map(', "  getEventManifestScopeEvents('renderer').map((entry) => [", '    toManifestEventKey(entry.domain, entry.name),', '    entry.value', '  ] as const)', ');', '', 'function getRendererChannel<const TDomain extends string, const TName extends string>(', '  domain: TDomain,', '  name: TName', '): `${TDomain}:${TName}` {', '  const key = toManifestEventKey(domain, name) as `${TDomain}:${TName}`;', '  const manifestValue = rendererEventChannelsByKey.get(key);', '', '  if (!manifestValue) {', '    throw new Error(`Renderer event "${key}" not found in event manifest`);', '  }', '', '  // Keep the runtime value contract strict: value must match domain:name key form.', '  if (manifestValue !== key) {', '    throw new Error(`Renderer event "${key}" has mismatched manifest value "${manifestValue}"`);', '  }', '', '  return manifestValue as `${TDomain}:${TName}`;', '}', '', `// ${eventChannelsBlockMarker}:START`, 'export const EventChannels = {'].join('\n');
+function collectRendererEventDomainGroups(eventManifest) {
+  const groups = new Map();
+  for (const event of eventManifest.scopes.find((scope) => scope.scope === 'renderer')?.events || []) {
+    if (!groups.has(event.domain)) groups.set(event.domain, []);
+    groups.get(event.domain).push(event);
+  }
+  return [...groups.entries()].map(([domain, events]) => ({ domain, events }));
+}
+function createEventChannelsPreview(eventManifest) {
+  const lines = eventChannelsPrelude.split('\n');
+  const groups = collectRendererEventDomainGroups(eventManifest);
+  groups.forEach(({ domain, events }, domainIndex) => {
+    const comment = rendererEventDomainComments.get(domain);
+    if (comment) lines.push(`  // ${comment}`);
+    lines.push(`  ${eventKeyPart(domain)}: {`);
+    events.forEach((event, index) => {
+      if (event.domain === 'ui' && event.name === 'screenshot-requested') lines.push('    // UI command events (decoupled from orchestrators)');
+      lines.push(`    ${eventKeyPart(event.name)}: getRendererChannel(${quotedTsString(event.domain)}, ${quotedTsString(event.name)})${index === events.length - 1 ? '' : ','}`);
+    });
+    lines.push(`  }${domainIndex === groups.length - 1 ? '' : ','}`);
+    if (domainIndex < groups.length - 1) lines.push('');
+  });
+  lines.push('} as const;', `// ${eventChannelsBlockMarker}:END`, '');
+  return lines.join('\n');
+}
+const eventPayloadBlockMarker = 'CODEBASE_EVENT_PAYLOAD_MAP';
+const compactEventPayloadMapType = 'export type EventPayloadMap = {\n  [K in EventChannelValue]: K extends keyof EventPayloadOverrides\n    ? EventPayloadOverrides[K]\n    : K extends VoidEventChannel\n      ? void\n      : unknown;\n};';
+const findTopLevelTypeAlias = (sourceFile, aliasName, exported = false) => { const matches = sourceFile.statements.filter((node) => ts.isTypeAliasDeclaration(node) && node.name.text === aliasName && (!exported || node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))); return matches.length === 1 ? matches[0] : null; };
+const getTypeAliasText = (sourceText, aliasName, filePath = 'source.ts', exported = false) => { const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true), alias = findTopLevelTypeAlias(sourceFile, aliasName, exported); return alias ? alias.getText(sourceFile) : ''; };
+function extractEventPayloadGeneratedBlock(sourceText) { const sourceFile = ts.createSourceFile('src/shared/events/event-payloads.ts', sourceText, ts.ScriptTarget.Latest, true), voidAlias = findTopLevelTypeAlias(sourceFile, 'VoidEventChannel'), overridesAlias = findTopLevelTypeAlias(sourceFile, 'EventPayloadOverrides'), startMarker = `// ${eventPayloadBlockMarker}:START`, endMarker = `// ${eventPayloadBlockMarker}:END`; if (!voidAlias || !overridesAlias || voidAlias.getStart(sourceFile) > overridesAlias.getStart(sourceFile)) return null; const typeLineStart = sourceText.lastIndexOf('\n', voidAlias.getStart(sourceFile) - 1) + 1, markerLineStart = sourceText.lastIndexOf('\n', typeLineStart - 2) + 1, markerLine = sourceText.slice(markerLineStart, typeLineStart - 1).trim(), aliasLineEnd = sourceText.indexOf('\n', overridesAlias.end); if (aliasLineEnd === -1) return null; const endLineStart = aliasLineEnd + 1, endLineEnd = sourceText.indexOf('\n', endLineStart), endLine = sourceText.slice(endLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trim(); return markerLine === startMarker && endLine === endMarker ? sourceText.slice(markerLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trimEnd() : null; }
+function createEventPayloadMapBlock(eventManifest) {
+  const events = eventManifest.scopes.find((scope) => scope.scope === 'renderer')?.events || [], channelType = (event) => `typeof EventChannels.${eventKeyPart(event.domain)}.${eventKeyPart(event.name)}`, typedEvents = events.filter((event) => normalizePayloadType(event.payload) !== 'unknown' && normalizePayloadType(event.payload) !== 'void');
+  return [`// ${eventPayloadBlockMarker}:START`, `type VoidEventChannel = ${events.filter((event) => normalizePayloadType(event.payload) === 'void').map(channelType).join(' | ') || 'never'};`, '', 'type EventPayloadOverrides = {', ...typedEvents.map((event) => `  [EventChannels.${eventKeyPart(event.domain)}.${eventKeyPart(event.name)}]: ${normalizePayloadType(event.payload)};`), '};', `// ${eventPayloadBlockMarker}:END`].join('\n');
+}
+const collectEventPayloadAliasBlock = (sourceText) => `${getTypeAliasText(sourceText, 'VoidEventChannel')}\n\n${getTypeAliasText(sourceText, 'EventPayloadOverrides')}`;
+const stripGeneratedPayloadMarkers = (sourceText) => sourceText.split('\n').slice(1, -1).join('\n');
 function unwrappedExpression(node) { while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || isSatisfiesExpression(node) || ts.isNonNullExpression(node))) node = node.expression; return node; }
 function resolveEventChannelValueExpression(node) {
   if (!node) return null; if (ts.isStringLiteralLike(node)) return node.text;
@@ -250,15 +288,6 @@ function collectEventChannelReferenceValues(sourceText, filePath = 'src/shared/e
 }
 function collectEventManifestChannelPathValueEntries(eventManifest, scope) {
   return eventManifest.scopes.filter((entry) => entry.scope === scope).flatMap((entry) => entry.events.map((event) => `EventChannels.${eventKeyPart(event.domain)}.${eventKeyPart(event.name)} ${event.value}`));
-}
-function collectEventPayloadMapEntries(payloadSourceText, channelSourceText) {
-  const channelValues = collectEventChannelReferenceValues(channelSourceText);
-  const payloadMapBody = payloadSourceText.match(/export type EventPayloadMap = \{([\s\S]*?)\n\};/);
-  if (!payloadMapBody) return [];
-  return [...payloadMapBody[1].matchAll(/\[EventChannels\.([A-Z0-9_]+)\.([A-Z0-9_]+)\]:\s*([^;]+);/g)].map(([, domain, channelKey, payloadType]) => {
-    const channelReference = `EventChannels.${domain}.${channelKey}`, channelValue = channelValues.get(channelReference) || channelReference;
-    return `${channelValue} ${normalizePayloadType(payloadType)}`;
-  });
 }
 const extractStringValuesFromSource = (sourceText) => [...sourceText.matchAll(/['"]([a-z][a-z0-9-]*:[a-z][a-z0-9-]*)['"]/g)].map((match) => match[1]);
 function collectRendererEventChannelPathValueEntries(sourceText) { return [...collectEventChannelReferenceValues(sourceText).entries()].map(([pathKey, channelValue]) => `${pathKey} ${channelValue}`); }
@@ -384,19 +413,15 @@ function createFeatureMapGeneratedBlock(manifests) {
     ''
   ].join('\n');
 }
-function extractMarkedBlock(sourceText, markerName) { const start = `<!-- ${markerName}:START -->`, end = `<!-- ${markerName}:END -->`, startIndex = sourceText.indexOf(start), endIndex = sourceText.indexOf(end); return startIndex === -1 || endIndex === -1 || endIndex < startIndex ? null : sourceText.slice(startIndex, endIndex + end.length).trimEnd(); }
-function loadManifests() {
-  return Object.fromEntries(Object.entries(manifestPaths).map(([key, manifestPath]) => [key, readProjectJson(manifestPath)]));
-}
+function extractMarkedBlock(sourceText, markerName) { for (const [start, end] of [[`<!-- ${markerName}:START -->`, `<!-- ${markerName}:END -->`], [`// ${markerName}:START`, `// ${markerName}:END`]]) { const startIndex = sourceText.indexOf(start), endIndex = sourceText.indexOf(end); if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) return sourceText.slice(startIndex, endIndex + end.length).trimEnd(); } return null; }
+function loadManifests() { return Object.fromEntries(Object.entries(manifestPaths).map(([key, manifestPath]) => [key, readProjectJson(manifestPath)])); }
 function createDerivedSourceCheck({ name, sourceText, requiredFragments }) { const missingFragments = requiredFragments.filter((fragment) => !sourceText.includes(fragment)); return { name, status: missingFragments.length === 0 ? 'pass' : 'fail', expectedCount: requiredFragments.length, actualCount: requiredFragments.length - missingFragments.length, missing: missingFragments, extra: [] }; }
-const defaultRendererManifestBridgeConsumers = Object.freeze({ updateAPI: { filePath: 'src/renderer/infrastructure/services/updates/update.service.ts', mode: 'bridge' }, transcodeAPI: { filePath: 'src/renderer/infrastructure/services/transcode/transcode.service.ts', mode: 'bridge' }, deviceAPI: { filePath: 'src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', mode: 'bridge' }, windowAPI: { filePath: 'src/renderer/infrastructure/services/settings/fullscreen.service.ts', mode: 'direct' } });
-function normalizeRendererManifestBridgeConsumerEntry(consumer) {
-  if (typeof consumer === 'string') return { filePath: consumer, mode: 'bridge' };
-  if (!consumer || typeof consumer !== 'object') return null;
-  const filePath = typeof consumer.filePath === 'string' ? consumer.filePath : null;
-  const mode = consumer.mode === 'direct' ? 'direct' : 'bridge';
-  return filePath ? { filePath, mode } : null;
-}
+const defaultRendererManifestBridgeConsumers = Object.freeze({ updateAPI: { filePath: 'src/renderer/infrastructure/services/updates/update.service.ts', mode: 'bridge' }, transcodeAPI: { filePath: 'src/renderer/infrastructure/services/transcode/transcode.service.ts', mode: 'bridge' }, deviceAPI: { filePath: 'src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts', mode: 'bridge' }, windowAPI: { filePath: 'src/renderer/infrastructure/services/settings/fullscreen.service.ts', mode: 'bridge' } });
+const rendererPreloadBridgeDescriptorBlockMarker = 'CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS';
+function createRendererPreloadBridgeDescriptorPreview(ipcManifest) { const bridgeApiNames = new Set(Object.keys(defaultRendererManifestBridgeConsumers)); return [`// ${rendererPreloadBridgeDescriptorBlockMarker}:START`, 'export const RendererPreloadBridgeDescriptors = {', ...ipcManifest.namespaces.filter((namespace) => bridgeApiNames.has(namespace.apiName)).map((namespace, index, entries) => `  ${namespace.apiName}: { apiName: ${quotedTsString(namespace.apiName)}, methods: [${(namespace.subscriptions || []).map((entry) => quotedTsString(derivePublicMethodName(entry))).join(', ')}] }${index === entries.length - 1 ? '' : ','}`), '} as const satisfies Record<string, RendererPreloadBridgeDescriptor>;', `// ${rendererPreloadBridgeDescriptorBlockMarker}:END`].join('\n'); }
+const findTopLevelVariableStatement = (sourceFile, variableName, exported = false) => { const matches = sourceFile.statements.filter((node) => ts.isVariableStatement(node) && (!exported || node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) && node.declarationList.declarations.some((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === variableName)); return matches.length === 1 ? matches[0] : null; };
+function extractRendererPreloadBridgeDescriptorBlock(sourceText) { const sourceFile = ts.createSourceFile('src/renderer/infrastructure/services/preload-event-bridge.factory.ts', sourceText, ts.ScriptTarget.Latest, true), statement = findTopLevelVariableStatement(sourceFile, 'RendererPreloadBridgeDescriptors', true), startMarker = `// ${rendererPreloadBridgeDescriptorBlockMarker}:START`, endMarker = `// ${rendererPreloadBridgeDescriptorBlockMarker}:END`; if (!statement) return null; const statementLineStart = sourceText.lastIndexOf('\n', statement.getStart(sourceFile) - 1) + 1, markerLineStart = sourceText.lastIndexOf('\n', statementLineStart - 2) + 1, markerLine = sourceText.slice(markerLineStart, statementLineStart - 1).trim(), statementLineEnd = sourceText.indexOf('\n', statement.end); if (statementLineEnd === -1) return null; const endLineStart = statementLineEnd + 1, endLineEnd = sourceText.indexOf('\n', endLineStart), endLine = sourceText.slice(endLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trim(); return markerLine === startMarker && endLine === endMarker ? sourceText.slice(markerLineStart, endLineEnd === -1 ? sourceText.length : endLineEnd).trimEnd() : null; }
+function normalizeRendererManifestBridgeConsumerEntry(consumer) { if (typeof consumer === 'string') return { filePath: consumer, mode: 'bridge' }; if (!consumer || typeof consumer !== 'object') return null; const filePath = typeof consumer.filePath === 'string' ? consumer.filePath : null, mode = consumer.mode === 'direct' ? 'direct' : 'bridge'; return filePath ? { filePath, mode } : null; }
 function resolveRendererManifestBridgeConsumers(options = {}) {
   const consumers = new Map(Object.entries(defaultRendererManifestBridgeConsumers).map(([apiName, consumer]) => [apiName, { ...consumer }]));
   const configuredConsumers = options.rendererBridgeConsumers && typeof options.rendererBridgeConsumers === 'object' ? options.rendererBridgeConsumers : {};
@@ -405,12 +430,24 @@ function resolveRendererManifestBridgeConsumers(options = {}) {
 }
 const memberAccessName = (node) => ts.isPropertyAccessExpression(node) ? node.name.text : ts.isElementAccessExpression(node) ? staticStringValue(node.argumentExpression) : null;
 const memberAccessTarget = (node) => ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) ? node.expression : null;
-const isCallNamed = (node, name) => ts.isCallExpression(node) && (ts.isIdentifier(node.expression) && node.expression.text === name || memberAccessName(node.expression) === name);
+const isCallNamed = (node, name) => ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name;
 const isLiveEventBridgeAssignment = (node) => ts.isBinaryExpression(node.parent) && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken && node.parent.right === node && ts.isPropertyAccessExpression(node.parent.left) && node.parent.left.expression.kind === ts.SyntaxKind.ThisKeyword && node.parent.left.name.text === '_eventBridge';
 const isTrackedPreloadApiExpression = (node, apiName, sourceFile) => { const value = unwrappedExpression(node), target = value && memberAccessTarget(value); return Boolean(value && memberAccessName(value) === apiName && ['window', 'globalThis'].includes(target?.getText(sourceFile))); };
 const isExpectedGlobalApiExpression = (node, apiName, sourceFile, globalsShadowed = false) => !globalsShadowed && isTrackedPreloadApiExpression(node, apiName, sourceFile);
-const allowedManifestBridgeOptionKeys = new Set(['api', 'apiName', 'bridgeName', 'logger', 'handlers']), allowedTrackedApiArgumentCalls = new Set(['Boolean']);
-const isTrackedPreloadApiRoute = (node, trackedApiValues) => { const receiver = ts.isCallExpression(node) ? memberAccessTarget(node.expression) : null, args = node.arguments || [], opaque = (argument) => { const value = unwrappedExpression(argument); return Boolean(value && (ts.isCallExpression(value) || ts.isNewExpression(value) || ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value) || ts.isSpreadElement(value) && opaque(value.expression) || ts.isConditionalExpression(value) && (opaque(value.whenTrue) || opaque(value.whenFalse)) || ts.isBinaryExpression(value) && (opaque(value.left) || opaque(value.right)) || ts.isObjectLiteralExpression(value) && value.properties.some((property) => ts.isPropertyAssignment(property) && opaque(property.initializer) || ts.isSpreadAssignment(property) && opaque(property.expression)) || ts.isArrayLiteralExpression(value) && value.elements.some(opaque))); }, safeReceiver = (expression) => { const target = memberAccessTarget(expression)?.getText() || '', name = memberAccessName(expression) || ''; return /^(console|Array)\b/.test(target) || /^this\.(logger|eventBus|_eventBridge)\b/.test(target) || target === 'this' && name.startsWith('_') || /^window\.(updateAPI|transcodeAPI|shellAPI|metricsAPI|gpuAPI|loginItemAPI)\b/.test(target) || /^globalThis\./.test(target); }, helperCallee = ts.isNewExpression(node) || ts.isCallExpression(node) && (ts.isIdentifier(node.expression) || memberAccessName(node.expression) && !safeReceiver(node.expression)); return Boolean(receiver && trackedApiValues.containsContainer(receiver) || args.some((argument) => trackedApiValues.contains(argument)) || helperCallee && args.some(opaque)); };
+const allowedManifestBridgeOptionKeys = new Set(['api', 'descriptor', 'bridgeName', 'logger', 'handlers']), allowedTrackedApiArgumentCalls = new Set(['Boolean']);
+const isDirectTrackedPreloadInvokeCall = (node, expectedApiName, sourceFile, globalsShadowed, subscriptionMethods) => {
+  if (!ts.isCallExpression(node)) return false;
+  const methodName = memberAccessName(node.expression), receiver = memberAccessTarget(node.expression);
+  return Boolean(methodName && !subscriptionMethods.has(methodName) && receiver && isExpectedGlobalApiExpression(receiver, expectedApiName, sourceFile, globalsShadowed));
+};
+const isTrackedPreloadApiRoute = (node, trackedApiValues) => {
+  const receiver = ts.isCallExpression(node) ? memberAccessTarget(node.expression) : null, args = node.arguments || [];
+  const containsTrackedApiValue = (argument) => {
+    const value = unwrappedExpression(argument);
+    return Boolean(value && (trackedApiValues.contains(value) || trackedApiValues.containsContainer(value) || ts.isSpreadElement(value) && containsTrackedApiValue(value.expression) || ts.isConditionalExpression(value) && (containsTrackedApiValue(value.whenTrue) || containsTrackedApiValue(value.whenFalse)) || ts.isBinaryExpression(value) && (containsTrackedApiValue(value.left) || containsTrackedApiValue(value.right)) || (ts.isCallExpression(value) || ts.isNewExpression(value)) && [...(value.arguments || [])].some(containsTrackedApiValue) || ts.isObjectLiteralExpression(value) && value.properties.some((property) => ts.isPropertyAssignment(property) && containsTrackedApiValue(property.initializer) || ts.isSpreadAssignment(property) && containsTrackedApiValue(property.expression)) || ts.isArrayLiteralExpression(value) && value.elements.some(containsTrackedApiValue)));
+  };
+  return Boolean(receiver && trackedApiValues.containsContainer(receiver) || args.some(containsTrackedApiValue));
+};
 function collectTrackedPreloadApiValueAliases(sourceFile, expectedApiName) {
   const aliases = new Set(), containers = new Set(), getters = new Set(), classGetters = new Set(), mark = (set, name) => { if (!set.has(name)) { set.add(name); return true; } return false; }, bindingNames = (name) => ts.isIdentifier(name) ? [name.text] : ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name) ? name.elements.flatMap((element) => element.name ? bindingNames(element.name) : []) : ts.isObjectLiteralExpression(name) ? name.properties.flatMap((property) => ts.isShorthandPropertyAssignment(property) ? [property.name.text] : ts.isPropertyAssignment(property) ? bindingNames(property.initializer) : ts.isSpreadAssignment(property) ? bindingNames(property.expression) : []) : ts.isArrayLiteralExpression(name) ? name.elements.flatMap(bindingNames) : ts.isSpreadElement(name) ? bindingNames(name.expression) : [];
   const valueKey = (node) => { const value = unwrappedExpression(node); if (!value) return null; if (ts.isIdentifier(value)) return value.text; if (ts.isPropertyAccessExpression(value)) { const target = valueKey(value.expression); return target ? `${target}.${value.name.text}` : value.getText(sourceFile); } if (ts.isElementAccessExpression(value) && ts.isStringLiteralLike(value.argumentExpression)) { const target = valueKey(value.expression); return target ? `${target}.${value.argumentExpression.text}` : value.getText(sourceFile); } return null; }, bindingKeys = (name) => { const key = valueKey(name); return [...bindingNames(name), ...(key ? [key] : [])]; }, functionReturns = (node) => { const body = node?.body; return Boolean(body && (ts.isBlock(body) ? body.statements.some((statement) => ts.isReturnStatement(statement) && contains(statement.expression)) : contains(body))); }, containerTargets = (left, rightContainer) => rightContainer ? bindingKeys(left) : ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left) ? bindingKeys(left.expression) : [], hasGetterPrefix = (source) => { const key = valueKey(source); return Boolean(key && [...getters].some((getter) => getter.startsWith(`${key}.`))); }, copyGetters = (target, source) => { const key = valueKey(source); return Boolean(key && bindingKeys(target).flatMap((targetKey) => [...getters].filter((getter) => getter.startsWith(`${key}.`)).map((getter) => mark(getters, `${targetKey}.${getter.slice(key.length + 1)}`))).some(Boolean)); }, classGetterCall = (call) => { const expression = unwrappedExpression(call.expression), receiver = expression && ts.isPropertyAccessExpression(expression) ? unwrappedExpression(expression.expression) : null; return Boolean(expression && ts.isPropertyAccessExpression(expression) && receiver && ts.isNewExpression(receiver) && ts.isIdentifier(receiver.expression) && classGetters.has(`${receiver.expression.text}.${expression.name.text}`)); }, markObjectGetters = (target, source) => { const object = unwrappedExpression(source), bases = bindingKeys(target); return Boolean(object && ts.isObjectLiteralExpression(object) && bases.flatMap((base) => object.properties.map((property) => [base, property])).some(([base, property]) => { const name = property.name && propertyName(property.name, sourceFile), returns = ts.isPropertyAssignment(property) && functionReturns(property.initializer) || (ts.isMethodDeclaration(property) || ts.isGetAccessorDeclaration(property)) && functionReturns(property); return Boolean(name && returns && mark(ts.isGetAccessorDeclaration(property) ? aliases : getters, `${base}.${name}`)); })); };
@@ -442,18 +479,19 @@ function collectRendererManifestBridgeEntries(ipcManifest, options = {}) {
     const subscriptions = ipcManifest.namespaces.find((namespace) => namespace.apiName === expectedApiName)?.subscriptions || [], filePath = consumer.filePath;
     expected.push(...subscriptions.map((entry) => `${expectedApiName}.${derivePublicMethodName(entry)}`)); const sourceText = Object.prototype.hasOwnProperty.call(overrides, filePath) ? String(overrides[filePath] ?? '') : readProjectText(filePath), sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
     if (sourceFile.parseDiagnostics.length > 0) { extra.push(`${filePath}: parseDiagnostics`); continue; }
-    const allowedSubscriptionNameRanges = [], subscriptionMethods = new Set(subscriptions.map((entry) => derivePublicMethodName(entry))), globalsShadowed = hasLocalBinding(sourceFile, new Set(['window', 'globalThis'])), trackedApiValues = collectTrackedPreloadApiValueAliases(sourceFile, expectedApiName);
+    const allowedSubscriptionNameRanges = [], subscriptionMethods = new Set(subscriptions.map((entry) => derivePublicMethodName(entry))), globalsShadowed = hasLocalBinding(sourceFile, new Set(['window', 'globalThis'])), bridgeBindingsShadowed = hasNonImportBinding(sourceFile, new Set(['RendererPreloadBridgeDescriptors', 'createManifestPreloadEventBridge'])), trackedApiValues = collectTrackedPreloadApiValueAliases(sourceFile, expectedApiName);
     let liveBridgeAssignmentDetected = false;
     if (sourceText.includes('createPreloadEventBridge')) extra.push(`${filePath}: createPreloadEventBridge`);
+    if (bridgeBindingsShadowed) extra.push(`${filePath}: bridge binding shadowed`);
     const visit = (node) => {
       if (isCallNamed(node, 'createManifestPreloadEventBridge') && isLiveEventBridgeAssignment(node)) { const optionsArg = unwrappedExpression(node.arguments[0]); if (optionsArg && ts.isObjectLiteralExpression(optionsArg)) {
         liveBridgeAssignmentDetected = true;
-        let apiName = null, apiExpression = null, apiMatchesExpected = false, handlers = null; for (const property of optionsArg.properties) { if (ts.isSpreadAssignment(property)) { extra.push(`${filePath}: options spread`); continue; } if (ts.isPropertyAssignment(property)) { const { name: key, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile), value = unwrappedExpression(property.initializer); if (unresolvedComputed) { extra.push(`${filePath}: option computedProperty`); continue; } if (!allowedManifestBridgeOptionKeys.has(key)) extra.push(`${filePath}: option ${key || 'unknown'}`); if (key === 'apiName' && value && ts.isStringLiteralLike(value)) apiName = value.text; if (key === 'api') { apiExpression = value?.getText(sourceFile); apiMatchesExpected = isExpectedGlobalApiExpression(value, expectedApiName, sourceFile, globalsShadowed); } if (key === 'handlers') handlers = value; } else extra.push(`${filePath}: option ${property.getText(sourceFile)}`); }
+        let apiName = null, apiExpression = null, apiMatchesExpected = false, handlers = null; for (const property of optionsArg.properties) { if (ts.isSpreadAssignment(property)) { extra.push(`${filePath}: options spread`); continue; } if (ts.isPropertyAssignment(property)) { const { name: key, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile), value = unwrappedExpression(property.initializer); if (unresolvedComputed) { extra.push(`${filePath}: option computedProperty`); continue; } if (!allowedManifestBridgeOptionKeys.has(key)) extra.push(`${filePath}: option ${key || 'unknown'}`); if (key === 'descriptor') apiName = !bridgeBindingsShadowed && value?.getText(sourceFile) === `RendererPreloadBridgeDescriptors.${expectedApiName}` ? expectedApiName : value?.getText(sourceFile); if (key === 'api') { apiExpression = value?.getText(sourceFile); apiMatchesExpected = isExpectedGlobalApiExpression(value, expectedApiName, sourceFile, globalsShadowed); } if (key === 'handlers') handlers = value; } else extra.push(`${filePath}: option ${property.getText(sourceFile)}`); }
         if (apiName !== expectedApiName) extra.push(`${filePath}: apiName ${apiName || 'missing'}`);
         if (!apiMatchesExpected) extra.push(`${filePath}: api ${apiExpression || 'missing'}`);
         if (apiName && handlers && ts.isObjectLiteralExpression(handlers)) for (const property of handlers.properties) { if (ts.isSpreadAssignment(property)) extra.push(`${filePath}: handler spread`); else if (property.name) { allowedSubscriptionNameRanges.push([property.name.pos, property.name.end]); const { name: handlerName, unresolvedComputed } = resolvedPropertyName(property.name, sourceFile); if (unresolvedComputed) extra.push(`${filePath}: handler computedProperty`); else if (handlerName) actual.push(`${apiName}.${handlerName}`); } }
       } }
-      if (consumer.mode === 'bridge' && (ts.isCallExpression(node) || ts.isNewExpression(node)) && !(ts.isCallExpression(node) && (isCallNamed(node, 'createManifestPreloadEventBridge') || ts.isIdentifier(node.expression) && allowedTrackedApiArgumentCalls.has(node.expression.text))) && isTrackedPreloadApiRoute(node, trackedApiValues)) extra.push(`${filePath}: ${expectedApiName} helper argument`);
+      if (consumer.mode === 'bridge' && (ts.isCallExpression(node) || ts.isNewExpression(node)) && !(ts.isCallExpression(node) && (isCallNamed(node, 'createManifestPreloadEventBridge') || ts.isIdentifier(node.expression) && allowedTrackedApiArgumentCalls.has(node.expression.text) || isDirectTrackedPreloadInvokeCall(node, expectedApiName, sourceFile, globalsShadowed, subscriptionMethods))) && isTrackedPreloadApiRoute(node, trackedApiValues)) extra.push(`${filePath}: ${expectedApiName} helper argument`);
       ts.forEachChild(node, visit); };
     visit(sourceFile);
     const { subscriptionReferences, directSubscriptionCalls, computedPropertyEntries } = collectRendererSubscriptionReferenceEntries(sourceFile, expectedApiName, subscriptionMethods, allowedSubscriptionNameRanges, trackedApiValues);
@@ -547,6 +585,8 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
   const handlerDescriptors = collectManifestBackedHandlerDescriptors(options);
   checks.push(compareSortedValues({ name: 'main IPC handlers derive descriptor metadata from manifest', expected: manifests.ipc.namespaces.flatMap((namespace) => (namespace.invoke || []).map((entry) => `${namespace.apiName}.${derivePublicMethodName(entry)}`)), actual: handlerDescriptors.methodIdentities }));
   checks.push(compareSortedValues({ name: 'main IPC handlers do not define local descriptor metadata', expected: [], actual: handlerDescriptors.localMetadataEntries }));
+  const generatedRendererPreloadBridgeDescriptors = createRendererPreloadBridgeDescriptorPreview(manifests.ipc);
+  checks.push(createGeneratedBlockCheck({ name: 'renderer preload bridge descriptors match ipc manifest', sourceText: extractRendererPreloadBridgeDescriptorBlock(options.rendererPreloadBridgeDescriptorsSource || readProjectText('src/renderer/infrastructure/services/preload-event-bridge.factory.ts')) || '', markerName: rendererPreloadBridgeDescriptorBlockMarker, expectedBlock: generatedRendererPreloadBridgeDescriptors }));
   checks.push(createRendererManifestBridgeUsageCheck(manifests.ipc, options));
   checks.push(createModeCheck('ipc manifest is enforced', manifests.ipc.mode));
   const preloadDeclarationSurface = collectPreloadDeclarationSurface(resolvePreloadDeclarationSources(options));
@@ -622,15 +662,30 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     }));
   }
   const eventChannelsSource = options.eventChannelsSource || readProjectText('src/shared/events/event-channels.ts');
+  const eventPayloadsSource = options.eventPayloadsSource || readProjectText('src/shared/events/event-payloads.ts');
+  const generatedEventChannels = createEventChannelsPreview(manifests.events), generatedEventPayloadMap = createEventPayloadMapBlock(manifests.events);
   checks.push(compareSortedValues({ name: 'renderer event manifest matches EventChannels values', expected: collectEventManifestChannelPathValueEntries(manifests.events, 'renderer'), actual: collectRendererEventChannelPathValueEntries(eventChannelsSource) }));
+  checks.push(createExactSourceCheck({
+    name: 'renderer event channels generated preview matches checked-in source',
+    sourceText: eventChannelsSource,
+    expectedText: generatedEventChannels
+  }));
   checks.push(createModeCheck('event manifest is enforced', manifests.events.mode));
-  checks.push(compareSortedValues({
+  checks.push(createExactSourceCheck({
+    name: 'renderer EventPayloadMap derives from generated payload aliases',
+    sourceText: getTypeAliasText(eventPayloadsSource, 'EventPayloadMap', 'source.ts', true),
+    expectedText: compactEventPayloadMapType
+  }));
+  checks.push(createExactSourceCheck({
+    name: 'renderer event payload aliases are active generated declarations',
+    sourceText: collectEventPayloadAliasBlock(eventPayloadsSource),
+    expectedText: stripGeneratedPayloadMarkers(generatedEventPayloadMap)
+  }));
+  checks.push(createGeneratedBlockCheck({
     name: 'renderer event manifest payloads match EventPayloadMap',
-    expected: collectEventPayloadMapEntries(
-      readProjectText('src/shared/events/event-payloads.ts'),
-      eventChannelsSource
-    ),
-    actual: collectEventManifestPayloadEntries(manifests.events)
+    sourceText: extractEventPayloadGeneratedBlock(eventPayloadsSource) || '',
+    markerName: eventPayloadBlockMarker,
+    expectedBlock: generatedEventPayloadMap
   }));
   checks.push(compareSortedValues({
     name: 'main event manifest matches MainEventChannels values',
@@ -827,20 +882,22 @@ function buildPhase1DriftReport(manifests = loadManifests(), options = {}) {
     }),
     generated: {
       preloadDeclaration: generatedPreloadDeclaration,
+      rendererPreloadBridgeDescriptors: generatedRendererPreloadBridgeDescriptors,
+      eventChannels: generatedEventChannels,
+      eventPayloadMap: generatedEventPayloadMap,
       docsFragment: createDocsFragment(manifests),
       featureMapFragment: createFeatureMapGeneratedBlock(manifests)
     }
   };
 }
-function printSummary(report) {
-  console.log('Codebase Size Reduction Phase 1 Drift Report');
-  console.log(`- status: ${report.status}`);
-  for (const check of report.checks) console.log(`- ${check.status}: ${check.name}`);
-}
+function printSummary(report) { console.log('Codebase Size Reduction Phase 1 Drift Report'); console.log(`- status: ${report.status}`); for (const check of report.checks) console.log(`- ${check.status}: ${check.name}`); }
 function writeGeneratedOutputs(generated) {
   const outputRoot = resolveProjectPath('artifacts/codebase-reduction/phase1');
   return {
     declarationPath: writeGeneratedArtifact({ outputRoot, relativePath: 'preload-api.generated-preview.d.ts', contents: generated.preloadDeclaration }),
+    rendererPreloadBridgeDescriptorsPath: writeGeneratedArtifact({ outputRoot, relativePath: 'renderer-preload-bridge-descriptors.generated-preview.ts', contents: generated.rendererPreloadBridgeDescriptors }),
+    eventChannelsPath: writeGeneratedArtifact({ outputRoot, relativePath: 'event-channels.generated-preview.ts', contents: generated.eventChannels }),
+    eventPayloadMapPath: writeGeneratedArtifact({ outputRoot, relativePath: 'event-payload-map.generated-preview.ts', contents: generated.eventPayloadMap }),
     docsPath: writeGeneratedArtifact({ outputRoot, relativePath: 'manifest-docs.fragment.md', contents: generated.docsFragment }),
     featureMapPath: writeGeneratedArtifact({ outputRoot, relativePath: 'feature-map.generated.md', contents: generated.featureMapFragment })
   };
@@ -859,6 +916,9 @@ function main(argv = process.argv.slice(2)) {
     const outputs = writeGeneratedOutputs(generated);
     for (const [label, outputPath] of Object.entries({
       'declaration preview': outputs.declarationPath,
+      'renderer preload bridge descriptors preview': outputs.rendererPreloadBridgeDescriptorsPath,
+      'event channels preview': outputs.eventChannelsPath,
+      'event payload map preview': outputs.eventPayloadMapPath,
       'docs fragment': outputs.docsPath,
       'feature-map fragment': outputs.featureMapPath
     })) console.log(`Wrote generated ${label}: ${outputPath}`);
@@ -871,4 +931,4 @@ const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[
 if (import.meta.url === invokedScript) {
   main();
 }
-export { buildPhase1DriftReport, collectIpcManifestChannels, collectIpcManifestMethods, collectEventManifestValues, createDocsFragment, createFeatureMapGeneratedBlock, createPreloadDeclarationPreview, extractPreloadExposures, loadManifests, writeGeneratedOutputs };
+export { buildPhase1DriftReport, collectIpcManifestChannels, collectIpcManifestMethods, collectEventManifestValues, createDocsFragment, createEventChannelsPreview, createEventPayloadMapBlock, createFeatureMapGeneratedBlock, createPreloadDeclarationPreview, createRendererPreloadBridgeDescriptorPreview, extractPreloadExposures, loadManifests, writeGeneratedOutputs };

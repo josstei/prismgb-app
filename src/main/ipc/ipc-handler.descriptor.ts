@@ -104,6 +104,15 @@ export function defineManifestIpcHandlers<TDependencies>(
   );
 }
 
+function validateIpcArguments(schema: readonly string[] = [], args: readonly unknown[]): void {
+  if (args.length > schema.length) throw new Error(`expected ${schema.length} argument(s), received ${args.length}`);
+  schema.forEach((definition, index) => {
+    const [rawName, rawType] = definition.split(':'), value = args[index];
+    const validType = rawType === 'array' ? Array.isArray(value) : rawType === 'object' ? typeof value === 'object' && value !== null && !Array.isArray(value) : typeof value === rawType;
+    if (!(value === undefined && rawName.endsWith('?')) && (value === undefined || !validType)) throw new Error(`argument ${rawName.replace(/\?$/, '')} must be ${rawType}`);
+  });
+}
+
 export function registerIpcHandlerDescriptors<TDependencies>(
   registerHandler: RegisterHandler,
   dependencies: TDependencies,
@@ -112,6 +121,7 @@ export function registerIpcHandlerDescriptors<TDependencies>(
   for (const descriptor of descriptors) {
     registerHandler(descriptor.channel, async (event, ...args) => {
       try {
+        validateIpcArguments(descriptor.argumentSchema, args);
         return await descriptor.invoke(dependencies, event, ...args);
       } catch (error) {
         return descriptor.mapError(error, dependencies, event, ...args);

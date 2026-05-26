@@ -4,18 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('DeviceProfile', () => {
   let mockLogger;
   let validConfig;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DeviceProfile' });
 
     validConfig = {
       id: 'test-device',

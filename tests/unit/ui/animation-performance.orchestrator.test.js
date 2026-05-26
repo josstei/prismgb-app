@@ -5,31 +5,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../factories/index.js';
 
 describe('PerformanceAnimationOrchestrator', () => {
   let orchestrator;
   let mockEventBus;
-  let mockLogger;
+  let mockLoggerFactory;
   let mockPerformanceAnimationService;
   let mockBodyClassManager;
   let handlers;
 
   beforeEach(() => {
     handlers = {};
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn((channel, handler) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (channel, handler) => {
         handlers[channel] = handler;
-        return vi.fn();
-      })
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+      }
+    });
+    mockLoggerFactory = createLoggerFactory();
 
     mockPerformanceAnimationService = {
       setPerformanceState: vi.fn(() => ({
@@ -49,7 +42,7 @@ describe('PerformanceAnimationOrchestrator', () => {
       eventBus: mockEventBus,
       animationPerformanceService: mockPerformanceAnimationService,
       bodyClassManager: mockBodyClassManager,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
   });
 

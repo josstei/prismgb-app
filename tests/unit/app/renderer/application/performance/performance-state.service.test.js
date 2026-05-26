@@ -4,10 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service.ts';
+import { createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('PerformanceStateService', () => {
   let service;
-  let mockLogger;
+  let mockLoggerFactory;
   let mockVisibilityAdapter;
   let mockUserActivityAdapter;
   let mockReducedMotionAdapter;
@@ -18,12 +19,7 @@ describe('PerformanceStateService', () => {
 
   beforeEach(() => {
     states = [];
-    mockLogger = {
-      info: vi.fn(),
-      error: vi.fn(),
-      warn: vi.fn(),
-      debug: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     // Mock VisibilityAdapter
     visibilityCallback = null;
@@ -58,7 +54,7 @@ describe('PerformanceStateService', () => {
     };
 
     service = new PerformanceStateService({
-      loggerFactory: { create: () => mockLogger },
+      loggerFactory: mockLoggerFactory,
       visibilityAdapter: mockVisibilityAdapter,
       userActivityAdapter: mockUserActivityAdapter,
       reducedMotionAdapter: mockReducedMotionAdapter

@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('StreamAcquisitionOrchestrator', () => {
   let coordinator;
@@ -23,12 +24,7 @@ describe('StreamAcquisitionOrchestrator', () => {
       acquireStream: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger();
 
     mockFallbackStrategy = {
       initialize: vi.fn(),

@@ -5,30 +5,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance-state.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('PerformanceStateOrchestrator', () => {
   let coordinator;
   let mockEventBus;
-  let mockLogger;
+  let mockLoggerFactory;
   let mockPerformanceStateService;
   let eventHandlers;
   let onStateChange;
 
   beforeEach(() => {
     eventHandlers = {};
-    mockEventBus = {
-      subscribe: vi.fn((channel, handler) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (channel, handler) => {
         eventHandlers[channel] = handler;
-        return vi.fn();
-      }),
-      publish: vi.fn()
-    };
-    mockLogger = {
-      info: vi.fn(),
-      error: vi.fn(),
-      warn: vi.fn(),
-      debug: vi.fn()
-    };
+      }
+    });
+    mockLoggerFactory = createLoggerFactory();
 
     mockPerformanceStateService = {
       initialize: vi.fn(({ onStateChange: callback }) => {
@@ -43,7 +37,7 @@ describe('PerformanceStateOrchestrator', () => {
     coordinator = new PerformanceStateOrchestrator({
       eventBus: mockEventBus,
       performanceStateService: mockPerformanceStateService,
-      loggerFactory: { create: () => mockLogger }
+      loggerFactory: mockLoggerFactory
     });
   });
 

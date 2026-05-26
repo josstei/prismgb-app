@@ -1,4 +1,4 @@
-import { applyRequiredSubscriptionMetadata, createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer, requireSubscriptionMethod } from '../subscription.factory.js';
+import { createManifestInvokeSet, createManifestSubscriptionMethods } from '../subscription.factory.js';
 
 function createTranscodePreloadAPI({
   ipcRenderer,
@@ -31,25 +31,8 @@ function createTranscodePreloadAPI({
       invalidPayloadMessage: 'transcodeAPI.onCancelled: Invalid data received'
     }
   };
-  const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet('transcodeAPI');
   const invokeSet = createManifestInvokeSet('transcodeAPI', channels).requireMethod, startChannel = invokeSet('start'), cancelChannel = invokeSet('cancel'), getStatusChannel = invokeSet('getStatus');
-  const subscriptions = applyRequiredSubscriptionMetadata('transcodeAPI', manifestSubscriptions, localValidators);
-  const subscriptionsByMethod = Object.fromEntries(
-    subscriptions.map((subscription) => [subscription.methodName, subscription])
-  );
-  const subscribe = (methodName, callback) =>
-    createSubscription({
-      ipcRenderer,
-      registry: listenerRegistry,
-      maxListeners,
-      validateCallback: isValidCallback,
-      ...requireSubscriptionMethod('transcodeAPI', subscriptionsByMethod, methodName)
-    })(callback);
-  const disposeSubscriptions = createSubscriptionDisposer({
-    ipcRenderer,
-    registry: listenerRegistry,
-    subscriptions
-  });
+  const subscriptions = createManifestSubscriptionMethods({ apiName: 'transcodeAPI', ipcRenderer, registry: listenerRegistry, maxListeners, validateCallback: isValidCallback, metadataByMethod: localValidators });
 
   return {
     start: (arrayBuffer, format, outputFilename, options = {}) => {
@@ -80,15 +63,8 @@ function createTranscodePreloadAPI({
 
     getStatus: () => ipcRenderer.invoke(getStatusChannel),
 
-    onProgress: (callback) => subscribe('onProgress', callback),
-
-    onCompleted: (callback) => subscribe('onCompleted', callback),
-
-    onError: (callback) => subscribe('onError', callback),
-
-    onCancelled: (callback) => subscribe('onCancelled', callback),
-
-    dispose: disposeSubscriptions
+    ...subscriptions.methods,
+    dispose: subscriptions.dispose
   };
 }
 

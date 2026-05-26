@@ -5,6 +5,12 @@
  */
 
 import { vi } from 'vitest';
+import {
+  createAppState as createFactoryAppState,
+  createEventBus as createFactoryEventBus,
+  createLogger as createFactoryLogger,
+  createLoggerFactory as createFactoryLoggerFactory,
+} from '../factories/index.js';
 
 // Re-export device mocks
 export * from './MockDevice.js';
@@ -27,88 +33,27 @@ export {
 /**
  * Creates a mock EventBus
  */
-export function createMockEventBus() {
-  const listeners = new Map();
-
-  return {
-    publish: vi.fn((event, data) => {
-      const eventListeners = listeners.get(event) || [];
-      eventListeners.forEach(callback => callback(data));
-    }),
-
-    subscribe: vi.fn((event, callback) => {
-      if (!listeners.has(event)) {
-        listeners.set(event, []);
-      }
-      listeners.get(event).push(callback);
-
-      // Return unsubscribe function
-      return vi.fn(() => {
-        const eventListeners = listeners.get(event);
-        const index = eventListeners.indexOf(callback);
-        if (index > -1) eventListeners.splice(index, 1);
-      });
-    }),
-
-    unsubscribe: vi.fn((event, callback) => {
-      const eventListeners = listeners.get(event);
-      if (eventListeners) {
-        const index = eventListeners.indexOf(callback);
-        if (index > -1) eventListeners.splice(index, 1);
-      }
-    }),
-
-    hasListeners: vi.fn((event) => {
-      return (listeners.get(event) || []).length > 0;
-    }),
-
-    // Test helpers
-    _listeners: listeners,
-    _clearAll: () => listeners.clear(),
-    _getListenerCount: (event) => (listeners.get(event) || []).length,
-  };
+export function createMockEventBus(options = {}) {
+  const eventBus = createFactoryEventBus(options);
+  eventBus._clearAll = eventBus._clearListeners;
+  return eventBus;
 }
 
 /**
  * Creates a mock Logger
  */
 export function createMockLogger(name = 'test') {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-    fatal: vi.fn(),
-    child: vi.fn(function() { return this; }),
-    name,
-  };
+  return createFactoryLogger({ name });
 }
 
 /**
  * Creates a mock LoggerFactory
  */
-export function createMockLoggerFactory() {
-  const loggers = new Map();
-
-  const factory = {
-    // The actual EventBus uses loggerFactory.create()
-    create: vi.fn((name) => {
-      if (!loggers.has(name)) {
-        loggers.set(name, createMockLogger(name));
-      }
-      return loggers.get(name);
-    }),
-
-    getLogger: vi.fn((name) => {
-      return loggers.get(name) || createMockLogger(name);
-    }),
-
-    // Test helpers
-    _loggers: loggers,
-    _clearAll: () => loggers.clear(),
+export function createMockLoggerFactory(options = {}) {
+  const factory = createFactoryLoggerFactory(options);
+  factory._clearAll = () => {
+    factory._loggers.clear();
   };
-
   return factory;
 }
 
@@ -116,44 +61,7 @@ export function createMockLoggerFactory() {
  * Creates a mock AppState
  */
 export function createMockAppState(initialState = {}) {
-  const state = {
-    isStreaming: false,
-    selectedDeviceId: null,
-    isCinematicModeEnabled: true,
-    isRecording: false,
-    recordingBlob: null,
-    deviceConnected: false,
-    ...initialState,
-  };
-
-  return {
-    // State getters
-    get isStreaming() { return state.isStreaming; },
-    get selectedDeviceId() { return state.selectedDeviceId; },
-    get isCinematicModeEnabled() { return state.isCinematicModeEnabled; },
-    get isRecording() { return state.isRecording; },
-    get recordingBlob() { return state.recordingBlob; },
-    get deviceConnected() { return state.deviceConnected; },
-
-    // State setters
-    setStreaming: vi.fn((value) => { state.isStreaming = value; }),
-    setSelectedDeviceId: vi.fn((value) => { state.selectedDeviceId = value; }),
-    setRecording: vi.fn((value) => { state.isRecording = value; }),
-    setRecordingBlob: vi.fn((value) => { state.recordingBlob = value; }),
-    setDeviceConnected: vi.fn((value) => { state.deviceConnected = value; }),
-    setCinematicMode: vi.fn((value) => { state.isCinematicModeEnabled = value; }),
-
-    // Test helpers
-    _state: state,
-    _reset: () => {
-      state.isStreaming = false;
-      state.selectedDeviceId = null;
-      state.isCinematicModeEnabled = true;
-      state.isRecording = false;
-      state.recordingBlob = null;
-      state.deviceConnected = false;
-    },
-  };
+  return createFactoryAppState({ initialState });
 }
 
 /**

@@ -10,7 +10,7 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 Last updated: 2026-05-25
 
-- Status: Phase 6 shader pass ownership and Phase 14 headless controller consolidation are implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
+- Status: Phase 6 shader pass ownership and Phase 14 headless controller consolidation are implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. Phase B now includes audited IPC descriptor validation, preload subscription generation, manifest-generated renderer event channels, shared EventBus work, manifest-generated renderer payload aliases, renderer preload bridge descriptor ownership, generated preload subscription mock bodies, and canonical test-support dependency entrypoints. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
 - Completed implementation milestones: Phase 6, Data-Drive Shader Passes And Uniform Layouts; and Phase 14, Promote Headless UI Controllers For Disclosure, Listbox, Combobox, And Auto-Hide.
 - Current audit note: Phase 1 completion was repaired in the 2026-05-25 worktree. Manifest drift now enforces duplicate cardinality, IPC `mode: enforced`, exact preload declaration generation parity, generated preload import/type validation, scoped `declare global` API vars, optional `Window` API properties, invoke/subscription public signatures, and tracked docs blocks. `npm run release:preflight`, `npm run test:run`, `npm run lint`, root `npm run typecheck`, `npm run architecture:type-debt:check`, `npm run codebase:size -- --enforce-thresholds`, `npm run architecture:scorecard -- --enforce-thresholds ...`, and `npm run codebase:phase1 -- --json` pass; two read-only final audits found no blockers.
 - Reading rule: phase verification bullets below are historical evidence from the implementation sequence. The future-first architecture section is the source of truth for the remaining long-term design intent.
@@ -73,7 +73,7 @@ Future-first target map by finding:
    The final design is a single descriptor registration path where every invoke channel has an IPC contract entry, request schema, response shape, dependency token list, and explicit error mapping. Domain callbacks stay hand-written. Remaining work is to generate channel/schema/dependency metadata from the IPC contract and make bypassing descriptors impossible in CI.
 
 4. Unify event catalogs, payload maps, and EventBus implementations:
-   The future design is a scoped event manifest for renderer, main, cross-process, forwarded, and UI command events. It generates constants, payload maps, runtime channel lists, forwarding descriptors, and tests. Renderer and main should share one EventBus implementation unless a measured main-process reason blocks it. Current drift checks and main-scope generation are partial; manual `EventChannels`, `EventPayloadMap`, and the main Node `EventEmitter` wrapper remain migration targets.
+   The future design is a scoped event manifest for renderer, main, cross-process, forwarded, and UI command events. It generates constants, payload maps, runtime channel lists, forwarding descriptors, and tests. Renderer and main should share one EventBus implementation unless a measured main-process reason blocks it. Current drift checks, manifest-generated renderer constants, compact payload aliases, renderer preload bridge descriptors, and the shared EventBus are partial progress; richer bridge mapping and full event-forwarding descriptors remain generation targets.
 
 5. Make `@prismgb/gpu` the only rendering backend:
    The target is already mostly aligned: all WebGPU, WebGL2, Canvas2D, shader loading, capture, resize, stats, clear, and worker-safe rendering behavior live in `@prismgb/gpu`. Renderer worker code remains a protocol adapter and telemetry boundary only. Future work should consider moving or generating the worker protocol from the GPU pipeline contract so renderer worker validation does not become the next duplicated rendering contract.
@@ -112,7 +112,7 @@ Future-first target map by finding:
    The target is a Vite-discovered icon registry using `import.meta.glob` with stable key normalization and explicit aliases only where required by current callers. `icon.utils.js` now discovers raw SVG assets through Vite glob imports while keeping `getIconSvg()` behavior stable, and clean-break coverage keeps icon assets and literal `getIconSvg()` callers in lockstep.
 
 17. Collapse renderer bridge services into a generic preload event bridge:
-   The final design is descriptor-owned preload-to-EventBus bridges generated from IPC/event contracts, using per-subscription unsubscribe closures and keeping domain command methods explicit. Current update/transcode bridge extraction is aligned. Remaining work is to extend the pattern to device/window where it reduces code, generate bridge descriptors, and test multiple consumers so disposing one bridge never removes another bridge's listeners.
+   The final design is descriptor-owned preload-to-EventBus bridges generated from IPC/event contracts, using per-subscription unsubscribe closures and keeping domain command methods explicit. Current update/transcode/device/window bridge identity descriptors are manifest-generated and audited. Remaining work is to generate richer IPC/event mapping descriptors while preserving service-owned state transitions and multi-consumer disposal.
 
 18. Consolidate generic registry and factory code:
    The target is one typed registry/factory primitive for common map, metadata, create, unregister, clear, and list behavior, with domain policy in thin wrappers. Current streaming adapter/renderer factories use `TypedRegistryFactory`. Remaining work is to evaluate UI and device registries for shared mechanical lifecycle while keeping domain validation separate.
@@ -133,7 +133,7 @@ Future-first target map by finding:
    The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at 59 files. Longer term, tighten `tsconfig.app.json` options by directory and connect JS-to-TS migration to the same ratchet.
 
 24. Build canonical test support factories:
-   The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, and preload API names derive from the IPC manifest. Remaining work is generated preload API mock bodies and broader migration away from inline canonical dependency mocks.
+   The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, preload API names plus subscription bodies derive from the IPC manifest, legacy logger/EventBus/AppState dependency entrypoints delegate to canonical factories, and the remediated test slices now cover performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumers, shared base/component registry, presentation mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrators, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock dependency factories. Current residual inline scans are limited to scenario-specific adapter/backend/error-path fakes, while remaining future work is broader migration away from inline service dependency mocks.
 
 25. Split Vitest into projects:
    The future design is project-owned test topology for shared/node, renderer/happy-dom, main/preload, GPU package, and explicit performance gates, with coverage output under ignored artifacts and coverage ratchets by area. Current Vitest projects and artifact paths are aligned. Remaining work is to keep performance tests opt-in and continue reducing hidden coverage exclusions with report-only thresholds before hard gates.
@@ -466,7 +466,7 @@ Grounded repo truth:
 
 - Shared renderer channels live in `src/shared/events/event-channels.ts`; payloads and runtime channel lists live separately in `src/shared/events/event-payloads.ts`.
 - Renderer imports the shared event contract directly; main has manifest-derived scoped channels in `src/main/infrastructure/events/event-channels.config.ts`.
-- Renderer EventBus uses `eventemitter3`; main EventBus wraps Node `EventEmitter`.
+- Renderer and main EventBus wrappers share `src/shared/events/event-bus.ts` on `eventemitter3`, with renderer-only handler-error emission configured in the renderer wrapper.
 - Main and renderer can reuse string values with different payload shapes, such as `update:state-changed`.
 
 Long-term target:
@@ -505,6 +505,8 @@ Success criteria:
 - Every event channel has exactly one scoped manifest entry and explicit payload schema or `void`.
 - Runtime constants and payload maps are generated from the same source.
 - Main and renderer event buses share behavior where possible and tests cover scope-specific payloads.
+
+Current implementation note: Phase B now shares the EventBus implementation and enforces manifest-generated renderer event constants, a manifest-generated compact payload alias block, and renderer preload bridge descriptor parity via AST-scoped checks. The remaining event work is richer bridge mappings emitted from scoped IPC/event contracts.
 
 Risks and mitigations:
 
@@ -1511,9 +1513,10 @@ Expected outcome:
 
 Grounded repo truth:
 
-- `tests/factories/event-bus.factory.js`, `tests/mocks/index.js`, and inline mocks repeat EventBus, logger, app state, UI controller, service, and preload API collaborators.
+- `tests/factories/event-bus.factory.js` now owns canonical EventBus behavior, while `tests/mocks/index.js` still carries legacy UI controller and service helpers around canonical logger/EventBus/AppState wrappers.
 - `tests/factories/index.js#createMockDependencies()` uses ESM imports inside the ESM package.
-- Preload/global `window.*API` API names derive from `src/shared/ipc/ipc.manifest.json`, but mock bodies are still duplicated across tests.
+- Preload/global `window.*API` API names and subscription mock bodies derive from `src/shared/ipc/ipc.manifest.json`; legacy logger/EventBus/AppState entrypoints and the remediated performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumer, shared base/component registry, presentation-mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrator, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock test slices delegate to `tests/factories`, while broader service mocks are still duplicated across tests.
+- Residual inline scan hits are scenario-specific fakes: the Winston backend child logger in `main-logger.test.js`, device debounce/IPC adapter subscription behavior, the notes panel unsubscribe-error EventBus, and the partial logger tolerance check in `constraint.builder.test.js`.
 
 Long-term target:
 
@@ -1545,7 +1548,7 @@ Success criteria:
 
 - Tests import canonical support factories instead of repeating common collaborators.
 - No CommonJS `require` remains in ESM factory indexes.
-- Preload API mock names are generated from the IPC contract; mock bodies remain a follow-up until the generated mock factory exists.
+- Preload API mock names and subscription bodies are generated from the IPC contract, legacy logger/EventBus/AppState entrypoints route through canonical factories, and the remediated performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumer, shared base/component registry, presentation-mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrator, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock test slices use canonical factories; remaining work is broader migration away from inline service dependency mocks.
 
 Risks and mitigations:
 

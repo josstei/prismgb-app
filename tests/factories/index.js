@@ -45,6 +45,11 @@ export {
   StreamingState,
 } from './stream.factory.js';
 
+// Storage factories
+export {
+  createStorageService,
+} from './storage.factory.js';
+
 // AppState factories
 export {
   createAppState,

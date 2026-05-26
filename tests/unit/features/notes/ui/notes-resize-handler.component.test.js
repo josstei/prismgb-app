@@ -4,18 +4,14 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesResizeHandlerComponent } from '@renderer/presentation/features/notes/components/notes-resize-handler.component.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('NotesResizeHandlerComponent', () => {
   let component;
   let mockLogger;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'NotesResizeHandlerComponent' });
 
     component = new NotesResizeHandlerComponent({ logger: mockLogger });
   });

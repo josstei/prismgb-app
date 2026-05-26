@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../factories/index.js';
 
 describe('UIEventBridge', () => {
   let handler;
@@ -19,13 +20,11 @@ describe('UIEventBridge', () => {
   beforeEach(() => {
     subscribedHandlers = {};
 
-    mockEventBus = {
-      subscribe: vi.fn((event, handlerFn) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (event, handlerFn) => {
         subscribedHandlers[event] = handlerFn;
-        return vi.fn();
-      }),
-      publish: vi.fn()
-    };
+      },
+    });
 
     mockUiController = {
       updateStatusMessage: vi.fn(),
@@ -51,16 +50,7 @@ describe('UIEventBridge', () => {
       handleFullscreenState: vi.fn()
     };
 
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     handler = new UIEventBridge({
       eventBus: mockEventBus,
@@ -68,6 +58,7 @@ describe('UIEventBridge', () => {
       presentationModeService: mockPresentationModeService,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UIEventBridge');
   });
 
   afterEach(() => {

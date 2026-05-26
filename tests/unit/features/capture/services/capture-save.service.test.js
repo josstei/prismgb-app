@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 vi.mock('@shared/lib/file-download.utils.ts', () => ({
   downloadFile: vi.fn()
@@ -21,11 +22,7 @@ describe('CaptureSaveService', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    // Create mock EventBus
-    mockEventBus = {
-      subscribe: vi.fn(),
-      publish: vi.fn()
-    };
+    mockEventBus = createEventBus();
 
     // Create mock SettingsService
     mockSettingsService = {
@@ -38,17 +35,8 @@ describe('CaptureSaveService', () => {
       transcode: vi.fn().mockResolvedValue({ success: true, jobId: 'job-123' })
     };
 
-    // Create mock logger
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('CaptureSaveService');
 
     downloadFile.mockResolvedValue();
 

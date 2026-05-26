@@ -8,6 +8,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
   createManifestPreloadEventBridge,
+  RendererPreloadBridgeDescriptors,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 
@@ -31,7 +32,7 @@ class SettingsFullscreenService extends BaseService {
     if (window.windowAPI) {
       this._eventBridge = createManifestPreloadEventBridge({
         api: window.windowAPI,
-        apiName: 'windowAPI',
+        descriptor: RendererPreloadBridgeDescriptors.windowAPI,
         bridgeName: 'SettingsFullscreenService',
         logger: this.logger,
         handlers: {

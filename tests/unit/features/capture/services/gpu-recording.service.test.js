@@ -4,12 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('CaptureGpuRecordingService', () => {
   let service;
   let mockGpuRendererService;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockGpuRendererService = {
@@ -17,21 +19,14 @@ describe('CaptureGpuRecordingService', () => {
       getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
     };
 
-    mockEventBus = {
-      publish: vi.fn()
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('CaptureGpuRecordingService');
 
     service = new CaptureGpuRecordingService({
       gpuRendererService: mockGpuRendererService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
   });
 

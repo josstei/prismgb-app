@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseService } from '@shared/base/service.base.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 describe('BaseService', () => {
   let mockEventBus;
@@ -11,22 +12,9 @@ describe('BaseService', () => {
   let mockLogger;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('TestService');
+    mockEventBus = createEventBus();
   });
 
   describe('Constructor', () => {

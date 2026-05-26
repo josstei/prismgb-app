@@ -2,6 +2,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
   createManifestPreloadEventBridge,
+  RendererPreloadBridgeDescriptors,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import type {
@@ -55,7 +56,7 @@ class TranscodeService extends BaseService {
 
     this._eventBridge = createManifestPreloadEventBridge({
       api: window.transcodeAPI,
-      apiName: 'transcodeAPI',
+      descriptor: RendererPreloadBridgeDescriptors.transcodeAPI,
       bridgeName: 'TranscodeService',
       logger: this.logger,
       handlers: {

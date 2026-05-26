@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import * as HandlerDescriptors from '@main/ipc/handlers/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -36,16 +37,7 @@ describe('IpcHandlerRegistry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockDeviceService = {
       getStatus: vi.fn()
@@ -77,6 +69,7 @@ describe('IpcHandlerRegistry', () => {
       loginItemService: { isEnabled: vi.fn(), setEnabled: vi.fn() },
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('IpcHandlerRegistry');
   });
 
   afterEach(() => {

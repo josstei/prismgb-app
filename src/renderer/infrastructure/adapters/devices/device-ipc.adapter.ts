@@ -1,5 +1,6 @@
 import {
   createManifestPreloadEventBridge,
+  RendererPreloadBridgeDescriptors,
   type PreloadEventBridge
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 
@@ -8,11 +9,11 @@ type DeviceApiLike = Record<string, (handler: DeviceEventHandler) => () => void>
 
 export class DeviceIpcAdapter {
   _logger?: { warn?: (...args: unknown[]) => void };
-  _eventBridge: PreloadEventBridge | null;
+  _eventBridge: PreloadEventBridge | null = null;
+  _eventBridges = new Set<PreloadEventBridge>();
 
   constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
     this._logger = logger;
-    this._eventBridge = null;
   }
 
   subscribe(handleConnected: DeviceEventHandler, handleDisconnected: DeviceEventHandler) {
@@ -25,10 +26,9 @@ export class DeviceIpcAdapter {
       return () => {};
     }
 
-    this._eventBridge?.dispose();
     this._eventBridge = createManifestPreloadEventBridge({
       api: window.deviceAPI as unknown as DeviceApiLike,
-      apiName: 'deviceAPI',
+      descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
       bridgeName: 'DeviceIpcAdapter',
       logger: this._logger,
       handlers: {
@@ -37,10 +37,28 @@ export class DeviceIpcAdapter {
       }
     });
 
-    return () => this.dispose();
+    const eventBridge = this._eventBridge;
+    this._eventBridges.add(eventBridge);
+
+    return () => this._disposeBridge(eventBridge);
   }
+
+  _disposeBridge(eventBridge: PreloadEventBridge) {
+    if (!this._eventBridges.delete(eventBridge)) {
+      return;
+    }
+
+    eventBridge.dispose();
+
+    if (this._eventBridge === eventBridge) {
+      this._eventBridge = [...this._eventBridges].pop() ?? null;
+    }
+  }
+
   dispose() {
-    this._eventBridge?.dispose();
+    for (const eventBridge of this._eventBridges) eventBridge.dispose();
+
+    this._eventBridges.clear();
     this._eventBridge = null;
   }
 }

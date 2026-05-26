@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ComboboxListboxController, ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
-import { createMockLogger } from '../../../mocks/index.js';
+import { createLogger } from '../../../factories/index.js';
 
 describe('ListboxDropdownController', () => {
   let fixture;
@@ -10,7 +10,7 @@ describe('ListboxDropdownController', () => {
     const triggerElement = document.createElement('button');
     const menuElement = document.createElement('div');
     const labelElement = document.createElement('span');
-    const mockLogger = createMockLogger();
+    const mockLogger = createLogger();
     const onChange = vi.fn();
     [
       ['opt1', 'Option 1'],
@@ -225,7 +225,7 @@ describe('ComboboxListboxController', () => {
       onFocus: vi.fn()
     };
     controller = new ComboboxListboxController({
-      logger: createMockLogger(),
+      logger: createLogger(),
       optionSelector: '.test-option',
       optionClassName: 'test-option',
       optionIdPrefix: 'test-option',

@@ -31,6 +31,7 @@ function getRendererChannel<const TDomain extends string, const TName extends st
   return manifestValue as `${TDomain}:${TName}`;
 }
 
+// CODEBASE_RENDERER_EVENT_CHANNELS:START
 export const EventChannels = {
   // System events (EventBus internals)
   SYSTEM: {
@@ -149,3 +150,4 @@ export const EventChannels = {
     CANCELLED: getRendererChannel('transcode', 'cancelled')
   }
 } as const;
+// CODEBASE_RENDERER_EVENT_CHANNELS:END

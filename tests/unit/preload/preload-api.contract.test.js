@@ -114,4 +114,30 @@ describe('preload-api-globals test helper', () => {
     expect(typeof mock.getDeviceStatus).toBe('function');
     expect(typeof mock.onDeviceConnected).toBe('function');
   });
+
+  it('generates subscription mock bodies with isolated listeners and unsubscribe closures', () => {
+    const mock = createPreloadApiMock('deviceAPI');
+    const callback = vi.fn();
+
+    const unsubscribeFirst = mock.onDeviceConnected(callback);
+    mock.onDeviceConnected(callback);
+    mock.onDeviceConnected.emit({ id: 'chromatic' });
+    unsubscribeFirst();
+    mock.onDeviceConnected.emit({ id: 'remaining' });
+
+    expect(Object.keys(mock).sort()).toEqual(getManifestExposureShape().deviceAPI.slice().sort());
+    expect(mock.onDeviceConnected.listenerCount()).toBe(1);
+    expect(mock.onDeviceConnected.getUnsubscribers()).toContain(unsubscribeFirst);
+    expect(callback).toHaveBeenCalledTimes(3);
+  });
+
+  it('honors void-payload subscriptions when emitting generated preload mocks', () => {
+    const mock = createPreloadApiMock('windowAPI');
+    const callback = vi.fn();
+
+    mock.onResized(callback);
+    mock.onResized.emit({ impossible: true });
+
+    expect(callback).toHaveBeenCalledWith();
+  });
 });

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@renderer/infrastructure/services/notes/notes.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { NotesStorageKeys } from '@shared/config/storage-keys.config.ts';
+import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
 
 describe('NotesService', () => {
   let service;
@@ -14,39 +15,32 @@ describe('NotesService', () => {
   let mockLoggerFactory;
   let mockStorageService;
 
+  function setStoredNotes(notes) {
+    mockStorageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes));
+  }
+
+  function setStoredNotesRaw(rawNotes) {
+    mockStorageService.setItem(NotesStorageKeys.USER_NOTES, rawNotes);
+  }
+
+  function getStoredNotes() {
+    return JSON.parse(mockStorageService.getItem(NotesStorageKeys.USER_NOTES));
+  }
+
   beforeEach(() => {
-    mockStorageService = {
-      store: {},
-      getItem: vi.fn((key) => mockStorageService.store[key] || null),
-      setItem: vi.fn((key, value) => { mockStorageService.store[key] = value; })
-    };
-
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockStorageService = createStorageService();
+    mockLoggerFactory = createLoggerFactory();
+    mockEventBus = createEventBus();
 
     service = new NotesService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       storageService: mockStorageService
     });
+    mockLogger = mockLoggerFactory._getLogger('NotesService');
   });
 
   afterEach(() => {
-    mockStorageService.store = {};
     vi.restoreAllMocks();
   });
 
@@ -68,7 +62,7 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'First', content: 'Content 1', updatedAt: 1000 },
         { id: 'note_2', title: 'Second', content: 'Content 2', updatedAt: 2000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       const notes = service.getAllNotes();
 
@@ -79,7 +73,7 @@ describe('NotesService', () => {
 
     it('should use cached data on subsequent calls', () => {
       const storedNotes = [{ id: 'note_1', title: 'Test', content: '', updatedAt: 1000 }];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       service.getAllNotes();
       service.getAllNotes();
@@ -89,7 +83,7 @@ describe('NotesService', () => {
     });
 
     it('should handle corrupted JSON gracefully', () => {
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = 'invalid json{';
+      setStoredNotesRaw('invalid json{');
 
       const notes = service.getAllNotes();
 
@@ -101,7 +95,7 @@ describe('NotesService', () => {
     });
 
     it('should handle non-array JSON data', () => {
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify({ not: 'array' });
+      setStoredNotesRaw(JSON.stringify({ not: 'array' }));
 
       const notes = service.getAllNotes();
 
@@ -114,7 +108,7 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'New', updatedAt: 3000 },
         { id: 'note_3', title: 'Middle', updatedAt: 2000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       const notes = service.getAllNotes();
 
@@ -128,7 +122,7 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'No date' },
         { id: 'note_2', title: 'Has date', updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       const notes = service.getAllNotes();
 
@@ -142,7 +136,7 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'First', content: 'Content 1' },
         { id: 'note_2', title: 'Second', content: 'Content 2' }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
     });
 
     it('should return note by id', () => {
@@ -192,7 +186,7 @@ describe('NotesService', () => {
         expect.any(String)
       );
 
-      const stored = JSON.parse(mockStorageService.store[NotesStorageKeys.USER_NOTES]);
+      const stored = getStoredNotes();
       expect(stored).toHaveLength(1);
       expect(stored[0].title).toBe('Test');
     });
@@ -208,7 +202,7 @@ describe('NotesService', () => {
 
     it('should add new note at beginning of list', () => {
       const storedNotes = [{ id: 'existing', title: 'Existing', updatedAt: 1000 }];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
 
       service.createNote('New Note');
@@ -232,7 +226,7 @@ describe('NotesService', () => {
       const storedNotes = [
         { id: 'note_1', title: 'Original', content: 'Original Content', updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
     });
 
@@ -267,7 +261,7 @@ describe('NotesService', () => {
     it('should persist changes to storage', () => {
       service.updateNote('note_1', { title: 'Updated' });
 
-      const stored = JSON.parse(mockStorageService.store[NotesStorageKeys.USER_NOTES]);
+      const stored = getStoredNotes();
       expect(stored[0].title).toBe('Updated');
     });
 
@@ -296,7 +290,7 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'First', updatedAt: 1000 },
         { id: 'note_2', title: 'Second', updatedAt: 2000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
     });
 
@@ -319,7 +313,7 @@ describe('NotesService', () => {
     it('should persist deletion to storage', () => {
       service.deleteNote('note_1');
 
-      const stored = JSON.parse(mockStorageService.store[NotesStorageKeys.USER_NOTES]);
+      const stored = getStoredNotes();
       expect(stored).toHaveLength(1);
       expect(stored[0].id).toBe('note_2');
     });
@@ -350,7 +344,7 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'Python Guide', content: 'Python programming', updatedAt: 2000 },
         { id: 'note_3', title: 'CSS Styling', content: 'CSS tutorial and tips', updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
     });
 
@@ -411,7 +405,7 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'Tutorial Guide', content: 'Some content', updatedAt: 1000 },
         { id: 'note_2', title: 'Other Note', content: 'This is a tutorial', updatedAt: 2000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
 
       const results = service.searchNotes('tutorial');
@@ -425,7 +419,7 @@ describe('NotesService', () => {
       const storedNotes = [
         { id: 'note_1', content: 'Content with search term', updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
 
       const results = service.searchNotes('search');
@@ -437,7 +431,7 @@ describe('NotesService', () => {
       const storedNotes = [
         { id: 'note_1', title: 'Search Title', updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
 
       const results = service.searchNotes('search');
@@ -449,7 +443,7 @@ describe('NotesService', () => {
       const storedNotes = [
         { id: 'note_1', title: 123, content: null, updatedAt: 1000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
       service._invalidateCache();
 
       // Should not throw
@@ -549,7 +543,7 @@ describe('NotesService', () => {
         { id: 'note_3', gameName: 'Zelda', updatedAt: 3000 },
         { id: 'note_4', gameName: '', updatedAt: 4000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       const games = service.getUniqueGames();
 
@@ -570,7 +564,7 @@ describe('NotesService', () => {
         { id: 'note_3', gameName: 'Zelda', title: 'Note 3', updatedAt: 3000 },
         { id: 'note_4', gameName: '', title: 'General Note', updatedAt: 4000 }
       ];
-      mockStorageService.store[NotesStorageKeys.USER_NOTES] = JSON.stringify(storedNotes);
+      setStoredNotes(storedNotes);
 
       const groups = service.getNotesGroupedByGame();
 

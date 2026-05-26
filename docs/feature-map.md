@@ -79,10 +79,11 @@ Screenshots will not be added to this repository.
 
 ### Add a Render Preset
 
-1. Add a new preset file in `packages/prismgb-gpu/src/domain/presets/presets/` implementing the `IPreset` interface.
-2. Register it with `PresetRegistry.register()` and import it in `packages/prismgb-gpu/src/index.ts`.
-3. Ensure UI labels and descriptions read well (`PresetRegistry.getForUI()` provides the list).
-4. Consider performance mode interactions.
+1. Define the `IPreset` in `packages/prismgb-gpu/src/domain/presets/preset-definitions.ts`.
+2. Add the preset to `BUILT_IN_PRESETS` with any needed metadata such as `isDefault` or `visibleInUI`.
+3. Update `PRESET_POLICY` only when changing the package default, renderer default, or performance-mode preset id.
+4. Let `packages/prismgb-gpu/src/index.ts` bulk-register `BUILT_IN_PRESETS` through `PresetRegistry.registerMany()`; avoid per-preset imports or one-off registry calls.
+5. Ensure UI labels and descriptions read well (`PresetRegistry.getForUI()` provides the visible list) and consider performance mode interactions.
 
 ### Add a New Setting
 

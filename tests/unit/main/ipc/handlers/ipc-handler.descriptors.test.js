@@ -13,6 +13,7 @@ import {
   gpuHandlerDescriptors,
   loginItemHandlerDescriptors
 } from '@main/ipc/handlers/index.js';
+import { createLogger } from '../../../../factories/index.js';
 
 function captureHandlers(descriptors, deps) {
   const handlers = {};
@@ -26,10 +27,7 @@ function captureHandlers(descriptors, deps) {
   return handlers;
 }
 
-const mockLogger = {
-  debug: vi.fn(),
-  error: vi.fn()
-};
+const mockLogger = createLogger({ name: 'IpcHandlerDescriptors' });
 
 const mockDeviceService = { getStatus: vi.fn() };
 const mockUpdateService = { checkForUpdates: vi.fn(), downloadUpdate: vi.fn(), installUpdate: vi.fn(), getStatus: vi.fn() };
@@ -118,13 +116,12 @@ describe('Main IPC handler descriptors', () => {
     const updateError = await updateHandlers[IPC_CHANNELS.UPDATE.CHECK]();
     expect(updateError).toEqual({ success: false, error: 'update failure' });
 
-    const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, {
-      transcodeService: {
-        ...mockTranscodeService,
-        transcode: vi.fn(() => Promise.reject(new Error('transcode failure')))
-      },
-      logger: mockLogger
-    });
+    const transcodeService = {
+      transcode: vi.fn(() => Promise.reject(new Error('transcode failure'))),
+      cancel: vi.fn(),
+      getStatus: vi.fn()
+    };
+    const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, { transcodeService, logger: mockLogger });
 
     const transcodeError = await transcodeHandlers[IPC_CHANNELS.TRANSCODE.START]({}, {
       inputBuffer: Buffer.from('x'),
@@ -133,6 +130,8 @@ describe('Main IPC handler descriptors', () => {
     });
 
     expect(transcodeError).toEqual({ success: false, error: 'transcode failure' });
+    expect(await transcodeHandlers[IPC_CHANNELS.TRANSCODE.START]({}, [])).toEqual({ success: false, error: 'argument options must be object' });
+    expect(transcodeService.transcode).toHaveBeenCalledTimes(1);
 
     const gpuHandlers = captureHandlers(gpuHandlerDescriptors, {
       logger: mockLogger
@@ -143,19 +142,21 @@ describe('Main IPC handler descriptors', () => {
   });
 
   it('uses window and login item boolean/bare response modes', async () => {
-    const windowHandlers = captureHandlers(windowHandlerDescriptors, {
-      windowService: {
-        ...mockWindowService,
-        isFullScreen: vi.fn(() => true)
-      },
-      logger: mockLogger
-    });
+    const windowService = {
+      setFullScreen: vi.fn(),
+      isFullScreen: vi.fn(() => true)
+    };
+    const windowHandlers = captureHandlers(windowHandlerDescriptors, { windowService, logger: mockLogger });
 
     const isFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]();
     expect(isFullscreen).toBe(true);
 
     const setFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, true);
     expect(setFullscreen).toEqual({ success: true });
+    expect(await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, 'yes')).toEqual({ success: false, error: 'argument enabled must be boolean' });
+    expect(await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]({}, true)).toBe(false);
+    expect(windowService.setFullScreen).toHaveBeenCalledTimes(1);
+    expect(windowService.isFullScreen).toHaveBeenCalledTimes(1);
 
     const loginItemHandlers = captureHandlers(loginItemHandlerDescriptors, {
       loginItemService: {

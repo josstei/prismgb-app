@@ -6,6 +6,22 @@ import {
 
 type MaybeUnsubscribe = (() => void) | null | undefined;
 
+export interface RendererPreloadBridgeDescriptor<TMethod extends string = string> {
+  readonly apiName: string;
+  readonly methods: readonly TMethod[];
+}
+
+// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:START
+export const RendererPreloadBridgeDescriptors = {
+  deviceAPI: { apiName: 'deviceAPI', methods: ['onDeviceConnected', 'onDeviceDisconnected'] },
+  windowAPI: { apiName: 'windowAPI', methods: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized'] },
+  updateAPI: { apiName: 'updateAPI', methods: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'] },
+  transcodeAPI: { apiName: 'transcodeAPI', methods: ['onProgress', 'onCompleted', 'onError', 'onCancelled'] }
+} as const satisfies Record<string, RendererPreloadBridgeDescriptor>;
+// CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:END
+
+export type RendererPreloadBridgeApiName = keyof typeof RendererPreloadBridgeDescriptors;
+
 interface PreloadEventBridgeLogger {
   warn?(message: string, ...args: unknown[]): void;
   error?(message: string, ...args: unknown[]): void;
@@ -25,13 +41,13 @@ interface PreloadEventBridgeOptions<TApi> {
 
 type ManifestSubscriptionEntry = NonNullable<IpcNamespaceManifest['subscriptions']>[number];
 type ManifestPreloadEventHandler = (...args: never[]) => void;
-type ManifestPreloadEventHandlers = Readonly<Record<string, ManifestPreloadEventHandler>>;
+type ManifestPreloadEventHandlers<TMethod extends string = string> = Readonly<Record<TMethod, ManifestPreloadEventHandler>>;
 
-interface ManifestPreloadEventBridgeOptions<TApi> {
+interface ManifestPreloadEventBridgeOptions<TApi, TMethod extends string = string> {
   api: TApi;
-  apiName: string;
+  descriptor: RendererPreloadBridgeDescriptor<TMethod>;
   bridgeName: string;
-  handlers: ManifestPreloadEventHandlers;
+  handlers: ManifestPreloadEventHandlers<TMethod>;
   manifest?: IpcManifest;
   logger?: PreloadEventBridgeLogger;
 }
@@ -53,6 +69,32 @@ function requireManifestNamespace(apiName: string, manifest: IpcManifest): IpcNa
     throw new Error(`IPC manifest namespace not found for preload API "${apiName}"`);
   }
   return namespace;
+}
+
+function collectDescriptorSubscriptions({
+  apiName,
+  bridgeName,
+  descriptorMethods,
+  namespace
+}: {
+  apiName: string;
+  bridgeName: string;
+  descriptorMethods: readonly string[];
+  namespace: IpcNamespaceManifest;
+}): ManifestSubscriptionEntry[] {
+  const byMethod = new Map((namespace.subscriptions || []).map((subscription) => [derivePublicMethodName(subscription), subscription]));
+  const subscriptions = descriptorMethods.map((methodName) => {
+    const subscription = byMethod.get(methodName);
+    if (!subscription) {
+      throw new Error(`${bridgeName}: descriptor subscription "${apiName}.${methodName}" is not in IPC manifest`);
+    }
+    byMethod.delete(methodName);
+    return subscription;
+  });
+  if (byMethod.size > 0) {
+    throw new Error(`${bridgeName}: IPC manifest subscriptions missing from descriptor for "${apiName}": ${[...byMethod.keys()].join(', ')}`);
+  }
+  return subscriptions;
 }
 
 function createManifestSubscriptionDescriptor<TApi>({
@@ -132,16 +174,17 @@ export function createPreloadEventBridge<TApi>({
   };
 }
 
-export function createManifestPreloadEventBridge<TApi>({
+export function createManifestPreloadEventBridge<TApi, TMethod extends string>({
   api,
-  apiName,
+  descriptor,
   bridgeName,
   handlers,
   manifest = IpcContractManifest,
   logger
-}: ManifestPreloadEventBridgeOptions<TApi>): PreloadEventBridge {
+}: ManifestPreloadEventBridgeOptions<TApi, TMethod>): PreloadEventBridge {
+  const { apiName, methods } = descriptor;
   const namespace = requireManifestNamespace(apiName, manifest);
-  const subscriptions = (namespace.subscriptions || []).map((subscription) =>
+  const subscriptions = collectDescriptorSubscriptions({ apiName, bridgeName, descriptorMethods: methods, namespace }).map((subscription) =>
     createManifestSubscriptionDescriptor({ api, apiName, bridgeName, handlers, subscription })
   );
   return createPreloadEventBridge({ api, bridgeName, subscriptions, logger });

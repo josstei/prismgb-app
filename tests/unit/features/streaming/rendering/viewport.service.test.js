@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service.ts';
+import { createLoggerFactory } from '../../../../factories/index.js';
 import { installGetComputedStyleMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingViewportService', () => {
@@ -40,16 +41,7 @@ describe('StreamingViewportService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockContainer = {};
 
@@ -77,6 +69,7 @@ describe('StreamingViewportService', () => {
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
 
     service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
+    mockLogger = mockLoggerFactory._getLogger('StreamingViewportService');
   });
 
   afterEach(() => {

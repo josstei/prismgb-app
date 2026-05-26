@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -17,6 +18,7 @@ describe('CaptureOrchestrator', () => {
   let mockCaptureSaveService;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockCaptureService = {
@@ -75,17 +77,8 @@ describe('CaptureOrchestrator', () => {
       saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false })
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     global.window = {
       URL: {
@@ -115,8 +108,9 @@ describe('CaptureOrchestrator', () => {
       transcodeService: mockTranscodeService,
       captureSaveService: mockCaptureSaveService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('CaptureOrchestrator');
   });
 
   describe('Constructor', () => {

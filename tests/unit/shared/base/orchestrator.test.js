@@ -4,22 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { createLoggerFactory } from '../../../factories/index.js';
 
 describe('BaseOrchestrator', () => {
   let mockLoggerFactory;
   let mockLogger;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('TestOrchestrator');
   });
 
   describe('Constructor', () => {

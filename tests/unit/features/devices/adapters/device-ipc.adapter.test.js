@@ -5,6 +5,7 @@ import {
   createPreloadApiMock,
   setPreloadApi
 } from '../../../../support/mocks/preload-api-globals.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;
@@ -13,13 +14,7 @@ describe('DeviceIpcAdapter', () => {
 
   beforeEach(() => {
     mockDeviceAPI = createPreloadApiMock('deviceAPI');
-
-    mockLogger = {
-      warn: vi.fn(),
-      debug: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DeviceIpcAdapter' });
 
     setPreloadApi('deviceAPI', mockDeviceAPI);
 
@@ -54,37 +49,49 @@ describe('DeviceIpcAdapter', () => {
     it('should call cleanup functions when unsubscribe is called', () => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
-      const unsubConnected = vi.fn();
-      const unsubDisconnected = vi.fn();
-
-      mockDeviceAPI.onDeviceConnected.mockReturnValue(unsubConnected);
-      mockDeviceAPI.onDeviceDisconnected.mockReturnValue(unsubDisconnected);
 
       const cleanup = adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
+      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
       cleanup();
 
       expect(unsubConnected).toHaveBeenCalled();
       expect(unsubDisconnected).toHaveBeenCalled();
     });
 
-    it('should handle missing window.deviceAPI gracefully', () => {
-      clearPreloadApi('deviceAPI');
+    it('should keep each subscription active until its own cleanup or bulk dispose', () => {
+      const firstCleanup = adapter.subscribe(vi.fn(), vi.fn());
+      const secondCleanup = adapter.subscribe(vi.fn(), vi.fn());
+      adapter.subscribe(vi.fn(), vi.fn());
+      const connected = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
+      const disconnected = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
 
-      const onDeviceConnected = vi.fn();
-      const onDeviceDisconnected = vi.fn();
+      secondCleanup();
 
-      const cleanup = adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+      expect(connected[1]).toHaveBeenCalledTimes(1);
+      expect(disconnected[1]).toHaveBeenCalledTimes(1);
+      expect(connected[0]).not.toHaveBeenCalled();
+      expect(disconnected[0]).not.toHaveBeenCalled();
+      expect(connected[2]).not.toHaveBeenCalled();
+      expect(disconnected[2]).not.toHaveBeenCalled();
 
-      expect(typeof cleanup).toBe('function');
-      expect(() => cleanup()).not.toThrow();
+      firstCleanup();
+      adapter.dispose();
+
+      for (const index of [0, 2]) {
+        expect(connected[index]).toHaveBeenCalledTimes(1);
+        expect(disconnected[index]).toHaveBeenCalledTimes(1);
+      }
     });
 
-    it('should handle undefined window gracefully', () => {
-      delete global.window;
-
+    it.each([
+      ['missing window.deviceAPI', () => clearPreloadApi('deviceAPI')],
+      ['undefined window', () => { delete global.window; }]
+    ])('should handle %s gracefully', (_label, removeApi) => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
 
+      removeApi();
       const cleanup = adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
 
       expect(typeof cleanup).toBe('function');
@@ -99,11 +106,6 @@ describe('DeviceIpcAdapter', () => {
         'DeviceIpcAdapter.subscribe: Invalid callbacks provided'
       );
       expect(typeof cleanup).toBe('function');
-    });
-
-    it('should not call deviceAPI methods with invalid callbacks', () => {
-      adapter.subscribe(null, undefined);
-
       expect(mockDeviceAPI.onDeviceConnected).not.toHaveBeenCalled();
       expect(mockDeviceAPI.onDeviceDisconnected).not.toHaveBeenCalled();
     });
@@ -125,13 +127,10 @@ describe('DeviceIpcAdapter', () => {
     it('should call unsubscribe functions', () => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
-      const unsubConnected = vi.fn();
-      const unsubDisconnected = vi.fn();
-
-      mockDeviceAPI.onDeviceConnected.mockReturnValue(unsubConnected);
-      mockDeviceAPI.onDeviceDisconnected.mockReturnValue(unsubDisconnected);
 
       adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
+      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
       adapter.dispose();
 
       expect(unsubConnected).toHaveBeenCalled();
@@ -141,13 +140,10 @@ describe('DeviceIpcAdapter', () => {
     it('should handle multiple dispose calls safely', () => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
-      const unsubConnected = vi.fn();
-      const unsubDisconnected = vi.fn();
-
-      mockDeviceAPI.onDeviceConnected.mockReturnValue(unsubConnected);
-      mockDeviceAPI.onDeviceDisconnected.mockReturnValue(unsubDisconnected);
 
       adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
+      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
       adapter.dispose();
       adapter.dispose();
 
@@ -162,11 +158,6 @@ describe('DeviceIpcAdapter', () => {
     it('should clear preload event bridge after dispose', () => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
-      const unsubConnected = vi.fn();
-      const unsubDisconnected = vi.fn();
-
-      mockDeviceAPI.onDeviceConnected.mockReturnValue(unsubConnected);
-      mockDeviceAPI.onDeviceDisconnected.mockReturnValue(unsubDisconnected);
 
       adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
       adapter.dispose();
@@ -176,32 +167,16 @@ describe('DeviceIpcAdapter', () => {
   });
 
   describe('integration', () => {
-    it('should properly wire up connected event callback', () => {
-      const onDeviceConnected = vi.fn();
-      const onDeviceDisconnected = vi.fn();
+    it.each([
+      ['connected', 'onDeviceConnected', 0],
+      ['disconnected', 'onDeviceDisconnected', 1]
+    ])('should properly wire up %s event callback', (_label, method, callbackIndex) => {
+      const callbacks = [vi.fn(), vi.fn()];
 
-      mockDeviceAPI.onDeviceConnected.mockImplementation((callback) => {
-        callback({ deviceId: 'test-device' });
-        return vi.fn();
-      });
+      adapter.subscribe(callbacks[0], callbacks[1]);
+      mockDeviceAPI[method].emit({ deviceId: 'test-device' });
 
-      adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
-
-      expect(onDeviceConnected).toHaveBeenCalledWith({ deviceId: 'test-device' });
-    });
-
-    it('should properly wire up disconnected event callback', () => {
-      const onDeviceConnected = vi.fn();
-      const onDeviceDisconnected = vi.fn();
-
-      mockDeviceAPI.onDeviceDisconnected.mockImplementation((callback) => {
-        callback({ deviceId: 'test-device' });
-        return vi.fn();
-      });
-
-      adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
-
-      expect(onDeviceDisconnected).toHaveBeenCalledWith({ deviceId: 'test-device' });
+      expect(callbacks[callbackIndex]).toHaveBeenCalledWith({ deviceId: 'test-device' });
     });
   });
 });

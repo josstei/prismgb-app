@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { createEventBus, createLoggerFactory } from '../../factories/index.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
@@ -21,22 +21,8 @@ describe('UISetupOrchestrator', () => {
   let mockStreamCanvas;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockEventBus = createEventBus();
 
     mockAppState = {
       isStreaming: false
@@ -133,6 +119,7 @@ describe('UISetupOrchestrator', () => {
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UISetupOrchestrator');
   });
 
   describe('constructor', () => {

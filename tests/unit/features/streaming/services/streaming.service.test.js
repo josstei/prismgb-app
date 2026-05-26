@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingService', () => {
   let service;
@@ -13,13 +14,11 @@ describe('StreamingService', () => {
   let mockAdapterRegistry;
   let mockIpcClient;
   let mockLogger;
+  let mockLoggerFactory;
   let mockAdapter;
 
   beforeEach(() => {
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
 
     mockDeviceService = {
       getRegisteredStoredDeviceIds: vi.fn(),
@@ -42,22 +41,18 @@ describe('StreamingService', () => {
       getDeviceStatus: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockDependencies = {
       deviceService: mockDeviceService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) },
+      loggerFactory: mockLoggerFactory,
       adapterFactory: mockAdapterRegistry,
       ipcClient: mockIpcClient
     };
 
     service = new StreamingService(mockDependencies);
+    mockLogger = mockLoggerFactory._getLogger('StreamingService');
   });
 
   describe('Constructor', () => {

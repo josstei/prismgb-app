@@ -25,16 +25,16 @@ import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { CHROMATIC_E2E_FIXTURE } from '../../support/chromatic-device-specs.js';
-import { createEventBus, createLogger, createLoggerFactory, createStorageService } from '../../support/dependencies.js';
+import { createEventBus, createLoggerFactory, createStorageService } from '../../factories/index.js';
+import { createMockLoggerFactory } from '../../mocks/index.js';
 import { expectNoDrift, flattenStringValues } from '../../support/contract-helpers.js';
 
 const projectRoot = process.cwd();
 
 function createSettingsService() {
-  const logger = createLogger();
   return new SettingsService({
     eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(logger),
+    loggerFactory: createLoggerFactory(),
     storageService: createStorageService()
   });
 }
@@ -92,6 +92,60 @@ function collectRuntimeSourceFiles(rootDirectory) {
 }
 
 describe('Phase 1 manifests', () => {
+  it('keeps canonical test factory error handling explicit', () => {
+    const error = new Error('handler failed');
+    const eventBus = createEventBus();
+
+    eventBus.subscribe('test:event', () => {
+      throw error;
+    });
+
+    expect(() => eventBus.publish('test:event')).toThrow(error);
+  });
+
+  it('emits mock handler-error events only when explicitly configured', () => {
+    const error = new Error('handler failed');
+    const eventBus = createEventBus({ handlerErrorEvent: 'system:handler-error' });
+    const handlerErrorSubscriber = vi.fn();
+
+    eventBus.subscribe('system:handler-error', handlerErrorSubscriber);
+    eventBus.subscribe('test:event', () => {
+      throw error;
+    });
+
+    expect(() => eventBus.publish('test:event')).not.toThrow();
+    expect(handlerErrorSubscriber).toHaveBeenCalledWith({
+      eventName: 'test:event',
+      error: { name: error.name, message: error.message, stack: error.stack },
+    });
+  });
+
+  it('removes once-only mock EventBus listeners when handlers throw', () => {
+    const error = new Error('handler failed');
+    const eventBus = createEventBus();
+    const handler = vi.fn(() => {
+      throw error;
+    });
+
+    eventBus.subscribeOnce('test:event', handler);
+
+    expect(() => eventBus.publish('test:event')).toThrow(error);
+    expect(() => eventBus.publish('test:event')).not.toThrow();
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps legacy logger factory clearAll scoped to created loggers', () => {
+    const loggerFactory = createMockLoggerFactory();
+    const unrelatedSpy = vi.fn();
+
+    loggerFactory.create('TestLogger');
+    unrelatedSpy();
+    loggerFactory._clearAll();
+
+    expect(loggerFactory._loggers.size).toBe(0);
+    expect(unrelatedSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('describes the current IPC channel and preload exposure surfaces', () => {
     expect(ipcManifest.mode).toBe('enforced');
     expectNoDrift(flattenStringValues(channels), collectIpcManifestChannels());

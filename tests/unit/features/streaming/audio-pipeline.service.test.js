@@ -1,26 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 function createService() {
-  const unsubscribe = vi.fn();
-  const logger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  };
+  const eventBus = createEventBus();
+  const loggerFactory = createLoggerFactory();
   const service = new StreamingAudioPipelineService({
-    eventBus: {
-      subscribe: vi.fn(() => unsubscribe),
-      publish: vi.fn()
-    },
-    loggerFactory: {
-      create: vi.fn(() => logger)
-    },
+    eventBus,
+    loggerFactory,
     settingsService: {
       getNumberSetting: vi.fn(() => 70)
     }
   });
+  const logger = loggerFactory._getLogger('StreamingAudioPipelineService');
+  const unsubscribe = eventBus.subscribe.mock.results[0].value;
 
   return { service, logger, unsubscribe };
 }

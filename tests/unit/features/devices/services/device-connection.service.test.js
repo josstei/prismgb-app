@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
-import { createMockEventBus, createMockLoggerFactory } from '../../../../mocks/index.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 function createMockDeviceStatusProvider(overrides = {}) {
   return {
@@ -20,8 +20,8 @@ describe('DeviceConnectionService', () => {
   let mockDeviceStatusProvider;
 
   beforeEach(() => {
-    mockEventBus = createMockEventBus();
-    mockLoggerFactory = createMockLoggerFactory();
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
     mockDeviceStatusProvider = createMockDeviceStatusProvider();
 
     service = new DeviceConnectionService({

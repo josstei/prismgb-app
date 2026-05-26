@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 // Mock FilenameGenerator
 vi.mock('../../../../../src/shared/lib/filename-generator.utils.ts', () => ({
@@ -20,27 +21,14 @@ describe('CaptureService', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     service = new CaptureService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('CaptureService');
 
     // Mock MediaRecorder
     global.MediaRecorder = class MockMediaRecorder {

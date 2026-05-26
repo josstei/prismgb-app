@@ -7,12 +7,15 @@ import { DeviceService } from '@renderer/infrastructure/services/devices/device.
 import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
 import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
+import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
 
 describe('DeviceService', () => {
   let service;
   let mockEventBus;
   let mockDeviceStatusProvider;
-  let mockLogger;
+  let mockLoggerFactory;
+  let mockDeviceConnectionLogger;
+  let mockDeviceMediaLogger;
   let mockStorageService;
   let mockBrowserMediaService;
   let mockDeviceChangeDebounceAdapter;
@@ -21,31 +24,15 @@ describe('DeviceService', () => {
   let deviceMediaService;
 
   beforeEach(() => {
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
 
     mockDeviceStatusProvider = {
       getDeviceStatus: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
-    const mockLoggerFactory = { create: vi.fn(() => mockLogger) };
-
-    // Mock storage service
-    const storage = {};
-    mockStorageService = {
-      getItem: vi.fn((key) => storage[key] ?? null),
-      setItem: vi.fn((key, value) => { storage[key] = value; }),
-      removeItem: vi.fn((key) => { delete storage[key]; })
-    };
+    mockStorageService = createStorageService();
 
     // Mock browser media service
     mockBrowserMediaService = {
@@ -100,6 +87,9 @@ describe('DeviceService', () => {
       deviceStorageService,
       deviceMediaService
     });
+
+    mockDeviceConnectionLogger = mockLoggerFactory._getLogger('DeviceConnectionService');
+    mockDeviceMediaLogger = mockLoggerFactory._getLogger('DeviceMediaService');
   });
 
   afterEach(() => {
@@ -191,7 +181,7 @@ describe('DeviceService', () => {
       mockDeviceStatusProvider.getDeviceStatus.mockRejectedValue(error);
 
       await expect(service.updateDeviceStatus()).rejects.toThrow('Provider failed');
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockDeviceConnectionLogger.error).toHaveBeenCalled();
     });
   });
 
@@ -320,7 +310,7 @@ describe('DeviceService', () => {
       const result = await service.enumerateDevices();
 
       expect(result.devices).toEqual([]);
-      expect(mockLogger.warn).toHaveBeenCalled();
+      expect(mockDeviceMediaLogger.warn).toHaveBeenCalled();
       expect(mockEventBus.publish).toHaveBeenCalledWith('device:enumeration-failed', {
         error: 'Enumeration failed',
         reason: 'webcam_access'
@@ -480,7 +470,7 @@ describe('DeviceService', () => {
 
       await deviceMediaService._warmUpPermissions();
 
-      expect(mockLogger.debug).toHaveBeenCalledWith('Permission warm-up failed:', 'Permission denied');
+      expect(mockDeviceMediaLogger.debug).toHaveBeenCalledWith('Permission warm-up failed:', 'Permission denied');
       expect(deviceMediaService.hasMediaPermission).toBe(false);
     });
   });

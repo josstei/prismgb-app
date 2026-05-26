@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesSearchComponent } from '@renderer/presentation/features/notes/components/notes-search.component.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('NotesSearchComponent', () => {
   let component;
@@ -11,12 +12,7 @@ describe('NotesSearchComponent', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'NotesSearchComponent' });
 
     component = new NotesSearchComponent({ logger: mockLogger });
   });

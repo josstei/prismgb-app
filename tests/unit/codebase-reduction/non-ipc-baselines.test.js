@@ -11,6 +11,7 @@ import { chromaticConfig, mediaConfig } from '@shared/features/devices/profiles/
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { CHROMATIC_E2E_FIXTURE, CHROMATIC_SPECS } from '../../support/chromatic-device-specs.js';
+import { createEventBus, createLoggerFactory, createStorageService } from '../../factories/index.js';
 
 const projectRoot = process.cwd();
 
@@ -36,31 +37,16 @@ function flattenStringValues(node) {
 }
 
 function createSettingsService() {
-  const storage = {
-    getItem: vi.fn(() => null),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn()
-  };
-
-  const logger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn()
-  };
+  const storage = createStorageService();
+  const loggerFactory = createLoggerFactory();
 
   const service = new SettingsService({
-    eventBus: {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    },
-    loggerFactory: {
-      create: vi.fn(() => logger)
-    },
+    eventBus: createEventBus(),
+    loggerFactory,
     storageService: storage
   });
+
+  const logger = loggerFactory._getLogger('SettingsService');
 
   return { service, storage, logger };
 }

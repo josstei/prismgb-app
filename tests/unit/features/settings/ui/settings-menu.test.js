@@ -11,6 +11,7 @@ import {
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { createEventBus, createLogger } from '../../../../factories/index.js';
 
 describe('SettingsMenuComponent', () => {
   let component;
@@ -34,19 +35,8 @@ describe('SettingsMenuComponent', () => {
       setSetting: vi.fn(() => true)
     };
 
-    // Mock event bus
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
-
-    // Mock logger
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLogger = createLogger();
 
     // Create mock DOM elements
     mockElements = {

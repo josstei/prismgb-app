@@ -16,77 +16,74 @@ vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
   UIController: MockUIController
 }));
 
-vi.mock('@renderer/application/container.ts', () => ({
-  initializeContainer: vi.fn(() => ({
-    resolve: vi.fn((name) => {
-      if (name === 'appOrchestrator') {
-        return {
-          initialize: vi.fn().mockResolvedValue(),
-          start: vi.fn().mockResolvedValue(),
-          cleanup: vi.fn().mockResolvedValue()
-        };
-      }
-      if (name === 'adapterFactory') {
-        return {
-          initialize: vi.fn().mockResolvedValue()
-        };
-      }
-      if (name === 'uiComponentRegistry') {
-        return {
-          initialize: vi.fn(),
-          initializeComponent: vi.fn(),
-          get: vi.fn(),
-          dispose: vi.fn()
-        };
-      }
-      if (name === 'uiEffects') {
-        return {
-          elements: null,
-          triggerShutterFlash: vi.fn(),
-          triggerButtonFeedback: vi.fn()
-        };
-      }
-      if (name === 'uiEventBridge') {
-        return {
-          initialize: vi.fn(),
-          dispose: vi.fn()
-        };
-      }
-      if (name === 'captureUiBridge') {
-        return {
-          initialize: vi.fn(),
-          dispose: vi.fn()
-        };
-      }
-      if (name === 'transcodeUiBridge') {
-        return {
-          initialize: vi.fn(),
-          dispose: vi.fn()
-        };
-      }
-      if (name === 'transcodeService') {
-        return {
-          initialize: vi.fn(),
-          dispose: vi.fn()
-        };
-      }
-      if (name === 'loggerFactory') {
-        return {
-          create: vi.fn(() => ({
-            debug: vi.fn(),
-            info: vi.fn(),
-            warn: vi.fn(),
-            error: vi.fn()
-          }))
-        };
-      }
-      return {};
-    }),
-    register: vi.fn(),
-    dispose: vi.fn()
-  })),
-  asValue: vi.fn((val) => ({ __asValue: true, value: val }))
-}));
+vi.mock('@renderer/application/container.ts', async () => {
+  const { createLoggerFactory } = await import('../../../factories/logger.factory.js');
+
+  return {
+    initializeContainer: vi.fn(() => ({
+      resolve: vi.fn((name) => {
+        if (name === 'appOrchestrator') {
+          return {
+            initialize: vi.fn().mockResolvedValue(),
+            start: vi.fn().mockResolvedValue(),
+            cleanup: vi.fn().mockResolvedValue()
+          };
+        }
+        if (name === 'adapterFactory') {
+          return {
+            initialize: vi.fn().mockResolvedValue()
+          };
+        }
+        if (name === 'uiComponentRegistry') {
+          return {
+            initialize: vi.fn(),
+            initializeComponent: vi.fn(),
+            get: vi.fn(),
+            dispose: vi.fn()
+          };
+        }
+        if (name === 'uiEffects') {
+          return {
+            elements: null,
+            triggerShutterFlash: vi.fn(),
+            triggerButtonFeedback: vi.fn()
+          };
+        }
+        if (name === 'uiEventBridge') {
+          return {
+            initialize: vi.fn(),
+            dispose: vi.fn()
+          };
+        }
+        if (name === 'captureUiBridge') {
+          return {
+            initialize: vi.fn(),
+            dispose: vi.fn()
+          };
+        }
+        if (name === 'transcodeUiBridge') {
+          return {
+            initialize: vi.fn(),
+            dispose: vi.fn()
+          };
+        }
+        if (name === 'transcodeService') {
+          return {
+            initialize: vi.fn(),
+            dispose: vi.fn()
+          };
+        }
+        if (name === 'loggerFactory') {
+          return createLoggerFactory();
+        }
+        return {};
+      }),
+      register: vi.fn(),
+      dispose: vi.fn()
+    })),
+    asValue: vi.fn((val) => ({ __asValue: true, value: val }))
+  };
+});
 
 const { RendererAppOrchestrator } = await import('@renderer/renderer-app.orchestrator.js');
 

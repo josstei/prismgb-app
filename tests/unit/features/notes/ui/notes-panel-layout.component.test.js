@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesPanelLayoutComponent } from '@renderer/presentation/features/notes/components/notes-panel-layout.component.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('NotesPanelLayoutComponent', () => {
   let component;
@@ -29,7 +30,7 @@ describe('NotesPanelLayoutComponent', () => {
   };
 
   beforeEach(() => {
-    mockLogger = { debug: vi.fn(), warn: vi.fn() };
+    mockLogger = createLogger({ name: 'NotesPanelLayoutComponent' });
     panelElement = document.createElement('div');
     toolbarElement = document.createElement('div');
     streamContainer = document.createElement('div');

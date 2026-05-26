@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service.ts';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingHealthService', () => {
   let service;
@@ -14,16 +15,7 @@ describe('StreamingHealthService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockVideoElement = {
       requestVideoFrameCallback: vi.fn(),
@@ -33,6 +25,7 @@ describe('StreamingHealthService', () => {
     };
 
     service = new StreamingHealthService({ loggerFactory: mockLoggerFactory });
+    mockLogger = mockLoggerFactory._getLogger('StreamingHealthService');
   });
 
   afterEach(() => {

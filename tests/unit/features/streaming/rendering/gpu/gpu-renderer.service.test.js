@@ -9,6 +9,8 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { buildUniforms } from '@prismgb/gpu';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 
 // Mock the capability detector
 vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
@@ -77,21 +79,8 @@ describe('StreamingGpuRendererService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     mockSettingsService = {
       getNumberSetting: vi.fn(() => 1.0),
@@ -127,6 +116,7 @@ describe('StreamingGpuRendererService', () => {
       gpuFrameBuffer: mockGpuFrameBuffer,
       gpuWorkerManager: mockGpuWorkerManager
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingGpuRendererService');
   });
 
   afterEach(() => {

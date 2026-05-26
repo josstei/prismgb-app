@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
-import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
+import { createEventBus, createLogger } from '../../../../factories/index.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 
@@ -31,9 +31,9 @@ describe('ShaderPresetListComponent', () => {
   let unavailableMessage;
 
   beforeEach(() => {
-    mockEventBus = createMockEventBus();
+    mockEventBus = createEventBus();
     mockSettingsService = createMockSettingsService();
-    mockLogger = createMockLogger();
+    mockLogger = createLogger();
 
     optionsContainer = document.createElement('div');
     unavailableMessage = document.createElement('div');

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/components/cinematic-toggle.component.js';
-import { createMockEventBus, createMockAppState, createMockLogger } from '../../../../mocks/index.js';
+import { createEventBus, createAppState, createLogger } from '../../../../factories/index.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('CinematicToggleComponent', () => {
@@ -16,9 +16,9 @@ describe('CinematicToggleComponent', () => {
   let textElement;
 
   beforeEach(() => {
-    mockEventBus = createMockEventBus();
-    mockAppState = createMockAppState({ isCinematicModeEnabled: true });
-    mockLogger = createMockLogger();
+    mockEventBus = createEventBus();
+    mockAppState = createAppState({ initialState: { isCinematicModeEnabled: true } });
+    mockLogger = createLogger();
 
     toggleElement = document.createElement('button');
     textElement = document.createElement('span');
@@ -59,7 +59,7 @@ describe('CinematicToggleComponent', () => {
     });
 
     it('should set initial state from appState', () => {
-      mockAppState._state.isCinematicModeEnabled = true;
+      mockAppState._forceSet('isCinematicModeEnabled', true);
       component.initialize({ toggleElement, textElement });
 
       expect(toggleElement.classList.contains('active')).toBe(true);

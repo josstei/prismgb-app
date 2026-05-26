@@ -95,6 +95,15 @@ function createManifestSubscriptionSet(apiName, manifest = IpcManifest) {
 function requireSubscriptionMethod(apiName, byMethod, methodName) { const subscription = byMethod[methodName]; if (!subscription) throw new Error(`IPC manifest subscription not found for ${apiName}.${methodName}`); return subscription; }
 function applyRequiredSubscriptionMetadata(apiName, subscriptions, metadataByMethod) { return subscriptions.map((subscription) => { const metadata = metadataByMethod[subscription.methodName]; if (!metadata) throw new Error(`Preload subscription metadata missing for ${apiName}.${subscription.methodName}`); return { ...subscription, ...metadata }; }); }
 
+function createManifestSubscriptionMethods({ apiName, ipcRenderer, registry, maxListeners, validateCallback, metadataByMethod = {}, manifest = IpcManifest }) {
+  const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet(apiName, manifest);
+  const subscriptions = (Object.keys(metadataByMethod).length ? applyRequiredSubscriptionMetadata(apiName, manifestSubscriptions, metadataByMethod) : manifestSubscriptions).map((subscription) => ({ dispatchPayload: subscription.payload !== 'void', ...subscription }));
+  return {
+    methods: Object.fromEntries(subscriptions.map((subscription) => [subscription.methodName, createSubscription({ ipcRenderer, registry, maxListeners, validateCallback, ...subscription })])),
+    dispose: createSubscriptionDisposer({ ipcRenderer, registry, subscriptions })
+  };
+}
+
 function createSubscription({
   apiName,
   methodName,
@@ -147,4 +156,4 @@ function createSubscription({
   };
 }
 
-export { applyRequiredSubscriptionMetadata, createManifestInvokeSet, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer, requireSubscriptionMethod };
+export { applyRequiredSubscriptionMetadata, createManifestInvokeSet, createManifestSubscriptionMethods, createManifestSubscriptionSet, createSubscription, createSubscriptionDisposer, requireSubscriptionMethod };

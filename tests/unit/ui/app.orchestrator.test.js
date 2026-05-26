@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../factories/index.js';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -21,6 +22,7 @@ describe('AppOrchestrator', () => {
   let mockPerformanceStateOrchestrator;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockDeviceOrchestrator = {
@@ -90,17 +92,8 @@ describe('AppOrchestrator', () => {
       cleanup: vi.fn().mockResolvedValue()
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     orchestrator = new AppOrchestrator({
       deviceOrchestrator: mockDeviceOrchestrator,
@@ -115,8 +108,9 @@ describe('AppOrchestrator', () => {
       performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
       performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('AppOrchestrator');
   });
 
   afterEach(() => {

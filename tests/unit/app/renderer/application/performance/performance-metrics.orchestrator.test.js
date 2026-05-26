@@ -5,30 +5,23 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance-metrics.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('PerformanceMetricsOrchestrator', () => {
   let orchestrator;
   let mockEventBus;
-  let mockLogger;
+  let mockLoggerFactory;
   let mockPerformanceMetricsService;
   let handlers;
 
   beforeEach(() => {
     handlers = {};
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn((channel, handler) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (channel, handler) => {
         handlers[channel] = handler;
-        return vi.fn();
-      })
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+      }
+    });
+    mockLoggerFactory = createLoggerFactory();
 
     mockPerformanceMetricsService = {
       requestSnapshot: vi.fn(),
@@ -39,7 +32,7 @@ describe('PerformanceMetricsOrchestrator', () => {
 
     orchestrator = new PerformanceMetricsOrchestrator({
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) },
+      loggerFactory: mockLoggerFactory,
       performanceMetricsService: mockPerformanceMetricsService
     });
   });
@@ -57,7 +50,7 @@ describe('PerformanceMetricsOrchestrator', () => {
     it('should throw if missing performanceMetricsService', () => {
       expect(() => new PerformanceMetricsOrchestrator({
         eventBus: mockEventBus,
-        loggerFactory: { create: vi.fn(() => mockLogger) }
+        loggerFactory: mockLoggerFactory
       })).toThrow();
     });
   });

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service.ts';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingViewService', () => {
   let service;
@@ -41,21 +42,13 @@ describe('StreamingViewService', () => {
       })
     };
 
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     service = new StreamingViewService({
       uiController: mockUIController,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingViewService');
   });
 
   describe('Constructor', () => {

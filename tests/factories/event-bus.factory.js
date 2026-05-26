@@ -13,6 +13,9 @@ import { vi } from 'vitest';
  * @param {boolean} options.recordEvents - Whether to record all events (default: true)
  * @param {Function} options.onPublish - Callback for each publish
  * @param {Function} options.onSubscribe - Callback for each subscribe
+ * @param {Function} options.onHandlerError - Callback when a subscriber throws
+ * @param {string} options.handlerErrorEvent - Optional event to publish instead of rethrowing
+ * @param {Function} options.createHandlerErrorPayload - Optional handler-error payload mapper
  * @returns {Object} Mock EventBus instance
  */
 export function createEventBus(options = {}) {
@@ -20,11 +23,19 @@ export function createEventBus(options = {}) {
     recordEvents = true,
     onPublish = null,
     onSubscribe = null,
+    onHandlerError = null,
+    handlerErrorEvent = null,
+    createHandlerErrorPayload = (eventName, error) => ({
+      eventName,
+      error: { name: error.name, message: error.message, stack: error.stack },
+    }),
   } = options;
 
   const listeners = new Map();
   const eventHistory = [];
   const subscriptionHistory = [];
+
+  const normalizeError = (error) => error instanceof Error ? error : new Error(String(error));
 
   const eventBus = {
     /**
@@ -41,21 +52,23 @@ export function createEventBus(options = {}) {
 
       onPublish?.(event, data);
 
-      const eventListeners = listeners.get(event) || [];
-      eventListeners.forEach(({ callback, once }) => {
+      const eventListeners = [...(listeners.get(event) || [])];
+      for (const { callback, once } of eventListeners) {
         try {
           callback(data);
         } catch (error) {
-          // Emit handler error event (matches real EventBus behavior)
-          if (event !== 'system:handler-error') {
-            eventBus.publish('system:handler-error', { event, error });
+          const handlerError = normalizeError(error);
+          onHandlerError?.(event, handlerError);
+          if (!handlerErrorEvent || event === handlerErrorEvent) {
+            throw handlerError;
+          }
+          eventBus.publish(handlerErrorEvent, createHandlerErrorPayload(event, handlerError));
+        } finally {
+          if (once) {
+            eventBus.unsubscribe(event, callback);
           }
         }
-
-        if (once) {
-          eventBus.unsubscribe(event, callback);
-        }
-      });
+      }
     }),
 
     /**

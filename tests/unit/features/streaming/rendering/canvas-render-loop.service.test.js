@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPipeline } from '@prismgb/gpu';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service.ts';
+import { createLogger } from '../../../../factories/index.js';
 import { installDevicePixelRatioMock } from '../../../../support/mocks/browser-api.installers.js';
 
 vi.mock('@prismgb/gpu', async (importOriginal) => {
@@ -24,12 +25,7 @@ describe('StreamingCanvasRenderLoopService', () => {
     vi.useFakeTimers();
     devicePixelRatioMock = installDevicePixelRatioMock(1);
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger();
 
     mockAnimationCache = {
       cancelAnimation: vi.fn(),

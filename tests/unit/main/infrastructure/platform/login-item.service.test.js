@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -19,14 +20,7 @@ describe('LoginItemService', () => {
     vi.clearAllMocks();
     originalPlatform = process.platform;
 
-    mockLoggerFactory = {
-      create: () => ({
-        info: vi.fn(),
-        debug: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-      })
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     service = new LoginItemService({ loggerFactory: mockLoggerFactory });
   });

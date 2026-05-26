@@ -4,22 +4,20 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service.ts';
+import { createLoggerFactory } from '../../factories/index.js';
 
 describe('PerformanceAnimationService', () => {
   let service;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     service = new PerformanceAnimationService({
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('PerformanceAnimationService');
   });
 
   describe('setPerformanceState', () => {

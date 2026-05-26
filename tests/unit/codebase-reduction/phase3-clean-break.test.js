@@ -100,7 +100,7 @@ describe('Phase 3 clean-break consolidation', () => {
       'src/preload/apis/transcode.preload-api.js'
     ].forEach((relativePath) => {
       const source = readProjectFile(relativePath);
-      expect(source).toContain('createSubscriptionDisposer');
+      expect(source).toContain('createManifestSubscriptionMethods');
       expect(source).not.toMatch(/\bipcRenderer\.(on|once)\s*\(/);
       expect(source).not.toContain('disposeListenersForKey');
       expect(source).not.toContain('listenerKeys');

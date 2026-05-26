@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppState } from '@renderer/application/state/app-state.ts';
+import { createEventBus } from '../../factories/index.js';
 
 describe('AppState', () => {
   let state;
@@ -24,13 +25,11 @@ describe('AppState', () => {
       isConnected: false
     };
 
-    mockEventBus = {
-      subscribe: vi.fn((event, handler) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (event, handler) => {
         subscribedHandlers[event] = handler;
-        return vi.fn(); // unsubscribe function
-      }),
-      publish: vi.fn()
-    };
+      }
+    });
 
     state = new AppState({
       streamingService: mockStreamingService,

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingRenderPipelineService', () => {
   let service;
@@ -20,6 +21,7 @@ describe('StreamingRenderPipelineService', () => {
   let mockStreamingRendererFactory;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
   let mockGpuRendererAdapter;
   let mockCanvas2DRendererAdapter;
   let canvas;
@@ -140,16 +142,8 @@ describe('StreamingRenderPipelineService', () => {
       getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d'])
     };
 
-    mockEventBus = {
-      publish: vi.fn()
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     service = new StreamingRenderPipelineService({
       appState: mockAppState,
@@ -161,8 +155,9 @@ describe('StreamingRenderPipelineService', () => {
       gpuRendererService: mockGpuRendererService,
       gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingRenderPipelineService');
   });
 
   afterEach(() => {
