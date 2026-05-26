@@ -2,9 +2,14 @@
  * CaptureGpuRecordingService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createCleanupStack,
+  installAnimationFrameMock,
+  installDocumentCreateElementMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 describe('CaptureGpuRecordingService', () => {
   let service;
@@ -12,8 +17,31 @@ describe('CaptureGpuRecordingService', () => {
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
+  let cleanupStack;
+
+  function trackMock(handle) {
+    cleanupStack.add(() => handle.cleanup());
+    return handle;
+  }
+
+  function installCanvasAndAnimationFrameMocks(mockCanvas, animationFrameOptions = {}) {
+    const documentMock = trackMock(installDocumentCreateElementMock({
+      createElement: vi.fn(() => mockCanvas)
+    }));
+    const animationFrameMock = trackMock(installAnimationFrameMock(animationFrameOptions));
+
+    return {
+      documentMock,
+      animationFrameMock,
+      createElement: documentMock.createElement,
+      requestAnimationFrame: animationFrameMock.requestAnimationFrame,
+      cancelAnimationFrame: animationFrameMock.cancelAnimationFrame,
+    };
+  }
 
   beforeEach(() => {
+    cleanupStack = createCleanupStack();
+
     mockGpuRendererService = {
       captureFrame: vi.fn(),
       getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
@@ -30,6 +58,11 @@ describe('CaptureGpuRecordingService', () => {
     });
   });
 
+  afterEach(() => {
+    cleanupStack.cleanup();
+    vi.clearAllMocks();
+  });
+
   it('should start GPU recording with provided frame rate', async () => {
     const mockRecordingStream = {
       addTrack: vi.fn(),
@@ -42,10 +75,9 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = {
-      createElement: vi.fn(() => mockCanvas)
-    };
-    global.requestAnimationFrame = vi.fn();
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn()
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
 
@@ -62,9 +94,9 @@ describe('CaptureGpuRecordingService', () => {
       getContext: vi.fn(() => null)
     };
 
-    global.document = {
+    trackMock(installDocumentCreateElementMock({
       createElement: vi.fn(() => mockCanvas)
-    };
+    }));
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
 
@@ -117,14 +149,12 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = {
-      createElement: vi.fn(() => mockCanvas)
-    };
-
     let rafCallback;
-    global.requestAnimationFrame = vi.fn((cb) => {
-      rafCallback = cb;
-      return 123;
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      })
     });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
@@ -153,12 +183,12 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => ({ addTrack: vi.fn(), getTracks: vi.fn(() => []) }))
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-
     let rafCallback;
-    global.requestAnimationFrame = vi.fn((cb) => {
-      rafCallback = cb;
-      return 123;
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      })
     });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
@@ -198,9 +228,10 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-    global.requestAnimationFrame = vi.fn(() => 123);
-    global.cancelAnimationFrame = vi.fn();
+    const browserMocks = installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn(() => 123),
+      cancelAnimationFrame: vi.fn()
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
 
@@ -208,7 +239,7 @@ describe('CaptureGpuRecordingService', () => {
 
     service.stop();
 
-    expect(global.cancelAnimationFrame).toHaveBeenCalledWith(123);
+    expect(browserMocks.cancelAnimationFrame).toHaveBeenCalledWith(123);
     expect(mockTrack.stop).toHaveBeenCalled();
     expect(service.isActive()).toBe(false);
   });
@@ -230,8 +261,9 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-    global.requestAnimationFrame = vi.fn(() => 123);
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn(() => 123)
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
     await service.start({ stream: mockStream, frameRate: 60 });
@@ -252,8 +284,9 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-    global.requestAnimationFrame = vi.fn();
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn()
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
 
@@ -275,8 +308,9 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-    global.requestAnimationFrame = vi.fn();
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn()
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => [mockAudioTrack]) };
 
@@ -330,15 +364,19 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should do nothing when stopping while not recording', async () => {
-    global.cancelAnimationFrame = vi.fn();
+    const animationFrameMock = trackMock(installAnimationFrameMock({
+      cancelAnimationFrame: vi.fn()
+    }));
 
     await service.stop();
 
-    expect(global.cancelAnimationFrame).not.toHaveBeenCalled();
+    expect(animationFrameMock.cancelAnimationFrame).not.toHaveBeenCalled();
   });
 
   it('should dispose and cleanup resources', () => {
-    global.cancelAnimationFrame = vi.fn();
+    trackMock(installAnimationFrameMock({
+      cancelAnimationFrame: vi.fn()
+    }));
 
     service.dispose();
 
@@ -357,8 +395,9 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-    global.requestAnimationFrame = vi.fn();
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn()
+    });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
     await service.start({ stream: mockStream, frameRate: 60 });
@@ -390,12 +429,12 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-
     let rafCallback;
-    global.requestAnimationFrame = vi.fn((cb) => {
-      rafCallback = cb;
-      return 123;
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      })
     });
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
@@ -436,14 +475,14 @@ describe('CaptureGpuRecordingService', () => {
       captureStream: vi.fn(() => mockRecordingStream)
     };
 
-    global.document = { createElement: vi.fn(() => mockCanvas) };
-
     let rafCallback;
-    global.requestAnimationFrame = vi.fn((cb) => {
-      rafCallback = cb;
-      return 123;
+    installCanvasAndAnimationFrameMocks(mockCanvas, {
+      requestAnimationFrame: vi.fn((cb) => {
+        rafCallback = cb;
+        return 123;
+      }),
+      cancelAnimationFrame: vi.fn()
     });
-    global.cancelAnimationFrame = vi.fn();
 
     const mockStream = { getAudioTracks: vi.fn(() => []) };
     await service.start({ stream: mockStream, frameRate: 60 });

@@ -5,10 +5,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesResizeHandlerComponent } from '@renderer/presentation/features/notes/components/notes-resize-handler.component.js';
 import { createLogger } from '../../../../factories/index.js';
+import { installAnimationFrameMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('NotesResizeHandlerComponent', () => {
   let component;
   let mockLogger;
+  let animationFrameMock;
 
   beforeEach(() => {
     mockLogger = createLogger({ name: 'NotesResizeHandlerComponent' });
@@ -18,6 +20,7 @@ describe('NotesResizeHandlerComponent', () => {
 
   afterEach(() => {
     component.dispose();
+    animationFrameMock?.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -246,7 +249,7 @@ describe('NotesResizeHandlerComponent', () => {
     });
 
     it('should cancel pending RAF on drag end', () => {
-      const cancelSpy = vi.spyOn(global, 'cancelAnimationFrame');
+      animationFrameMock = installAnimationFrameMock();
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
@@ -254,33 +257,30 @@ describe('NotesResizeHandlerComponent', () => {
       component._rafId = 123;
       document.dispatchEvent(new MouseEvent('mouseup'));
 
-      expect(cancelSpy).toHaveBeenCalledWith(123);
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(123);
     });
 
     it('should throttle RAF during drag', () => {
-      const rafSpy = vi.spyOn(global, 'requestAnimationFrame').mockImplementation(cb => {
-        cb();
-        return 1;
-      });
+      animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn((cb) => { cb(); return 1; }) });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
 
-      expect(rafSpy).toHaveBeenCalled();
+      expect(animationFrameMock.requestAnimationFrame).toHaveBeenCalled();
     });
 
     it('should skip RAF when frame is already pending', () => {
-      const rafSpy = vi.spyOn(global, 'requestAnimationFrame').mockReturnValue(1);
+      animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn(() => 1) });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
 
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
-      const firstCallCount = rafSpy.mock.calls.length;
+      const firstCallCount = animationFrameMock.requestAnimationFrame.mock.calls.length;
 
       component._dragFramePending = true;
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 115 }));
 
-      expect(rafSpy.mock.calls.length).toBe(firstCallCount);
+      expect(animationFrameMock.requestAnimationFrame.mock.calls.length).toBe(firstCallCount);
     });
   });
 
@@ -338,12 +338,12 @@ describe('NotesResizeHandlerComponent', () => {
 
   describe('dispose', () => {
     it('should cancel pending RAF', () => {
-      const cancelSpy = vi.spyOn(global, 'cancelAnimationFrame');
+      animationFrameMock = installAnimationFrameMock();
       component._rafId = 456;
 
       component.dispose();
 
-      expect(cancelSpy).toHaveBeenCalledWith(456);
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(456);
       expect(component._rafId).toBeNull();
     });
 

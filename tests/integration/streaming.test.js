@@ -14,6 +14,7 @@ import {
   performanceUtils,
 } from '../mocks/index.js';
 import { createEventBus, createAppState } from '../factories/index.js';
+import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
 
@@ -60,6 +61,20 @@ describe('Streaming Pipeline Integration', () => {
       mockDeviceManager.addDevice(secondDevice);
 
       expect(changeHandler).toHaveBeenCalled();
+    });
+
+    it('should clear stale device change listeners when reinstalling mediaDevices mock', () => {
+      const staleHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', staleHandler);
+
+      mockDeviceManager.setupMediaDevicesMock();
+
+      const currentHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', currentHandler);
+      mockDeviceManager.addDevice(new MockDevice({ deviceId: 'second-device', label: 'Second Camera' }));
+
+      expect(staleHandler).not.toHaveBeenCalled();
+      expect(currentHandler).toHaveBeenCalledTimes(1);
     });
 
     it('should handle device disconnection', async () => {
@@ -283,18 +298,21 @@ describe('Streaming Pipeline Integration', () => {
       expect(wasRendering).toBe(true);
 
       // Simulate visibility change
-      Object.defineProperty(document, 'hidden', { value: true, writable: true });
+      const hiddenMock = installDocumentPropertyMock('hidden', true);
+      try {
+        // Should pause rendering
+        const shouldRender = appState.isStreaming && !document.hidden;
+        expect(shouldRender).toBe(false);
 
-      // Should pause rendering
-      const shouldRender = appState.isStreaming && !document.hidden;
-      expect(shouldRender).toBe(false);
+        // Restore visibility
+        hiddenMock.setValue(false);
 
-      // Restore visibility
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
-
-      // Should resume rendering
-      const shouldRenderAgain = appState.isStreaming && !document.hidden;
-      expect(shouldRenderAgain).toBe(true);
+        // Should resume rendering
+        const shouldRenderAgain = appState.isStreaming && !document.hidden;
+        expect(shouldRenderAgain).toBe(true);
+      } finally {
+        hiddenMock.cleanup();
+      }
     });
   });
 

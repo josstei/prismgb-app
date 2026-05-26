@@ -5,12 +5,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
 import { createAppState, createLoggerFactory } from '../../../../factories/index.js';
+import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('PresentationModeService', () => {
   let service;
   let mockUiController;
   let mockAppState;
   let mockLoggerFactory;
+  let fullscreenElementMock;
 
   beforeEach(() => {
     mockUiController = {
@@ -31,11 +33,7 @@ describe('PresentationModeService', () => {
     });
     mockLoggerFactory = createLoggerFactory();
 
-    Object.defineProperty(document, 'fullscreenElement', {
-      configurable: true,
-      writable: true,
-      value: null
-    });
+    fullscreenElementMock = installDocumentPropertyMock('fullscreenElement', null);
 
     service = new PresentationModeService({
       uiController: mockUiController,
@@ -45,6 +43,7 @@ describe('PresentationModeService', () => {
   });
 
   afterEach(() => {
+    fullscreenElementMock.cleanup();
     vi.restoreAllMocks();
   });
 

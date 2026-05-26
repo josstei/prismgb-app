@@ -5,7 +5,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service.ts';
 import { createLoggerFactory } from '../../../../factories/index.js';
-import { installGetComputedStyleMock } from '../../../../support/mocks/browser-api.installers.js';
+import {
+  installGetComputedStyleMock,
+  installResizeObserverMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingViewportService', () => {
   let service;
@@ -16,6 +19,7 @@ describe('StreamingViewportService', () => {
   let mockSection;
   let mockMainContent;
   let getComputedStyleMock;
+  let resizeObserverMock;
 
   function getViewportComputedStyle(element) {
     if (element === mockSection) {
@@ -67,12 +71,14 @@ describe('StreamingViewportService', () => {
     };
 
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
+    resizeObserverMock = installResizeObserverMock();
 
     service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
     mockLogger = mockLoggerFactory._getLogger('StreamingViewportService');
   });
 
   afterEach(() => {
+    resizeObserverMock?.cleanup();
     getComputedStyleMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();

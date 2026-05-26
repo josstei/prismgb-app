@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
 import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
 import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { installWorkerMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock worker protocol
 vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', () => ({
@@ -32,28 +33,25 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
 describe('GpuWorkerManager', () => {
   let manager;
   let mockEventBus;
-  let mockLogger;
   let mockLoggerFactory;
   let mockWorker;
+  let workerMock;
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('GpuWorkerManager');
     mockEventBus = createEventBus();
 
-    // Mock Worker constructor
     mockWorker = {
       postMessage: vi.fn(),
       terminate: vi.fn(),
       onmessage: null,
       onerror: null
     };
-    global.Worker = vi.fn(function Worker() {
-      return mockWorker;
-    });
+    workerMock = installWorkerMock({ createWorker: () => mockWorker });
   });
 
   afterEach(() => {
+    workerMock.cleanup();
     vi.clearAllMocks();
   });
 
@@ -100,7 +98,7 @@ describe('GpuWorkerManager', () => {
       await manager.initialize(mockCanvas, config);
 
       expect(mockCanvas.transferControlToOffscreen).toHaveBeenCalled();
-      expect(global.Worker).toHaveBeenCalled();
+      expect(workerMock.Worker).toHaveBeenCalled();
       expect(mockWorker.postMessage).toHaveBeenCalled();
       expect(manager.isReady()).toBe(true);
     });

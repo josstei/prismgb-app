@@ -5,12 +5,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
 import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { installDocumentCreateElementMock } from '../../support/mocks/browser-api.installers.js';
 
 describe('UIEffects', () => {
   let uiEffects;
   let mockElements;
   let mockFlashElement;
   let mockRecordBtn;
+  let documentMock;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -37,13 +39,10 @@ describe('UIEffects', () => {
       parentNode: {} // Mock parentNode to simulate element being in DOM
     };
 
-    // Mock document
-    global.document = {
+    documentMock = installDocumentCreateElementMock({
       createElement: vi.fn(() => mockFlashElement),
-      body: {
-        appendChild: vi.fn()
-      }
-    };
+      appendChild: vi.fn()
+    });
 
     uiEffects = new UIEffects({
       elements: mockElements
@@ -51,6 +50,7 @@ describe('UIEffects', () => {
   });
 
   afterEach(() => {
+    documentMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
   });

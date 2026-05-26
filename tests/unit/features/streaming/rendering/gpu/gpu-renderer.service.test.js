@@ -11,6 +11,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 import { buildUniforms } from '@prismgb/gpu';
 import { createEventBus } from '../../../../../factories/event-bus.factory.js';
 import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
+import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock the capability detector
 vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
@@ -75,6 +76,7 @@ describe('StreamingGpuRendererService', () => {
   let mockSettingsService;
   let mockGpuFrameBuffer;
   let mockGpuWorkerManager;
+  let createImageBitmapMock;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -120,6 +122,7 @@ describe('StreamingGpuRendererService', () => {
   });
 
   afterEach(() => {
+    createImageBitmapMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -267,7 +270,7 @@ describe('StreamingGpuRendererService', () => {
     it('should send frame via worker manager', async () => {
       mockGpuWorkerManager.isReady.mockReturnValue(true);
       const mockBitmap = { close: vi.fn() };
-      global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
+      createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       service._currentPreset = { id: 'default' };
       service._currentPresetId = 'default';
@@ -285,7 +288,7 @@ describe('StreamingGpuRendererService', () => {
 
     it('should create frame bitmaps at the active native resolution', async () => {
       const mockBitmap = { close: vi.fn() };
-      global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
+      createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       await service.initialize(
         { clientWidth: 960, clientHeight: 720, transferControlToOffscreen: vi.fn() },
@@ -299,7 +302,7 @@ describe('StreamingGpuRendererService', () => {
       const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
       await service.renderFrame(videoElement);
 
-      expect(global.createImageBitmap).toHaveBeenCalledWith(
+      expect(createImageBitmapMock.createImageBitmap).toHaveBeenCalledWith(
         videoElement,
         expect.objectContaining({
           resizeWidth: 320,

@@ -7,6 +7,10 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  installDocumentCreateElementMock,
+  installGetComputedStyleMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingCanvasLifecycleService', () => {
   let service;
@@ -20,6 +24,8 @@ describe('StreamingCanvasLifecycleService', () => {
   let mockCanvas;
   let mockContainer;
   let mockSection;
+  let createElementMock;
+  let getComputedStyleMock;
 
   beforeEach(() => {
     // Create mock canvas and container
@@ -75,32 +81,21 @@ describe('StreamingCanvasLifecycleService', () => {
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('StreamingCanvasLifecycleService');
 
-    // Mock window
-    global.window = {
-      getComputedStyle: vi.fn().mockReturnValue({
-        position: 'absolute',
-        top: '0px',
-        left: '0px',
-        transform: 'none'
-      })
-    };
-
-    // Mock document
-    global.document = {
-      createElement: vi.fn().mockImplementation(() => ({
-        id: '',
-        className: '',
-        style: {}
-      }))
-    };
+    getComputedStyleMock = installGetComputedStyleMock(() => ({
+      position: 'absolute',
+      top: '0px',
+      left: '0px',
+      transform: 'none'
+    }));
+    createElementMock = installDocumentCreateElementMock();
 
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    createElementMock.cleanup();
+    getComputedStyleMock.cleanup();
     vi.restoreAllMocks();
-    delete global.window;
-    delete global.document;
   });
 
   describe('Constructor', () => {
@@ -319,7 +314,7 @@ describe('StreamingCanvasLifecycleService', () => {
 
       await service.recreateCanvas();
 
-      expect(global.document.createElement).not.toHaveBeenCalled();
+      expect(createElementMock.createElement).not.toHaveBeenCalled();
     });
 
     it('should return early if parent element is missing', async () => {
@@ -327,7 +322,7 @@ describe('StreamingCanvasLifecycleService', () => {
 
       await service.recreateCanvas();
 
-      expect(global.document.createElement).not.toHaveBeenCalled();
+      expect(createElementMock.createElement).not.toHaveBeenCalled();
     });
 
     it('should create new canvas with same id and class', async () => {
@@ -341,11 +336,11 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
 
-      expect(global.document.createElement).toHaveBeenCalledWith('canvas');
+      expect(createElementMock.createElement).toHaveBeenCalledWith('canvas');
       expect(newCanvas.id).toBe('canvas-id');
       expect(newCanvas.className).toBe('canvas-class');
     });
@@ -361,11 +356,11 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
 
-      expect(global.window.getComputedStyle).toHaveBeenCalledWith(mockCanvas);
+      expect(getComputedStyleMock.getComputedStyle).toHaveBeenCalledWith(mockCanvas);
       expect(newCanvas.style.position).toBe('absolute');
       expect(newCanvas.style.top).toBe('0px');
       expect(newCanvas.style.left).toBe('0px');
@@ -383,7 +378,7 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
 
@@ -401,7 +396,7 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
 
@@ -431,7 +426,7 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
 

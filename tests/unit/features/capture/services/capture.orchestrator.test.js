@@ -80,24 +80,6 @@ describe('CaptureOrchestrator', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    global.window = {
-      URL: {
-        createObjectURL: vi.fn(() => 'blob:url'),
-        revokeObjectURL: vi.fn()
-      }
-    };
-    global.document = {
-      createElement: vi.fn(() => ({
-        href: '',
-        download: '',
-        click: vi.fn()
-      })),
-      body: {
-        appendChild: vi.fn(),
-        removeChild: vi.fn()
-      }
-    };
-
     orchestrator = new CaptureOrchestrator({
       captureService: mockCaptureService,
       appState: mockAppState,

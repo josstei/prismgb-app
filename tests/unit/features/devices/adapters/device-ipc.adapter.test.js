@@ -6,6 +6,7 @@ import {
   setPreloadApi
 } from '../../../../support/mocks/preload-api-globals.js';
 import { createLogger } from '../../../../factories/index.js';
+import { installMissingWindowMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;
@@ -86,17 +87,22 @@ describe('DeviceIpcAdapter', () => {
 
     it.each([
       ['missing window.deviceAPI', () => clearPreloadApi('deviceAPI')],
-      ['undefined window', () => { delete global.window; }]
+      ['undefined window', () => installMissingWindowMock()]
     ])('should handle %s gracefully', (_label, removeApi) => {
       const onDeviceConnected = vi.fn();
       const onDeviceDisconnected = vi.fn();
 
-      removeApi();
-      const cleanup = adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+      const missingApiMock = removeApi();
 
-      expect(typeof cleanup).toBe('function');
-      expect(() => cleanup()).not.toThrow();
-      setPreloadApi('deviceAPI', mockDeviceAPI);
+      try {
+        const cleanup = adapter.subscribe(onDeviceConnected, onDeviceDisconnected);
+
+        expect(typeof cleanup).toBe('function');
+        expect(() => cleanup()).not.toThrow();
+      } finally {
+        missingApiMock?.cleanup?.();
+        setPreloadApi('deviceAPI', mockDeviceAPI);
+      }
     });
 
     it('should handle invalid callbacks gracefully', () => {

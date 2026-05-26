@@ -5,6 +5,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesPanelLayoutComponent } from '@renderer/presentation/features/notes/components/notes-panel-layout.component.js';
 import { createLogger } from '../../../../factories/index.js';
+import {
+  installResizeObserverMock,
+  installWindowPropertyMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 describe('NotesPanelLayoutComponent', () => {
   let component;
@@ -13,20 +17,13 @@ describe('NotesPanelLayoutComponent', () => {
   let toolbarElement;
   let streamContainer;
   let toolbarRect;
-  let originalInnerWidthDescriptor;
-  let originalInnerHeightDescriptor;
+  let innerWidthMock;
+  let innerHeightMock;
+  let resizeObserverMock;
 
   const setViewport = (width, height) => {
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      writable: true,
-      value: width
-    });
-    Object.defineProperty(window, 'innerHeight', {
-      configurable: true,
-      writable: true,
-      value: height
-    });
+    innerWidthMock.setValue(width);
+    innerHeightMock.setValue(height);
   };
 
   beforeEach(() => {
@@ -34,9 +31,9 @@ describe('NotesPanelLayoutComponent', () => {
     panelElement = document.createElement('div');
     toolbarElement = document.createElement('div');
     streamContainer = document.createElement('div');
-
-    originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, 'innerWidth');
-    originalInnerHeightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    innerWidthMock = installWindowPropertyMock('innerWidth', window.innerWidth);
+    innerHeightMock = installWindowPropertyMock('innerHeight', window.innerHeight);
+    resizeObserverMock = installResizeObserverMock();
 
     toolbarRect = {
       top: 100,
@@ -53,17 +50,9 @@ describe('NotesPanelLayoutComponent', () => {
 
   afterEach(() => {
     component.dispose();
-    if (originalInnerWidthDescriptor) {
-      Object.defineProperty(window, 'innerWidth', originalInnerWidthDescriptor);
-    } else {
-      Reflect.deleteProperty(window, 'innerWidth');
-    }
-
-    if (originalInnerHeightDescriptor) {
-      Object.defineProperty(window, 'innerHeight', originalInnerHeightDescriptor);
-    } else {
-      Reflect.deleteProperty(window, 'innerHeight');
-    }
+    resizeObserverMock.cleanup();
+    innerHeightMock.cleanup();
+    innerWidthMock.cleanup();
   });
 
   it('initializes and updates position when required elements exist', () => {

@@ -59,27 +59,62 @@ export function createPreloadApiMocks(overridesByApi = {}, manifest = IpcManifes
   const apiNames = manifest === IpcManifest ? PRELOAD_API_NAMES : Object.keys(namespaceByApiName);
   return Object.fromEntries(apiNames.map((apiName) => [apiName, createPreloadApiMock(apiName, overridesByApi[apiName], manifest)]));
 }
+const activePreloadApiHandles = new Map();
+let syntheticWindowHandle = null;
+function installTargetProperty(target, key, value) {
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+  const setValue = (nextValue) => Object.defineProperty(target, key, {
+    configurable: true,
+    writable: true,
+    value: nextValue
+  });
+  setValue(value);
+  return {
+    setValue,
+    cleanup() {
+      if (descriptor) {
+        Object.defineProperty(target, key, descriptor);
+      } else {
+        Reflect.deleteProperty(target, key);
+      }
+    }
+  };
+}
 function getWindowObject() {
   if (!globalThis.window) {
-    globalThis.window = {};
+    syntheticWindowHandle = installTargetProperty(globalThis, 'window', {});
   }
   return globalThis.window;
 }
+function cleanupSyntheticWindowIfUnused() {
+  if (syntheticWindowHandle && activePreloadApiHandles.size === 0) {
+    syntheticWindowHandle.cleanup();
+    syntheticWindowHandle = null;
+  }
+}
 export function setPreloadApi(name, value, { exposeOnGlobalThis = true } = {}) {
   getNamespace(name);
+  clearPreloadApi(name);
   const windowObject = getWindowObject();
-  windowObject[name] = value;
+  const handles = {
+    window: installTargetProperty(windowObject, name, value),
+    globalThis: null
+  };
   if (exposeOnGlobalThis) {
-    globalThis[name] = value;
+    handles.globalThis = installTargetProperty(globalThis, name, value);
   }
+  activePreloadApiHandles.set(name, handles);
   return value;
 }
 export function clearPreloadApi(name) {
   getNamespace(name);
-  if (globalThis.window) {
-    delete globalThis.window[name];
+  const handles = activePreloadApiHandles.get(name);
+  if (handles) {
+    handles.globalThis?.cleanup();
+    handles.window.cleanup();
+    activePreloadApiHandles.delete(name);
   }
-  delete globalThis[name];
+  cleanupSyntheticWindowIfUnused();
 }
 export function resetPreloadApis() {
   for (const name of PRELOAD_API_NAMES) {

@@ -7,6 +7,7 @@
 
 import { vi } from 'vitest';
 import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { installMediaMocks } from '../support/mocks/browser-api.installers.js';
 export { CHROMATIC_SPECS };
 
 /**
@@ -266,6 +267,7 @@ export class MockDeviceManager {
   constructor() {
     this.devices = new Map();
     this._deviceChangeListeners = [];
+    this._mediaMock = null;
   }
 
   /**
@@ -310,45 +312,44 @@ export class MockDeviceManager {
    * Setup navigator.mediaDevices mock
    */
   setupMediaDevicesMock() {
-    const self = this;
+    this._mediaMock?.cleanup();
+    this._deviceChangeListeners = [];
+    this._mediaMock = installMediaMocks({
+      enumerateDevices: async () => {
+        return this.getDevices();
+      },
+      getUserMedia: async (constraints) => {
+        const videoConstraints = constraints.video;
+        let deviceId = null;
 
-    navigator.mediaDevices.enumerateDevices = vi.fn(async () => {
-      return self.getDevices();
-    });
+        if (videoConstraints && typeof videoConstraints === 'object') {
+          deviceId = videoConstraints.deviceId?.exact || videoConstraints.deviceId;
+        }
 
-    navigator.mediaDevices.getUserMedia = vi.fn(async (constraints) => {
-      const videoConstraints = constraints.video;
-      let deviceId = null;
+        // Find matching device or use first available
+        const device = deviceId
+          ? this.devices.get(deviceId)
+          : Array.from(this.devices.values()).find(d => d.isConnected);
 
-      if (videoConstraints && typeof videoConstraints === 'object') {
-        deviceId = videoConstraints.deviceId?.exact || videoConstraints.deviceId;
-      }
+        if (!device || !device.isConnected) {
+          const error = new Error('Requested device not found');
+          error.name = 'NotFoundError';
+          throw error;
+        }
 
-      // Find matching device or use first available
-      let device = deviceId
-        ? self.devices.get(deviceId)
-        : Array.from(self.devices.values()).find(d => d.isConnected);
-
-      if (!device || !device.isConnected) {
-        const error = new Error('Requested device not found');
-        error.name = 'NotFoundError';
-        throw error;
-      }
-
-      return device.getStream(videoConstraints);
-    });
-
-    navigator.mediaDevices.addEventListener = vi.fn((event, listener) => {
-      if (event === 'devicechange') {
-        self._deviceChangeListeners.push(listener);
-      }
-    });
-
-    navigator.mediaDevices.removeEventListener = vi.fn((event, listener) => {
-      if (event === 'devicechange') {
-        const index = self._deviceChangeListeners.indexOf(listener);
-        if (index > -1) self._deviceChangeListeners.splice(index, 1);
-      }
+        return device.getStream(videoConstraints);
+      },
+      addEventListener: (event, listener) => {
+        if (event === 'devicechange') {
+          this._deviceChangeListeners.push(listener);
+        }
+      },
+      removeEventListener: (event, listener) => {
+        if (event === 'devicechange') {
+          const index = this._deviceChangeListeners.indexOf(listener);
+          if (index > -1) this._deviceChangeListeners.splice(index, 1);
+        }
+      },
     });
 
     return this;
@@ -377,6 +378,8 @@ export class MockDeviceManager {
    * Reset all mocks
    */
   reset() {
+    this._mediaMock?.cleanup();
+    this._mediaMock = null;
     this.devices.forEach(device => device.disconnect());
     this.devices.clear();
     this._deviceChangeListeners = [];

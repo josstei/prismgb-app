@@ -16,7 +16,6 @@ describe('SettingsService', () => {
   let localStorageMock;
   beforeEach(() => {
     localStorageMock = createStorageService();
-    global.localStorage = localStorageMock;
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
     service = new SettingsService({

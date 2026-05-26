@@ -22,14 +22,6 @@ export {
   createChromaticWithFSM,
 } from './MockDeviceStateMachine.js';
 
-// Re-export WebGL mock
-export {
-  GL,
-  createWebGLContext,
-  createWebGL2Context,
-  installWebGLMock,
-} from './webgl-context.mock.js';
-
 /**
  * Creates a mock EventBus
  */

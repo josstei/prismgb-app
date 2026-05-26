@@ -40,25 +40,6 @@ describe('CaptureSaveService', () => {
 
     downloadFile.mockResolvedValue();
 
-    // Mock DOM APIs
-    global.URL = {
-      createObjectURL: vi.fn().mockReturnValue('blob:test-url'),
-      revokeObjectURL: vi.fn()
-    };
-
-    global.document = {
-      createElement: vi.fn().mockReturnValue({
-        href: '',
-        download: '',
-        click: vi.fn(),
-        style: {}
-      }),
-      body: {
-        appendChild: vi.fn(),
-        removeChild: vi.fn()
-      }
-    };
-
     vi.useFakeTimers();
     vi.clearAllMocks();
   });
@@ -66,8 +47,6 @@ describe('CaptureSaveService', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    delete global.URL;
-    delete global.document;
   });
 
   describe('Constructor', () => {

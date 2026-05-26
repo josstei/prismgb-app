@@ -9,9 +9,25 @@ const replaceOnce = (source, search, replacement) => {
   expect(updated).not.toBe(source);
   return updated;
 };
+const eventChannelsPath = 'src/shared/events/event-channels.ts';
+const eventChannelsSource = () => fs.readFileSync(eventChannelsPath, 'utf8');
 const windowBridgePath = 'src/renderer/infrastructure/services/settings/fullscreen.service.ts';
 const windowBridgeSubscriptions = ['windowAPI.onEnterFullscreen', 'windowAPI.onLeaveFullscreen', 'windowAPI.onResized'];
 const windowManifestBridgeCall = /this\._eventBridge = createManifestPreloadEventBridge\(\{[\s\S]*?\n      \}\);/;
+const windowBridgeSource = () => fs.readFileSync(windowBridgePath, 'utf8');
+const windowBridgeShadowCases = [
+  { name: 'local windowAPI binding', prefix: '', setup: 'const windowAPI = makeFakeWindowAPI();', apiExpression: 'windowAPI' },
+  { name: 'local window object binding', prefix: '', setup: 'const window = { windowAPI: makeFakeWindowAPI() };', apiExpression: 'window.windowAPI' },
+  { name: 'namespace import window binding', prefix: "import * as window from './fake-window.js';\n", setup: '', apiExpression: 'window.windowAPI' },
+  { name: 'default import window binding', prefix: "import window from './fake-window.js';\n", setup: '', apiExpression: 'window.windowAPI' },
+  { name: 'local globalThis binding', prefix: '', setup: 'const globalThis = { windowAPI: makeFakeWindowAPI() };', apiExpression: 'globalThis.windowAPI' },
+  { name: 'imported globalThis binding', prefix: "import globalThis from './fake-global.js';\n", setup: '', apiExpression: 'globalThis.windowAPI' },
+  { name: 'side-effect import with local window binding', prefix: "import './side-effect.js';\n", setup: 'const window = { windowAPI: makeFakeWindowAPI() };', apiExpression: 'window.windowAPI' }
+];
+const noWindowBridgeDriftImportCases = [
+  ['default import', "import Foo from './foo.js';\n"],
+  ['side-effect import', "import './side-effect.js';\n"]
+];
 describe('codebase phase 1 drift report', () => {
   it('passes against the current manifest-owned surfaces', () => {
     const manifests = loadManifests();
@@ -37,17 +53,21 @@ describe('codebase phase 1 drift report', () => {
   });
   it('fails when EventChannels path-to-value mappings drift from renderer event manifest entries', () => {
     const manifests = JSON.parse(JSON.stringify(loadManifests()));
-    const swappedEventChannelsSource = fs.readFileSync('src/shared/events/event-channels.ts', 'utf8')
+    const swappedEventChannelsSource = eventChannelsSource()
       .replace("STATUS_CHANGED: getRendererChannel('device', 'status-changed'),", "STATUS_CHANGED: getRendererChannel('device', 'supported-device-available'),")
       .replace("SUPPORTED_DEVICE_AVAILABLE: getRendererChannel('device', 'supported-device-available'),", "SUPPORTED_DEVICE_AVAILABLE: getRendererChannel('device', 'status-changed'),");
     const { report } = buildPhase1DriftReport(manifests, { eventChannelsSource: swappedEventChannelsSource }), eventCheck = checkNamed(report, 'renderer event manifest matches EventChannels values');
     expect(report.status).toBe('fail'); expect(eventCheck).toMatchObject({ status: 'fail' });
     expect(eventCheck.missing).toEqual(expect.arrayContaining(['EventChannels.DEVICE.STATUS_CHANGED device:status-changed', 'EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE device:supported-device-available']));
     expect(eventCheck.extra).toEqual(expect.arrayContaining(['EventChannels.DEVICE.STATUS_CHANGED device:supported-device-available', 'EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE device:status-changed']));
-    expect(checkNamed(buildPhase1DriftReport(manifests, { eventChannelsSource: `${fs.readFileSync('src/shared/events/event-channels.ts', 'utf8')}\nconst broken = ;` }).report, 'renderer event manifest matches EventChannels values')).toMatchObject({ status: 'fail', expectedCount: 73, actualCount: 0, missing: expect.arrayContaining(['EventChannels.DEVICE.STATUS_CHANGED device:status-changed']) });
+  });
+  it('fails closed when EventChannels source cannot be parsed', () => {
+    const manifests = JSON.parse(JSON.stringify(loadManifests()));
+    const eventCheck = checkNamed(buildPhase1DriftReport(manifests, { eventChannelsSource: `${eventChannelsSource()}\nconst broken = ;` }).report, 'renderer event manifest matches EventChannels values');
+    expect(eventCheck).toMatchObject({ status: 'fail', expectedCount: 73, actualCount: 0, missing: expect.arrayContaining(['EventChannels.DEVICE.STATUS_CHANGED device:status-changed']) });
   });
   it('fails when the checked-in EventChannels source drifts from the manifest-generated preview', () => {
-    const source = replaceOnce(fs.readFileSync('src/shared/events/event-channels.ts', 'utf8'), '// Device events', '// Device runtime events');
+    const source = replaceOnce(eventChannelsSource(), '// Device events', '// Device runtime events');
     const { report } = buildPhase1DriftReport(loadManifests(), { eventChannelsSource: source });
     expect(checkNamed(report, 'renderer event manifest matches EventChannels values')).toMatchObject({ status: 'pass' });
     expect(checkNamed(report, 'renderer event channels generated preview matches checked-in source')).toMatchObject({
@@ -55,8 +75,15 @@ describe('codebase phase 1 drift report', () => {
       missing: ['generated source parity'],
       extra: ['checked-in source drift']
     });
-    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { eventChannelsSource: `/*\n${createEventChannelsPreview(loadManifests().events)}\n*/\nexport const EventChannels = {};` }).report, 'renderer event channels generated preview matches checked-in source')).toMatchObject({ status: 'fail' });
-    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { eventChannelsSource: fs.readFileSync('src/shared/events/event-channels.ts', 'utf8').replace('const manifestValue = rendererEventChannelsByKey.get(key);', "const manifestValue = `${domain}:${name}`;") }).report, 'renderer event channels generated preview matches checked-in source')).toMatchObject({ status: 'fail' });
+  });
+  it('fails when the generated EventChannels preview is inactive', () => {
+    const manifests = loadManifests();
+    const source = `/*\n${createEventChannelsPreview(manifests.events)}\n*/\nexport const EventChannels = {};`;
+    expect(checkNamed(buildPhase1DriftReport(manifests, { eventChannelsSource: source }).report, 'renderer event channels generated preview matches checked-in source')).toMatchObject({ status: 'fail' });
+  });
+  it('fails when the checked-in EventChannels generator logic drifts', () => {
+    const source = eventChannelsSource().replace('const manifestValue = rendererEventChannelsByKey.get(key);', "const manifestValue = `${domain}:${name}`;");
+    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { eventChannelsSource: source }).report, 'renderer event channels generated preview matches checked-in source')).toMatchObject({ status: 'fail' });
   });
   it('fails when the compact EventPayloadMap no longer derives from generated payload aliases', () => {
     const compactMapShape = 'export type EventPayloadMap = {\n  [K in EventChannelValue]: K extends keyof EventPayloadOverrides\n    ? EventPayloadOverrides[K]\n    : K extends VoidEventChannel\n      ? void\n      : unknown;\n};';
@@ -131,7 +158,12 @@ describe('codebase phase 1 drift report', () => {
   });
   it('fails when renderer preload bridge descriptors drift from the IPC manifest', () => {
     const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc), drifted = replaceOnce(generated, "methods: ['onAvailable', 'onNotAvailable'", "methods: ['onUnexpectedAvailable', 'onNotAvailable'");
-    [drifted, `/*\n${generated}\n*/\nexport const RendererPreloadBridgeDescriptors = {};`].forEach((source) => expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: source }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' }));
+    expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: drifted }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' });
+  });
+  it('fails when renderer preload bridge descriptors are hidden in an inactive preview', () => {
+    const manifests = loadManifests(), generated = createRendererPreloadBridgeDescriptorPreview(manifests.ipc);
+    const source = `/*\n${generated}\n*/\nexport const RendererPreloadBridgeDescriptors = {};`;
+    expect(checkNamed(buildPhase1DriftReport(manifests, { rendererPreloadBridgeDescriptorsSource: source }).report, 'renderer preload bridge descriptors match ipc manifest')).toMatchObject({ status: 'fail' });
   });
   it('fails when manifest-backed descriptor metadata keys are computed', () => {
     const manifests = JSON.parse(JSON.stringify(loadManifests()));
@@ -167,9 +199,9 @@ describe('codebase phase 1 drift report', () => {
     expect(bridgeCheck).toMatchObject({ status: 'fail' });
     expect(bridgeCheck.missing).toEqual(expect.arrayContaining(windowBridgeSubscriptions));
   });
-  it('fails when windowAPI manifest bridge wiring is shadowed or routed through manual code', () => {
-    for (const [prefix, setup, apiExpression] of [['', 'const windowAPI = makeFakeWindowAPI();', 'windowAPI'], ['', 'const window = { windowAPI: makeFakeWindowAPI() };', 'window.windowAPI'], ["import * as window from './fake-window.js';\n", '', 'window.windowAPI'], ["import window from './fake-window.js';\n", '', 'window.windowAPI'], ['', 'const globalThis = { windowAPI: makeFakeWindowAPI() };', 'globalThis.windowAPI'], ["import globalThis from './fake-global.js';\n", '', 'globalThis.windowAPI'], ["import './side-effect.js';\n", 'const window = { windowAPI: makeFakeWindowAPI() };', 'window.windowAPI']]) {
-      const baseSource = `${prefix}${fs.readFileSync(windowBridgePath, 'utf8')}`;
+  windowBridgeShadowCases.forEach(({ name, prefix, setup, apiExpression }) => {
+    it(`fails when windowAPI manifest bridge wiring uses ${name}`, () => {
+      const baseSource = `${prefix}${windowBridgeSource()}`;
       const sourceWithSetup = setup ? replaceOnce(baseSource, 'if (window.windowAPI) {\n', `if (window.windowAPI) {\n      ${setup}\n`) : baseSource;
       const source = apiExpression === 'window.windowAPI'
         ? sourceWithSetup
@@ -179,15 +211,19 @@ describe('codebase phase 1 drift report', () => {
       expect(report.status).toBe('fail');
       expect(bridgeCheck).toMatchObject({ status: 'fail' });
       expect(bridgeCheck.extra).toContain(`${windowBridgePath}: api ${apiExpression}`);
-    }
-    const manualBridgeSource = replaceOnce(fs.readFileSync(windowBridgePath, 'utf8'), windowManifestBridgeCall, "this._eventBridge = createPreloadEventBridge({ api: window.windowAPI, bridgeName: 'SettingsFullscreenService', logger: this.logger, subscriptions: [{ id: 'onEnterFullscreen', subscribe: (api) => api.onEnterFullscreen(() => this._handleNativeFullscreen(true)) }, { id: 'onLeaveFullscreen', subscribe: (api) => api.onLeaveFullscreen(() => this._handleNativeFullscreen(false)) }, { id: 'onResized', subscribe: (api) => api.onResized(() => { this._syncFullscreenState(); this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED); }) }] });");
+    });
+  });
+  it('fails when windowAPI manifest bridge wiring is routed through a manual event bridge', () => {
+    const manualBridgeSource = replaceOnce(windowBridgeSource(), windowManifestBridgeCall, "this._eventBridge = createPreloadEventBridge({ api: window.windowAPI, bridgeName: 'SettingsFullscreenService', logger: this.logger, subscriptions: [{ id: 'onEnterFullscreen', subscribe: (api) => api.onEnterFullscreen(() => this._handleNativeFullscreen(true)) }, { id: 'onLeaveFullscreen', subscribe: (api) => api.onLeaveFullscreen(() => this._handleNativeFullscreen(false)) }, { id: 'onResized', subscribe: (api) => api.onResized(() => { this._syncFullscreenState(); this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED); }) }] });");
     const { report: manualReport } = buildPhase1DriftReport(loadManifests(), { rendererBridgeSourceOverrides: { [windowBridgePath]: manualBridgeSource } });
     const manualBridgeCheck = checkNamed(manualReport, 'renderer preload bridge wiring derives subscriptions from ipc manifest');
     expect(manualReport.status).toBe('fail');
     expect(manualBridgeCheck).toMatchObject({ status: 'fail' });
     expect(manualBridgeCheck.missing).toEqual(expect.arrayContaining(windowBridgeSubscriptions));
     expect(manualBridgeCheck.extra).toContain(`${windowBridgePath}: createPreloadEventBridge`);
-    const directSubscriptionSource = replaceOnce(fs.readFileSync(windowBridgePath, 'utf8'), windowManifestBridgeCall, 'this._unsubscribeEnterFullscreen = window.windowAPI.onEnterFullscreen(() => this._handleNativeFullscreen(true)); this._unsubscribeLeaveFullscreen = window.windowAPI.onLeaveFullscreen(() => this._handleNativeFullscreen(false)); this._unsubscribeResized = window.windowAPI.onResized(() => { this._syncFullscreenState(); this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED); });');
+  });
+  it('fails when windowAPI manifest bridge wiring is replaced by direct subscriptions', () => {
+    const directSubscriptionSource = replaceOnce(windowBridgeSource(), windowManifestBridgeCall, 'this._unsubscribeEnterFullscreen = window.windowAPI.onEnterFullscreen(() => this._handleNativeFullscreen(true)); this._unsubscribeLeaveFullscreen = window.windowAPI.onLeaveFullscreen(() => this._handleNativeFullscreen(false)); this._unsubscribeResized = window.windowAPI.onResized(() => { this._syncFullscreenState(); this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED); });');
     const { report: directReport } = buildPhase1DriftReport(loadManifests(), { rendererBridgeSourceOverrides: { [windowBridgePath]: directSubscriptionSource } });
     const directBridgeCheck = checkNamed(directReport, 'renderer preload bridge wiring derives subscriptions from ipc manifest');
     expect(directReport.status).toBe('fail');
@@ -196,14 +232,15 @@ describe('codebase phase 1 drift report', () => {
     expect(directBridgeCheck.extra).toEqual(expect.arrayContaining(
       windowBridgeSubscriptions.map((subscription) => `${windowBridgePath}: ${subscription}`)
     ));
-    const expectNoWindowBridgeDrift = (source) => {
+  });
+  noWindowBridgeDriftImportCases.forEach(([name, importSource]) => {
+    it(`does not report windowAPI bridge drift for a ${name}`, () => {
+      const source = `${importSource}${windowBridgeSource()}`;
       const { report } = buildPhase1DriftReport(loadManifests(), { rendererBridgeSourceOverrides: { [windowBridgePath]: source } });
       const bridgeCheck = checkNamed(report, 'renderer preload bridge wiring derives subscriptions from ipc manifest');
       expect(bridgeCheck.missing.filter((entry) => entry.startsWith('windowAPI.'))).toEqual([]);
       expect(bridgeCheck.extra.filter((entry) => entry.startsWith(`${windowBridgePath}:`))).toEqual([]);
-    };
-    expectNoWindowBridgeDrift(`import Foo from './foo.js';\n${fs.readFileSync(windowBridgePath, 'utf8')}`);
-    expectNoWindowBridgeDrift(`import './side-effect.js';\n${fs.readFileSync(windowBridgePath, 'utf8')}`);
+    });
   });
   it('fails when manifest bridge api wiring uses a shadowed global object', () => {
     const path = 'src/renderer/infrastructure/services/updates/update.service.ts';
@@ -245,13 +282,17 @@ describe('codebase phase 1 drift report', () => {
     manifests.ipc.mode = 'report-only'; const { report } = buildPhase1DriftReport(manifests);
     expect(checkNamed(report, 'ipc manifest is enforced')).toMatchObject({ status: 'fail', actual: 'report-only', missing: ['mode=enforced'] });
   });
-  it('fails when subscription registry namespace metadata is missing or blank after trimming', () => {
-    [((manifests) => { delete manifests.ipc.namespaces[0].registryNamespace; }), ((manifests) => { manifests.ipc.namespaces[0].registryNamespace = ' '; })].forEach((mutateManifest) => {
-      const manifests = JSON.parse(JSON.stringify(loadManifests()));
-      mutateManifest(manifests);
-      const { report } = buildPhase1DriftReport(manifests);
-      expect(checkNamed(report, 'ipc manifest subscription registry namespaces are explicit')).toMatchObject({ status: 'fail', missing: ['deviceAPI.onDeviceConnected', 'deviceAPI.onDeviceDisconnected'] });
-    });
+  it('fails when subscription registry namespace metadata is missing', () => {
+    const manifests = JSON.parse(JSON.stringify(loadManifests()));
+    delete manifests.ipc.namespaces[0].registryNamespace;
+    const { report } = buildPhase1DriftReport(manifests);
+    expect(checkNamed(report, 'ipc manifest subscription registry namespaces are explicit')).toMatchObject({ status: 'fail', missing: ['deviceAPI.onDeviceConnected', 'deviceAPI.onDeviceDisconnected'] });
+  });
+  it('fails when subscription registry namespace metadata is blank after trimming', () => {
+    const manifests = JSON.parse(JSON.stringify(loadManifests()));
+    manifests.ipc.namespaces[0].registryNamespace = ' ';
+    const { report } = buildPhase1DriftReport(manifests);
+    expect(checkNamed(report, 'ipc manifest subscription registry namespaces are explicit')).toMatchObject({ status: 'fail', missing: ['deviceAPI.onDeviceConnected', 'deviceAPI.onDeviceDisconnected'] });
   });
   it('fails when derived subscription registry keys collide', () => {
     const manifests = JSON.parse(JSON.stringify(loadManifests()));

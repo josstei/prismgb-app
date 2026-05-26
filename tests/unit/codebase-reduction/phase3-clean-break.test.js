@@ -146,5 +146,12 @@ describe('Phase 3 clean-break consolidation', () => {
     expect(vitestConfig).toContain("name: 'gpu-package'");
     expect(vitestConfig).toContain('tests/support/mocks/node-browser-mocks.setup.js');
     expect(vitestConfig).toContain('tests/support/mocks/renderer-browser-mocks.setup.js');
+
+    const rendererBrowserSetup = readProjectFile('tests/support/mocks/renderer-browser-mocks.setup.js');
+    expect(rendererBrowserSetup).not.toMatch(/ResizeObserver|resizeObserver|stubGlobal\(['"]ResizeObserver['"]/);
+    expect(rendererBrowserSetup).not.toMatch(/installMediaMocks|mediaDevices|MediaStream/);
+
+    const testingLibrarySetup = readProjectFile('tests/testing-library.setup.js');
+    expect(testingLibrarySetup).not.toMatch(/navigator\.clipboard|clipboardData|Object\.defineProperty\(\s*navigator/);
   });
 });

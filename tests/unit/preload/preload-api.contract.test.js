@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { createPreloadExposureMap, exposePreloadApis } from '@preload/exposure.factory.js';
 import { clearPreloadApi, createPreloadApiMock, createPreloadApiMocks, resetPreloadApis, setPreloadApi } from '../../support/mocks/preload-api-globals.js';
+import { installMissingWindowMock, installWindowPropertyMock } from '../../support/mocks/browser-api.installers.js';
 
 function createApiImplementations(overrides = {}) {
   return Object.fromEntries(
@@ -139,5 +140,44 @@ describe('preload-api-globals test helper', () => {
     mock.onResized.emit({ impossible: true });
 
     expect(callback).toHaveBeenCalledWith();
+  });
+
+  it('restores descriptor-backed preload globals on clear', () => {
+    const existingMetricsAPI = { getProcessMetrics: vi.fn() };
+    const existingGlobalAPI = { getProcessMetrics: vi.fn() };
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('metricsAPI', existingGlobalAPI);
+    const existingWindowAPI = installWindowPropertyMock('metricsAPI', existingMetricsAPI);
+    const mockMetricsAPI = createPreloadApiMock('metricsAPI');
+
+    try {
+      setPreloadApi('metricsAPI', mockMetricsAPI);
+      expect(window.metricsAPI).toBe(mockMetricsAPI);
+      expect(globalThis.metricsAPI).toBe(mockMetricsAPI);
+
+      clearPreloadApi('metricsAPI');
+      expect(window.metricsAPI).toBe(existingMetricsAPI);
+      expect(globalThis.metricsAPI).toBe(existingGlobalAPI);
+    } finally {
+      clearPreloadApi('metricsAPI');
+      existingWindowAPI.cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('cleans up synthetic window globals created for preload API tests', () => {
+    const missingWindow = installMissingWindowMock();
+
+    try {
+      const mockMetricsAPI = createPreloadApiMock('metricsAPI');
+      setPreloadApi('metricsAPI', mockMetricsAPI);
+      expect(globalThis.window.metricsAPI).toBe(mockMetricsAPI);
+
+      resetPreloadApis();
+      expect(globalThis.window).toBeUndefined();
+    } finally {
+      resetPreloadApis();
+      missingWindow.cleanup();
+    }
   });
 });

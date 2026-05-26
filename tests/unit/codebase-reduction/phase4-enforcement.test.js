@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createPreloadExposureMap } from '@preload/exposure.factory.js';
 import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { BUILD_OUTPUT_PATHS, GENERATED_PATHS } from '../../../scripts/clean-generated.js';
@@ -107,17 +107,56 @@ describe('Phase 4 clean-break enforcement', () => {
   });
 
   it('keeps remaining browser API test globals behind explicit installers', () => {
+    expectMissing('tests/mocks/webgl-context.mock.js');
+
     const installerSource = readProjectFile('tests/support/mocks/browser-api.installers.js');
+    const testMockIndexSource = readProjectFile('tests/mocks/index.js');
+
+    expect(testMockIndexSource).not.toContain('installWebGLMock');
+    expect(testMockIndexSource).not.toContain('webgl-context.mock');
+
     [
+      'installAnimationFrameMock',
+      'installBlobMock',
+      'installBlobDownloadMock',
+      'installClipboardMock',
+      'installCreateImageBitmapMock',
       'installDevicePixelRatioMock',
+      'installDocumentCreateElementMock',
+      'installDocumentPropertyMock',
+      'installFullscreenDocumentMock',
       'installGetComputedStyleMock',
+      'installLocalStorageMock',
       'installMatchMediaMock',
-      'installMissingMutationObserverMock'
+      'installMediaRecorderMock',
+      'installMediaMocks',
+      'installMissingMutationObserverMock',
+      'installMissingWindowMock',
+      'installNavigatorMock',
+      'installResizeObserverMock',
+      'installWorkerMock',
+      'installWorkerScopeMock',
+      'installWindowPropertyMock'
     ].forEach((installerName) => {
       expect(installerSource).toContain(installerName);
     });
 
     const forbiddenPatterns = [
+      { label: 'global URL assignment', pattern: /\bglobal\.URL\s*=/ },
+      { label: 'global URL delete', pattern: /\bdelete\s+global\.URL\b/ },
+      { label: 'global Blob assignment', pattern: /\bglobal\.Blob\s*=/ },
+      { label: 'global MediaRecorder assignment', pattern: /\bglobal\.MediaRecorder\s*=/ },
+      { label: 'global MediaRecorder static assignment', pattern: /\bglobal\.MediaRecorder\.isTypeSupported\s*=/ },
+      { label: 'RAF global spy', pattern: /\bvi\.spyOn\(\s*global(?:This)?\s*,\s*['"](requestAnimationFrame|cancelAnimationFrame)['"]/ },
+      { label: 'Worker global assignment', pattern: /\bglobal(?:This)?\.Worker\s*=/ },
+      { label: 'Worker vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]Worker['"]/ },
+      { label: 'createImageBitmap global assignment', pattern: /\bglobal(?:This)?\.createImageBitmap\s*=/ },
+      { label: 'createImageBitmap vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]createImageBitmap['"]/ },
+      { label: 'ResizeObserver global assignment', pattern: /\bglobal(?:This)?\.ResizeObserver\s*=/ },
+      { label: 'ResizeObserver global delete', pattern: /\bdelete\s+global(?:This)?\.ResizeObserver\b/ },
+      { label: 'ResizeObserver vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]ResizeObserver['"]/ },
+      { label: 'window.URL.createObjectURL assignment', pattern: /\bwindow\.URL\.createObjectURL\s*=/ },
+      { label: 'window.URL.revokeObjectURL assignment', pattern: /\bwindow\.URL\.revokeObjectURL\s*=/ },
       { label: 'devicePixelRatio vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]devicePixelRatio['"]/ },
       { label: 'window.getComputedStyle assignment', pattern: /\bglobal\.window\.getComputedStyle\s*=/ },
       { label: 'window.matchMedia assignment', pattern: /\bglobal\.window\.matchMedia\s*=/ },
@@ -137,6 +176,446 @@ describe('Phase 4 clean-break enforcement', () => {
       });
 
     expect(violations).toEqual([]);
+
+    const canvasPrototypeViolations = [];
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => relativePath !== 'tests/support/mocks/browser-api.installers.js')
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        [
+          { label: 'HTMLCanvasElement prototype method assignment', pattern: /\bHTMLCanvasElement\.prototype(?:\.(getContext|toBlob|toDataURL)|\[['"](getContext|toBlob|toDataURL)['"]\])\s*=/ },
+          { label: 'HTMLCanvasElement descriptor mutation', pattern: /\bObject\.definePropert(?:y|ies)\(\s*HTMLCanvasElement\.prototype\s*,/ }
+        ].forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            canvasPrototypeViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(canvasPrototypeViolations).toEqual([]);
+
+    const browserPropertyViolations = [];
+    const browserPropertyMutationPatterns = [
+      { label: 'direct document/window defineProperty', pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*(document|window)\s*,\s*['"](hidden|fullscreenElement|innerWidth|innerHeight)['"]/ },
+      { label: 'direct document/window defineProperties', pattern: /\bObject\.defineProperties\(\s*(document|window)\s*,\s*\{[\s\S]{0,800}(?:['"]?(hidden|fullscreenElement|innerWidth|innerHeight)['"]?|\[['"](hidden|fullscreenElement|innerWidth|innerHeight)['"]\])\s*:/ }
+    ];
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => relativePath !== 'tests/support/mocks/browser-api.installers.js')
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        browserPropertyMutationPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            browserPropertyViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(browserPropertyViolations).toEqual([]);
+
+    const mediaDevicesMutationViolations = [];
+    const mediaDevicesMutationPatterns = [
+      {
+        label: 'navigator.mediaDevices method assignment',
+        pattern: /\b(?:global(?:This)?\.|window\.)?navigator\.mediaDevices(?:\.(enumerateDevices|getUserMedia|addEventListener|removeEventListener)|\[['"](enumerateDevices|getUserMedia|addEventListener|removeEventListener)['"]\])\s*=/
+      },
+      {
+        label: 'navigator.mediaDevices descriptor mutation',
+        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*(?:global(?:This)?\.|window\.)?navigator\.mediaDevices\s*,\s*['"](enumerateDevices|getUserMedia|addEventListener|removeEventListener)['"]/
+      },
+      {
+        label: 'navigator.mediaDevices defineProperties',
+        pattern: /\bObject\.defineProperties\(\s*(?:global(?:This)?\.|window\.)?navigator\.mediaDevices\s*,\s*\{[\s\S]{0,800}(?:['"]?(enumerateDevices|getUserMedia|addEventListener|removeEventListener)['"]?|\[['"](enumerateDevices|getUserMedia|addEventListener|removeEventListener)['"]\])\s*:/
+      }
+    ];
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => {
+        return relativePath !== 'tests/support/mocks/browser-api.installers.js'
+          && !relativePath.startsWith('tests/e2e/')
+          && !relativePath.startsWith('tests/unit/codebase-reduction/');
+      })
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        mediaDevicesMutationPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            mediaDevicesMutationViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(mediaDevicesMutationViolations).toEqual([]);
+
+    const clipboardMutationViolations = [];
+    const clipboardMutationPatterns = [
+      {
+        label: 'navigator.clipboard assignment',
+        pattern: /\b(?:global(?:This)?\.|window\.)?navigator(?:\.clipboard|\[['"]clipboard['"]\])\s*=/
+      },
+      {
+        label: 'navigator clipboard Reflect.set',
+        pattern: /\bReflect\.set\(\s*(?:global(?:This)?\.|window\.)?navigator\s*,\s*['"]clipboard['"]/
+      },
+      {
+        label: 'navigator clipboard descriptor mutation',
+        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*(?:global(?:This)?\.|window\.)?navigator\s*,\s*['"]clipboard['"]/
+      },
+      {
+        label: 'navigator clipboard defineProperties',
+        pattern: /\bObject\.defineProperties\(\s*(?:global(?:This)?\.|window\.)?navigator\s*,\s*\{[\s\S]{0,800}(?:['"]?clipboard['"]?|\[['"]clipboard['"]\])\s*:/
+      }
+    ];
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => {
+        return relativePath !== 'tests/support/mocks/browser-api.installers.js'
+          && !relativePath.startsWith('tests/e2e/')
+          && !relativePath.startsWith('tests/unit/codebase-reduction/');
+      })
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        clipboardMutationPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            clipboardMutationViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(clipboardMutationViolations).toEqual([]);
+
+    const workerScopeViolations = [];
+    const workerScopeMutationPatterns = [
+      {
+        label: 'worker self global assignment',
+        pattern: /\bglobal(?:This)?(?:\.self|\[['"]self['"]\])\s*=/
+      },
+      {
+        label: 'worker self Reflect.set',
+        pattern: /\bReflect\.set\(\s*global(?:This)?\s*,\s*['"]self['"]/
+      },
+      {
+        label: 'worker self vi.stubGlobal',
+        pattern: /\bvi\.stubGlobal\(['"]self['"]/
+      },
+      {
+        label: 'worker self descriptor mutation',
+        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*global(?:This)?\s*,\s*['"]self['"]/
+      },
+      {
+        label: 'worker self defineProperties',
+        pattern: /\bObject\.defineProperties\(\s*global(?:This)?\s*,\s*\{[\s\S]{0,800}(?:['"]?self['"]?|\[['"]self['"]\])\s*:/
+      }
+    ];
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => {
+        return relativePath !== 'tests/support/mocks/browser-api.installers.js'
+          && !relativePath.startsWith('tests/e2e/')
+          && !relativePath.startsWith('tests/unit/codebase-reduction/');
+      })
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        workerScopeMutationPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            workerScopeViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(workerScopeViolations).toEqual([]);
+
+    const browserInfrastructureForbiddenPatterns = [
+      { label: 'global navigator assignment', pattern: /\bglobal\.navigator\s*=/ },
+      { label: 'globalThis navigator assignment', pattern: /\bglobalThis\.navigator\s*=/ },
+      { label: 'navigator vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]navigator['"]/ },
+      { label: 'global localStorage assignment', pattern: /\bglobal\.localStorage\s*=/ },
+      { label: 'globalThis localStorage assignment', pattern: /\bglobalThis\.localStorage\s*=/ },
+      { label: 'localStorage vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]localStorage['"]/ },
+      { label: 'localStorage method assignment', pattern: /\blocalStorage\.(getItem|setItem|removeItem|key)\s*=/ },
+      { label: 'localStorage descriptor mutation', pattern: /\bObject\.defineProperty\(\s*localStorage\s*,/ }
+    ];
+    const browserInfrastructureViolations = [];
+    collectFiles('tests/unit/renderer/infrastructure/browser', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        browserInfrastructureForbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            browserInfrastructureViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(browserInfrastructureViolations).toEqual([]);
+
+    const settingsServiceForbiddenPatterns = [
+      { label: 'global localStorage assignment', pattern: /\bglobal\.localStorage\s*=/ },
+      { label: 'globalThis localStorage assignment', pattern: /\bglobalThis\.localStorage\s*=/ },
+      { label: 'localStorage vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]localStorage['"]/ }
+    ];
+    const settingsServiceViolations = [];
+    collectFiles('tests/unit/features/settings/services', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        settingsServiceForbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            settingsServiceViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(settingsServiceViolations).toEqual([]);
+
+    const settingsFullscreenForbiddenPatterns = [
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ }
+    ];
+    const settingsFullscreenViolations = [];
+    const settingsFullscreenTest = 'tests/unit/features/settings/services/fullscreen.service.test.js';
+    settingsFullscreenForbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(readProjectFile(settingsFullscreenTest))) {
+        settingsFullscreenViolations.push(`${settingsFullscreenTest}: ${label}`);
+      }
+    });
+
+    expect(settingsFullscreenViolations).toEqual([]);
+
+    const streamingAcquisitionForbiddenPatterns = [
+      { label: 'global navigator assignment', pattern: /\bglobal\.navigator\s*=/ },
+      { label: 'globalThis navigator assignment', pattern: /\bglobalThis\.navigator\s*=/ },
+      { label: 'navigator vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]navigator['"]/ }
+    ];
+    const streamingAcquisitionViolations = [];
+    collectFiles('tests/unit/features/streaming/acquisition', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        streamingAcquisitionForbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            streamingAcquisitionViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(streamingAcquisitionViolations).toEqual([]);
+
+    const streamingRenderingForbiddenPatterns = [
+      { label: 'global window assignment', pattern: /\bglobal\.window\s*=/ },
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'global window delete', pattern: /\bdelete\s+global\.window\b/ },
+      { label: 'global document delete', pattern: /\bdelete\s+global\.document\b/ },
+      { label: 'globalThis window assignment', pattern: /\bglobalThis\.window\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'window vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]window['"]/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ }
+    ];
+    const streamingRenderingViolations = [];
+    collectFiles('tests/unit/features/streaming/rendering', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        streamingRenderingForbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            streamingRenderingViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(streamingRenderingViolations).toEqual([]);
+
+    const deviceAdapterForbiddenPatterns = [
+      { label: 'global window delete', pattern: /\bdelete\s+global\.window\b/ },
+      { label: 'global window assignment', pattern: /\bglobal\.window\s*=/ },
+      { label: 'globalThis window assignment', pattern: /\bglobalThis\.window\s*=/ },
+      { label: 'window vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]window['"]/ }
+    ];
+    const deviceAdapterViolations = [];
+    collectFiles('tests/unit/features/devices/adapters', (relativePath) => /\.(test|spec)\.[jt]s$/.test(relativePath))
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        deviceAdapterForbiddenPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            deviceAdapterViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(deviceAdapterViolations).toEqual([]);
+
+    const captureOrchestratorForbiddenPatterns = [
+      { label: 'global window assignment', pattern: /\bglobal\.window\s*=/ },
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'globalThis window assignment', pattern: /\bglobalThis\.window\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'window vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]window['"]/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ }
+    ];
+    const captureOrchestratorViolations = [];
+    const captureOrchestratorTest = 'tests/unit/features/capture/services/capture.orchestrator.test.js';
+    captureOrchestratorForbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(readProjectFile(captureOrchestratorTest))) {
+        captureOrchestratorViolations.push(`${captureOrchestratorTest}: ${label}`);
+      }
+    });
+
+    expect(captureOrchestratorViolations).toEqual([]);
+
+    const captureServiceForbiddenPatterns = [
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ }
+    ];
+    const captureServiceViolations = [];
+    const captureServiceTest = 'tests/unit/features/capture/services/capture.service.test.js';
+    captureServiceForbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(readProjectFile(captureServiceTest))) {
+        captureServiceViolations.push(`${captureServiceTest}: ${label}`);
+      }
+    });
+
+    expect(captureServiceViolations).toEqual([]);
+
+    const gpuRecordingForbiddenPatterns = [
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'global requestAnimationFrame assignment', pattern: /\bglobal\.requestAnimationFrame\s*=/ },
+      { label: 'global cancelAnimationFrame assignment', pattern: /\bglobal\.cancelAnimationFrame\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'globalThis requestAnimationFrame assignment', pattern: /\bglobalThis\.requestAnimationFrame\s*=/ },
+      { label: 'globalThis cancelAnimationFrame assignment', pattern: /\bglobalThis\.cancelAnimationFrame\s*=/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ },
+      { label: 'requestAnimationFrame vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]requestAnimationFrame['"]/ },
+      { label: 'cancelAnimationFrame vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]cancelAnimationFrame['"]/ }
+    ];
+    const gpuRecordingViolations = [];
+    const gpuRecordingTest = 'tests/unit/features/capture/services/gpu-recording.service.test.js';
+    gpuRecordingForbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(readProjectFile(gpuRecordingTest))) {
+        gpuRecordingViolations.push(`${gpuRecordingTest}: ${label}`);
+      }
+    });
+
+    expect(gpuRecordingViolations).toEqual([]);
+
+    const uiEffectsForbiddenPatterns = [
+      { label: 'global document assignment', pattern: /\bglobal\.document\s*=/ },
+      { label: 'globalThis document assignment', pattern: /\bglobalThis\.document\s*=/ },
+      { label: 'document vi.stubGlobal', pattern: /\bvi\.stubGlobal\(['"]document['"]/ }
+    ];
+    const uiEffectsViolations = [];
+    const uiEffectsTest = 'tests/unit/ui/effects.test.js';
+    uiEffectsForbiddenPatterns.forEach(({ label, pattern }) => {
+      if (pattern.test(readProjectFile(uiEffectsTest))) {
+        uiEffectsViolations.push(`${uiEffectsTest}: ${label}`);
+      }
+    });
+
+    expect(uiEffectsViolations).toEqual([]);
+  });
+
+  it('keeps Node process runtime test globals behind explicit installers', () => {
+    const installerSource = readProjectFile('tests/support/mocks/node-runtime.installers.js');
+
+    [
+      'installProcessArgvMock',
+      'installProcessPlatformMock',
+      'installProcessRuntimeMock'
+    ].forEach((installerName) => {
+      expect(installerSource).toContain(installerName);
+    });
+
+    const processRuntimeViolations = [];
+    const processRuntimeMutationPatterns = [
+      {
+        label: 'process platform or argv assignment',
+        pattern: /\bprocess(?:\.(platform|argv)|\[['"](platform|argv)['"]\])\s*=/
+      },
+      {
+        label: 'process platform descriptor mutation',
+        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*process\s*,\s*['"]platform['"]/
+      },
+      {
+        label: 'process argv descriptor mutation',
+        pattern: /\b(?:Object|Reflect)\.defineProperty\(\s*process\s*,\s*['"]argv['"]/
+      },
+      {
+        label: 'process platform or argv defineProperties',
+        pattern: /\bObject\.defineProperties\(\s*process\s*,\s*\{[\s\S]{0,800}(?:['"]?(platform|argv)['"]?|\[['"](platform|argv)['"]\])\s*:/
+      },
+      {
+        label: 'process platform Reflect.set',
+        pattern: /\bReflect\.set\(\s*process\s*,\s*['"]platform['"]/
+      },
+      {
+        label: 'process argv Reflect.set',
+        pattern: /\bReflect\.set\(\s*process\s*,\s*['"]argv['"]/
+      },
+      {
+        label: 'process vi.stubGlobal',
+        pattern: /\bvi\.stubGlobal\(['"]process['"]/
+      }
+    ];
+
+    collectFiles('tests', (relativePath) => /\.[cm]?[jt]s$/.test(relativePath))
+      .filter((relativePath) => {
+        return relativePath !== 'tests/support/mocks/node-runtime.installers.js'
+          && !relativePath.startsWith('tests/e2e/')
+          && !relativePath.startsWith('tests/unit/codebase-reduction/');
+      })
+      .forEach((relativePath) => {
+        const source = readProjectFile(relativePath);
+        processRuntimeMutationPatterns.forEach(({ label, pattern }) => {
+          if (pattern.test(source)) {
+            processRuntimeViolations.push(`${relativePath}: ${label}`);
+          }
+        });
+      });
+
+    expect(processRuntimeViolations).toEqual([]);
+  });
+
+  it('keeps preload API globals behind descriptor-restoring handles', () => {
+    const preloadGlobalsSource = readProjectFile('tests/support/mocks/preload-api-globals.js');
+
+    expectContainsAll(preloadGlobalsSource, [
+      'activePreloadApiHandles',
+      'installTargetProperty',
+      'Object.getOwnPropertyDescriptor',
+      'Reflect.deleteProperty'
+    ]);
+    expectExcludesAll(preloadGlobalsSource, [
+      /\bglobalThis\.window\s*=/,
+      /\bwindowObject\[[^\]]+\]\s*=/,
+      /\bglobalThis\[[^\]]+\]\s*=/,
+      /\bReflect\.set\(\s*(globalThis|windowObject)\s*,\s*name\b/,
+      /\bReflect\.deleteProperty\(\s*(globalThis|windowObject)\s*,\s*name\b/,
+      /\bObject\.defineProperty\(\s*(globalThis|windowObject)\s*,\s*name\b/,
+      /\bdelete\s+globalThis(?:\.window)?\[[^\]]+\]/
+    ]);
+  });
+
+  it('keeps document body installer failures from leaking createElement patches', async () => {
+    const { installDocumentCreateElementMock } = await import('../../support/mocks/browser-api.installers.js');
+    const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    const originalCreateElement = vi.fn();
+    const documentTarget = {
+      createElement: originalCreateElement
+    };
+    const appendChild = vi.fn();
+
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      writable: true,
+      value: documentTarget
+    });
+
+    try {
+      expect(() => installDocumentCreateElementMock({
+        body: null,
+        createElement: vi.fn(),
+        appendChild
+      })).toThrow('Cannot install document.body mock without document.body');
+      expect(documentTarget.createElement).toBe(originalCreateElement);
+    } finally {
+      if (originalDocumentDescriptor) {
+        Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'document');
+      }
+    }
   });
 
   it('keeps generated artifact ownership on current ignored paths without legacy coverage cleanup', () => {

@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator.ts';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
   let orchestrator;
@@ -13,6 +14,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
   let mockSettingsService;
   let mockEventBus;
   let mockLoggerFactory;
+  let hiddenMock;
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
@@ -34,6 +36,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
     };
 
     mockEventBus = createEventBus();
+    hiddenMock = installDocumentPropertyMock('hidden', false);
 
     orchestrator = new SettingsDisplayModeOrchestrator({
       fullscreenService: mockSettingsFullscreenService,
@@ -45,10 +48,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(document, 'hidden', {
-      configurable: true,
-      value: false
-    });
+    hiddenMock.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -137,10 +137,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
     it('should remove deferred startup fullscreen listener during cleanup', async () => {
       mockSettingsService.getBooleanSetting.mockReturnValue(true);
-      Object.defineProperty(document, 'hidden', {
-        configurable: true,
-        value: true
-      });
+      hiddenMock.setValue(true);
       const addListenerSpy = vi.spyOn(document, 'addEventListener');
       const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
 

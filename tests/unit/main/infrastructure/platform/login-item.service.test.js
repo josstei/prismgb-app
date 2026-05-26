@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
 import { createLoggerFactory } from '../../../../factories/index.js';
+import { installProcessRuntimeMock } from '../../../../support/mocks/node-runtime.installers.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -11,14 +12,33 @@ vi.mock('electron', () => ({
 
 import { LoginItemService } from '@main/infrastructure/platform/login-item.service.js';
 
+describe('process runtime mock installers', () => {
+  it('should restore process platform and argv descriptors after cleanup', () => {
+    const originalPlatform = process.platform;
+    const originalArgv = process.argv;
+    const processRuntimeMock = installProcessRuntimeMock({
+      platform: 'win32',
+      argv: ['electron', '.', '--hidden'],
+    });
+
+    expect(process.platform).toBe('win32');
+    expect(process.argv).toEqual(['electron', '.', '--hidden']);
+
+    processRuntimeMock.cleanup();
+
+    expect(process.platform).toBe(originalPlatform);
+    expect(process.argv).toBe(originalArgv);
+  });
+});
+
 describe('LoginItemService', () => {
   let service;
   let mockLoggerFactory;
-  let originalPlatform;
+  let processRuntimeMocks;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    originalPlatform = process.platform;
+    processRuntimeMocks = [];
 
     mockLoggerFactory = createLoggerFactory();
 
@@ -26,8 +46,16 @@ describe('LoginItemService', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    while (processRuntimeMocks.length > 0) {
+      processRuntimeMocks.pop().cleanup();
+    }
   });
+
+  function useProcessRuntimeMock(options) {
+    const handle = installProcessRuntimeMock(options);
+    processRuntimeMocks.push(handle);
+    return handle;
+  }
 
   describe('isEnabled', () => {
     it('should return false when login item is not set', () => {
@@ -43,7 +71,7 @@ describe('LoginItemService', () => {
 
   describe('setEnabled', () => {
     it('should enable login item on macOS with openAsHidden', () => {
-      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      useProcessRuntimeMock({ platform: 'darwin' });
       service.setEnabled(true);
 
       expect(mockApp.setLoginItemSettings).toHaveBeenCalledWith({
@@ -53,7 +81,7 @@ describe('LoginItemService', () => {
     });
 
     it('should enable login item on Windows with --hidden arg', () => {
-      Object.defineProperty(process, 'platform', { value: 'win32' });
+      useProcessRuntimeMock({ platform: 'win32' });
       service.setEnabled(true);
 
       expect(mockApp.setLoginItemSettings).toHaveBeenCalledWith({
@@ -63,7 +91,7 @@ describe('LoginItemService', () => {
     });
 
     it('should enable login item on Linux with --hidden arg', () => {
-      Object.defineProperty(process, 'platform', { value: 'linux' });
+      useProcessRuntimeMock({ platform: 'linux' });
       service.setEnabled(true);
 
       expect(mockApp.setLoginItemSettings).toHaveBeenCalledWith({
@@ -83,7 +111,7 @@ describe('LoginItemService', () => {
 
   describe('wasLaunchedAsHidden', () => {
     it('should return true on macOS when wasOpenedAsHidden is true', () => {
-      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      useProcessRuntimeMock({ platform: 'darwin' });
       mockApp.getLoginItemSettings.mockReturnValue({
         openAtLogin: true,
         wasOpenedAsHidden: true
@@ -93,7 +121,7 @@ describe('LoginItemService', () => {
     });
 
     it('should return false on macOS when wasOpenedAsHidden is false', () => {
-      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      useProcessRuntimeMock({ platform: 'darwin' });
       mockApp.getLoginItemSettings.mockReturnValue({
         openAtLogin: true,
         wasOpenedAsHidden: false
@@ -103,23 +131,21 @@ describe('LoginItemService', () => {
     });
 
     it('should return true on Windows when --hidden arg is present', () => {
-      Object.defineProperty(process, 'platform', { value: 'win32' });
-      const originalArgv = process.argv;
-      process.argv = ['electron', '.', '--hidden'];
+      useProcessRuntimeMock({
+        platform: 'win32',
+        argv: ['electron', '.', '--hidden'],
+      });
 
       expect(service.wasLaunchedAsHidden()).toBe(true);
-
-      process.argv = originalArgv;
     });
 
     it('should return false on Windows when --hidden arg is absent', () => {
-      Object.defineProperty(process, 'platform', { value: 'win32' });
-      const originalArgv = process.argv;
-      process.argv = ['electron', '.'];
+      useProcessRuntimeMock({
+        platform: 'win32',
+        argv: ['electron', '.'],
+      });
 
       expect(service.wasLaunchedAsHidden()).toBe(false);
-
-      process.argv = originalArgv;
     });
   });
 });

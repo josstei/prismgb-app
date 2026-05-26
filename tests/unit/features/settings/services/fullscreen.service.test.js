@@ -10,6 +10,7 @@ import {
   createPreloadApiMock,
   setPreloadApi
 } from '../../../../support/mocks/preload-api-globals.js';
+import { installFullscreenDocumentMock } from '../../../../support/mocks/browser-api.installers.js';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('SettingsFullscreenService', () => {
@@ -20,6 +21,7 @@ describe('SettingsFullscreenService', () => {
   let mockWindowAPI;
   let mockDocument;
   let mockDocumentElement;
+  let documentMock;
 
   beforeEach(() => {
     mockEventBus = createEventBus();
@@ -27,26 +29,11 @@ describe('SettingsFullscreenService', () => {
 
     mockWindowAPI = createPreloadApiMock('windowAPI', { setFullScreen: undefined, isFullScreen: undefined });
 
-    mockDocumentElement = {
-      requestFullscreen: vi.fn().mockResolvedValue(undefined)
-    };
-
-    mockDocument = {
-      fullscreenElement: null,
-      documentElement: mockDocumentElement,
-      exitFullscreen: vi.fn().mockResolvedValue(undefined),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      body: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      }
-    };
+    documentMock = installFullscreenDocumentMock();
+    mockDocument = documentMock.document;
+    mockDocumentElement = documentMock.documentElement;
 
     setPreloadApi('windowAPI', mockWindowAPI);
-    global.document = mockDocument;
 
     service = new SettingsFullscreenService({
       eventBus: mockEventBus,
@@ -56,6 +43,7 @@ describe('SettingsFullscreenService', () => {
   });
 
   afterEach(() => {
+    documentMock?.cleanup();
     vi.restoreAllMocks();
     clearPreloadApi('windowAPI');
   });
