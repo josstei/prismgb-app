@@ -6,7 +6,7 @@
  */
 
 import { vi } from 'vitest';
-import { CHROMATIC_SPECS, createMockStream, createMockDeviceInfo } from './MockDevice.js';
+import { CHROMATIC_SPECS, createMockStream, createMockDeviceInfo } from './mock-device.factory.js';
 
 /**
  * Device states

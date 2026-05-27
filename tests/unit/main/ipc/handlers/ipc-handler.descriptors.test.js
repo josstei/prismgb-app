@@ -12,7 +12,14 @@ import {
   gpuHandlerDescriptors,
   loginItemHandlerDescriptors
 } from '@main/ipc/handlers/index.js';
-import { createLogger } from '../../../../factories/index.js';
+import {
+  createDeviceServiceMock,
+  createLoginItemServiceMock,
+  createLogger,
+  createTranscodeServiceMock,
+  createUpdateServiceMock,
+  createWindowServiceMock
+} from '../../../../factories/index.js';
 
 function captureHandlers(descriptors, deps) {
   const handlers = {};
@@ -28,11 +35,11 @@ function captureHandlers(descriptors, deps) {
 
 const mockLogger = createLogger({ name: 'IpcHandlerDescriptors' });
 
-const mockDeviceService = { getStatus: vi.fn() };
-const mockUpdateService = { checkForUpdates: vi.fn(), downloadUpdate: vi.fn(), installUpdate: vi.fn(), getStatus: vi.fn() };
-const mockWindowService = { setFullScreen: vi.fn(), isFullScreen: vi.fn() };
-const mockTranscodeService = { transcode: vi.fn(), cancel: vi.fn(), getStatus: vi.fn() };
-const mockLoginItemService = { isEnabled: vi.fn(), setEnabled: vi.fn() };
+const mockDeviceService = createDeviceServiceMock();
+const mockUpdateService = createUpdateServiceMock();
+const mockWindowService = createWindowServiceMock();
+const mockTranscodeService = createTranscodeServiceMock();
+const mockLoginItemService = createLoginItemServiceMock();
 
 const descriptorGroups = [
   ['DEVICE', deviceHandlerDescriptors], ['SHELL', shellHandlerDescriptors], ['UPDATE', updateHandlerDescriptors], ['WINDOW', windowHandlerDescriptors],

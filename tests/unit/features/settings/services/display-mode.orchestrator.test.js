@@ -4,7 +4,13 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createEventBus,
+  createLoggerFactory,
+  createSettingsCinematicModeServiceMock,
+  createSettingsFullscreenServiceMock,
+  createSettingsServiceMock
+} from '../../../../factories/index.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
@@ -19,21 +25,14 @@ describe('SettingsDisplayModeOrchestrator', () => {
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
 
-    mockSettingsFullscreenService = {
-      initialize: vi.fn(),
-      dispose: vi.fn(),
-      toggleFullscreen: vi.fn(),
-      enterFullscreen: vi.fn(),
-      exitFullscreen: vi.fn()
-    };
+    mockSettingsFullscreenService = createSettingsFullscreenServiceMock();
+    mockSettingsCinematicModeService = createSettingsCinematicModeServiceMock();
 
-    mockSettingsCinematicModeService = {
-      toggleCinematicMode: vi.fn()
-    };
-
-    mockSettingsService = {
-      getBooleanSetting: vi.fn(() => false)
-    };
+    mockSettingsService = createSettingsServiceMock({
+      values: {
+        fullscreenOnStartup: false
+      }
+    });
 
     mockEventBus = createEventBus();
     hiddenMock = installDocumentPropertyMock('hidden', false);
@@ -119,7 +118,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
   describe('_applyStartupBehaviors', () => {
     it('should enter fullscreen when fullscreenOnStartup is enabled', () => {
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('fullscreenOnStartup', true);
 
       orchestrator._applyStartupBehaviors();
 
@@ -128,7 +127,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
     });
 
     it('should not enter fullscreen when fullscreenOnStartup is disabled', () => {
-      mockSettingsService.getBooleanSetting.mockReturnValue(false);
+      mockSettingsService.setSetting('fullscreenOnStartup', false);
 
       orchestrator._applyStartupBehaviors();
 
@@ -136,7 +135,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
     });
 
     it('should remove deferred startup fullscreen listener during cleanup', async () => {
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('fullscreenOnStartup', true);
       hiddenMock.setValue(true);
       const addListenerSpy = vi.spyOn(document, 'addEventListener');
       const removeListenerSpy = vi.spyOn(document, 'removeEventListener');

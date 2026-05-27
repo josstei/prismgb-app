@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
-import { createLogger } from '../../../../factories/index.js';
+import { createLogger, createMediaServiceMock } from '../../../../factories/index.js';
 import { installMediaMocks } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('BaseStreamLifecycle', () => {
@@ -40,7 +40,7 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should accept optional mediaService parameter', () => {
-      const mockMediaService = { getUserMedia: vi.fn() };
+      const mockMediaService = createMediaServiceMock();
       const lifecycleWithService = new BaseStreamLifecycle(mockLogger, mockMediaService);
       expect(lifecycleWithService.mediaService).toBe(mockMediaService);
     });
@@ -129,9 +129,7 @@ describe('BaseStreamLifecycle', () => {
         active: true,
         getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
       };
-      const mockMediaService = {
-        getUserMedia: vi.fn().mockResolvedValue(mockStream)
-      };
+      const mockMediaService = createMediaServiceMock({ getUserMedia: vi.fn().mockResolvedValue(mockStream) });
 
       const lifecycleWithService = new BaseStreamLifecycle(mockLogger, mockMediaService);
       const constraints = { video: true };

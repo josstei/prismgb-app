@@ -13,14 +13,18 @@ import {
   formatReport,
   PerformanceBaselines,
 } from './baseline.config.js';
-import { createEventBus } from '../factories/event-bus.factory.js';
-import { createAppState } from '../factories/app-state.factory.js';
-import { createLoggerFactory } from '../factories/logger.factory.js';
-import { createDeviceService, createDeviceAdapter } from '../factories/device.factory.js';
-import { createMockDependencies } from '../factories/index.js';
-import { createChromaticWithFSM, DeviceState } from '../mocks/MockDeviceStateMachine.js';
+import {
+  createAppState,
+  createDeviceAdapter,
+  createDeviceService,
+  createEventBus,
+  createLoggerFactory,
+  createMockDependencies,
+  DeviceState,
+  createChromaticWithFSM,
+} from '../factories/index.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 
 /**
  * Measure execution time of a function

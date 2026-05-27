@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../factories/index.js';
+import { createEventBus, createLoggerFactory, createOrchestratorMock } from '../../factories/index.js';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -25,72 +25,44 @@ describe('AppOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockDeviceOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockDeviceOrchestrator = createOrchestratorMock();
 
-    mockStreamingOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockStreamingOrchestrator = createOrchestratorMock({
       start: vi.fn(),
       stop: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    });
 
-    mockStreamingAudioOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockStreamingAudioOrchestrator = createOrchestratorMock();
 
-    mockCaptureOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockCaptureOrchestrator = createOrchestratorMock({
       takeScreenshot: vi.fn(),
       toggleRecording: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    });
 
-    mockSettingsPreferencesOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockSettingsPreferencesOrchestrator = createOrchestratorMock({
       loadPreferences: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    });
 
-    mockSettingsDisplayModeOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockSettingsDisplayModeOrchestrator = createOrchestratorMock({
       toggleFullscreen: vi.fn(),
       toggleCinematicMode: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    });
 
-    mockUpdateOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockUpdateOrchestrator = createOrchestratorMock();
 
-    mockUISetupOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
+    mockUISetupOrchestrator = createOrchestratorMock({
       initializeSettingsMenu: vi.fn(),
       initializeShaderSelector: vi.fn(),
       initializeNotesPanel: vi.fn(),
       setupOverlayClickHandlers: vi.fn(),
       setupUIEventListeners: vi.fn(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    });
 
-    mockPerformanceAnimationOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockPerformanceAnimationOrchestrator = createOrchestratorMock();
 
-    mockPerformanceMetricsOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockPerformanceMetricsOrchestrator = createOrchestratorMock();
 
-    mockPerformanceStateOrchestrator = {
-      initialize: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    };
+    mockPerformanceStateOrchestrator = createOrchestratorMock();
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();

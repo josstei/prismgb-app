@@ -149,10 +149,10 @@ describe('codebase-size-report metrics', () => {
     const workspace = createTempWorkspace();
     try {
       const trackedFiles = [
-        writeWorkspaceFile(workspace, 'tests/mocks/mock-device.js', 'export {};\n'),
+        writeWorkspaceFile(workspace, 'tests/factories/mock-device.factory.js', 'export {};\n'),
+        writeWorkspaceFile(workspace, 'tests/factories/streaming-mocks.factory.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'tests/e2e/mocks/device-mock.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'tests/support/lazy-mock.js', 'export {};\n'),
-        writeWorkspaceFile(workspace, 'tests/mocks/index.js', 'export {};\n'),
         writeWorkspaceFile(workspace, 'src/main/logic.js', 'export {};\n')
       ];
 
@@ -160,9 +160,9 @@ describe('codebase-size-report metrics', () => {
 
       expect(mockCounts.total).toBe(4);
       expect(mockCounts.byLocation).toEqual({
-        testsMocks: 2,
+        testsMocks: 0,
         e2eMocks: 1,
-        namedMockFiles: 1,
+        namedMockFiles: 3,
         otherMockPaths: 0
       });
     } finally {

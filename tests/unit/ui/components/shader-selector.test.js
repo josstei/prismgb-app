@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
-import { createEventBus, createLogger } from '../../../factories/index.js';
+import { createAppState, createEventBus, createLogger, createSettingsServiceMock } from '../../../factories/index.js';
 
 let mockCinematicToggle;
 let mockPresetList;
@@ -42,7 +42,7 @@ describe('ShaderSelectorComponent', () => {
   let mockElements;
 
   beforeEach(() => {
-    mockSettingsService = {};
+    mockSettingsService = createSettingsServiceMock();
     mockEventBus = createEventBus();
     mockLogger = createLogger({ name: 'ShaderSelectorComponent' });
 
@@ -63,7 +63,7 @@ describe('ShaderSelectorComponent', () => {
 
     component = new ShaderSelectorComponent({
       settingsService: mockSettingsService,
-      appState: { isCinematicModeEnabled: true },
+      appState: createAppState({ initialState: { isCinematicModeEnabled: true } }),
       eventBus: mockEventBus,
       logger: mockLogger
     });

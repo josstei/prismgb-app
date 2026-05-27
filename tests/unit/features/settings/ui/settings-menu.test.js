@@ -11,7 +11,11 @@ import {
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
-import { createEventBus, createLogger } from '../../../../factories/index.js';
+import {
+  createEventBus,
+  createLogger,
+  createSettingsServiceMock
+} from '../../../../factories/index.js';
 
 describe('SettingsMenuComponent', () => {
   let component;
@@ -21,19 +25,16 @@ describe('SettingsMenuComponent', () => {
   let mockElements;
 
   beforeEach(() => {
-    // Mock settings service
-    mockSettingsService = {
-      getBooleanSetting: vi.fn((name) => ({
+    mockSettingsService = createSettingsServiceMock({
+      values: {
         statusStripVisible: true,
         fullscreenOnStartup: false,
         autoStreamOnConnect: false,
         minimalistFullscreen: false,
-        performanceMode: true
-      })[name] ?? false),
-      getStringSetting: vi.fn(() => 'webm'),
-      getSetting: vi.fn(() => Promise.resolve(false)),
-      setSetting: vi.fn(() => true)
-    };
+        performanceMode: true,
+        recordingFormat: 'webm'
+      }
+    });
 
     mockEventBus = createEventBus();
     mockLogger = createLogger();
@@ -139,7 +140,7 @@ describe('SettingsMenuComponent', () => {
     });
 
     it('should apply status strip visibility on initialize', () => {
-      mockSettingsService.getBooleanSetting.mockImplementation((name) => name === 'performanceMode');
+      mockSettingsService.setSetting('statusStripVisible', false);
 
       component.initialize(mockElements);
 
@@ -276,7 +277,7 @@ describe('SettingsMenuComponent', () => {
     });
 
     it('should reflect stored preference on initialize', () => {
-      mockSettingsService.getBooleanSetting.mockImplementation((name) => name === 'statusStripVisible');
+      mockSettingsService.setSetting('performanceMode', false);
 
       component.initialize(mockElements);
 
@@ -284,12 +285,12 @@ describe('SettingsMenuComponent', () => {
     });
 
     it('should use generic setting access when loading animation preference', () => {
-      const serviceWithoutMethod = {
-        getBooleanSetting: vi.fn(() => false),
-        getStringSetting: vi.fn(() => 'webm'),
-        getSetting: vi.fn(() => Promise.resolve(false)),
-        setSetting: vi.fn(() => true)
-      };
+      const serviceWithoutMethod = createSettingsServiceMock({
+        values: {
+          performanceMode: false,
+          recordingFormat: 'webm'
+        }
+      });
 
       const componentWithLimitedService = new SettingsMenuComponent({
         settingsService: serviceWithoutMethod,
@@ -320,7 +321,7 @@ describe('SettingsMenuComponent', () => {
     });
 
     it('should load saved state on initialization', async () => {
-      mockSettingsService.getSetting.mockResolvedValue(true);
+      mockSettingsService.setSetting('launchOnLogin', true);
       await component._loadAsyncSettings();
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);

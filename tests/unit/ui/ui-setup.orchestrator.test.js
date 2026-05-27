@@ -4,7 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
-import { createEventBus, createLoggerFactory } from '../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createMockElement,
+  createNotesServiceMock,
+  createOrchestratorMock,
+  createSettingsServiceMock
+} from '../../factories/index.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
@@ -24,52 +32,32 @@ describe('UISetupOrchestrator', () => {
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
 
-    mockAppState = {
-      isStreaming: false
-    };
+    mockAppState = createAppState();
 
-    mockUpdateOrchestrator = {};
+    mockUpdateOrchestrator = createOrchestratorMock();
 
-    mockSettingsService = {};
+    mockSettingsService = createSettingsServiceMock();
 
-    mockNotesService = {};
+    mockNotesService = createNotesServiceMock();
 
-    // Create mock DOM elements with event listener support
-    const createMockElement = () => {
-      const listeners = {};
-      return {
-        classList: {
-          contains: vi.fn(() => false)
-        },
-        addEventListener: vi.fn((event, handler) => {
-          listeners[event] = handler;
-        }),
-        removeEventListener: vi.fn((event) => {
-          delete listeners[event];
-        }),
-        _listeners: listeners,
-        _trigger: (event) => listeners[event]?.()
-      };
-    };
+    mockStreamOverlay = createMockElement('div');
+    mockStreamVideo = createMockElement('video');
+    mockStreamCanvas = createMockElement('canvas');
 
-    mockStreamOverlay = createMockElement();
-    mockStreamVideo = createMockElement();
-    mockStreamCanvas = createMockElement();
-
-    const mockShaderBtn = createMockElement();
-    const mockShaderDropdown = createMockElement();
-    const mockShaderOptions = createMockElement();
-    const mockShaderUnavailableMessage = createMockElement();
-    const mockCinematicToggle = createMockElement();
-    const mockCinematicPillText = createMockElement();
-    const mockStreamToolbar = createMockElement();
-    const mockBrightnessSlider = createMockElement();
-    const mockBrightnessPercentage = createMockElement();
-    const mockBrightnessControl = createMockElement();
-    const mockVolumeSliderVertical = createMockElement();
-    const mockVolumePercentageVertical = createMockElement();
-    const mockStreamContainer = createMockElement();
-    const mockNotesBtn = createMockElement();
+    const mockShaderBtn = createMockElement('button');
+    const mockShaderDropdown = createMockElement('select');
+    const mockShaderOptions = createMockElement('div');
+    const mockShaderUnavailableMessage = createMockElement('div');
+    const mockCinematicToggle = createMockElement('input');
+    const mockCinematicPillText = createMockElement('span');
+    const mockStreamToolbar = createMockElement('div');
+    const mockBrightnessSlider = createMockElement('input');
+    const mockBrightnessPercentage = createMockElement('span');
+    const mockBrightnessControl = createMockElement('div');
+    const mockVolumeSliderVertical = createMockElement('input');
+    const mockVolumePercentageVertical = createMockElement('span');
+    const mockStreamContainer = createMockElement('div');
+    const mockNotesBtn = createMockElement('button');
 
     mockUiController = {
       on: vi.fn(),
@@ -356,7 +344,7 @@ describe('UISetupOrchestrator', () => {
     });
 
     it('should publish STREAM_STOP_REQUESTED when video is clicked while streaming', () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       orchestrator.setupOverlayClickHandlers();
 
       mockStreamVideo._trigger('click');
@@ -365,7 +353,7 @@ describe('UISetupOrchestrator', () => {
     });
 
     it('should not publish event when video is clicked while not streaming', () => {
-      mockAppState.isStreaming = false;
+      mockAppState.setStreaming(false);
       orchestrator.setupOverlayClickHandlers();
 
       mockStreamVideo._trigger('click');
@@ -520,7 +508,7 @@ describe('UISetupOrchestrator', () => {
       canvasRecreatedHandler({ oldCanvas, newCanvas });
 
       // Simulate streaming state
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       // Trigger click on new canvas
       newCanvasListeners.click();

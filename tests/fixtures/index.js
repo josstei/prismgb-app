@@ -69,5 +69,5 @@ export {
   createCaptureEventFixture,
 } from './capture.fixture.js';
 
-// Re-export Chromatic specs from mocks
-export { CHROMATIC_SPECS } from '../mocks/MockDevice.js';
+// Re-export Chromatic specs from manifest-backed fixture source
+export { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';

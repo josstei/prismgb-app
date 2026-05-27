@@ -7,7 +7,7 @@
 
 import { vi } from 'vitest';
 import { createMediaStream, createDeviceAdapter, AdapterState } from './device.factory.js';
-import { CHROMATIC_SPECS } from '../mocks/MockDevice.js';
+import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
 
 /**
  * Streaming service states

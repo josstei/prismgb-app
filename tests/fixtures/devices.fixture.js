@@ -5,7 +5,7 @@
  * Use these fixtures instead of hardcoded values.
  */
 
-import { CHROMATIC_SPECS } from '../mocks/MockDevice.js';
+import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
 
 /**
  * Chromatic device fixture

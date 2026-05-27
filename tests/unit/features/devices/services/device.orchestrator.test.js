@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createDeviceServiceMock, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;
@@ -15,13 +15,13 @@ describe('DeviceOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockDeviceService = {
+    mockDeviceService = createDeviceServiceMock({
       setupDeviceChangeListener: vi.fn(),
       updateDeviceStatus: vi.fn().mockResolvedValue({}),
       enumerateDevices: vi.fn().mockResolvedValue({}),
       isDeviceConnected: vi.fn(),
       dispose: vi.fn()
-    };
+    });
 
     mockDeviceIpcAdapter = {
       subscribe: vi.fn(() => vi.fn()),  // Returns unsubscribe function

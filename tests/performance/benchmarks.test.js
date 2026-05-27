@@ -10,14 +10,14 @@ import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import {
   PerformanceCache,
   AnimationCache
-} from '../../src/shared/utils/performance-cache.utils.js';
+} from '@shared/utils/performance-cache.utils.js';
 import {
+  CHROMATIC_SPECS,
   MockDevice,
   MockDeviceManager,
-  CHROMATIC_SPECS,
   createMockStream,
   performanceUtils,
-} from '../mocks/index.js';
+} from '../factories/index.js';
 
 // Performance thresholds (in milliseconds)
 const THRESHOLDS = {

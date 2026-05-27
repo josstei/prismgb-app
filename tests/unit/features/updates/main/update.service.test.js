@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService, UpdateState } from '@main/infrastructure/updates/update.service.js';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createEventBus, createLoggerFactory, createWindowServiceMock } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -55,9 +55,7 @@ describe('UpdateService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockWindowService = {
-      send: vi.fn()
-    };
+    mockWindowService = createWindowServiceMock({ send: vi.fn() });
 
     mockEventBus = createEventBus();
 

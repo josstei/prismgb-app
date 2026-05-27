@@ -5,7 +5,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../factories/index.js';
+import {
+  createBodyClassManagerMock,
+  createEventBus,
+  createLoggerFactory,
+  createPerformanceAnimationServiceMock
+} from '../../factories/index.js';
 
 describe('PerformanceAnimationOrchestrator', () => {
   let orchestrator;
@@ -24,19 +29,8 @@ describe('PerformanceAnimationOrchestrator', () => {
     });
     mockLoggerFactory = createLoggerFactory();
 
-    mockPerformanceAnimationService = {
-      setPerformanceState: vi.fn(() => ({
-        idle: false,
-        hidden: false,
-        animationsOff: false
-      }))
-    };
-
-    mockBodyClassManager = {
-      setIdle: vi.fn(),
-      setHidden: vi.fn(),
-      setAnimationsOff: vi.fn()
-    };
+    mockPerformanceAnimationService = createPerformanceAnimationServiceMock();
+    mockBodyClassManager = createBodyClassManagerMock();
 
     orchestrator = new PerformanceAnimationOrchestrator({
       eventBus: mockEventBus,

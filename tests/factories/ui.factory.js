@@ -24,6 +24,7 @@ export function createMockElement(tagName = 'div', options = {}) {
   } = options;
 
   const classList = new Set(className.split(' ').filter(Boolean));
+  const eventBuckets = {};
   const eventListeners = new Map();
   const attrs = new Map(Object.entries(attributes));
   const style = {};
@@ -81,6 +82,11 @@ export function createMockElement(tagName = 'div', options = {}) {
         eventListeners.set(event, []);
       }
       eventListeners.get(event).push({ handler, options });
+
+      if (!eventBuckets[event]) {
+        eventBuckets[event] = [];
+      }
+      eventBuckets[event].push(handler);
     }),
 
     removeEventListener: vi.fn((event, handler) => {
@@ -88,6 +94,17 @@ export function createMockElement(tagName = 'div', options = {}) {
       if (listeners) {
         const index = listeners.findIndex(l => l.handler === handler);
         if (index > -1) listeners.splice(index, 1);
+      }
+
+      if (eventBuckets[event]) {
+        if (!handler) {
+          eventBuckets[event] = [];
+        } else {
+          const bucketIndex = eventBuckets[event].indexOf(handler);
+          if (bucketIndex > -1) {
+            eventBuckets[event].splice(bucketIndex, 1);
+          }
+        }
       }
     }),
 
@@ -117,10 +134,19 @@ export function createMockElement(tagName = 'div', options = {}) {
     },
     _getClasses: () => Array.from(classList),
     _eventListeners: eventListeners,
+    _listeners: eventBuckets,
+    _trigger(eventType, eventData = {}) {
+      const event = { type: eventType, target: element, ...eventData };
+      const listeners = eventListeners.get(eventType) || [];
+      listeners.forEach(({ handler }) => handler(event));
+    },
     _attrs: attrs,
     _reset() {
       classList.clear();
       eventListeners.clear();
+      Object.keys(eventBuckets).forEach((key) => {
+        eventBuckets[key] = [];
+      });
       attrs.clear();
       vi.clearAllMocks();
     },

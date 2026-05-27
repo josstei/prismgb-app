@@ -12,7 +12,7 @@ import {
 } from '../../../../support/mocks/browser-api.installers.js';
 
 // Mock FilenameGenerator
-vi.mock('../../../../../src/shared/lib/filename-generator.utils.ts', () => ({
+vi.mock('@shared/lib/filename-generator.utils.ts', () => ({
   FilenameGenerator: {
     forScreenshot: vi.fn(() => 'screenshot_2024-01-01_12-00-00.png'),
     forRecording: vi.fn(() => 'recording_2024-01-01_12-00-00.webm')

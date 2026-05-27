@@ -4,7 +4,18 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createCaptureGpuRecordingServiceMock,
+  createCaptureSaveServiceMock,
+  createCaptureServiceMock,
+  createCanvasRenderLoopServiceMock,
+  createGpuRendererServiceMock,
+  createStreamingViewServiceMock,
+  createTranscodeServiceMock
+} from '../../../../factories/index.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -21,32 +32,23 @@ describe('CaptureOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockCaptureService = {
-      takeScreenshot: vi.fn(),
-      toggleRecording: vi.fn(),
-      startRecording: vi.fn(),
-      getRecordingState: vi.fn(),
-      stopRecording: vi.fn(),
-      isRecording: false
-    };
+    mockCaptureService = createCaptureServiceMock();
 
-    mockAppState = {
-      isStreaming: false,
-      currentStream: null,
-      currentCapabilities: null
-    };
+    mockAppState = createAppState();
+    mockAppState.currentStream = null;
+    mockAppState.currentCapabilities = null;
 
     // Mock stream view elements
     const mockStreamVideo = { id: 'streamVideo' };
     const mockStreamCanvas = { id: 'streamCanvas' };
 
-    mockStreamingViewService = {
+    mockStreamingViewService = createStreamingViewServiceMock({
       getCanvas: vi.fn(() => mockStreamCanvas),
       getVideo: vi.fn(() => mockStreamVideo),
       attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
-    };
+    });
 
     // Store element references for test assertions
     mockStreamingViewService._elements = {
@@ -54,28 +56,23 @@ describe('CaptureOrchestrator', () => {
       streamCanvas: mockStreamCanvas
     };
 
-    mockGpuRendererService = {
+    mockGpuRendererService = createGpuRendererServiceMock({
       isActive: vi.fn(() => false),
       captureFrame: vi.fn(),
       getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
-    };
+    });
 
-    mockCaptureGpuRecordingService = {
-      start: vi.fn(async () => ({ id: 'gpu-stream' })),
-      stop: vi.fn()
-    };
+    mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock();
 
-    mockCanvasRenderLoopService = {
+    mockCanvasRenderLoopService = createCanvasRenderLoopServiceMock({
       isActive: vi.fn(() => false)
-    };
+    });
 
-    mockTranscodeService = {
+    mockTranscodeService = createTranscodeServiceMock({
       isTranscoding: vi.fn(() => false)
-    };
+    });
 
-    mockCaptureSaveService = {
-      saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false })
-    };
+    mockCaptureSaveService = createCaptureSaveServiceMock();
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
@@ -122,7 +119,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('takeScreenshot', () => {
     it('should capture from video element when no rendering pipeline active', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       mockGpuRendererService.isActive.mockReturnValue(false);
       mockCanvasRenderLoopService.isActive.mockReturnValue(false);
 
@@ -132,7 +129,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should capture from GPU renderer when GPU is active', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       mockGpuRendererService.isActive.mockReturnValue(true);
       const mockBitmap = { width: 160, height: 144 };
       mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
@@ -144,7 +141,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should capture from canvas when Canvas2D rendering is active', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       mockGpuRendererService.isActive.mockReturnValue(false);
       mockCanvasRenderLoopService.isActive.mockReturnValue(true);
 
@@ -154,7 +151,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should trigger visual feedback when streaming', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       await orchestrator.takeScreenshot();
 
@@ -162,7 +159,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should warn when not streaming', async () => {
-      mockAppState.isStreaming = false;
+      mockAppState.setStreaming(false);
 
       await orchestrator.takeScreenshot();
 
@@ -171,7 +168,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should show error on screenshot failure', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       mockCaptureService.takeScreenshot.mockRejectedValue(new Error('Screenshot failed'));
 
       await orchestrator.takeScreenshot();

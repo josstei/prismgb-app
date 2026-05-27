@@ -5,7 +5,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createSettingsServiceMock
+} from '../../../../factories/index.js';
 
 describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;
@@ -19,14 +24,14 @@ describe('SettingsPreferencesOrchestrator', () => {
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
 
-    mockSettingsService = {
+    mockSettingsService = createSettingsServiceMock({
       loadAllPreferences: vi.fn(() => ({
         gameVolume: 80,
         statusStripVisible: false,
         performanceMode: true,
         minimalistFullscreen: false
       }))
-    };
+    });
 
     mockAppState = createAppState();
 

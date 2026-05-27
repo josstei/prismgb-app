@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createEventBus, createGpuRendererServiceMock, createLoggerFactory } from '../../../../factories/index.js';
 import {
   createCleanupStack,
   installAnimationFrameMock,
@@ -42,10 +42,10 @@ describe('CaptureGpuRecordingService', () => {
   beforeEach(() => {
     cleanupStack = createCleanupStack();
 
-    mockGpuRendererService = {
+    mockGpuRendererService = createGpuRendererServiceMock({
       captureFrame: vi.fn(),
       getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
-    };
+    });
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();

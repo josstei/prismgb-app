@@ -6,7 +6,7 @@
  */
 
 import { vi } from 'vitest';
-import { CHROMATIC_SPECS } from '../mocks/MockDevice.js';
+import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
 
 /**
  * Device adapter states

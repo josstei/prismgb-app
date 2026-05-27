@@ -7,16 +7,16 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
+  CHROMATIC_SPECS,
   MockDevice,
   MockDeviceManager,
-  CHROMATIC_SPECS,
   createMockUIController,
   performanceUtils,
-} from '../mocks/index.js';
+} from '../factories/index.js';
 import { createEventBus, createAppState } from '../factories/index.js';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
 
 describe('Streaming Pipeline Integration', () => {
   let mockDeviceManager;

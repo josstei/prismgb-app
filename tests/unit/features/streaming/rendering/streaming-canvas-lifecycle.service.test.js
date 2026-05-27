@@ -6,7 +6,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createEventBus,
+  createGpuRendererServiceMock,
+  createLoggerFactory,
+  createStreamingViewServiceMock,
+  createCanvasRenderLoopServiceMock,
+  createViewportServiceMock
+} from '../../../../factories/index.js';
 import {
   installDocumentCreateElementMock,
   installGetComputedStyleMock
@@ -47,35 +54,31 @@ describe('StreamingCanvasLifecycleService', () => {
     mockSection = {};
 
     // Create mock StreamViewService
-    mockStreamViewService = {
+    mockStreamViewService = createStreamingViewServiceMock({
       getCanvas: vi.fn().mockReturnValue(mockCanvas),
       getCanvasContainer: vi.fn().mockReturnValue(mockContainer),
       getCanvasSection: vi.fn().mockReturnValue(mockSection),
       setCanvas: vi.fn()
-    };
+    });
 
-    // Create mock CanvasRenderer
-    mockCanvasRenderer = {
+    mockCanvasRenderer = createCanvasRenderLoopServiceMock({
       resize: vi.fn(),
       resetCanvasState: vi.fn()
-    };
+    });
 
-    // Create mock ViewportService
-    mockViewportService = {
+    mockViewportService = createViewportServiceMock({
       calculateDimensions: vi.fn().mockReturnValue({ width: 640, height: 576 }),
-      initialize: vi.fn(),
       isInitialized: vi.fn().mockReturnValue(false),
       forceResize: vi.fn(),
       resetDimensions: vi.fn(),
       cleanup: vi.fn(),
       _resizeObserver: null
-    };
+    });
 
-    // Create mock GpuRendererService
-    mockGpuRendererService = {
+    mockGpuRendererService = createGpuRendererServiceMock({
       isCanvasTransferred: vi.fn().mockReturnValue(false),
       resize: vi.fn()
-    };
+    });
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();

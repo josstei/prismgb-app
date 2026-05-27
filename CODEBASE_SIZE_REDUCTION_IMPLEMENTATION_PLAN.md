@@ -1518,9 +1518,9 @@ Expected outcome:
 
 Grounded repo truth:
 
-- `tests/factories/event-bus.factory.js` now owns canonical EventBus behavior, while `tests/mocks/index.js` still carries legacy UI controller and service helpers around canonical logger/EventBus/AppState wrappers.
+- `tests/factories/event-bus.factory.js` now owns canonical EventBus behavior, and streaming mock ownership now lives in factory modules (`mock-device.factory.js` and `mock-device-state-machine.factory.js`).
 - `tests/factories/index.js#createMockDependencies()` uses ESM imports inside the ESM package.
-- Preload/global `window.*API` API names and subscription mock bodies derive from `src/shared/ipc/ipc.manifest.json`; legacy logger/EventBus/AppState entrypoints and the remediated performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumer, shared base/component registry, presentation-mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrator, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock test slices delegate to `tests/factories`, while broader service mocks are still duplicated across tests.
+- Preload/global `window.*API` API names and subscription mock bodies derive from `src/shared/ipc/ipc.manifest.json`; most remediation and adapter/service suites now delegate to canonical factories in `tests/factories`, while broader service mocks are still duplicated in a limited set of tests.
 - Residual inline scan hits are scenario-specific fakes: the Winston backend child logger in `main-logger.test.js`, device debounce/IPC adapter subscription behavior, the notes panel unsubscribe-error EventBus, and the partial logger tolerance check in `constraint.builder.test.js`.
 
 Long-term target:
@@ -1799,7 +1799,7 @@ Phases and tasks:
   - Emit JSON-safe Chromatic specs from the device manifest for Playwright browser contexts.
   - Keep the retired `ipc-mock.js` helper absent and replace constants in `mock-chromatic.helper.js`.
 - Phase 2: Generate unit fixtures.
-  - Replace `tests/mocks/MockDevice.js`, factories, and settings/media fixtures where values duplicate manifest data.
+  - Replace remaining fixture/value duplication with manifest-backed data in unit/e2e support modules.
 - Phase 3: Integrate with E2E fixtures.
   - Pass generated specs into `page.evaluate` helpers.
   - Enforce current preload event names in E2E helper baseline tests.

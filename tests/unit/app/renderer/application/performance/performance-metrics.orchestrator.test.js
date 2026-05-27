@@ -5,7 +5,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance-metrics.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import {
+  createEventBus,
+  createLoggerFactory,
+  createPerformanceMetricsServiceMock
+} from '../../../../../factories/index.js';
 
 describe('PerformanceMetricsOrchestrator', () => {
   let orchestrator;
@@ -23,12 +27,7 @@ describe('PerformanceMetricsOrchestrator', () => {
     });
     mockLoggerFactory = createLoggerFactory();
 
-    mockPerformanceMetricsService = {
-      requestSnapshot: vi.fn(),
-      startPeriodicSnapshots: vi.fn(),
-      stopPeriodicSnapshots: vi.fn(),
-      clearPendingRequests: vi.fn()
-    };
+    mockPerformanceMetricsService = createPerformanceMetricsServiceMock();
 
     orchestrator = new PerformanceMetricsOrchestrator({
       eventBus: mockEventBus,

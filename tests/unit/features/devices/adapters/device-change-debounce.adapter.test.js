@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts';
-import { createLogger } from '../../../../factories/index.js';
+import { createLogger, createBrowserMediaServiceMock } from '../../../../factories/index.js';
 
 describe('DeviceChangeDebounceAdapter', () => {
   let adapter;
@@ -15,12 +15,12 @@ describe('DeviceChangeDebounceAdapter', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockBrowserMediaService = {
+    mockBrowserMediaService = createBrowserMediaServiceMock({
       addEventListener: vi.fn((event, handler) => {
         eventHandler = handler;
       }),
       removeEventListener: vi.fn()
-    };
+    });
 
     mockLogger = createLogger({ name: 'DeviceChangeDebounceAdapter' });
 

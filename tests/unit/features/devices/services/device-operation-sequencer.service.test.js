@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/devices/device-operation-sequencer.service.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createDeviceServiceMock, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('DeviceOperationSequencerService', () => {
   let service;
@@ -14,10 +14,10 @@ describe('DeviceOperationSequencerService', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockDeviceService = {
+    mockDeviceService = createDeviceServiceMock({
       updateDeviceStatus: vi.fn().mockResolvedValue({}),
       enumerateDevices: vi.fn().mockResolvedValue({})
-    };
+    });
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();

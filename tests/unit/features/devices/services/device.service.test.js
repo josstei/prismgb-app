@@ -7,7 +7,14 @@ import { DeviceService } from '@renderer/infrastructure/services/devices/device.
 import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service.ts';
 import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
+import {
+  createBrowserMediaServiceMock,
+  createDeviceChangeDebounceAdapterMock,
+  createDeviceStatusProviderMock,
+  createEventBus,
+  createLoggerFactory,
+  createStorageService
+} from '../../../../factories/index.js';
 
 describe('DeviceService', () => {
   let service;
@@ -26,33 +33,16 @@ describe('DeviceService', () => {
   beforeEach(() => {
     mockEventBus = createEventBus();
 
-    mockDeviceStatusProvider = {
-      getDeviceStatus: vi.fn()
-    };
+    mockDeviceStatusProvider = createDeviceStatusProviderMock();
 
     mockLoggerFactory = createLoggerFactory();
 
     mockStorageService = createStorageService();
 
-    // Mock browser media service
-    mockBrowserMediaService = {
-      enumerateDevices: vi.fn(),
-      getUserMedia: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
-    };
+    mockBrowserMediaService = createBrowserMediaServiceMock();
 
     // Mock device change debounce adapter
-    mockDeviceChangeDebounceAdapter = {
-      subscribe: vi.fn((callback) => {
-        // Store callback for tests to trigger
-        mockDeviceChangeDebounceAdapter._callback = callback;
-        return vi.fn(); // unsubscribe function
-      }),
-      unsubscribe: vi.fn(),
-      isSubscribed: vi.fn().mockReturnValue(false),
-      getSuppressedCount: vi.fn().mockReturnValue(0)
-    };
+    mockDeviceChangeDebounceAdapter = createDeviceChangeDebounceAdapterMock();
 
     // Mock console
     vi.spyOn(console, 'log').mockImplementation(() => {});

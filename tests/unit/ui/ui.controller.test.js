@@ -5,7 +5,20 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { createLoggerFactory } from '../../factories/index.js';
+import {
+  createLoggerFactory,
+  createSettingsServiceMock,
+  createDeviceStatusComponentMock,
+  createSettingsMenuComponentMock,
+  createShaderSelectorComponentMock,
+  createStatusNotificationComponentMock,
+  createStreamControlsComponentMock,
+  createUIBodyClassManagerMock,
+  createUIComponentRegistryMock,
+  createUIControllerElementsMock,
+  createUIEffectsMock,
+  createMockElement
+} from '../../factories/index.js';
 
 describe('UIController', () => {
   let controller;
@@ -23,88 +36,31 @@ describe('UIController', () => {
 
   beforeEach(() => {
     // Create mock elements
-    mockElements = {
-      statusIndicator: { className: '' },
-      statusText: { textContent: '' },
-      statusMessage: { textContent: '' },
-      streamVideo: { volume: 1 },
-      streamCanvas: {},
-      streamOverlay: { style: {} },
-      overlayMessage: { textContent: '' },
-      settingsBtn: { addEventListener: vi.fn() },
-      screenshotBtn: { disabled: false },
-      recordBtn: { disabled: false, classList: { add: vi.fn(), remove: vi.fn() } },
-      fullscreenBtn: { title: '', addEventListener: vi.fn() },
-      deviceName: { textContent: '' },
-      deviceStatusText: { textContent: '' },
-      currentResolution: { textContent: '' },
-      currentFPS: { textContent: '' }
-    };
+    mockElements = createUIControllerElementsMock();
 
     // Mock document.getElementById
     vi.spyOn(document, 'getElementById').mockImplementation((id) => mockElements[id] || null);
 
     // Create mock components
-    mockStatusManager = {
-      show: vi.fn()
-    };
-    mockDeviceStatus = {
-      updateStatus: vi.fn(),
-      updateOverlayMessage: vi.fn(),
-      showError: vi.fn(),
-      setOverlayVisible: vi.fn()
-    };
-    mockStreamControls = {
-      setCinematicMode: vi.fn(),
-      setStreamingMode: vi.fn(),
-      updateStreamInfo: vi.fn()
-    };
-    mockSettingsMenu = {
-      toggle: vi.fn(),
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    };
-    mockShaderSelector = {
-      hide: vi.fn()
-    };
+    mockStatusManager = createStatusNotificationComponentMock();
+    mockDeviceStatus = createDeviceStatusComponentMock();
+    mockStreamControls = createStreamControlsComponentMock();
+    mockSettingsMenu = createSettingsMenuComponentMock();
+    mockShaderSelector = createShaderSelectorComponentMock();
 
-    mockBodyClassManager = {
-      setStreamingMode: vi.fn(),
-      setCinematicMode: vi.fn(),
-      setMinimalistFullscreen: vi.fn(),
-      setFullscreenMode: vi.fn(),
-      areAnimationsOff: vi.fn()
-    };
+    mockBodyClassManager = createUIBodyClassManagerMock();
 
     // Create mock registry
-    mockRegistry = {
-      initialize: vi.fn(),
-      initializeComponent: vi.fn(),
-      get: vi.fn((name) => {
-        switch (name) {
-          case 'statusNotificationComponent': return mockStatusManager;
-          case 'deviceStatusComponent': return mockDeviceStatus;
-          case 'streamControlsComponent': return mockStreamControls;
-          case 'settingsMenuComponent': return mockSettingsMenu;
-          case 'shaderSelectorComponent': return mockShaderSelector;
-          default: return null;
-        }
-      }),
-      dispose: vi.fn()
-    };
+    mockRegistry = createUIComponentRegistryMock({
+      statusNotificationComponent: mockStatusManager,
+      deviceStatusComponent: mockDeviceStatus,
+      streamControlsComponent: mockStreamControls,
+      settingsMenuComponent: mockSettingsMenu,
+      shaderSelectorComponent: mockShaderSelector
+    });
 
     // Create mock effects
-    mockEffects = {
-      triggerShutterFlash: vi.fn(),
-      triggerRecordButtonPop: vi.fn(),
-      triggerRecordButtonPress: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
-      enableCursorAutoHide: vi.fn(),
-      disableCursorAutoHide: vi.fn(),
-      enableToolbarAutoHide: vi.fn(),
-      disableToolbarAutoHide: vi.fn(),
-      dispose: vi.fn()
-    };
+    mockEffects = createUIEffectsMock();
 
     mockLoggerFactory = createLoggerFactory();
 
@@ -159,7 +115,11 @@ describe('UIController', () => {
 
   describe('initSettingsMenu', () => {
     it('should call registry.initializeComponent with dependencies', () => {
-      const deps = { settingsService: {}, eventBus: {}, logger: {} };
+      const deps = {
+        settingsService: createSettingsServiceMock(),
+        eventBus: {},
+        logger: {}
+      };
 
       controller.initSettingsMenu(deps);
 
@@ -172,7 +132,11 @@ describe('UIController', () => {
     });
 
     it('should initialize settings menu component with settings and updates elements', () => {
-      const deps = { settingsService: {}, eventBus: {}, logger: {} };
+      const deps = {
+        settingsService: createSettingsServiceMock(),
+        eventBus: {},
+        logger: {}
+      };
 
       controller.initSettingsMenu(deps);
 
@@ -461,10 +425,7 @@ describe('UIController', () => {
 
     it('should clean up tracked event listeners', () => {
       const handler = vi.fn();
-      const mockElement = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const mockElement = createMockElement();
       controller.elements.testBtn = mockElement;
       controller.on('testBtn', 'click', handler);
 

@@ -3,7 +3,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createLoggerFactory } from '../../../factories/logger.factory.js';
+import {
+  createDeviceServiceMock,
+  createLoggerFactory,
+  createTranscodeServiceMock,
+  createUpdateServiceMock,
+  createWindowServiceMock,
+  createLoginItemServiceMock
+} from '../../../factories/index.js';
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -38,34 +45,17 @@ describe('IpcHandlerRegistry', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockDeviceService = {
-      getStatus: vi.fn()
-    };
-
-    mockUpdateService = {
-      checkForUpdates: vi.fn(),
-      downloadUpdate: vi.fn(),
-      installUpdate: vi.fn(),
-      getStatus: vi.fn()
-    };
-
-    mockWindowService = {
-      setFullScreen: vi.fn(),
-      isFullScreen: vi.fn()
-    };
-
-    mockTranscodeService = {
-      transcode: vi.fn(),
-      cancel: vi.fn(),
-      getStatus: vi.fn()
-    };
+    mockDeviceService = createDeviceServiceMock();
+    mockUpdateService = createUpdateServiceMock();
+    mockWindowService = createWindowServiceMock();
+    mockTranscodeService = createTranscodeServiceMock();
 
     ipcHandlerRegistry = new IpcHandlerRegistry({
       deviceService: mockDeviceService,
       updateService: mockUpdateService,
       windowService: mockWindowService,
       transcodeService: mockTranscodeService,
-      loginItemService: { isEnabled: vi.fn(), setEnabled: vi.fn() },
+      loginItemService: createLoginItemServiceMock(),
       loggerFactory: mockLoggerFactory
     });
     mockLogger = mockLoggerFactory._getLogger('IpcHandlerRegistry');

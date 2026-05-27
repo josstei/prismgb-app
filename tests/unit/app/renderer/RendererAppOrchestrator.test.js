@@ -17,7 +17,7 @@ vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
 }));
 
 vi.mock('@renderer/application/container.ts', async () => {
-  const { createLoggerFactory } = await import('../../../factories/logger.factory.js');
+  const { createLoggerFactory } = await import('../../../factories/index.js');
 
   return {
     initializeContainer: vi.fn(() => ({

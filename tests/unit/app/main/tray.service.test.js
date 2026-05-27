@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createLoggerFactory } from '../../../factories/logger.factory.js';
+import {
+  createDeviceServiceMock,
+  createLoggerFactory,
+  createWindowServiceMock
+} from '../../../factories/index.js';
 
 vi.mock('electron', () => {
   return {
@@ -47,14 +51,14 @@ describe('TrayService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockWindowService = {
+    mockWindowService = createWindowServiceMock({
       showWindow: vi.fn()
-    };
+    });
 
-    mockDeviceService = {
+    mockDeviceService = createDeviceServiceMock({
       isConnected: vi.fn(),
       refreshDeviceStatus: vi.fn()
-    };
+    });
 
     trayService = new TrayService({
       windowService: mockWindowService,

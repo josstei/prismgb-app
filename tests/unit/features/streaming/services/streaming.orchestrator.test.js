@@ -4,7 +4,16 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
-import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createCaptureGpuRecordingServiceMock,
+  createStreamingRenderPipelineServiceMock,
+  createStreamingServiceFacadeMock,
+  createStreamingViewServiceMock,
+  createSettingsServiceMock
+} from '../../../../factories/index.js';
 
 describe('StreamingOrchestrator', () => {
   let orchestrator;
@@ -19,12 +28,12 @@ describe('StreamingOrchestrator', () => {
   let mockSettingsService;
 
   beforeEach(() => {
-    mockStreamingService = {
+    mockStreamingService = createStreamingServiceFacadeMock({
       start: vi.fn().mockResolvedValue({}),
       stop: vi.fn().mockResolvedValue(),
       getStream: vi.fn(),
       isActive: vi.fn()
-    };
+    });
 
     mockAppState = createAppState({
       initialState: {
@@ -33,35 +42,27 @@ describe('StreamingOrchestrator', () => {
       }
     });
 
-    mockStreamingViewService = {
+    mockStreamingViewService = createStreamingViewServiceMock({
       attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
-    };
+    });
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    mockStreamingRenderPipelineService = {
-      initialize: vi.fn(),
-      handleCanvasExpired: vi.fn(),
-      handlePerformanceStateChanged: vi.fn(),
-      handleRenderPresetChanged: vi.fn(),
-      handlePerformanceModeChanged: vi.fn(),
-      handleFullscreenChange: vi.fn(),
-      startPipeline: vi.fn().mockResolvedValue(undefined),
-      stopPipeline: vi.fn(),
-      cleanup: vi.fn()
-    };
+    mockStreamingRenderPipelineService = createStreamingRenderPipelineServiceMock();
 
-    mockCaptureGpuRecordingService = {
+    mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock({
       isActive: vi.fn().mockReturnValue(false),
       stop: vi.fn()
-    };
+    });
 
-    mockSettingsService = {
-      getBooleanSetting: vi.fn().mockReturnValue(false)
-    };
+    mockSettingsService = createSettingsServiceMock({
+      values: {
+        autoStreamOnConnect: false
+      }
+    });
 
     orchestrator = new StreamingOrchestrator({
       streamingService: mockStreamingService,
@@ -251,7 +252,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should auto-start stream when device becomes available and setting enabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('autoStreamOnConnect', true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -262,7 +263,7 @@ describe('StreamingOrchestrator', () => {
     it('should bypass appState.deviceConnected check (browser enumeration is source of truth)', async () => {
       mockAppState._forceSet('deviceConnected', false);
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('autoStreamOnConnect', true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -271,7 +272,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should not auto-start when setting disabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getBooleanSetting.mockReturnValue(false);
+      mockSettingsService.setSetting('autoStreamOnConnect', false);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -280,7 +281,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should not auto-start when streaming service is active', async () => {
       mockStreamingService.isActive.mockReturnValue(true);
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('autoStreamOnConnect', true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -289,7 +290,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should handle rapid duplicate device available events gracefully', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('autoStreamOnConnect', true);
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
@@ -302,7 +303,7 @@ describe('StreamingOrchestrator', () => {
 
     it('should handle start error gracefully', async () => {
       mockStreamingService.isActive.mockReturnValue(false);
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('autoStreamOnConnect', true);
       mockStreamingService.start.mockRejectedValue(new Error('Start failed'));
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);

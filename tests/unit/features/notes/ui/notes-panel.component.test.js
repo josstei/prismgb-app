@@ -4,7 +4,7 @@ import { GameFilterComponent } from '@renderer/presentation/features/notes/compo
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/components/game-autocomplete.component.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { createEventBus, createLogger } from '../../../../factories/index.js';
+import { createEventBus, createLogger, createNotesServiceMock } from '../../../../factories/index.js';
 describe('NotesPanelComponent', () => {
   let component;
   let mockNotesService;
@@ -12,17 +12,7 @@ describe('NotesPanelComponent', () => {
   let mockLogger;
   let mockElements;
   beforeEach(() => {
-    mockNotesService = {
-      getAllNotes: vi.fn(() => []),
-      getNote: vi.fn(),
-      createNote: vi.fn(),
-      updateNote: vi.fn(),
-      updateNoteWithChangeDetection: vi.fn(),
-      deleteNote: vi.fn(),
-      searchNotes: vi.fn(() => []),
-      getUniqueGames: vi.fn(() => []),
-      getNotesGroupedByGame: vi.fn(() => ({}))
-    };
+    mockNotesService = createNotesServiceMock();
     mockEventBus = createEventBus();
     mockLogger = createLogger({ name: 'NotesPanelComponent' });
     mockElements = {

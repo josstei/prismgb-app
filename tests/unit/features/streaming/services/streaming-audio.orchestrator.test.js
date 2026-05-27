@@ -4,7 +4,13 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator.ts';
-import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createStreamingAudioPipelineServiceMock,
+  createStreamingViewServiceMock
+} from '../../../../factories/index.js';
 
 describe('StreamingAudioOrchestrator', () => {
   let orchestrator;
@@ -16,14 +22,8 @@ describe('StreamingAudioOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockStreamingAudioPipelineService = {
-      start: vi.fn().mockResolvedValue(true),
-      stop: vi.fn()
-    };
-
-    mockStreamViewService = {
-      setMuted: vi.fn()
-    };
+    mockStreamingAudioPipelineService = createStreamingAudioPipelineServiceMock();
+    mockStreamViewService = createStreamingViewServiceMock({ setMuted: vi.fn() });
 
     mockAppState = createAppState({ initialState: { isStreaming: false } });
     mockEventBus = createEventBus();

@@ -163,7 +163,7 @@ describe('ShaderPresetListComponent', () => {
     });
 
     it('should not allow selection in performance mode', () => {
-      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      mockSettingsService.setSetting('performanceMode', true);
       component._performanceModeEnabled = true;
 
       const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createLoggerFactory } from '../../../../factories/logger.factory.js';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
@@ -45,7 +45,7 @@ vi.mock('electron', () => {
 });
 
 // Mock ConfigLoader
-vi.mock('../../../src/shared/config/config-loader.js', () => ({
+vi.mock('@shared/config/config-loader.utils.js', () => ({
   uiConfig: {
     WINDOW_CONFIG: {
       width: 1280,

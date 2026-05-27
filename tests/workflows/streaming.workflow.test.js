@@ -6,19 +6,20 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createEventBus } from '../factories/event-bus.factory.js';
-import { createAppState } from '../factories/app-state.factory.js';
-import { createLoggerFactory } from '../factories/logger.factory.js';
-import { createDeviceService, createDeviceAdapter } from '../factories/device.factory.js';
-import { createStreamingService, StreamingState } from '../factories/stream.factory.js';
 import {
-  MockDeviceStateMachine,
+  createAppState,
+  createDeviceAdapter,
+  createDeviceService,
+  createEventBus,
+  createLoggerFactory,
+  createStreamingService,
+  StreamingState,
   DeviceState,
   createChromaticWithFSM,
-} from '../mocks/MockDeviceStateMachine.js';
+} from '../factories/index.js';
 import { CHROMATIC_DEVICE, CHROMATIC_CAPABILITIES } from '../fixtures/devices.fixture.js';
 import { STREAM_EVENTS } from '../fixtures/streams.fixture.js';
-import { EventChannels } from '../../src/shared/events/event-channels.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('Streaming Workflow Integration', () => {
   let eventBus;

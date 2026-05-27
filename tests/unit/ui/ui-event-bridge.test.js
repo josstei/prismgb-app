@@ -6,7 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../factories/index.js';
+import {
+  createEventBus,
+  createLoggerFactory,
+  createPresentationModeServiceMock
+} from '../../factories/index.js';
 
 describe('UIEventBridge', () => {
   let handler;
@@ -43,12 +47,7 @@ describe('UIEventBridge', () => {
       }
     };
 
-    mockPresentationModeService = {
-      handleStreamingMode: vi.fn(),
-      handleCinematicModeChanged: vi.fn(),
-      handleMinimalistFullscreenChanged: vi.fn(),
-      handleFullscreenState: vi.fn()
-    };
+    mockPresentationModeService = createPresentationModeServiceMock();
 
     mockLoggerFactory = createLoggerFactory();
 

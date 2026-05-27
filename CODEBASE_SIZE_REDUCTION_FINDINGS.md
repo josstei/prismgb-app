@@ -869,10 +869,10 @@ Aggressive policy:
 Current repetition:
 
 - `tests/factories/event-bus.factory.js` has a rich EventBus mock.
-- `tests/mocks/index.js` has another EventBus mock, logger factory, app state, UI controller, and service mocks.
+- `tests/mocks/index.js` was previously the secondary legacy shim; shim files have now been removed and mock ownership is consolidated in `tests/factories`.
 - Many tests define inline logger/eventBus/appState mocks.
 - Preload/global `window.*API` mocks are also duplicated inline across adapter/service tests.
-- The existing `tests/factories/index.js#createMockDependencies()` is not a stable canonical path yet because it uses CommonJS `require(...)` inside an ESM package. `tests/mocks/index.js` also keeps a separate dependency factory.
+- The existing `tests/factories/index.js#createMockDependencies()` is now ESM-only and more stable than before, but broader service/dependency mocking is still split across several suites.
 
 Recommended end state:
 

@@ -94,7 +94,7 @@ export function renderComponent(html, ComponentClass, elementIds, extraDeps = {}
  * Create a minimal HTML fixture for testing a component
  * Generates empty elements with the required IDs
  *
- * @param {Object} selectorIds - Object from DOMSelectors (e.g., { STATUS_INDICATOR: 'statusIndicator' })
+ * @param {Object} selectorIds - Object mapping semantic IDs to element IDs (e.g., { STATUS_INDICATOR: 'statusIndicator' })
  * @returns {string} HTML string with empty elements for each ID
  */
 export function createMinimalFixture(selectorIds) {

@@ -5,7 +5,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance-state.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import {
+  createEventBus,
+  createLoggerFactory,
+  createPerformanceStateServiceMock
+} from '../../../../../factories/index.js';
 
 describe('PerformanceStateOrchestrator', () => {
   let coordinator;
@@ -24,15 +28,11 @@ describe('PerformanceStateOrchestrator', () => {
     });
     mockLoggerFactory = createLoggerFactory();
 
-    mockPerformanceStateService = {
+    mockPerformanceStateService = createPerformanceStateServiceMock({
       initialize: vi.fn(({ onStateChange: callback }) => {
         onStateChange = callback;
-      }),
-      setPerformanceModeEnabled: vi.fn(() => true),
-      setCapabilities: vi.fn(),
-      setStreaming: vi.fn(),
-      dispose: vi.fn()
-    };
+      })
+    });
 
     coordinator = new PerformanceStateOrchestrator({
       eventBus: mockEventBus,

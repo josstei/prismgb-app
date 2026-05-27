@@ -9,8 +9,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { buildUniforms } from '@prismgb/gpu';
-import { createEventBus } from '../../../../../factories/event-bus.factory.js';
-import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
+import { createEventBus, createLoggerFactory, createSettingsServiceMock } from '../../../../../factories/index.js';
 import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock the capability detector
@@ -84,10 +83,12 @@ describe('StreamingGpuRendererService', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    mockSettingsService = {
-      getNumberSetting: vi.fn(() => 1.0),
-      getStringSetting: vi.fn(() => 'default')
-    };
+    mockSettingsService = createSettingsServiceMock({
+      values: {
+        canvasScale: 1.0,
+        renderPreset: 'default'
+      }
+    });
 
     mockGpuFrameBuffer = {
       enqueue: vi.fn(() => true),

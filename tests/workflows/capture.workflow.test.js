@@ -6,18 +6,22 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createEventBus } from '../factories/event-bus.factory.js';
-import { createAppState, createStreamingAppState } from '../factories/app-state.factory.js';
-import { createLoggerFactory } from '../factories/logger.factory.js';
-import { createUIController } from '../factories/ui.factory.js';
-import { createMockCanvas, createMockVideo } from '../factories/stream.factory.js';
+import {
+  createAppState,
+  createEventBus,
+  createLoggerFactory,
+  createMockCanvas,
+  createMockVideo,
+  createStreamingAppState,
+  createUIController,
+} from '../factories/index.js';
 import {
   CAPTURE_EVENTS,
   UI_CAPTURE_EVENTS,
   createScreenshotBlob,
   createRecordingBlob,
 } from '../fixtures/capture.fixture.js';
-import { EventChannels } from '../../src/shared/events/event-channels.js';
+import { EventChannels } from '@shared/events/event-channels.js';
 
 describe('Capture Workflow Integration', () => {
   let eventBus;

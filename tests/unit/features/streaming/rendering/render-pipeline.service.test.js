@@ -7,7 +7,19 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createCanvasLifecycleServiceMock,
+  createCanvasRenderLoopServiceMock,
+  createEventBus,
+  createGpuRenderLoopServiceMock,
+  createGpuRendererServiceMock,
+  createLoggerFactory,
+  createRendererAdapterMock,
+  createStreamingRendererFactoryMock,
+  createStreamingViewServiceMock,
+  createStreamHealthServiceMock
+} from '../../../../factories/index.js';
 
 describe('StreamingRenderPipelineService', () => {
   let service;
@@ -39,108 +51,44 @@ describe('StreamingRenderPipelineService', () => {
     section.appendChild(container);
     document.body.appendChild(section);
 
-    mockAppState = {
-      isStreaming: false
-    };
+    mockAppState = createAppState();
 
-    mockStreamViewService = {
+    mockStreamViewService = createStreamingViewServiceMock({
       getCanvas: vi.fn(() => canvas),
       getVideo: vi.fn(() => video),
       getCanvasContainer: vi.fn(() => container),
       getCanvasSection: vi.fn(() => section),
       setCanvas: vi.fn()
-    };
+    });
 
-    mockCanvasRenderer = {
-      startRendering: vi.fn(),
-      stopRendering: vi.fn(),
-      clearCanvas: vi.fn(),
-      resize: vi.fn(),
-      resetCanvasState: vi.fn(),
-      cleanup: vi.fn(),
+    mockCanvasRenderer = createCanvasRenderLoopServiceMock({
       hasContextFor: vi.fn().mockReturnValue(false)
-    };
+    });
 
-    mockCanvasLifecycleService = {
-      initialize: vi.fn(),
-      handleCanvasExpired: vi.fn(),
-      handleFullscreenChange: vi.fn(),
-      setupCanvasSize: vi.fn(),
-      recreateCanvas: vi.fn(),
-      cleanup: vi.fn()
-    };
-
-    mockStreamHealthService = {
-      checkStreamHealth: vi.fn((videoEl, onHealthy) => {
-        onHealthy({ frameTime: 100 });
-      }),
-      cleanup: vi.fn()
-    };
-
-    mockGpuRendererService = {
-      initialize: vi.fn().mockResolvedValue(false),
-      renderFrame: vi.fn().mockResolvedValue(undefined),
-      setPreset: vi.fn(),
-      getPresetId: vi.fn(() => 'vibrant'),
-      isActive: vi.fn().mockReturnValue(false),
-      isCanvasTransferred: vi.fn().mockReturnValue(false),
-      terminateAndReset: vi.fn(),
-      releaseGpuResources: vi.fn(),
-      resize: vi.fn(),
-      cleanup: vi.fn()
-    };
-
-    mockGpuRenderLoopService = {
-      start: vi.fn(),
-      stop: vi.fn()
-    };
+    mockCanvasLifecycleService = createCanvasLifecycleServiceMock();
+    mockStreamHealthService = createStreamHealthServiceMock();
+    mockGpuRendererService = createGpuRendererServiceMock();
+    mockGpuRenderLoopService = createGpuRenderLoopServiceMock();
 
     // Create mock renderer adapters
-    mockGpuRendererAdapter = {
-      initialize: vi.fn().mockResolvedValue(true),
-      renderFrame: vi.fn().mockResolvedValue(undefined),
-      resize: vi.fn(),
+    mockGpuRendererAdapter = createRendererAdapterMock({
       isActive: vi.fn().mockReturnValue(true),
-      pause: vi.fn(),
-      resume: vi.fn(),
-      cleanup: vi.fn(),
       supportsPresets: vi.fn().mockReturnValue(true),
-      getPresetId: vi.fn(() => 'vibrant'),
-      setPreset: vi.fn(),
-      setHiddenStateFn: vi.fn(),
-      isCanvasTransferred: vi.fn().mockReturnValue(false),
-      terminateAndReset: vi.fn(),
-      releaseGpuResources: vi.fn(),
-      handlePipelineStop: vi.fn()
-    };
+      getPresetId: vi.fn(() => 'vibrant')
+    });
 
-    mockCanvas2DRendererAdapter = {
-      initialize: vi.fn().mockResolvedValue(true),
-      renderFrame: vi.fn().mockResolvedValue(undefined),
-      resize: vi.fn(),
-      isActive: vi.fn().mockReturnValue(true),
-      pause: vi.fn(),
-      resume: vi.fn(),
-      cleanup: vi.fn(),
+    mockCanvas2DRendererAdapter = createRendererAdapterMock({
       supportsPresets: vi.fn().mockReturnValue(false),
-      getPresetId: vi.fn(() => null),
-      setPreset: vi.fn(),
-      setHiddenStateFn: vi.fn(),
-      clearCanvas: vi.fn(),
-      resetCanvasState: vi.fn(),
-      handlePipelineStop: vi.fn()
-    };
+      getPresetId: vi.fn(() => null)
+    });
 
     // Mock the factory
-    mockStreamingRendererFactory = {
-      selectRendererType: vi.fn(() => 'canvas2d'),
+    mockStreamingRendererFactory = createStreamingRendererFactoryMock({
       createRenderer: vi.fn((type) => {
         if (type === 'gpu') return mockGpuRendererAdapter;
         return mockCanvas2DRendererAdapter;
-      }),
-      hasRenderer: vi.fn().mockReturnValue(true),
-      getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d'])
-    };
+      })
+    });
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
@@ -175,7 +123,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('startPipeline', () => {
     it('starts pipeline after stream health check', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
@@ -184,7 +132,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('waits for healthy stream before starting rendering', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
@@ -199,7 +147,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('stopPipeline', () => {
     it('pauses active renderer and clears canvas', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service.stopPipeline();
@@ -209,7 +157,7 @@ describe('StreamingRenderPipelineService', () => {
 
     it('terminates GPU renderer with memory snapshot events', async () => {
       mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service.stopPipeline();
@@ -264,7 +212,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('ignores duplicate state', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
       service._isHidden = true;
 
@@ -274,7 +222,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('pauses rendering when hidden', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service.handlePerformanceStateChanged({ hidden: true });
@@ -283,7 +231,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('resumes rendering when visible', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
       service._isHidden = true;
 
@@ -307,7 +255,7 @@ describe('StreamingRenderPipelineService', () => {
 
     it('sets preset on active renderer when supports presets', async () => {
       mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
       service._performanceModeEnabled = false;
 
@@ -317,7 +265,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('does nothing when renderer does not support presets', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
       service._performanceModeEnabled = false;
 
@@ -331,7 +279,7 @@ describe('StreamingRenderPipelineService', () => {
     describe('when enabled (true)', () => {
       it('caches preset and switches to Canvas2D mid-stream', async () => {
         mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
         await service.handlePerformanceModeChanged(true);
@@ -346,7 +294,7 @@ describe('StreamingRenderPipelineService', () => {
       it('does not cache performance preset', async () => {
         mockGpuRendererAdapter.getPresetId.mockReturnValue('performance');
         mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
         await service.handlePerformanceModeChanged(true);
@@ -356,9 +304,9 @@ describe('StreamingRenderPipelineService', () => {
 
       it('terminates GPU when not streaming', async () => {
         mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
-        mockAppState.isStreaming = false;
+        mockAppState.setStreaming(false);
 
         await service.handlePerformanceModeChanged(true);
 
@@ -372,7 +320,7 @@ describe('StreamingRenderPipelineService', () => {
     describe('when disabled (false)', () => {
       it('restores user preset if GPU active', async () => {
         mockStreamingRendererFactory.selectRendererType.mockReturnValue('gpu');
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
         service._performanceModeEnabled = true;
         service._userPresetId = 'vibrant';
@@ -387,7 +335,7 @@ describe('StreamingRenderPipelineService', () => {
       });
 
       it('switches to GPU mid-stream when Canvas2D active', async () => {
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
         service._performanceModeEnabled = true;
 
@@ -399,10 +347,10 @@ describe('StreamingRenderPipelineService', () => {
       });
 
       it('recreates canvas when Canvas2D was active but not streaming', async () => {
-        mockAppState.isStreaming = true;
+        mockAppState.setStreaming(true);
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
         service._performanceModeEnabled = true;
-        mockAppState.isStreaming = false;
+        mockAppState.setStreaming(false);
 
         await service.handlePerformanceModeChanged(false);
 
@@ -484,7 +432,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('_switchToGPUMidStream', () => {
     beforeEach(async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
     });
 
@@ -545,7 +493,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('cleanup', () => {
     it('resets state and calls all cleanup methods', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
       service._performanceModeEnabled = true;
       service._userPresetId = 'vibrant';
@@ -572,7 +520,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('_handleVisible', () => {
     it('resumes active renderer when streaming', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service._handleVisible();
@@ -582,7 +530,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('does nothing when not streaming', () => {
-      mockAppState.isStreaming = false;
+      mockAppState.setStreaming(false);
 
       service._handleVisible();
 
@@ -590,7 +538,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('does nothing when no active renderer', () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       service._handleVisible();
 
@@ -600,7 +548,7 @@ describe('StreamingRenderPipelineService', () => {
 
   describe('_handleHidden', () => {
     it('pauses active renderer when streaming', async () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
       await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
       service._handleHidden();
@@ -610,7 +558,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('does nothing when not streaming', () => {
-      mockAppState.isStreaming = false;
+      mockAppState.setStreaming(false);
 
       service._handleHidden();
 
@@ -618,7 +566,7 @@ describe('StreamingRenderPipelineService', () => {
     });
 
     it('does nothing when no active renderer', () => {
-      mockAppState.isStreaming = true;
+      mockAppState.setStreaming(true);
 
       service._handleHidden();
 

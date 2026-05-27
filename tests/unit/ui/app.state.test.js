@@ -4,7 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppState } from '@renderer/application/state/app-state.ts';
-import { createEventBus } from '../../factories/index.js';
+import {
+  createDeviceServiceMock,
+  createEventBus,
+  createStreamingServiceFacadeMock
+} from '../../factories/index.js';
 
 describe('AppState', () => {
   let state;
@@ -17,13 +21,9 @@ describe('AppState', () => {
     subscribedHandlers = {};
 
     // Create mock services
-    mockStreamingService = {
-      isStreaming: false
-    };
+    mockStreamingService = createStreamingServiceFacadeMock({ isStreaming: false });
 
-    mockDeviceService = {
-      isConnected: false
-    };
+    mockDeviceService = createDeviceServiceMock({ isConnected: false });
 
     mockEventBus = createEventBus({
       onSubscribe: (event, handler) => {

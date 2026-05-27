@@ -4,7 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createDeviceServiceMock,
+  createEventBus,
+  createIpcClientMock,
+  createLoggerFactory,
+  createStreamingAdapterMock,
+  createStreamingAdapterRegistryMock,
+  createStreamingServiceDependencies,
+} from '../../../../factories/index.js';
 
 describe('StreamingService', () => {
   let service;
@@ -20,36 +28,30 @@ describe('StreamingService', () => {
   beforeEach(() => {
     mockEventBus = createEventBus();
 
-    mockDeviceService = {
+    mockDeviceService = createDeviceServiceMock({
       getRegisteredStoredDeviceIds: vi.fn(),
       enumerateDevices: vi.fn(),
       discoverSupportedDevice: vi.fn(),
       registerSupportedDevice: vi.fn()
-    };
+    });
 
-    mockAdapter = {
-      getStream: vi.fn(),
-      releaseStream: vi.fn().mockResolvedValue(undefined),
-      getCapabilities: vi.fn()
-    };
+    mockAdapter = createStreamingAdapterMock();
 
-    mockAdapterRegistry = {
-      getAdapterForDevice: vi.fn(() => mockAdapter)
-    };
+    mockAdapterRegistry = createStreamingAdapterRegistryMock({
+      defaultAdapter: mockAdapter
+    });
 
-    mockIpcClient = {
-      getDeviceStatus: vi.fn()
-    };
+    mockIpcClient = createIpcClientMock();
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockDependencies = {
+    mockDependencies = createStreamingServiceDependencies({
       deviceService: mockDeviceService,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       adapterFactory: mockAdapterRegistry,
       ipcClient: mockIpcClient
-    };
+    });
 
     service = new StreamingService(mockDependencies);
     mockLogger = mockLoggerFactory._getLogger('StreamingService');
