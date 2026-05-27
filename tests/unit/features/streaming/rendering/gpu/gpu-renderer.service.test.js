@@ -9,7 +9,14 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { buildUniforms } from '@prismgb/gpu';
-import { createBitmapMock, createEventBus, createGpuWorkerManagerMock, createLoggerFactory, createSettingsServiceMock } from '../../../../../factories/index.js';
+import {
+  createBitmapMock,
+  createEventBus,
+  createGpuFrameBufferMock,
+  createGpuWorkerManagerMock,
+  createLoggerFactory,
+  createSettingsServiceMock
+} from '../../../../../factories/index.js';
 import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock the capability detector
@@ -90,16 +97,7 @@ describe('StreamingGpuRendererService', () => {
       }
     });
 
-    mockGpuFrameBuffer = {
-      enqueue: vi.fn(() => true),
-      dequeue: vi.fn(() => null),
-      isFull: vi.fn(() => false),
-      flush: vi.fn(),
-      getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
-      resetMetrics: vi.fn(),
-      getCapacity: vi.fn(() => 3),
-      getSize: vi.fn(() => 0)
-    };
+    mockGpuFrameBuffer = createGpuFrameBufferMock();
 
     mockGpuWorkerManager = createGpuWorkerManagerMock();
 

@@ -6,6 +6,7 @@ import {
   createCanvasRenderPipelineMock,
   createLogger,
   createMockCanvas,
+  createMockVideo,
 } from '../../../../factories/index.js';
 import { installDevicePixelRatioMock } from '../../../../support/mocks/browser-api.installers.js';
 
@@ -39,15 +40,8 @@ describe('StreamingCanvasRenderLoopService', () => {
 
     mockCanvas = createMockCanvas({ width: 0, height: 0 });
 
-    mockVideo = {
-      readyState: 4,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      requestVideoFrameCallback: vi.fn(() => 1),
-      cancelVideoFrameCallback: vi.fn(),
-      HAVE_CURRENT_DATA: 2,
-      HAVE_ENOUGH_DATA: 4
-    };
+    mockVideo = createMockVideo();
+    mockVideo.requestVideoFrameCallback = vi.fn(() => 1);
 
     service = new StreamingCanvasRenderLoopService(mockLogger, mockAnimationCache);
   });

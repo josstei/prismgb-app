@@ -15,11 +15,9 @@ describe('DeviceChangeDebounceAdapter', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockBrowserMediaService = createBrowserMediaServiceMock({
-      addEventListener: vi.fn((event, handler) => {
-        eventHandler = handler;
-      }),
-      removeEventListener: vi.fn()
+    mockBrowserMediaService = createBrowserMediaServiceMock();
+    mockBrowserMediaService.addEventListener.mockImplementation((event, handler) => {
+      eventHandler = handler;
     });
 
     mockLogger = createLogger({ name: 'DeviceChangeDebounceAdapter' });

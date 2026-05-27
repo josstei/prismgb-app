@@ -176,6 +176,121 @@ export function createMockInput(options = {}) {
   return input;
 }
 
+export function createDeviceStatusElementsMock(overrides = {}) {
+  const elements = {
+    statusIndicator: createMockElement('div', { className: 'status-indicator' }),
+    statusText: createMockElement('span', { className: 'status-text' }),
+    deviceStatusText: createMockElement('span', { className: 'device-status-text' }),
+    deviceName: createMockElement('span', { className: 'device-name' }),
+    overlayMessage: createMockElement('div', { className: 'overlay-message' }),
+    streamOverlay: createMockElement('div', { className: 'stream-overlay' }),
+  };
+
+  return {
+    ...elements,
+    ...overrides,
+  };
+}
+
+export function createStatusNotificationElementsMock(overrides = {}) {
+  const elements = {
+    statusMessage: createMockElement('span', { className: 'status-message' }),
+  };
+
+  return {
+    ...elements,
+    ...overrides,
+  };
+}
+
+export function createTranscodeToastElementsMock(overrides = {}) {
+  const recordBtn = createMockButton({ className: 'record-btn' });
+  const transcodeRing = createMockElement('div', { className: 'transcode-ring' });
+  transcodeRing.style = {
+    setProperty: vi.fn(),
+  };
+  const transcodePercentLabel = createMockElement('span', { className: 'transcode-percent' });
+
+  return {
+    recordBtn,
+    transcodeRing,
+    transcodePercentLabel,
+    ...overrides,
+  };
+}
+
+export function createShaderSelectorElementsMock(overrides = {}) {
+  const elements = {
+    shaderBtn: createMockButton({ className: 'shader-btn' }),
+    shaderDropdown: createMockElement('div', { className: 'shader-dropdown' }),
+    shaderOptions: createMockElement('div', { className: 'shader-options' }),
+    shaderUnavailableMessage: createMockElement('div', { className: 'shader-unavailable-message' }),
+    cinematicToggle: createMockInput({ type: 'checkbox' }),
+    cinematicPillText: createMockElement('span', { className: 'cinematic-pill-text' }),
+    brightnessSlider: createMockInput({ type: 'range' }),
+    brightnessPercentage: createMockElement('span', { className: 'brightness-percentage' }),
+    brightnessControl: createMockElement('div', { className: 'brightness-control' }),
+    volumeSlider: createMockInput({ type: 'range' }),
+    volumePercentage: createMockElement('span', { className: 'volume-percentage' }),
+    streamVideo: createMockElement('video', { className: 'stream-video' }),
+  };
+
+  return {
+    ...elements,
+    ...overrides,
+  };
+}
+
+export function createSettingsMenuElementsMock(overrides = {}) {
+  const elements = {
+    settingsMenuContainer: createMockElement('div', { className: 'settings-menu-container' }),
+    settingsBtn: createMockButton({ className: 'settings-btn' }),
+    settingStatusStrip: createMockInput({ type: 'checkbox' }),
+    settingAnimationSaver: createMockInput({ type: 'checkbox' }),
+    settingLaunchOnLogin: createMockInput({ type: 'checkbox' }),
+    disclaimerBtn: createMockButton({ className: 'disclaimer-btn' }),
+    disclaimerContent: createMockElement('div', { className: 'disclaimer-content' }),
+    footer: createMockElement('footer', { className: 'footer' }),
+  };
+
+  return {
+    ...elements,
+    ...overrides,
+  };
+}
+
+export function createNotesPanelElementsMock(overrides = {}) {
+  const elements = {
+    notesBtn: createMockButton({ className: 'notes-btn' }),
+    notesPanel: createMockElement('div', { className: 'notes-panel' }),
+    notesPanelContent: createMockElement('div', { className: 'notes-panel-content' }),
+    notesListWrapper: createMockElement('div', { className: 'notes-list-wrapper' }),
+    notesSearchInput: createMockInput({ type: 'text' }),
+    notesGameFilter: createMockButton({ className: 'notes-game-filter' }),
+    notesGameFilterLabel: createMockElement('span', { className: 'notes-game-filter-label' }),
+    notesGameFilterMenu: createMockElement('div', { className: 'notes-game-filter-menu' }),
+    notesListToggle: createMockButton({ className: 'notes-list-toggle' }),
+    notesList: createMockElement('div', { className: 'notes-list' }),
+    notesEditor: createMockElement('div', { className: 'notes-editor' }),
+    notesGameAddBtn: createMockButton({ className: 'notes-game-add-btn' }),
+    notesGameTagRow: createMockElement('div', { className: 'notes-game-tag-row' }),
+    notesGameTag: createMockButton({ className: 'notes-game-tag' }),
+    notesGameInput: createMockInput({ type: 'text' }),
+    notesGameAutocomplete: createMockElement('div', { className: 'notes-game-autocomplete' }),
+    notesTitleInput: createMockInput({ type: 'text' }),
+    notesContentArea: createMockElement('textarea', { className: 'notes-content-area' }),
+    notesNewBtn: createMockButton({ className: 'notes-new-btn' }),
+    notesDeleteBtn: createMockButton({ className: 'notes-delete-btn' }),
+    streamContainer: createMockElement('div', { className: 'stream-container' }),
+    streamToolbar: createMockElement('div', { className: 'stream-toolbar' }),
+  };
+
+  return {
+    ...elements,
+    ...overrides,
+  };
+}
+
 /**
  * Creates a mock UIController
  * @param {Object} options - Controller options
@@ -330,6 +445,12 @@ export default {
   createMockElement,
   createMockButton,
   createMockInput,
+  createDeviceStatusElementsMock,
+  createStatusNotificationElementsMock,
+  createTranscodeToastElementsMock,
+  createShaderSelectorElementsMock,
+  createSettingsMenuElementsMock,
+  createNotesPanelElementsMock,
   createUIController,
   createCaptureEffects,
   createButtonFeedback,

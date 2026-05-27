@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIComponentRegistry } from '@renderer/presentation/controller/component.registry.js';
-import { createLoggerFactory } from '../../factories/index.js';
+import { createLoggerFactory, createUIComponentMock } from '../../factories/index.js';
 
 describe('UIComponentRegistry', () => {
   let mockLogger;
@@ -17,7 +17,7 @@ describe('UIComponentRegistry', () => {
 
   it('registers valid definitions and ignores invalid ones', () => {
     const registry = new UIComponentRegistry({ loggerFactory: mockLoggerFactory });
-    const create = vi.fn(() => ({ initialize: vi.fn() }));
+    const create = vi.fn(() => createUIComponentMock());
 
     registry.register({ id: 'valid', create });
     registry.register({ id: '', create });
@@ -30,8 +30,8 @@ describe('UIComponentRegistry', () => {
   });
 
   it('initializes core components only', () => {
-    const coreComponent = { initialize: vi.fn(), dispose: vi.fn() };
-    const deferredComponent = { initialize: vi.fn(), dispose: vi.fn() };
+    const coreComponent = createUIComponentMock();
+    const deferredComponent = createUIComponentMock();
     const coreCreate = vi.fn(() => coreComponent);
     const deferredCreate = vi.fn(() => deferredComponent);
     const elements = { foo: 'bar' };
@@ -53,7 +53,7 @@ describe('UIComponentRegistry', () => {
   });
 
   it('initializes a deferred component on demand', () => {
-    const deferredComponent = { initialize: vi.fn(), dispose: vi.fn() };
+    const deferredComponent = createUIComponentMock();
     const deferredCreate = vi.fn(() => deferredComponent);
     const elements = { alpha: true };
     const dependencies = { beta: true };
@@ -71,7 +71,7 @@ describe('UIComponentRegistry', () => {
   });
 
   it('returns existing components without re-creating', () => {
-    const component = { initialize: vi.fn(), dispose: vi.fn() };
+    const component = createUIComponentMock();
     const create = vi.fn(() => component);
 
     const registry = new UIComponentRegistry({
@@ -97,8 +97,8 @@ describe('UIComponentRegistry', () => {
   });
 
   it('disposes all created components', () => {
-    const componentA = { initialize: vi.fn(), dispose: vi.fn() };
-    const componentB = { initialize: vi.fn(), dispose: vi.fn() };
+    const componentA = createUIComponentMock();
+    const componentB = createUIComponentMock();
 
     const registry = new UIComponentRegistry({
       loggerFactory: mockLoggerFactory,

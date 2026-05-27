@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
 import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
+import { createMediaQueryListMock } from '../../../../factories/index.js';
 
 describe('ReducedMotionAdapter', () => {
   let adapter;
@@ -14,11 +15,7 @@ describe('ReducedMotionAdapter', () => {
   beforeEach(() => {
     adapter = new ReducedMotionAdapter();
 
-    mockMediaQuery = {
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
-    };
+    mockMediaQuery = createMediaQueryListMock();
 
     matchMediaMock = installMatchMediaMock({ mediaQuery: mockMediaQuery });
   });

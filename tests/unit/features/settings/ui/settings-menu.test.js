@@ -14,6 +14,7 @@ import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js
 import {
   createEventBus,
   createLogger,
+  createSettingsMenuElementsMock,
   createSettingsServiceMock
 } from '../../../../factories/index.js';
 
@@ -39,26 +40,9 @@ describe('SettingsMenuComponent', () => {
     mockEventBus = createEventBus();
     mockLogger = createLogger();
 
-    // Create mock DOM elements
-    mockElements = {
-      settingsMenuContainer: document.createElement('div'),
-      settingsBtn: document.createElement('button'),
-      settingStatusStrip: document.createElement('input'),
-      settingAnimationSaver: document.createElement('input'),
-      settingLaunchOnLogin: (() => { const el = document.createElement('input'); el.type = 'checkbox'; return el; })(),
-      disclaimerBtn: document.createElement('button'),
-      disclaimerContent: document.createElement('div'),
-      footer: document.createElement('footer')
-    };
-
-    // Set up checkbox inputs
-    mockElements.settingStatusStrip.type = 'checkbox';
+    mockElements = createSettingsMenuElementsMock();
     mockElements.settingStatusStrip.checked = true;
-    mockElements.settingAnimationSaver.type = 'checkbox';
     mockElements.settingAnimationSaver.checked = true;
-
-    // Set up footer
-    mockElements.footer.classList.add('footer');
 
     component = new SettingsMenuComponent({
       settingsService: mockSettingsService,

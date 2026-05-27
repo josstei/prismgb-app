@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
+import { createStatusNotificationElementsMock } from '../../../../factories/index.js';
 
 describe('StatusNotificationComponent', () => {
   let component;
@@ -12,12 +13,7 @@ describe('StatusNotificationComponent', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockElements = {
-      statusMessage: {
-        textContent: '',
-        dataset: {}
-      }
-    };
+    mockElements = createStatusNotificationElementsMock();
 
     component = new StatusNotificationComponent(mockElements);
   });

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingHealthService } from '@renderer/infrastructure/services/streaming/health.service.ts';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory, createMockVideo } from '../../../../factories/index.js';
 
 describe('StreamingHealthService', () => {
   let service;
@@ -17,12 +17,7 @@ describe('StreamingHealthService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockVideoElement = {
-      requestVideoFrameCallback: vi.fn(),
-      cancelVideoFrameCallback: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
-    };
+    mockVideoElement = createMockVideo();
 
     service = new StreamingHealthService({ loggerFactory: mockLoggerFactory });
     mockLogger = mockLoggerFactory._getLogger('StreamingHealthService');
@@ -66,10 +61,9 @@ describe('StreamingHealthService', () => {
     it('should fallback to timeupdate when RVFC not available', () => {
       const onHealthy = vi.fn();
       const onUnhealthy = vi.fn();
-      const videoWithoutRvfc = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const videoWithoutRvfc = createMockVideo({
+        requestVideoFrameCallback: undefined
+      });
 
       service.checkStreamHealth(videoWithoutRvfc, onHealthy, onUnhealthy);
 
@@ -290,10 +284,9 @@ describe('StreamingHealthService', () => {
   describe('_handleTimeUpdate (fallback)', () => {
     it('should detect playback via timeupdate event', () => {
       const onHealthy = vi.fn();
-      const videoWithoutRvfc = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const videoWithoutRvfc = createMockVideo({
+        requestVideoFrameCallback: undefined
+      });
 
       service.checkStreamHealth(videoWithoutRvfc, onHealthy, vi.fn());
 

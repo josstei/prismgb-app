@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
+import { createTranscodeToastElementsMock } from '../../../../factories/index.js';
 
 describe('TranscodeToastComponent', () => {
   let component;
@@ -13,22 +14,7 @@ describe('TranscodeToastComponent', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockElements = {
-      recordBtn: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      transcodeRing: {
-        style: {
-          setProperty: vi.fn()
-        }
-      },
-      transcodePercentLabel: {
-        textContent: ''
-      }
-    };
+    mockElements = createTranscodeToastElementsMock();
 
     component = new TranscodeToastComponent(mockElements);
   });

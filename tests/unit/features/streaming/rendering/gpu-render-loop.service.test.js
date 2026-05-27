@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/streaming/gpu-render-loop.service.ts';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory, createMockVideo } from '../../../../factories/index.js';
 
 describe('StreamingGpuRenderLoopService', () => {
   let service;
@@ -19,13 +19,9 @@ describe('StreamingGpuRenderLoopService', () => {
 
     mockRenderFrame = vi.fn();
     mockShouldContinue = vi.fn(() => true);
-
-    mockVideoElement = {
-      requestVideoFrameCallback: vi.fn(),
-      cancelVideoFrameCallback: vi.fn(),
-      readyState: 4,
-      HAVE_CURRENT_DATA: 2
-    };
+    mockVideoElement = createMockVideo();
+    mockVideoElement.readyState = 4;
+    mockVideoElement.HAVE_CURRENT_DATA = 2;
 
     service = new StreamingGpuRenderLoopService({
       loggerFactory: mockLoggerFactory
@@ -53,9 +49,9 @@ describe('StreamingGpuRenderLoopService', () => {
 
   describe('start', () => {
     it('should warn and return if requestVideoFrameCallback not available', () => {
-      const videoWithoutRVFC = {
+      const videoWithoutRVFC = createMockVideo({
         requestVideoFrameCallback: undefined
-      };
+      });
 
       service.start({
         videoElement: videoWithoutRVFC,

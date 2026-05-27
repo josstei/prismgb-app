@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseService } from '@shared/base/service.base.js';
-import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+import { createEventBus, createLoggerFactory, createMockElement } from '../../../factories/index.js';
 import { installAnimationFrameMock } from '../../../support/mocks/browser-api.installers.js';
 
 describe('BaseService', () => {
@@ -100,10 +100,7 @@ describe('BaseService', () => {
     });
 
     it('tracks DOM/event-target listeners', async () => {
-      const target = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const target = createMockElement('button');
       const handler = vi.fn();
 
       service.subscribe(target, 'click', handler);

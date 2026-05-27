@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder.ts';
-import { createLogger } from '../../../../factories/index.js';
+import { createConstraintBuilderContextMock, createLogger } from '../../../../factories/index.js';
 
 describe('ConstraintBuilder', () => {
   let builder;
@@ -14,9 +14,7 @@ describe('ConstraintBuilder', () => {
   beforeEach(() => {
     mockLogger = createLogger();
 
-    mockContext = {
-      getDeviceConstraint: vi.fn(() => ({ exact: 'video-device-id' })),
-      getAudioDeviceConstraint: vi.fn(() => ({ exact: 'audio-device-id' })),
+    mockContext = createConstraintBuilderContextMock({
       profile: {
         audio: {
           echoCancellation: false,
@@ -30,7 +28,7 @@ describe('ConstraintBuilder', () => {
           frameRate: { ideal: 60 }
         }
       }
-    };
+    });
 
     builder = new ConstraintBuilder(mockLogger);
   });
@@ -225,7 +223,8 @@ describe('ConstraintBuilder', () => {
     });
 
     it('should not throw when logger method does not exist', () => {
-      const partialLogger = { info: vi.fn() };
+      const partialLogger = createLogger({ name: 'ConstraintBuilderPartial' });
+      delete partialLogger.debug;
       const builderPartial = new ConstraintBuilder(partialLogger);
 
       expect(() => builderPartial._log('debug', 'test')).not.toThrow();

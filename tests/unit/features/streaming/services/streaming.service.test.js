@@ -80,8 +80,6 @@ describe('StreamingService', () => {
       kind: 'video',
       label: 'Video',
       getSettings: vi.fn(() => ({ width: 160 })),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
     });
     const mockStream = createCaptureStreamMock({
       id: 'stream-1',
@@ -366,8 +364,6 @@ describe('StreamingService', () => {
       kind: 'video',
       label: 'Video',
       getSettings: vi.fn(() => ({ width: 160 })),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
     });
     const mockStream = createCaptureStreamMock({
       id: 'stream-1',

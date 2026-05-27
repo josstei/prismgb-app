@@ -15,7 +15,11 @@ import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import { createMockCanvas, createMockVideo, createStreamingService } from './stream.factory.js';
 import { createStorageService } from './storage.factory.js';
-import { createMockButton, createMockElement, createUIController } from './ui.factory.js';
+import {
+  createMockButton,
+  createMockElement,
+  createUIController
+} from './ui.factory.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { vi } from 'vitest';
@@ -25,6 +29,15 @@ export {
   createEventBus,
   createContractValidatingEventBus,
 } from './event-bus.factory.js';
+
+export {
+  createDeviceStatusElementsMock,
+  createNotesPanelElementsMock,
+  createShaderSelectorElementsMock,
+  createSettingsMenuElementsMock,
+  createStatusNotificationElementsMock,
+  createTranscodeToastElementsMock
+} from './ui.factory.js';
 
 // Logger factories
 export {
@@ -170,6 +183,87 @@ export function createAcquisitionContextMock(overrides = {}) {
   };
 }
 
+export function createConstraintBuilderContextMock(overrides = {}) {
+  const audioProfileDefaults = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    sampleRate: 48000,
+  };
+  const videoProfileDefaults = {
+    width: 1920,
+    height: 1080,
+    frameRate: 60,
+  };
+  const {
+    deviceId = 'test-device-id',
+    audioDeviceId = 'audio-device-id',
+    videoDeviceId = 'video-device-id',
+    profile = {
+      audio: audioProfileDefaults,
+      video: videoProfileDefaults,
+    },
+    getDeviceConstraint = vi.fn(() => ({ exact: videoDeviceId })),
+    getAudioDeviceConstraint = vi.fn(() => ({ exact: audioDeviceId })),
+    ...contextOverrides
+  } = overrides;
+
+  return {
+    deviceId,
+    getDeviceConstraint,
+    getAudioDeviceConstraint,
+    profile: {
+      ...profile,
+      audio: {
+        ...audioProfileDefaults,
+        ...(profile.audio ?? {}),
+      },
+      video: {
+        ...videoProfileDefaults,
+        ...(profile.video ?? {}),
+      },
+    },
+    ...contextOverrides,
+  };
+}
+
+export function createDisposableMock(overrides = {}) {
+  return {
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createCallbackMap(methods = []) {
+  return Object.fromEntries(methods.map((method) => [method, vi.fn()]));
+}
+
+export function createPreloadEventApiMock(overrides = {}) {
+  return Object.fromEntries(
+    Object.entries(overrides).map(([method, unsubscribe]) => [
+      method,
+      vi.fn(() => unsubscribe),
+    ])
+  );
+}
+
+export function createMediaQueryListMock(overrides = {}) {
+  return {
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createUpdateConfigMock(overrides = {}) {
+  return {
+    isDevelopment: false,
+    version: '1.0.0',
+    ...overrides
+  };
+}
+
 export function createStreamConstraintsMock(overrides = {}) {
   const {
     deviceId = 'test-device-123',
@@ -243,10 +337,28 @@ export function createSupportedDevicePayloadMock(overrides = {}) {
 }
 
 export function createMediaTrackMock(overrides = {}) {
+  const eventListeners = new Map();
+
   return {
     id: overrides.id ?? `track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     stop: vi.fn(),
     clone: vi.fn(() => ({ ...createMediaTrackMock(), id: 'cloned-track' })),
+    addEventListener: vi.fn((event, handler) => {
+      if (!eventListeners.has(event)) {
+        eventListeners.set(event, []);
+      }
+      eventListeners.get(event).push(handler);
+    }),
+    removeEventListener: vi.fn((event, handler) => {
+      const handlers = eventListeners.get(event);
+      if (handlers) {
+        const index = handlers.indexOf(handler);
+        if (index > -1) {
+          handlers.splice(index, 1);
+        }
+      }
+    }),
+    _eventListeners: eventListeners,
     ...overrides
   };
 }
@@ -936,6 +1048,20 @@ export function createGpuWorkerManagerMock(overrides = {}) {
   };
 }
 
+export function createGpuFrameBufferMock(overrides = {}) {
+  return {
+    enqueue: vi.fn(() => true),
+    dequeue: vi.fn(() => null),
+    isFull: vi.fn(() => false),
+    flush: vi.fn(),
+    getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
+    resetMetrics: vi.fn(),
+    getCapacity: vi.fn(() => 3),
+    getSize: vi.fn(() => 0),
+    ...overrides
+  };
+}
+
 export function createStreamingRendererFactoryMock(overrides = {}) {
   return {
     selectRendererType: vi.fn(() => 'canvas2d'),
@@ -1071,6 +1197,75 @@ export function createOrchestratorMock(overrides = {}) {
     setupOverlayClickHandlers: vi.fn(),
     setupUIEventListeners: vi.fn(),
     ...overrides
+  };
+}
+
+export function createRendererAppContainerMock(overrides = {}) {
+  const {
+    appOrchestrator = createOrchestratorMock({
+      initialize: vi.fn().mockResolvedValue(),
+      start: vi.fn().mockResolvedValue(),
+      cleanup: vi.fn().mockResolvedValue()
+    }),
+    adapterFactory = {
+      initialize: vi.fn().mockResolvedValue()
+    },
+    uiComponentRegistry = {
+      initialize: vi.fn(),
+      initializeComponent: vi.fn(),
+      get: vi.fn(),
+      dispose: vi.fn()
+    },
+    uiEffects = {
+      elements: null,
+      triggerShutterFlash: vi.fn(),
+      triggerButtonFeedback: vi.fn(),
+      ...createUIEffectsMock(),
+    },
+    uiEventBridge = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    },
+    captureUiBridge = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    },
+    transcodeUiBridge = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    },
+    transcodeService = {
+      initialize: vi.fn(),
+      dispose: vi.fn()
+    },
+    loggerFactory = createLoggerFactory(),
+    services = {},
+    register = vi.fn(),
+    dispose = vi.fn(),
+    resolve,
+    ...containerOverrides
+  } = overrides;
+
+  const dependencyMap = {
+    appOrchestrator,
+    adapterFactory,
+    uiComponentRegistry,
+    uiEffects,
+    uiEventBridge,
+    captureUiBridge,
+    transcodeUiBridge,
+    transcodeService,
+    loggerFactory,
+    ...services,
+  };
+
+  return {
+    resolve: resolve
+      ? vi.fn((name) => resolve(name, dependencyMap))
+      : vi.fn((name) => dependencyMap[name] || {}),
+    register,
+    dispose,
+    ...containerOverrides
   };
 }
 
@@ -1234,6 +1429,14 @@ export function createSettingsMenuComponentMock(overrides = {}) {
   };
 }
 
+export function createUIComponentMock(overrides = {}) {
+  return {
+    initialize: vi.fn(),
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
 export function createShaderSelectorComponentMock(overrides = {}) {
   return {
     hide: vi.fn(),
@@ -1326,8 +1529,14 @@ export function createUIEffectsElementsMock(overrides = {}) {
   const recordBtn = createMockElement('button', { className: 'record-btn' });
   recordBtn.offsetWidth = 100;
 
+  const flashElement = createMockElement('div', { className: '' });
+  flashElement.parentNode = {};
+  flashElement.addEventListener = vi.fn();
+  flashElement.remove = vi.fn();
+
   return {
     recordBtn,
+    flashElement,
     ...overrides
   };
 }

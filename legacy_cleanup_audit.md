@@ -356,6 +356,37 @@ The bulk of Step 6 / Area I remains. Each remaining failure requires:
     - `tests/unit/shared/interfaces/interfaces.test.js` (`mockContext` via `createAcquisitionContextMock`)
     - `tests/unit/features/streaming/acquisition/acquisition.orchestrator.test.js` (`mockConstraints` via `createStreamConstraintsMock`)
     - `tests/unit/features/streaming/services/streaming.orchestrator.test.js` (`mockData`/`mockDeviceData` via payload helpers)
+- additional continuation in this continuation turn (2026-05-27):
+  - hardened shared UI/rendering helpers in this cleanup wave:
+    - `createConstraintBuilderContextMock` in `tests/factories/index.js` now merges profile audio/video defaults with overrides to avoid partial-profile fragility
+    - `createMockVideo` in `tests/factories/stream.factory.js` now accepts option overrides, so tests can request explicit RVFC capability omissions (`{ requestVideoFrameCallback: undefined }`) without object mutation
+  - completed final inline-to-shared migrations started in the previous continuation:
+    - `tests/unit/features/streaming/rendering/gpu-render-loop.service.test.js`
+    - `tests/unit/features/streaming/rendering/stream-health.service.test.js`
+- additional continuation in this continuation turn (2026-05-27):
+  - expanded helper surface in `tests/factories/index.js` for remaining UI/rendering collaborators:
+    - `createGpuFrameBufferMock`
+    - `createUIEffectsElementsMock` now also provides a shared `flashElement` fixture used by shutter flash assertions
+  - migrated remaining inline collaborator objects using those helpers:
+    - `tests/unit/features/streaming/rendering/gpu/gpu-renderer.service.test.js` (`mockGpuFrameBuffer` -> `createGpuFrameBufferMock`)
+    - `tests/unit/ui/effects.test.js` (`mockRecordBtn`/`mockElements`/`mockFlashElement` -> `createUIEffectsElementsMock`)
+  - completed one additional inline collaborator migration:
+    - `tests/unit/features/streaming/acquisition/constraint.builder.test.js` (`partialLogger` -> `createLogger` with method deletion for method-absence coverage)
+  - completed two additional inline collaborator migrations:
+    - `tests/unit/features/streaming/rendering/stream-health.service.test.js` (`videoWithoutRvfc` -> `createMockVideo({ requestVideoFrameCallback: undefined })`)
+    - `tests/unit/features/notes/ui/notes-panel.component.test.js` (`errorEventBus` -> `createEventBus` override for throwing unsubscribe)
+  - completed further canvas-collaborator migration in `tests/unit/ui/ui-setup.orchestrator.test.js` (`newCanvas` fixtures in canvas-recreation scenarios now use `createMockElement('canvas')`)
+  - completed one additional inline mock migration in `tests/unit/features/devices/adapters/device-change-debounce.adapter.test.js` (`mockBrowserMediaService` callback capture moved to `createBrowserMediaServiceMock` + `addEventListener` implementation)
+  - completed three additional inline-mock mechanical cleanups:
+    - `tests/factories/index.js` (`createMediaTrackMock` now includes shared `addEventListener`/`removeEventListener` behavior with compatibility helpers)
+    - `tests/unit/features/streaming/services/streaming.service.test.js` (media-track fixture stubs now rely on `createMediaTrackMock` defaults)
+    - `tests/unit/shared/base/service.test.js` (`target` fixture now uses `createMockElement`)
+  - completed additional inline component-collaborator migration:
+    - added `createUIComponentMock` to `tests/factories/index.js` (`initialize`/`dispose` shared lifecycle mock)
+    - migrated inline `{ initialize, dispose }` component objects in `tests/unit/ui/component.registry.test.js` to the shared `createUIComponentMock`
+  - completed inline container-mock migration in `tests/unit/app/renderer/RendererAppOrchestrator.test.js`:
+    - added `createRendererAppContainerMock` to `tests/factories/index.js` with shared dependency defaults for `appOrchestrator`, `adapterFactory`, `uiComponentRegistry`, `uiEffects`, and preload bridges
+    - replaced verbose inline `initializeContainer` resolve switch with `createRendererAppContainerMock()`
 
 The audit document itself routes this work to `FUTURE_FIRST_TRACKING.md:154` with the explicit 3-Pass Review protocol because of exactly this risk. Executing it inline without that protocol would ship untracked contract decisions into the test suite. **Run the dedicated `/goal` separately.**
 

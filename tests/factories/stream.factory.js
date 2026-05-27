@@ -276,6 +276,7 @@ export function createMockVideo(options = {}) {
   const {
     width = CHROMATIC_SPECS.nativeWidth,
     height = CHROMATIC_SPECS.nativeHeight,
+    ...videoOverrides
   } = options;
 
   let srcObject = null;
@@ -319,6 +320,8 @@ export function createMockVideo(options = {}) {
     cancelVideoFrameCallback: vi.fn((id) => {
       clearTimeout(id);
     }),
+
+    ...videoOverrides,
 
     // Test helpers
     _triggerEvent(event, data) {

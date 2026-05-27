@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
 import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { createUIEffectsElementsMock } from '../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../support/mocks/browser-api.installers.js';
 
 describe('UIEffects', () => {
@@ -17,27 +18,9 @@ describe('UIEffects', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    // Mock record button element
-    mockRecordBtn = {
-      classList: {
-        add: vi.fn(),
-        remove: vi.fn()
-      },
-      offsetWidth: 100
-    };
-
-    // Mock elements
-    mockElements = {
-      recordBtn: mockRecordBtn
-    };
-
-    // Mock flash element
-    mockFlashElement = {
-      className: '',
-      addEventListener: vi.fn(),
-      remove: vi.fn(),
-      parentNode: {} // Mock parentNode to simulate element being in DOM
-    };
+    mockElements = createUIEffectsElementsMock();
+    mockRecordBtn = mockElements.recordBtn;
+    mockFlashElement = mockElements.flashElement;
 
     documentMock = installDocumentCreateElementMock({
       createElement: vi.fn(() => mockFlashElement),

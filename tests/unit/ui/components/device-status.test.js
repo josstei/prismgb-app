@@ -4,43 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
+import { createDeviceStatusElementsMock } from '../../../../factories/index.js';
 
 describe('DeviceStatusComponent', () => {
   let component;
   let mockElements;
 
   beforeEach(() => {
-    mockElements = {
-      statusIndicator: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      statusText: { textContent: '' },
-      deviceStatusText: {
-        textContent: '',
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      deviceName: { textContent: '' },
-      overlayMessage: {
-        textContent: '',
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn(),
-          toggle: vi.fn()
-        }
-      },
-      streamOverlay: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      }
-    };
+    mockElements = createDeviceStatusElementsMock();
 
     component = new DeviceStatusComponent(mockElements);
   });

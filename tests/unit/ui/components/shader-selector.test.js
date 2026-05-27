@@ -4,7 +4,13 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
-import { createAppState, createEventBus, createLogger, createSettingsServiceMock } from '../../../factories/index.js';
+import {
+  createAppState,
+  createEventBus,
+  createLogger,
+  createSettingsServiceMock,
+  createShaderSelectorElementsMock
+} from '../../../factories/index.js';
 
 let mockCinematicToggle;
 let mockPresetList;
@@ -46,20 +52,7 @@ describe('ShaderSelectorComponent', () => {
     mockEventBus = createEventBus();
     mockLogger = createLogger({ name: 'ShaderSelectorComponent' });
 
-    mockElements = {
-      shaderBtn: document.createElement('button'),
-      shaderDropdown: document.createElement('div'),
-      shaderOptions: document.createElement('div'),
-      shaderUnavailableMessage: document.createElement('div'),
-      cinematicToggle: document.createElement('button'),
-      cinematicPillText: document.createElement('span'),
-      brightnessSlider: document.createElement('input'),
-      brightnessPercentage: document.createElement('span'),
-      brightnessControl: document.createElement('div'),
-      volumeSlider: document.createElement('input'),
-      volumePercentage: document.createElement('span'),
-      streamVideo: document.createElement('video')
-    };
+    mockElements = createShaderSelectorElementsMock();
 
     component = new ShaderSelectorComponent({
       settingsService: mockSettingsService,

@@ -11,6 +11,7 @@ import {
   createNotesServiceMock,
   createDomEventMock,
   createMockButton,
+  createMockElement,
   createOrchestratorMock,
   createSettingsServiceMock,
   createUISetupControllerMock
@@ -405,10 +406,7 @@ describe('UISetupOrchestrator', () => {
 
       // Create mock old and new canvas
       const oldCanvas = mockStreamCanvas;
-      const newCanvas = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const newCanvas = createMockElement('canvas');
 
       // Trigger canvas recreation event
       canvasRecreatedHandler({ oldCanvas, newCanvas });
@@ -423,10 +421,7 @@ describe('UISetupOrchestrator', () => {
 
       // Create mock old and new canvas
       const oldCanvas = mockStreamCanvas;
-      const newCanvas = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const newCanvas = createMockElement('canvas');
 
       // Trigger canvas recreation event
       canvasRecreatedHandler({ oldCanvas, newCanvas });
@@ -445,13 +440,7 @@ describe('UISetupOrchestrator', () => {
 
       // Create mock canvases
       const oldCanvas = mockStreamCanvas;
-      const newCanvasListeners = {};
-      const newCanvas = {
-        addEventListener: vi.fn((event, handler) => {
-          newCanvasListeners[event] = handler;
-        }),
-        removeEventListener: vi.fn()
-      };
+      const newCanvas = createMockElement('canvas');
 
       // Trigger canvas recreation
       canvasRecreatedHandler({ oldCanvas, newCanvas });
@@ -460,7 +449,7 @@ describe('UISetupOrchestrator', () => {
       mockAppState.setStreaming(true);
 
       // Trigger click on new canvas
-      newCanvasListeners.click();
+      newCanvas._trigger('click');
 
       // Should publish STREAM_STOP_REQUESTED event
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-stop-requested');
@@ -470,10 +459,7 @@ describe('UISetupOrchestrator', () => {
       orchestrator.setupOverlayClickHandlers();
 
       const oldCanvas = mockStreamCanvas;
-      const newCanvas = {
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      };
+      const newCanvas = createMockElement('canvas');
 
       canvasRecreatedHandler({ oldCanvas, newCanvas });
 

@@ -4,7 +4,12 @@ import { GameFilterComponent } from '@renderer/presentation/features/notes/compo
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/components/game-autocomplete.component.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
-import { createEventBus, createLogger, createNotesServiceMock } from '../../../../factories/index.js';
+import {
+  createEventBus,
+  createLogger,
+  createNotesPanelElementsMock,
+  createNotesServiceMock
+} from '../../../../factories/index.js';
 describe('NotesPanelComponent', () => {
   let component;
   let mockNotesService;
@@ -15,30 +20,7 @@ describe('NotesPanelComponent', () => {
     mockNotesService = createNotesServiceMock();
     mockEventBus = createEventBus();
     mockLogger = createLogger({ name: 'NotesPanelComponent' });
-    mockElements = {
-      notesBtn: document.createElement('button'),
-      notesPanel: document.createElement('div'),
-      notesPanelContent: document.createElement('div'),
-      notesListWrapper: document.createElement('div'),
-      notesSearchInput: document.createElement('input'),
-      notesGameFilter: document.createElement('button'),
-      notesGameFilterLabel: document.createElement('span'),
-      notesGameFilterMenu: document.createElement('div'),
-      notesListToggle: document.createElement('button'),
-      notesList: document.createElement('div'),
-      notesEditor: document.createElement('div'),
-      notesGameAddBtn: document.createElement('button'),
-      notesGameTagRow: document.createElement('div'),
-      notesGameTag: document.createElement('button'),
-      notesGameInput: document.createElement('input'),
-      notesGameAutocomplete: document.createElement('div'),
-      notesTitleInput: document.createElement('input'),
-      notesContentArea: document.createElement('textarea'),
-      notesNewBtn: document.createElement('button'),
-      notesDeleteBtn: document.createElement('button'),
-      streamContainer: document.createElement('div'),
-      streamToolbar: document.createElement('div')
-    };
+    mockElements = createNotesPanelElementsMock();
     mockElements.notesPanel.id = 'notesPanel';
     mockElements.notesList.className = 'notes-list';
     component = new NotesPanelComponent({
@@ -491,12 +473,11 @@ describe('NotesPanelComponent', () => {
       });
     });
     it('should handle unsubscribe errors gracefully', () => {
-      const errorEventBus = {
-        publish: vi.fn(),
-        subscribe: vi.fn(() => () => {
-          throw new Error('Unsubscribe error');
-        })
-      };
+      const errorEventBus = createEventBus();
+      errorEventBus.subscribe = vi.fn(() => () => {
+        throw new Error('Unsubscribe error');
+      });
+
       const errorComponent = new NotesPanelComponent({
         notesService: mockNotesService,
         eventBus: errorEventBus,
