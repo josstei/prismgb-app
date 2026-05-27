@@ -4,6 +4,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseService } from '@shared/base/service.base.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+import { installAnimationFrameMock } from '../../../support/mocks/browser-api.installers.js';
 
 describe('BaseService', () => {
   let mockEventBus;
@@ -11,22 +13,9 @@ describe('BaseService', () => {
   let mockLogger;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('TestService');
+    mockEventBus = createEventBus();
   });
 
   describe('Constructor', () => {
@@ -143,17 +132,16 @@ describe('BaseService', () => {
     });
 
     it('tracks animation frames and cancels on dispose', async () => {
-      const request = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(() => 77);
-      const cancel = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {});
+      const animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn(() => 77), cancelAnimationFrame: vi.fn() });
       const frame = vi.fn();
 
-      service.animationFrame(frame);
-      await service.dispose();
-
-      expect(cancel).toHaveBeenCalledWith(77);
-
-      request.mockRestore();
-      cancel.mockRestore();
+      try {
+        service.animationFrame(frame);
+        await service.dispose();
+        expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(77);
+      } finally {
+        animationFrameMock.cleanup();
+      }
     });
 
     it('throws nothing when dispose is called multiple times', async () => {

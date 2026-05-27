@@ -8,11 +8,11 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 let cursorInstance;
 let toolbarInstance;
 let controlsInstance;
-let hideTimerInstance;
+let unifiedControllerInstance;
 let cursorOptions;
 let toolbarOptions;
 let controlsOptions;
-let hideTimerOptions;
+let unifiedControllerOptions;
 
 vi.mock('@renderer/presentation/effects/cursor-auto-hide.effect.ts', () => ({
   CursorAutoHide: vi.fn().mockImplementation(function CursorAutoHideMock(options) {
@@ -21,6 +21,7 @@ vi.mock('@renderer/presentation/effects/cursor-auto-hide.effect.ts', () => ({
     this.disable = vi.fn();
     this.show = vi.fn();
     this.hide = vi.fn();
+    this.dispose = vi.fn();
     this.isEnabled = false;
     cursorInstance = this;
   })
@@ -34,6 +35,7 @@ vi.mock('@renderer/presentation/effects/toolbar-auto-hide.effect.ts', () => ({
     this.show = vi.fn();
     this.hide = vi.fn();
     this.invalidatePanelCache = vi.fn();
+    this.dispose = vi.fn();
     this.isEnabled = false;
     this.isHovering = false;
     this.isPanelOpen = vi.fn(() => false);
@@ -46,18 +48,22 @@ vi.mock('@renderer/presentation/effects/controls-auto-hide.effect.ts', () => ({
     controlsOptions = options;
     this.enable = vi.fn();
     this.disable = vi.fn();
+    this.dispose = vi.fn();
     this.isEnabled = false;
     controlsInstance = this;
   })
 }));
 
-vi.mock('@renderer/presentation/primitives/hide-timer.class.js', () => ({
-  HideTimer: vi.fn().mockImplementation(function HideTimerMock(options) {
-    hideTimerOptions = options;
-    this.start = vi.fn();
-    this.clear = vi.fn();
-    this.isRunning = false;
-    hideTimerInstance = this;
+vi.mock('@renderer/presentation/primitives/activity-auto-hide.controller', () => ({
+  ActivityAutoHideController: vi.fn().mockImplementation(function ActivityAutoHideControllerMock(options) {
+    unifiedControllerOptions = options;
+    this.enable = vi.fn();
+    this.disable = vi.fn();
+    this.startTimer = vi.fn();
+    this.clearTimer = vi.fn();
+    this.dispose = vi.fn();
+    this.isEnabled = false;
+    unifiedControllerInstance = this;
   })
 }));
 
@@ -90,11 +96,11 @@ describe('UIEffects', () => {
     cursorInstance = null;
     toolbarInstance = null;
     controlsInstance = null;
-    hideTimerInstance = null;
+    unifiedControllerInstance = null;
     cursorOptions = null;
     toolbarOptions = null;
     controlsOptions = null;
-    hideTimerOptions = null;
+    unifiedControllerOptions = null;
   });
 
   it('delegates cursor auto-hide enable/disable', () => {
@@ -110,7 +116,7 @@ describe('UIEffects', () => {
 
     effects.disableCursorAutoHide();
 
-    expect(hideTimerInstance.clear).toHaveBeenCalled();
+    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
   });
 
   it('delegates toolbar auto-hide enable/disable', () => {
@@ -128,7 +134,7 @@ describe('UIEffects', () => {
 
     effects.disableToolbarAutoHide();
 
-    expect(hideTimerInstance.clear).toHaveBeenCalled();
+    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
   });
 
   it('delegates controls auto-hide enable/disable', () => {
@@ -157,6 +163,10 @@ describe('UIEffects', () => {
     expect(mockBodyClassManager.setFullscreenMode).toHaveBeenCalledWith(true);
   });
 
+  it('enables unified timer controller on construction', () => {
+    expect(unifiedControllerInstance.enable).toHaveBeenCalled();
+  });
+
   it('starts unified timer on activity when controls are not managing', () => {
     toolbarInstance.isEnabled = true;
     controlsInstance.isEnabled = false;
@@ -164,7 +174,7 @@ describe('UIEffects', () => {
     cursorOptions.onActivity();
 
     expect(toolbarInstance.show).toHaveBeenCalled();
-    expect(hideTimerInstance.start).toHaveBeenCalled();
+    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
   });
 
   it('pauses unified timer on toolbar hover start', () => {
@@ -172,7 +182,7 @@ describe('UIEffects', () => {
 
     toolbarOptions.onHoverStart();
 
-    expect(hideTimerInstance.clear).toHaveBeenCalled();
+    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
     expect(cursorInstance.show).toHaveBeenCalled();
   });
 
@@ -181,13 +191,13 @@ describe('UIEffects', () => {
 
     toolbarOptions.onHoverEnd();
 
-    expect(hideTimerInstance.start).toHaveBeenCalled();
+    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
   });
 
   it('clears unified timer when controls auto-hide enables', () => {
     controlsOptions.onEnable();
 
-    expect(hideTimerInstance.clear).toHaveBeenCalled();
+    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
   });
 
   it('restarts unified timer when controls auto-hide disables', () => {
@@ -196,7 +206,7 @@ describe('UIEffects', () => {
 
     controlsOptions.onDisable();
 
-    expect(hideTimerInstance.start).toHaveBeenCalled();
+    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
   });
 
   describe('delegated capture and button effects', () => {
@@ -248,7 +258,7 @@ describe('UIEffects', () => {
 
       cursorOptions.onActivity();
 
-      expect(hideTimerInstance.start).not.toHaveBeenCalled();
+      expect(unifiedControllerInstance.startTimer).not.toHaveBeenCalled();
     });
 
     it('does not show cursor on toolbar hover start when cursor is disabled', () => {
@@ -256,7 +266,7 @@ describe('UIEffects', () => {
 
       toolbarOptions.onHoverStart();
 
-      expect(hideTimerInstance.clear).toHaveBeenCalled();
+      expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
       expect(cursorInstance.show).not.toHaveBeenCalled();
     });
 
@@ -265,7 +275,7 @@ describe('UIEffects', () => {
 
       toolbarOptions.onHoverEnd();
 
-      expect(hideTimerInstance.start).not.toHaveBeenCalled();
+      expect(unifiedControllerInstance.startTimer).not.toHaveBeenCalled();
     });
 
     it('does not show toolbar on activity when toolbar is disabled', () => {
@@ -275,13 +285,13 @@ describe('UIEffects', () => {
       cursorOptions.onActivity();
 
       expect(toolbarInstance.show).not.toHaveBeenCalled();
-      expect(hideTimerInstance.start).toHaveBeenCalled();
+      expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
     });
 
     it('shouldStartUnifiedTimer returns false when controls are enabled', () => {
       controlsInstance.isEnabled = true;
 
-      const result = hideTimerOptions.shouldStart();
+      const result = unifiedControllerOptions.shouldStartTimer();
 
       expect(result).toBe(false);
     });
@@ -290,7 +300,7 @@ describe('UIEffects', () => {
       controlsInstance.isEnabled = false;
       toolbarInstance.isHovering = true;
 
-      const result = hideTimerOptions.shouldStart();
+      const result = unifiedControllerOptions.shouldStartTimer();
 
       expect(result).toBe(false);
     });
@@ -300,7 +310,7 @@ describe('UIEffects', () => {
       toolbarInstance.isHovering = false;
       toolbarInstance.isPanelOpen.mockReturnValue(true);
 
-      const result = hideTimerOptions.shouldStart();
+      const result = unifiedControllerOptions.shouldStartTimer();
 
       expect(result).toBe(false);
     });
@@ -310,7 +320,7 @@ describe('UIEffects', () => {
       toolbarInstance.isHovering = false;
       toolbarInstance.isPanelOpen.mockReturnValue(false);
 
-      const result = hideTimerOptions.shouldStart();
+      const result = unifiedControllerOptions.shouldStartTimer();
 
       expect(result).toBe(true);
     });
@@ -321,7 +331,7 @@ describe('UIEffects', () => {
       cursorInstance.isEnabled = true;
       toolbarInstance.isEnabled = false;
 
-      hideTimerOptions.onTimeout();
+      unifiedControllerOptions.onTimeout();
 
       expect(cursorInstance.hide).toHaveBeenCalled();
     });
@@ -330,7 +340,7 @@ describe('UIEffects', () => {
       cursorInstance.isEnabled = false;
       toolbarInstance.isEnabled = true;
 
-      hideTimerOptions.onTimeout();
+      unifiedControllerOptions.onTimeout();
 
       expect(toolbarInstance.hide).toHaveBeenCalled();
     });
@@ -339,7 +349,7 @@ describe('UIEffects', () => {
       cursorInstance.isEnabled = true;
       toolbarInstance.isEnabled = true;
 
-      hideTimerOptions.onTimeout();
+      unifiedControllerOptions.onTimeout();
 
       expect(cursorInstance.hide).toHaveBeenCalled();
       expect(toolbarInstance.hide).toHaveBeenCalled();
@@ -349,7 +359,7 @@ describe('UIEffects', () => {
       cursorInstance.isEnabled = false;
       toolbarInstance.isEnabled = true;
 
-      hideTimerOptions.onTimeout();
+      unifiedControllerOptions.onTimeout();
 
       expect(cursorInstance.hide).not.toHaveBeenCalled();
     });
@@ -358,7 +368,7 @@ describe('UIEffects', () => {
       cursorInstance.isEnabled = true;
       toolbarInstance.isEnabled = false;
 
-      hideTimerOptions.onTimeout();
+      unifiedControllerOptions.onTimeout();
 
       expect(toolbarInstance.hide).not.toHaveBeenCalled();
     });
@@ -424,11 +434,6 @@ describe('UIEffects', () => {
 
   describe('dispose', () => {
     it('disposes all sub-components', () => {
-      // Add dispose methods to the mocked sub-components
-      cursorInstance.dispose = vi.fn();
-      toolbarInstance.dispose = vi.fn();
-      controlsInstance.dispose = vi.fn();
-      hideTimerInstance.dispose = vi.fn();
       effects._buttonFeedback.dispose = vi.fn();
       effects._captureEffects.dispose = vi.fn();
 
@@ -439,16 +444,11 @@ describe('UIEffects', () => {
       expect(controlsInstance.dispose).toHaveBeenCalled();
       expect(effects._buttonFeedback.dispose).toHaveBeenCalled();
       expect(effects._captureEffects.dispose).toHaveBeenCalled();
-      expect(hideTimerInstance.dispose).toHaveBeenCalled();
+      expect(unifiedControllerInstance.dispose).toHaveBeenCalled();
       expect(effects.elements).toBeNull();
     });
 
     it('disposes bodyClassManager if it has dispose method', () => {
-      // Add dispose methods to all sub-components first
-      cursorInstance.dispose = vi.fn();
-      toolbarInstance.dispose = vi.fn();
-      controlsInstance.dispose = vi.fn();
-      hideTimerInstance.dispose = vi.fn();
       effects._buttonFeedback.dispose = vi.fn();
       effects._captureEffects.dispose = vi.fn();
       mockBodyClassManager.dispose = vi.fn();
@@ -459,11 +459,6 @@ describe('UIEffects', () => {
     });
 
     it('handles bodyClassManager without dispose method', () => {
-      // Add dispose methods to all sub-components first
-      cursorInstance.dispose = vi.fn();
-      toolbarInstance.dispose = vi.fn();
-      controlsInstance.dispose = vi.fn();
-      hideTimerInstance.dispose = vi.fn();
       effects._buttonFeedback.dispose = vi.fn();
       effects._captureEffects.dispose = vi.fn();
       delete mockBodyClassManager.dispose;

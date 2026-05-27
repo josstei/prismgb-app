@@ -1,21 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GpuFrameBuffer } from '@renderer/infrastructure/services/streaming/gpu-frame-buffer.ts';
+import { createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('GpuFrameBuffer', () => {
   let buffer;
-  let mockLogger;
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
   });
 
   describe('constructor', () => {

@@ -4,6 +4,12 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  installBlobMock,
+  installDocumentCreateElementMock,
+  installMediaRecorderMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 // Mock FilenameGenerator
 vi.mock('../../../../../src/shared/lib/filename-generator.utils.ts', () => ({
@@ -18,55 +24,29 @@ describe('CaptureService', () => {
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
+  let blobMock;
+  let documentCreateElementMock;
+  let mediaRecorderMock;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     service = new CaptureService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('CaptureService');
 
-    // Mock MediaRecorder
-    global.MediaRecorder = class MockMediaRecorder {
-      constructor(stream, options) {
-        this.stream = stream;
-        this.options = options;
-        this.state = 'inactive';
-        this.ondataavailable = null;
-        this.onstop = null;
-      }
-      start() { this.state = 'recording'; }
-      stop() { this.state = 'inactive'; }
-    };
-    global.MediaRecorder.isTypeSupported = vi.fn(() => true);
-
-    // Mock Blob
-    global.Blob = class MockBlob {
-      constructor(parts, options) {
-        this.parts = parts;
-        this.type = options?.type || 'application/octet-stream';
-        this.size = 1000;
-      }
-    };
+    mediaRecorderMock = installMediaRecorderMock();
+    blobMock = installBlobMock();
   });
 
   afterEach(() => {
+    documentCreateElementMock?.cleanup();
+    documentCreateElementMock = null;
+    blobMock.cleanup();
+    mediaRecorderMock.cleanup();
     vi.clearAllMocks();
   });
 
@@ -112,15 +92,14 @@ describe('CaptureService', () => {
       // Override document.createElement to return mockCanvas for 'canvas'
       // Use a wrapper that doesn't cause recursion
       const realCreateElement = realDocument.createElement.bind(realDocument);
-      global.document = {
-        ...realDocument,
+      documentCreateElementMock = installDocumentCreateElementMock({
         createElement: vi.fn((tag) => {
           if (tag === 'canvas') {
             return mockCanvas;
           }
           return realCreateElement(tag);
         })
-      };
+      });
     });
 
     it('should capture screenshot from video element', async () => {
@@ -206,7 +185,7 @@ describe('CaptureService', () => {
     });
 
     it('should fallback to vp9 if vp8 not supported', async () => {
-      global.MediaRecorder.isTypeSupported = vi.fn((type) => !type.includes('vp8'));
+      mediaRecorderMock.isTypeSupported.mockImplementation((type) => !type.includes('vp8'));
 
       await service.startRecording(mockStream);
 

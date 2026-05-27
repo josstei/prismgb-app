@@ -1,45 +1,29 @@
 import { BasePipeline } from '../base-pipeline';
+import {
+  getEnabledRenderPasses,
+  RENDER_PASS_HELPERS,
+  type RenderPassHelpers
+} from '../../domain/render-passes/render-passes-helpers';
 import { loadShaders } from './webgpu-shader-loader';
 import { BindGroupCache } from './bind-group-cache';
 import { UniformTracker } from './uniform-tracker';
 
-interface RenderPipelines {
-  pixelUpscale: GPURenderPipeline;
-  unsharpMask: GPURenderPipeline;
-  colorElevation: GPURenderPipeline;
-  crtLcd: GPURenderPipeline;
-}
-
-interface UniformBuffers {
-  upscale: GPUBuffer;
-  unsharp: GPUBuffer;
-  color: GPUBuffer;
-  crt: GPUBuffer;
-}
-
-interface ShaderModules {
-  pixelUpscale: GPUShaderModule;
-  unsharpMask: GPUShaderModule;
-  colorElevation: GPUShaderModule;
-  crtLcd: GPUShaderModule;
-}
+type RenderPipelines = Map<string, GPURenderPipeline>;
+type UniformBuffers = Map<string, GPUBuffer>;
 
 /**
- * WebGPU 4-pass rendering pipeline.
+ * WebGPU manifest-driven rendering pipeline.
  *
- * Renders Game Boy frames through a configurable shader chain:
- * upscale -> unsharp mask -> color elevation -> CRT/LCD simulation.
- * Uses ping-pong intermediate textures, bind group caching, and
- * uniform change tracking for optimized per-frame overhead.
+ * Renders Game Boy frames through the render-pass contract and uses ping-pong
+ * intermediate textures, bind group caching, and uniform change tracking for
+ * optimized per-frame overhead.
  */
 export class WebGPUPipeline extends BasePipeline {
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
 
-  private shaderModules: ShaderModules | null = null;
   private renderPipelines: RenderPipelines | null = null;
-  private crtLcdBindGroupLayout: GPUBindGroupLayout | null = null;
 
   private sourceTexture: GPUTexture | null = null;
   private intermediateTextures: GPUTexture[] = [];
@@ -88,38 +72,55 @@ export class WebGPUPipeline extends BasePipeline {
       alphaMode: 'opaque'
     });
 
-    await this.createShaderModules();
+    await this.createPipelines();
     this.createSamplers();
     this.createResources();
-    await this.createPipelines();
 
     this._isInitialized = true;
     this._isActive = true;
   }
 
-  private async createShaderModules(): Promise<void> {
+  private async createPipelines(): Promise<void> {
     const device = this.device!;
     const shaders = loadShaders();
 
     const createAndValidate = async (label: string, code: string): Promise<GPUShaderModule> => {
       const module = device.createShaderModule({ label, code });
       const compilationInfo = await module.getCompilationInfo();
-      const errors = compilationInfo.messages.filter(m => m.type === 'error');
+      const errors = compilationInfo.messages.filter((message) => message.type === 'error');
 
       if (errors.length > 0) {
-        const errorMsg = errors.map(e => `${e.message} at line ${e.lineNum}`).join('; ');
+        const errorMsg = errors.map((error) => `${error.message} at line ${error.lineNum}`).join('; ');
         throw new Error(`Shader compilation error in ${label}: ${errorMsg}`);
       }
 
       return module;
     };
 
-    this.shaderModules = {
-      pixelUpscale: await createAndValidate('Pixel Upscale Shader', shaders.pixelUpscale),
-      unsharpMask: await createAndValidate('Unsharp Mask Shader', shaders.unsharpMask),
-      colorElevation: await createAndValidate('Color Elevation Shader', shaders.colorElevation),
-      crtLcd: await createAndValidate('CRT/LCD Shader', shaders.crtLcd)
-    };
+    const pipelines = new Map<string, GPURenderPipeline>();
+    for (const pass of RENDER_PASS_HELPERS) {
+      const shaderSource = shaders.byFileName[pass.webgpu.shaderFile];
+      if (!shaderSource) {
+        throw new Error(`Missing WebGPU shader source for pass '${pass.passId}'`);
+      }
+
+      const shaderModule = await createAndValidate(`${pass.passId} shader`, shaderSource);
+      const descriptor: GPURenderPipelineDescriptor = {
+        label: `${pass.passId} pipeline`,
+        layout: 'auto',
+        vertex: { module: shaderModule, entryPoint: 'vertexMain' },
+        fragment: {
+          module: shaderModule,
+          entryPoint: 'fragmentMain',
+          targets: [{ format: pass.outputsToCanvas ? this.canvasFormat! : 'rgba8unorm' }]
+        },
+        primitive: { topology: 'triangle-strip' }
+      };
+
+      pipelines.set(pass.passId, await device.createRenderPipelineAsync(descriptor));
+    }
+
+    this.renderPipelines = pipelines;
   }
 
   private createSamplers(): void {
@@ -144,8 +145,7 @@ export class WebGPUPipeline extends BasePipeline {
 
   private createResources(): void {
     const device = this.device!;
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
+    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
 
     this.sourceTexture = device.createTexture({
       label: 'Source Texture',
@@ -163,66 +163,21 @@ export class WebGPUPipeline extends BasePipeline {
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
+
       this.intermediateTextures.push(texture);
       this.intermediateTextureViews.push(texture.createView());
     }
 
-    this.uniformBuffers = {
-      upscale: device.createBuffer({
-        label: 'Upscale Uniforms',
-        size: 32,
+    const uniformBuffers = new Map<string, GPUBuffer>();
+    for (const pass of RENDER_PASS_HELPERS) {
+      uniformBuffers.set(pass.passId, device.createBuffer({
+        label: `${pass.passId} uniform buffer`,
+        size: pass.webgpu.layout.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      }),
-      unsharp: device.createBuffer({
-        label: 'Unsharp Uniforms',
-        size: 16,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      }),
-      color: device.createBuffer({
-        label: 'Color Uniforms',
-        size: 32,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      }),
-      crt: device.createBuffer({
-        label: 'CRT Uniforms',
-        size: 32,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      })
-    };
-  }
+      }));
+    }
 
-  private async createPipelines(): Promise<void> {
-    const device = this.device!;
-    const modules = this.shaderModules!;
-
-    const pipelineDescriptor = (
-      label: string,
-      module: GPUShaderModule,
-      format: GPUTextureFormat
-    ): GPURenderPipelineDescriptor => ({
-      label,
-      layout: 'auto',
-      vertex: { module, entryPoint: 'vertexMain' },
-      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format }] },
-      primitive: { topology: 'triangle-strip' }
-    });
-
-    this.renderPipelines = {
-      pixelUpscale: await device.createRenderPipelineAsync(
-        pipelineDescriptor('Pixel Upscale Pipeline', modules.pixelUpscale, 'rgba8unorm')
-      ),
-      unsharpMask: await device.createRenderPipelineAsync(
-        pipelineDescriptor('Unsharp Mask Pipeline', modules.unsharpMask, 'rgba8unorm')
-      ),
-      colorElevation: await device.createRenderPipelineAsync(
-        pipelineDescriptor('Color Elevation Pipeline', modules.colorElevation, 'rgba8unorm')
-      ),
-      crtLcd: await device.createRenderPipelineAsync(
-        pipelineDescriptor('CRT/LCD Pipeline', modules.crtLcd, this.canvasFormat!)
-      )
-    };
-
-    this.crtLcdBindGroupLayout = this.renderPipelines.crtLcd.getBindGroupLayout(0);
+    this.uniformBuffers = uniformBuffers;
   }
 
   renderFrame(source: TexImageSource): void {
@@ -241,64 +196,47 @@ export class WebGPUPipeline extends BasePipeline {
       this.uploadUniforms();
 
       const commandEncoder = this.device.createCommandEncoder();
-      let currentTexture = 0;
+      const enabledPasses = getEnabledRenderPasses(this.uniforms, this.preset);
+      let currentInputTexture = this.sourceTexture;
+      let outputIndex = 0;
+      let renderedToCanvas = false;
 
-      this.renderPass(
-        commandEncoder,
-        this.renderPipelines.pixelUpscale,
-        this.sourceTexture,
-        this.intermediateTextures[0],
-        this.uniformBuffers.upscale,
-        this.nearestSampler!
-      );
-      currentTexture = 0;
+      for (const pass of enabledPasses) {
+        const pipeline = this.renderPipelines.get(pass.passId);
+        const uniformBuffer = this.uniformBuffers.get(pass.passId);
+        const sampler = pass.sampler === 'nearest'
+          ? this.nearestSampler!
+          : this.linearSampler!;
 
-      if (this.preset.unsharp.enabled && this.uniforms.unsharp.strength > 0) {
-        const nextTexture = (currentTexture + 1) % 2;
+        if (!pipeline || !uniformBuffer || !sampler) {
+          throw new Error(`Missing pass runtime state for '${pass.passId}'`);
+        }
+
+        const outputTexture = pass.outputsToCanvas
+          ? this.context.getCurrentTexture()
+          : this.intermediateTextures[outputIndex];
+
         this.renderPass(
           commandEncoder,
-          this.renderPipelines.unsharpMask,
-          this.intermediateTextures[currentTexture],
-          this.intermediateTextures[nextTexture],
-          this.uniformBuffers.unsharp,
-          this.linearSampler!
+          pass,
+          pipeline,
+          currentInputTexture,
+          outputTexture,
+          uniformBuffer,
+          sampler
         );
-        currentTexture = nextTexture;
+
+        if (pass.outputsToCanvas) {
+          renderedToCanvas = true;
+          break;
+        }
+
+        currentInputTexture = outputTexture;
+        outputIndex = (outputIndex + 1) % this.intermediateTextures.length;
       }
 
-      if (this.preset.color.enabled) {
-        const nextTexture = (currentTexture + 1) % 2;
-        this.renderPass(
-          commandEncoder,
-          this.renderPipelines.colorElevation,
-          this.intermediateTextures[currentTexture],
-          this.intermediateTextures[nextTexture],
-          this.uniformBuffers.color,
-          this.linearSampler!
-        );
-        currentTexture = nextTexture;
-      }
-
-      const canvasTexture = this.context.getCurrentTexture();
-      const { crt } = this.uniforms;
-      const crtEnabled = crt.scanlineStrength > 0 || crt.pixelMaskStrength > 0 ||
-        crt.bloomStrength > 0 || crt.curvature > 0 || crt.vignetteStrength > 0;
-
-      if (crtEnabled) {
-        this.renderPassToCanvas(
-          commandEncoder,
-          this.renderPipelines.crtLcd,
-          this.intermediateTextures[currentTexture],
-          canvasTexture,
-          this.uniformBuffers.crt,
-          this.linearSampler!
-        );
-      } else {
-        this.copyToCanvas(
-          commandEncoder,
-          this.intermediateTextures[currentTexture],
-          canvasTexture
-        );
+      if (!renderedToCanvas) {
+        this.copyToCanvas(commandEncoder, currentInputTexture, this.context.getCurrentTexture());
       }
 
       this.device.queue.submit([commandEncoder.finish()]);
@@ -309,8 +247,22 @@ export class WebGPUPipeline extends BasePipeline {
     }
   }
 
+  private getPassSampler(pass: RenderPassHelpers): GPUSampler {
+    return pass.sampler === 'nearest' ? this.nearestSampler! : this.linearSampler!;
+  }
+
+  private getCanvasOutputPass(): RenderPassHelpers {
+    const pass = RENDER_PASS_HELPERS.find((candidate) => candidate.outputsToCanvas);
+    if (!pass) {
+      throw new Error('No render pass is configured to output to canvas');
+    }
+
+    return pass;
+  }
+
   private renderPass(
     commandEncoder: GPUCommandEncoder,
+    pass: RenderPassHelpers,
     pipeline: GPURenderPipeline,
     inputTexture: GPUTexture,
     outputTexture: GPUTexture,
@@ -326,9 +278,13 @@ export class WebGPUPipeline extends BasePipeline {
     );
 
     const outputIndex = this.intermediateTextures.indexOf(outputTexture);
-    const outputView = outputIndex >= 0
-      ? this.intermediateTextureViews[outputIndex]
-      : outputTexture.createView();
+    const outputView = pass.outputsToCanvas
+      ? outputTexture.createView()
+      : this.intermediateTextureViews[outputIndex];
+
+    if (!outputView) {
+      throw new Error(`Invalid output target for pass '${pass.passId}'`);
+    }
 
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{
@@ -345,124 +301,39 @@ export class WebGPUPipeline extends BasePipeline {
     passEncoder.end();
   }
 
-  private renderPassToCanvas(
-    commandEncoder: GPUCommandEncoder,
-    pipeline: GPURenderPipeline,
-    inputTexture: GPUTexture,
-    canvasTexture: GPUTexture,
-    uniformBuffer: GPUBuffer,
-    sampler: GPUSampler
-  ): void {
-    const inputIndex = this.intermediateTextures.indexOf(inputTexture);
-    const inputView = inputIndex >= 0
-      ? this.intermediateTextureViews[inputIndex]
-      : inputTexture.createView();
-
-    const bindGroup = this.device!.createBindGroup({
-      layout: this.crtLcdBindGroupLayout!,
-      entries: [
-        { binding: 0, resource: { buffer: uniformBuffer } },
-        { binding: 1, resource: inputView },
-        { binding: 2, resource: sampler }
-      ]
-    });
-
-    const passEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        view: canvasTexture.createView(),
-        loadOp: 'clear',
-        storeOp: 'store',
-        clearValue: { r: 0, g: 0, b: 0, a: 1 }
-      }]
-    });
-
-    passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.draw(4);
-    passEncoder.end();
-  }
-
   private copyToCanvas(
     commandEncoder: GPUCommandEncoder,
-    inputTexture: GPUTexture,
+    sourceTexture: GPUTexture,
     canvasTexture: GPUTexture
   ): void {
-    const inputIndex = this.intermediateTextures.indexOf(inputTexture);
-    const inputView = inputIndex >= 0
-      ? this.intermediateTextureViews[inputIndex]
-      : inputTexture.createView();
+    const pass = this.getCanvasOutputPass();
+    const pipeline = this.renderPipelines!.get(pass.passId)!;
+    const uniformBuffer = this.uniformBuffers!.get(pass.passId)!;
+    const sampler = this.getPassSampler(pass);
 
-    const bindGroup = this.device!.createBindGroup({
-      layout: this.crtLcdBindGroupLayout!,
-      entries: [
-        { binding: 0, resource: { buffer: this.uniformBuffers!.crt } },
-        { binding: 1, resource: inputView },
-        { binding: 2, resource: this.linearSampler! }
-      ]
-    });
-
-    const passEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        view: canvasTexture.createView(),
-        loadOp: 'clear',
-        storeOp: 'store',
-        clearValue: { r: 0, g: 0, b: 0, a: 1 }
-      }]
-    });
-
-    passEncoder.setPipeline(this.renderPipelines!.crtLcd);
-    passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.draw(4);
-    passEncoder.end();
+    this.renderPass(
+      commandEncoder,
+      pass,
+      pipeline,
+      sourceTexture,
+      canvasTexture,
+      uniformBuffer,
+      sampler
+    );
   }
 
   private uploadUniforms(): void {
     const device = this.device!;
-    const buffers = this.uniformBuffers!;
-    const { upscale, unsharp, color, crt } = this.uniforms;
+    for (const pass of RENDER_PASS_HELPERS) {
+      const uniformData = pass.webgpu.uniformData(this.uniforms);
+      const buffer = this.uniformBuffers!.get(pass.passId);
+      if (!buffer) {
+        throw new Error(`Missing uniform buffer for pass '${pass.passId}'`);
+      }
 
-    const upscaleData = new Float32Array([
-      upscale.inputSize[0], upscale.inputSize[1],
-      upscale.outputSize[0], upscale.outputSize[1],
-      upscale.scaleFactor,
-      0
-    ]);
-    if (this.uniformTracker.hasChanged('upscale', upscaleData)) {
-      device.queue.writeBuffer(buffers.upscale, 0, upscaleData);
-    }
-
-    const unsharpData = new Float32Array([
-      unsharp.texelSize[0], unsharp.texelSize[1],
-      unsharp.strength,
-      unsharp.scaleFactor
-    ]);
-    if (this.uniformTracker.hasChanged('unsharp', unsharpData)) {
-      device.queue.writeBuffer(buffers.unsharp, 0, unsharpData);
-    }
-
-    const colorData = new Float32Array([
-      color.gamma,
-      color.saturation,
-      color.greenBias,
-      color.brightness,
-      color.contrast,
-      0, 0, 0
-    ]);
-    if (this.uniformTracker.hasChanged('color', colorData)) {
-      device.queue.writeBuffer(buffers.color, 0, colorData);
-    }
-
-    const crtData = new Float32Array([
-      crt.resolution[0], crt.resolution[1],
-      crt.scaleFactor,
-      crt.scanlineStrength,
-      crt.pixelMaskStrength,
-      crt.bloomStrength,
-      crt.curvature,
-      crt.vignetteStrength
-    ]);
-    if (this.uniformTracker.hasChanged('crt', crtData)) {
-      device.queue.writeBuffer(buffers.crt, 0, crtData);
+      if (this.uniformTracker.hasChanged(pass.passId, uniformData)) {
+        device.queue.writeBuffer(buffer, 0, uniformData as unknown as ArrayBuffer);
+      }
     }
   }
 
@@ -473,13 +344,11 @@ export class WebGPUPipeline extends BasePipeline {
   protected onResize(): void {
     if (!this.device || !this.context) return;
 
-    this.intermediateTextures.forEach(tex => tex.destroy());
+    this.intermediateTextures.forEach((texture) => texture.destroy());
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
 
-    const { upscale } = this.uniforms;
-    const [targetWidth, targetHeight] = upscale.outputSize;
-
+    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
     for (let i = 0; i < 2; i++) {
       const texture = this.device.createTexture({
         label: `Intermediate Texture ${i}`,
@@ -505,17 +374,32 @@ export class WebGPUPipeline extends BasePipeline {
     return createImageBitmap(this.canvas as ImageBitmapSource);
   }
 
+  clearFrame(): void {
+    if (!this.device || !this.context || this.hasError) return;
+
+    const commandEncoder = this.device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: this.context.getCurrentTexture().createView(),
+        loadOp: 'clear',
+        storeOp: 'store',
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }
+      }]
+    });
+    passEncoder.end();
+    this.device.queue.submit([commandEncoder.finish()]);
+  }
+
   releaseResources(): void {
     this.sourceTexture?.destroy();
     this.sourceTexture = null;
-    this.intermediateTextures.forEach(tex => tex.destroy());
+
+    this.intermediateTextures.forEach((texture) => texture.destroy());
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
 
-    if (this.uniformBuffers) {
-      Object.values(this.uniformBuffers).forEach(buf => buf.destroy());
-      this.uniformBuffers = null;
-    }
+    this.uniformBuffers?.forEach((buffer) => buffer.destroy());
+    this.uniformBuffers = null;
 
     this.bindGroupCache.invalidate();
     this._isActive = false;
@@ -523,12 +407,11 @@ export class WebGPUPipeline extends BasePipeline {
 
   async dispose(): Promise<void> {
     this.releaseResources();
+
     this.device?.destroy();
     this.device = null;
     this.context = null;
     this.renderPipelines = null;
-    this.shaderModules = null;
-    this.crtLcdBindGroupLayout = null;
     this.nearestSampler = null;
     this.linearSampler = null;
     this._isInitialized = false;

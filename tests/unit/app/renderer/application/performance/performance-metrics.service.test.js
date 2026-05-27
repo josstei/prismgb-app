@@ -4,21 +4,18 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service.ts';
+import { createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('PerformanceMetricsService', () => {
   let service;
   let mockLogger;
+  let mockLoggerFactory;
   let mockMetricsAdapter;
 
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockMetricsAdapter = {
       isAvailable: vi.fn(() => false),
@@ -26,9 +23,10 @@ describe('PerformanceMetricsService', () => {
     };
 
     service = new PerformanceMetricsService({
-      loggerFactory: { create: vi.fn(() => mockLogger) },
+      loggerFactory: mockLoggerFactory,
       metricsAdapter: mockMetricsAdapter
     });
+    mockLogger = mockLoggerFactory._getLogger('PerformanceMetricsService');
   });
 
   afterEach(() => {
@@ -64,6 +62,14 @@ describe('PerformanceMetricsService', () => {
 
     it('should handle undefined payload', () => {
       service.requestSnapshot();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('snapshot')
+      );
+    });
+
+    it('should handle null payload', () => {
+      service.requestSnapshot(null);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('snapshot')

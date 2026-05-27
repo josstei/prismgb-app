@@ -5,6 +5,17 @@
  * Use these factories instead of inline mocks for consistency.
  */
 
+import { createAppState } from './app-state.factory.js';
+import { createDeviceService, createAdapterFactory } from './device.factory.js';
+import { createEventBus } from './event-bus.factory.js';
+import { createLoggerFactory } from './logger.factory.js';
+import { createStreamingService } from './stream.factory.js';
+import { createStorageService } from './storage.factory.js';
+import { createUIController } from './ui.factory.js';
+import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
+import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { vi } from 'vitest';
+
 // EventBus factories
 export {
   createEventBus,
@@ -38,6 +49,38 @@ export {
   StreamingState,
 } from './stream.factory.js';
 
+// Storage factories
+export {
+  createStorageService,
+} from './storage.factory.js';
+
+export function createSettingsServiceHarness(overrides = {}) {
+  const eventBus = overrides.eventBus ?? createEventBus();
+  const loggerFactory = overrides.loggerFactory ?? createLoggerFactory();
+  const storageService = overrides.storageService ?? createStorageService(overrides.initialValues);
+  const service = new SettingsService({ eventBus, loggerFactory, storageService });
+  return { service, eventBus, loggerFactory, storageService, storage: storageService, logger: loggerFactory._getLogger('SettingsService') };
+}
+
+export function createSettingsServiceMock(overrides = {}) {
+  const { values: overrideValues = {}, ...methodOverrides } = overrides;
+  const values = {
+    ...Object.fromEntries(SettingsDefinitions.definitions.map((definition) => [definition.name, definition.default])),
+    ...overrideValues
+  };
+  const read = (name) => values[name];
+  return {
+    getNumberSetting: vi.fn((name) => Number(read(name))),
+    getBooleanSetting: vi.fn((name) => read(name) === true || read(name) === 'true'),
+    getStringSetting: vi.fn((name) => String(read(name))),
+    setSetting: vi.fn((name, value) => {
+      values[name] = value;
+      return true;
+    }),
+    ...methodOverrides
+  };
+}
+
 // AppState factories
 export {
   createAppState,
@@ -62,13 +105,6 @@ export {
  * @returns {Object} All mock dependencies
  */
 export function createMockDependencies(overrides = {}) {
-  const { createEventBus } = require('./event-bus.factory.js');
-  const { createLoggerFactory } = require('./logger.factory.js');
-  const { createAppState } = require('./app-state.factory.js');
-  const { createUIController } = require('./ui.factory.js');
-  const { createStreamingService } = require('./stream.factory.js');
-  const { createDeviceService, createAdapterFactory } = require('./device.factory.js');
-
   return {
     eventBus: createEventBus(),
     loggerFactory: createLoggerFactory(),

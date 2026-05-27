@@ -4,28 +4,28 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
+import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('ReducedMotionAdapter', () => {
   let adapter;
   let mockMediaQuery;
+  let matchMediaMock;
 
   beforeEach(() => {
     adapter = new ReducedMotionAdapter();
 
-    // Mock matchMedia
     mockMediaQuery = {
       matches: false,
       addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn()
+      removeEventListener: vi.fn()
     };
 
-    global.window.matchMedia = vi.fn(() => mockMediaQuery);
+    matchMediaMock = installMatchMediaMock({ mediaQuery: mockMediaQuery });
   });
 
   afterEach(() => {
     adapter.dispose();
+    matchMediaMock?.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -42,7 +42,7 @@ describe('ReducedMotionAdapter', () => {
 
     it('should call matchMedia with correct query', () => {
       adapter.prefersReducedMotion();
-      expect(window.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
+      expect(matchMediaMock.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
     });
   });
 
@@ -63,31 +63,6 @@ describe('ReducedMotionAdapter', () => {
       adapter.onChange(callback);
 
       expect(mockMediaQuery.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
-      expect(mockMediaQuery.addListener).not.toHaveBeenCalled();
-    });
-
-    it('should use addListener as fallback if addEventListener not available', () => {
-      delete mockMediaQuery.addEventListener;
-      delete mockMediaQuery.removeEventListener;
-
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      expect(mockMediaQuery.addListener).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    it('should call callback when preference changes through addListener fallback', () => {
-      delete mockMediaQuery.addEventListener;
-      delete mockMediaQuery.removeEventListener;
-
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      // Simulate change event
-      const changeHandler = mockMediaQuery.addListener.mock.calls[0][0];
-      changeHandler({ matches: true });
-
-      expect(callback).toHaveBeenCalledWith(true);
     });
 
     it('should return cleanup function', () => {
@@ -109,16 +84,15 @@ describe('ReducedMotionAdapter', () => {
       );
     });
 
-    it('should remove listener when cleanup is called for addListener fallback', () => {
+    it('should return a no-op cleanup when change events are unavailable', () => {
       delete mockMediaQuery.addEventListener;
       delete mockMediaQuery.removeEventListener;
 
       const callback = vi.fn();
       const cleanup = adapter.onChange(callback);
 
-      cleanup();
-
-      expect(mockMediaQuery.removeListener).toHaveBeenCalledWith(expect.any(Function));
+      expect(() => cleanup()).not.toThrow();
+      expect(callback).not.toHaveBeenCalled();
     });
   });
 
@@ -133,18 +107,6 @@ describe('ReducedMotionAdapter', () => {
         'change',
         expect.any(Function)
       );
-    });
-
-    it('should remove event listener for addListener fallback', () => {
-      delete mockMediaQuery.addEventListener;
-      delete mockMediaQuery.removeEventListener;
-
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      adapter.dispose();
-
-      expect(mockMediaQuery.removeListener).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should handle multiple dispose calls safely', () => {

@@ -1,8 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;
@@ -14,12 +13,9 @@ export interface WindowHandlerDependencies {
   logger: Logger;
 }
 
-export const windowHandlerDescriptors = defineIpcHandlers<WindowHandlerDependencies>([
+export const windowHandlerDescriptors = defineManifestIpcHandlers<WindowHandlerDependencies>('windowAPI', [
   {
-    channel: IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
-    dependencyTokens: ['windowService', 'logger'],
-    argumentSchema: ['enabled:boolean'],
-    responseMode: 'result-envelope',
+    method: 'setFullScreen',
     async invoke(
       { windowService, logger }: WindowHandlerDependencies,
       _event: IpcMainInvokeEvent,
@@ -36,10 +32,7 @@ export const windowHandlerDescriptors = defineIpcHandlers<WindowHandlerDependenc
     }
   },
   {
-    channel: IPC_CHANNELS.WINDOW.IS_FULLSCREEN,
-    dependencyTokens: ['windowService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'bare',
+    method: 'isFullScreen',
     invoke({ windowService }: WindowHandlerDependencies) {
       return windowService.isFullScreen();
     },

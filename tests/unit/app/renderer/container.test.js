@@ -7,7 +7,7 @@ import {
   initializeContainer,
   resetContainer
 } from '@renderer/application/container.ts';
-import { clearPreloadApi, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
 
 const expectedRegistrationKeys = [
   'eventBus',
@@ -21,7 +21,7 @@ const expectedRegistrationKeys = [
   'deviceIpcAdapter',
   'deviceChangeDebounceAdapter',
   'animationCache',
-  'canvasRenderer',
+  'canvasRenderLoopService',
   'viewportService',
   'canvasLifecycleService',
   'gpuRenderLoopService',
@@ -79,15 +79,15 @@ const expectedRegistrationKeys = [
 
 describe('Renderer container', () => {
   beforeEach(() => {
-    setPreloadApi('deviceAPI', { test: true });
+    setPreloadApi('deviceAPI', createPreloadApiMock('deviceAPI'));
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
-    resetContainer();
+    await resetContainer();
     clearPreloadApi('deviceAPI');
   });
 
@@ -128,10 +128,10 @@ describe('Renderer container', () => {
     expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');
   });
 
-  it('disposes and clears container state on reset', () => {
+  it('disposes and clears container state on reset', async () => {
     const container = initializeContainer();
     const disposeSpy = vi.spyOn(container, 'dispose');
-    resetContainer();
+    await resetContainer();
 
     expect(disposeSpy).toHaveBeenCalled();
     expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');

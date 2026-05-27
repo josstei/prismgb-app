@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createDomListenerManager } from '@/shared/base/dom-listener.utils.js';
+import { createLogger } from '../../../factories/index.js';
 
 describe('DomListenerManager', () => {
   let manager;
@@ -11,9 +12,7 @@ describe('DomListenerManager', () => {
   let mockElement;
 
   beforeEach(() => {
-    mockLogger = {
-      warn: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DomListenerManager' });
     mockElement = {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()

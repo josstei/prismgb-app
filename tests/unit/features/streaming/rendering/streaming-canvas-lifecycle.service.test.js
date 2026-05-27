@@ -6,6 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  installDocumentCreateElementMock,
+  installGetComputedStyleMock
+} from '../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingCanvasLifecycleService', () => {
   let service;
@@ -19,6 +24,8 @@ describe('StreamingCanvasLifecycleService', () => {
   let mockCanvas;
   let mockContainer;
   let mockSection;
+  let createElementMock;
+  let getComputedStyleMock;
 
   beforeEach(() => {
     // Create mock canvas and container
@@ -70,57 +77,32 @@ describe('StreamingCanvasLifecycleService', () => {
       resize: vi.fn()
     };
 
-    // Create mock EventBus
-    mockEventBus = {
-      subscribe: vi.fn(),
-      publish: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('StreamingCanvasLifecycleService');
 
-    // Create mock logger
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    // Mock window
-    global.window = {
-      getComputedStyle: vi.fn().mockReturnValue({
-        position: 'absolute',
-        top: '0px',
-        left: '0px',
-        transform: 'none'
-      })
-    };
-
-    // Mock document
-    global.document = {
-      createElement: vi.fn().mockImplementation(() => ({
-        id: '',
-        className: '',
-        style: {}
-      }))
-    };
+    getComputedStyleMock = installGetComputedStyleMock(() => ({
+      position: 'absolute',
+      top: '0px',
+      left: '0px',
+      transform: 'none'
+    }));
+    createElementMock = installDocumentCreateElementMock();
 
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    createElementMock.cleanup();
+    getComputedStyleMock.cleanup();
     vi.restoreAllMocks();
-    delete global.window;
-    delete global.document;
   });
 
   describe('Constructor', () => {
     it('should store required dependencies', () => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -128,7 +110,7 @@ describe('StreamingCanvasLifecycleService', () => {
       });
 
       expect(service.streamViewService).toBe(mockStreamViewService);
-      expect(service.canvasRenderer).toBe(mockCanvasRenderer);
+      expect(service.canvasRenderLoopService).toBe(mockCanvasRenderer);
       expect(service.viewportService).toBe(mockViewportService);
       expect(service.gpuRendererService).toBe(mockGpuRendererService);
     });
@@ -136,7 +118,7 @@ describe('StreamingCanvasLifecycleService', () => {
     it('should initialize state properties', () => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -152,7 +134,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -174,7 +156,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -182,7 +164,7 @@ describe('StreamingCanvasLifecycleService', () => {
       });
     });
 
-    it('should recreate canvas and setup size', () => {
+    it('should recreate canvas and setup size', async () => {
       const recreateSpy = vi.spyOn(service, 'recreateCanvas');
       const setupSpy = vi.spyOn(service, 'setupCanvasSize');
 
@@ -194,7 +176,7 @@ describe('StreamingCanvasLifecycleService', () => {
         replaceChild: vi.fn()
       };
 
-      service.handleCanvasExpired();
+      await service.handleCanvasExpired();
 
       expect(recreateSpy).toHaveBeenCalled();
       expect(setupSpy).toHaveBeenCalledWith({ width: 160, height: 144 }, true);
@@ -205,7 +187,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -224,7 +206,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -287,7 +269,7 @@ describe('StreamingCanvasLifecycleService', () => {
       expect(mockCanvas.style.height).toBe('576px');
     });
 
-    it('should resize via canvasRenderer when canvas is not transferred', () => {
+    it('should resize via canvasRenderLoopService when canvas is not transferred', () => {
       mockGpuRendererService.isCanvasTransferred.mockReturnValue(false);
 
       service.setupCanvasSize({ width: 160, height: 144 });
@@ -319,7 +301,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,
@@ -327,23 +309,23 @@ describe('StreamingCanvasLifecycleService', () => {
       });
     });
 
-    it('should return early if old canvas is missing', () => {
+    it('should return early if old canvas is missing', async () => {
       mockStreamViewService.getCanvas.mockReturnValue(null);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
-      expect(global.document.createElement).not.toHaveBeenCalled();
+      expect(createElementMock.createElement).not.toHaveBeenCalled();
     });
 
-    it('should return early if parent element is missing', () => {
+    it('should return early if parent element is missing', async () => {
       mockCanvas.parentElement = null;
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
-      expect(global.document.createElement).not.toHaveBeenCalled();
+      expect(createElementMock.createElement).not.toHaveBeenCalled();
     });
 
-    it('should create new canvas with same id and class', () => {
+    it('should create new canvas with same id and class', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
@@ -354,16 +336,16 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
-      expect(global.document.createElement).toHaveBeenCalledWith('canvas');
+      expect(createElementMock.createElement).toHaveBeenCalledWith('canvas');
       expect(newCanvas.id).toBe('canvas-id');
       expect(newCanvas.className).toBe('canvas-class');
     });
 
-    it('should copy computed styles to new canvas', () => {
+    it('should copy computed styles to new canvas', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
@@ -374,18 +356,18 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
-      expect(global.window.getComputedStyle).toHaveBeenCalledWith(mockCanvas);
+      expect(getComputedStyleMock.getComputedStyle).toHaveBeenCalledWith(mockCanvas);
       expect(newCanvas.style.position).toBe('absolute');
       expect(newCanvas.style.top).toBe('0px');
       expect(newCanvas.style.left).toBe('0px');
       expect(newCanvas.style.transform).toBe('none');
     });
 
-    it('should replace old canvas with new one', () => {
+    it('should replace old canvas with new one', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
@@ -396,14 +378,14 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
       expect(mockParent.replaceChild).toHaveBeenCalledWith(newCanvas, mockCanvas);
     });
 
-    it('should update streamViewService with new canvas', () => {
+    it('should update streamViewService with new canvas', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
@@ -414,26 +396,26 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
       expect(mockStreamViewService.setCanvas).toHaveBeenCalledWith(newCanvas);
     });
 
-    it('should reset canvas state and dimensions', () => {
+    it('should reset canvas state and dimensions', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
       mockCanvas.parentElement = mockParent;
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
       expect(mockCanvasRenderer.resetCanvasState).toHaveBeenCalled();
       expect(mockViewportService.resetDimensions).toHaveBeenCalled();
     });
 
-    it('should publish CANVAS_RECREATED event', () => {
+    it('should publish CANVAS_RECREATED event', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
@@ -444,9 +426,9 @@ describe('StreamingCanvasLifecycleService', () => {
         className: '',
         style: {}
       };
-      global.document.createElement.mockReturnValue(newCanvas);
+      createElementMock.createElement.mockReturnValue(newCanvas);
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.RENDER.CANVAS_RECREATED,
@@ -454,13 +436,13 @@ describe('StreamingCanvasLifecycleService', () => {
       );
     });
 
-    it('should log recreation', () => {
+    it('should log recreation', async () => {
       const mockParent = {
         replaceChild: vi.fn()
       };
       mockCanvas.parentElement = mockParent;
 
-      service.recreateCanvas();
+      await service.recreateCanvas();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Canvas element recreated for next GPU session');
     });
@@ -470,7 +452,7 @@ describe('StreamingCanvasLifecycleService', () => {
     beforeEach(() => {
       service = new StreamingCanvasLifecycleService({
         streamViewService: mockStreamViewService,
-        canvasRenderer: mockCanvasRenderer,
+        canvasRenderLoopService: mockCanvasRenderer,
         viewportService: mockViewportService,
         gpuRendererService: mockGpuRendererService,
         eventBus: mockEventBus,

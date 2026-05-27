@@ -1,170 +1,224 @@
-/**
- * UI Event Bridge
- *
- * Bridges between EventBus events and UIController
- * Decouples orchestrators from direct UI manipulation
- *
- * This class subscribes to UI-related events published by orchestrators
- * and delegates to UIController methods, providing a clean separation
- * between business logic and UI concerns.
- */
-
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type {
+  TypedEventBusLike,
+  UiButtonFeedbackPayload
+} from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
-export class UIEventBridge extends BaseService {
+type UiControllerLike = {
+  updateStatusMessage(message: string, type?: string): void;
+  updateDeviceStatus(status: unknown): void;
+  updateOverlayMessage(deviceConnected?: boolean): void;
+  showErrorOverlay(message: string): void;
+  updateStreamInfo(settings: unknown): void;
+  triggerShutterFlash(): void;
+  triggerRecordButtonPop(): void;
+  triggerRecordButtonPress(): void;
+  triggerButtonFeedback(elementKey: string, className: string, duration: number): void;
+  updateRecordingButtonState(active: boolean): void;
+  setRecordButtonDisabled(disabled: boolean): void;
+  deviceStatus?: {
+    setOverlayVisible(visible: boolean): void;
+  } | null;
+};
 
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
+type PresentationModeServiceLike = {
+  handleStreamingMode(enabled: boolean): void;
+  handleCinematicModeChanged(enabled: boolean): void;
+  handleMinimalistFullscreenChanged(enabled: boolean): void;
+  handleFullscreenState(active: boolean): void;
+};
 
-    // Track subscriptions for cleanup
-    this._subscriptions = [];
+type UIEventBridgeDependencies = {
+  eventBus: TypedEventBusLike;
+  uiController: UiControllerLike;
+  presentationModeService: PresentationModeServiceLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
+function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
+  if (typeof data !== 'object' || data === null || !(key in data)) {
+    return null;
   }
 
-  /**
-   * Initialize event subscriptions
-   */
-  initialize() {
-    this._subscribeToEvents();
+  const value = (data as Record<string, unknown>)[key];
+  return typeof value === 'boolean' ? value : null;
+}
+
+export class UIEventBridge extends BaseService {
+  private static readonly eventDescriptors = [
+    [EventChannels.UI.STATUS_MESSAGE, (bridge, data) => bridge._handleStatusMessage(data)],
+    [EventChannels.UI.DEVICE_STATUS, (bridge, data) => bridge._handleDeviceStatus(data)],
+    [EventChannels.UI.OVERLAY_MESSAGE, (bridge, data) => bridge._handleOverlayMessage(data)],
+    [EventChannels.UI.OVERLAY_VISIBLE, (bridge, data) => bridge._handleOverlayVisible(data)],
+    [EventChannels.UI.OVERLAY_ERROR, (bridge, data) => bridge._handleOverlayError(data)],
+    [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
+    [EventChannels.UI.STREAM_INFO, (bridge, data) => bridge._handleStreamInfo(data)],
+    [EventChannels.UI.SHUTTER_FLASH, (bridge) => bridge._handleShutterFlash()],
+    [EventChannels.UI.RECORD_BUTTON_POP, (bridge) => bridge._handleRecordButtonPop()],
+    [EventChannels.UI.RECORD_BUTTON_PRESS, (bridge) => bridge._handleRecordButtonPress()],
+    [EventChannels.UI.BUTTON_FEEDBACK, (bridge, data) => bridge._handleButtonFeedback(data)],
+    [EventChannels.UI.RECORDING_STATE, (bridge, data) => bridge._handleRecordingState(data)],
+    [EventChannels.UI.RECORD_BUTTON_DISABLED, (bridge) => bridge._handleRecordButtonDisabled()],
+    [EventChannels.UI.RECORD_BUTTON_ENABLED, (bridge) => bridge._handleRecordButtonEnabled()],
+    [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (bridge, data) => bridge._handleCinematicMode(data)],
+    [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (bridge, enabled) =>
+      bridge._handleMinimalistFullscreenChanged(enabled)],
+    [EventChannels.UI.FULLSCREEN_STATE, (bridge, data) => bridge._handleFullscreenState(data)]
+  ] satisfies readonly ServiceEventDescriptor<UIEventBridge>[];
+
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly uiController: UiControllerLike;
+  private readonly presentationModeService: PresentationModeServiceLike;
+
+  constructor(dependencies: UIEventBridgeDependencies) {
+    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
+
+    this.eventBus = dependencies.eventBus;
+    this.uiController = dependencies.uiController;
+    this.presentationModeService = dependencies.presentationModeService;
+  }
+
+  initialize(): void {
+    this.listenToDescriptors(UIEventBridge.eventDescriptors);
     this.logger.info('UIEventBridge initialized');
   }
 
-  /**
-   * Subscribe to all UI events
-   * @private
-   */
-  _subscribeToEvents() {
-    const eventHandlers = {
-      // Status messages
-      [EventChannels.UI.STATUS_MESSAGE]: (data) => this._handleStatusMessage(data),
-
-      // Device status
-      [EventChannels.UI.DEVICE_STATUS]: (data) => this._handleDeviceStatus(data),
-      [EventChannels.UI.OVERLAY_MESSAGE]: (data) => this._handleOverlayMessage(data),
-      [EventChannels.UI.OVERLAY_VISIBLE]: (data) => this._handleOverlayVisible(data),
-      [EventChannels.UI.OVERLAY_ERROR]: (data) => this._handleOverlayError(data),
-
-      // Streaming mode
-      [EventChannels.UI.STREAMING_MODE]: (data) => this._handleStreamingMode(data),
-      [EventChannels.UI.STREAM_INFO]: (data) => this._handleStreamInfo(data),
-
-      // Visual effects
-      [EventChannels.UI.SHUTTER_FLASH]: () => this._handleShutterFlash(),
-      [EventChannels.UI.RECORD_BUTTON_POP]: () => this._handleRecordButtonPop(),
-      [EventChannels.UI.RECORD_BUTTON_PRESS]: () => this._handleRecordButtonPress(),
-      [EventChannels.UI.BUTTON_FEEDBACK]: (data) => this._handleButtonFeedback(data),
-
-      // Recording state
-      [EventChannels.UI.RECORDING_STATE]: (data) => this._handleRecordingState(data),
-      [EventChannels.UI.RECORD_BUTTON_DISABLED]: () => this._handleRecordButtonDisabled(),
-      [EventChannels.UI.RECORD_BUTTON_ENABLED]: () => this._handleRecordButtonEnabled(),
-
-      // Settings events (translated to UI updates)
-      [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: (data) => this._handleCinematicMode(data),
-      [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: (enabled) => this._handleMinimalistFullscreenChanged(enabled),
-
-      // Fullscreen
-      [EventChannels.UI.FULLSCREEN_STATE]: (data) => this._handleFullscreenState(data)
-    };
-
-    // Subscribe to all events
-    for (const [event, handler] of Object.entries(eventHandlers)) {
-      const unsubscribe = this.eventBus.subscribe(event, handler);
-      this._subscriptions.push(unsubscribe);
-    }
-  }
-
-  _handleStatusMessage(data) {
-    const { message, type = 'info' } = data;
+  private _handleStatusMessage(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { message?: string; type?: string }
+      : {};
+    const message = typeof payload.message === 'string' ? payload.message : '';
+    const type = payload.type ?? 'info';
     this.uiController.updateStatusMessage(message, type);
   }
 
-  _handleDeviceStatus(data) {
-    const { status } = data;
+  private _handleDeviceStatus(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { status?: unknown }
+      : {};
+    const { status } = payload;
     this.uiController.updateDeviceStatus(status);
   }
 
-  _handleOverlayMessage(data) {
-    const { deviceConnected } = data;
+  private _handleOverlayMessage(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { deviceConnected?: unknown }
+      : {};
+    const deviceConnected = typeof payload.deviceConnected === 'boolean'
+      ? payload.deviceConnected
+      : undefined;
     this.uiController.updateOverlayMessage(deviceConnected);
   }
 
-  _handleOverlayVisible(data) {
-    const { visible } = data;
+  private _handleOverlayVisible(data: unknown): void {
+    const visible = getBooleanPayloadValue(data, 'visible');
+    if (visible === null) {
+      this.logger.warn('Ignoring invalid overlay visibility payload');
+      return;
+    }
     this.uiController.deviceStatus?.setOverlayVisible(visible);
   }
 
-  _handleOverlayError(data) {
-    const { message } = data;
+  private _handleOverlayError(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { message?: unknown }
+      : {};
+    const message = typeof payload.message === 'string' ? payload.message : '';
     this.uiController.showErrorOverlay(message);
   }
 
-  _handleStreamingMode(data) {
-    const { enabled } = data;
+  private _handleStreamingMode(data: unknown): void {
+    const enabled = getBooleanPayloadValue(data, 'enabled');
+    if (enabled === null) {
+      this.logger.warn('Ignoring invalid streaming mode payload');
+      return;
+    }
     this.presentationModeService.handleStreamingMode(enabled);
   }
 
-  _handleStreamInfo(data) {
-    const { settings } = data;
+  private _handleStreamInfo(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { settings?: unknown }
+      : {};
+    const { settings } = payload;
     this.uiController.updateStreamInfo(settings);
   }
 
-  _handleShutterFlash() {
+  private _handleShutterFlash(): void {
     this.uiController.triggerShutterFlash();
   }
 
-  _handleRecordButtonPop() {
+  private _handleRecordButtonPop(): void {
     this.uiController.triggerRecordButtonPop();
   }
 
-  _handleRecordButtonPress() {
+  private _handleRecordButtonPress(): void {
     this.uiController.triggerRecordButtonPress();
   }
 
-  _handleButtonFeedback(data) {
-    const { elementKey, className, duration } = data;
-    this.uiController.triggerButtonFeedback(elementKey, className, duration);
+  private _handleButtonFeedback(data: unknown): void {
+    const payload = typeof data === 'object' && data !== null
+      ? data as Partial<UiButtonFeedbackPayload>
+      : {};
+    if (!payload.elementKey) {
+      return;
+    }
+    this.uiController.triggerButtonFeedback(
+      payload.elementKey,
+      payload.className ?? 'active',
+      payload.duration ?? 200
+    );
   }
 
-  _handleRecordingState(data) {
-    const { active } = data;
+  private _handleRecordingState(data: unknown): void {
+    const active = getBooleanPayloadValue(data, 'active');
+    if (active === null) {
+      this.logger.warn('Ignoring invalid recording state payload');
+      return;
+    }
     this.uiController.updateRecordingButtonState(active);
   }
 
-  _handleRecordButtonDisabled() {
+  private _handleRecordButtonDisabled(): void {
     this.uiController.setRecordButtonDisabled(true);
   }
 
-  _handleRecordButtonEnabled() {
+  private _handleRecordButtonEnabled(): void {
     this.uiController.setRecordButtonDisabled(false);
   }
 
-  _handleCinematicMode(data) {
-    const { enabled } = data;
+  private _handleCinematicMode(data: unknown): void {
+    const enabled = getBooleanPayloadValue(data, 'enabled');
+    if (enabled === null) {
+      this.logger.warn('Ignoring invalid cinematic mode payload');
+      return;
+    }
     this.presentationModeService.handleCinematicModeChanged(enabled);
-    // Show status message (moved from CinematicModeService for separation of concerns)
     this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
   }
 
-  _handleMinimalistFullscreenChanged(enabled) {
+  private _handleMinimalistFullscreenChanged(enabled: unknown): void {
+    if (typeof enabled !== 'boolean') {
+      this.logger.warn('Ignoring invalid minimalist fullscreen payload');
+      return;
+    }
     this.presentationModeService.handleMinimalistFullscreenChanged(enabled);
   }
 
-  _handleFullscreenState(data) {
-    const { active } = data;
+  private _handleFullscreenState(data: unknown): void {
+    const active = getBooleanPayloadValue(data, 'active');
+    if (active === null) {
+      this.logger.warn('Ignoring invalid fullscreen state payload');
+      return;
+    }
     this.presentationModeService.handleFullscreenState(active);
   }
 
-  /**
-   * Dispose and cleanup subscriptions
-   */
-  dispose() {
-    for (const unsubscribe of this._subscriptions) {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    }
-    this._subscriptions = [];
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.logger.info('UIEventBridge disposed');
+    return disposed;
   }
 }

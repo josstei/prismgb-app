@@ -36,11 +36,12 @@
     "declaration": false,
     "declarationMap": false,
     "allowImportingTsExtensions": false,
-    "allowJs": true,
+    "allowJs": false,
     "checkJs": false
   },
   "include": [
     "src/main/**/*.ts",
+    "src/preload/**/*.ts",
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",
     "src/types/**/*.d.ts"

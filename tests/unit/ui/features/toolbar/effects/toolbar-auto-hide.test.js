@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect.ts';
+import { installMissingMutationObserverMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 describe('ToolbarAutoHide', () => {
   let autoHide;
@@ -357,14 +358,15 @@ describe('ToolbarAutoHide', () => {
     });
 
     it('should handle MutationObserver not available', () => {
-      const originalMutationObserver = globalThis.MutationObserver;
-      delete globalThis.MutationObserver;
+      const mutationObserverMock = installMissingMutationObserverMock();
 
-      autoHide.enable(toolbarElement);
+      try {
+        autoHide.enable(toolbarElement);
 
-      expect(autoHide._panelObserver).toBeNull();
-
-      globalThis.MutationObserver = originalMutationObserver;
+        expect(autoHide._panelObserver).toBeNull();
+      } finally {
+        mutationObserverMock.cleanup();
+      }
     });
 
     it('should handle null element gracefully', () => {

@@ -53,7 +53,7 @@ This document captures the naming and organization conventions used throughout P
 - Event channel names follow `domain:action` in kebab-case.
   - Shared event contract: `src/shared/events/event-channels.ts`.
   - Main event channels: `src/main/infrastructure/events/event-channels.config.ts`.
-  - IPC channels: `src/shared/ipc/channels.json`.
+  - IPC channels: `src/shared/ipc/ipc.manifest.json`, consumed through `src/shared/ipc/ipc.manifest.ts`.
 - localStorage keys use camelCase values. Settings keys live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
 
 ## Imports and Aliases

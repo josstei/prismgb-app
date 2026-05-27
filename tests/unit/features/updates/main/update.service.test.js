@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService, UpdateState } from '@main/infrastructure/updates/update.service.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -19,14 +20,16 @@ vi.mock('electron-updater', () => ({
     allowPrerelease: false,
     on: vi.fn(),
     removeAllListeners: vi.fn(),
+    removeListener: vi.fn(),
     checkForUpdates: vi.fn(),
     downloadUpdate: vi.fn(),
     quitAndInstall: vi.fn()
   }
 }));
 
-vi.mock('@shared/ipc/channels.js', () => ({
-  channels: {
+vi.mock('@shared/ipc/ipc.manifest.js', async (importActual) => ({
+  ...(await importActual()),
+  IPC_CHANNELS: {
     UPDATE: {
       AVAILABLE: 'update:available',
       NOT_AVAILABLE: 'update:not-available',
@@ -50,25 +53,13 @@ describe('UpdateService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockWindowService = {
       send: vi.fn()
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
+    mockEventBus = createEventBus();
 
     mockConfig = {
       isDevelopment: false,
@@ -81,11 +72,12 @@ describe('UpdateService', () => {
       loggerFactory: mockLoggerFactory,
       config: mockConfig
     });
+    mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (service._initialized) {
-      service.dispose();
+      await service.dispose();
     }
   });
 
@@ -518,21 +510,28 @@ describe('UpdateService', () => {
       vi.useRealTimers();
     });
 
-    it('should stop auto-check', () => {
+    it('should stop auto-check', async () => {
       service.startAutoCheck(60000);
-      service.dispose();
+      await service.dispose();
 
       expect(service._autoCheckIntervalId).toBeNull();
     });
 
-    it('should remove all listeners', () => {
-      service.dispose();
+    it('should remove only listeners owned by the update service', async () => {
+      await service.dispose();
 
-      expect(autoUpdater.removeAllListeners).toHaveBeenCalled();
+      expect(autoUpdater.removeAllListeners).not.toHaveBeenCalled();
+      expect(autoUpdater.removeListener).toHaveBeenCalledTimes(6);
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('checking-for-update', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-available', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-not-available', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('download-progress', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('update-downloaded', expect.any(Function));
+      expect(autoUpdater.removeListener).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
-    it('should set initialized to false', () => {
-      service.dispose();
+    it('should set initialized to false', async () => {
+      await service.dispose();
 
       expect(service._initialized).toBe(false);
     });

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
+import { createLogger } from '../../../../../factories/index.js';
 
 describe('DeviceChromaticAdapter', () => {
   let adapter;
@@ -27,12 +28,7 @@ describe('DeviceChromaticAdapter', () => {
       getStreamInfo: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DeviceChromaticAdapter' });
 
     adapter = new DeviceChromaticAdapter({
       ipcClient: mockIpcClient,

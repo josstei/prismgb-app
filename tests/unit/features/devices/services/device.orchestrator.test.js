@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;
@@ -11,7 +12,7 @@ describe('DeviceOrchestrator', () => {
   let mockDeviceIpcAdapter;
   let mockDeviceOperationSequencer;
   let mockEventBus;
-  let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockDeviceService = {
@@ -40,24 +41,15 @@ describe('DeviceOrchestrator', () => {
       getQueueDepth: vi.fn().mockReturnValue(0)
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     orchestrator = new DeviceOrchestrator({
       deviceService: mockDeviceService,
       deviceIpcAdapter: mockDeviceIpcAdapter,
       deviceOperationSequencer: mockDeviceOperationSequencer,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
   });
 

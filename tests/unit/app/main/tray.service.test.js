@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 vi.mock('electron', () => {
   return {
@@ -44,16 +45,7 @@ describe('TrayService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockWindowService = {
       showWindow: vi.fn()
@@ -69,6 +61,7 @@ describe('TrayService', () => {
       deviceService: mockDeviceService,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('TrayService');
   });
 
   afterEach(() => {

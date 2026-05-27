@@ -5,106 +5,61 @@
  * Note: Some fullscreen tests may be flaky in CI environments.
  */
 
-import { test, expect, waitForAppReady } from './fixtures/electron.fixture.js';
+import { test, expect } from './fixtures/electron.fixture.js';
+import { CHROMATIC_E2E_FIXTURE } from '../support/chromatic-device-specs.js';
 
-// Skip fullscreen tests in CI unless explicitly enabled
 const skipInCI = process.env.CI && !process.env.RUN_FULLSCREEN_TESTS;
+
+test.setTimeout(45000);
 
 test.describe('Fullscreen Mode', () => {
   test.skip(skipInCI, 'Fullscreen tests are disabled in CI by default');
 
-  test.beforeEach(async ({ window }) => {
-    await waitForAppReady(window);
+  test.beforeEach(async ({ appShell }) => {
+    await appShell.waitForReady();
   });
 
-  test('should have fullscreen button visible', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
-    await expect(fullscreenBtn).toBeVisible();
+  test('should have fullscreen button visible', async ({ appShell }) => {
+    await expect(appShell.fullscreenButton).toBeVisible();
   });
 
-  test('should have accessible fullscreen button', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
-
-    // Should have aria-label for screen readers
-    await expect(fullscreenBtn).toHaveAttribute('aria-label', /.+/);
+  test('should have accessible fullscreen button', async ({ appShell }) => {
+    await expect(appShell.fullscreenButton).toHaveAttribute('aria-label', /.+/);
   });
 
-  test('should toggle fullscreen on button click', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
+  test('should toggle fullscreen on button click', async ({ appShell }) => {
+    expect(await appShell.isFullscreen()).toBe(false);
 
-    // Check initial fullscreen state
-    const initialFullscreen = await window.evaluate(() =>
-      document.fullscreenElement !== null
-    );
-    expect(initialFullscreen).toBe(false);
+    await appShell.toggleFullscreenButton();
 
-    // Click fullscreen button
-    await fullscreenBtn.click();
-
-    // Wait for fullscreen to take effect
-    await window.waitForTimeout(500);
-
-    // Verify fullscreen state changed
-    const isFullscreen = await window.evaluate(() =>
-      document.fullscreenElement !== null
-    );
-
-    // Note: This may not work in all test environments
-    // Just verify no errors occurred
-    expect(typeof isFullscreen).toBe('boolean');
+    expect(typeof await appShell.isFullscreen()).toBe('boolean');
   });
 
-  test('should show fullscreen controls overlay when in fullscreen', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
-    await fullscreenBtn.click();
+  test('should show fullscreen controls overlay when in fullscreen', async ({ appShell }) => {
+    await appShell.toggleFullscreenButton();
 
-    // Wait for fullscreen transition
-    await window.waitForTimeout(500);
-
-    // Check for fullscreen controls container
-    const fullscreenControls = window.locator('#fullscreenControls');
-
-    // If fullscreen is supported and entered, controls should be attached
-    const controlsExist = (await fullscreenControls.count()) > 0;
+    const controlsExist = (await appShell.fullscreenControls.count()) > 0;
     expect(typeof controlsExist).toBe('boolean');
   });
 
-  test('should exit fullscreen with Escape key', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
+  test('should exit fullscreen with Escape key', async ({ appShell }) => {
+    await appShell.toggleFullscreenButton();
+    await appShell.pressEscape();
 
-    // Enter fullscreen
-    await fullscreenBtn.click();
-    await window.waitForTimeout(500);
-
-    // Press Escape
-    await window.keyboard.press('Escape');
-    await window.waitForTimeout(500);
-
-    // Should be back to normal mode
-    const isFullscreen = await window.evaluate(() =>
-      document.fullscreenElement !== null
-    );
-    expect(isFullscreen).toBe(false);
+    expect(await appShell.isFullscreen()).toBe(false);
   });
 
-  test('should exit fullscreen with exit button', async ({ window }) => {
-    const fullscreenBtn = window.locator('#fullscreenBtn');
+  test('should exit fullscreen with exit button', async ({ appShell }) => {
+    await appShell.toggleFullscreenButton();
 
-    // Enter fullscreen
-    await fullscreenBtn.click();
-    await window.waitForTimeout(500);
+    if (
+      (await appShell.fullscreenExitButton.count()) > 0
+      && (await appShell.fullscreenExitButton.isVisible())
+    ) {
+      await appShell.fullscreenExitButton.click({ force: true });
+      await appShell.page.waitForTimeout(500);
 
-    // Look for exit button in fullscreen controls
-    const exitBtn = window.locator('#fsExitBtn');
-
-    if ((await exitBtn.count()) > 0 && (await exitBtn.isVisible())) {
-      await exitBtn.click();
-      await window.waitForTimeout(500);
-
-      const isFullscreen = await window.evaluate(() =>
-        document.fullscreenElement !== null
-      );
-      expect(isFullscreen).toBe(false);
+      expect(await appShell.isFullscreen()).toBe(false);
     }
   });
 });
@@ -112,104 +67,67 @@ test.describe('Fullscreen Mode', () => {
 test.describe('Fullscreen Keyboard Shortcuts', () => {
   test.skip(skipInCI, 'Fullscreen tests are disabled in CI by default');
 
-  test.beforeEach(async ({ window }) => {
-    await waitForAppReady(window);
+  test.beforeEach(async ({ appShell }) => {
+    await appShell.waitForReady();
   });
 
-  test('should toggle fullscreen with F11', async ({ window }) => {
-    // Press F11
-    await window.keyboard.press('F11');
-    await window.waitForTimeout(500);
+  test('should toggle fullscreen with F11', async ({ appShell }) => {
+    await appShell.pressF11();
 
-    // Check if fullscreen state changed (may be handled by OS or app)
-    const isFullscreen = await window.evaluate(() =>
-      document.fullscreenElement !== null
-    );
-
-    // Just verify no crash - F11 behavior varies by platform
-    expect(typeof isFullscreen).toBe('boolean');
+    expect(typeof await appShell.isFullscreen()).toBe('boolean');
   });
 
-  test('should handle double-click on video area for fullscreen', async ({ window }) => {
-    const streamCanvas = window.locator('#streamCanvas');
-
-    // Ensure canvas exists and is visible
-    const canvasCount = await streamCanvas.count();
+  test('should handle double-click on video area for fullscreen', async ({ appShell, streamPage }) => {
+    const canvasCount = await streamPage.canvas.count();
     if (canvasCount === 0) {
-      // Skip if canvas doesn't exist
       return;
     }
 
-    // Get canvas bounding box to ensure it's clickable
-    const box = await streamCanvas.boundingBox();
+    const box = await streamPage.canvas.boundingBox();
     if (!box || box.width === 0 || box.height === 0) {
-      // Skip if canvas has no dimensions
       return;
     }
 
-    // Double-click on canvas (if fullscreen on double-click is enabled)
-    // Use click position in center of element
-    // Force click because canvas may be covered by overlay or have special visibility
-    await streamCanvas.dblclick({
+    await streamPage.canvas.dblclick({
       position: { x: box.width / 2, y: box.height / 2 },
       timeout: 5000,
       force: true
     });
-    await window.waitForTimeout(500);
+    await appShell.page.waitForTimeout(500);
 
-    // Just verify no crash - behavior may vary
-    const isFullscreen = await window.evaluate(() =>
-      document.fullscreenElement !== null
-    );
-    expect(typeof isFullscreen).toBe('boolean');
+    expect(typeof await appShell.isFullscreen()).toBe('boolean');
   });
 });
 
 test.describe('Fullscreen UI Adaptations', () => {
   test.skip(skipInCI, 'Fullscreen tests are disabled in CI by default');
 
-  test.beforeEach(async ({ window }) => {
-    await waitForAppReady(window);
+  test.beforeEach(async ({ appShell }) => {
+    await appShell.waitForReady();
   });
 
-  test('should apply fullscreen-specific styles', async ({ window }) => {
-    const streamContainer = window.locator('#streamContainer');
+  test('should apply fullscreen-specific styles', async ({ appShell }) => {
+    const initialClasses = await appShell.streamContainer.getAttribute('class');
 
-    // Get initial classes
-    const initialClasses = await streamContainer.getAttribute('class');
+    await appShell.toggleFullscreenButton();
 
-    // Enter fullscreen
-    const fullscreenBtn = window.locator('#fullscreenBtn');
-    await fullscreenBtn.click();
-    await window.waitForTimeout(500);
+    const fullscreenClasses = await appShell.streamContainer.getAttribute('class');
 
-    // Classes may change in fullscreen mode
-    const fullscreenClasses = await streamContainer.getAttribute('class');
-
-    // Just verify no errors - class changes depend on implementation
+    expect(typeof initialClasses).toBe('string');
     expect(typeof fullscreenClasses).toBe('string');
   });
 
-  test('should maintain canvas aspect ratio in fullscreen', async ({ window }) => {
-    const canvas = window.locator('#streamCanvas');
+  test('should maintain canvas aspect ratio in fullscreen', async ({ appShell, streamPage }) => {
+    const initialBox = await streamPage.canvas.boundingBox();
 
-    // Get initial dimensions
-    const initialBox = await canvas.boundingBox();
+    await appShell.toggleFullscreenButton();
 
-    // Enter fullscreen
-    const fullscreenBtn = window.locator('#fullscreenBtn');
-    await fullscreenBtn.click();
-    await window.waitForTimeout(500);
-
-    // Get fullscreen dimensions
-    const fullscreenBox = await canvas.boundingBox();
+    const fullscreenBox = await streamPage.canvas.boundingBox();
 
     if (fullscreenBox && initialBox) {
-      // Canvas should maintain Game Boy aspect ratio (10:9 for 160x144)
       const aspectRatio = fullscreenBox.width / fullscreenBox.height;
-      const expectedRatio = 160 / 144; // ~1.11
+      const expectedRatio = CHROMATIC_E2E_FIXTURE.display.aspectRatio;
 
-      // Allow some tolerance for CSS adjustments
       expect(aspectRatio).toBeGreaterThan(expectedRatio * 0.8);
       expect(aspectRatio).toBeLessThan(expectedRatio * 1.5);
     }

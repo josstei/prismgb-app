@@ -1,36 +1,47 @@
-/**
- * Application Orchestrator
- *
- * THIN coordinator that wires sub-orchestrators together
- * Should be <100 lines - delegates ALL business logic to domain orchestrators
- *
- * Responsibilities:
- * - Initialize and coordinate all sub-orchestrators
- * - Wire high-level cross-orchestrator events
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type LifecycleOrchestrator = {
+  initialize(): Promise<void> | void;
+  cleanup(): Promise<void> | void;
+};
+
+type UISetupOrchestratorLike = LifecycleOrchestrator & {
+  initializeDeferredComponents(): void;
+  setupUIEventListeners(): void;
+};
+
+type AppOrchestratorDependencies = {
+  deviceOrchestrator: LifecycleOrchestrator;
+  streamingOrchestrator: LifecycleOrchestrator;
+  streamingAudioOrchestrator: LifecycleOrchestrator;
+  captureOrchestrator: LifecycleOrchestrator;
+  preferencesOrchestrator: LifecycleOrchestrator;
+  displayModeOrchestrator: LifecycleOrchestrator;
+  updateOrchestrator: LifecycleOrchestrator;
+  uiSetupOrchestrator: UISetupOrchestratorLike;
+  animationPerformanceOrchestrator: LifecycleOrchestrator;
+  performanceMetricsOrchestrator: LifecycleOrchestrator;
+  performanceStateOrchestrator: LifecycleOrchestrator;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 export class AppOrchestrator extends BaseOrchestrator {
+  private readonly deviceOrchestrator: LifecycleOrchestrator;
+  private readonly streamingOrchestrator: LifecycleOrchestrator;
+  private readonly streamingAudioOrchestrator: LifecycleOrchestrator;
+  private readonly captureOrchestrator: LifecycleOrchestrator;
+  private readonly preferencesOrchestrator: LifecycleOrchestrator;
+  private readonly displayModeOrchestrator: LifecycleOrchestrator;
+  private readonly updateOrchestrator: LifecycleOrchestrator;
+  private readonly uiSetupOrchestrator: UISetupOrchestratorLike;
+  private readonly animationPerformanceOrchestrator: LifecycleOrchestrator;
+  private readonly performanceMetricsOrchestrator: LifecycleOrchestrator;
+  private readonly performanceStateOrchestrator: LifecycleOrchestrator;
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management
-   * @param {StreamingOrchestrator} dependencies.streamingOrchestrator - Stream management
-   * @param {StreamingAudioOrchestrator} dependencies.streamingAudioOrchestrator - Audio stream lifecycle
-   * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
-   * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
-   * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
-   * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
-   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
-   * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
-   * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
-   * @param {PerformanceStateOrchestrator} dependencies.performanceStateOrchestrator - Performance state fan-out
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   */
-  constructor(dependencies) {
+  constructor(dependencies: AppOrchestratorDependencies) {
     super(
       dependencies,
       [
@@ -50,14 +61,21 @@ export class AppOrchestrator extends BaseOrchestrator {
       ],
       'AppOrchestrator'
     );
+    this.deviceOrchestrator = dependencies.deviceOrchestrator;
+    this.streamingOrchestrator = dependencies.streamingOrchestrator;
+    this.streamingAudioOrchestrator = dependencies.streamingAudioOrchestrator;
+    this.captureOrchestrator = dependencies.captureOrchestrator;
+    this.preferencesOrchestrator = dependencies.preferencesOrchestrator;
+    this.displayModeOrchestrator = dependencies.displayModeOrchestrator;
+    this.updateOrchestrator = dependencies.updateOrchestrator;
+    this.uiSetupOrchestrator = dependencies.uiSetupOrchestrator;
+    this.animationPerformanceOrchestrator = dependencies.animationPerformanceOrchestrator;
+    this.performanceMetricsOrchestrator = dependencies.performanceMetricsOrchestrator;
+    this.performanceStateOrchestrator = dependencies.performanceStateOrchestrator;
+    this.eventBus = dependencies.eventBus;
   }
 
-  /**
-   * Initialize all sub-orchestrators in order
-   * Wires high-level events before initializing to catch early events.
-   * @override
-   */
-  async onInitialize() {
+  async onInitialize(): Promise<void> {
     // Wire high-level events FIRST (before sub-orchestrators emit events)
     this._wireHighLevelEvents();
 
@@ -81,14 +99,11 @@ export class AppOrchestrator extends BaseOrchestrator {
    * Start the application
    * Initializes UI components and sets up event listeners.
    */
-  async start() {
+  async start(): Promise<void> {
     this.logger.info('Starting application orchestrator...');
 
     // Delegate UI setup to UISetupOrchestrator
-    this.uiSetupOrchestrator.initializeSettingsMenu();
-    this.uiSetupOrchestrator.initializeShaderSelector();
-    this.uiSetupOrchestrator.initializeNotesPanel();
-    this.uiSetupOrchestrator.setupOverlayClickHandlers();
+    this.uiSetupOrchestrator.initializeDeferredComponents();
     this.uiSetupOrchestrator.setupUIEventListeners();
 
     // Note: Preferences are loaded in PreferencesOrchestrator.onInitialize()
@@ -96,27 +111,34 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('Application orchestrator started');
   }
 
-  /**
-   * Wire high-level events across orchestrators
-   * @private
-   */
-  _wireHighLevelEvents() {
+  _wireHighLevelEvents(): void {
     this.subscribeWithCleanup({
       [EventChannels.DEVICE.STATUS_CHANGED]: (status) => this._handleDeviceStatusChanged(status),
-      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data: { reason?: string; error?: string }) => {
-        const message = data.reason === 'webcam_access'
+      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data) => {
+        const payload = (typeof data === 'object' && data !== null
+          ? data as { reason?: unknown; error?: unknown }
+          : {});
+        const reason = typeof payload.reason === 'string' ? payload.reason : '';
+        const error = typeof payload.error === 'string' ? payload.error : 'Unknown error';
+        const message = reason === 'webcam_access'
           ? 'Camera access denied. Please allow camera permissions.'
-          : `Device error: ${data.error}`;
+          : `Device error: ${error}`;
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
       }
     });
   }
 
-  /**
-   * Handle device status changed
-   * @private
-   */
-  _handleDeviceStatusChanged(status) {
+  _handleDeviceStatusChanged(status: unknown): void {
+    if (
+      typeof status !== 'object' ||
+      status === null ||
+      !('connected' in status) ||
+      typeof status.connected !== 'boolean'
+    ) {
+      this.logger.warn('Ignoring invalid device status payload');
+      return;
+    }
+
     const connected = status.connected;
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
@@ -137,16 +159,11 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Cleanup all sub-orchestrators
-   * Continues cleanup even if individual orchestrators fail.
-   * @override
-   */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up AppOrchestrator...');
 
     // Cleanup all sub-orchestrators (continue even if one fails)
-    const orchestrators = [
+    const orchestrators: Array<[string, LifecycleOrchestrator]> = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
       ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
       ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],

@@ -4,20 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIComponentRegistry } from '@renderer/presentation/controller/component.registry.js';
+import { createLoggerFactory } from '../../factories/index.js';
 
 describe('UIComponentRegistry', () => {
   let mockLogger;
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn()
-    };
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('UIComponentRegistry');
   });
 
   it('registers valid definitions and ignores invalid ones', () => {

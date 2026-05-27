@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -19,7 +19,10 @@ vi.mock('electron', () => ({
 }));
 
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { ipcMain } from 'electron';
+
+const expectedRegisteredChannels = () => IpcContractManifest.namespaces.flatMap(({ invoke = [] }) => invoke.map(({ channel }) => channel));
 
 describe('IpcHandlerRegistry', () => {
   let ipcHandlerRegistry;
@@ -33,16 +36,7 @@ describe('IpcHandlerRegistry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockDeviceService = {
       getStatus: vi.fn()
@@ -74,6 +68,7 @@ describe('IpcHandlerRegistry', () => {
       loginItemService: { isEnabled: vi.fn(), setEnabled: vi.fn() },
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('IpcHandlerRegistry');
   });
 
   afterEach(() => {
@@ -106,23 +101,7 @@ describe('IpcHandlerRegistry', () => {
     it('should register each expected IPC channel exactly once', () => {
       ipcHandlerRegistry.registerHandlers();
 
-      expect(ipcMain.handle.mock.calls.map(call => call[0])).toEqual([
-        IPC_CHANNELS.DEVICE.GET_STATUS,
-        IPC_CHANNELS.SHELL.OPEN_EXTERNAL,
-        IPC_CHANNELS.UPDATE.CHECK,
-        IPC_CHANNELS.UPDATE.DOWNLOAD,
-        IPC_CHANNELS.UPDATE.INSTALL,
-        IPC_CHANNELS.UPDATE.GET_STATUS,
-        IPC_CHANNELS.PERFORMANCE.GET_METRICS,
-        IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
-        IPC_CHANNELS.WINDOW.IS_FULLSCREEN,
-        IPC_CHANNELS.TRANSCODE.START,
-        IPC_CHANNELS.TRANSCODE.CANCEL,
-        IPC_CHANNELS.TRANSCODE.GET_STATUS,
-        IPC_CHANNELS.GPU.GET_POLICY,
-        IPC_CHANNELS.LOGIN_ITEM.GET,
-        IPC_CHANNELS.LOGIN_ITEM.SET
-      ]);
+      expect(ipcMain.handle.mock.calls.map(call => call[0])).toEqual(expectedRegisteredChannels());
     });
 
     it('rejects duplicate registrations', () => {
@@ -148,7 +127,7 @@ describe('IpcHandlerRegistry', () => {
       ipcHandlerRegistry.dispose();
       ipcHandlerRegistry.dispose();
 
-      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(15);
+      expect(ipcMain.removeHandler).toHaveBeenCalledTimes(expectedRegisteredChannels().length);
     });
   });
 

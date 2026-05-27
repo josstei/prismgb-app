@@ -12,19 +12,95 @@
 
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
 import path from 'path';
 import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '..');
+const platformManifestPath = path.join(__dirname, 'manifests/platforms.manifest.json');
 
 const TIMEOUT_MS = 60000; // 1 minute max
 const platform = process.platform;
 
+function loadPlatformManifest(manifestPath = platformManifestPath) {
+  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+}
+
+function nodePlatformPrefix(nodePlatform) {
+  if (nodePlatform === 'darwin') return 'macos';
+  if (nodePlatform === 'win32') return 'windows';
+  return nodePlatform;
+}
+
+export function resolveSmokePlatformEntry(
+  manifest = loadPlatformManifest(),
+  { nodePlatform = process.platform, nodeArch = process.arch } = {}
+) {
+  const platformId = `${nodePlatformPrefix(nodePlatform)}-${nodeArch}`;
+  return manifest.platforms.find((entry) => entry.id === platformId) ?? null;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+}
+
+function globToRegex(pattern) {
+  return new RegExp(`^${pattern.split('*').map(escapeRegex).join('[^/]*')}$`);
+}
+
+function walkPaths(rootDirectory) {
+  if (!fs.existsSync(rootDirectory)) {
+    return [];
+  }
+
+  return fs.readdirSync(rootDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(rootDirectory, entry.name);
+    if (entry.isDirectory()) {
+      return [absolutePath, ...walkPaths(absolutePath)];
+    }
+    return [absolutePath];
+  });
+}
+
+function getStaticGlobRoot(absolutePattern) {
+  const firstGlobIndex = absolutePattern.indexOf('*');
+  if (firstGlobIndex === -1) {
+    return path.dirname(absolutePattern);
+  }
+
+  const staticPrefix = absolutePattern.slice(0, firstGlobIndex);
+  return staticPrefix.endsWith(path.sep) ? staticPrefix.slice(0, -1) : path.dirname(staticPrefix);
+}
+
+function findFirstPatternMatch(rootDirectory, relativePattern) {
+  const normalizedPattern = relativePattern.split(path.sep).join('/');
+  const absolutePattern = path.resolve(rootDirectory, relativePattern);
+  if (!relativePattern.includes('*')) {
+    return fs.existsSync(absolutePattern) ? absolutePattern : null;
+  }
+
+  const searchRoot = getStaticGlobRoot(absolutePattern);
+  const patternRegex = globToRegex(normalizedPattern);
+  return walkPaths(searchRoot)
+    .map((absolutePath) => ({
+      absolutePath,
+      relativePath: path.relative(rootDirectory, absolutePath).split(path.sep).join('/')
+    }))
+    .filter(({ relativePath }) => patternRegex.test(relativePath))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))[0]?.absolutePath ?? null;
+}
+
 /**
  * Find the built executable based on platform
  */
-function findExecutable() {
-  const distDir = path.join(__dirname, '..', 'release');
+export function findExecutable({
+  rootDirectory = projectRoot,
+  manifest = loadPlatformManifest(),
+  nodePlatform = process.platform,
+  nodeArch = process.arch
+} = {}) {
+  const distDir = path.join(rootDirectory, 'release');
 
   if (!fs.existsSync(distDir)) {
     console.error(`ERROR: release directory not found at ${distDir}`);
@@ -32,53 +108,18 @@ function findExecutable() {
     return null;
   }
 
-  const files = fs.readdirSync(distDir);
+  const platformEntry = resolveSmokePlatformEntry(manifest, { nodePlatform, nodeArch });
+  if (!platformEntry) {
+    return null;
+  }
 
-  if (platform === 'linux') {
-    // Prefer AppImage, then look in unpacked directory
-    const appImage = files.find(f => f.endsWith('.AppImage'));
-    if (appImage) {
-      const appImagePath = path.join(distDir, appImage);
-      // Make AppImage executable
-      fs.chmodSync(appImagePath, '755');
-      return appImagePath;
-    }
-
-    // Fallback to unpacked directory
-    const unpackedDir = path.join(distDir, 'linux-unpacked');
-    if (fs.existsSync(unpackedDir)) {
-      const executable = path.join(unpackedDir, 'prismgb');
-      if (fs.existsSync(executable)) {
-        return executable;
+  for (const pattern of platformEntry.smokeExecutablePriority) {
+    const executablePath = findFirstPatternMatch(rootDirectory, pattern);
+    if (executablePath) {
+      if (executablePath.endsWith('.AppImage')) {
+        fs.chmodSync(executablePath, '755');
       }
-    }
-  } else if (platform === 'darwin') {
-    // Look for .app bundle
-    const macDir = path.join(distDir, 'mac');
-    const macArmDir = path.join(distDir, 'mac-arm64');
-
-    for (const dir of [macDir, macArmDir]) {
-      if (fs.existsSync(dir)) {
-        const apps = fs.readdirSync(dir).filter(f => f.endsWith('.app'));
-        if (apps.length > 0) {
-          return path.join(dir, apps[0], 'Contents', 'MacOS', 'PrismGB');
-        }
-      }
-    }
-  } else if (platform === 'win32') {
-    // Look for portable exe (not Setup installer)
-    const portableExe = files.find(f => f.endsWith('-portable.exe'));
-    if (portableExe) {
-      return path.join(distDir, portableExe);
-    }
-
-    // Fallback to unpacked directory
-    const unpackedDir = path.join(distDir, 'win-unpacked');
-    if (fs.existsSync(unpackedDir)) {
-      const executable = path.join(unpackedDir, 'PrismGB.exe');
-      if (fs.existsSync(executable)) {
-        return executable;
-      }
+      return executablePath;
     }
   }
 
@@ -203,4 +244,7 @@ async function runSmokeTest() {
 }
 
 // Run the test
-runSmokeTest().then(code => process.exit(code));
+const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedScript) {
+  runSmokeTest().then(code => process.exit(code));
+}

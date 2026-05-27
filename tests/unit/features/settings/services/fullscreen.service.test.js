@@ -5,7 +5,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/fullscreen.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
+import {
+  clearPreloadApi,
+  createPreloadApiMock,
+  setPreloadApi
+} from '../../../../support/mocks/preload-api-globals.js';
+import { installFullscreenDocumentMock } from '../../../../support/mocks/browser-api.installers.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('SettingsFullscreenService', () => {
   let service;
@@ -15,77 +21,30 @@ describe('SettingsFullscreenService', () => {
   let mockWindowAPI;
   let mockDocument;
   let mockDocumentElement;
-  let enterFullscreenCallback;
-  let leaveFullscreenCallback;
+  let documentMock;
 
   beforeEach(() => {
-    // Mock logger
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockWindowAPI = createPreloadApiMock('windowAPI', { setFullScreen: undefined, isFullScreen: undefined });
 
-    // Mock event bus
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
-
-    // Mock window.windowAPI
-    mockWindowAPI = {
-      onEnterFullscreen: vi.fn((callback) => {
-        enterFullscreenCallback = callback;
-        return vi.fn(); // Returns unsubscribe function
-      }),
-      onLeaveFullscreen: vi.fn((callback) => {
-        leaveFullscreenCallback = callback;
-        return vi.fn(); // Returns unsubscribe function
-      }),
-      onResized: vi.fn(() => {
-        return vi.fn(); // Returns unsubscribe function
-      })
-    };
-
-    // Mock document and document.documentElement
-    mockDocumentElement = {
-      requestFullscreen: vi.fn().mockResolvedValue(undefined)
-    };
-
-    mockDocument = {
-      fullscreenElement: null,
-      documentElement: mockDocumentElement,
-      exitFullscreen: vi.fn().mockResolvedValue(undefined),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      body: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      }
-    };
+    documentMock = installFullscreenDocumentMock();
+    mockDocument = documentMock.document;
+    mockDocumentElement = documentMock.documentElement;
 
     setPreloadApi('windowAPI', mockWindowAPI);
-    global.document = mockDocument;
 
-    // Create service (no longer requires uiController - auto-hide moved to UIEventBridge)
     service = new SettingsFullscreenService({
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('SettingsFullscreenService');
   });
 
   afterEach(() => {
+    documentMock?.cleanup();
     vi.restoreAllMocks();
-    enterFullscreenCallback = null;
-    leaveFullscreenCallback = null;
     clearPreloadApi('windowAPI');
   });
 
@@ -98,8 +57,7 @@ describe('SettingsFullscreenService', () => {
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
       expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
-      expect(service._unsubscribeEnterFullscreen).toBeNull();
-      expect(service._unsubscribeLeaveFullscreen).toBeNull();
+      expect(service._eventBridge).toBeNull();
     });
 
     it('should throw if missing required dependencies', () => {
@@ -124,8 +82,8 @@ describe('SettingsFullscreenService', () => {
 
       expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
       expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
-      expect(service._unsubscribeEnterFullscreen).toBeTypeOf('function');
-      expect(service._unsubscribeLeaveFullscreen).toBeTypeOf('function');
+      expect(mockWindowAPI.onResized).toHaveBeenCalled();
+      expect(service._eventBridge.size).toBe(3);
     });
 
     it('should handle missing windowAPI gracefully', () => {
@@ -136,8 +94,7 @@ describe('SettingsFullscreenService', () => {
       });
 
       expect(() => serviceWithoutAPI.initialize()).not.toThrow();
-      expect(serviceWithoutAPI._unsubscribeEnterFullscreen).toBeNull();
-      expect(serviceWithoutAPI._unsubscribeLeaveFullscreen).toBeNull();
+      expect(serviceWithoutAPI._eventBridge).toBeNull();
     });
   });
 
@@ -155,16 +112,16 @@ describe('SettingsFullscreenService', () => {
       );
     });
 
-    it('should unsubscribe from native fullscreen events', () => {
-      const unsubscribeEnter = service._unsubscribeEnterFullscreen;
-      const unsubscribeLeave = service._unsubscribeLeaveFullscreen;
-
+    it('should dispose bridge-owned native fullscreen subscriptions', () => {
+      const [unsubscribeEnterFullscreen] = mockWindowAPI.onEnterFullscreen.getUnsubscribers();
+      const [unsubscribeLeaveFullscreen] = mockWindowAPI.onLeaveFullscreen.getUnsubscribers();
+      const [unsubscribeResized] = mockWindowAPI.onResized.getUnsubscribers();
       service.dispose();
 
-      expect(unsubscribeEnter).toHaveBeenCalled();
-      expect(unsubscribeLeave).toHaveBeenCalled();
-      expect(service._unsubscribeEnterFullscreen).toBeNull();
-      expect(service._unsubscribeLeaveFullscreen).toBeNull();
+      expect(unsubscribeEnterFullscreen).toHaveBeenCalled();
+      expect(unsubscribeLeaveFullscreen).toHaveBeenCalled();
+      expect(unsubscribeResized).toHaveBeenCalled();
+      expect(service._eventBridge).toBeNull();
     });
 
     it('should handle dispose when not initialized', () => {
@@ -293,7 +250,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should apply fullscreen state when entering native fullscreen', () => {
-      enterFullscreenCallback();
+      mockWindowAPI.onEnterFullscreen.emit();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -303,10 +260,10 @@ describe('SettingsFullscreenService', () => {
 
     it('should apply fullscreen state when leaving native fullscreen', () => {
       // First enter
-      enterFullscreenCallback();
+      mockWindowAPI.onEnterFullscreen.emit();
 
       // Then leave
-      leaveFullscreenCallback();
+      mockWindowAPI.onLeaveFullscreen.emit();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UI.FULLSCREEN_STATE,
@@ -407,7 +364,7 @@ describe('SettingsFullscreenService', () => {
 
     it('should handle native fullscreen entry and exit cycle', () => {
       // Enter native fullscreen
-      enterFullscreenCallback();
+      mockWindowAPI.onEnterFullscreen.emit();
 
       expect(service._isFullscreenActive).toBe(true);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
@@ -416,7 +373,7 @@ describe('SettingsFullscreenService', () => {
       );
 
       // Leave native fullscreen
-      leaveFullscreenCallback();
+      mockWindowAPI.onLeaveFullscreen.emit();
 
       expect(service._isFullscreenActive).toBe(false);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
@@ -577,13 +534,7 @@ describe('SettingsFullscreenService', () => {
   });
 
   describe('onResized callback', () => {
-    let resizedCallback;
-
     beforeEach(() => {
-      mockWindowAPI.onResized = vi.fn((callback) => {
-        resizedCallback = callback;
-        return vi.fn();
-      });
       mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue(false);
 
       service = new SettingsFullscreenService({
@@ -594,7 +545,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should publish WINDOW_RESIZED event on resize', async () => {
-      resizedCallback();
+      mockWindowAPI.onResized.emit();
 
       await vi.waitFor(() => {
         expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.WINDOW_RESIZED);
@@ -602,7 +553,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should sync fullscreen state on resize', async () => {
-      resizedCallback();
+      mockWindowAPI.onResized.emit();
 
       await vi.waitFor(() => {
         expect(mockWindowAPI.isFullScreen).toHaveBeenCalled();

@@ -170,17 +170,26 @@ if (process.argv.includes('--smoke-test')) {
       // Intentionally empty - app stays running in tray
     });
 
+    let quitCleanupPromise: Promise<void> | null = null;
+    let quitCleanupComplete = false;
+
     app.on('before-quit', (event) => {
-      const wasAlreadyQuitting = app.isQuitting;
+      if (quitCleanupComplete) {
+        return;
+      }
+
+      event.preventDefault();
       app.isQuitting = true;
 
-      application.cleanup();
-
-      if (!wasAlreadyQuitting) {
-        event.preventDefault();
-        setTimeout(() => {
-          app.quit();
-        }, 100);
+      if (!quitCleanupPromise) {
+        quitCleanupPromise = application.cleanup()
+          .catch((error: unknown) => {
+            console.error('Application cleanup failed:', error);
+          })
+          .finally(() => {
+            quitCleanupComplete = true;
+            app.quit();
+          });
       }
     });
   }

@@ -1,19 +1,11 @@
-/**
- * GPU Renderer Adapter
- *
- * Adapts StreamingGpuRendererService and StreamingGpuRenderLoopService
- * to the IStreamingRenderer interface for use in the render pipeline.
- *
- * Responsibilities:
- * - Coordinate GPU renderer service and render loop service
- * - Manage GPU render loop lifecycle (start/stop)
- * - Handle shader preset switching
- * - Track active state
- */
-
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
+import type { StreamingRendererCleanupOptions } from './streaming-renderer.interface';
+
+type GpuCleanupOptions = {
+  emitCanvasExpired?: boolean;
+};
 
 interface GpuRendererServiceLike {
   initialize(canvasElement: HTMLCanvasElement, nativeResolution: { width: number; height: number }): Promise<boolean>;
@@ -25,7 +17,7 @@ interface GpuRendererServiceLike {
   isCanvasTransferred(): boolean;
   releaseGpuResources(): void;
   terminateAndReset(emitCanvasExpired: boolean): void;
-  cleanup(): void;
+  cleanup(options?: GpuCleanupOptions): void | Promise<void>;
 }
 
 interface GpuRenderLoopServiceLike {
@@ -37,6 +29,13 @@ interface AppStateLike {
   readonly isStreaming: boolean;
 }
 
+export interface GpuRendererAdapterDependencies {
+  gpuRendererService: GpuRendererServiceLike;
+  gpuRenderLoopService: GpuRenderLoopServiceLike;
+  appState: AppStateLike;
+  loggerFactory: LoggerFactoryLike;
+}
+
 export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   gpuRendererService: GpuRendererServiceLike;
   gpuRenderLoopService: GpuRenderLoopServiceLike;
@@ -46,14 +45,7 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
   _isHiddenFn: () => boolean;
   _renderLoopActive: boolean;
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {Object} dependencies.gpuRendererService - GPU renderer service
-   * @param {Object} dependencies.gpuRenderLoopService - GPU render loop service
-   * @param {Object} dependencies.appState - Application state for streaming status
-   * @param {Object} dependencies.loggerFactory - Logger factory
-   */
-  constructor({ gpuRendererService, gpuRenderLoopService, appState, loggerFactory }) {
+  constructor({ gpuRendererService, gpuRenderLoopService, appState, loggerFactory }: GpuRendererAdapterDependencies) {
     super();
     this.gpuRendererService = gpuRendererService;
     this.gpuRenderLoopService = gpuRenderLoopService;
@@ -65,21 +57,14 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     this._renderLoopActive = false;
   }
 
-  /**
-   * Set the hidden state function for render loop control
-   * @param {Function} isHiddenFn - Returns true if window is hidden
-   */
-  setHiddenStateFn(isHiddenFn) {
+  setHiddenStateFn(isHiddenFn: () => boolean) {
     this._isHiddenFn = isHiddenFn;
   }
 
-  /**
-   * Initialize GPU renderer with canvas and resolution
-   * @param {HTMLCanvasElement} canvasElement - Canvas to render to
-   * @param {Object} nativeResolution - Native device resolution { width, height }
-   * @returns {Promise<boolean>} True if GPU rendering is available
-   */
-  async initialize(canvasElement, nativeResolution) {
+  async initialize(
+    canvasElement: HTMLCanvasElement,
+    nativeResolution: { width: number; height: number }
+  ): Promise<boolean> {
     this.logger.debug('Initializing GPU renderer adapter');
 
     const gpuAvailable = await this.gpuRendererService.initialize(canvasElement, nativeResolution);
@@ -93,37 +78,19 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     return true;
   }
 
-  /**
-   * Render a video frame through the GPU pipeline
-   * @param {HTMLVideoElement} videoElement - Video element to capture frame from
-   * @returns {Promise<void>}
-   */
-  async renderFrame(videoElement) {
+  async renderFrame(videoElement: HTMLVideoElement): Promise<void> {
     return this.gpuRendererService.renderFrame(videoElement);
   }
 
-  /**
-   * Resize GPU renderer to new dimensions
-   * @param {number} width - New width
-   * @param {number} height - New height
-   */
-  resize(width, height) {
+  resize(width: number, height: number): void {
     this.gpuRendererService.resize(width, height);
   }
 
-  /**
-   * Check if GPU renderer is active
-   * @returns {boolean} True if GPU rendering is active
-   */
-  isActive() {
+  isActive(): boolean {
     return this.gpuRendererService.isActive();
   }
 
-  /**
-   * Start the GPU render loop
-   * @param {HTMLVideoElement} videoElement - Video element for frame callback
-   */
-  resume(videoElement) {
+  resume(videoElement: HTMLVideoElement): void {
     if (this._renderLoopActive) {
       return;
     }
@@ -140,82 +107,52 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     this.logger.debug('GPU render loop started');
   }
 
-  /**
-   * Stop the GPU render loop
-   * @param {HTMLVideoElement} videoElement - Video element for callback cancellation
-   */
-  pause(videoElement) {
+  pause(videoElement?: HTMLVideoElement | null): void {
     if (!this._renderLoopActive) {
       return;
     }
 
     this._renderLoopActive = false;
-    this.gpuRenderLoopService.stop(videoElement || this._videoElement);
+    const resolvedVideoElement = videoElement ?? this._videoElement;
+    if (resolvedVideoElement) {
+      this.gpuRenderLoopService.stop(resolvedVideoElement);
+    }
     this.logger.debug('GPU render loop stopped');
   }
 
-  /**
-   * Cleanup GPU renderer resources
-   */
-  cleanup() {
+  async cleanup(options: StreamingRendererCleanupOptions = {}): Promise<void> {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
     }
     this._renderLoopActive = false;
     this._videoElement = null;
-    this.gpuRendererService.cleanup();
+    await this.gpuRendererService.cleanup({
+      emitCanvasExpired: options.emitCanvasExpired ?? true
+    });
     this.logger.info('GPU renderer adapter cleaned up');
   }
 
-  // ============================
-  // GPU-specific methods
-  // ============================
-
-  /**
-   * GPU renderer supports shader presets
-   * @returns {boolean} True
-   */
-  supportsPresets() {
+  supportsPresets(): boolean {
     return true;
   }
 
-  /**
-   * Get current preset ID
-   * @returns {string|null} Current preset ID
-   */
-  getPresetId() {
+  getPresetId(): string | null {
     return this.gpuRendererService.getPresetId();
   }
 
-  /**
-   * Set the active render preset
-   * @param {string} presetId - Preset ID to apply
-   */
-  setPreset(presetId) {
+  setPreset(presetId: string): void {
     this.gpuRendererService.setPreset(presetId);
   }
 
-  /**
-   * Check if canvas control was transferred to GPU
-   * @returns {boolean} True if canvas was transferred
-   */
-  isCanvasTransferred() {
+  isCanvasTransferred(): boolean {
     return this.gpuRendererService.isCanvasTransferred();
   }
 
-  /**
-   * Release GPU resources while keeping worker alive
-   * Note: Only GPU resources are released; the worker stays alive.
-   */
-  releaseGpuResources() {
+  releaseGpuResources(): void {
     this.gpuRendererService.releaseGpuResources();
   }
 
-  /**
-   * Terminate GPU worker and reset canvas state
-   * @param {boolean} emitCanvasExpired - Whether to emit canvas expired event
-   */
-  terminateAndReset(emitCanvasExpired = true) {
+  terminateAndReset(emitCanvasExpired = true): void {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
     }

@@ -1,17 +1,6 @@
-/**
- * Settings Service
- *
- * Centralized localStorage management for user preferences
- * 100% UI-agnostic - emits events when settings change
- *
- * Events emitted:
- * - 'settings:volume-changed' - Volume changed
- * - 'settings:cinematic-changed' - Cinematic mode changed
- * - 'settings:status-strip-changed' - Status strip visibility changed
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import type { StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
 
 const SETTING_DEFINITIONS = SettingsDefinitions.definitions;
 
@@ -25,11 +14,6 @@ type SettingValidation = {
   clamp?: boolean;
 };
 
-interface SettingsStorageService {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
 interface SettingsEventBus {
   publish(event: string, payload?: unknown): void;
 }
@@ -37,7 +21,7 @@ interface SettingsEventBus {
 interface SettingsServiceDependencies {
   eventBus: SettingsEventBus;
   loggerFactory: unknown;
-  storageService: SettingsStorageService;
+  storageService: StorageServiceLike;
 }
 
 function createDefinitionMap(): Map<string, SettingDefinition> {
@@ -49,14 +33,16 @@ function getAllowedValues(definition: SettingDefinition): string[] {
 }
 
 class SettingsService extends BaseService {
-  declare eventBus: SettingsEventBus;
-  declare storageService: SettingsStorageService;
+  private readonly eventBus: SettingsEventBus;
+  private readonly storageService: StorageServiceLike;
   private readonly settingDefinitions: readonly SettingDefinition[];
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
   constructor(dependencies: SettingsServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
 
+    this.eventBus = dependencies.eventBus;
+    this.storageService = dependencies.storageService;
     this.settingDefinitions = SETTING_DEFINITIONS;
     this.settingDefinitionMap = createDefinitionMap();
   }
@@ -120,7 +106,7 @@ class SettingsService extends BaseService {
   }
 
   _readStoredSetting(definition: SettingDefinition): SettingValue {
-    const saved = this.storageService?.getItem(definition.storageKey);
+    const saved = this.storageService.getItem(definition.storageKey);
     if (saved === null || saved === undefined) {
       return definition.default as SettingValue;
     }
@@ -148,7 +134,9 @@ class SettingsService extends BaseService {
       return false;
     }
 
-    this.storageService?.setItem(definition.storageKey, String(normalized.value));
+    if (!this.storageService.setItem(definition.storageKey, String(normalized.value))) {
+      return false;
+    }
     if (definition.event) {
       this.eventBus.publish(definition.event, normalized.value);
     }
@@ -216,7 +204,7 @@ class SettingsService extends BaseService {
     try {
       if (window.loginItemAPI?.get) {
         const enabled = await window.loginItemAPI.get();
-        this.storageService?.setItem(definition.storageKey, enabled.toString());
+        this.storageService.setItem(definition.storageKey, enabled.toString());
         return enabled;
       }
     } catch {
@@ -230,15 +218,25 @@ class SettingsService extends BaseService {
     const enabled = this._normalizeBoolean(value);
     try {
       if (window.loginItemAPI?.set) {
-        await window.loginItemAPI.set(enabled);
+        const result = await window.loginItemAPI.set(enabled);
+        if (!result.success) {
+          this.logger.error('Failed to set login item state in main process', result.error);
+          return false;
+        }
+      } else {
+        this.logger.error('Login item API not available');
+        return false;
       }
     } catch {
       this.logger.error('Failed to set login item state in main process');
+      return false;
     }
 
-    this.storageService?.setItem(definition.storageKey, enabled.toString());
-    this.logger.debug(`Setting ${definition.name} set to ${enabled}`);
-    return true;
+    const stored = this.storageService.setItem(definition.storageKey, enabled.toString());
+    if (stored) {
+      this.logger.debug(`Setting ${definition.name} set to ${enabled}`);
+    }
+    return stored;
   }
 
   _isPromiseLike(value: unknown): value is Promise<SettingValue> {
@@ -262,12 +260,13 @@ class SettingsService extends BaseService {
    */
   loadAllPreferences() {
     const preferences = Object.fromEntries(
-      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this.getSetting(name)])
+      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this._getSynchronousSetting(name)])
     );
 
-    this.logger.info(
-      `Loaded preferences - GameVolume: ${preferences.gameVolume}%, StatusStrip: ${preferences.statusStripVisible}, PerformanceMode: ${preferences.performanceMode}, MinimalistFullscreen: ${preferences.minimalistFullscreen}`
-    );
+    const summary = SettingsDefinitions.loadAllPreferencesShape
+      .map((name) => `${name}: ${String(preferences[name])}`)
+      .join(', ');
+    this.logger.info(`Loaded preferences - ${summary}`);
 
     return preferences;
   }

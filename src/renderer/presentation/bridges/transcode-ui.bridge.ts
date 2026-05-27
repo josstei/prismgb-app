@@ -1,120 +1,88 @@
-/**
- * Transcode UI Bridge
- *
- * Translates transcode events into UI feedback.
- * Shows transcode progress toast and manages record button state.
- */
-
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type TranscodeToastLike = {
+  show(): void;
+  updateProgress(percent: number): void;
+  showSuccess(): void;
+  showError(): void;
+  hide(): void;
+};
+
+type TranscodeUiControllerLike = {
+  registry?: {
+    get(name: string): unknown;
+  } | null;
+};
+
+type TranscodeUIBridgeDependencies = {
+  eventBus: EventBusLike;
+  uiController: TranscodeUiControllerLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class TranscodeUIBridge extends BaseService {
+  private static readonly eventDescriptors = [
+    [EventChannels.TRANSCODE.STARTED, (bridge, data) => bridge._handleStarted(data)],
+    [EventChannels.TRANSCODE.PROGRESS, (bridge, data) => bridge._handleProgress(data)],
+    [EventChannels.TRANSCODE.COMPLETED, (bridge, data) => bridge._handleCompleted(data)],
+    [EventChannels.TRANSCODE.ERROR, (bridge, data) => bridge._handleError(data)],
+    [EventChannels.TRANSCODE.CANCELLED, (bridge) => bridge._handleCancelled()]
+  ] satisfies readonly ServiceEventDescriptor<TranscodeUIBridge>[];
 
-  constructor(dependencies) {
+  private readonly eventBus: EventBusLike;
+  private readonly uiController: TranscodeUiControllerLike;
+
+  constructor(dependencies: TranscodeUIBridgeDependencies) {
     super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
-    this._subscriptions = [];
+    this.eventBus = dependencies.eventBus;
+    this.uiController = dependencies.uiController;
   }
 
-  /**
-   * Get the transcode toast component
-   * @returns {TranscodeToastComponent|null}
-   * @private
-   */
-  get _toast() {
-    return this.uiController?.registry?.get('transcodeToastComponent');
+  get _toast(): TranscodeToastLike | undefined {
+    return this.uiController?.registry?.get('transcodeToastComponent') as TranscodeToastLike | undefined;
   }
 
   initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.TRANSCODE.STARTED, (data) => this._handleStarted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.PROGRESS, (data) => this._handleProgress(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.COMPLETED, (data) => this._handleCompleted(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.ERROR, (data) => this._handleError(data)),
-      this.eventBus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this._handleCancelled())
-    );
-
+    this.listenToDescriptors(TranscodeUIBridge.eventDescriptors);
     this.logger.info('TranscodeUIBridge initialized');
   }
 
-  dispose() {
-    this._subscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
-    this._toast?.dispose();
+  override async dispose(): Promise<void> {
+    await super.dispose();
     this.logger.info('TranscodeUIBridge disposed');
   }
 
-  /**
-   * Handle transcode started
-   * @param {Object} data - Started data
-   * @private
-   */
-  _handleStarted(data) {
+  _handleStarted(data: unknown) {
     this.logger.info('Transcode started', data);
-
-    // Disable record button during transcode
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_DISABLED);
-
-    // Show toast
     this._toast?.show();
   }
 
-  /**
-   * Handle transcode progress update
-   * @param {Object} data - Progress data with percent (-1 if unknown)
-   * @private
-   */
-  _handleProgress(data) {
-    this._toast?.updateProgress(data?.percent ?? -1);
+  _handleProgress(data: unknown) {
+    const payload = typeof data === 'object' && data !== null
+      ? data as { percent?: number }
+      : {};
+    this._toast?.updateProgress(payload.percent ?? -1);
   }
 
-  /**
-   * Handle transcode completed
-   * @param {Object} data - Completion data
-   * @private
-   */
-  _handleCompleted(data) {
+  _handleCompleted(data: unknown) {
     this.logger.info('Transcode completed', data);
-
-    // Re-enable record button
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
-
-    // Show success state
     this._toast?.showSuccess();
-
   }
 
-  /**
-   * Handle transcode error
-   * @param {Object} data - Error data
-   * @private
-   */
-  _handleError(data) {
+  _handleError(data: unknown) {
     this.logger.error('Transcode error', data);
-
-    // Re-enable record button
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
-
     this._toast?.showError();
-
   }
 
-  /**
-   * Handle transcode cancelled
-   * @private
-   */
   _handleCancelled() {
     this.logger.info('Transcode cancelled');
-
-    // Re-enable record button
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_ENABLED);
-
-    // Hide toast
     this._toast?.hide();
-
   }
 }
 

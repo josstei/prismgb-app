@@ -1,23 +1,5 @@
 import { vi } from 'vitest';
-
-/**
- * Lightweight cleanup stack used by mock installers.
- */
-function createCleanupStack() {
-  const cleanups = [];
-
-  return {
-    add(cleanup) {
-      cleanups.push(cleanup);
-    },
-    cleanup() {
-      while (cleanups.length > 0) {
-        const cleanup = cleanups.pop();
-        cleanup();
-      }
-    },
-  };
-}
+import { createCleanupStack, installTargetProperty } from './runtime-property.installers.js';
 
 /**
  * Restores a property on a target by its descriptor.
@@ -46,42 +28,53 @@ function installProperty(target, key, value) {
   return stack;
 }
 
+function installWindowProperty(key, value) {
+  const target = globalThis.window;
+
+  if (!target) {
+    throw new Error(`Cannot install window.${String(key)} mock without a window global`);
+  }
+
+  return installTargetProperty(target, key, value);
+}
+
+function installMissingWindowMockInternal() {
+  const stack = createCleanupStack();
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+  Reflect.deleteProperty(globalThis, 'window');
+
+  stack.add(() => {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'window', descriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
+    }
+  });
+
+  return stack;
+}
+
 /**
  * Canonical RAF installer.
  */
-function installAnimationFrameMockInternal() {
+function installAnimationFrameMockInternal(options = {}) {
   const stack = createCleanupStack();
 
-  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
-  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
-
-  const mockRequestAnimationFrame = vi.fn((callback) => {
+  const mockRequestAnimationFrame = options.requestAnimationFrame ?? vi.fn((callback) => {
     return setTimeout(() => {
       callback(performance.now());
     }, 16);
   });
 
-  const mockCancelAnimationFrame = vi.fn((id) => {
+  const mockCancelAnimationFrame = options.cancelAnimationFrame ?? vi.fn((id) => {
     clearTimeout(id);
   });
 
-  vi.stubGlobal('requestAnimationFrame', mockRequestAnimationFrame);
-  vi.stubGlobal('cancelAnimationFrame', mockCancelAnimationFrame);
-
-  stack.add(() => {
-    if (typeof originalRequestAnimationFrame === 'undefined') {
-      Reflect.deleteProperty(globalThis, 'requestAnimationFrame');
-      Reflect.deleteProperty(globalThis, 'cancelAnimationFrame');
-      return;
-    }
-    vi.stubGlobal('requestAnimationFrame', originalRequestAnimationFrame);
-    vi.stubGlobal(
-      'cancelAnimationFrame',
-      typeof originalCancelAnimationFrame === 'undefined'
-        ? () => undefined
-        : originalCancelAnimationFrame
-    );
-  });
+  [
+    installProperty(globalThis, 'requestAnimationFrame', mockRequestAnimationFrame),
+    installProperty(globalThis, 'cancelAnimationFrame', mockCancelAnimationFrame),
+  ].forEach((propertyStack) => stack.add(() => propertyStack.cleanup()));
 
   return {
     ...stack,
@@ -297,6 +290,501 @@ function installResizeObserverMockInternal() {
 }
 
 /**
+ * Canonical devicePixelRatio installer.
+ */
+function installDevicePixelRatioMockInternal(value = 1) {
+  const stack = installProperty(globalThis, 'devicePixelRatio', value);
+
+  return {
+    ...stack,
+    devicePixelRatio: value,
+  };
+}
+
+/**
+ * Canonical Worker constructor installer.
+ */
+function installWorkerMockInternal(options = {}) {
+  const workers = [];
+  const createWorker = options.createWorker ?? (() => ({
+    postMessage: vi.fn(),
+    terminate: vi.fn(),
+    onmessage: null,
+    onerror: null,
+  }));
+
+  const mockWorkerConstructor = options.Worker ?? vi.fn(function Worker(...args) {
+    const worker = createWorker(...args);
+    workers.push(worker);
+    return worker;
+  });
+
+  return {
+    ...installProperty(globalThis, 'Worker', mockWorkerConstructor),
+    Worker: mockWorkerConstructor,
+    workers,
+    getLatestWorker: () => workers[workers.length - 1] ?? null,
+  };
+}
+
+/**
+ * Canonical createImageBitmap installer.
+ */
+function installCreateImageBitmapMockInternal(options = {}) {
+  const imageBitmap = options.imageBitmap ?? { close: vi.fn() };
+  const mockCreateImageBitmap = options.createImageBitmap ?? vi.fn().mockResolvedValue(imageBitmap);
+  const stack = installProperty(globalThis, 'createImageBitmap', mockCreateImageBitmap);
+
+  return {
+    ...stack,
+    createImageBitmap: mockCreateImageBitmap,
+    imageBitmap,
+  };
+}
+
+/**
+ * Canonical worker scope installer for tests that import worker entry modules.
+ */
+function installWorkerScopeMockInternal(options = {}) {
+  const postedMessages = options.postedMessages ?? [];
+  const close = options.close ?? vi.fn();
+  const postMessage = options.postMessage ?? vi.fn((...args) => {
+    postedMessages.push(args);
+  });
+  const scope = options.scope ?? {
+    onmessage: null,
+    postMessage,
+    close,
+  };
+  const stack = installTargetProperty(globalThis, 'self', scope);
+
+  return {
+    ...stack,
+    scope,
+    postedMessages,
+    postMessage,
+    close,
+  };
+}
+
+function installDocumentPropertyMockInternal(key, value) {
+  if (!globalThis.document) {
+    throw new Error(`Cannot install document.${String(key)} mock without a document global`);
+  }
+  return installTargetProperty(globalThis.document, key, value);
+}
+
+function installWindowPropertyMockInternal(key, value) {
+  if (!globalThis.window) {
+    throw new Error(`Cannot install window.${String(key)} mock without a window global`);
+  }
+  return installTargetProperty(globalThis.window, key, value);
+}
+
+/**
+ * Canonical window.getComputedStyle installer.
+ */
+function installGetComputedStyleMockInternal(implementation = () => ({})) {
+  const mockGetComputedStyle = vi.fn(implementation);
+  const stack = installWindowProperty('getComputedStyle', mockGetComputedStyle);
+
+  return {
+    ...stack,
+    getComputedStyle: mockGetComputedStyle,
+  };
+}
+
+/**
+ * Canonical document.createElement installer.
+ */
+function installDocumentCreateElementMockInternal(options = {}) {
+  const documentTarget = globalThis.document;
+
+  if (!documentTarget) {
+    throw new Error('Cannot install document.createElement mock without a document global');
+  }
+
+  const createElement = options.createElement ?? vi.fn(() => (
+    options.element ?? {
+      id: '',
+      className: '',
+      style: {},
+    }
+  ));
+  const shouldInstallBodyMethods = Object.prototype.hasOwnProperty.call(options, 'appendChild') || Object.prototype.hasOwnProperty.call(options, 'removeChild');
+  const bodyTarget = shouldInstallBodyMethods ? (options.body ?? documentTarget.body) : null;
+  let appendChild;
+  let removeChild;
+
+  if (shouldInstallBodyMethods) {
+    if (!bodyTarget) {
+      throw new Error('Cannot install document.body mock without document.body');
+    }
+
+    appendChild = options.appendChild;
+    removeChild = options.removeChild;
+  }
+
+  const stack = createCleanupStack();
+  const createElementStack = installTargetProperty(documentTarget, 'createElement', createElement);
+  stack.add(() => createElementStack.cleanup());
+
+  if (shouldInstallBodyMethods) {
+    if (appendChild) {
+      const appendChildStack = installTargetProperty(bodyTarget, 'appendChild', appendChild);
+      stack.add(() => appendChildStack.cleanup());
+    }
+
+    if (removeChild) {
+      const removeChildStack = installTargetProperty(bodyTarget, 'removeChild', removeChild);
+      stack.add(() => removeChildStack.cleanup());
+    }
+  }
+
+  return {
+    ...stack,
+    createElement,
+    appendChild,
+    removeChild,
+  };
+}
+
+/**
+ * Canonical fullscreen document installer.
+ */
+function installFullscreenDocumentMockInternal(options = {}) {
+  const requestFullscreen = options.requestFullscreen ?? vi.fn().mockResolvedValue(undefined);
+  const documentElement = options.documentElement ?? {
+    requestFullscreen,
+  };
+  const body = options.body ?? {
+    classList: {
+      add: vi.fn(),
+      remove: vi.fn(),
+    },
+  };
+  const exitFullscreen = options.exitFullscreen ?? vi.fn().mockResolvedValue(undefined);
+  const addEventListener = options.addEventListener ?? vi.fn();
+  const removeEventListener = options.removeEventListener ?? vi.fn();
+  const documentMock = options.document ?? {
+    fullscreenElement: options.fullscreenElement ?? null,
+    documentElement,
+    exitFullscreen,
+    addEventListener,
+    removeEventListener,
+    body,
+  };
+  const stack = installProperty(globalThis, 'document', documentMock);
+
+  return {
+    ...stack,
+    document: documentMock,
+    documentElement,
+    body,
+    requestFullscreen,
+    exitFullscreen,
+    addEventListener,
+    removeEventListener,
+  };
+}
+
+/**
+ * Canonical blob download installer for URL object URLs and anchor clicks.
+ */
+function installBlobDownloadMockInternal(options = {}) {
+  const stack = createCleanupStack();
+  const windowTarget = globalThis.window;
+  const documentTarget = globalThis.document;
+
+  if (!windowTarget) {
+    throw new Error('Cannot install blob download mock without a window global');
+  }
+  if (!documentTarget?.body) {
+    throw new Error('Cannot install blob download mock without document.body');
+  }
+
+  if (!windowTarget.URL) {
+    const urlStack = installWindowProperty('URL', {});
+    stack.add(() => urlStack.cleanup());
+  }
+
+  const objectUrl = options.objectUrl ?? 'blob:test';
+  const anchor = options.anchor ?? {
+    href: '',
+    download: '',
+    click: vi.fn(),
+    style: {},
+  };
+  const createObjectURL = options.createObjectURL ?? vi.fn(() => objectUrl);
+  const revokeObjectURL = options.revokeObjectURL ?? vi.fn();
+  const createElement = options.createElement ?? vi.fn(() => anchor);
+  const appendChild = options.appendChild ?? vi.fn((node) => node);
+  const removeChild = options.removeChild ?? vi.fn((node) => node);
+
+  [
+    installTargetProperty(windowTarget.URL, 'createObjectURL', createObjectURL),
+    installTargetProperty(windowTarget.URL, 'revokeObjectURL', revokeObjectURL),
+    installTargetProperty(documentTarget, 'createElement', createElement),
+    installTargetProperty(documentTarget.body, 'appendChild', appendChild),
+    installTargetProperty(documentTarget.body, 'removeChild', removeChild),
+  ].forEach((propertyStack) => stack.add(() => propertyStack.cleanup()));
+
+  return {
+    ...stack,
+    anchor,
+    objectUrl,
+    createObjectURL,
+    revokeObjectURL,
+    createElement,
+    appendChild,
+    removeChild,
+  };
+}
+
+/**
+ * Canonical Blob constructor installer for tests that need deterministic size/type.
+ */
+function installBlobMockInternal(options = {}) {
+  const MockBlob = options.BlobClass ?? class MockBlob {
+    constructor(parts = [], blobOptions = {}) {
+      this.parts = parts;
+      this.type = blobOptions.type || options.defaultType || 'application/octet-stream';
+      this.size = options.size ?? 1000;
+    }
+  };
+  const stack = installProperty(globalThis, 'Blob', MockBlob);
+
+  return {
+    ...stack,
+    Blob: MockBlob,
+  };
+}
+
+/**
+ * Canonical clipboard installer for Testing Library/user-event tests.
+ */
+function installClipboardMockInternal(options = {}) {
+  const stack = createCleanupStack();
+  const clipboardData = { text: options.text ?? '' };
+  const clipboard = {
+    writeText: options.writeText ?? vi.fn(async (text) => {
+      clipboardData.text = String(text);
+    }),
+    readText: options.readText ?? vi.fn(async () => clipboardData.text),
+    write: options.write ?? vi.fn(async () => undefined),
+    read: options.read ?? vi.fn(async () => []),
+    ...(options.clipboard ?? {}),
+  };
+
+  if (typeof globalThis.navigator === 'undefined') {
+    const navigatorStack = installTargetProperty(globalThis, 'navigator', { clipboard });
+    stack.add(() => navigatorStack.cleanup());
+  } else {
+    const clipboardStack = installTargetProperty(globalThis.navigator, 'clipboard', clipboard);
+    stack.add(() => clipboardStack.cleanup());
+  }
+
+  return {
+    ...stack,
+    clipboard,
+    clipboardData,
+    writeText: clipboard.writeText,
+    readText: clipboard.readText,
+    write: clipboard.write,
+    read: clipboard.read,
+    setText(text) {
+      clipboardData.text = String(text);
+    },
+    getText() {
+      return clipboardData.text;
+    },
+  };
+}
+
+/**
+ * Canonical MediaRecorder installer for recording-service tests.
+ */
+function installMediaRecorderMockInternal(options = {}) {
+  const isTypeSupported = options.isTypeSupported ?? vi.fn(() => true);
+  const MockMediaRecorder = options.MediaRecorderClass ?? class MockMediaRecorder {
+    static isTypeSupported = isTypeSupported;
+
+    constructor(stream, recorderOptions) {
+      this.stream = stream;
+      this.options = recorderOptions;
+      this.state = 'inactive';
+      this.ondataavailable = null;
+      this.onerror = null;
+      this.onstop = null;
+      this.start = vi.fn(() => {
+        this.state = 'recording';
+      });
+      this.stop = vi.fn(() => {
+        this.state = 'inactive';
+      });
+    }
+  };
+
+  if (!MockMediaRecorder.isTypeSupported) {
+    MockMediaRecorder.isTypeSupported = isTypeSupported;
+  }
+
+  const stack = installProperty(globalThis, 'MediaRecorder', MockMediaRecorder);
+
+  return {
+    ...stack,
+    MediaRecorder: MockMediaRecorder,
+    isTypeSupported: MockMediaRecorder.isTypeSupported,
+  };
+}
+
+/**
+ * Canonical navigator installer for browser adapter availability tests.
+ */
+function installNavigatorMockInternal(...args) {
+  const value = args.length === 0 ? {} : args[0];
+
+  return {
+    ...installTargetProperty(globalThis, 'navigator', value),
+    navigator: value,
+  };
+}
+
+/**
+ * Canonical window.matchMedia installer.
+ */
+function installMatchMediaMockInternal(options = {}) {
+  const mediaQuery = options.mediaQuery ?? {
+    matches: options.matches ?? false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+  const mockMatchMedia = vi.fn((query) => {
+    if (typeof options.matchMedia === 'function') {
+      return options.matchMedia(query, mediaQuery);
+    }
+    return mediaQuery;
+  });
+  const stack = installWindowProperty('matchMedia', mockMatchMedia);
+
+  return {
+    ...stack,
+    matchMedia: mockMatchMedia,
+    mediaQuery,
+  };
+}
+
+/**
+ * Canonical installer for tests that need MutationObserver absent.
+ */
+function installMissingMutationObserverMockInternal() {
+  const stack = createCleanupStack();
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
+
+  Reflect.deleteProperty(globalThis, 'MutationObserver');
+
+  stack.add(() => {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'MutationObserver', descriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, 'MutationObserver');
+    }
+  });
+
+  return stack;
+}
+
+/**
+ * Canonical localStorage installer with in-memory backing.
+ */
+function installLocalStorageMockInternal(options = {}) {
+  const storageData = { ...(options.initialData || {}) };
+  const behavior = {
+    getItem: options.getItem,
+    setItem: options.setItem,
+    removeItem: options.removeItem,
+    key: options.key,
+    length: options.length,
+  };
+  const defaults = {
+    getItem: (key) => storageData[key] ?? null,
+    setItem: (key, value) => {
+      storageData[key] = value;
+    },
+    removeItem: (key) => {
+      delete storageData[key];
+    },
+    key: (index) => Object.keys(storageData)[index],
+    length: () => Object.keys(storageData).length,
+  };
+  const context = {
+    storageData,
+    defaults,
+  };
+  const localStorage = options.localStorage ?? {
+    getItem: vi.fn((key) => {
+      if (typeof behavior.getItem === 'function') {
+        return behavior.getItem(key, context);
+      }
+      return defaults.getItem(key);
+    }),
+    setItem: vi.fn((key, value) => {
+      if (typeof behavior.setItem === 'function') {
+        return behavior.setItem(key, value, context);
+      }
+      return defaults.setItem(key, value);
+    }),
+    removeItem: vi.fn((key) => {
+      if (typeof behavior.removeItem === 'function') {
+        return behavior.removeItem(key, context);
+      }
+      return defaults.removeItem(key);
+    }),
+    key: vi.fn((index) => {
+      if (typeof behavior.key === 'function') {
+        return behavior.key(index, context);
+      }
+      return defaults.key(index);
+    }),
+    get length() {
+      if (typeof behavior.length === 'function') {
+        return behavior.length(context);
+      }
+      if (typeof behavior.length === 'number') {
+        return behavior.length;
+      }
+      return defaults.length();
+    },
+  };
+  const stack = installProperty(globalThis, 'localStorage', localStorage);
+
+  return {
+    ...stack,
+    localStorage,
+    storageData,
+    getItem: localStorage.getItem,
+    setItem: localStorage.setItem,
+    removeItem: localStorage.removeItem,
+    key: localStorage.key,
+    setGetItemImplementation(implementation) {
+      behavior.getItem = implementation;
+    },
+    setSetItemImplementation(implementation) {
+      behavior.setItem = implementation;
+    },
+    setRemoveItemImplementation(implementation) {
+      behavior.removeItem = implementation;
+    },
+    setKeyImplementation(implementation) {
+      behavior.key = implementation;
+    },
+    setLengthImplementation(implementation) {
+      behavior.length = implementation;
+    },
+  };
+}
+
+/**
  * Canonical performance API installer.
  */
 function installPerformanceMocksInternal() {
@@ -358,11 +846,10 @@ function installMediaMocksInternal(options = {}) {
     stream = { getTracks: () => [] },
     enumerateDevices,
     getUserMedia,
+    getSupportedConstraints,
     addEventListener,
     removeEventListener,
   } = options;
-
-  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 
   const deviceChangeListeners = [];
   const streamFactory = typeof getUserMedia === 'function' ? getUserMedia : () => stream;
@@ -381,6 +868,12 @@ function installMediaMocksInternal(options = {}) {
         return addEventListener(event, listener);
       }
       return undefined;
+    }),
+    getSupportedConstraints: vi.fn(() => {
+      if (typeof getSupportedConstraints === 'function') {
+        return getSupportedConstraints();
+      }
+      return getSupportedConstraints ?? {};
     }),
     removeEventListener: vi.fn((event, listener) => {
       if (event === 'devicechange') {
@@ -406,22 +899,22 @@ function installMediaMocksInternal(options = {}) {
     }
   };
 
-  const navigatorPatch = {
-    ...(globalThis.navigator || {}),
-    mediaDevices: {
-      ...((globalThis.navigator && globalThis.navigator.mediaDevices) || {}),
-      ...mockMediaDevices,
-    },
-  };
+  let installedMediaDevices = mockMediaDevices;
 
   if (typeof globalThis.navigator === 'undefined') {
-    vi.stubGlobal('navigator', navigatorPatch);
-  } else {
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      writable: true,
-      value: navigatorPatch,
+    const navigatorStack = installTargetProperty(globalThis, 'navigator', {
+      mediaDevices: mockMediaDevices,
     });
+    stack.add(() => navigatorStack.cleanup());
+  } else if (globalThis.navigator.mediaDevices && typeof globalThis.navigator.mediaDevices === 'object') {
+    installedMediaDevices = globalThis.navigator.mediaDevices;
+    Object.entries(mockMediaDevices).forEach(([key, value]) => {
+      const mediaDevicesStack = installTargetProperty(installedMediaDevices, key, value);
+      stack.add(() => mediaDevicesStack.cleanup());
+    });
+  } else {
+    const mediaDevicesStack = installTargetProperty(globalThis.navigator, 'mediaDevices', mockMediaDevices);
+    stack.add(() => mediaDevicesStack.cleanup());
   }
 
   const NavigatorMediaStream = class {
@@ -490,16 +983,6 @@ function installMediaMocksInternal(options = {}) {
     }
   };
 
-  stack.add(() => {
-    if (navigatorDescriptor) {
-      Object.defineProperty(globalThis, 'navigator', navigatorDescriptor);
-    } else if (typeof globalThis.navigator === 'undefined') {
-      Reflect.deleteProperty(globalThis, 'navigator');
-    } else if (globalThis.navigator) {
-      delete globalThis.navigator;
-    }
-  });
-
   const mediaStreamStack = installProperty(globalThis, 'MediaStream', NavigatorMediaStream);
   const mediaStreamTrackStack = installProperty(globalThis, 'MediaStreamTrack', NavigatorMediaStreamTrack);
   stack.add(() => {
@@ -509,7 +992,7 @@ function installMediaMocksInternal(options = {}) {
 
   return {
     ...stack,
-    mediaDevices: mockMediaDevices,
+    mediaDevices: installedMediaDevices,
     NavigatorMediaStream,
     NavigatorMediaStreamTrack,
   };
@@ -517,28 +1000,110 @@ function installMediaMocksInternal(options = {}) {
 
 export {
   createCleanupStack,
+  installTargetProperty,
   installAnimationFrameMock,
+  installBlobMock,
+  installBlobDownloadMock,
   installCanvasMocks,
+  installClipboardMock,
+  installCreateImageBitmapMock,
+  installDevicePixelRatioMock,
+  installDocumentPropertyMock,
+  installDocumentCreateElementMock,
+  installFullscreenDocumentMock,
+  installGetComputedStyleMock,
+  installLocalStorageMock,
+  installMatchMediaMock,
+  installMediaRecorderMock,
   installMediaMocks,
+  installMissingMutationObserverMock,
+  installMissingWindowMock,
+  installNavigatorMock,
   installResizeObserverMock,
   installVideoFrameCallbacksMock,
   installPerformanceApiMock,
+  installWorkerMock,
+  installWorkerScopeMock,
+  installWindowPropertyMock,
 };
 
 export const installRafMock = installAnimationFrameMock;
+export const installBrowserBlobMock = installBlobMock;
+export const installDownloadMock = installBlobDownloadMock;
 export const installCanvasMock = installCanvasMocks;
+export const installComputedStyleMock = installGetComputedStyleMock;
 export const installVideoFrameMock = installVideoFrameCallbacksMock;
 
-function installAnimationFrameMock() {
-  return installAnimationFrameMockInternal();
+function installAnimationFrameMock(options) {
+  return installAnimationFrameMockInternal(options);
+}
+
+function installBlobMock(options) {
+  return installBlobMockInternal(options);
+}
+
+function installBlobDownloadMock(options) {
+  return installBlobDownloadMockInternal(options);
 }
 
 function installCanvasMocks(options) {
   return installCanvasMocksInternal(options);
 }
 
+function installClipboardMock(options) {
+  return installClipboardMockInternal(options);
+}
+
+function installCreateImageBitmapMock(options) {
+  return installCreateImageBitmapMockInternal(options);
+}
+
+function installDevicePixelRatioMock(value) {
+  return installDevicePixelRatioMockInternal(value);
+}
+
+function installDocumentCreateElementMock(options) {
+  return installDocumentCreateElementMockInternal(options);
+}
+
+function installDocumentPropertyMock(key, value) {
+  return installDocumentPropertyMockInternal(key, value);
+}
+
+function installFullscreenDocumentMock(options) {
+  return installFullscreenDocumentMockInternal(options);
+}
+
+function installGetComputedStyleMock(implementation) {
+  return installGetComputedStyleMockInternal(implementation);
+}
+
+function installLocalStorageMock(options) {
+  return installLocalStorageMockInternal(options);
+}
+
+function installMatchMediaMock(options) {
+  return installMatchMediaMockInternal(options);
+}
+
+function installMediaRecorderMock(options) {
+  return installMediaRecorderMockInternal(options);
+}
+
 function installMediaMocks(options) {
   return installMediaMocksInternal(options);
+}
+
+function installMissingWindowMock() {
+  return installMissingWindowMockInternal();
+}
+
+function installNavigatorMock(...args) {
+  return installNavigatorMockInternal(...args);
+}
+
+function installMissingMutationObserverMock() {
+  return installMissingMutationObserverMockInternal();
 }
 
 function installResizeObserverMock() {
@@ -551,4 +1116,16 @@ function installVideoFrameCallbacksMock() {
 
 function installPerformanceApiMock() {
   return installPerformanceMocksInternal();
+}
+
+function installWorkerMock(options) {
+  return installWorkerMockInternal(options);
+}
+
+function installWorkerScopeMock(options) {
+  return installWorkerScopeMockInternal(options);
+}
+
+function installWindowPropertyMock(key, value) {
+  return installWindowPropertyMockInternal(key, value);
 }

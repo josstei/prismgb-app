@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/cinematic-mode.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('SettingsCinematicModeService', () => {
   let service;
@@ -14,33 +15,18 @@ describe('SettingsCinematicModeService', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
-
-    mockAppState = {
-      isCinematicModeEnabled: false,
-      setCinematicMode: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockEventBus = createEventBus();
+    mockAppState = createAppState({
+      initialState: { isCinematicModeEnabled: false }
+    });
 
     service = new SettingsCinematicModeService({
       appState: mockAppState,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('SettingsCinematicModeService');
   });
 
   describe('constructor', () => {
@@ -79,7 +65,7 @@ describe('SettingsCinematicModeService', () => {
   describe('toggleCinematicMode', () => {
     describe('when disabled', () => {
       beforeEach(() => {
-        mockAppState.isCinematicModeEnabled = false;
+        mockAppState._forceSet('isCinematicModeEnabled', false);
       });
 
       it('should enable cinematic mode', () => {
@@ -106,7 +92,7 @@ describe('SettingsCinematicModeService', () => {
 
     describe('when enabled', () => {
       beforeEach(() => {
-        mockAppState.isCinematicModeEnabled = true;
+        mockAppState._forceSet('isCinematicModeEnabled', true);
       });
 
       it('should disable cinematic mode', () => {
@@ -133,7 +119,7 @@ describe('SettingsCinematicModeService', () => {
 
     describe('state updates', () => {
       it('should update state before publishing events', () => {
-        mockAppState.isCinematicModeEnabled = false;
+        mockAppState._forceSet('isCinematicModeEnabled', false);
         let stateUpdated = false;
 
         mockAppState.setCinematicMode.mockImplementation(() => {
@@ -150,14 +136,14 @@ describe('SettingsCinematicModeService', () => {
 
     describe('multiple toggles', () => {
       it('should toggle between enabled and disabled states', () => {
-        mockAppState.isCinematicModeEnabled = false;
+        mockAppState._forceSet('isCinematicModeEnabled', false);
 
         // First toggle - enable
         service.toggleCinematicMode();
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(true);
 
         // Simulate state change
-        mockAppState.isCinematicModeEnabled = true;
+        mockAppState._forceSet('isCinematicModeEnabled', true);
         mockEventBus.publish.mockClear();
 
         // Second toggle - disable
@@ -166,7 +152,7 @@ describe('SettingsCinematicModeService', () => {
       });
 
       it('should publish correct domain events on each toggle', () => {
-        mockAppState.isCinematicModeEnabled = false;
+        mockAppState._forceSet('isCinematicModeEnabled', false);
 
         // Enable
         service.toggleCinematicMode();
@@ -176,7 +162,7 @@ describe('SettingsCinematicModeService', () => {
         );
 
         // Simulate state change and clear mocks
-        mockAppState.isCinematicModeEnabled = true;
+        mockAppState._forceSet('isCinematicModeEnabled', true);
         mockEventBus.publish.mockClear();
 
         // Disable

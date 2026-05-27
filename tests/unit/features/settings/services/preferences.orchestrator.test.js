@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;
@@ -15,22 +16,8 @@ describe('SettingsPreferencesOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(),
-      unsubscribe: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockEventBus = createEventBus();
 
     mockSettingsService = {
       loadAllPreferences: vi.fn(() => ({
@@ -41,7 +28,7 @@ describe('SettingsPreferencesOrchestrator', () => {
       }))
     };
 
-    mockAppState = {};
+    mockAppState = createAppState();
 
     orchestrator = new SettingsPreferencesOrchestrator({
       settingsService: mockSettingsService,
@@ -49,6 +36,7 @@ describe('SettingsPreferencesOrchestrator', () => {
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('SettingsPreferencesOrchestrator');
   });
 
   describe('constructor', () => {

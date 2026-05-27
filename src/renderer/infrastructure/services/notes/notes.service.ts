@@ -1,50 +1,52 @@
-/**
- * Notes Service
- *
- * Manages CRUD operations for user notes with localStorage persistence.
- * Provides fuzzy search across note titles and content.
- *
- * Events emitted:
- * - 'notes:note-created' - New note created
- * - 'notes:note-updated' - Note content/title updated
- * - 'notes:note-deleted' - Note deleted
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
 import { NotesStorageKeys } from '@shared/config/storage-keys.config';
+import type { EventBusLike, LoggerFactoryLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
+
+interface UserNote {
+  id: string;
+  gameName: string;
+  title: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+type NoteUpdates = Partial<Pick<UserNote, 'title' | 'content' | 'gameName'>>;
+
+type NotesServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  storageService: StorageServiceLike;
+};
 
 class NotesService extends BaseService {
+  private readonly eventBus: EventBusLike;
+  private readonly storageService: StorageServiceLike;
+  _notesCache: UserNote[] | null;
+  _cacheValid: boolean;
 
-  constructor(dependencies) {
+  constructor(dependencies: NotesServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
 
-    // In-memory cache to avoid redundant JSON parsing
+    this.eventBus = dependencies.eventBus;
+    this.storageService = dependencies.storageService;
     this._notesCache = null;
     this._cacheValid = false;
   }
 
-  /**
-   * Invalidate the in-memory cache
-   * @private
-   */
   _invalidateCache() {
     this._notesCache = null;
     this._cacheValid = false;
   }
 
-  /**
-   * Get all notes from storage (with caching)
-   * @returns {Array<Object>} Array of note objects sorted by updatedAt (newest first)
-   */
-  getAllNotes() {
-    // Return cached data if valid
+  getAllNotes(): UserNote[] {
     if (this._cacheValid && this._notesCache !== null) {
       return this._notesCache;
     }
 
-    const raw = this.storageService?.getItem(NotesStorageKeys.USER_NOTES);
+    const raw = this.storageService.getItem(NotesStorageKeys.USER_NOTES);
     if (!raw) {
       this._notesCache = [];
       this._cacheValid = true;
@@ -52,9 +54,9 @@ class NotesService extends BaseService {
     }
 
     try {
-      const notes = JSON.parse(raw);
+      const notes = JSON.parse(raw) as unknown;
       this._notesCache = Array.isArray(notes)
-        ? notes.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        ? (notes as UserNote[]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
         : [];
       this._cacheValid = true;
       return this._notesCache;
@@ -66,23 +68,11 @@ class NotesService extends BaseService {
     }
   }
 
-  /**
-   * Get a single note by ID
-   * @param {string} id - Note ID
-   * @returns {Object|null} Note object or null if not found
-   */
-  getNote(id) {
+  getNote(id: string): UserNote | null {
     const notes = this.getAllNotes();
     return notes.find(note => note.id === id) || null;
   }
 
-  /**
-   * Create a new note
-   * @param {string} [title=''] - Note title
-   * @param {string} [content=''] - Note content
-   * @param {string} [gameName=''] - Game name for organization
-   * @returns {Object|null} Created note object, or null if save failed
-   */
   createNote(title = '', content = '', gameName = '') {
     const now = Date.now();
     const note = {
@@ -108,13 +98,7 @@ class NotesService extends BaseService {
     return note;
   }
 
-  /**
-   * Update an existing note
-   * @param {string} id - Note ID
-   * @param {Object} updates - Fields to update (title, content)
-   * @returns {Object|null} Updated note or null if not found or save failed
-   */
-  updateNote(id, updates) {
+  updateNote(id: string, updates: NoteUpdates): UserNote | null {
     const notes = this.getAllNotes();
     const index = notes.findIndex(note => note.id === id);
 
@@ -142,14 +126,7 @@ class NotesService extends BaseService {
     return updatedNote;
   }
 
-  /**
-   * Update note and detect if game association changed
-   * Encapsulates business logic for detecting game changes during save
-   * @param {string} id - Note ID
-   * @param {Object} updates - Fields to update (title, content, gameName)
-   * @returns {Object|null} Result object with note and gameChanged flag, or null if failed
-   */
-  updateNoteWithChangeDetection(id, updates) {
+  updateNoteWithChangeDetection(id: string, updates: NoteUpdates): { note: UserNote; gameChanged: boolean } | null {
     const oldNote = this.getNote(id);
     if (!oldNote) {
       this.logger.warn(`Note not found for change detection: ${id}`);
@@ -171,12 +148,7 @@ class NotesService extends BaseService {
     };
   }
 
-  /**
-   * Delete a note
-   * @param {string} id - Note ID
-   * @returns {boolean} True if deleted, false if not found or save failed
-   */
-  deleteNote(id) {
+  deleteNote(id: string): boolean {
     const notes = this.getAllNotes();
     const index = notes.findIndex(note => note.id === id);
 
@@ -198,14 +170,7 @@ class NotesService extends BaseService {
     return true;
   }
 
-  /**
-   * Search notes with fuzzy matching
-   * Optimized to reduce intermediate array allocations
-   * @param {string} query - Search query
-   * @param {string} [gameFilter=''] - Optional game name to filter by
-   * @returns {Array<Object>} Matching notes sorted by relevance
-   */
-  searchNotes(query, gameFilter = '') {
+  searchNotes(query: string, gameFilter = ''): UserNote[] {
     const allNotes = this.getAllNotes();
 
     // Early return for empty query
@@ -221,7 +186,7 @@ class NotesService extends BaseService {
 
     // Single pass: filter, score, and collect results in one loop
     // This reduces from 4 intermediate arrays to 1
-    const scoredResults = [];
+    const scoredResults: Array<{ note: UserNote; score: number }> = [];
     for (const note of allNotes) {
       // Skip if game filter doesn't match
       if (gameFilter && (note.gameName || '') !== gameFilter) {
@@ -256,11 +221,7 @@ class NotesService extends BaseService {
     return results;
   }
 
-  /**
-   * Get unique game names from all notes
-   * @returns {Array<string>} Sorted array of unique game names (excludes empty)
-   */
-  getUniqueGames() {
+  getUniqueGames(): string[] {
     const notes = this.getAllNotes();
     const games = new Set<string>();
 
@@ -273,13 +234,9 @@ class NotesService extends BaseService {
     return [...games].sort((a, b) => a.localeCompare(b));
   }
 
-  /**
-   * Get notes grouped by game name
-   * @returns {Object} Map of gameName to array of notes, with '' key for general notes
-   */
-  getNotesGroupedByGame() {
+  getNotesGroupedByGame(): Record<string, UserNote[]> {
     const notes = this.getAllNotes();
-    const groups = {};
+    const groups: Record<string, UserNote[]> = {};
 
     for (const note of notes) {
       const gameName = note.gameName || '';
@@ -292,31 +249,20 @@ class NotesService extends BaseService {
     return groups;
   }
 
-  /**
-   * Calculate fuzzy match score
-   * @param {string} text - Text to search in
-   * @param {string} query - Search query
-   * @returns {number} Score from 0 to 1 (higher = better match)
-   * @private
-   */
-  _fuzzyScore(text, query) {
+  _fuzzyScore(text: string, query: string): number {
     const index = text.indexOf(query);
     if (index === -1) return 0;
 
-    // Higher score for matches at start
     return 1 - (index / text.length) * 0.5;
   }
 
-  /**
-   * Save notes array to storage
-   * @param {Array<Object>} notes - Notes to save
-   * @returns {boolean} True if saved successfully, false otherwise
-   * @private
-   */
-  _saveNotes(notes) {
+  _saveNotes(notes: UserNote[]): boolean {
     try {
-      this.storageService?.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes));
-      // Sort and cache the saved data to maintain getAllNotes() contract
+      if (!this.storageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes))) {
+        this.logger.error('Storage rejected notes save');
+        this._invalidateCache();
+        return false;
+      }
       this._notesCache = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       this._cacheValid = true;
       return true;

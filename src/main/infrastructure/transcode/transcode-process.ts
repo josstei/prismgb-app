@@ -9,6 +9,7 @@ import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { DisposableBag } from '@shared/base/disposable-bag.js';
 
 /**
  * Progress data emitted during transcode
@@ -87,6 +88,8 @@ export async function probeDuration(inputPath: string): Promise<number> {
   });
 }
 
+const FORCE_KILL_LIFECYCLE = Symbol('transcodeForceKill');
+
 /**
  * FFmpeg Transcode Process
  * Wraps FFmpeg spawn process with progress tracking and cancellation
@@ -94,15 +97,16 @@ export async function probeDuration(inputPath: string): Promise<number> {
 export class TranscodeProcess extends EventEmitter {
   private _inputPath: string;
   private _outputPath: string;
-  private _ffmpegArgs: string[];
+  private _ffmpegArgs: readonly string[];
   private _durationUs: number;
-  private _inputArgs: string[];
+  private _inputArgs: readonly string[];
   private _process: ChildProcess | null = null;
   private _wasKilled = false;
   private _hasCompleted = false;
   private _startTime: number | null = null;
   private _lastProgressEmit = 0;
-  private _forceKillTimeoutId: NodeJS.Timeout | null = null;
+  private readonly _disposables = new DisposableBag();
+  private _completionPromise: Promise<void> | null = null;
 
   /**
    * Create a new transcode process
@@ -112,13 +116,13 @@ export class TranscodeProcess extends EventEmitter {
    * @param durationUs - Expected duration in microseconds (for progress)
    * @param inputArgs - Optional input arguments (applied before -i)
    */
-  constructor(inputPath: string, outputPath: string, ffmpegArgs: string[], durationUs: number, inputArgs: string[] = []) {
+  constructor(inputPath: string, outputPath: string, ffmpegArgs: readonly string[], durationUs: number, inputArgs: readonly string[] = []) {
     super();
     this._inputPath = inputPath;
     this._outputPath = outputPath;
-    this._ffmpegArgs = ffmpegArgs;
+    this._ffmpegArgs = [...ffmpegArgs];
     this._durationUs = durationUs;
-    this._inputArgs = inputArgs;
+    this._inputArgs = [...inputArgs];
   }
 
   /**
@@ -126,7 +130,7 @@ export class TranscodeProcess extends EventEmitter {
    * @returns Resolves when transcode completes
    */
   start(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    this._completionPromise = new Promise((resolve, reject) => {
       if (this._process) {
         reject(new Error('Process already started'));
         return;
@@ -135,10 +139,9 @@ export class TranscodeProcess extends EventEmitter {
       this._startTime = Date.now();
 
       const ffmpegPath = getFfmpegPath();
-      const inputArgs = Array.isArray(this._inputArgs) ? this._inputArgs : [];
       const args = [
         '-y', // Overwrite output file
-        ...inputArgs,
+        ...this._inputArgs,
         '-i', this._inputPath,
         '-progress', 'pipe:1', // Progress output to stdout
         '-nostats', // Don't output stats to stderr (use -progress instead)
@@ -167,10 +170,7 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('close', (code, signal) => {
         this._process = null;
-        if (this._forceKillTimeoutId) {
-          clearTimeout(this._forceKillTimeoutId);
-          this._forceKillTimeoutId = null;
-        }
+        this._disposables.cancel(FORCE_KILL_LIFECYCLE);
 
         if (this._wasKilled) {
           this.emit('cancelled');
@@ -194,14 +194,12 @@ export class TranscodeProcess extends EventEmitter {
 
       this._process.on('error', (error) => {
         this._process = null;
-        if (this._forceKillTimeoutId) {
-          clearTimeout(this._forceKillTimeoutId);
-          this._forceKillTimeoutId = null;
-        }
+        this._disposables.cancel(FORCE_KILL_LIFECYCLE);
         this.emit('error', error);
         reject(error);
       });
     });
+    return this._completionPromise;
   }
 
   /**
@@ -278,16 +276,19 @@ export class TranscodeProcess extends EventEmitter {
       this._process.kill('SIGTERM');
 
       // Force kill after timeout
-      if (this._forceKillTimeoutId) {
-        clearTimeout(this._forceKillTimeoutId);
-      }
-      this._forceKillTimeoutId = setTimeout(() => {
+      this._disposables.cancel(FORCE_KILL_LIFECYCLE);
+      const forceKillTimeoutId = setTimeout(() => {
+        this._disposables.cancel(FORCE_KILL_LIFECYCLE);
         if (this._process) {
           this._process.kill('SIGKILL');
         }
-        this._forceKillTimeoutId = null;
       }, 2000);
+      this._disposables.replace(FORCE_KILL_LIFECYCLE, () => clearTimeout(forceKillTimeoutId));
     }
+  }
+
+  waitForExit(): Promise<void> {
+    return this._completionPromise ?? Promise.resolve();
   }
 
   /**

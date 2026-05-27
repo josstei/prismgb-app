@@ -9,7 +9,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { BaseService } from '@shared/base/service.base.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { IPC_CHANNELS } from '@shared/ipc/ipc.manifest.js';
 import { TRANSCODE_CONFIG, TranscodeState } from '@shared/features/transcode/transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
 import {
@@ -89,14 +89,21 @@ interface TranscodeServiceDependencies {
   };
 }
 
+type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
+const transcodeCleanupLifecycleKey = (jobId: string): string => `transcode-cleanup:${jobId}`;
+
+function isTranscodeFormat(value: string): value is TranscodeFormatKey {
+  return Object.prototype.hasOwnProperty.call(TRANSCODE_CONFIG.formats, value);
+}
+
 class TranscodeService extends BaseService {
 
   private windowService: TranscodeServiceDependencies['windowService'];
   private _jobs: Map<string, TranscodeJob> = new Map();
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
-  private _cleanupTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private _isInitialized = false;
+  private _isDisposing = false;
 
   constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory'], 'TranscodeService');
@@ -113,6 +120,7 @@ class TranscodeService extends BaseService {
     }
 
     this.logger.info('Initializing transcode service');
+    this._isDisposing = false;
 
     // Validate ffmpeg binaries are available
     try {
@@ -123,30 +131,20 @@ class TranscodeService extends BaseService {
       // Don't throw - service can still be initialized, but transcode will fail
     }
 
-    // Register cleanup on app quit
-    app.on('before-quit', () => {
-      this._cleanupOnQuit();
-    });
-
     this._isInitialized = true;
     this.logger.info('TranscodeService initialized');
   }
 
-  /**
-   * Start a transcode operation
-   * @param options - Transcode options
-   * @returns Transcode result
-   */
   async transcode({ inputBuffer, format, outputFilename, inputArgs }: TranscodeOptions): Promise<TranscodeResult> {
     if (!this._isInitialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
 
     // Validate format
-    const formatConfig = TRANSCODE_CONFIG.formats[format];
-    if (!formatConfig) {
+    if (!isTranscodeFormat(format)) {
       return { success: false, error: `Unsupported format: ${format}` };
     }
+    const formatConfig = TRANSCODE_CONFIG.formats[format];
 
     // Validate outputFilename
     if (!outputFilename || typeof outputFilename !== 'string') {
@@ -271,11 +269,6 @@ class TranscodeService extends BaseService {
     }
   }
 
-  /**
-   * Cancel a transcode operation
-   * @param jobId - Job ID to cancel
-   * @returns Cancel result
-   */
   cancel(jobId: string): CancelResult {
     const process = this._processes.get(jobId);
     if (!process) {
@@ -300,12 +293,6 @@ class TranscodeService extends BaseService {
     return { success: true, jobs };
   }
 
-  /**
-   * Clean up a job's resources
-   * @param jobId - Job ID
-   * @param removeOutput - Also remove output file
-   * @private
-   */
   private _cleanupJob(jobId: string, removeOutput = false): void {
     // Remove process reference
     this._processes.delete(jobId);
@@ -335,42 +322,23 @@ class TranscodeService extends BaseService {
 
     // Schedule job record cleanup after TTL (5 minutes)
     // This allows status queries for recently completed jobs while preventing memory leaks
+    if (this._isDisposing) {
+      this._jobs.delete(jobId);
+      return;
+    }
+
+    const cleanupLifecycleKey = transcodeCleanupLifecycleKey(jobId);
+    this.disposables.cancel(cleanupLifecycleKey);
     const timeoutHandle = setTimeout(() => {
-      this._cleanupTimeouts.delete(jobId);
+      this.disposables.cancel(cleanupLifecycleKey);
       if (this._jobs.has(jobId)) {
         this._jobs.delete(jobId);
         this.logger.debug('Removed stale job record', { jobId });
       }
     }, 5 * 60 * 1000);
-    this._cleanupTimeouts.set(jobId, timeoutHandle);
+    this.disposables.replace(cleanupLifecycleKey, () => clearTimeout(timeoutHandle));
   }
 
-  /**
-   * Cleanup on app quit
-   * @private
-   */
-  private _cleanupOnQuit(): void {
-    this.logger.info('Cleaning up transcode resources on quit');
-
-    // Cancel all running processes - process.cancel() is synchronous (sends SIGTERM),
-    // so signals are sent in quick succession without blocking
-    for (const [jobId, process] of this._processes) {
-      if (process.isRunning) {
-        this.logger.info('Cancelling running transcode on quit', { jobId });
-        process.cancel();
-      }
-    }
-
-    // Clean up all temp sessions
-    cleanupAllSessions();
-  }
-
-  /**
-   * Notify renderer process
-   * @param channel - IPC channel
-   * @param data - Data to send
-   * @private
-   */
   private _notifyRenderer(channel: string, data: unknown): void {
     try {
       this.windowService?.send(channel, data);
@@ -382,21 +350,24 @@ class TranscodeService extends BaseService {
   /**
    * Dispose service resources
    */
-  dispose(): void {
+  override async dispose(): Promise<void> {
     this.logger.info('Disposing TranscodeService');
+    this._isDisposing = true;
 
-    // Cancel any running processes
-    for (const process of this._processes.values()) {
-      if (process.isRunning) {
-        process.cancel();
+    await Promise.all(Array.from(this._processes.entries()).map(async ([jobId, process]) => {
+      process.cancel();
+      try {
+        await process.waitForExit();
+      } catch {
+        // Cancellation and shutdown errors are expected here; cleanup below owns final state.
       }
-    }
+      if (this._processes.has(jobId)) {
+        this._cleanupJob(jobId, true);
+      }
+      process.removeAllListeners();
+    }));
 
-    // Clear all cleanup timeouts to prevent memory leaks
-    for (const timeoutHandle of this._cleanupTimeouts.values()) {
-      clearTimeout(timeoutHandle);
-    }
-    this._cleanupTimeouts.clear();
+    await super.dispose();
 
     // Clean up all temp sessions
     cleanupAllSessions();

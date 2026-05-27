@@ -6,27 +6,59 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { RendererDeviceStatus } from '@shared/interfaces/device-status-provider.interface.js';
+
+type DeviceConnectionUpdate = {
+  status: RendererDeviceStatus;
+  changed: boolean;
+};
+
+type DeviceConnectionServiceLike = {
+  readonly isConnected: boolean | null;
+  updateConnectionStatus(): Promise<DeviceConnectionUpdate>;
+};
+
+type DeviceStorageServiceLike = {
+  getRegisteredStoredDeviceIds(): string[];
+};
+
+type DeviceMediaServiceLike = {
+  invalidateEnumerationCache(): void;
+  enumerateDevices(): Promise<unknown>;
+  getSelectedDeviceId(): string | null;
+  discoverSupportedDevice(): Promise<MediaDeviceInfo | null>;
+  registerSupportedDevice(device: MediaDeviceInfo): unknown;
+  setupDeviceChangeListener(onDeviceChange: () => Promise<RendererDeviceStatus> | RendererDeviceStatus): void;
+};
+
+type DeviceServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  deviceConnectionService: DeviceConnectionServiceLike;
+  deviceStorageService: DeviceStorageServiceLike;
+  deviceMediaService: DeviceMediaServiceLike;
+};
 
 class DeviceService extends BaseService {
+  private readonly eventBus: EventBusLike;
+  private readonly deviceConnectionService: DeviceConnectionServiceLike;
+  private readonly deviceStorageService: DeviceStorageServiceLike;
+  private readonly deviceMediaService: DeviceMediaServiceLike;
 
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   * @param {IDeviceStatusProvider} dependencies.deviceStatusProvider - USB device status provider
-   * @param {DeviceConnectionService} dependencies.deviceConnectionService - Connection status service
-   * @param {DeviceStorageService} dependencies.deviceStorageService - Device ID storage service
-   * @param {DeviceMediaService} dependencies.deviceMediaService - Media device enumeration service
-   */
-  constructor(dependencies) {
+  constructor(dependencies: DeviceServiceDependencies) {
     super(dependencies, [
       'eventBus',
       'loggerFactory',
-      'deviceStatusProvider',
       'deviceConnectionService',
       'deviceStorageService',
       'deviceMediaService'
     ], 'DeviceService');
+
+    this.eventBus = dependencies.eventBus;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
+    this.deviceStorageService = dependencies.deviceStorageService;
+    this.deviceMediaService = dependencies.deviceMediaService;
   }
 
   get isConnected() {
@@ -61,7 +93,7 @@ class DeviceService extends BaseService {
     return this.deviceMediaService.discoverSupportedDevice();
   }
 
-  registerSupportedDevice(device) {
+  registerSupportedDevice(device: MediaDeviceInfo) {
     return this.deviceMediaService.registerSupportedDevice(device);
   }
 
@@ -69,8 +101,8 @@ class DeviceService extends BaseService {
     this.deviceMediaService.setupDeviceChangeListener(() => this.updateDeviceStatus());
   }
 
-  dispose() {
-    this.deviceMediaService.dispose();
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 }
 

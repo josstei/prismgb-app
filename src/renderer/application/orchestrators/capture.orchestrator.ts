@@ -1,16 +1,3 @@
-/**
- * Capture Orchestrator
- *
- * Coordinates screenshot and video recording operations
- * Thin coordinator - delegates to CaptureService, does not contain business logic
- *
- * Responsibilities:
- * - Coordinate screenshot capture
- * - Coordinate recording start/stop
- * - Handle capture events
- * - Manage file saving
- */
-
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { LoggerLike } from '@shared/base/service.base.js';
@@ -56,7 +43,7 @@ type GpuRecordingServiceLike = {
   stop(): Promise<void>;
 };
 
-type CanvasRendererLike = {
+type CanvasRenderLoopServiceLike = {
   isActive(): boolean;
 };
 
@@ -84,7 +71,7 @@ type CaptureOrchestratorDependencies = {
   streamViewService: StreamViewServiceLike;
   gpuRendererService: GpuRendererServiceLike;
   gpuRecordingService: GpuRecordingServiceLike;
-  canvasRenderer: CanvasRendererLike;
+  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   transcodeService: TranscodeServiceLike;
   captureSaveService: CaptureSaveServiceLike;
   eventBus: TypedEventBusLike;
@@ -92,18 +79,17 @@ type CaptureOrchestratorDependencies = {
 };
 
 export class CaptureOrchestrator extends BaseOrchestrator {
-  declare protected readonly captureService: CaptureServiceLike;
-  declare protected readonly appState: AppStateLike;
-  declare protected readonly streamViewService: StreamViewServiceLike;
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
-  declare protected readonly canvasRenderer: CanvasRendererLike;
-  declare protected readonly transcodeService: TranscodeServiceLike;
-  declare protected readonly captureSaveService: CaptureSaveServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private readonly captureService: CaptureServiceLike;
+  private readonly appState: AppStateLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  private readonly gpuRecordingService: GpuRecordingServiceLike;
+  private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
+  private readonly transcodeService: TranscodeServiceLike;
+  private readonly captureSaveService: CaptureSaveServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
 
-  _recordingInterrupted: boolean;
+  private _recordingInterrupted: boolean;
 
   constructor(dependencies: CaptureOrchestratorDependencies) {
     super(
@@ -114,7 +100,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         'streamViewService',
         'gpuRendererService',
         'gpuRecordingService',
-        'canvasRenderer',
+        'canvasRenderLoopService',
         'transcodeService',
         'captureSaveService',
         'eventBus',
@@ -123,28 +109,28 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       'CaptureOrchestrator'
     );
 
+    this.captureService = dependencies.captureService;
+    this.appState = dependencies.appState;
+    this.streamViewService = dependencies.streamViewService;
+    this.gpuRendererService = dependencies.gpuRendererService;
+    this.gpuRecordingService = dependencies.gpuRecordingService;
+    this.canvasRenderLoopService = dependencies.canvasRenderLoopService;
+    this.transcodeService = dependencies.transcodeService;
+    this.captureSaveService = dependencies.captureSaveService;
+    this.eventBus = dependencies.eventBus;
     this._recordingInterrupted = false;
   }
 
-  /**
-   * Initialize capture orchestrator
-   */
   async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data: unknown) => this._handleRecordingError(data),
       [EventChannels.CAPTURE.RECORDING_READY]: (data: unknown) => this._handleRecordingReady(data),
-      // Stop recording when stream stops to prevent orphaned recording loop
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      // UI command events - decoupled from UISetupOrchestrator
       [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
       [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
     });
   }
 
-  /**
-   * Take screenshot
-   * Uses AppState.isStreaming instead of direct orchestrator call (decoupled)
-   */
   async takeScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
@@ -178,7 +164,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       return this.gpuRendererService.captureFrame();
     }
 
-    if (this.canvasRenderer.isActive()) {
+    if (this.canvasRenderLoopService.isActive()) {
       this.logger.debug('Capturing screenshot from Canvas2D renderer');
       const canvas = this.streamViewService.getCanvas();
       if (!canvas) {
@@ -273,11 +259,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Clean up GPU recording resources
-   * @private
-   */
-
-  /**
    * Handle stream stopped - stop any active recording
    * Prevents orphaned GPU recording loop when stream stops
    * @private
@@ -350,13 +331,15 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup(): Promise<void> {
-    if (this.captureService.getRecordingState()) {
+    if (this._isRecordingActive()) {
       try {
-        await this.captureService.stopRecording();
+        this._recordingInterrupted = true;
+        await this._stopRecording();
       } catch (error) {
         this.logger.error('Error stopping recording during cleanup:', getErrorMessage(error, 'Failed to stop recording'));
       }
+    } else {
+      await this.gpuRecordingService.stop();
     }
-    await this.gpuRecordingService.stop();
   }
 }

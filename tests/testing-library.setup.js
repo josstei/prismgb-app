@@ -7,26 +7,6 @@
 
 import { configure } from '@testing-library/dom';
 
-// Polyfill navigator.clipboard for happy-dom (required by @testing-library/user-event)
-if (typeof navigator !== 'undefined' && !navigator.clipboard) {
-  const clipboardData = { text: '' };
-  Object.defineProperty(navigator, 'clipboard', {
-    value: {
-      writeText: async (text) => {
-        clipboardData.text = text;
-        return Promise.resolve();
-      },
-      readText: async () => {
-        return Promise.resolve(clipboardData.text);
-      },
-      write: async () => Promise.resolve(),
-      read: async () => Promise.resolve([]),
-    },
-    writable: true,
-    configurable: true,
-  });
-}
-
 // Configure Testing Library
 configure({
   // Use data-testid for test IDs (fallback when aria-* not sufficient)

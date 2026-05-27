@@ -4,12 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
+import { createAppState, createLoggerFactory } from '../../../../factories/index.js';
+import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('PresentationModeService', () => {
   let service;
   let mockUiController;
   let mockAppState;
   let mockLoggerFactory;
+  let fullscreenElementMock;
 
   beforeEach(() => {
     mockUiController = {
@@ -22,25 +25,15 @@ describe('PresentationModeService', () => {
       disableControlsAutoHide: vi.fn()
     };
 
-    mockAppState = {
-      isCinematicModeEnabled: true,
-      isStreaming: false
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => ({
-        info: vi.fn(),
-        debug: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-      }))
-    };
-
-    Object.defineProperty(document, 'fullscreenElement', {
-      configurable: true,
-      writable: true,
-      value: null
+    mockAppState = createAppState({
+      initialState: {
+        isCinematicModeEnabled: true,
+        isStreaming: false
+      }
     });
+    mockLoggerFactory = createLoggerFactory();
+
+    fullscreenElementMock = installDocumentPropertyMock('fullscreenElement', null);
 
     service = new PresentationModeService({
       uiController: mockUiController,
@@ -50,6 +43,7 @@ describe('PresentationModeService', () => {
   });
 
   afterEach(() => {
+    fullscreenElementMock.cleanup();
     vi.restoreAllMocks();
   });
 

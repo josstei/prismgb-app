@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 describe('CaptureUIBridge', () => {
   let bridge;
@@ -19,31 +20,19 @@ describe('CaptureUIBridge', () => {
     // Track subscribed handlers
     subscribedHandlers = {};
 
-    // Create mock EventBus
-    mockEventBus = {
-      subscribe: vi.fn((event, handlerFn) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (event, handlerFn) => {
         subscribedHandlers[event] = handlerFn;
-        return vi.fn(); // Return unsubscribe function
-      }),
-      publish: vi.fn()
-    };
+      },
+    });
 
     // Create mock UIController
     mockUIController = {
       triggerDownload: vi.fn()
     };
 
-    // Create mock logger
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('CaptureUIBridge');
 
     // Clear mocks
     vi.clearAllMocks();
@@ -156,7 +145,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
     });
 
@@ -206,7 +195,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -272,7 +261,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -323,7 +312,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -364,7 +353,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -461,7 +450,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });
@@ -505,7 +494,7 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
+        loggerFactory: mockLoggerFactory
       });
       bridge.initialize();
     });

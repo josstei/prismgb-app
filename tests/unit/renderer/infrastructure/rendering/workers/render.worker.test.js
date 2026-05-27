@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
+import { installWorkerScopeMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 const defaultPreset = {
   id: 'vibrant',
@@ -79,6 +80,7 @@ const mockPipeline = {
 const mockCreateWorkerPipeline = vi.fn(async () => mockPipeline);
 const mockPresetGet = vi.fn(() => defaultPreset);
 const mockPresetGetDefault = vi.fn(() => defaultPreset);
+const workerScopeMocks = [];
 
 vi.mock('@prismgb/gpu', async () => {
   const actual = await vi.importActual('@prismgb/gpu');
@@ -95,25 +97,15 @@ vi.mock('@prismgb/gpu', async () => {
 async function loadWorkerHarness() {
   vi.resetModules();
 
-  const postedMessages = [];
-  const closeMock = vi.fn();
-  const scope = {
-    onmessage: null,
-    postMessage: (...args) => postedMessages.push(args),
-    close: closeMock
-  };
-
-  Object.defineProperty(globalThis, 'self', {
-    value: scope,
-    writable: true
-  });
+  const workerScopeMock = installWorkerScopeMock();
+  workerScopeMocks.push(workerScopeMock);
 
   await import('@renderer/infrastructure/rendering/workers/render.worker.ts');
 
   return {
-    scope,
-    postedMessages,
-    closeMock
+    scope: workerScopeMock.scope,
+    postedMessages: workerScopeMock.postedMessages,
+    closeMock: workerScopeMock.close
   };
 }
 
@@ -149,6 +141,9 @@ describe('render worker', () => {
   });
 
   afterEach(() => {
+    while (workerScopeMocks.length > 0) {
+      workerScopeMocks.pop().cleanup();
+    }
     vi.restoreAllMocks();
     vi.clearAllMocks();
   });

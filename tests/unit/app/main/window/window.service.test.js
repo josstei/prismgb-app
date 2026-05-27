@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
@@ -86,20 +87,12 @@ describe('WindowService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     windowService = new WindowService({
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('WindowService');
 
     // Store original platform
     originalPlatform = process.platform;

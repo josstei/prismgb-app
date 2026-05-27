@@ -4,55 +4,20 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service.ts';
+import { createLoggerFactory } from '../../factories/index.js';
 
 describe('PerformanceAnimationService', () => {
   let service;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     service = new PerformanceAnimationService({
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
-  });
-
-  describe('setStreaming', () => {
-    it('should return streaming=true when streaming is active', () => {
-      const result = service.setStreaming(true);
-
-      expect(result.streaming).toBe(true);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Streaming started - pausing decorative animations');
-    });
-
-    it('should return streaming=false when streaming is inactive', () => {
-      const result = service.setStreaming(false);
-
-      expect(result.streaming).toBe(false);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Streaming stopped - starting idle timer');
-    });
-
-    it('should preserve animationsOff state from performance mode', () => {
-      // First enable performance mode
-      service.setPerformanceState({
-        performanceModeEnabled: true,
-        weakGpuDetected: false,
-        reducedMotion: false,
-        hidden: false,
-        idle: false
-      });
-
-      // Then change streaming - animationsOff should still be true
-      const result = service.setStreaming(false);
-
-      expect(result.streaming).toBe(false);
-      expect(result.animationsOff).toBe(true);
-    });
+    mockLogger = mockLoggerFactory._getLogger('PerformanceAnimationService');
   });
 
   describe('setPerformanceState', () => {
@@ -123,11 +88,7 @@ describe('PerformanceAnimationService', () => {
       expect(result.animationsOff).toBe(false);
     });
 
-    it('should preserve streaming state when updating performance state', () => {
-      // First set streaming
-      service.setStreaming(true);
-
-      // Then update performance state - streaming should still be true
+    it('should derive animation suppression from performance state only', () => {
       const result = service.setPerformanceState({
         performanceModeEnabled: true,
         weakGpuDetected: false,
@@ -136,8 +97,11 @@ describe('PerformanceAnimationService', () => {
         idle: false
       });
 
-      expect(result.streaming).toBe(true);
-      expect(result.animationsOff).toBe(true);
+      expect(result).toEqual({
+        hidden: false,
+        idle: false,
+        animationsOff: true
+      });
     });
   });
 
@@ -175,9 +139,8 @@ describe('PerformanceAnimationService', () => {
     });
   });
 
-  describe('state isolation between streaming and performance', () => {
-    it('should maintain independent state tracking', () => {
-      // Set performance mode
+  describe('state isolation', () => {
+    it('should maintain hidden and idle state while suppression reasons change', () => {
       service.setPerformanceState({
         performanceModeEnabled: true,
         weakGpuDetected: false,
@@ -186,31 +149,16 @@ describe('PerformanceAnimationService', () => {
         idle: true
       });
 
-      // Set streaming
-      service.setStreaming(true);
-
-      // Stop streaming - should still have performance state
-      const result = service.setStreaming(false);
-
-      expect(result.streaming).toBe(false);
-      expect(result.hidden).toBe(true);
-      expect(result.idle).toBe(true);
-      expect(result.animationsOff).toBe(true);
-    });
-
-    it('should disable animationsOff when performance mode disabled and streaming changes', () => {
-      // Set performance mode off
-      service.setPerformanceState({
+      const result = service.setPerformanceState({
         performanceModeEnabled: false,
         weakGpuDetected: false,
         reducedMotion: false,
-        hidden: false,
-        idle: false
+        hidden: true,
+        idle: true
       });
 
-      // Change streaming - animationsOff should remain false
-      const result = service.setStreaming(true);
-
+      expect(result.hidden).toBe(true);
+      expect(result.idle).toBe(true);
       expect(result.animationsOff).toBe(false);
     });
   });

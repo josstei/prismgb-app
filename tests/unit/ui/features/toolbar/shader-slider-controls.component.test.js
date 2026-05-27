@@ -2,22 +2,10 @@
  * ShaderSliderControlsComponent Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/components/shader-slider-controls.component.js';
-import { createMockEventBus, createMockLogger } from '../../../../mocks/index.js';
+import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../factories/index.js';
 import { EventChannels } from '@shared/events/event-channels.js';
-
-function createMockSettingsService(overrides = {}) {
-  return {
-    getNumberSetting: vi.fn((name) => ({
-      globalBrightness: 1.0,
-      gameVolume: 70
-    })[name]),
-    getBooleanSetting: vi.fn(() => false),
-    setSetting: vi.fn(() => true),
-    ...overrides
-  };
-}
 
 describe('ShaderSliderControlsComponent', () => {
   let component;
@@ -32,9 +20,9 @@ describe('ShaderSliderControlsComponent', () => {
   let streamVideo;
 
   beforeEach(() => {
-    mockEventBus = createMockEventBus();
-    mockSettingsService = createMockSettingsService();
-    mockLogger = createMockLogger();
+    mockEventBus = createEventBus();
+    mockSettingsService = createSettingsServiceMock();
+    mockLogger = createLogger();
 
     brightnessSlider = document.createElement('input');
     brightnessSlider.type = 'range';

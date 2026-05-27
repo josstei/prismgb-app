@@ -8,6 +8,7 @@ import { UpdateState } from '@renderer/presentation/config/update-state.config.t
 import { EventChannels } from '@shared/events/event-channels.js';
 import { DOMSelectors } from '@renderer/presentation/config/dom-selectors.config.ts';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('UpdateSectionComponent', () => {
   let component;
@@ -18,21 +19,8 @@ describe('UpdateSectionComponent', () => {
   let mockElements;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     mockUpdateOrchestrator = {
       getStatus: vi.fn(() => ({
@@ -73,6 +61,7 @@ describe('UpdateSectionComponent', () => {
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UpdateSectionComponent');
   });
 
   afterEach(() => {
@@ -366,40 +355,32 @@ describe('UpdateSectionComponent', () => {
   });
 
   describe('event subscriptions', () => {
-    let eventHandlers;
-
     beforeEach(() => {
-      eventHandlers = {};
-      mockEventBus.subscribe.mockImplementation((event, handler) => {
-        eventHandlers[event] = handler;
-        return vi.fn();
-      });
-
       component.initialize(mockElements);
     });
 
     it('should update UI on STATE_CHANGED event', () => {
       const status = { state: UpdateState.AVAILABLE, updateInfo: { version: '2.0.0' } };
-      eventHandlers[EventChannels.UPDATE.STATE_CHANGED](status);
+      mockEventBus.publish(EventChannels.UPDATE.STATE_CHANGED, status);
 
       expect(mockElements.statusText.textContent).toBe('v2.0.0 available');
     });
 
     it('should update progress on PROGRESS event', () => {
-      eventHandlers[EventChannels.UPDATE.PROGRESS]({ percent: 50 });
+      mockEventBus.publish(EventChannels.UPDATE.PROGRESS, { percent: 50 });
 
       expect(mockElements.progressFill.style.width).toBe('50%');
     });
 
     it('should show badge on BADGE_SHOW event', () => {
       mockElements.badge.classList.add(CSSClasses.HIDDEN);
-      eventHandlers[EventChannels.UPDATE.BADGE_SHOW]();
+      mockEventBus.publish(EventChannels.UPDATE.BADGE_SHOW);
 
       expect(mockElements.badge.classList.contains(CSSClasses.HIDDEN)).toBe(false);
     });
 
     it('should hide badge on BADGE_HIDE event', () => {
-      eventHandlers[EventChannels.UPDATE.BADGE_HIDE]();
+      mockEventBus.publish(EventChannels.UPDATE.BADGE_HIDE);
 
       expect(mockElements.badge.classList.contains(CSSClasses.HIDDEN)).toBe(true);
     });

@@ -4,21 +4,17 @@
  */
 
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import { getGpuPolicy } from '@main/infrastructure/platform/index.js';
 import type { GpuPolicyResponse } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface GpuHandlerDependencies {
   logger: Logger;
 }
 
-export const gpuHandlerDescriptors = defineIpcHandlers<GpuHandlerDependencies>([
+export const gpuHandlerDescriptors = defineManifestIpcHandlers<GpuHandlerDependencies>('gpuAPI', [
   {
-    channel: IPC_CHANNELS.GPU.GET_POLICY,
-    dependencyTokens: ['logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'getPolicy',
     invoke(): GpuPolicyResponse {
       const policy = getGpuPolicy();
       return {

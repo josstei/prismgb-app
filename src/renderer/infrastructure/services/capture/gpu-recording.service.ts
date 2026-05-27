@@ -26,34 +26,37 @@ type CaptureGpuRecordingDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-class CaptureGpuRecordingService extends BaseService {
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
 
-  _recordingCanvas: HTMLCanvasElement | null;
-  _recordingCtx: CanvasRenderingContext2D | null;
-  _recordingStream: MediaStream | null;
-  _recordingFrameId: number | null;
-  _isRecording: boolean;
-  _isCapturePending: boolean;
-  _recordingDroppedFrames: number;
-  _recordingWidth: number;
-  _recordingHeight: number;
-  _cachedScaleParams: RecordingScaleParams | null;
-  _cachedFrameWidth: number;
-  _cachedFrameHeight: number;
-  _isCanvasCleared: boolean;
-  _isDraining: boolean;
-  _lastCapturePromise: Promise<ImageBitmap> | null;
+type CaptureDrainResult = 'completed' | 'failed' | 'timed-out';
+
+class CaptureGpuRecordingService extends BaseService {
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+
+  private _recordingCanvas: HTMLCanvasElement | null;
+  private _recordingCtx: CanvasRenderingContext2D | null;
+  private _recordingStream: MediaStream | null;
+  private _isRecording: boolean;
+  private _isCapturePending: boolean;
+  private _recordingDroppedFrames: number;
+  private _recordingWidth: number;
+  private _recordingHeight: number;
+  private _cachedScaleParams: RecordingScaleParams | null;
+  private _cachedFrameWidth: number;
+  private _cachedFrameHeight: number;
+  private _isCanvasCleared: boolean;
+  private _isDraining: boolean;
+  private _lastCapturePromise: Promise<ImageBitmap> | null;
 
   constructor(dependencies: CaptureGpuRecordingDependencies) {
     super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
 
+    this.gpuRendererService = dependencies.gpuRendererService;
+    this.eventBus = dependencies.eventBus;
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._recordingStream = null;
-    this._recordingFrameId = null;
     this._isRecording = false;
     this._isCapturePending = false;
     this._recordingDroppedFrames = 0;
@@ -144,40 +147,24 @@ class CaptureGpuRecordingService extends BaseService {
     this._isDraining = true;
 
     // Cancel the RAF loop first
-    if (this._recordingFrameId !== null) {
-      cancelAnimationFrame(this._recordingFrameId);
-      this._recordingFrameId = null;
-    }
+    this.disposables.cancel(RECORDING_FRAME_LIFECYCLE);
 
     // Wait for any in-flight capture to complete (with timeout)
     if (this._lastCapturePromise) {
       this.logger.debug('Waiting for in-flight capture to complete...');
       const capturePromise = this._lastCapturePromise;
-      let timedOut = false;
+      const drainResult = await this._waitForCaptureDrain(capturePromise, 500);
 
-      try {
-        await Promise.race([
-          capturePromise,
-          new Promise<void>(resolve => {
-            setTimeout(() => {
-              timedOut = true;
-              resolve();
-            }, 500);
-          })
-        ]);
-
-        // If timeout won the race, ensure any later-resolving ImageBitmap is closed
-        if (timedOut) {
-          void capturePromise.then((bitmap) => {
-            if (bitmap && typeof bitmap.close === 'function') {
-              bitmap.close();
-              this.logger.debug('Closed late-resolving ImageBitmap after timeout');
-            }
-          }).catch(() => {
-            // Ignore errors - capture may have failed
-          });
-        }
-      } catch {
+      if (drainResult === 'timed-out') {
+        void capturePromise.then((bitmap) => {
+          if (bitmap && typeof bitmap.close === 'function') {
+            bitmap.close();
+            this.logger.debug('Closed late-resolving ImageBitmap after timeout');
+          }
+        }).catch(() => {
+          // Ignore errors - capture may have failed
+        });
+      } else if (drainResult === 'failed') {
         // Capture may have failed due to GPU shutdown - that's expected
         this.logger.debug('In-flight capture completed with error (expected during shutdown)');
       }
@@ -186,9 +173,11 @@ class CaptureGpuRecordingService extends BaseService {
     this._cleanupGpuRecording();
   }
 
-  dispose(): void {
+  override dispose(): void | Promise<void> {
     this._cleanupGpuRecording();
+    const disposed = super.dispose();
     this.logger.info('CaptureGpuRecordingService disposed');
+    return disposed;
   }
 
   _calculateRecordingScale(frameWidth: number, frameHeight: number): RecordingScaleParams | null {
@@ -246,6 +235,7 @@ class CaptureGpuRecordingService extends BaseService {
 
   _startRecordingFrameLoop(): void {
     const captureAndDraw = async () => {
+      this.disposables.cancel(RECORDING_FRAME_LIFECYCLE);
       // Don't start new captures if draining or stopped
       if (!this._isRecording || this._isDraining) return;
 
@@ -300,17 +290,14 @@ class CaptureGpuRecordingService extends BaseService {
         }
       }
 
-      this._recordingFrameId = requestAnimationFrame(captureAndDraw);
+      this._scheduleRecordingFrame(captureAndDraw);
     };
 
-    this._recordingFrameId = requestAnimationFrame(captureAndDraw);
+    this._scheduleRecordingFrame(captureAndDraw);
   }
 
   _cleanupGpuRecording(): void {
-    if (this._recordingFrameId !== null) {
-      cancelAnimationFrame(this._recordingFrameId);
-      this._recordingFrameId = null;
-    }
+    this.disposables.cancel(RECORDING_FRAME_LIFECYCLE);
 
     if (this._recordingStream) {
       this._recordingStream.getTracks().forEach((track) => track.stop());
@@ -334,6 +321,29 @@ class CaptureGpuRecordingService extends BaseService {
     // Reset draining state
     this._isDraining = false;
     this._lastCapturePromise = null;
+  }
+
+  private _scheduleRecordingFrame(callback: FrameRequestCallback): void {
+    const recordingFrameId = requestAnimationFrame(callback);
+    this.disposables.replace(RECORDING_FRAME_LIFECYCLE, () => cancelAnimationFrame(recordingFrameId));
+  }
+
+  private _waitForCaptureDrain(
+    capturePromise: Promise<ImageBitmap>,
+    timeoutMs: number
+  ): Promise<CaptureDrainResult> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const timeoutId = setTimeout(() => finish('timed-out'), timeoutMs);
+      const finish = (result: CaptureDrainResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve(result);
+      };
+
+      void capturePromise.then(() => finish('completed')).catch(() => finish('failed'));
+    });
   }
 }
 

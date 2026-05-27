@@ -1,13 +1,12 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type {
   TranscodeCancelResponse,
   TranscodeFormat,
   TranscodeStartResponse,
   TranscodeStatusResponse
 } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface TranscodeService {
   transcode(options: {
@@ -50,12 +49,9 @@ function toBuffer(inputBuffer: TranscodeStartOptions['inputBuffer']): Buffer {
   return inputBuffer as Buffer;
 }
 
-export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDependencies>([
+export const transcodeHandlerDescriptors = defineManifestIpcHandlers<TranscodeHandlerDependencies>('transcodeAPI', [
   {
-    channel: IPC_CHANNELS.TRANSCODE.START,
-    dependencyTokens: ['transcodeService', 'logger'],
-    argumentSchema: ['options:object'],
-    responseMode: 'result-envelope',
+    method: 'start',
     async invoke(
       { transcodeService }: TranscodeHandlerDependencies,
       _event: IpcMainInvokeEvent,
@@ -78,10 +74,7 @@ export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDep
     }
   },
   {
-    channel: IPC_CHANNELS.TRANSCODE.CANCEL,
-    dependencyTokens: ['transcodeService', 'logger'],
-    argumentSchema: ['options:object'],
-    responseMode: 'result-envelope',
+    method: 'cancel',
     invoke(
       { transcodeService }: TranscodeHandlerDependencies,
       _event: IpcMainInvokeEvent,
@@ -96,10 +89,7 @@ export const transcodeHandlerDescriptors = defineIpcHandlers<TranscodeHandlerDep
     }
   },
   {
-    channel: IPC_CHANNELS.TRANSCODE.GET_STATUS,
-    dependencyTokens: ['transcodeService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'getStatus',
     invoke(
       { transcodeService }: TranscodeHandlerDependencies
     ): TranscodeStatusResponse {

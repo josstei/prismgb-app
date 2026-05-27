@@ -33,10 +33,10 @@ const DEFAULT_CONTRACT_PATTERNS = [
   /\.contract\.(json|ts)$/,
   /channels\.json$/,
   /settings\.definitions\.json$/,
-  /preload-api\.contract\.(ts|js|mjs)$/
+  /preload-api\.contract\.(ts|js|mjs)$/,
+  /[\\/]tests[\\/]contracts[\\/].+\.[cm]?[jt]sx?$/
 ];
 const CANONICAL_CONTRACT_ALLOWLIST = [
-  'src/shared/ipc/channels.json',
   'src/shared/ipc/ipc.manifest.json',
   'src/shared/ipc/ipc.manifest.ts',
   'src/shared/ipc/preload-api.contract.ts',
@@ -76,6 +76,57 @@ const SHARED_TYPESCRIPT_CUTOVER_ROOTS = [
   'src/shared/base',
   'src/shared/interfaces'
 ];
+const RETIRED_HIDE_TIMER_PATHS = [
+  'src/renderer/presentation/primitives/hide-timer.class.js',
+  'tests/unit/ui/primitives/hide-timer.test.js'
+];
+const RETIRED_HIDE_TIMER_REFERENCE_SCAN_ROOTS = [
+  'src',
+  'tests/unit/ui',
+  'tests/unit/features/notes/ui',
+  'tests/unit/renderer/presentation/primitives'
+];
+const RETIRED_HIDE_TIMER_REFERENCE_PATTERNS = [
+  {
+    label: 'HideTimer identifier reference',
+    pattern: /\bHideTimer\b/
+  },
+  {
+    label: 'hide-timer module/path reference',
+    pattern: /hide-timer/
+  }
+];
+const RENDERER_BACKEND_PROHIBITED_RENDERING_PATHS = [
+  'src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts',
+  'src/renderer/infrastructure/rendering/workers/webgl2-renderer.engine.ts',
+  'src/renderer/infrastructure/rendering/workers/optimization.utils.ts',
+  'src/renderer/infrastructure/rendering/workers/engine.types.ts',
+  'src/renderer/infrastructure/rendering/shaders',
+  'src/renderer/infrastructure/rendering/shaders/webgpu',
+  'src/renderer/infrastructure/rendering/shaders/webgl2',
+  'src/renderer/infrastructure/services/streaming/canvas-renderer.ts'
+];
+const RENDERER_BACKEND_RENDERING_ALLOWED_FILES = new Set([
+  'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
+  'src/renderer/infrastructure/rendering/workers/render.worker.ts',
+  'src/renderer/infrastructure/rendering/workers/worker-protocol.config.ts'
+]);
+const RENDER_PASS_CONTRACT_PATH = 'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.json';
+const RENDER_PASS_MANIFEST_ALLOWED_CODE_FILES = new Set([
+  RENDER_PASS_CONTRACT_PATH,
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes.contract.ts',
+  'packages/prismgb-gpu/src/domain/render-passes/render-passes-helpers.ts'
+]);
+const RENDER_PASS_SHADER_DIRECTORIES = [
+  {
+    directory: 'packages/prismgb-gpu/src/infrastructure/webgpu/shaders',
+    extension: '.wgsl'
+  },
+  {
+    directory: 'packages/prismgb-gpu/src/infrastructure/webgl2/shaders',
+    extension: '.glsl'
+  }
+];
 
 function readJson(projectRoot, relativePath) {
   const absolutePath = path.join(projectRoot, relativePath);
@@ -100,6 +151,10 @@ function toPosix(value) {
 
 function normalizeRelativePath(value) {
   return toPosix(value);
+}
+
+function getLineNumberForIndex(source, index) {
+  return source.slice(0, index).split('\n').length;
 }
 
 function isContractLikeFile(filePath) {
@@ -145,7 +200,7 @@ function collectContractAllowlist() {
 
 function collectContractLikeFiles(projectRoot) {
   const contractLikeFiles = [];
-  const roots = ['src', 'scripts', 'packages'];
+  const roots = ['src', 'scripts', 'packages', 'tests'];
 
   for (const root of roots) {
     const rootPath = path.join(projectRoot, root);
@@ -244,6 +299,65 @@ export function collectRuntimeTwinMetrics(projectRoot) {
   };
 }
 
+export function collectSourceRuntimeJsMetrics(projectRoot) {
+  const srcRoot = path.join(projectRoot, 'src');
+  const files = walkFiles(srcRoot, (absolutePath) => absolutePath.endsWith('.js'))
+    .map((filePath) => normalizeRelativePath(path.relative(projectRoot, filePath)))
+    .sort();
+
+  return { fileCount: files.length, files };
+}
+
+export function collectRetiredHideTimerMetrics(projectRoot) {
+  const violations = [];
+
+  for (const relativePath of RETIRED_HIDE_TIMER_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      violations.push({
+        file: relativePath,
+        reason: `retired file exists: ${relativePath}`
+      });
+    }
+  }
+
+  for (const relativeRoot of RETIRED_HIDE_TIMER_REFERENCE_SCAN_ROOTS) {
+    const absoluteRoot = path.join(projectRoot, relativeRoot);
+    if (!fs.existsSync(absoluteRoot)) {
+      continue;
+    }
+
+    for (const absolutePath of walkFiles(absoluteRoot, (candidatePath) => /\.[cm]?[jt]sx?$/.test(candidatePath))) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      const source = fs.readFileSync(absolutePath, 'utf8');
+
+      for (const { label, pattern } of RETIRED_HIDE_TIMER_REFERENCE_PATTERNS) {
+        const match = source.match(pattern);
+        if (!match || match.index == null) {
+          continue;
+        }
+
+        violations.push({
+          file: relativePath,
+          line: getLineNumberForIndex(source, match.index),
+          reason: `retired HideTimer reference (${label})`
+        });
+      }
+    }
+  }
+
+  const orderedViolations = violations.sort((left, right) =>
+    left.file.localeCompare(right.file)
+    || (left.line ?? 0) - (right.line ?? 0)
+    || left.reason.localeCompare(right.reason)
+  );
+
+  return {
+    violationCount: orderedViolations.length,
+    violations: orderedViolations
+  };
+}
+
 export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
   const files = SHARED_TYPESCRIPT_CUTOVER_ROOTS.flatMap((relativeRoot) => {
     const absoluteRoot = path.join(projectRoot, relativeRoot);
@@ -258,6 +372,227 @@ export function collectSharedTypeScriptCutoverMetrics(projectRoot) {
   return {
     fileCount: files.length,
     files
+  };
+}
+
+export function collectRendererBackendImplementationMetrics(projectRoot) {
+  const violations = new Map();
+
+  for (const relativePath of RENDERER_BACKEND_PROHIBITED_RENDERING_PATHS) {
+    const absolutePath = path.join(projectRoot, relativePath);
+    if (fs.existsSync(absolutePath)) {
+      violations.set(relativePath, `legacy renderer backend path exists: ${relativePath}`);
+    }
+  }
+
+  const renderingRoot = path.join(projectRoot, 'src/renderer/infrastructure/rendering');
+  if (!fs.existsSync(renderingRoot)) {
+    return {
+      implementationViolationCount: violations.size,
+      implementationViolationFiles: Array.from(violations, ([file, reason]) => ({ file, reason }))
+    };
+  }
+
+  for (const absolutePath of walkFiles(
+    renderingRoot,
+    (candidatePath) => candidatePath.endsWith('.ts') || candidatePath.endsWith('.js')
+  )) {
+    const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+    const fileName = path.basename(absolutePath);
+
+    if (RENDERER_BACKEND_RENDERING_ALLOWED_FILES.has(relativePath)) {
+      continue;
+    }
+
+    const lowerName = fileName.toLowerCase();
+    if (lowerName.endsWith('.engine.ts') && !lowerName.endsWith('.test.ts')) {
+      violations.set(relativePath, `unexpected renderer engine file: ${fileName}`);
+      continue;
+    }
+
+    if (lowerName === 'optimization.utils.ts' || lowerName === 'engine.types.ts') {
+      violations.set(relativePath, `legacy renderer utility file: ${fileName}`);
+      continue;
+    }
+
+    const baseName = lowerName.replace(/\.ts$/, '');
+    if (
+      (baseName.includes('webgpu') || baseName.includes('webgl2'))
+      && !baseName.includes('worker-protocol')
+      && !baseName.includes('config')
+    ) {
+      violations.set(relativePath, `backend implementation filename leaked into rendering layer: ${fileName}`);
+    }
+  }
+
+  const implementationViolationFiles = Array.from(violations.entries())
+    .map(([file, reason]) => ({ file, reason }))
+    .sort((left, right) => left.file.localeCompare(right.file));
+
+  return {
+    implementationViolationCount: implementationViolationFiles.length,
+    implementationViolationFiles
+  };
+}
+
+function isCodeFile(absolutePath) {
+  return /\.(?:[cm]?[jt]s|tsx|jsx)$/.test(absolutePath);
+}
+
+function isRenderPassAllowedFile(relativePath) {
+  return RENDER_PASS_MANIFEST_ALLOWED_CODE_FILES.has(relativePath)
+    || RENDER_PASS_SHADER_DIRECTORIES.some((entry) => relativePath.startsWith(`${entry.directory}/`));
+}
+
+function getShaderDirectoryForFileName(fileName) {
+  return RENDER_PASS_SHADER_DIRECTORIES.find((entry) => fileName.endsWith(entry.extension))?.directory ?? null;
+}
+
+function collectRenderPassManifestOwnership(projectRoot) {
+  const manifest = readJson(projectRoot, RENDER_PASS_CONTRACT_PATH);
+  const expectedShaderFiles = new Set();
+  const ownedTokens = new Map();
+
+  if (!manifest || !Array.isArray(manifest.passes)) {
+    return { expectedShaderFiles, ownedTokens, missingManifest: true };
+  }
+
+  for (const pass of manifest.passes) {
+    if (typeof pass.id === 'string') ownedTokens.set(pass.id, 'render pass id');
+
+    const passShaderEntries = [
+      ['webgpuShader', pass.webgpuShader],
+      ['webgl2FragmentShader', pass.webgl2FragmentShader],
+      ['webgl2VertexShader', pass.webgl2VertexShader]
+    ];
+
+    for (const [field, fileName] of passShaderEntries) {
+      if (typeof fileName !== 'string') {
+        continue;
+      }
+      ownedTokens.set(fileName, `render pass shader (${field})`);
+      const shaderDirectory = getShaderDirectoryForFileName(fileName);
+      if (shaderDirectory) expectedShaderFiles.add(`${shaderDirectory}/${fileName}`);
+    }
+  }
+
+  for (const utilityShader of manifest.utilityShaders ?? []) {
+    if (typeof utilityShader.file !== 'string') {
+      continue;
+    }
+    ownedTokens.set(utilityShader.file, 'render pass utility shader');
+    const shaderDirectory = getShaderDirectoryForFileName(utilityShader.file);
+    if (shaderDirectory) expectedShaderFiles.add(`${shaderDirectory}/${utilityShader.file}`);
+  }
+
+  return {
+    expectedShaderFiles,
+    ownedTokens,
+    missingManifest: false
+  };
+}
+
+function collectStringLiterals(sourceCode, filePath) {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    sourceCode,
+    ts.ScriptTarget.Latest,
+    true,
+    filePath.endsWith('.ts') || filePath.endsWith('.tsx') ? ts.ScriptKind.TS : ts.ScriptKind.JS
+  );
+  const literals = [];
+
+  function visit(node) {
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      literals.push({
+        value: node.text,
+        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1
+      });
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return literals;
+}
+
+export function collectRenderPassManifestOwnershipMetrics(projectRoot) {
+  const ownership = collectRenderPassManifestOwnership(projectRoot);
+  const violations = [];
+
+  if (ownership.missingManifest) {
+    violations.push({
+      file: RENDER_PASS_CONTRACT_PATH,
+      reason: 'render pass manifest is missing or invalid'
+    });
+  }
+
+  for (const shaderDirectory of RENDER_PASS_SHADER_DIRECTORIES) {
+    const absoluteDirectory = path.join(projectRoot, shaderDirectory.directory);
+    if (!fs.existsSync(absoluteDirectory)) {
+      continue;
+    }
+
+    const shaderFiles = walkFiles(
+      absoluteDirectory,
+      (absolutePath) => absolutePath.endsWith(shaderDirectory.extension)
+    );
+
+    for (const absolutePath of shaderFiles) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      if (!ownership.expectedShaderFiles.has(relativePath)) {
+        violations.push({
+          file: relativePath,
+          reason: 'package shader file is not declared by the render-pass manifest'
+        });
+      }
+    }
+  }
+
+  const sourceRoots = [
+    path.join(projectRoot, 'src'),
+    path.join(projectRoot, 'packages/prismgb-gpu/src')
+  ];
+
+  for (const sourceRoot of sourceRoots) {
+    if (!fs.existsSync(sourceRoot)) {
+      continue;
+    }
+
+    for (const absolutePath of walkFiles(sourceRoot, isCodeFile)) {
+      const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath));
+      if (isRenderPassAllowedFile(relativePath)) {
+        continue;
+      }
+
+      const sourceCode = fs.readFileSync(absolutePath, 'utf8');
+      const literals = collectStringLiterals(sourceCode, absolutePath);
+      for (const literal of literals) {
+        const tokenType = ownership.ownedTokens.get(literal.value);
+        if (!tokenType) {
+          continue;
+        }
+
+        violations.push({
+          file: relativePath,
+          line: literal.line,
+          reason: `${tokenType} "${literal.value}" is hand-coded outside the render-pass manifest/helpers`
+        });
+      }
+    }
+  }
+
+  violations.sort((left, right) => {
+    const fileOrder = left.file.localeCompare(right.file);
+    if (fileOrder !== 0) {
+      return fileOrder;
+    }
+    return (left.line ?? 0) - (right.line ?? 0);
+  });
+
+  return {
+    violationCount: violations.length,
+    violations
   };
 }
 
@@ -775,8 +1110,12 @@ function printSummary(scorecard) {
   console.log(`- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`);
   console.log(`- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`);
   console.log(`- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`);
+  console.log(`- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`);
+  console.log(`- retired hide timer violations: ${metrics.hideTimerRetirementViolationCount}`);
   console.log(`- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`);
   console.log(`- inline canonical test mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`);
+  console.log(`- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`);
+  console.log(`- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
   console.log('- top runtime files:');
@@ -818,8 +1157,12 @@ function readThresholdConfig(projectRoot, thresholdsPath) {
     ['shaderDuplicateDivergenceCountMax', ensureNonNegativeIntegerLimit],
     ['shaderDuplicateFileCountMax', ensureNonNegativeIntegerLimit],
     ['runtimeJsDtsTwinCountMax', ensureNonNegativeIntegerLimit],
+    ['sourceRuntimeJsFileCountMax', ensureNonNegativeIntegerLimit],
+    ['hideTimerRetirementViolationCountMax', ensureNonNegativeIntegerLimit],
     ['sharedBaseInterfaceJsOrDtsFileCountMax', ensureNonNegativeIntegerLimit],
     ['inlineCanonicalMockAssignmentCountMax', ensureNonNegativeIntegerLimit],
+    ['rendererBackendImplementationViolationCountMax', ensureNonNegativeIntegerLimit],
+    ['renderPassManifestOwnershipViolationCountMax', ensureNonNegativeIntegerLimit],
     ['aliasManifestDriftCountMax', ensureNonNegativeIntegerLimit],
     ['platformManifestDriftCountMax', ensureNonNegativeIntegerLimit]
   ];
@@ -910,6 +1253,18 @@ export function evaluateThresholds(metrics, limits) {
     'max'
   );
   addCheck(
+    'sourceRuntimeJsFileCountMax',
+    'sourceRuntimeJsFileCount',
+    metrics.sourceRuntimeJsFileCount,
+    'max'
+  );
+  addCheck(
+    'hideTimerRetirementViolationCountMax',
+    'hideTimerRetirementViolationCount',
+    metrics.hideTimerRetirementViolationCount,
+    'max'
+  );
+  addCheck(
     'sharedBaseInterfaceJsOrDtsFileCountMax',
     'sharedBaseInterfaceJsOrDtsFileCount',
     metrics.sharedBaseInterfaceJsOrDtsFileCount,
@@ -919,6 +1274,18 @@ export function evaluateThresholds(metrics, limits) {
     'inlineCanonicalMockAssignmentCountMax',
     'inlineCanonicalMockAssignmentCount',
     metrics.inlineCanonicalMockAssignmentCount,
+    'max'
+  );
+  addCheck(
+    'rendererBackendImplementationViolationCountMax',
+    'rendererBackendImplementationViolationCount',
+    metrics.rendererBackendImplementationViolationCount,
+    'max'
+  );
+  addCheck(
+    'renderPassManifestOwnershipViolationCountMax',
+    'renderPassManifestOwnershipViolationCount',
+    metrics.renderPassManifestOwnershipViolationCount,
     'max'
   );
   addCheck(
@@ -974,8 +1341,12 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- shader duplicate divergence pairs: ${metrics.shaderDuplicateDivergenceCount}`,
   `- renderer shader duplicate files: ${metrics.shaderDuplicateFileCount}`,
   `- runtime js+d.ts twin count: ${metrics.runtimeJsDtsTwinCount}`,
+  `- source runtime js files: ${metrics.sourceRuntimeJsFileCount}`,
+  `- retired hide timer violations: ${metrics.hideTimerRetirementViolationCount}`,
   `- shared base/interface js+d.ts cutover leftovers: ${metrics.sharedBaseInterfaceJsOrDtsFileCount}`,
   `- inline canonical mock assignments: ${metrics.inlineCanonicalMockAssignmentCount}`,
+  `- renderer backend implementation violations: ${metrics.rendererBackendImplementationViolationCount}`,
+  `- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
   '',
@@ -1017,10 +1388,14 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const contractOwnershipMetrics = collectContractMetrics(projectRoot);
   const shaderDuplicateMetrics = collectShaderDuplicateMetrics(projectRoot);
   const runtimeTwinMetrics = collectRuntimeTwinMetrics(projectRoot);
+  const sourceRuntimeJsMetrics = collectSourceRuntimeJsMetrics(projectRoot);
+  const retiredHideTimerMetrics = collectRetiredHideTimerMetrics(projectRoot);
   const sharedTypeScriptCutoverMetrics = collectSharedTypeScriptCutoverMetrics(projectRoot);
   const inlineMockMetrics = collectInlineMockAssignments(projectRoot);
   const aliasDriftMetrics = collectAliasDriftMetrics(projectRoot);
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
+  const rendererBackendMetrics = collectRendererBackendImplementationMetrics(projectRoot);
+  const renderPassOwnershipMetrics = collectRenderPassManifestOwnershipMetrics(projectRoot);
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -1038,10 +1413,18 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       shaderDuplicatePairs: shaderDuplicateMetrics.duplicatePairs,
       runtimeJsDtsTwinCount: runtimeTwinMetrics.pairCount,
       runtimeJsDtsTwinPairs: runtimeTwinMetrics.pairs,
+      sourceRuntimeJsFileCount: sourceRuntimeJsMetrics.fileCount,
+      sourceRuntimeJsFiles: sourceRuntimeJsMetrics.files,
+      hideTimerRetirementViolationCount: retiredHideTimerMetrics.violationCount,
+      hideTimerRetirementViolations: retiredHideTimerMetrics.violations,
       sharedBaseInterfaceJsOrDtsFileCount: sharedTypeScriptCutoverMetrics.fileCount,
       sharedBaseInterfaceJsOrDtsFiles: sharedTypeScriptCutoverMetrics.files,
       inlineCanonicalMockAssignmentCount: inlineMockMetrics.inlineCanonicalMockAssignmentCount,
       inlineCanonicalMockFiles: inlineMockMetrics.filesWithAssignments,
+      rendererBackendImplementationViolationCount: rendererBackendMetrics.implementationViolationCount,
+      rendererBackendImplementationViolationFiles: rendererBackendMetrics.implementationViolationFiles,
+      renderPassManifestOwnershipViolationCount: renderPassOwnershipMetrics.violationCount,
+      renderPassManifestOwnershipViolations: renderPassOwnershipMetrics.violations,
       aliasManifestDriftCount: aliasDriftMetrics.driftCount,
       aliasManifestDrift: {
         missing: aliasDriftMetrics.manifestMissing,

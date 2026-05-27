@@ -1,29 +1,15 @@
-/**
- * Update Service (Main)
- * Handles automatic updates using electron-updater
- * Manages update checking, downloading, and installation
- */
-
 import { app } from 'electron';
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater';
 import { BaseService } from '@shared/base/service.base.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { IPC_CHANNELS } from '@shared/ipc/ipc.manifest.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
+import { UpdateState, type UpdateStateValue } from '@shared/config/update-state.config.js';
 
-/**
- * Update states
- */
-export const UpdateState = {
-  IDLE: 'idle',
-  CHECKING: 'checking',
-  AVAILABLE: 'available',
-  NOT_AVAILABLE: 'not-available',
-  DOWNLOADING: 'downloading',
-  DOWNLOADED: 'downloaded',
-  ERROR: 'error'
-} as const;
+export { UpdateState };
+export type UpdateStateType = UpdateStateValue;
 
-export type UpdateStateType = (typeof UpdateState)[keyof typeof UpdateState];
+const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
+const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
 
 interface WindowService {
   send(channel: string, data: unknown): void;
@@ -70,7 +56,13 @@ interface UpdateStatus {
   error: string | null;
 }
 
+type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
+type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
+
 class UpdateService extends BaseService {
+  private readonly windowService: WindowService;
+  protected readonly eventBus: EventBus;
+  private readonly config: Config;
 
   state: UpdateStateType;
   updateInfo: UpdateInfo | null;
@@ -78,20 +70,21 @@ class UpdateService extends BaseService {
   error: Error | null;
 
   private _initialized: boolean;
-  private _autoCheckIntervalId: NodeJS.Timeout | null;
-  private _initialCheckTimeoutId: NodeJS.Timeout | null;
+  private _autoCheckRunning: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory', 'config'], 'UpdateService');
 
+    this.windowService = dependencies.windowService;
+    this.eventBus = dependencies.eventBus;
+    this.config = dependencies.config;
     this.state = UpdateState.IDLE;
     this.updateInfo = null;
     this.downloadProgress = null;
     this.error = null;
 
     this._initialized = false;
-    this._autoCheckIntervalId = null;
-    this._initialCheckTimeoutId = null;
+    this._autoCheckRunning = false;
   }
 
   /**
@@ -124,7 +117,7 @@ class UpdateService extends BaseService {
     autoUpdater.autoInstallOnAppQuit = true;
 
     // Allow pre-release updates if running a beta version
-    const version = (this.config as Config)?.version || '';
+    const version = this.config.version || '';
     autoUpdater.allowPrerelease = version.includes('beta');
 
     // Set up event listeners
@@ -142,26 +135,26 @@ class UpdateService extends BaseService {
    * @private
    */
   private _setupEventListeners(): void {
-    autoUpdater.on('checking-for-update', () => {
+    this._listenToAutoUpdater('checking-for-update', () => {
       this.logger.info('Checking for updates...');
       this._setState(UpdateState.CHECKING);
     });
 
-    autoUpdater.on('update-available', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-available', (info: UpdateInfo) => {
       this.logger.info('Update available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.AVAILABLE);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.AVAILABLE, info);
     });
 
-    autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-not-available', (info: UpdateInfo) => {
       this.logger.info('No updates available', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.NOT_AVAILABLE);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
     });
 
-    autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    this._listenToAutoUpdater('download-progress', (progress: ProgressInfo) => {
       this.logger.debug('Download progress', {
         percent: progress.percent?.toFixed(1),
         transferred: progress.transferred,
@@ -171,19 +164,19 @@ class UpdateService extends BaseService {
       this._notifyRenderer(IPC_CHANNELS.UPDATE.PROGRESS, progress);
     });
 
-    autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    this._listenToAutoUpdater('update-downloaded', (info: UpdateInfo) => {
       this.logger.info('Update downloaded', { version: info.version });
       this.updateInfo = info;
       this._setState(UpdateState.DOWNLOADED);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
     });
 
-    autoUpdater.on('error', (error: Error) => {
+    this._listenToAutoUpdater('error', (error: Error) => {
       if (this._isPlatformNotFoundError(error)) {
         this.logger.info('No updates available for this platform');
         this._setState(UpdateState.NOT_AVAILABLE);
         this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
-          version: (this.config as Config)?.version,
+          version: this.config.version,
           reason: 'platform-not-supported'
         });
         return;
@@ -193,6 +186,13 @@ class UpdateService extends BaseService {
       this.error = error;
       this._setState(UpdateState.ERROR);
       this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
+    });
+  }
+
+  private _listenToAutoUpdater(eventName: AutoUpdaterEventName, listener: AutoUpdaterListener): void {
+    autoUpdater.on(eventName, listener);
+    this.disposables.add(() => {
+      autoUpdater.removeListener(eventName, listener);
     });
   }
 
@@ -226,7 +226,7 @@ class UpdateService extends BaseService {
   _setState(newState: UpdateStateType): void {
     const oldState = this.state;
     this.state = newState;
-    (this.eventBus as EventBus).publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
+    this.eventBus.publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
   }
 
   /**
@@ -237,7 +237,7 @@ class UpdateService extends BaseService {
    */
   _notifyRenderer(channel: string, data: unknown): void {
     try {
-      (this.windowService as WindowService)?.send(channel, data);
+      this.windowService.send(channel, data);
     } catch (error) {
       this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
     }
@@ -261,10 +261,10 @@ class UpdateService extends BaseService {
     }
 
     // Skip in development mode
-    if ((this.config as Config)?.isDevelopment) {
+    if (this.config.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
       this._setState(UpdateState.NOT_AVAILABLE);
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: (this.config as Config)?.version, reason: 'development' });
+      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
 
@@ -272,7 +272,7 @@ class UpdateService extends BaseService {
       this.logger.info('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
       return {
-        updateAvailable: result?.updateInfo?.version !== (this.config as Config)?.version,
+        updateAvailable: result?.updateInfo?.version !== this.config.version,
         updateInfo: result?.updateInfo
       };
     } catch (error) {
@@ -337,25 +337,29 @@ class UpdateService extends BaseService {
    * @param intervalMs - Check interval in milliseconds (default: 1 hour)
    */
   startAutoCheck(intervalMs = 60 * 60 * 1000): void {
-    if (this._autoCheckIntervalId) {
+    if (this._autoCheckRunning) {
       this.logger.warn('Auto-check already running');
       return;
     }
 
+    this._autoCheckRunning = true;
+
     // Perform initial check after a short delay (don't block startup)
-    this._initialCheckTimeoutId = setTimeout(() => {
-      this._initialCheckTimeoutId = null;
+    const initialCheckTimeoutId = setTimeout(() => {
+      this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Initial update check failed', (error as Error).message);
       });
     }, 10000); // 10 seconds after startup
+    this.disposables.replace(INITIAL_UPDATE_CHECK_LIFECYCLE, () => clearTimeout(initialCheckTimeoutId));
 
     // Set up periodic checks
-    this._autoCheckIntervalId = setInterval(() => {
+    const autoCheckIntervalId = setInterval(() => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Periodic update check failed', (error as Error).message);
       });
     }, intervalMs);
+    this.disposables.replace(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => clearInterval(autoCheckIntervalId));
 
     this.logger.info(`Auto-update check started (interval: ${intervalMs / 1000 / 60} minutes)`);
   }
@@ -364,13 +368,11 @@ class UpdateService extends BaseService {
    * Stop automatic update checking
    */
   stopAutoCheck(): void {
-    if (this._initialCheckTimeoutId) {
-      clearTimeout(this._initialCheckTimeoutId);
-      this._initialCheckTimeoutId = null;
-    }
-    if (this._autoCheckIntervalId) {
-      clearInterval(this._autoCheckIntervalId);
-      this._autoCheckIntervalId = null;
+    const wasRunning = this._autoCheckRunning;
+    this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.disposables.cancel(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this._autoCheckRunning = false;
+    if (wasRunning) {
       this.logger.info('Auto-update check stopped');
     }
   }
@@ -391,9 +393,9 @@ class UpdateService extends BaseService {
   /**
    * Clean up resources
    */
-  dispose(): void {
+  async dispose(): Promise<void> {
     this.stopAutoCheck();
-    autoUpdater.removeAllListeners();
+    await super.dispose();
     this._initialized = false;
     this.logger.info('UpdateService disposed');
   }

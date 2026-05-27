@@ -1,71 +1,50 @@
-/**
- * Device IPC Adapter
- *
- * Wraps window.deviceAPI IPC communication to make DeviceOrchestrator
- * testable without IPC dependencies.
- *
- * Abstracts:
- * - onDeviceConnected IPC event
- * - onDeviceDisconnected IPC event
- */
+import {
+  createRendererPreloadEventBridge,
+  RendererPreloadBridgeDescriptors
+} from '@renderer/infrastructure/services/preload-event-bridge.factory';
+import { DisposableBag } from '@shared/base/disposable-bag.js';
+import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { DeviceInfoPayload } from '@shared/ipc/preload-api.contract.js';
 
-type DeviceEventHandler = (...args: unknown[]) => void;
-type Unsubscribe = (() => void) | null;
-type DeviceApiLike = {
-  onDeviceConnected(handler: DeviceEventHandler): () => void;
-  onDeviceDisconnected(handler: DeviceEventHandler): () => void;
+type DeviceIpcLogger = { warn?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
+type DeviceIpcAdapterDependencies = {
+  eventBus: EventBusLike;
+  logger?: DeviceIpcLogger;
 };
 
 export class DeviceIpcAdapter {
-  _logger?: { warn?: (...args: unknown[]) => void };
-  _unsubscribeConnected: Unsubscribe;
-  _unsubscribeDisconnected: Unsubscribe;
+  private readonly eventBus: EventBusLike;
+  _logger?: DeviceIpcLogger;
+  private readonly disposables = new DisposableBag();
 
-  constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
+  constructor({ eventBus, logger }: DeviceIpcAdapterDependencies) {
+    this.eventBus = eventBus;
     this._logger = logger;
-    this._unsubscribeConnected = null;
-    this._unsubscribeDisconnected = null;
   }
 
-  /**
-   * Subscribe to device connection/disconnection events
-   * @param {Function} onDeviceConnected - Called when device is connected
-   * @param {Function} onDeviceDisconnected - Called when device is disconnected
-   * @returns {Function} Cleanup function to remove listeners
-   */
-  subscribe(onDeviceConnected: DeviceEventHandler, onDeviceDisconnected: DeviceEventHandler) {
+  subscribe() {
     if (typeof window === 'undefined' || !window.deviceAPI) {
-      // Gracefully handle missing deviceAPI (e.g., in tests or if preload fails)
       return () => {};
     }
 
-    // Validate callbacks
-    if (typeof onDeviceConnected !== 'function' || typeof onDeviceDisconnected !== 'function') {
-      this._logger?.warn('DeviceIpcAdapter.subscribe: Invalid callbacks provided');
-      return () => {};
-    }
+    const disposeBridge = this.disposables.add(createRendererPreloadEventBridge({
+      api: window.deviceAPI,
+      descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
+      logger: this._logger,
+      handlers: {
+        onDeviceConnected: (device: DeviceInfoPayload) => {
+          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceConnected, device);
+        },
+        onDeviceDisconnected: (device: DeviceInfoPayload | null | undefined) => {
+          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceDisconnected, device);
+        }
+      }
+    }));
 
-    // Subscribe to IPC events
-    const deviceApi = window.deviceAPI as DeviceApiLike;
-    this._unsubscribeConnected = deviceApi.onDeviceConnected(onDeviceConnected);
-    this._unsubscribeDisconnected = deviceApi.onDeviceDisconnected(onDeviceDisconnected);
-
-    // Return cleanup function
-    return () => this.dispose();
+    return () => { void disposeBridge(); };
   }
 
-  /**
-   * Clean up event listeners
-   */
   dispose() {
-    if (typeof this._unsubscribeConnected === 'function') {
-      this._unsubscribeConnected();
-      this._unsubscribeConnected = null;
-    }
-
-    if (typeof this._unsubscribeDisconnected === 'function') {
-      this._unsubscribeDisconnected();
-      this._unsubscribeDisconnected = null;
-    }
+    return this.disposables.clear();
   }
 }

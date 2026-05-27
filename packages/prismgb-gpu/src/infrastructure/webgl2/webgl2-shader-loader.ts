@@ -1,23 +1,16 @@
-import vertexShader from './shaders/common.vert.glsl?raw';
-import pixelUpscale from './shaders/pixel-upscale.frag.glsl?raw';
-import unsharpMask from './shaders/unsharp-mask.frag.glsl?raw';
-import colorElevation from './shaders/color-elevation.frag.glsl?raw';
-import crtLcd from './shaders/crt-lcd.frag.glsl?raw';
+import {
+  createShaderSourceMap,
+  type ShaderSourceMap
+} from '../shader-source-map';
 
-export interface WebGL2Shaders {
-  vertex: string;
-  pixelUpscale: string;
-  unsharpMask: string;
-  colorElevation: string;
-  crtLcd: string;
-}
+const WEBGL2_SHADER_MODULES = import.meta.glob('./shaders/*.glsl', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>;
+
+export type WebGL2Shaders = ShaderSourceMap;
 
 export function loadShaders(): WebGL2Shaders {
-  return {
-    vertex: vertexShader,
-    pixelUpscale,
-    unsharpMask,
-    colorElevation,
-    crtLcd
-  };
+  return createShaderSourceMap(WEBGL2_SHADER_MODULES);
 }

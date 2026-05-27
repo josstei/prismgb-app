@@ -6,6 +6,7 @@
  */
 
 import { vi } from 'vitest';
+import { PRESET_POLICY } from '@prismgb/gpu';
 
 /**
  * Default application state
@@ -21,7 +22,7 @@ export const DEFAULT_STATE = {
   volume: 70,
   brightness: 1.0,
   performanceMode: false,
-  renderPreset: 'vibrant',
+  renderPreset: PRESET_POLICY.rendererDefaultId,
 };
 
 /**
@@ -82,8 +83,7 @@ export function createAppState(options = {}) {
 
     setStreaming: createSetter('isStreaming'),
     setSelectedDeviceId: createSetter('selectedDeviceId'),
-    setCinematicModeEnabled: createSetter('isCinematicModeEnabled'),
-    setCinematicMode: createSetter('isCinematicModeEnabled'), // Alias
+    setCinematicMode: createSetter('isCinematicModeEnabled'),
     setRecording: createSetter('isRecording'),
     setRecordingBlob: createSetter('recordingBlob'),
     setDeviceConnected: createSetter('deviceConnected'),

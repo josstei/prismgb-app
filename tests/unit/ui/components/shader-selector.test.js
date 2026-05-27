@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
+import { createEventBus, createLogger } from '../../../factories/index.js';
 
 let mockCinematicToggle;
 let mockPresetList;
@@ -42,8 +43,8 @@ describe('ShaderSelectorComponent', () => {
 
   beforeEach(() => {
     mockSettingsService = {};
-    mockEventBus = { publish: vi.fn(), subscribe: vi.fn(() => vi.fn()) };
-    mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    mockEventBus = createEventBus();
+    mockLogger = createLogger({ name: 'ShaderSelectorComponent' });
 
     mockElements = {
       shaderBtn: document.createElement('button'),

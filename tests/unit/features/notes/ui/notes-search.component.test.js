@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesSearchComponent } from '@renderer/presentation/features/notes/components/notes-search.component.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('NotesSearchComponent', () => {
   let component;
@@ -11,12 +12,7 @@ describe('NotesSearchComponent', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'NotesSearchComponent' });
 
     component = new NotesSearchComponent({ logger: mockLogger });
   });
@@ -173,16 +169,18 @@ describe('NotesSearchComponent', () => {
   });
 
   describe('dispose', () => {
-    it('should clear active search timeout', () => {
+    it('should prevent pending debounce callback after dispose', () => {
       const searchInput = document.createElement('input');
-      component.initialize({ searchInput, onSearch: vi.fn() });
+      const onSearch = vi.fn();
+      component.initialize({ searchInput, onSearch });
 
       searchInput.value = 'test';
       searchInput.dispatchEvent(new Event('input'));
 
       component.dispose();
+      vi.advanceTimersByTime(200);
 
-      expect(component._searchTimeout).toBeNull();
+      expect(onSearch).not.toHaveBeenCalled();
     });
 
     it('should handle dispose when no timeout is active', () => {

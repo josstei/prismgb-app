@@ -5,24 +5,16 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { TIMING } from '@shared/config/timing.config';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
-
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
-};
-
-type DeviceConnectionStatus = {
-  connected: boolean;
-  [key: string]: unknown;
-};
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { RendererDeviceStatus } from '@shared/interfaces/device-status-provider.interface.js';
 
 type DeviceConnectionUpdate = {
-  status: DeviceConnectionStatus;
+  status: RendererDeviceStatus;
   changed?: boolean;
 };
 
@@ -58,6 +50,8 @@ type DeviceMediaServiceDependencies = {
   deviceChangeDebounceAdapter: DeviceChangeDebounceAdapterLike;
 };
 
+const DEVICE_CHANGE_LIFECYCLE = Symbol('deviceMediaDeviceChangeLifecycle');
+
 function stopStreamTracks(stream: MediaStream | null): void {
   if (!stream) {
     return;
@@ -69,22 +63,20 @@ function stopStreamTracks(stream: MediaStream | null): void {
 }
 
 class DeviceMediaService extends BaseService {
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
-  declare protected readonly browserMediaService: BrowserMediaServiceLike;
-  declare protected readonly deviceConnectionService: DeviceConnectionServiceLike;
-  declare protected readonly deviceStorageService: DeviceStorageServiceLike;
-  declare protected readonly deviceChangeDebounceAdapter: DeviceChangeDebounceAdapterLike;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly browserMediaService: BrowserMediaServiceLike;
+  private readonly deviceConnectionService: DeviceConnectionServiceLike;
+  private readonly deviceStorageService: DeviceStorageServiceLike;
+  private readonly deviceChangeDebounceAdapter: DeviceChangeDebounceAdapterLike;
 
   videoDevices: MediaDeviceInfo[];
   hasMediaPermission: boolean;
-  _enumerateInFlight: Promise<DeviceEnumerationResult> | null;
-  _lastEnumerateAt: number;
-  _enumerateCooldownMs: number;
-  _lastEnumerateResult: DeviceEnumerationResult | null;
-  _unsubscribeDeviceChange: (() => void) | null;
-  _knownSupportedDeviceIds: Set<string>;
-  _permissionProbeInFlight: Promise<void> | null;
+  private _enumerateInFlight: Promise<DeviceEnumerationResult> | null;
+  private _lastEnumerateAt: number;
+  private readonly _enumerateCooldownMs: number;
+  private _lastEnumerateResult: DeviceEnumerationResult | null;
+  private readonly _knownSupportedDeviceIds: Set<string>;
+  private _permissionProbeInFlight: Promise<void> | null;
 
   constructor(dependencies: DeviceMediaServiceDependencies) {
     super(dependencies, [
@@ -96,13 +88,17 @@ class DeviceMediaService extends BaseService {
       'deviceChangeDebounceAdapter'
     ], 'DeviceMediaService');
 
+    this.eventBus = dependencies.eventBus;
+    this.browserMediaService = dependencies.browserMediaService;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
+    this.deviceStorageService = dependencies.deviceStorageService;
+    this.deviceChangeDebounceAdapter = dependencies.deviceChangeDebounceAdapter;
     this.videoDevices = [];
     this.hasMediaPermission = false;
     this._enumerateInFlight = null;
     this._lastEnumerateAt = 0;
     this._enumerateCooldownMs = TIMING.DEVICE_ENUMERATE_COOLDOWN_MS;
     this._lastEnumerateResult = null;
-    this._unsubscribeDeviceChange = null;
     this._knownSupportedDeviceIds = new Set();
     this._permissionProbeInFlight = null;
   }
@@ -239,7 +235,7 @@ class DeviceMediaService extends BaseService {
     return null;
   }
 
-  async _tryGetPermissionForDevice(deviceId: string): Promise<MediaDeviceInfo | null> {
+  private async _tryGetPermissionForDevice(deviceId: string): Promise<MediaDeviceInfo | null> {
     let tempStream: MediaStream | null = null;
     try {
       tempStream = await this.browserMediaService.getUserMedia({
@@ -264,14 +260,14 @@ class DeviceMediaService extends BaseService {
     return null;
   }
 
-  _cacheAndReturnDevice(device: MediaDeviceInfo): MediaDeviceInfo | null {
+  private _cacheAndReturnDevice(device: MediaDeviceInfo): MediaDeviceInfo | null {
     if (!this.registerSupportedDevice(device)) {
       return null;
     }
     return device;
   }
 
-  async _warmUpPermissions(): Promise<void> {
+  private async _warmUpPermissions(): Promise<void> {
     if (this._permissionProbeInFlight) {
       return this._permissionProbeInFlight;
     }
@@ -306,26 +302,26 @@ class DeviceMediaService extends BaseService {
   }
 
   setupDeviceChangeListener(onChange: () => Promise<void> | void): void {
-    if (this._unsubscribeDeviceChange) {
-      return;
-    }
-
     // Subscribe via debounce adapter - handles rapid event bursts
-    this._unsubscribeDeviceChange = this.deviceChangeDebounceAdapter.subscribe(async () => {
-      try {
-        this.logger.info('Device change detected');
-        this.invalidateEnumerationCache();
-        await onChange();
-        await this.enumerateDevices();
-      } catch (error) {
-        this.logger.error('Device change handling failed:', getErrorMessage(error, 'Device change handling failed'));
-      }
-    });
+    this.disposables.cancel(DEVICE_CHANGE_LIFECYCLE);
+    this.disposables.replace(
+      DEVICE_CHANGE_LIFECYCLE,
+      this.deviceChangeDebounceAdapter.subscribe(async () => {
+        try {
+          this.logger.info('Device change detected');
+          this.invalidateEnumerationCache();
+          await onChange();
+          await this.enumerateDevices();
+        } catch (error) {
+          this.logger.error('Device change handling failed:', getErrorMessage(error, 'Device change handling failed'));
+        }
+      })
+    );
 
     this.logger.info('Device change listener set up');
   }
 
-  _checkForNewSupportedDevice(): void {
+  private _checkForNewSupportedDevice(): void {
     for (const device of this.videoDevices) {
       if (!this._knownSupportedDeviceIds.has(device.deviceId)) {
         this._knownSupportedDeviceIds.add(device.deviceId);
@@ -338,14 +334,11 @@ class DeviceMediaService extends BaseService {
     }
   }
 
-  dispose(): void {
-    if (this._unsubscribeDeviceChange) {
-      this._unsubscribeDeviceChange();
-      this._unsubscribeDeviceChange = null;
-    }
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 
-  _isMatchingDevice(label: string): string | null {
+  private _isMatchingDevice(label: string): string | null {
     return DeviceDetectionHelper.matchesByLabel(label);
   }
 }

@@ -1,48 +1,18 @@
-/**
- * UpdateService Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service.ts';
 import { UpdateState } from '@shared/config/update-state.config';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { clearPreloadApi, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('UpdateService', () => {
-  let service;
-  let mockEventBus;
-  let mockLogger;
-  let mockLoggerFactory;
-  let mockUpdateAPI;
+  let service, mockEventBus, mockLogger, mockLoggerFactory, mockUpdateAPI;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
-
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockUpdateAPI = {
-      getStatus: vi.fn(),
-      checkForUpdates: vi.fn(),
-      downloadUpdate: vi.fn(),
-      installUpdate: vi.fn(),
-      onAvailable: vi.fn(() => vi.fn()),
-      onNotAvailable: vi.fn(() => vi.fn()),
-      onProgress: vi.fn(() => vi.fn()),
-      onDownloaded: vi.fn(() => vi.fn()),
-      onError: vi.fn(() => vi.fn())
-    };
+    mockUpdateAPI = createPreloadApiMock('updateAPI');
 
     setPreloadApi('updateAPI', mockUpdateAPI);
 
@@ -50,6 +20,7 @@ describe('UpdateService', () => {
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 
   afterEach(() => {
@@ -132,30 +103,7 @@ describe('UpdateService', () => {
   });
 
   describe('event handlers', () => {
-    let eventHandlers;
-
     beforeEach(async () => {
-      eventHandlers = {};
-      mockUpdateAPI.onAvailable.mockImplementation((handler) => {
-        eventHandlers.available = handler;
-        return vi.fn();
-      });
-      mockUpdateAPI.onNotAvailable.mockImplementation((handler) => {
-        eventHandlers.notAvailable = handler;
-        return vi.fn();
-      });
-      mockUpdateAPI.onProgress.mockImplementation((handler) => {
-        eventHandlers.progress = handler;
-        return vi.fn();
-      });
-      mockUpdateAPI.onDownloaded.mockImplementation((handler) => {
-        eventHandlers.downloaded = handler;
-        return vi.fn();
-      });
-      mockUpdateAPI.onError.mockImplementation((handler) => {
-        eventHandlers.error = handler;
-        return vi.fn();
-      });
       mockUpdateAPI.getStatus.mockResolvedValue({ state: UpdateState.IDLE });
 
       await service.initialize();
@@ -163,7 +111,7 @@ describe('UpdateService', () => {
 
     it('should handle available event', () => {
       const info = { version: '2.0.0' };
-      eventHandlers.available(info);
+      mockUpdateAPI.onAvailable.emit(info);
 
       expect(service._state).toBe(UpdateState.AVAILABLE);
       expect(service._updateInfo).toBe(info);
@@ -172,7 +120,7 @@ describe('UpdateService', () => {
 
     it('should handle not-available event', () => {
       const info = { version: '1.0.0' };
-      eventHandlers.notAvailable(info);
+      mockUpdateAPI.onNotAvailable.emit(info);
 
       expect(service._state).toBe(UpdateState.NOT_AVAILABLE);
       expect(service._updateInfo).toBe(info);
@@ -181,7 +129,7 @@ describe('UpdateService', () => {
 
     it('should handle progress event', () => {
       const progress = { percent: 75 };
-      eventHandlers.progress(progress);
+      mockUpdateAPI.onProgress.emit(progress);
 
       expect(service._downloadProgress).toBe(progress);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.PROGRESS, progress);
@@ -189,7 +137,7 @@ describe('UpdateService', () => {
 
     it('should handle downloaded event', () => {
       const info = { version: '2.0.0' };
-      eventHandlers.downloaded(info);
+      mockUpdateAPI.onDownloaded.emit(info);
 
       expect(service._state).toBe(UpdateState.DOWNLOADED);
       expect(service._updateInfo).toBe(info);
@@ -198,7 +146,7 @@ describe('UpdateService', () => {
 
     it('should handle error event', () => {
       const error = { message: 'Network error' };
-      eventHandlers.error(error);
+      mockUpdateAPI.onError.emit(error);
 
       expect(service._state).toBe(UpdateState.ERROR);
       expect(service._error).toBe(error);

@@ -19,6 +19,7 @@ export interface IPipeline {
   setBrightness(value: number): void;
 
   captureFrame(): Promise<ImageBitmap>;
+  clearFrame(): void;
 
   pause(): void;
   resume(): void;

@@ -1,6 +1,3 @@
-/**
- * Shared update lifecycle states.
- */
 export const UpdateState = {
   IDLE: 'idle',
   CHECKING: 'checking',
@@ -9,4 +6,6 @@ export const UpdateState = {
   DOWNLOADING: 'downloading',
   DOWNLOADED: 'downloaded',
   ERROR: 'error'
-};
+} as const;
+
+export type UpdateStateValue = (typeof UpdateState)[keyof typeof UpdateState];

@@ -5,21 +5,17 @@
 
 import type { App } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 export interface PerformanceHandlerDependencies {
   app: App;
   logger: Logger;
 }
 
-export const performanceHandlerDescriptors = defineIpcHandlers<PerformanceHandlerDependencies>([
+export const performanceHandlerDescriptors = defineManifestIpcHandlers<PerformanceHandlerDependencies>('metricsAPI', [
   {
-    channel: IPC_CHANNELS.PERFORMANCE.GET_METRICS,
-    dependencyTokens: ['app', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'getProcessMetrics',
     invoke({ app }: PerformanceHandlerDependencies): ProcessMetricsResponse {
       const metrics = app.getAppMetrics();
       const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);

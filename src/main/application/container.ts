@@ -22,6 +22,7 @@ import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.
 import { TranscodeService } from '@main/infrastructure/transcode/index.js';
 import { LoginItemService } from '@main/infrastructure/platform/index.js';
 import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
+import { chromaticConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import type { MainLogger } from '@main/infrastructure/logging/index.js';
 
 /**
@@ -98,7 +99,7 @@ async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixCont
 
   // Profile classes injected via DI (same pattern as adapterClasses in renderer)
   const profileClasses = new Map<string, ProfileClass>([
-    ['chromatic-mod-retro', DeviceChromaticProfile]
+    [chromaticConfig.id, DeviceChromaticProfile]
   ]);
 
   // Manual instantiation required because DeviceService.initialize() is async

@@ -15,7 +15,7 @@ struct UpscaleUniforms {
   sourceSize: vec2<f32>,    // Native resolution (160, 144)
   targetSize: vec2<f32>,    // Output resolution (e.g., 640, 576)
   scaleFactor: f32,         // Integer scale factor (e.g., 4.0)
-  _padding: f32             // Alignment padding (WGSL requires 16-byte alignment)
+  _padding: f32             // Alignment padding to match the package uniform layout
 }
 
 @group(0) @binding(0) var<uniform> uniforms: UpscaleUniforms;

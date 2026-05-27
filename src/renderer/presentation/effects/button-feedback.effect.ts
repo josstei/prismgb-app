@@ -1,73 +1,69 @@
-/**
- * ButtonFeedback - Handles button animation feedback
- *
- * Manages button press/pop animations and recording state display.
- */
-
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
-type ButtonElements = Record<string, HTMLElement | null>;
+type ButtonElements = DomBindingsFlat;
 
 type ButtonFeedbackDependencies = {
   elements?: ButtonElements | null;
 };
 
-export class ButtonFeedback {
+function buttonFeedbackKey(elementKey: string, className: string): string {
+  return `button-feedback:${elementKey}:${className}`;
+}
+
+export class ButtonFeedback extends PresentationComponent {
   elements: ButtonElements | null;
-  _activeTimeouts: Set<ReturnType<typeof setTimeout>>;
 
   constructor(dependencies: ButtonFeedbackDependencies = {}) {
+    super();
     const { elements } = dependencies;
-    this.elements = elements;
-    this._activeTimeouts = new Set();
+    this.elements = elements ?? null;
   }
 
-  /**
-   * Trigger record button pop effect (for recording start)
-   */
+  setElements(elements: ButtonElements | null): void {
+    this.elements = elements;
+  }
+
+  private _getElement(elementKey: string): HTMLElement | null {
+    if (!this.elements || !Object.prototype.hasOwnProperty.call(this.elements, elementKey)) {
+      return null;
+    }
+
+    return this.elements[elementKey as keyof ButtonElements];
+  }
+
   triggerRecordButtonPop() {
     this.triggerButtonFeedback('recordBtn', 'btn-pop', TIMING.UI_TIMEOUT_MS);
   }
 
-  /**
-   * Trigger record button press effect (for recording stop)
-   */
   triggerRecordButtonPress() {
     this.triggerButtonFeedback('recordBtn', 'btn-press', TIMING.UI_TIMEOUT_MS);
   }
 
-  /**
-   * Trigger button feedback animation
-   * @param {string} elementKey - Key of the button element
-   * @param {string} className - CSS class to add temporarily
-   * @param {number} duration - Duration in ms before removing class
-   */
-  triggerButtonFeedback(elementKey, className, duration) {
-    const element = this.elements?.[elementKey];
+  triggerButtonFeedback(elementKey: string, className: string, duration: number) {
+    const element = this._getElement(elementKey);
     if (!element) return;
 
-    // Remove class first in case of rapid clicks
+    const lifecycleKey = buttonFeedbackKey(elementKey, className);
+    this.cancelManaged(lifecycleKey);
     element.classList.remove(className);
-
-    // Force reflow to restart animation
     void element.offsetWidth;
 
     element.classList.add(className);
 
-    const timeoutId = setTimeout(() => {
-      element.classList.remove(className);
-      this._activeTimeouts.delete(timeoutId);
+    let disposeFeedback = () => {};
+    const disposeTimeout = this.timeout(() => {
+      disposeFeedback();
     }, duration);
-    this._activeTimeouts.add(timeoutId);
+    disposeFeedback = this.replaceManaged(lifecycleKey, () => {
+      disposeTimeout();
+      element.classList.remove(className);
+    });
   }
 
-  /**
-   * Set recording button state
-   * @param {HTMLElement} element - The record button element
-   * @param {boolean} isActive - Whether recording is active
-   */
-  setRecordingButtonState(element, isActive) {
+  setRecordingButtonState(element: HTMLElement | null, isActive: boolean) {
     if (!element) return;
 
     if (isActive) {
@@ -77,14 +73,9 @@ export class ButtonFeedback {
     }
   }
 
-  /**
-   * Dispose and cleanup resources
-   */
-  dispose() {
-    for (const timeoutId of this._activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this._activeTimeouts.clear();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.elements = null;
+    return disposed;
   }
 }

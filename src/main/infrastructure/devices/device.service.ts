@@ -8,7 +8,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { appConfig } from '@shared/config/config-loader.utils.js';
 import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry, type DeviceRegistryEntry } from '@shared/features/devices/device.registry.js';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import {
   createNodeUsbDeviceMonitor,
@@ -22,6 +22,9 @@ import type { LoggerFactory } from '@main/infrastructure/logging/logger.interfac
 import type { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
 
 const { USB_SCAN_DELAY } = appConfig;
+const USB_ADD_LISTENER_LIFECYCLE = Symbol('usbAddListener');
+const USB_REMOVE_LISTENER_LIFECYCLE = Symbol('usbRemoveListener');
+const USB_INITIAL_SCAN_LIFECYCLE = Symbol('usbInitialScan');
 
 interface DeviceMatch {
   matched: boolean;
@@ -69,19 +72,12 @@ class DeviceService extends BaseService {
   private isDeviceConnected: boolean;
   private connectedDeviceInfo: ConnectedDeviceInfo | null;
   private isUsbMonitoring: boolean;
-  private _scanTimeoutId: NodeJS.Timeout | null;
   private _areProfilesInitialized: boolean;
   private _initializationLock: Promise<void> | null;
   private _checkDeviceLock: Promise<boolean> | null;
   private readonly _profileClasses: Map<string, ProfileClass>;
-  private _onDeviceAdd: ((device: UsbDeviceInfo) => void) | null;
-  private _onDeviceRemove: ((device: UsbDeviceInfo) => void) | null;
   private readonly _usbMonitor: UsbDeviceMonitor;
 
-  /**
-   * @param dependencies - Service dependencies
-   * @param profileClasses - Map of device type IDs to profile classes (injected via DI)
-   */
   constructor(dependencies: DeviceServiceDependencies, profileClasses: Map<string, ProfileClass> = new Map()) {
     super(dependencies, ['profileRegistry', 'eventBus', 'loggerFactory'], 'DeviceService');
     this.profileRegistry = dependencies.profileRegistry;
@@ -89,12 +85,9 @@ class DeviceService extends BaseService {
     this.isDeviceConnected = false;
     this.connectedDeviceInfo = null;
     this.isUsbMonitoring = false;
-    this._scanTimeoutId = null;
     this._areProfilesInitialized = false;
     this._initializationLock = null;
     this._checkDeviceLock = null;
-    this._onDeviceAdd = null;
-    this._onDeviceRemove = null;
     this._usbMonitor = dependencies.usbMonitor ?? (
       isTestMode() ? createNoopUsbDeviceMonitor() : createNodeUsbDeviceMonitor()
     );
@@ -152,7 +145,7 @@ class DeviceService extends BaseService {
       }
 
       // Load profiles from registry using shared iterator
-      const devices: Array<{ id: string; name: string }> = [];
+      const devices: DeviceRegistryEntry[] = [];
       forEachDeviceWithModule('profileModule', (device) => {
         devices.push(device);
       }, { logger: this.logger });
@@ -201,7 +194,7 @@ class DeviceService extends BaseService {
         this.logger.warn(`Failed to initialize ${failedProfiles.length} device profile(s): ${failedIds}`);
       }
 
-      const requiredProfileIds = new Set(['chromatic-mod-retro']);
+      const requiredProfileIds = new Set(devices.filter(device => device.enabled !== false).map(device => device.id));
       const failedRequiredProfiles = failedProfiles.filter(profile => requiredProfileIds.has(profile.id));
 
       if (registeredCount === 0) {
@@ -218,17 +211,13 @@ class DeviceService extends BaseService {
     }
   }
 
-  /**
-   * Initialize USB monitoring
-   * Publishes DEVICE.CHECK_ERROR event if monitoring fails to start
-   * @returns True if monitoring started successfully, false otherwise
-   */
   startUSBMonitoring(): boolean {
     if (this.isUsbMonitoring) {
       this.logger.warn('USB monitoring already started');
       return true;
     }
 
+    let monitoringStarted = false;
     try {
       // Clean up any existing listeners before creating new ones
       // This prevents duplicate listeners if monitoring was stopped improperly
@@ -236,23 +225,37 @@ class DeviceService extends BaseService {
 
       // Start monitoring
       this._usbMonitor.startMonitoring();
-      this.isUsbMonitoring = true;
+      monitoringStarted = true;
 
-      // Set up event listeners - store references for cleanup
-      // Note: Handler reassignment is intentional. If startUSBMonitoring() is called
-      // while monitoring is already active, we skip (see guard at top). The handlers
-      // are cleaned up in _cleanupUSBListeners() which is called before creating new ones.
-      this._onDeviceAdd = (device: UsbDeviceInfo) => this.onDeviceConnected(device);
-      this._onDeviceRemove = (device: UsbDeviceInfo) => this.onDeviceDisconnected(device);
-      this._usbMonitor.on('add', this._onDeviceAdd);
-      this._usbMonitor.on('remove', this._onDeviceRemove);
+      const onDeviceAdd = (device: UsbDeviceInfo) => this.onDeviceConnected(device);
+      const onDeviceRemove = (device: UsbDeviceInfo) => this.onDeviceDisconnected(device);
+      this._usbMonitor.on('add', onDeviceAdd);
+      this.disposables.replace(USB_ADD_LISTENER_LIFECYCLE, () => this._usbMonitor.off('add', onDeviceAdd));
+      this._usbMonitor.on('remove', onDeviceRemove);
+      this.disposables.replace(USB_REMOVE_LISTENER_LIFECYCLE, () => this._usbMonitor.off('remove', onDeviceRemove));
 
       // Trigger initial scan for already-connected devices.
-      this._scanTimeoutId = setTimeout(() => this._scanAlreadyConnectedDevices(), USB_SCAN_DELAY);
+      const scanTimeoutId = setTimeout(() => {
+        this.disposables.cancel(USB_INITIAL_SCAN_LIFECYCLE);
+        void this._scanAlreadyConnectedDevices();
+      }, USB_SCAN_DELAY);
+      this.disposables.replace(USB_INITIAL_SCAN_LIFECYCLE, () => clearTimeout(scanTimeoutId));
 
+      this.isUsbMonitoring = true;
       this.logger.info('USB monitoring started');
       return true;
     } catch (error) {
+      this.disposables.cancel(USB_INITIAL_SCAN_LIFECYCLE);
+      this._cleanupUSBListeners();
+      if (monitoringStarted) {
+        try {
+          this._usbMonitor.stopMonitoring();
+        } catch (stopError) {
+          this.logger.warn('Failed to stop USB monitoring after startup failure', stopError);
+        }
+      }
+      this.isUsbMonitoring = false;
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error('Failed to start USB monitoring', error);
       this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, {
@@ -297,14 +300,8 @@ class DeviceService extends BaseService {
    * Clean up USB event listeners
    */
   private _cleanupUSBListeners(): void {
-    if (this._onDeviceAdd) {
-      this._usbMonitor.off('add', this._onDeviceAdd);
-      this._onDeviceAdd = null;
-    }
-    if (this._onDeviceRemove) {
-      this._usbMonitor.off('remove', this._onDeviceRemove);
-      this._onDeviceRemove = null;
-    }
+    this.disposables.cancel(USB_ADD_LISTENER_LIFECYCLE);
+    this.disposables.cancel(USB_REMOVE_LISTENER_LIFECYCLE);
   }
 
   /**
@@ -316,11 +313,7 @@ class DeviceService extends BaseService {
     }
 
     try {
-      // Cancel pending scan timeout
-      if (this._scanTimeoutId) {
-        clearTimeout(this._scanTimeoutId);
-        this._scanTimeoutId = null;
-      }
+      this.disposables.cancel(USB_INITIAL_SCAN_LIFECYCLE);
 
       // Remove event listeners to prevent memory leaks
       this._cleanupUSBListeners();
@@ -333,11 +326,6 @@ class DeviceService extends BaseService {
     }
   }
 
-  /**
-   * Check if device matches configured devices via ProfileRegistry
-   * @param device - USB device object
-   * @returns Match result with matched flag, config, and profile
-   */
   matchDevice(device: UsbDeviceInfo): DeviceMatch {
     // Match via ProfileRegistry (profile-based)
     const detectionResult = this.profileRegistry.detectDevice(device);

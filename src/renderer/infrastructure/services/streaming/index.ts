@@ -1,5 +1,5 @@
 export { StreamingService } from './streaming.service';
-export { StreamingCanvasRenderer } from './canvas-renderer';
+export { StreamingCanvasRenderLoopService } from './canvas-render-loop.service';
 export { StreamingRenderPipelineService } from './render-pipeline.service';
 export { StreamingCanvasLifecycleService } from './canvas-lifecycle.service';
 export { StreamingGpuRenderLoopService } from './gpu-render-loop.service';

@@ -15,7 +15,7 @@ export class Canvas2DPipeline extends BasePipeline {
       throw new Error('Canvas 2D context not available');
     }
 
-    (this.ctx as CanvasRenderingContext2D).imageSmoothingEnabled = false;
+    this.disableImageSmoothing();
     this._isInitialized = true;
     this._isActive = true;
   }
@@ -40,12 +40,25 @@ export class Canvas2DPipeline extends BasePipeline {
     return createImageBitmap(this.canvas as ImageBitmapSource);
   }
 
+  clearFrame(): void {
+    if (!this.ctx) return;
+
+    this.ctx.fillStyle = '#000000';
+    this.ctx.fillRect(0, 0, this.outputWidth, this.outputHeight);
+  }
+
   protected onUniformsChanged(): void {
     // Canvas2D doesn't support shader uniforms
   }
 
   protected onResize(): void {
-    // Context handles resize automatically
+    this.disableImageSmoothing();
+  }
+
+  private disableImageSmoothing(): void {
+    if (this.ctx) {
+      this.ctx.imageSmoothingEnabled = false;
+    }
   }
 
   releaseResources(): void {

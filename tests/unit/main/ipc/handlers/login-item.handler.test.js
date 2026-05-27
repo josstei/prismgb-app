@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createLogger } from '../../../../factories/logger.factory.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -7,8 +8,11 @@ vi.mock('electron', () => ({
   }
 }));
 
+import { IPC_CHANNELS, IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import { loginItemHandlerDescriptors } from '@main/ipc/handlers/login-item.handler.js';
+
+const loginItemInvokeManifest = IpcContractManifest.namespaces.find(({ namespace }) => namespace === 'LOGIN_ITEM')?.invoke ?? [];
 
 describe('LoginItem IPC Handlers', () => {
   let mockRegisterHandler;
@@ -22,22 +26,9 @@ describe('LoginItem IPC Handlers', () => {
       handlers[channel] = handler;
     });
 
-    mockLoginItemService = {
-      isEnabled: vi.fn(() => false),
-      setEnabled: vi.fn()
-    };
-
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    registerIpcHandlerDescriptors(mockRegisterHandler, {
-      loginItemService: mockLoginItemService,
-      logger: mockLogger
-    }, loginItemHandlerDescriptors);
+    mockLoginItemService = { isEnabled: vi.fn(() => false), setEnabled: vi.fn() };
+    mockLogger = createLogger();
+    registerIpcHandlerDescriptors(mockRegisterHandler, { loginItemService: mockLoginItemService, logger: mockLogger }, loginItemHandlerDescriptors);
   });
 
   it('should register two handlers', () => {
@@ -45,58 +36,45 @@ describe('LoginItem IPC Handlers', () => {
   });
 
   it('should expose descriptor metadata for result visibility', () => {
+    expect(loginItemHandlerDescriptors.map(({ channel, argumentSchema, dependencyTokens, responseMode }) => [channel, argumentSchema ?? [], dependencyTokens, responseMode])).toEqual(loginItemInvokeManifest.map(({ channel, request, handler }) => [channel, request ?? [], handler?.dependencyTokens ?? [], handler?.responseMode]));
+
     expect(loginItemHandlerDescriptors).toEqual([
       expect.objectContaining({
-        channel: 'login-item:get',
-        dependencyTokens: ['loginItemService'],
-        argumentSchema: [],
-        responseMode: 'bare',
+        channel: IPC_CHANNELS.LOGIN_ITEM.GET,
         mapError: expect.any(Function)
       }),
       expect.objectContaining({
-        channel: 'login-item:set',
-        dependencyTokens: ['loginItemService', 'logger'],
-        argumentSchema: ['enabled:boolean'],
-        responseMode: 'result-envelope',
+        channel: IPC_CHANNELS.LOGIN_ITEM.SET,
         mapError: expect.any(Function)
       })
     ]);
   });
 
-  describe('login-item:get', () => {
+  describe(IPC_CHANNELS.LOGIN_ITEM.GET, () => {
     it('returns login item state', async () => {
       mockLoginItemService.isEnabled.mockReturnValue(true);
-
-      const result = await handlers['login-item:get']({});
+      const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.GET]({});
       expect(result).toBe(true);
       expect(mockLoginItemService.isEnabled).toHaveBeenCalled();
     });
 
     it('maps errors to a boolean response', async () => {
-      mockLoginItemService.isEnabled.mockImplementation(() => {
-        throw new Error('login item read failed');
-      });
-
-      const result = await handlers['login-item:get']({});
+      mockLoginItemService.isEnabled.mockImplementation(() => { throw new Error('login item read failed'); });
+      const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.GET]({});
       expect(result).toEqual(false);
     });
   });
 
-  describe('login-item:set', () => {
+  describe(IPC_CHANNELS.LOGIN_ITEM.SET, () => {
     it('should enable login item', async () => {
-      const result = await handlers['login-item:set']({}, true);
-
+      const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.SET]({}, true);
       expect(mockLoginItemService.setEnabled).toHaveBeenCalledWith(true);
       expect(result).toEqual({ success: true });
     });
 
     it('maps errors to a result envelope', async () => {
-      mockLoginItemService.setEnabled.mockImplementation(() => {
-        throw new Error('login item update failed');
-      });
-
-      const result = await handlers['login-item:set']({}, false);
-
+      mockLoginItemService.setEnabled.mockImplementation(() => { throw new Error('login item update failed'); });
+      const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.SET]({}, false);
       expect(result).toEqual({ success: false, error: 'login item update failed' });
     });
   });

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/streaming/render-pipeline.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingRenderPipelineService', () => {
   let service;
@@ -20,6 +21,7 @@ describe('StreamingRenderPipelineService', () => {
   let mockStreamingRendererFactory;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
   let mockGpuRendererAdapter;
   let mockCanvas2DRendererAdapter;
   let canvas;
@@ -140,29 +142,22 @@ describe('StreamingRenderPipelineService', () => {
       getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d'])
     };
 
-    mockEventBus = {
-      publish: vi.fn()
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     service = new StreamingRenderPipelineService({
       appState: mockAppState,
       streamViewService: mockStreamViewService,
-      canvasRenderer: mockCanvasRenderer,
+      canvasRenderLoopService: mockCanvasRenderer,
       canvasLifecycleService: mockCanvasLifecycleService,
       streamHealthService: mockStreamHealthService,
       streamingRendererFactory: mockStreamingRendererFactory,
       gpuRendererService: mockGpuRendererService,
       gpuRenderLoopService: mockGpuRenderLoopService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingRenderPipelineService');
   });
 
   afterEach(() => {
@@ -339,7 +334,7 @@ describe('StreamingRenderPipelineService', () => {
         mockAppState.isStreaming = true;
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-        service.handlePerformanceModeChanged(true);
+        await service.handlePerformanceModeChanged(true);
 
         expect(service._userPresetId).toBe('vibrant');
         expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalledWith(false);
@@ -354,7 +349,7 @@ describe('StreamingRenderPipelineService', () => {
         mockAppState.isStreaming = true;
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
 
-        service.handlePerformanceModeChanged(true);
+        await service.handlePerformanceModeChanged(true);
 
         expect(service._userPresetId).toBe(null);
       });
@@ -365,7 +360,7 @@ describe('StreamingRenderPipelineService', () => {
         await service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
         mockAppState.isStreaming = false;
 
-        service.handlePerformanceModeChanged(true);
+        await service.handlePerformanceModeChanged(true);
 
         expect(mockGpuRendererAdapter.terminateAndReset).toHaveBeenCalled();
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -382,7 +377,7 @@ describe('StreamingRenderPipelineService', () => {
         service._performanceModeEnabled = true;
         service._userPresetId = 'vibrant';
 
-        service.handlePerformanceModeChanged(false);
+        await service.handlePerformanceModeChanged(false);
 
         expect(mockGpuRendererAdapter.setPreset).toHaveBeenCalledWith('vibrant');
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -398,7 +393,7 @@ describe('StreamingRenderPipelineService', () => {
 
         const switchSpy = vi.spyOn(service, '_switchToGPUMidStream').mockResolvedValue(undefined);
 
-        service.handlePerformanceModeChanged(false);
+        await service.handlePerformanceModeChanged(false);
 
         expect(switchSpy).toHaveBeenCalled();
       });
@@ -409,7 +404,7 @@ describe('StreamingRenderPipelineService', () => {
         service._performanceModeEnabled = true;
         mockAppState.isStreaming = false;
 
-        service.handlePerformanceModeChanged(false);
+        await service.handlePerformanceModeChanged(false);
 
         expect(mockCanvasLifecycleService.recreateCanvas).toHaveBeenCalled();
         expect(mockCanvasLifecycleService.setupCanvasSize).toHaveBeenCalled();
@@ -555,7 +550,7 @@ describe('StreamingRenderPipelineService', () => {
       service._performanceModeEnabled = true;
       service._userPresetId = 'vibrant';
 
-      service.cleanup();
+      await service.cleanup();
 
       expect(service._performanceModeEnabled).toBe(false);
       expect(service._userPresetId).toBe(null);
@@ -564,13 +559,13 @@ describe('StreamingRenderPipelineService', () => {
 
       expect(mockCanvas2DRendererAdapter.pause).toHaveBeenCalled();
       expect(mockCanvas2DRendererAdapter.cleanup).toHaveBeenCalled();
-      expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
+      expect(mockCanvasRenderer.cleanup).not.toHaveBeenCalled();
       expect(mockCanvasLifecycleService.cleanup).toHaveBeenCalled();
       expect(mockStreamHealthService.cleanup).toHaveBeenCalled();
     });
 
-    it('does not fail when no active renderer', () => {
-      expect(() => service.cleanup()).not.toThrow();
+    it('does not fail when no active renderer', async () => {
+      await expect(service.cleanup()).resolves.toBeUndefined();
       expect(mockCanvasRenderer.cleanup).toHaveBeenCalled();
     });
   });

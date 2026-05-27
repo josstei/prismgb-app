@@ -2,30 +2,26 @@
  * BaseStreamLifecycle Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
+import { createLogger } from '../../../../factories/index.js';
+import { installMediaMocks } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;
   let mockLogger;
+  let mediaMock;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
+    mockLogger = createLogger();
+    mediaMock = installMediaMocks({
+      getSupportedConstraints: () => ({ width: true, height: true })
+    });
     lifecycle = new BaseStreamLifecycle(mockLogger);
+  });
 
-    // Mock navigator.mediaDevices
-    global.navigator = {
-      mediaDevices: {
-        getUserMedia: vi.fn(),
-        getSupportedConstraints: vi.fn(() => ({ width: true, height: true }))
-      }
-    };
+  afterEach(() => {
+    mediaMock.cleanup();
   });
 
   describe('Constructor', () => {
@@ -61,14 +57,14 @@ describe('BaseStreamLifecycle', () => {
         active: true,
         getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
       };
-      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+      mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       const constraints = { video: true };
       const stream = await lifecycle.acquireStream(constraints);
 
       expect(stream).toBe(mockStream);
       expect(lifecycle.activeStreams.has(mockStream)).toBe(true);
-      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
+      expect(mediaMock.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
     });
 
     it('should log stream acquisition', async () => {
@@ -77,7 +73,7 @@ describe('BaseStreamLifecycle', () => {
         active: true,
         getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
       };
-      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+      mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await lifecycle.acquireStream({ video: true });
 
@@ -91,7 +87,7 @@ describe('BaseStreamLifecycle', () => {
         active: true,
         getTracks: vi.fn(() => [])
       };
-      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+      mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await expect(lifecycle.acquireStream({ video: true })).rejects.toThrow('Invalid stream: no tracks available');
     });
@@ -102,7 +98,7 @@ describe('BaseStreamLifecycle', () => {
         active: false,
         getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
       };
-      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+      mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await lifecycle.acquireStream({ video: true });
 
@@ -112,7 +108,7 @@ describe('BaseStreamLifecycle', () => {
     it('should throw and log on acquisition failure', async () => {
       const error = new Error('Permission denied');
       error.name = 'NotAllowedError';
-      navigator.mediaDevices.getUserMedia.mockRejectedValue(error);
+      mediaMock.mediaDevices.getUserMedia.mockRejectedValue(error);
 
       await expect(lifecycle.acquireStream({ video: true })).rejects.toThrow('Permission denied');
 
@@ -122,7 +118,7 @@ describe('BaseStreamLifecycle', () => {
     it('should handle errors without name property', async () => {
       const error = new Error('Unknown error');
       delete error.name;
-      navigator.mediaDevices.getUserMedia.mockRejectedValue(error);
+      mediaMock.mediaDevices.getUserMedia.mockRejectedValue(error);
 
       await expect(lifecycle.acquireStream({ video: true })).rejects.toThrow();
     });
@@ -143,7 +139,7 @@ describe('BaseStreamLifecycle', () => {
 
       expect(stream).toBe(mockStream);
       expect(mockMediaService.getUserMedia).toHaveBeenCalledWith(constraints);
-      expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+      expect(mediaMock.mediaDevices.getUserMedia).not.toHaveBeenCalled();
     });
 
     it('should fall back to navigator.mediaDevices when mediaService not provided', async () => {
@@ -152,14 +148,14 @@ describe('BaseStreamLifecycle', () => {
         active: true,
         getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
       };
-      navigator.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
+      mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       const lifecycleWithoutService = new BaseStreamLifecycle(mockLogger, null);
       const constraints = { video: true };
       const stream = await lifecycleWithoutService.acquireStream(constraints);
 
       expect(stream).toBe(mockStream);
-      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
+      expect(mediaMock.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
     });
   });
 

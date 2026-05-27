@@ -4,24 +4,23 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesResizeHandlerComponent } from '@renderer/presentation/features/notes/components/notes-resize-handler.component.js';
+import { createLogger } from '../../../../factories/index.js';
+import { installAnimationFrameMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('NotesResizeHandlerComponent', () => {
   let component;
   let mockLogger;
+  let animationFrameMock;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'NotesResizeHandlerComponent' });
 
     component = new NotesResizeHandlerComponent({ logger: mockLogger });
   });
 
   afterEach(() => {
     component.dispose();
+    animationFrameMock?.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -250,7 +249,7 @@ describe('NotesResizeHandlerComponent', () => {
     });
 
     it('should cancel pending RAF on drag end', () => {
-      const cancelSpy = vi.spyOn(global, 'cancelAnimationFrame');
+      animationFrameMock = installAnimationFrameMock();
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
@@ -258,33 +257,30 @@ describe('NotesResizeHandlerComponent', () => {
       component._rafId = 123;
       document.dispatchEvent(new MouseEvent('mouseup'));
 
-      expect(cancelSpy).toHaveBeenCalledWith(123);
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(123);
     });
 
     it('should throttle RAF during drag', () => {
-      const rafSpy = vi.spyOn(global, 'requestAnimationFrame').mockImplementation(cb => {
-        cb();
-        return 1;
-      });
+      animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn((cb) => { cb(); return 1; }) });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
 
-      expect(rafSpy).toHaveBeenCalled();
+      expect(animationFrameMock.requestAnimationFrame).toHaveBeenCalled();
     });
 
     it('should skip RAF when frame is already pending', () => {
-      const rafSpy = vi.spyOn(global, 'requestAnimationFrame').mockReturnValue(1);
+      animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn(() => 1) });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
 
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
-      const firstCallCount = rafSpy.mock.calls.length;
+      const firstCallCount = animationFrameMock.requestAnimationFrame.mock.calls.length;
 
       component._dragFramePending = true;
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 115 }));
 
-      expect(rafSpy.mock.calls.length).toBe(firstCallCount);
+      expect(animationFrameMock.requestAnimationFrame.mock.calls.length).toBe(firstCallCount);
     });
   });
 
@@ -342,12 +338,12 @@ describe('NotesResizeHandlerComponent', () => {
 
   describe('dispose', () => {
     it('should cancel pending RAF', () => {
-      const cancelSpy = vi.spyOn(global, 'cancelAnimationFrame');
+      animationFrameMock = installAnimationFrameMock();
       component._rafId = 456;
 
       component.dispose();
 
-      expect(cancelSpy).toHaveBeenCalledWith(456);
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(456);
       expect(component._rafId).toBeNull();
     });
 
@@ -373,6 +369,34 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component._boundDragMove).toBeNull();
       expect(component._boundDragEnd).toBeNull();
       expect(component.listToggle).toBeNull();
+    });
+
+    it('should clear drag visual state when disposed during active drag', () => {
+      const listToggle = document.createElement('button');
+      document.body.style.cursor = 'wait';
+      document.body.style.userSelect = 'text';
+      component.initialize({
+        listToggle,
+        panelElement: document.createElement('div'),
+        panelContent: document.createElement('div'),
+        listWrapper: document.createElement('div'),
+        onToggle: vi.fn()
+      });
+
+      listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 104 }));
+
+      expect(document.body.style.cursor).toBe('col-resize');
+      expect(document.body.style.userSelect).toBe('none');
+      expect(listToggle.classList.contains('dragging')).toBe(true);
+
+      component.dispose();
+
+      expect(document.body.style.cursor).toBe('wait');
+      expect(document.body.style.userSelect).toBe('text');
+      expect(listToggle.classList.contains('dragging')).toBe(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     });
 
     it('should reset all state', () => {

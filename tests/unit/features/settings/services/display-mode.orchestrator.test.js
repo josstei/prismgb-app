@@ -4,6 +4,8 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
   let orchestrator;
@@ -11,20 +13,11 @@ describe('SettingsDisplayModeOrchestrator', () => {
   let mockSettingsCinematicModeService;
   let mockSettingsService;
   let mockEventBus;
-  let mockLogger;
   let mockLoggerFactory;
+  let hiddenMock;
 
   beforeEach(() => {
-    mockLogger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockSettingsFullscreenService = {
       initialize: vi.fn(),
@@ -42,10 +35,8 @@ describe('SettingsDisplayModeOrchestrator', () => {
       getBooleanSetting: vi.fn(() => false)
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
+    mockEventBus = createEventBus();
+    hiddenMock = installDocumentPropertyMock('hidden', false);
 
     orchestrator = new SettingsDisplayModeOrchestrator({
       fullscreenService: mockSettingsFullscreenService,
@@ -57,6 +48,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
   });
 
   afterEach(() => {
+    hiddenMock.cleanup();
     vi.restoreAllMocks();
   });
 
@@ -141,6 +133,19 @@ describe('SettingsDisplayModeOrchestrator', () => {
       orchestrator._applyStartupBehaviors();
 
       expect(mockSettingsFullscreenService.enterFullscreen).not.toHaveBeenCalled();
+    });
+
+    it('should remove deferred startup fullscreen listener during cleanup', async () => {
+      mockSettingsService.getBooleanSetting.mockReturnValue(true);
+      hiddenMock.setValue(true);
+      const addListenerSpy = vi.spyOn(document, 'addEventListener');
+      const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+      orchestrator._applyStartupBehaviors();
+      await orchestrator.onCleanup();
+
+      expect(addListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+      expect(removeListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
     });
   });
 });

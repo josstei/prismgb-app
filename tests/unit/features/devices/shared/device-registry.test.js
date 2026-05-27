@@ -4,16 +4,29 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DeviceRegistry, DEVICE_REGISTRY } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
 
 describe('DeviceRegistry', () => {
-  let initialDeviceCount;
+  const chromaticDeviceId = 'chromatic-mod-retro';
+
+  function ensureChromaticRuntimeClasses() {
+    const device = DeviceRegistry.get(chromaticDeviceId);
+    if (!device) {
+      return;
+    }
+
+    if (device.ProfileClass !== DeviceChromaticProfile) {
+      DeviceRegistry.registerProfileClass(chromaticDeviceId, DeviceChromaticProfile);
+    }
+    if (device.AdapterClass !== DeviceChromaticAdapter) {
+      DeviceRegistry.registerAdapterClass(chromaticDeviceId, DeviceChromaticAdapter);
+    }
+  }
 
   beforeEach(() => {
-    // Store initial count to restore after tests
-    initialDeviceCount = DeviceRegistry.getAll().length;
+    ensureChromaticRuntimeClasses();
   });
 
   afterEach(() => {
@@ -52,9 +65,9 @@ describe('DeviceRegistry', () => {
 
   describe('get(id)', () => {
     it('should return device by id', () => {
-      const device = DeviceRegistry.get('chromatic-mod-retro');
+      const device = DeviceRegistry.get(chromaticDeviceId);
       expect(device).toBeDefined();
-      expect(device.id).toBe('chromatic-mod-retro');
+      expect(device.id).toBe(chromaticDeviceId);
     });
 
     it('should return undefined for non-existent device', () => {
@@ -99,6 +112,25 @@ describe('DeviceRegistry', () => {
       }).toThrow();
     });
 
+    it('should replace frozen device entries when runtime classes are registered', () => {
+      const testDevice = {
+        id: 'test-device-runtime-classes',
+        name: 'Runtime Class Device',
+        enabled: true
+      };
+      class TestProfile {}
+      class TestAdapter {}
+
+      DeviceRegistry.register(testDevice);
+      DeviceRegistry.registerProfileClass(testDevice.id, TestProfile);
+      DeviceRegistry.registerAdapterClass(testDevice.id, TestAdapter);
+
+      const registered = DeviceRegistry.get(testDevice.id);
+      expect(Object.isFrozen(registered)).toBe(true);
+      expect(DeviceRegistry.getProfileClass(testDevice.id)).toBe(TestProfile);
+      expect(DeviceRegistry.getAdapterClass(testDevice.id)).toBe(TestAdapter);
+    });
+
     it('should throw error if device lacks id', () => {
       const invalidDevice = {
         name: 'No ID Device'
@@ -125,14 +157,14 @@ describe('DeviceRegistry', () => {
 
     it('should not allow registering built-in device again', () => {
       const chromaticDevice = {
-        id: 'chromatic-mod-retro',
+        id: chromaticDeviceId,
         name: 'Duplicate Chromatic',
         enabled: true
       };
 
       expect(() => {
         DeviceRegistry.register(chromaticDevice);
-      }).toThrow('Device chromatic-mod-retro already registered');
+      }).toThrow(`Device ${chromaticDeviceId} already registered`);
     });
   });
 
@@ -158,74 +190,22 @@ describe('DeviceRegistry', () => {
     });
 
     it('should allow unregistering built-in devices', () => {
-      // This is intentional to allow customization
-      const result = DeviceRegistry.unregister('chromatic-mod-retro');
+      const chromaticSnapshot = { ...DeviceRegistry.get(chromaticDeviceId) };
+      chromaticSnapshot.usb = { ...chromaticSnapshot.usb };
+      chromaticSnapshot.labelPatterns = [...chromaticSnapshot.labelPatterns];
+
+      const result = DeviceRegistry.unregister(chromaticDeviceId);
       expect(result).toBe(true);
-      expect(DeviceRegistry.get('chromatic-mod-retro')).toBeUndefined();
+      expect(DeviceRegistry.get(chromaticDeviceId)).toBeUndefined();
 
-      // Re-register for other tests
-      const chromatic = {
-        id: 'chromatic-mod-retro',
-        name: 'Mod Retro Chromatic',
-        manufacturer: 'ModRetro',
-        enabled: true,
-        usb: { vendorId: 0x374e, productId: 0x0101 },
-        labelPatterns: ['chromatic', 'modretro', 'mod retro', '374e:0101'],
-        profileModule: '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js',
-        adapterModule: '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts',
-        ProfileClass: DeviceChromaticProfile,
-        AdapterClass: DeviceChromaticAdapter
-      };
-      DeviceRegistry.register(chromatic);
-    });
-  });
-
-  describe('DEVICE_REGISTRY alias', () => {
-    it('should export DEVICE_REGISTRY array', () => {
-      expect(DEVICE_REGISTRY).toBeDefined();
-      expect(Array.isArray(DEVICE_REGISTRY)).toBe(true);
-    });
-
-    it('should reflect changes made via DeviceRegistry API', () => {
-      const initialLength = DEVICE_REGISTRY.length;
-
-      const testDevice = {
-        id: 'test-device-5',
-        name: 'Test Device 5',
-        enabled: true
-      };
-
-      DeviceRegistry.register(testDevice);
-      expect(DEVICE_REGISTRY.length).toBe(initialLength + 1);
-
-      const found = DEVICE_REGISTRY.find(d => d.id === 'test-device-5');
-      expect(found).toBeDefined();
-      expect(found.name).toBe('Test Device 5');
-
-      DeviceRegistry.unregister('test-device-5');
-      expect(DEVICE_REGISTRY.length).toBe(initialLength);
-    });
-
-    it('should work with for...of loops', () => {
-      let foundChromatic = false;
-      for (const device of DEVICE_REGISTRY) {
-        if (device.id === 'chromatic-mod-retro') {
-          foundChromatic = true;
-          break;
-        }
-      }
-      expect(foundChromatic).toBe(true);
-    });
-
-    it('should work with .filter()', () => {
-      const enabledDevices = DEVICE_REGISTRY.filter(d => d.enabled);
-      expect(enabledDevices.length).toBeGreaterThan(0);
+      DeviceRegistry.register(chromaticSnapshot);
+      ensureChromaticRuntimeClasses();
     });
   });
 
   describe('getProfileClass(deviceId)', () => {
     it('should return ProfileClass for chromatic device', () => {
-      const ProfileClass = DeviceRegistry.getProfileClass('chromatic-mod-retro');
+      const ProfileClass = DeviceRegistry.getProfileClass(chromaticDeviceId);
       expect(ProfileClass).toBeDefined();
       expect(ProfileClass).not.toBeNull();
       // Verify it's a constructor by checking it can be instantiated
@@ -252,7 +232,7 @@ describe('DeviceRegistry', () => {
 
   describe('getAdapterClass(deviceId)', () => {
     it('should return AdapterClass for chromatic device', () => {
-      const AdapterClass = DeviceRegistry.getAdapterClass('chromatic-mod-retro');
+      const AdapterClass = DeviceRegistry.getAdapterClass(chromaticDeviceId);
       expect(AdapterClass).toBeDefined();
       expect(AdapterClass).not.toBeNull();
       // Verify it's a constructor (we can't instantiate without dependencies)

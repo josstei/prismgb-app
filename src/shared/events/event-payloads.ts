@@ -1,4 +1,23 @@
 import { EventChannels } from './event-channels.js';
+import { getEventManifestScopeValues } from './event.manifest.js';
+import type {
+  DeviceInfoPayload,
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeProgressPayload,
+  UpdateErrorPayload,
+  UpdateInfoPayload,
+  UpdateProgressPayload
+} from '@shared/ipc/preload-api.contract.js';
+
+export type {
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeProgressPayload,
+  UpdateProgressPayload
+} from '@shared/ipc/preload-api.contract.js';
 
 type LeafValues<T> = T extends string
   ? T
@@ -19,6 +38,15 @@ export type NativeResolution = Dimensions;
 
 export type RenderApi = 'webgpu' | 'webgl2' | 'canvas2d';
 
+export type HandlerErrorPayload = {
+  eventName: string;
+  error: {
+    name?: string;
+    message: string;
+    stack?: string;
+  };
+};
+
 export type StreamingCapabilities = {
   nativeResolution?: NativeResolution;
   frameRate?: number;
@@ -32,15 +60,15 @@ export type StreamingCapabilities = {
 };
 
 export type StreamSettingsPayload = {
-  video?: Record<string, unknown>;
-  audio?: Record<string, unknown>;
+  video?: Record<string, unknown> | null;
+  audio?: Record<string, unknown> | null;
   [key: string]: unknown;
 };
 
 export type StreamStartedPayload = {
   stream: MediaStream;
   device: MediaDeviceInfo;
-  settings: StreamSettingsPayload;
+  settings: StreamSettingsPayload | null;
   capabilities: StreamingCapabilities;
 };
 
@@ -65,7 +93,9 @@ export type StreamHealthTimeoutPayload = {
 
 export type PerformanceStatePayload = {
   hidden?: boolean;
+  idle?: boolean;
   performanceModeEnabled?: boolean;
+  reducedMotion?: boolean;
   weakGpuDetected?: boolean;
   streaming?: boolean;
   [key: string]: unknown;
@@ -89,10 +119,7 @@ export type SupportedDeviceAvailablePayload = {
   [key: string]: unknown;
 };
 
-export type DeviceEnumerationFailedPayload = {
-  reason?: string;
-  error?: string;
-};
+export type DeviceEnumerationFailedPayload = { reason?: string; error?: string };
 
 export type RenderStatsPayload = {
   fps?: number;
@@ -114,15 +141,9 @@ export type RenderPipelineErrorPayload = {
   adapterInfo?: object | null;
 };
 
-export type CanvasRecreatedPayload = {
-  oldCanvas: HTMLCanvasElement;
-  newCanvas: HTMLCanvasElement;
-};
+export type CanvasRecreatedPayload = { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement };
 
-export type RecordingReadyPayload = {
-  blob: Blob;
-  filename: string;
-};
+export type RecordingReadyPayload = { blob: Blob; filename: string };
 
 export type RecordingErrorPayload = {
   error?: unknown;
@@ -138,127 +159,60 @@ export type RecordingDegradedPayload = {
   droppedFrames?: number;
 };
 
-export type ScreenshotReadyPayload = {
-  blob: Blob;
-  filename: string;
-};
+export type ScreenshotReadyPayload = { blob: Blob; filename: string };
 
 export type UiStatusMessagePayload = {
   message: string;
   type?: 'info' | 'success' | 'warning' | 'error' | string;
 };
 
-export type UiDeviceStatusPayload = {
-  status: unknown;
-};
+export type UiDeviceStatusPayload = { status: unknown };
 
 export type UiOverlayMessagePayload = {
   deviceConnected?: boolean;
   message?: string;
 };
 
-export type UiOverlayVisiblePayload = {
-  visible: boolean;
-};
+export type UiOverlayVisiblePayload = { visible: boolean };
 
-export type UiOverlayErrorPayload = {
-  message: string;
-};
+export type UiOverlayErrorPayload = { message: string };
 
-export type UiStreamingModePayload = {
-  enabled: boolean;
-};
+export type UiStreamingModePayload = { enabled: boolean };
 
-export type UiStreamInfoPayload = {
-  settings?: Record<string, unknown>;
-};
+export type UiStreamInfoPayload = { settings?: Record<string, unknown> };
 
 export type UiButtonFeedbackPayload = {
-  buttonId: string;
+  elementKey: string;
   className?: string;
-  durationMs?: number;
+  duration?: number;
   [key: string]: unknown;
 };
 
-export type UiRecordingStatePayload = {
-  active: boolean;
-};
+export type UiRecordingStatePayload = { active: boolean };
 
-export type UiFullscreenStatePayload = {
-  active: boolean;
-};
+export type UiFullscreenStatePayload = { active: boolean };
 
-export type UpdateProgressPayload = {
-  percent?: number;
-  bytesPerSecond?: number;
-  transferred?: number;
-  total?: number;
-  [key: string]: unknown;
-};
+export type NotesDeletedPayload = { id: string };
 
-export type NotesDeletedPayload = {
-  id: string;
-};
+export type TranscodeStartedPayload = { jobId: string; format: string };
 
-export type TranscodeStartedPayload = {
-  jobId: string;
-  format: string;
-};
+// CODEBASE_EVENT_PAYLOAD_MAP:START
+type VoidEventChannel = typeof EventChannels.DEVICE.DISCONNECTED_DURING_SESSION | typeof EventChannels.STREAM.STOPPED | typeof EventChannels.CAPTURE.SCREENSHOT_TRIGGERED | typeof EventChannels.CAPTURE.RECORDING_STARTED | typeof EventChannels.CAPTURE.RECORDING_STOPPED | typeof EventChannels.RENDER.CANVAS_EXPIRED | typeof EventChannels.UI.SHUTTER_FLASH | typeof EventChannels.UI.RECORD_BUTTON_POP | typeof EventChannels.UI.RECORD_BUTTON_PRESS | typeof EventChannels.UI.RECORD_BUTTON_DISABLED | typeof EventChannels.UI.RECORD_BUTTON_ENABLED | typeof EventChannels.UI.WINDOW_RESIZED | typeof EventChannels.UI.SCREENSHOT_REQUESTED | typeof EventChannels.UI.RECORDING_TOGGLE_REQUESTED | typeof EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED | typeof EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED | typeof EventChannels.UI.STREAM_START_REQUESTED | typeof EventChannels.UI.STREAM_STOP_REQUESTED | typeof EventChannels.UPDATE.BADGE_SHOW | typeof EventChannels.UPDATE.BADGE_HIDE;
 
-export type TranscodeProgressPayload = {
-  jobId?: string;
-  progress?: number;
-  percent?: number;
-  [key: string]: unknown;
-};
-
-export type TranscodeCompletedPayload = {
-  jobId?: string;
-  outputPath?: string;
-  [key: string]: unknown;
-};
-
-export type TranscodeErrorPayload = {
-  jobId?: string;
-  message?: string;
-  error?: unknown;
-  [key: string]: unknown;
-};
-
-export type TranscodeCancelledPayload = {
-  jobId?: string;
-  [key: string]: unknown;
-};
-
-export type EventPayloadMap = {
-  [EventChannels.SYSTEM.HANDLER_ERROR]: {
-    eventName: string;
-    error: {
-      name?: string;
-      message: string;
-      stack?: string;
-    };
-  };
-
-  [EventChannels.DEVICE.STATUS_CHANGED]: unknown;
+type EventPayloadOverrides = {
+  [EventChannels.SYSTEM.HANDLER_ERROR]: HandlerErrorPayload;
+  [EventChannels.DEVICE.CONNECTED]: DeviceInfoPayload;
+  [EventChannels.DEVICE.DISCONNECTED]: DeviceInfoPayload | null | undefined;
   [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: SupportedDeviceAvailablePayload;
   [EventChannels.DEVICE.ENUMERATION_FAILED]: DeviceEnumerationFailedPayload;
-  [EventChannels.DEVICE.DISCONNECTED_DURING_SESSION]: void;
-
   [EventChannels.STREAM.STARTED]: StreamStartedPayload;
-  [EventChannels.STREAM.STOPPED]: void;
   [EventChannels.STREAM.ERROR]: StreamErrorPayload;
   [EventChannels.STREAM.HEALTH_OK]: StreamHealthOkPayload;
   [EventChannels.STREAM.HEALTH_TIMEOUT]: StreamHealthTimeoutPayload;
-
-  [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED]: void;
   [EventChannels.CAPTURE.SCREENSHOT_READY]: ScreenshotReadyPayload;
-  [EventChannels.CAPTURE.RECORDING_STARTED]: void;
-  [EventChannels.CAPTURE.RECORDING_STOPPED]: void;
   [EventChannels.CAPTURE.RECORDING_READY]: RecordingReadyPayload;
   [EventChannels.CAPTURE.RECORDING_ERROR]: RecordingErrorPayload;
   [EventChannels.CAPTURE.RECORDING_DEGRADED]: RecordingDegradedPayload;
-
   [EventChannels.SETTINGS.VOLUME_CHANGED]: number;
   [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: string;
   [EventChannels.SETTINGS.BRIGHTNESS_CHANGED]: number;
@@ -267,19 +221,15 @@ export type EventPayloadMap = {
   [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: boolean;
   [EventChannels.SETTINGS.PREFERENCES_LOADED]: Record<string, unknown>;
   [EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED]: string;
-
   [EventChannels.PERFORMANCE.STATE_CHANGED]: PerformanceStatePayload;
   [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: PerformanceUiModePayload;
   [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: boolean;
   [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: MemorySnapshotRequestPayload;
-
   [EventChannels.RENDER.CAPABILITY_DETECTED]: StreamingCapabilities;
   [EventChannels.RENDER.PIPELINE_READY]: RenderPipelineReadyPayload;
   [EventChannels.RENDER.PIPELINE_ERROR]: RenderPipelineErrorPayload;
   [EventChannels.RENDER.STATS_UPDATE]: RenderStatsPayload;
-  [EventChannels.RENDER.CANVAS_EXPIRED]: void;
   [EventChannels.RENDER.CANVAS_RECREATED]: CanvasRecreatedPayload;
-
   [EventChannels.UI.STATUS_MESSAGE]: UiStatusMessagePayload;
   [EventChannels.UI.DEVICE_STATUS]: UiDeviceStatusPayload;
   [EventChannels.UI.OVERLAY_MESSAGE]: UiOverlayMessagePayload;
@@ -287,120 +237,62 @@ export type EventPayloadMap = {
   [EventChannels.UI.OVERLAY_ERROR]: UiOverlayErrorPayload;
   [EventChannels.UI.STREAMING_MODE]: UiStreamingModePayload;
   [EventChannels.UI.STREAM_INFO]: UiStreamInfoPayload;
-  [EventChannels.UI.SHUTTER_FLASH]: void;
-  [EventChannels.UI.RECORD_BUTTON_POP]: void;
-  [EventChannels.UI.RECORD_BUTTON_PRESS]: void;
   [EventChannels.UI.BUTTON_FEEDBACK]: UiButtonFeedbackPayload;
   [EventChannels.UI.RECORDING_STATE]: UiRecordingStatePayload;
-  [EventChannels.UI.RECORD_BUTTON_DISABLED]: void;
-  [EventChannels.UI.RECORD_BUTTON_ENABLED]: void;
   [EventChannels.UI.FULLSCREEN_STATE]: UiFullscreenStatePayload;
-  [EventChannels.UI.WINDOW_RESIZED]: void;
-  [EventChannels.UI.SCREENSHOT_REQUESTED]: void;
-  [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: void;
-  [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: void;
-  [EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED]: void;
-  [EventChannels.UI.STREAM_START_REQUESTED]: void;
-  [EventChannels.UI.STREAM_STOP_REQUESTED]: void;
-
-  [EventChannels.UPDATE.AVAILABLE]: unknown;
-  [EventChannels.UPDATE.NOT_AVAILABLE]: unknown;
+  [EventChannels.UPDATE.AVAILABLE]: UpdateInfoPayload;
+  [EventChannels.UPDATE.NOT_AVAILABLE]: UpdateInfoPayload;
   [EventChannels.UPDATE.PROGRESS]: UpdateProgressPayload;
-  [EventChannels.UPDATE.DOWNLOADED]: unknown;
-  [EventChannels.UPDATE.ERROR]: unknown;
-  [EventChannels.UPDATE.STATE_CHANGED]: unknown;
-  [EventChannels.UPDATE.BADGE_SHOW]: void;
-  [EventChannels.UPDATE.BADGE_HIDE]: void;
-
-  [EventChannels.NOTES.NOTE_CREATED]: unknown;
-  [EventChannels.NOTES.NOTE_UPDATED]: unknown;
+  [EventChannels.UPDATE.DOWNLOADED]: UpdateInfoPayload;
+  [EventChannels.UPDATE.ERROR]: UpdateErrorPayload;
   [EventChannels.NOTES.NOTE_DELETED]: NotesDeletedPayload;
-
   [EventChannels.TRANSCODE.STARTED]: TranscodeStartedPayload;
   [EventChannels.TRANSCODE.PROGRESS]: TranscodeProgressPayload;
   [EventChannels.TRANSCODE.COMPLETED]: TranscodeCompletedPayload;
   [EventChannels.TRANSCODE.ERROR]: TranscodeErrorPayload;
   [EventChannels.TRANSCODE.CANCELLED]: TranscodeCancelledPayload;
 };
+// CODEBASE_EVENT_PAYLOAD_MAP:END
+
+export type EventPayloadMap = {
+  [K in EventChannelValue]: K extends keyof EventPayloadOverrides
+    ? EventPayloadOverrides[K]
+    : K extends VoidEventChannel
+      ? void
+      : unknown;
+};
 
 export type MissingEventPayloads = Exclude<EventChannelValue, keyof EventPayloadMap>;
 export type ExtraEventPayloads = Exclude<keyof EventPayloadMap, EventChannelValue>;
 
-export const EVENT_PAYLOAD_CHANNELS = [
-  EventChannels.SYSTEM.HANDLER_ERROR,
-  EventChannels.DEVICE.STATUS_CHANGED,
-  EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE,
-  EventChannels.DEVICE.ENUMERATION_FAILED,
-  EventChannels.DEVICE.DISCONNECTED_DURING_SESSION,
-  EventChannels.STREAM.STARTED,
-  EventChannels.STREAM.STOPPED,
-  EventChannels.STREAM.ERROR,
-  EventChannels.STREAM.HEALTH_OK,
-  EventChannels.STREAM.HEALTH_TIMEOUT,
-  EventChannels.CAPTURE.SCREENSHOT_TRIGGERED,
-  EventChannels.CAPTURE.SCREENSHOT_READY,
-  EventChannels.CAPTURE.RECORDING_STARTED,
-  EventChannels.CAPTURE.RECORDING_STOPPED,
-  EventChannels.CAPTURE.RECORDING_READY,
-  EventChannels.CAPTURE.RECORDING_ERROR,
-  EventChannels.CAPTURE.RECORDING_DEGRADED,
-  EventChannels.SETTINGS.VOLUME_CHANGED,
-  EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
-  EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
-  EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED,
-  EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-  EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
-  EventChannels.SETTINGS.PREFERENCES_LOADED,
-  EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED,
-  EventChannels.PERFORMANCE.STATE_CHANGED,
-  EventChannels.PERFORMANCE.UI_MODE_CHANGED,
-  EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
-  EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED,
-  EventChannels.RENDER.CAPABILITY_DETECTED,
-  EventChannels.RENDER.PIPELINE_READY,
-  EventChannels.RENDER.PIPELINE_ERROR,
-  EventChannels.RENDER.STATS_UPDATE,
-  EventChannels.RENDER.CANVAS_EXPIRED,
-  EventChannels.RENDER.CANVAS_RECREATED,
-  EventChannels.UI.STATUS_MESSAGE,
-  EventChannels.UI.DEVICE_STATUS,
-  EventChannels.UI.OVERLAY_MESSAGE,
-  EventChannels.UI.OVERLAY_VISIBLE,
-  EventChannels.UI.OVERLAY_ERROR,
-  EventChannels.UI.STREAMING_MODE,
-  EventChannels.UI.STREAM_INFO,
-  EventChannels.UI.SHUTTER_FLASH,
-  EventChannels.UI.RECORD_BUTTON_POP,
-  EventChannels.UI.RECORD_BUTTON_PRESS,
-  EventChannels.UI.BUTTON_FEEDBACK,
-  EventChannels.UI.RECORDING_STATE,
-  EventChannels.UI.RECORD_BUTTON_DISABLED,
-  EventChannels.UI.RECORD_BUTTON_ENABLED,
-  EventChannels.UI.FULLSCREEN_STATE,
-  EventChannels.UI.WINDOW_RESIZED,
-  EventChannels.UI.SCREENSHOT_REQUESTED,
-  EventChannels.UI.RECORDING_TOGGLE_REQUESTED,
-  EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED,
-  EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED,
-  EventChannels.UI.STREAM_START_REQUESTED,
-  EventChannels.UI.STREAM_STOP_REQUESTED,
-  EventChannels.UPDATE.AVAILABLE,
-  EventChannels.UPDATE.NOT_AVAILABLE,
-  EventChannels.UPDATE.PROGRESS,
-  EventChannels.UPDATE.DOWNLOADED,
-  EventChannels.UPDATE.ERROR,
-  EventChannels.UPDATE.STATE_CHANGED,
-  EventChannels.UPDATE.BADGE_SHOW,
-  EventChannels.UPDATE.BADGE_HIDE,
-  EventChannels.NOTES.NOTE_CREATED,
-  EventChannels.NOTES.NOTE_UPDATED,
-  EventChannels.NOTES.NOTE_DELETED,
-  EventChannels.TRANSCODE.STARTED,
-  EventChannels.TRANSCODE.PROGRESS,
-  EventChannels.TRANSCODE.COMPLETED,
-  EventChannels.TRANSCODE.ERROR,
-  EventChannels.TRANSCODE.CANCELLED
-] as const;
+function collectLeafChannels(node: unknown): string[] {
+  if (typeof node === 'string') {
+    return [node];
+  }
+
+  if (!node || typeof node !== 'object') {
+    return [];
+  }
+
+  return Object.values(node).flatMap((value) => collectLeafChannels(value));
+}
+
+const rendererManifestChannels = getEventManifestScopeValues('renderer');
+const runtimeEventChannels = collectLeafChannels(EventChannels);
+const rendererManifestChannelSet = new Set(rendererManifestChannels);
+const runtimeEventChannelSet = new Set(runtimeEventChannels);
+
+const manifestOnlyChannels = rendererManifestChannels.filter((channel) => !runtimeEventChannelSet.has(channel));
+const runtimeOnlyChannels = runtimeEventChannels.filter((channel) => !rendererManifestChannelSet.has(channel));
+
+if (manifestOnlyChannels.length > 0 || runtimeOnlyChannels.length > 0) {
+  throw new Error(
+    `Renderer event payload channel drift detected. Manifest-only: [${manifestOnlyChannels.join(', ')}], ` +
+      `runtime-only: [${runtimeOnlyChannels.join(', ')}]`
+  );
+}
+
+export const EVENT_PAYLOAD_CHANNELS = rendererManifestChannels as readonly EventChannelValue[];
 
 export type MissingRuntimeEventPayloadChannels = Exclude<
   EventChannelValue,
@@ -425,10 +317,11 @@ type PublishArgs<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends v
   : [event: K, data: EventPayloadMap[K]];
 
 type EventHandler<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends void
-  ? () => void
-  : (payload: EventPayloadMap[K]) => void;
+  ? () => void | Promise<void>
+  : (payload: EventPayloadMap[K]) => void | Promise<void>;
 
 export interface TypedEventBusLike {
   publish<K extends keyof EventPayloadMap>(...args: PublishArgs<K>): void;
+  publishAsync<K extends keyof EventPayloadMap>(...args: PublishArgs<K>): Promise<void>;
   subscribe<K extends keyof EventPayloadMap>(event: K, handler: EventHandler<K>): () => void;
 }

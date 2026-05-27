@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
+import { createLoggerFactory } from '../../factories/index.js';
 
 describe('UIController', () => {
   let controller;
@@ -105,16 +106,7 @@ describe('UIController', () => {
       dispose: vi.fn()
     };
 
-    // Create mock logger
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-    mockLoggerFactory = {
-      create: vi.fn().mockReturnValue(mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     controller = new UIController({
       uiComponentRegistry: mockRegistry,
@@ -122,6 +114,7 @@ describe('UIController', () => {
       bodyClassManager: mockBodyClassManager,
       loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('UIController');
   });
 
   describe('Constructor', () => {

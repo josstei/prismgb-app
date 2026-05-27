@@ -1,0 +1,417 @@
+# PrismGB Future-First Design Exhaustive Implementation Plan
+
+Date: 2026-05-27  
+References:  
+- [CODEBASE_SIZE_REDUCTION_STATUS.md](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/CODEBASE_SIZE_REDUCTION_STATUS.md)  
+- [CODEBASE_SIZE_REDUCTION_FINDINGS.md](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/CODEBASE_SIZE_REDUCTION_FINDINGS.md)  
+- [CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md)  
+- [future_first_design_recommendations.md](file:///Users/josstei/.gemini/antigravity-cli/brain/4a3fc3e0-891d-429c-9cd3-023f2053d1e7/future_first_design_recommendations.md)
+
+---
+
+## 1. North Star Description & Strategic Goal
+
+### The Vision
+The **North Star** for the PrismGB codebase is a completely sandboxed, framework-less, yet highly type-safe multi-process desktop application. In this architecture, all cross-process boundaries, dependencies, and presentation lifecycles are governed by declarative metadata and compile-time code generators rather than manual runtime wiring. 
+
+```
+                                  +-----------------------+
+                                  |   ipc.manifest.json   |
+                                  +-----------+-----------+
+                                              |
+                                              | (Build-Time Generator)
+                                              v
+                       +----------------------+----------------------+
+                       |                                             |
+                       v                                             v
+          +------------+------------+                   +------------+------------+
+          |    preload-api.d.ts     |                   |  validators.generated.ts |
+          |  (Global Window Types)  |                   | (Argument & Payload Check)|
+          +-------------------------+                   +-------------------------+
+```
+
+### The Strategic Goal
+To implement **Options 1A, 2B, 3A, and 4B** to eliminate code duplication across main, preload, and renderer layers. When completed, this plan will delete thousands of lines of boilerplate, secure Electron's sandboxing, and deliver a zero-overhead UI that runs at native 60 FPS speeds.
+
+---
+
+## 2. Program Success Criteria
+
+The success of this implementation plan is measured by these concrete metrics and architectural boundaries:
+
+1. **Boilerplate Reduction**: Net deletion of **>15,000 LOC** across the repository (principally in unit test fakes, preload bindings, and service registrations).
+2. **Zero Strict Type Diagnostics**: Enforced by `npm run typecheck:app` remaining at **0 strict diagnostics** and **0 allowlist exceptions**.
+3. **Zero Scorecard Boundary Violations**: Enforced by `npm run architecture:scorecard -- --enforce-thresholds` passing with **0 violations and 0 `any` types**.
+4. **Compile-Time DI Safety**: CI must reject builds if a service references a dependency token that does not exist in the DI registry.
+5. **Monadic Uniformity**: 100% of IPC handlers return a monadic `{ success, data, error }` shape. All "bare" invoke pipelines are eliminated.
+6. **Zero Performance Overhead**: Frame render loops (WebGL/WebGPU) and state-machine transitions incur **0 GC (garbage collection) stutter pauses** and **0 runtime layout-thrashing**.
+
+---
+
+## 3. Option 1A: Manifest-First IPC Contract Generation
+
+This option automates the IPC bridge by generating global declarations, runtime validators, and schema models directly from the IPC manifest.
+
+```
++---------------------------------------------------------------------------------+
+|                                  PHASE ROADMAP                                  |
+|                                                                                 |
+|  Phase 1: Generator Bootstrap   ==>   Phase 2: Types & API Cutover   ==>   Phase 3: Security & Validation  |
++---------------------------------------------------------------------------------+
+```
+
+### Phase 1.1: Generator Bootstrap
+*   **Tasks**:
+    1. Expand `scripts/generate-contracts.js` to parse `src/shared/ipc/ipc.manifest.json`.
+    2. Write a code emitter that outputs type-safe generic channel maps and types.
+    3. Generate a preview version of `src/types/preload-api.generated.d.ts` without modifying active files.
+*   **Expected Outcomes**: A functional generator script that produces syntactically correct TypeScript global declarations from JSON data.
+*   **Risks & Mitigations**:
+    *   *Risk*: Generated TS global declarations conflict with existing manual typings.
+    *   *Mitigation*: Sandbox the generated files into `.generated.d.ts` extensions and isolate them from the main compiler scope until Phase 1.2.
+
+### Phase 1.2: Exposure and Preload Type Generation Cutover
+*   **Tasks**:
+    1. Replace `src/types/preload-api.d.ts` with the autogenerated version.
+    2. Refactor `src/preload/index.js` to import and utilize the generated manifest factory.
+    3. Configure `scripts/codebase-phase1-drift-report.js` to assert absolute alignment between the manifest and global `Window` typings.
+*   **Expected Outcomes**: The manual types file is deleted, and all renderer-side preload exposures derive directly from the manifest.
+*   **Risks & Mitigations**:
+    *   *Risk*: Context bridge exposures throw runtime errors due to missing namespace bindings.
+    *   *Mitigation*: Run the boot smoke test (`npm run dev:smoke`) in a headless container to verify context isolation and bridge exposures.
+
+### Phase 1.3: Manifest-Owned Validation & Argument Sanitization
+*   **Tasks**:
+    1. Define Joi/TypeBox validation metadata arrays inside `ipc.manifest.json`.
+    2. Write a generator that outputs `src/preload/validators.generated.ts` containing type-safe sanitization routines.
+    3. Wire the generated validators into the default generated preload invoke methods.
+    4. Delete manually written validators in `src/preload/validators.ts`.
+*   **Expected Outcomes**: Complete validation of all IPC arguments in the preload context before payload dispatch, with zero manual validation code.
+*   **Risks & Mitigations**:
+    *   *Risk*: Argument type casting issues (e.g. converting strings to numbers) break handler assumptions.
+    *   *Mitigation*: Maintain rigid unit tests inside `tests/unit/preload/preload-api.invoke-contract.test.js` to check conversion behavior.
+
+---
+
+## 4. Option 2B: Compile-Time Decorator DI Code Generator
+
+This option builds a pre-build compilation step that scans files for `@Service` annotations and writes a static, zero-overhead dependency container.
+
+### Phase 2.1: Annotation Definitions and Metadata Extraction
+*   **Tasks**:
+    1. Create decorator definitions `@Service` and `@Inject` inside `src/shared/di/decorators.ts`.
+    2. Set `experimentalDecorators: true` in `tsconfig.base.json`.
+    3. Write a pre-build AST scanner using the `typescript` parser library to walk `src/` files and extract service tokens, lifecycles, and parameters.
+*   **Expected Outcomes**: An AST-based metadata extractor that successfully lists all services and their dependent scopes.
+*   **Risks & Mitigations**:
+    *   *Risk*: High parsing times slow down standard local development builds.
+    *   *Mitigation*: Integrate the scanner as a pre-build hook (`npm run predev` / `npm run prebuild`) so it only runs when service dependencies are added or modified.
+
+### Phase 2.2: Code Generation Compiler & Vite Hook Integration
+*   **Tasks**:
+    1. Build the code emitter to output a static, fully wired instantiation file: `src/renderer/application/di/container.generated.ts`.
+    2. Write a custom Vite plugin inside `vite.config.js` to automatically trigger the generator on file additions or deletions.
+    3. Build compile-time validations to assert that every constructor injection maps to a registered service.
+*   **Expected Outcomes**: Dynamic Vite rebuilds that regenerate the static dependency graph instantly when new files are saved.
+*   **Risks & Mitigations**:
+    *   *Risk*: Circular dependency cycles cause the generated static container to stack overflow at startup.
+    *   *Mitigation*: Implement a topological sorting algorithm in the generator to detect cycle loops and fail the build with a descriptive error.
+
+### Phase 2.3: Container Refactor and Static Instantiation Cutover
+*   **Tasks**:
+    1. Annotate all services in `src/renderer/infrastructure/services/` and `src/renderer/application/orchestrators/` with `@Service`.
+    2. Replace the runtime Awilix registration files (`register-devices.ts`, `register-infrastructure.ts`) with a single import of the generated container.
+    3. Refactor main process registration to use the same static generation model.
+*   **Expected Outcomes**: Deletion of manual dependency injection files; bootstrap DI resolution drops to **<1 millisecond**.
+*   **Risks & Mitigations**:
+    *   *Risk*: Optional dependency injections or mocks are difficult to inject during unit tests.
+    *   *Mitigation*: Generate the container class to accept optional override mappings in its constructor (e.g. `new GeneratedContainer({ logger: mockLogger })`).
+
+---
+
+## 5. Option 3A: Enforced Monadic IPC Result Envelopes
+
+This option standardizes all cross-process communications into a type-safe `Result<T, E>` monadic return structure.
+
+### Phase 3.1: Generic Monadic Types and Preload Validation Integrations
+*   **Tasks**:
+    1. Define generic, strict monadic return types in `src/shared/ipc/ipc.contract.ts`:
+        ```typescript
+        export type Result<T, E = IpcError> = 
+          | { success: true; data: T; error?: never } 
+          | { success: false; data?: never; error: E };
+        ```
+    2. Refactor preload validation logic to automatically return a monadic failure envelope if client argument sanitization fails.
+*   **Expected Outcomes**: Compile-time representation of the generic monadic shape across all namespaces.
+*   **Risks & Mitigations**:
+    *   *Risk*: The client ignores `success: false` states and tries to read data fields anyway, causing runtime reference errors.
+    *   *Mitigation*: Enforce type-narrowing in TS (using TypeScript's discriminated union compiler checks) so accessing `.data` requires an explicit `.success === true` check.
+
+### Phase 3.2: Registry Error Mapping and Main Handler Descriptors
+*   **Tasks**:
+    1. Update the central handler registry (`IpcHandlerRegistry`) to catch unhandled errors from service invocations.
+    2. Implement automatic wrapper serialization that converts exceptions into `{ success: false, error: { message, code } }` envelopes.
+    3. Standardize error code dictionaries for database failures, hardware disconnections, and system timeouts.
+*   **Expected Outcomes**: All main-process service exceptions are caught, sanitized, and serialized as clean monadic data structures.
+*   **Risks & Mitigations**:
+    *   *Risk*: Security leak if system-level stack traces are sent to the renderer process during uncaught exceptions.
+    *   *Mitigation*: Sanitize the payload inside `IpcHandlerRegistry`. Send the full stack trace to the Winston logger but return only a generic `INTERNAL_ERROR` code to the client.
+
+### Phase 3.3: Legacy API Cutover and Clean-Break Verification
+*   **Tasks**:
+    1. Identify all "bare" IPC endpoints (e.g., `isFullScreen()`, `getDeviceStatus()`) via AST lint checks.
+    2. Refactor these endpoints to return monadic envelopes.
+    3. Update the renderer presentation layers to handle the new return shapes.
+    4. Configure the architecture scorecard to reject any new IPC endpoints configured with `responseMode: 'bare'`.
+*   **Expected Outcomes**: 100% uniformity in IPC calls; deletion of custom error-handling try/catch blocks in renderer classes.
+*   **Risks & Mitigations**:
+    *   *Risk*: Legacy tests that assert bare boolean returns fail.
+    *   *Mitigation*: Dedicate a targeted test migration sweep using `tests/factories/` to align test expectations with the monadic envelopes.
+
+---
+
+## 6. Option 4B: Pure Headless Controllers + Template-Dom Ref Generation
+
+This option builds a framework-less UI architecture using headless state-machines and autogenerated type-safe DOM bindings.
+
+### Phase 4.1: Core Headless State Machines Integration
+*   **Tasks**:
+    1. Solidify the headless state engines for common visual primitives (`DisclosureController`, `ListboxController`, `AutoHideController`) in `src/renderer/presentation/primitives/`.
+    2. Ensure these controllers are framework-independent and only track active state, accessibility (ARIA), keyboard events, and focus traps.
+    3. Annotate these controllers with strict unit tests checking input/keyboard interactions.
+*   **Expected Outcomes**: Highly robust, reusable headless controllers that are completely decoupled from markup and vanilla CSS classes.
+*   **Risks & Mitigations**:
+    *   *Risk*: Headless focus traps fail when complex submenus or overlays are dynamically injected into the DOM.
+    *   *Mitigation*: Implement absolute, centralized focus-state management in a `FocusController` wrapper that tracks active elements.
+
+### Phase 4.2: Static DOM Ref Contract Generation and Verification Checks
+*   **Tasks**:
+    1. Parse the application's main templates (HTML structures/strings) during the pre-build compile step.
+    2. Auto-generate `template-dom.generated.ts` containing the exact collections of `TemplateDomRefGroups` and `TemplateActionTargets`.
+    3. Update the `createDomBindings()` utility inside `src/renderer/infrastructure/utils/dom-bindings.utils.ts` to statically enforce these generated keys.
+*   **Expected Outcomes**: Total compile-time validation of template tags (`data-ref` / `data-action`), eliminating runtime selector bugs.
+*   **Risks & Mitigations**:
+    *   *Risk*: Dynamically generated lists (e.g. settings dropdown options) cannot have static refs determined at build time.
+    *   *Mitigation*: Provide explicit dynamic selector helpers in `dom-bindings.utils.ts` that append deterministic dynamic suffixes.
+
+### Phase 4.3: Component Presentation Modernization & Async Disposal Safety
+*   **Tasks**:
+    1. Migrate the remaining UI views (`SettingsMenuComponent`, `UpdateSectionComponent`, `NotesPanelComponent`) to inherit from the async-aware `PresentationComponent`.
+    2. Route all DOM listeners, events, custom timeouts, and animation frames through the component's `DisposableBag`.
+    3. Enforce async safety during reinitialization. If a user quickly switches notes or deletes a selection, ensure pending autosaves are flushed and observers are disposed *before* allocating new resources.
+*   **Expected Outcomes**: Elimination of memory leaks, zero-overhead rendering cycles, and absolute async safety across rapid view changes.
+*   **Risks & Mitigations**:
+    *   *Risk*: Async disposal races cause elements to be updated after their parent container is detached from the DOM, causing JS runtime exceptions.
+    *   *Mitigation*: Wrap all DOM updates in a base element presence check inside the base `PresentationComponent`.
+
+---
+
+## 7. Citable Grounded Details & Reference Anchors
+
+To ensure high accuracy during implementation, use these precise paths, lines, and anchors as your technical guides:
+
+1.  **IPC Manifest Source**:  
+    - Path: [ipc.manifest.json](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/src/shared/ipc/ipc.manifest.json)  
+    - Current Line Count: 302 lines. Establishes namespaces (`DEVICE`, `SHELL`, `WINDOW`, `UPDATE`, `METRICS`, `GPU`, `LOGIN_ITEM`, `TRANSCODE`) and serves as the baseline data for Option 1A.
+2.  **Strict Typecheck Gate**:  
+    - Path: [tsconfig.app.json](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/tsconfig.app.json)  
+    - Command: `npm run typecheck:app` (runs [typecheck-app.js](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/scripts/typecheck-app.js)). Establishes a zero-tolerance gate for strict TS diagnostics.
+3.  **Active Worktree Files**:  
+    - Staged files include [device-ipc.adapter.ts](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts) and [settings.service.ts](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/src/renderer/infrastructure/services/settings/settings.service.ts). These must be committed/merged prior to beginning Option 1A.
+4.  **Baseline Codebase Size**:  
+    - Target: Total of 687 files (117,318 LOC total), with tests representing **53,499 LOC** across 233 files (confirming the high-value impact of the test cleanup phase).
+5.  **Scorecard Gates**:  
+    - Path: [architecture-scorecard.js](file:///Users/josstei/Development/prismgb-workspace/prismgb-app/scripts/architecture-scorecard.js)  
+    - Command: `npm run architecture:scorecard -- --enforce-thresholds` (rejects `any` variables, runtime JS twins, and layout boundary violations).
+
+---
+
+## 8. Round 1 of Refinement: Code Generators & Rollback Strategies
+
+This section provides concrete implementation details, parser templates, and recovery safeguards for Step 2 (Option 1A) and Step 3 (Option 2B).
+
+### 8.1: Option 1A Code Emitter Template
+Below is the code template structure to be implemented inside `scripts/generate-contracts.js` for mapping `ipc.manifest.json` entries to the global declaration file:
+
+```javascript
+// scripts/generate-contracts.js (Extract)
+function generatePreloadDeclarations(manifest) {
+  let content = `// AUTOGENERATED CONTRACT DECLARATIONS - DO NOT EDIT DIRECTLY\n\n`;
+  content += `export {};\n\ndeclare global {\n`;
+
+  for (const ns of manifest.namespaces) {
+    content += `  interface ${ns.apiName} {\n`;
+    
+    // Process Invokes
+    for (const inv of ns.invoke || []) {
+      const args = inv.request.map(arg => {
+        const [name, type] = arg.split(':');
+        return `${name}: ${type || 'any'}`;
+      }).join(', ');
+      content += `    ${inv.method}(${args}): Promise<${inv.response}>;\n`;
+    }
+    
+    // Process Subscriptions
+    for (const sub of ns.subscriptions || []) {
+      content += `    ${sub.method}(callback: (payload: ${sub.payload || 'void'}) => void): () => void;\n`;
+    }
+    
+    content += `  }\n\n`;
+    content += `  interface Window {\n`;
+    content += `    readonly ${ns.apiName}: ${ns.apiName};\n`;
+    content += `  }\n`;
+  }
+  content += `}\n`;
+  return content;
+}
+```
+
+### 8.2: Option 2B AST Decorator Parser Template
+Below is the TypeScript compiler AST parsing logic to be implemented inside `scripts/generate-di.js` to extract `@Service` annotated classes and parameters:
+
+```javascript
+// scripts/generate-di.js (Extract)
+import * as ts from 'typescript';
+import * as fs from 'fs';
+
+function scanFileForServices(filePath) {
+  const sourceCode = fs.readFileSync(filePath, 'utf8');
+  const sourceFile = ts.createSourceFile(filePath, sourceCode, ts.ScriptTarget.Latest, true);
+  const services = [];
+
+  function visit(node) {
+    if (ts.isClassDeclaration(node) && node.name) {
+      const hasServiceDecorator = node.modifiers?.some(mod => 
+        ts.isDecorator(mod) && 
+        ts.isCallExpression(mod.expression) &&
+        ts.isIdentifier(mod.expression.expression) &&
+        mod.expression.expression.text === 'Service'
+      );
+
+      if (hasServiceDecorator) {
+        const serviceName = node.name.text;
+        const constructorNode = node.members.find(ts.isConstructorDeclaration);
+        const dependencies = [];
+
+        if (constructorNode) {
+          for (const param of constructorNode.parameters) {
+            if (ts.isIdentifier(param.name)) {
+              dependencies.push(param.name.text);
+            }
+          }
+        }
+        services.push({ name: serviceName, dependencies, path: filePath });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return services;
+}
+```
+
+### 8.3: Rollback & Recovery Strategy
+To prevent broken builds from blocking the release pipeline, follow this protocol:
+1.  **File Backups**: Before modifying any manual typings (`preload-api.d.ts`) or registration files, copy the original files to `.bak` extension copies (e.g. `cp src/types/preload-api.d.ts src/types/preload-api.d.ts.bak`).
+2.  **Toggle Flags**: Define a build-time flag inside `vite.config.js` and `container.ts` (e.g. `process.env.PRISM_LEGACY_DI`). If the flag is active, the app falls back to legacy manual imports and disables generated static wiring.
+3.  **Verification Sweep**: If `npm run release:preflight` fails post-generation, restore `.bak` files immediately using `git checkout -- <file>` to return to the last known stable commit.
+
+---
+
+## 9. Round 2 of Refinement: Monadic Registers, Lifecycles, & Performance Protocols
+
+This section provides concrete implementation details, middleware structures, base classes, and benchmarking protocols for Step 4 (Option 3A) and Step 5 (Option 4B).
+
+### 9.1: Option 3A Monadic Handler Registry Wrapper
+Below is the TypeScript implementation for catching exceptions, logging system details, and mapping payloads to `Result` envelopes inside the main-process registry:
+
+```typescript
+// src/main/ipc/ipc-handler-registry.ts (Extract)
+export interface IpcError {
+  message: string;
+  code: string;
+}
+
+export type Result<T> = 
+  | { success: true; data: T; error?: never } 
+  | { success: false; data?: never; error: IpcError };
+
+export function wrapHandler<TReq, TRes>(
+  dependencyBag: any,
+  invokeCallback: (deps: any, req: TReq) => Promise<TRes>,
+  logger: any
+): (event: any, request: TReq) => Promise<Result<TRes>> {
+  return async (event, request): Promise<Result<TRes>> => {
+    try {
+      const data = await invokeCallback(dependencyBag, request);
+      return { success: true, data };
+    } catch (err: any) {
+      const errorCode = err.code || 'INTERNAL_ERROR';
+      const errorMessage = err.message || 'An unexpected server exception occurred.';
+      
+      // Log full exception details to the Winston logger
+      logger.error(`IPC Handler Exception on channel ${event.channel}:`, {
+        error: err.stack,
+        request
+      });
+      
+      return { 
+        success: false, 
+        error: { 
+          message: errorMessage, 
+          code: errorCode 
+        } 
+      };
+    }
+  };
+}
+```
+
+### 9.2: Option 4B Base Presentation Component Class
+Below are the core properties and lifecycle methods of `PresentationComponent` to ensure leak-free rendering:
+
+```typescript
+// src/renderer/presentation/base/presentation.component.ts
+import { DisposableBag } from '../../../shared/base/disposable-bag';
+
+export abstract class PresentationComponent {
+  protected disposables = new DisposableBag();
+  protected element: HTMLElement | null = null;
+
+  public async initialize(containerElement: HTMLElement): Promise<void> {
+    this.element = containerElement;
+    await this.onInitialize();
+  }
+
+  protected abstract onInitialize(): void | Promise<void>;
+
+  protected listenDom(target: HTMLElement, event: string, callback: EventListener): void {
+    target.addEventListener(event, callback);
+    this.disposables.add({
+      dispose: () => target.removeEventListener(event, callback)
+    });
+  }
+
+  protected replaceTimeout(key: string, callback: () => void, delayMs: number): void {
+    this.disposables.replaceTimeout(key, callback, delayMs);
+  }
+
+  public async dispose(): Promise<void> {
+    await this.onDispose();
+    this.disposables.clear();
+    this.element = null;
+  }
+
+  protected onDispose(): void | Promise<void> {
+    // Component-specific cleanup hook
+  }
+}
+```
+
+### 9.3: Performance Verification Protocol
+To ensure the headless vanilla DOM architecture does not introduce frame stutter or leaks:
+1.  **Frame Interval Benchmark**: Monitor the streaming frame interval using `requestAnimationFrame`. If the interval diverges from the 16.6ms frame target (60 Hz) by more than 2ms during view switching, trigger a layout-thrashing check.
+2.  **Heap Profiling**: In Chrome DevTools (Vite dev server), run 10 rapid switches between the settings menu and update section. Record a heap snapshot and verify that the number of `HTMLDivElement` or `EventListener` references does not increase monotonically (proving the async `dispose()` cleanly clears observers).
+3.  **GC Pause Check**: During screen capture rendering, inspect the timeline for Garbage Collection pauses. Verify that GC pauses remain below **5ms** and do not occur during active frame transfers to `OffscreenCanvas`.
+

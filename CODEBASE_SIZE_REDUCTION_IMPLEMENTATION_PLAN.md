@@ -8,105 +8,19 @@ This plan turns every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` 
 
 ## Execution Status
 
-Last updated: 2026-05-21
+Last updated: 2026-05-26
 
-- Status: Phase 4 enforcement and ratchets are implemented on branch `codex/codebase-reduction-phase-4`; the Phase 0/4 clean-break audit is current in this plan instead of a separate stale audit artifact.
-- Completed phase: Phase 4, Enforcement And Ratchets.
-- Phase 0 commit: `20ac639 chore(codebase): add size reduction baselines`.
-- Phase 0 review: completed with GPT-5.5 xhigh review after fixes; final review found no blocking issues and marked Phase 0 acceptable to commit.
-- Verification at Phase 0 commit:
-  - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
-  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
-  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so scorecard ratchets are checked with the Phase 0 baselines.
-  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`.
-  - `npm run test:run` passed with 147 test files and 2951 tests.
-  - `npm run codebase:size -- --json` exited 0 and reports tracked source separately from local artifacts, test artifacts, build output, release output, package output, and vendored dependency buckets.
-- Phase 0 delivered:
-  - `scripts/codebase-size-report.js` and `npm run codebase:size`.
-  - Contract baselines for preload/API invoke forwarding, IPC channel shape, EventBus channel values, settings defaults, device metadata, duplicated shader equivalence, E2E selector assumptions, release artifact targets, and known drift cases.
-  - `src/preload/apis/inline.preload-api.js`, an extraction of inline preload APIs that made shell, metrics, GPU, and login-item invoke contracts testable.
-- Phase 1 delivered:
-  - Shared foundations: `DisposableBag`, contract flattening/schema helpers, script utility helpers, canonical test support helpers, `TypedRegistryFactory`, preload `createSubscription()`, and main IPC handler descriptor helpers.
-  - Low-risk contract adoption: `updateAPI.onError` now uses the subscription factory, and login-item IPC handlers now use descriptors with public response shapes asserted by tests.
-  - Report-only manifests: IPC/preload, scoped events, Chromatic device metadata, settings definitions, GPU render passes, architecture aliases/layers, and platform build targets.
-  - Drift/generation command: `npm run codebase:phase1`, with optional generated declaration and docs preview artifacts under `artifacts/codebase-reduction/phase1`.
-  - Official WebGPU types are hoisted to the root type environment; local `webgpu-worker.d.ts` is reduced to an augmentation placeholder.
-  - Vitest coverage output now targets ignored `artifacts/coverage` instead of `tests/coverage`.
-- Phase 2 delivered:
-  - Preload subscriptions now use descriptor-style `createSubscription()` plumbing with map-backed listener registries across device, window, update, and transcode APIs; namespace-wide public listener teardown methods were removed and preload owns internal disposal.
-  - Main IPC handlers now register descriptor arrays directly with centralized duplicate-channel detection, disposal, and explicit per-handler error mapping; per-domain registration wrappers were removed.
-  - Renderer event imports now point directly at the shared event contract; the renderer event-channel re-export was deleted. Main event channels derive from the scoped event manifest.
-  - `@prismgb/gpu` exposes worker-safe pipeline creation, render-pass helper metadata, and explicit preset bulk registration without side-effect preset imports.
-  - `BaseService` now owns `DisposableBag` lifecycle helpers, and renderer update/transcode services use a generic preload event bridge with per-subscription cleanup.
-  - Settings now use manifest-backed generic `getSetting()`/`setSetting()` and typed setting accessors; setting-specific getters/setters and manifest method mappings were removed.
-  - Streaming adapter/renderer factories now use the shared typed registry primitive.
-  - `npm run clean:generated` removes ignored generated local artifacts without deleting tracked package build outputs.
-  - Full-cutover audit after Phase 2 removed outdated preload declaration drift, setting-specific service methods, main IPC registration wrappers, renderer event re-export paths, and dead transcode UI state.
-- Phase 3 delivered:
-  - Renderer worker internals now delegate rendering, capture, resize, stats, preset, brightness, and disposal to `@prismgb/gpu` through `createWorkerPipeline()`; renderer-private WebGPU/WebGL2 engines, optimization helpers, and duplicate shader trees were deleted.
-  - `@prismgb/gpu` now owns worker-safe WebGL2 probing, package shader ownership, and the worker pipeline API while preserving the worker protocol boundary in the renderer.
-  - Renderer DI now uses Awilix descriptor registration and typed container metadata; the custom `ServiceContainer` implementation and its old tests were deleted.
-  - Renderer descriptor registration now supports explicit class dependency metadata, and `uiEffects` declares `bodyClassManager` directly while keeping DOM element wiring delayed until `UIController` creates the elements.
-  - Presentation auto-hide behavior now uses `PresentationComponent` and `ActivityAutoHideController`, consolidating repeated listener, RAF, timer, and disposal behavior behind current UI boundaries.
-  - Vitest is split into explicit `shared-node`, `renderer-happy-dom`, `main-preload`, and `gpu-package` projects; browser API mocks moved to project-scoped installers and the lazy/global sandbox helpers were deleted.
-  - Runtime `channels.json` imports now use one import style across main/preload sources so Vite cannot emit mixed JSON import-attribute warnings during dev builds.
-  - The device preload factory now uses the current `getDeviceStatus`, `onDeviceConnected`, and `onDeviceDisconnected` names internally; the old listener method names are no longer public or internal compatibility surfaces.
-  - The stale Phase 0/1 audit artifact was retired into this implementation plan, and `tests/unit/codebase-reduction/phase3-clean-break.test.js` now guards the Phase 3 clean-break requirements.
-- Phase 4 delivered:
-  - `scripts/architecture-scorecard.js` now enforces no unexpected hand-maintained contract files, no renderer shader duplicate files, no shader divergence, no runtime JS plus `.d.ts` twins, no JS/`.d.ts` leftovers in `src/shared/base` or `src/shared/interfaces`, no inline canonical preload API mocks, and no alias/platform drift outside manifests.
-  - `src/shared/base/*` and `src/shared/interfaces/*` completed the JS plus `.d.ts` twin cutover to TypeScript sources; the old runtime/declaration files were deleted rather than kept as compatibility shims.
-  - `scripts/typecheck-app.js` and `scripts/type-debt-allowlist.json` enforce strict TypeScript debt with expiring, owned allowlist metadata; stale or overflowed buckets fail the gate.
-  - `scripts/coverage-ratchet.js` and `scripts/coverage-thresholds.json` enforce owned, expiring coverage ratchets by runtime area/project, with the main/preload gap explicitly report-only until a dedicated Electron-runtime coverage artifact exists.
-  - Generated and local artifact cleanup is cut to current ignored outputs under `artifacts/**`, `.vitest`, and Playwright result directories; the old `tests/coverage` cleanup and ignore path was removed.
-  - `npm run dev:smoke` starts `npm run dev` on explicit IPv4 localhost, captures startup output, fails on renderer errors, Awilix missing-token failures, and Vite JSON import-attribute warnings, then tears down the process tree.
-  - `npm run release:preflight` and `.github/workflows/reusable-ci-tests.yml` run native ABI checks, architecture thresholds, manifest drift checks, strict type debt checks, coverage plus coverage ratchets, and dev boot preflight before release readiness.
-  - `tests/unit/codebase-reduction/phase4-enforcement.test.js` guards the Phase 4 clean-break requirements so the old paths and future-phase status cannot drift back in.
-- Verification for Phase 1:
-  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
-  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 1 manifest drift gates.
-  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
-  - `npm run lint` exited 0 with 5 existing warnings and architecture boundary checks passing.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; one outdated type-debt allowlist bucket for login-item handlers was removed.
-  - `npm run test:run` passed with 150 test files and 2967 tests after the Phase 0/1 audit hardening test was added.
-  - `npm run codebase:phase1 -- --json` exited 0 and all Phase 1 drift checks passed.
-  - `npm run codebase:size -- --json` exited 0 and continues to separate tracked source from local artifacts.
-- Verification for Phase 2:
-  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
-  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 2 generated-runtime and cleanup gates.
-  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
-  - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; outdated type-debt allowlist buckets from migrated Phase 2 files were removed.
-  - `npm run test:run` passed with 154 test files and 2957 tests.
-  - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 27 tests.
-  - `node scripts/codebase-phase1-drift-report.js` exited 0 and all manifest drift checks passed after main event channels moved to manifest-derived values.
-  - `node scripts/codebase-size-report.js --json` exited 0 and continues to separate tracked source from ignored local build/release/package outputs.
-- Verification for Phase 3:
-  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
-  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 3 clean-break gates.
-  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
-  - `npm run test:run -- tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 3 test files and 16 tests.
-  - `npm run test:run -- tests/unit/preload/preload-api.invoke-contract.test.js tests/unit/preload/preload-api.contract.test.js tests/unit/codebase-reduction/non-ipc-baselines.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/scripts/codebase-phase1-drift-report.test.js` passed with 5 test files and 32 tests after the device preload clean-break cutover.
-  - `npm run lint` exited 0 with 3 existing warnings and architecture boundary checks passing.
-  - `npm run typecheck` exited 0 for app and `@prismgb/gpu`; strict app diagnostics are 660, tracked buckets are 135, and stale buckets are 0.
-  - `npm run test:run` passed with 155 test files and 2853 tests after dev-boot hardening checks were added.
-  - `npm run test:run --workspace=@prismgb/gpu` passed with 5 test files and 28 tests.
-  - `npm run codebase:phase1 -- --json` exited 0 and all manifest drift checks passed.
-  - `npm run codebase:size -- --json` exited 0 and reports WebGPU/WebGL2 shader status as package-owned with clean ownership.
-  - The focused Phase 0-3 audit loop was run 5 times; each pass verified manifest drift, size/shader ownership, obsolete source-name absence, deleted legacy-path absence, and the Phase 3 clean-break regression test.
-  - `npm run dev` was run until the renderer logged `Renderer application started successfully`; the prior `uiEffects -> elements` Awilix resolution failure is covered by container tests.
-  - Dev build output was rechecked after aligning `channels.json` imports; the prior Vite mixed JSON import-attribute warning is covered by the runtime IPC import-style test.
-- Verification for Phase 4:
-  - Current phase-regression coverage includes PR lint parity (`semantic-pull-request` and `npx commitlint --from <base> --to <head> --verbose`) so invalid PR/commit subjects are caught before GitHub Actions.
-  - Current phase-regression coverage includes `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` so architecture ratchets are checked with the Phase 4 enforcement gates.
-  - Current phase-regression coverage includes `npm run packaging:check-native-abi` so Electron/native-module packaging compatibility is checked before release packaging.
-  - `npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md` exits 0 with zero unexpected contract files, zero renderer shader duplicate files, zero runtime JS plus `.d.ts` twins, zero shared base/interface JS or `.d.ts` leftovers, zero inline canonical preload mocks, and zero alias/platform drift.
-  - `npm run codebase:phase1 -- --json` exits 0 and all manifest drift checks pass, including IPC/preload, event, settings, device, render-pass, architecture alias, and platform build matrix ownership.
-  - `npm run codebase:size -- --json` exits 0 and reports tracked source separately from current ignored artifact buckets without the old `tests/coverage` artifact path.
-  - `npm run architecture:type-debt:check` exits 0 with strict mode enabled, owned expiring allowlist metadata, and no stale type-debt buckets.
-  - `npm run test:run -- tests/unit/codebase-reduction/phase-ci-gates.test.js tests/unit/codebase-reduction/phase3-clean-break.test.js tests/unit/codebase-reduction/phase4-enforcement.test.js tests/unit/scripts/architecture-scorecard.test.js tests/unit/scripts/clean-generated.test.js tests/unit/scripts/codebase-size-report.test.js tests/unit/scripts/coverage-ratchet.test.js tests/unit/scripts/dev-boot-smoke.test.js tests/unit/scripts/typecheck-app.test.js` exits 0 for the focused Phase 0/4 clean-break audit suite.
-  - `npm run test:coverage` followed by `npm run coverage:ratchet` exits 0, proving coverage artifacts are generated under `artifacts/coverage` and the Phase 4 ratchet policy is enforced.
-  - `xvfb-run -a npm run dev:smoke` is the CI form of the dev boot preflight; `npm run dev:smoke` is the local equivalent.
+- Status: Phase 6 shader pass ownership and Phase 14 headless controller consolidation are implemented, and the repo has the main enforcement spine for measurement, manifest drift, rendering ownership, renderer DI, generated-artifact cleanup, and scorecard checks. Phase B audited slices include IPC descriptor validation, manifest-aware main IPC registration, preload subscription generation, manifest-derived preload invoke method generation, manifest-driven preload bootstrap assembly, manifest-derived runtime IPC channels with the stale channel JSON retired, manifest-generated renderer event channels, shared EventBus work, manifest-generated renderer payload aliases, typed manifest-derived renderer preload bridge descriptors with manifest-owned forwarded event channel mappings, generated preload subscription mock bodies, canonical test-support dependency entrypoints, explicit blob-download browser API test installer ownership, explicit Blob/MediaRecorder test installer ownership, explicit navigator/localStorage browser adapter test installer ownership with handle-level localStorage behavior overrides, injected storage ownership for SettingsService tests, explicit media-device installer ownership for BaseStreamLifecycle tests, explicit window/document installer ownership for StreamingCanvasLifecycleService tests, explicit missing-window installer ownership for DeviceIpcAdapter tests, stale CaptureOrchestrator DOM global removal, document-body installer ownership for UIEffects tests, fullscreen document installer ownership for SettingsFullscreenService tests, CaptureService screenshot document installer ownership, CaptureGpuRecordingService document/animation-frame installer ownership, Worker/createImageBitmap GPU rendering installer ownership, RAF spy installer ownership, legacy WebGL test mock removal, document/window property installer ownership, explicit ResizeObserver test installation with renderer setup shrink, MockDeviceManager mediaDevices fixture ownership, Testing Library clipboard hidden-global removal, render worker scope installer ownership, process runtime installer ownership, preload API global fixture descriptor ownership, canonical preload ipcRenderer mock factory ownership, central runtime property installer ownership, process env runtime installer ownership, SettingsService test harness factory ownership, and platform manifest contract-test ownership. The overall 33-finding program is not complete. Several domains are currently drift-checked or descriptor-backed rather than fully generated/runtime-owned.
+- Completed implementation milestones: Phase 6, Data-Drive Shader Passes And Uniform Layouts; and Phase 14, Promote Headless UI Controllers For Disclosure, Listbox, Combobox, And Auto-Hide.
+- Current audit note: Phase 1 completion was repaired in the 2026-05-25 worktree. Manifest drift now enforces duplicate cardinality, IPC `mode: enforced`, exact preload declaration generation parity, generated preload import/type validation, scoped `declare global` API vars, optional `Window` API properties, invoke/subscription public signatures, tracked docs blocks, and renderer template `data-ref`/`data-action` parity. The generated `template-dom.generated.ts` source contract now owns template ref groups, action targets/events, and renderer UI component element slices, and Phase 1 verifies generated action/event pairs plus component ID/factory/catalog parity against executable descriptors. The 2026-05-26 source-first pass reached zero `src/**/*.js` files, set app typechecking to `allowJs: false`, moved renderer UI component factories off local `any`, tightened renderer/main IPC manifest glue, deleted the `BaseService`/`BaseOrchestrator` dynamic dependency indexers and base `requiredDeps` field copying, migrated affected renderer/main services to explicit constructor-owned fields, removed worker protocol `no-redeclare` suppressions, replaced the streaming renderer constructor-cast factory with a typed provider registry/request contract, typed renderer storage/status provider container entries, centralized storage write-failure semantics, made login-item writes transactional, normalized nullable device status at the provider boundary, migrated `UpdateSectionComponent` to `PresentationComponent`, fixed update failure-envelope state handling plus fired-timeout disposal, moved update/capture/transcode/UI event bridges onto lifecycle-owned descriptor subscriptions, typed the renderer UI component catalog/registry/DOM binding boundary, closed update state to one shared literal contract, moved remaining service timers/listeners/RVFC/RAF/observer/worker/window lifecycles into `DisposableBag` or abortable local lifecycles, made capture recorder shutdown and stream-stop notifications async-aware, rejected unawaited async keyed lifecycle replacement, made renderer container disposal the single service/bridge disposal owner, replaced implicit DI disposer fallback with explicit descriptor disposal policy plus non-emitting GPU shutdown cleanup, added manifest-owned preload bridge consumer file, bridge name, lifecycle mode, and lifecycle-key descriptors for update/transcode/fullscreen/device subscriptions, added forwarded EventBus event-channel descriptors for update/transcode/window resize/device connected/disconnected direct forwarding, made presentation component/registry/controller disposal async-aware through `DisposableBag`-backed managed lifecycles, retired the production `createDomListenerManager()` path in favor of `BaseOrchestrator`/`PresentationComponent` lifecycle ownership, made preload invoke/subscription factory API/method descriptors, preload invoke validator expectations, and subscription payload-validator names/labels marker-generated or manifest-owned while staying closed and compile-time complete against generated `Window.*API` declarations and validating runtime manifest parity, closed preload bootstrap factory coverage against the generated `PreloadApiName` union, made `DeviceIpcAdapter` bridge cleanup and event forwarding `DisposableBag`/EventBus-owned with failed-startup cleanup, made partial preload bridge construction drain already-subscribed listeners before rethrowing, made bridged passthrough payload aliases reuse IPC contract types, moved core UI component initialization onto a generated template registry aggregate, moved deferred UI startup onto generated deferred component IDs with one typed controller path, moved UI component `id`/`stage` ownership to generated template metadata while the catalog keeps only constructor/dependency behavior and AST-checked drift rejects duplicated metadata, made startup preference event publishing derive from settings definitions while validating setting events against renderer event-manifest payloads, and made default generated preload invoke methods apply manifest argument validators before IPC dispatch. Current source gates are green with `npm run typecheck:app`, `npm run lint`, `npm run build:vite`, `npm run dev:smoke`, `npm run architecture:scorecard -- --enforce-thresholds`, `npm run codebase:phase1 -- --json`, `npm run codebase:size -- --enforce-thresholds`, and `git diff --check`; GPT-5.5 follow-up audits of the DI/storage/status, update-section lifecycle, bridge lifecycle, UI registry, update-state, service-lifecycle, async lifecycle-contract, DI disposer-policy, bridge/lifecycle descriptor, async presentation lifecycle, DOM listener retirement, generated template DOM contract, preload method-contract, preload bootstrap factory coverage, DeviceIpcAdapter lifecycle, preload subscription payload-validator metadata, core UI generated-registry initialization, UI catalog id/stage ownership, device preload event mapping/bridge payload, settings startup-event ownership, and preload invoke validation slices reported no blocking production findings after remediations. Remaining source architecture debt is broader generated-contract ownership, generated bridge runtime automation beyond the current event-channel descriptors, full template/codegen ownership beyond the initial generated DOM ref/action/component binding contracts, deeper schema generation, and the overall 33-finding program. Test-support enforcement cleanup is deferred until source cleanup is accepted.
+- Bridge cleanup update: `replaceManifestPreloadEventBridge`, local preload bridge lifecycle symbols, manual bridge names, and `_eventBridge` drift-visibility ownership are removed from production source; update/transcode/fullscreen now use manifest-generated descriptor lifecycle keys with `DisposableBag.replace`, DeviceIpcAdapter uses explicit unkeyed `DisposableBag.add`, forwarded update/transcode/window resize/device connected/disconnected EventBus channels derive from IPC manifest `rendererBridge.eventChannels`, and phase1 drift derives consumers plus forwarded event references from IPC manifest `rendererBridge` metadata while rejecting shadowed preload globals, wrong add/replace ownership, direct mapped EventChannels references, descriptor drift, passthrough payload type drift, and bridged payload aliases that stop reusing IPC contract types. Device sequencer state transitions stay in `DeviceOrchestrator` behind `EventChannels.DEVICE.CONNECTED`/`DISCONNECTED`; stale lifecycle/drift unit expectations remain intentionally deferred.
+- Source-first continuation note: `SettingsMenuComponent` now uses the presentation lifecycle base, lifecycle-token guards async `launchOnLogin` loading, registers menu/disclaimer/listbox/update children under managed lifecycle, resets same-instance reinitialization, delegates the disclaimer tooltip to `DisclosureController`, keeps its owned update section reusable, and derives settings checkbox/listbox binding, listbox refs, and recording-format option labels from descriptors/definitions without moving `launchOnLogin` into the synchronous settings path. `UpdateSectionComponent.dispose()` clears cached DOM refs, toolbar shader controls use `PresentationComponent`, shared status notification and device status components now inherit the same lifecycle base while preserving their public method/property surfaces, disclosure/listbox controllers now use `PresentationComponent` managed lifecycle keys instead of local DOM listener managers, timed effects settle managed timeout state on dispose, `ActivityAutoHideController` owns frame/timer/listener lifecycles through `PresentationComponent`, cursor/toolbar/controls auto-hide wrappers and `UIEffects` now track child controllers through the same lifecycle base, toolbar observer fallback recomputes panel state when observer setup is unavailable, notes panel subcomponents are owned by one managed lifecycle key, notes editor autosave flushes only pending saves before hide/reinitialize/dispose/new-note/delete selection changes, notes resize drag frames use `PresentationComponent.replaceAnimationFrame()`, notes search/list/editor/resize setup listeners are reinitialize-safe through managed lifecycle keys, `PresentationComponent` now routes keyed managed disposers through async-aware `DisposableBag`, and `UIComponentRegistry`, `UIController`, `RendererAppOrchestrator`, `UIEffects`, notes/settings/shader child components, disclosure/listbox primitives, and transcode UI bridge await owned component teardown. `BaseOrchestrator` now exposes `DisposableBag`-backed listener and managed lifecycle helpers, display-mode startup visibility and delegated UI actions use them, static DOM refs are template-owned through `data-ref`, `template-dom.generated.ts` owns `TemplateDomRefGroups`/`TemplateActionTargets`, event lists, core/deferred UI component IDs and element slices, and the generated core component registry aggregate, `dom-bindings.utils.ts` imports generated ref groups, `UIActionTargets` preserves generated events, renderer UI component definitions keep constructor/dependency behavior while generated template metadata owns `id`, `stage`, and element shapes, the controller initializes core components through the generated registry aggregate and deferred components through one generated-ID path, the catalog keeps internal definition helper types private, static header/toolbar/fullscreen/stream/notes/external-link command behavior lives in `template-ref.utils.ts` and executes through body-delegated `UISetupOrchestrator` runtime, and phase1 drift checks enforce generated template ref/action target cardinality, executable `action event` descriptor parity, component ID/element-factory/catalog definition parity, generated core/deferred stage derivation, and AST-level rejection of duplicated catalog `id`/`stage` metadata including quoted/computed/spread forms. GPT-5.5 source audits reported no findings after the canvas-ref, action-descriptor, settings-definition, stream-action, settings-link, UI component catalog, deferred component element-slicing, action-catalog ownership, component element-slice catalog, notes-action ownership, notes-resize lifecycle, auto-hide lifecycle, settings-disclaimer disclosure, production-scoped action ownership, catalog export-surface, notes-subcomponent lifecycle, template ref/action drift-check, shared status/device lifecycle, delegated-action runtime, auto-hide wrapper lifecycle, disclosure/listbox primitive lifecycle, async presentation lifecycle, DOM listener retirement, generated template DOM contract, preload subscription payload-validator metadata, core UI generated-registry initialization, and UI catalog id/stage ownership slices, with the notes autosave/stale-ref, dynamic-ref duplicate/missing-prop, status `validTypes`, executable-descriptor duplicate, toolbar observer fallback, duplicate pending autosave flush, registry-owned transcode toast disposal, stale game-filter open-state, generated action/event coverage, and AST spread/scope audit findings remediated and re-audited clean. Custom shell/login/transcode/GPU preload invoke validation and fallback policy plus device/update/transcode subscription payload-validator names and warning labels now live in IPC manifest metadata with runtime shape, fallback, message, duplicate-payload consistency, and generated coverage checks. Remaining source work is full template/codegen ownership, generated lifecycle migration, deeper schema generation, and async-safe reinitialization cleanup outside the completed scope; stale test expectations from lifecycle and selector/action cleanup remain deferred.
+- Reading rule: phase verification bullets below are historical evidence from the implementation sequence. The future-first architecture section is the source of truth for the remaining long-term design intent.
+- Phase 0 baseline: commit `20ac639 chore(codebase): add size reduction baselines`; GPT-5.5 xhigh review found no blockers after fixes.
+- Historical phase delivery summary:
+  - Phase 0-3 added tracked size measurement, behavior baselines, inline preload API extraction, shared foundations, report-only manifests, WebGPU type hoisting, generated cleanup, renderer `@prismgb/gpu` ownership, Awilix renderer DI descriptors, presentation lifecycle primitives, split Vitest projects, and stale compatibility cleanup.
+  - Phase 4-6 added scorecard enforcement, JS plus `.d.ts` twin cleanup, strict type-debt and coverage ratchets, generated-artifact cleanup, smoke/preflight wiring, Canvas2D fallback ownership in `@prismgb/gpu`, renderer backend enforcement, and render-pass contract ownership with WebGL2 ping-pong coverage.
+- Historical verification detail is intentionally summarized here to keep the tracked plan below size thresholds. The current audit note above and the named regression gates are the authoritative verification targets for new work.
 
 ## Phase 0 Grounding Snapshot
 
@@ -114,12 +28,12 @@ The plan was grounded in the Phase 0 repository state before Phase 1 added repor
 
 - The root package is an Electron/Vite app with npm workspaces and `@prismgb/gpu` under `packages/prismgb-gpu`.
 - `package.json` already includes `awilix`, `eventemitter3`, `joi`, Vitest, Playwright, Testing Library, Vite, Electron, and Electron Builder.
-- `git ls-files` currently reports 639 tracked files, with the largest tracked extension counts at 268 `.js`, 230 `.ts`, 38 `.css`, 23 `.svg`, 10 `.json`, 10 `.glsl`, and 8 `.wgsl`.
-- `src/renderer/presentation` currently contains 92 `.js`/`.ts`/`.css` files.
-- IPC/preload code is split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
+- Phase 0 baseline `git ls-files` reported 639 tracked files, with the largest tracked extension counts at 268 `.js`, 230 `.ts`, 38 `.css`, 23 `.svg`, 10 `.json`, 10 `.glsl`, and 8 `.wgsl`.
+- Phase 0 baseline `src/renderer/presentation` contained 92 `.js`/`.ts`/`.css` files.
+- IPC/preload code was split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**` in the Phase 0 baseline; the channel JSON is now retired in favor of manifest-derived `IPC_CHANNELS`, and validators now live in strict TypeScript at `src/preload/validators.ts`.
 - Renderer and GPU package shader folders are byte-equivalent by `diff -qr` and account for 1,782 total lines across duplicated WebGPU and WebGL2 shader trees.
-- Renderer DI uses a custom container in `src/renderer/infrastructure/di/service-container.factory.ts`, while main already uses Awilix in `src/main/application/container.ts`.
-- `BaseService` only validates dependencies and creates a logger; `BaseOrchestrator` owns EventBus subscription cleanup, but services and presentation components still manage timers/listeners/observers ad hoc.
+- Phase 0 baseline renderer DI used a custom container in `src/renderer/infrastructure/di/service-container.factory.ts`, while main already used Awilix in `src/main/application/container.ts`.
+- Phase 0 baseline `BaseService` only validated dependencies and created a logger; `BaseOrchestrator` owned EventBus subscription cleanup, but services and presentation components still managed timers/listeners/observers ad hoc.
 - `SettingsService` repeats default, key, parse, validation, write, logging, and event behavior per setting. Its default recording format is `webm`, while `TRANSCODE_CONFIG.defaultFormat` is `mp4`.
 - Built-in Chromatic metadata appears in device registry/config, renderer adapters, CSS/tests/E2E mocks, and hard-coded `160x144` usage.
 - `vitest.config.js` currently has one `happy-dom` project, writes coverage to `tests/coverage`, excludes main/preload and multiple rendering paths from coverage, and default root scripts do not run GPU package tests.
@@ -135,6 +49,120 @@ The overall program succeeds when these conditions are true:
 - Migrated public APIs have one current contract; no migrated surface keeps old method surfaces or duplicate import paths.
 - File count and LOC reductions are measured by area before and after each phase, with functionality, performance, and release behavior protected by tests.
 - New code cannot reintroduce the old duplication patterns because lint, scorecard, tests, or generated-drift checks reject them.
+
+## Future-First Architecture Alignment
+
+This section is the north-star design for all findings. It intentionally starts from the desired long-term architecture, then maps current implementation work toward that target. Existing phase notes are useful history, but they do not redefine success. A finding is complete only when the long-term ownership model below is true, old parallel surfaces are deleted or reduced to generated imports, and enforcement prevents regression.
+
+Future-first rules:
+
+- The Electron/Vite application keeps its current layer boundaries: main owns OS/Electron integration, preload owns the security boundary, renderer application/infrastructure/presentation keep their existing separation, shared owns contracts and stable cross-layer primitives, and `@prismgb/gpu` owns rendering backends.
+- Contracts come first. IPC, events, devices, settings, render passes, architecture, platforms, UI refs/actions, fixtures, docs, and release policy should be described once, then generated or consumed by thin runtime adapters.
+- Generated runtime is preferred over drift checking alone. Drift checks are an intermediate safety net, not the final architecture.
+- Behavior stays hand-written where it is domain logic. Repeated registration tables, string catalogs, selectors, mocks, platform matrices, validators, lifecycle cleanup, and wiring are not domain behavior and should move to manifests, generated files, or shared primitives.
+- Migrated surfaces do not keep backwards-compatibility shims unless there is a versioned external contract. Internal old method names, duplicate import paths, and legacy helpers should be deleted after current contract parity is proven.
+- Enforcement is part of the design. Every source of truth needs a drift check, scorecard/lint/test gate, and cleanup policy before the finding can be called done.
+
+Future-first target map by finding:
+
+1. Generate the IPC, preload, and event contracts:
+   The long-term design is one IPC/preload contract that owns namespaces, exposed method names, channels, direction, schemas, validators, security policy, handler dependency metadata, preload global declarations, generated mocks, and contract tests. Current manifest checks, exposure-map generation, manifest-derived runtime channels, manifest-driven preload bootstrap, subscription generation, invoke method generation, marker-generated preload API/method descriptor blocks, generated `Window.*API` declaration method typing in preload factories, manifest-owned subscription payload-validator metadata, manifest-owned custom invoke validation/fallback metadata, and default invoke-time manifest validation before IPC dispatch are partial progress; global declarations, validators, and handler descriptor metadata still need deeper contract ownership. Transcode format validation now derives from shared transcode config rather than a local copied list, but broader validator generation remains. Success means no hand-authored preload method/channel/validator surface can drift from the manifest.
+
+2. Replace preload listener boilerplate with a subscription factory:
+   The final design is descriptor-generated subscriptions from the IPC contract, with preload owning exact listener disposal through unsubscribe closures and map-backed listener sets. The existing factory now derives migrated subscriptions and manifest-owned payload-validator names/labels from the IPC manifest, keeps preload API/method descriptors marker-generated from the IPC manifest, applies manifest invoke validators in the default generated invoke path before IPC dispatch, and compiles invoke/subscription method expectations against generated `Window.*API` method names. Clean-break tests reject raw `ipcRenderer.on`/`once` in preload API modules. Remaining work is richer schema/error metadata and broader manifest ownership around custom behavior.
+
+3. Convert main IPC handlers to declarative descriptors:
+   The final design is a single descriptor registration path where every invoke channel has an IPC contract entry, request schema, response shape, dependency token list, and explicit error mapping. Current handler registration resolves dependency bags from manifest-derived descriptor tokens through one ordered registration path. Domain callbacks stay hand-written. Remaining work is richer generated schema/error metadata and making bypassing descriptors impossible in CI.
+
+4. Unify event catalogs, payload maps, and EventBus implementations:
+   The future design is a scoped event manifest for renderer, main, cross-process, forwarded, and UI command events. It generates constants, payload maps, runtime channel lists, forwarding descriptors, and tests. Renderer and main should share one EventBus implementation unless a measured main-process reason blocks it. Current drift checks, manifest-generated renderer constants, compact payload aliases, renderer preload bridge method/lifecycle descriptors, and the shared EventBus are partial progress; richer bridge event mapping and full event-forwarding descriptors remain generation targets.
+
+5. Make `@prismgb/gpu` the only rendering backend:
+   The target is already mostly aligned: all WebGPU, WebGL2, Canvas2D, shader loading, capture, resize, stats, clear, and worker-safe rendering behavior live in `@prismgb/gpu`. Renderer worker code remains a protocol adapter and telemetry boundary only. Future work should consider moving or generating the worker protocol from the GPU pipeline contract so renderer worker validation does not become the next duplicated rendering contract.
+
+6. Data-drive shader passes and uniform layouts:
+   The long-term design is a render-pass contract that owns pass ids, order, enablement, shader files, sampler policy, output ownership, uniform layouts, and backend upload metadata. Current Phase 6 work is aligned. Remaining hardening should add broader visual/pixel/performance regression coverage before future pass expansion and keep backend-specific optimization hooks explicit in descriptors.
+
+7. Replace renderer DI boilerplate with Awilix or metadata registration:
+   The final design is one renderer DI model with descriptor-owned tokens, lifecycles, dependencies, factory/class/value semantics, disposer policy, and generated `RendererContainerMap` typing. Current Awilix descriptor registration now uses explicit `dispose`/`cleanup` policy instead of implicit fallback disposal. Remaining work is to generate or type component dependency slices and enforce descriptor registration for new renderer services.
+
+8. Promote `BaseService` into a real lifecycle base:
+   The target is a shared async-aware lifecycle contract across services and orchestrators: `DisposableBag` owns events, timers, RAF, RVFC, observers, subscriptions, and async disposal, and containers/orchestrators await disposal. Current `BaseService`, `BaseOrchestrator`, and `DisposableBag` are foundations, with orchestrators sharing disposable and managed lifecycle helpers, async event publishing available for shutdown-sensitive flows, keyed replacement guarding async cleanup, and source migrations covering renderer update/transcode/fullscreen/performance/device-media/streaming/capture services, DeviceIpcAdapter bridge cleanup, main update/device/device-lifecycle/transcode/window services, and presentation component teardown. Renderer preload bridge consumer file, bridge name, lifecycle mode, lifecycle key, and direct forwarded EventBus channel metadata now live in IPC manifest `rendererBridge` entries and generated descriptors; consumers use descriptor-owned keyed `replace` or DeviceIpcAdapter's explicit unkeyed `add`, and the drift scanner rejects shadowed preload globals, local preload bridge lifecycle symbols, manual bridge names, direct mapped EventChannels usage, and stale `_eventBridge`/helper lifecycle patterns. Remaining work is bridge runtime generation beyond the current event-channel descriptors and lower-priority sync-only local contracts whose implementations become async.
+
+9. Generate device profiles, adapter metadata, mocks, and docs from a device manifest:
+   The future design is one device manifest for identity, USB IDs, display geometry, media constraints, rendering policy, capture policy, capabilities, CSS variables, fixtures, E2E serialized data, and docs. Current runtime config and tests read from the manifest in several places. Remaining work is to generate more test fixtures, adapter/profile metadata, docs tables, and E2E serialized data directly, then reject copied device constants outside tests that are explicitly testing numeric behavior.
+
+10. Convert settings to a definition map:
+   The target is one settings definition source for key, type, default, parser, validation, allowed values, event, protected-key policy, async source, UI option metadata, and table-driven tests. The current generic service is aligned, recording-format allowed values resolve from `TRANSCODE_CONFIG.formats`, rendered settings controls, refs, checkbox/listbox bindings, startup preference event publishing, and listbox option labels derive from resolved settings definitions, setting events validate against renderer event payloads, and `launchOnLogin` stays explicitly async/external. Remaining work is table-driven tests and deciding whether `loadAllPreferencesShape` remains an intentionally small startup subset or becomes generated from definitions.
+
+11. Convert presets to data and bulk registration:
+   The final design is a validated preset data/config array that owns preset definitions, package default policy, renderer default policy, UI visibility, and public named exports. Current `BUILT_IN_PRESETS` inlines built-in preset definitions, `PRESET_POLICY` owns package and renderer defaults plus the internal performance preset id, and registration flows through `registerMany()` without per-preset module choreography. Remaining work is broader generated UI list adoption and public export validation.
+
+12. Replace presentation lifecycle boilerplate with a component base or Lit:
+   The target is lifecycle-consistent presentation code where dynamic components use `PresentationComponent` or a measured Lit migration. The base should own listeners, subscriptions, refs, timers, RAF, observers, initialization, and disposal. Current adoption now covers update/settings/shader/notes components, disclosure/listbox primitives and idempotent initialization, timed presentation effects, auto-hide wrappers, and `UIEffects`, with async-aware registry/controller teardown and an initial generated DOM ref/action contract. Remaining work is full template/codegen ownership, measuring deleted lifecycle code, and guarding focus/keyboard behavior.
+
+13. Generate DOM refs, actions, and template bindings:
+   The future design is template-owned UI metadata through `data-ref` and `data-action`, generating typed refs, selector maps, UI component definitions, dependency slices, and command descriptors. Existing IDs can remain stable for CSS/E2E while generated refs replace manual selector drift. Current production templates now own static refs through `data-ref`, `DOMSelectors` is retired from source, `template-dom.generated.ts` owns generated ref groups, action targets/events, and UI component element slices, `createDomBindings()` binds generated ref groups with legacy ID fallback, static screenshot/record/fullscreen/settings/shader/external-link commands execute through body-delegated `data-action` descriptors, the presentation catalog owns UI component definitions previously embedded in DI registration without hand-building element shapes, and phase1 drift checks now enforce generated ref/action target cardinality plus executable action/event parity; full generated template/component outputs remain the target.
+
+14. Promote headless UI controllers for disclosure, listbox, combobox, and auto-hide:
+   The target is a small controller library for repeated UI behavior: disclosure, listbox, combobox/autocomplete, activity auto-hide, and positioning. Visual components keep their markup and styles; behavior and accessibility live in reusable headless primitives. Current implementation note: Phase 14 delivery is complete for the owned controller scope, with shared disclosure/listbox/auto-hide primitives backing migrated notes/fullscreen consumers and explicit clean-break guards blocking `HideTimer`/`hide-timer` reintroduction. Future work is limited to optional positioning-library adoption when it can prove measurable deletion and accessibility parity.
+
+15. Consolidate CSS into semantic tokens and utilities:
+   The final design is semantic tokens plus utility classes for repeated surfaces, option rows, fields, pills, scrollbars, gradient borders, and range controls. Feature CSS should keep layout and unique variants only. Current token files exist, but planned utilities such as `.ui-popover`, `.ui-option`, `.ui-field`, `.ui-pill`, `.ui-scrollbar-thin`, `.ui-gradient-border`, and `.range-control` are not broadly present. Add parser-backed reports and screenshot checks before migrating repeated CSS.
+
+16. Replace icon registry maintenance with `import.meta.glob`:
+   The target is a Vite-discovered icon registry using `import.meta.glob` with stable key normalization and explicit aliases only where required by current callers. `icon.utils.ts` now discovers raw SVG assets through Vite glob imports while keeping `getIconSvg()` behavior stable, and clean-break coverage keeps icon assets and literal `getIconSvg()` callers in lockstep.
+
+17. Collapse renderer bridge services into a generic preload event bridge:
+   The final design is descriptor-owned preload-to-EventBus bridges generated from IPC/event contracts, using per-subscription unsubscribe closures and keeping domain command methods explicit. Current update/transcode/window/device bridge method lists and owner metadata derive from IPC manifest `rendererBridge` descriptors; update/transcode/window resize forwarded EventBus channels derive from `rendererBridge.eventChannels`; consumers use `createRendererPreloadEventBridge()` without manual bridge names and publish direct forwarded events through descriptor-owned channel references. UI event bridges use lifecycle-owned event descriptor tables. Remaining work is to generate bridge runtime/payload mapper descriptors where they delete real code, while preserving service-owned state transitions, device sequencer semantics, and multi-consumer disposal.
+
+18. Consolidate generic registry and factory code:
+   The target is one typed registry/factory primitive for common map, metadata, create, unregister, clear, and list behavior, with domain policy in thin wrappers. Current streaming adapter/renderer factories use `TypedRegistryFactory`. Remaining work is to evaluate UI and device registries for shared mechanical lifecycle while keeping domain validation separate.
+
+19. Migrate JS plus `.d.ts` twins to TypeScript:
+   The final design is no runtime JS plus no hand-authored declaration twins. Shared base/interfaces, preload, renderer infrastructure, shared utilities, and presentation runtime modules are converted, and the architecture scorecard enforces zero `src/**/*.js` files. Future work is enforcement hardening, generated refs/actions, and manifest-backed migrations that prevent runtime JS or declaration twins from reappearing. Long-term policy should ban new runtime `.js` in `src` unless generated or documented by build constraints.
+
+20. Hoist official WebGPU types:
+   The target is already aligned: root and GPU package typing rely on `@webgpu/types`, and app-local `webgpu-worker.d.ts` is only an augmentation point. Keep a small-file threshold check so local browser API redeclarations do not grow back.
+
+21. Generate aliases and architecture rules from one manifest:
+   The final design is one architecture manifest that generates or feeds TS paths, Vite/Vitest aliases, ESLint/layer rules, retired alias failures, docs, and diagrams. Current architecture/platform manifests are mostly drift-check sources; configs and custom scanners still contain hand-authored logic. Future work is to adopt generated config fragments or a library-backed equivalent only after parity with current Electron/Vite environment-specific behavior.
+
+22. Consolidate tooling scripts around shared script utilities:
+   The target is a small `scripts/lib` utility layer for CLI parsing, file walking, JSON/report output, manifest loading, TypeScript diagnostic parsing, and architecture model access. Current script utilities are partial. Continue extracting only helpers used by multiple scripts or needed by generated manifests, preserving CI output fields and exit codes.
+
+23. Make type debt a ratchet, not a permanent side system:
+   The final design is strict diagnostics at zero or an owned, future-expiring, non-stale allowlist, with directory-level ratchets and policy against unchecked runtime JS growth. Current strict diagnostics are zero, the allowlist has zero tracked buckets, and the runtime JS ratchet is at zero files. Longer term, tighten `tsconfig.app.json` options by directory and keep JS-to-TS migration covered by the same ratchet.
+
+24. Build canonical test support factories:
+   The target is one canonical test support module for logger, logger factory, EventBus, AppState, service bundles, and generated preload API mocks from the IPC contract. Current factories exist, `tests/factories/index.js#createMockDependencies()` now uses ESM imports, preload API names plus subscription bodies derive from the IPC manifest, legacy logger/EventBus/AppState dependency entrypoints delegate to canonical factories, and the remediated test slices now cover performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumers, shared base/component registry, presentation mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrators, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock dependency factories. Current residual inline scans are limited to scenario-specific adapter/backend/error-path fakes, while remaining future work is broader migration away from inline service dependency mocks.
+
+25. Split Vitest into projects:
+   The future design is project-owned test topology for shared/node, renderer/happy-dom, main/preload, GPU package, and explicit performance gates, with coverage output under ignored artifacts and coverage ratchets by area. Current Vitest projects and artifact paths are aligned. Remaining work is to keep performance tests opt-in and continue reducing hidden coverage exclusions with report-only thresholds before hard gates.
+
+26. Replace global test mocks with explicit installers:
+   The target is minimal global setup and explicit browser API installers for media, canvas, video frames, ResizeObserver, navigator/localStorage, Blob/MediaRecorder, Worker/createImageBitmap, blob downloads, and preload globals. Current `tests/setup.js` is minimal and mock installers exist. Remaining work is to ensure test files declare the APIs they need and enforce no direct global mutation outside installers.
+
+27. Standardize DOM tests around Testing Library:
+   The final design is one render helper plus Testing Library queries and user events for user-facing DOM behavior, using generated refs only where roles/text are inappropriate. Current helpers exist but adoption is incomplete. Migrate high-value settings, notes, toolbar, update, and UI controller tests in batches, fixing accessibility gaps exposed by role-based queries.
+
+28. Generate contract tests instead of regex-scanning source:
+   The target is generated tests from IPC/event manifests for every channel, exposure, schema, response shape, handler descriptor, bridge mapping, and preload channel reference, plus a small black-box preload exposure smoke. Platform matrix and smoke executable ownership now use black-box manifest contract tests, including synthetic manifest coverage, rather than source-text assertions. Replace remaining source parsing with manifest/generated-output checks where possible and keep source scans only as anti-regression guards for deleted legacy paths.
+
+29. Centralize Chromatic test mocks from the production device manifest:
+   The future design is manifest-generated unit fixtures, Playwright serialized fixture data, mock stream settings, and E2E helper inputs. Current `tests/support/chromatic-device-specs.js` reads the production manifest, which is good. Remaining work is to generate serialized browser-safe fixture JSON and migrate copied numeric test values that are not deliberately testing resolution math.
+
+30. Add Playwright page objects and fixtures:
+   The target is domain page objects and Playwright fixtures for app shell, settings, stream, and Chromatic device flows, with a deterministic E2E build freshness check before launching `dist/main/index.js`. Current Electron fixture exists, and the default `test:e2e` script now runs `npm run build:vite` before Playwright while `test:e2e:built` preserves direct Playwright execution against existing output. Remaining work is page objects, domain fixtures, and manifest-generated repetitive settings/device cases.
+
+31. Generate architecture docs and feature maps:
+   The final design is generated doc blocks for path tables, layer diagrams, device/settings tables, and feature maps, with hand-authored narrative preserved around marked generated sections. Current docs are still mostly manual with drift checks. Add generation markers, generate compact tables from architecture/device/settings manifests, and consolidate overlapping architecture diagram docs after parity.
+
+32. Generate platform build matrix and packaging config from one manifest:
+   The target is one platform manifest for platform ids, OS runners, arches, build scripts, Electron Builder targets, artifact globs, smoke executable discovery, workflow choices, and release/checksum policy. Current manifest drift checks exist, but `build-matrix.mjs`, package config, workflows, and smoke logic still duplicate platform policy. Generate matrix/smoke data first, then packaging/workflow snippets after release snapshots prove parity.
+
+33. Local generated artifact policy:
+   The final design is all local reports, coverage, scorecards, Playwright output, and caches under explicitly ignored, cleanable paths, with tracked package build outputs handled by a separate build-clean policy. Current coverage and reports are under `artifacts/**`, `clean:generated` avoids deleting build/release outputs, and `clean:build` separately owns ignored `dist/`, `release/`, `build/`, and `out/` cleanup without confusing artifact cleanup with source reduction.
 
 ## Cross-Cutting Program Phases
 
@@ -277,14 +305,14 @@ Expected outcome:
 
 Grounded repo truth:
 
-- IPC data is split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**`.
+- IPC data was split across `src/shared/ipc/channels.json`, `src/shared/ipc/preload-api.contract.ts`, `src/types/preload-api.d.ts`, `src/preload/index.js`, `src/preload/apis/*.preload-api.js`, `src/preload/listener-registry.js`, `src/preload/validators.js`, and `src/main/ipc/**` in the planning baseline; runtime channel constants now derive from `src/shared/ipc/ipc.manifest.json`, preload validators now live in `src/preload/validators.ts`, and the preload invoke/subscription factory method sets are checked against generated `Window.*API` declaration method names.
 - The current preload contract test in `tests/unit/preload/preload-api.contract.test.js` regex-scans only `src/preload/index.js` for exposure names and direct `IPC_CHANNELS.X.Y` references.
 - The full-cutover audit resolved the former transcode status declaration mismatch; preload types and implementation now expose status without a job id argument.
 
 Long-term target:
 
 - A single IPC contract manifest defines namespaces, exposed API names, channels, direction, request/response schemas, validation, security policy, handler dependencies, and event forwarding behavior.
-- Generated outputs own channel JSON, TS payload types, preload bridge factories, global declarations, validators, handler descriptors, mocks, and contract tests.
+- Generated or manifest-derived outputs own runtime channel maps, TS payload types, preload bridge factories, global declarations, validators, handler descriptors, mocks, and contract tests.
 
 Reasoning:
 
@@ -293,10 +321,10 @@ Reasoning:
 Phases and tasks:
 
 - Phase 0: Snapshot current IPC shape.
-  - Generate a channel inventory from `channels.json`.
+  - Generate a baseline channel inventory from the now-retired `channels.json`.
   - Record exposed preload APIs from `src/preload/index.js` and delegated preload APIs from `src/preload/apis`.
   - Add contract tests for each invoke method's argument forwarding and response shape, including `transcodeAPI.getStatus`.
-  - Document current validation behavior in `src/preload/validators.js` before replacing it.
+  - Document current validation behavior in `src/preload/validators.ts` before replacing it.
 - Phase 1: Add manifest in report-only mode.
   - Create `contracts/ipc.contract.ts` or `src/shared/ipc/ipc.contract.ts`.
   - Choose a schema system. Use existing Joi for lowest dependency churn, or adopt Zod/TypeBox only if the migration immediately uses inferred types and retires duplicate Joi layers.
@@ -312,14 +340,14 @@ Phases and tasks:
 - Phase 4: Delete duplicate contracts.
   - Delete or reduce hand-maintained channel wrappers, preload global declarations, regex contract tests, and manual validator lists only after generated parity is green.
   - Add CI drift check: no channel or preload API exists outside the contract.
-  - Add a runtime import-style check for generated JSON contracts so `channels.json` cannot be imported with mixed attributes across main/preload builds.
+  - Enforce that runtime source consumes the manifest-derived channel map and cannot reintroduce stale channel JSON imports.
 
 Success criteria:
 
 - Every exposed preload method, channel, validator, type, and handler descriptor can be traced to one contract entry.
 - The generated tests assert method names, argument forwarding, schemas, response shapes, and channel references across delegated preload API modules.
 - Existing public preload API names remain stable unless a separately versioned replacement is approved.
-- Dev builds do not emit Vite warnings about inconsistent JSON import attributes for the IPC contract.
+- Dev builds do not emit Vite warnings about duplicate IPC JSON imports, and runtime channels come from the bundled manifest module.
 
 Risks and mitigations:
 
@@ -331,13 +359,14 @@ Risks and mitigations:
 Expected outcome:
 
 - IPC/preload size shrinks by removing repeated channel names, validators, listener code, declaration twins, and regex tests. Future IPC additions become data changes plus generated code.
+- Current implementation note: `src/preload/subscription.factory.ts` no longer owns separate manual method-name type aliases or hand-maintained descriptor lists outside the IPC manifest. It derives API method types from the generated `Window.*API` declarations, keeps the closed API-name tuple plus invoke/subscription method arrays inside the `CODEBASE_PRELOAD_METHOD_CONTRACT` generated block, asserts those arrays are exhaustive for every generated invoke/subscription method, and validates runtime manifest parity against those arrays. GPT-5.5 found and the implementation remediated a self-referential manifest assertion regression, an open-ended `Window.*API` key risk, and the later subset-only descriptor typing risk; follow-up audits reported no remaining findings. Broader validator/schema generation remains future work.
 
 ## 2. Replace Preload Listener Boilerplate With A Subscription Factory
 
 Grounded repo truth:
 
 - `src/preload/listener-registry.js` hard-codes listener sets such as `connected`, `updateProgress`, `transcodeCompleted`, and `enterFullscreen`.
-- `src/preload/apis/device.preload-api.js`, `window.preload-api.js`, `update.preload-api.js`, and `transcode.preload-api.js` previously repeated callback validation, listener limit checks, `ipcRenderer.on`, unsubscribe closures, and cleanup before Phase 2 moved them onto the subscription factory.
+- `src/preload/apis/device.preload-api.ts`, `window.preload-api.ts`, `update.preload-api.ts`, and `transcode.preload-api.ts` previously repeated callback validation, listener limit checks, `ipcRenderer.on`, unsubscribe closures, and cleanup before Phase 2 moved them onto the subscription factory.
 
 Long-term target:
 
@@ -440,7 +469,7 @@ Grounded repo truth:
 
 - Shared renderer channels live in `src/shared/events/event-channels.ts`; payloads and runtime channel lists live separately in `src/shared/events/event-payloads.ts`.
 - Renderer imports the shared event contract directly; main has manifest-derived scoped channels in `src/main/infrastructure/events/event-channels.config.ts`.
-- Renderer EventBus uses `eventemitter3`; main EventBus wraps Node `EventEmitter`.
+- Renderer and main EventBus wrappers share `src/shared/events/event-bus.ts` on `eventemitter3`, with renderer-only handler-error emission configured in the renderer wrapper.
 - Main and renderer can reuse string values with different payload shapes, such as `update:state-changed`.
 
 Long-term target:
@@ -480,6 +509,8 @@ Success criteria:
 - Runtime constants and payload maps are generated from the same source.
 - Main and renderer event buses share behavior where possible and tests cover scope-specific payloads.
 
+Current implementation note: Phase B now shares the EventBus implementation and enforces manifest-generated renderer event constants, a manifest-generated compact payload alias block, and typed manifest-derived renderer preload bridge method/lifecycle descriptors via exact active-block checks. The remaining event work is richer bridge event mappings emitted from scoped IPC/event contracts.
+
 Risks and mitigations:
 
 - Risk: string reuse causes accidental payload unification.
@@ -493,12 +524,18 @@ Expected outcome:
 
 ## 5. Make `@prismgb/gpu` The Only Rendering Backend
 
-Grounded repo truth:
+Pre-migration grounded repo truth:
 
-- Renderer worker engines exist in `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts` and `webgl2-renderer.engine.ts`.
-- Renderer Canvas2D fallback exists in `src/renderer/infrastructure/services/streaming/canvas-renderer.ts` and `canvas2d-renderer.adapter.ts`.
-- `@prismgb/gpu` already contains WebGPU, WebGL2, and Canvas2D pipelines.
-- WebGPU and WebGL2 shader directories are duplicated exactly between renderer and the GPU package, accounting for 1,782 total shader lines.
+- Renderer worker engines existed in `src/renderer/infrastructure/rendering/workers/webgpu-renderer.engine.ts` and `webgl2-renderer.engine.ts`.
+- Renderer Canvas2D fallback drawing existed in `src/renderer/infrastructure/services/streaming/canvas-renderer.ts` and `canvas2d-renderer.adapter.ts`.
+- `@prismgb/gpu` already contained WebGPU, WebGL2, and Canvas2D pipelines.
+- WebGPU and WebGL2 shader directories were duplicated exactly between renderer and the GPU package, accounting for 1,782 total shader lines.
+
+Current repo truth after Phase 5:
+
+- Renderer worker code delegates rendering, capture, stats, resize, preset, brightness, and disposal to `@prismgb/gpu`.
+- Renderer Canvas2D fallback drawing delegates to `@prismgb/gpu` through `StreamingCanvasRenderLoopService`; the renderer owns only RVFC scheduling and canvas lifecycle boundaries.
+- Renderer shader trees, renderer-private worker engines, and the old renderer-owned `canvas-renderer.ts` backend path are deleted and guarded by the architecture scorecard.
 
 Long-term target:
 
@@ -549,10 +586,17 @@ Expected outcome:
 
 ## 6. Data-Drive Shader Passes And Uniform Layouts
 
-Grounded repo truth:
+Pre-migration grounded repo truth:
 
 - WebGPU and WebGL2 pipelines repeat fixed pass setup for pixel upscale, unsharp mask, color elevation, and CRT/LCD.
 - Worker protocol accepts package `PipelineUniforms`, but worker engines still import a separate partial `RenderUniforms` shape.
+
+Current repo truth after Phase 6:
+
+- WebGPU and WebGL2 pipelines iterate enabled render-pass descriptors derived from `render-passes.contract.json`.
+- WebGPU uniform buffers and WebGL uniform setters are described by package-owned helper metadata rather than duplicated backend-specific pass lists.
+- Shader loaders return manifest-keyed shader source maps, keeping pass-to-shader ownership in the render-pass contract.
+- Worker rendering code uses package `PipelineUniforms`; the prior renderer-worker-only `RenderUniforms` shape was removed during the Phase 5 package backend cutover.
 
 Long-term target:
 
@@ -658,10 +702,9 @@ Expected outcome:
 
 Grounded repo truth:
 
-- `src/shared/base/service.base.js` validates dependencies and creates a logger only.
-- `BaseOrchestrator` tracks EventBus subscriptions, but services and presentation effects manage cleanup arrays, timers, RAF ids, observers, and listeners independently.
-- Examples include renderer update/transcode services, performance services, streaming services, `SettingsDisplayModeOrchestrator` visibility listener, and main `TranscodeService` `before-quit` listener registration.
-- Renderer container `dispose()` does not await async service cleanup, while `StreamingService` has async cleanup.
+- `src/shared/base/service.base.ts` validates dependencies, creates a logger, and exposes typed `DisposableBag` helpers.
+- `BaseOrchestrator` tracks EventBus subscriptions plus shared disposable/managed lifecycles and keeps subscriptions active through `onCleanup()`.
+- Renderer/main container shutdown now await disposal; remaining risk is sync-only dependency interfaces and generated ownership for lifecycle/bridge descriptors that can later add async cleanup.
 
 Long-term target:
 
@@ -683,18 +726,19 @@ Phases and tasks:
 - Phase 2: Extend `BaseService`.
   - Add `this.disposables`, `listen`, `subscribe`, `timeout`, `interval`, `animationFrame`, and template `dispose`.
   - Keep dependency validation behavior compatible.
-- Phase 3: Migrate services by risk.
+- Phase 3: Migrate services and orchestrators by risk.
   - Start with update/transcode renderer services and performance timers.
   - Migrate streaming and GPU services after tests cover cleanup races.
-  - Fix `SettingsDisplayModeOrchestrator` visibility listener and main `TranscodeService` `before-quit` removal.
+  - Keep replacing local cleanup fields with `DisposableBag` helpers in services and orchestrators.
+  - Current source state: `SettingsDisplayModeOrchestrator` uses `BaseOrchestrator.replaceManaged()` around the startup `visibilitychange` listener; remaining lifecycle debt is concentrated in ad hoc service cleanup and sync-only disposer contracts.
 - Phase 4: Update containers.
-  - Make renderer and main cleanup await async disposals.
-  - Add lint/test checks for untracked listeners in services.
+  - Keep renderer and main cleanup async-aware as services migrate.
+  - Add lint/test checks for untracked listeners in services and fire-and-forget cleanup calls.
 
 Success criteria:
 
 - Services do not own ad hoc cleanup arrays where `DisposableBag` can own them.
-- Async cleanup is awaited by containers.
+- Async cleanup is awaited by containers and lifecycle callers.
 - Leak-prone listeners and timers have explicit tests.
 
 Risks and mitigations:
@@ -712,10 +756,10 @@ Expected outcome:
 
 Grounded repo truth:
 
-- Built-in device identity is in `src/shared/features/devices/device.registry.js`.
-- Chromatic constants are in `src/shared/features/devices/profiles/chromatic/device-chromatic.config.js`.
-- Renderer adapters, CSS, tests, and E2E helpers still repeat native resolution, labels, and capability assumptions.
-- `tests/e2e/helpers/ipc-mock.js` now derives Chromatic USB IDs from the shared E2E Chromatic specs.
+- Built-in device identity is manifest-owned and projected through `src/shared/features/devices/device.registry.ts`.
+- Chromatic runtime config derives hardware, media, USB identifier variants, label patterns, and supported scale bounds from `src/shared/features/devices/device.manifest.json`.
+- Renderer adapters still own behavior, but their Chromatic profile name and canvas-scale validation now derive from shared manifest-backed config.
+- The stale `tests/e2e/helpers/ipc-mock.js` helper is retired; active E2E Chromatic device mocks derive metadata from the shared E2E Chromatic specs and the device status helper remains UI-only.
 
 Long-term target:
 
@@ -765,7 +809,7 @@ Grounded repo truth:
 
 - `SettingsService` repeats `getX`, `setX`, storage key, default, validation, logging, and event publishing for each setting.
 - `loadAllPreferences()` returns only a subset of defaults.
-- `SettingsDefinitions` owns recording-format allowed values and keeps the default explicit.
+- `SettingsDefinitions` resolves recording-format allowed values from `TRANSCODE_CONFIG.formats` and keeps the default explicit.
 - Settings default recording format is `webm`, while `TRANSCODE_CONFIG.defaultFormat` is `mp4`.
 
 Long-term target:
@@ -783,13 +827,14 @@ Phases and tasks:
   - Explicitly test that recording format defaults to `webm`.
 - Phase 1: Add definitions.
   - Create `SettingsDefinitions` using existing storage keys and defaults.
-  - Import allowed recording formats from `TRANSCODE_CONFIG.formats` without changing `webm` default.
+  - Resolve allowed recording formats from `TRANSCODE_CONFIG.formats` without changing `webm` default.
 - Phase 2: Generate generic accessors.
   - Add `getSetting(name)` and `setSetting(name, value)` plus typed generic accessors.
   - Remove setting-specific getters/setters from production call sites and tests.
 - Phase 3: Generate UI/storage/test surfaces.
   - Generate settings UI options, protected-key metadata, and table-driven settings tests.
-  - Update `loadAllPreferences()` to derive from definitions or explicitly documented startup subset.
+  - Recording-format UI options are generated from the resolved settings definition.
+  - Keep `loadAllPreferences()` derived from startup definitions or intentionally expand it to all definitions.
 - Phase 4: Enforce definition ownership.
   - Reject new settings outside `SettingsDefinitions`.
 
@@ -809,6 +854,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Settings additions become definition entries instead of repeated service/UI/storage/test edits.
+- Current implementation note: `SettingsDefinitions` owns storage/default/validation/event policy, startup preference event publication, async/external source metadata, compact UI metadata, derived settings refs, and listbox options. `settings-menu.template.ts`, `dom-bindings.utils.ts`, and `SettingsMenuComponent` now consume that metadata for checkbox/listbox markup, binding, async `launchOnLogin` loading, and recording-format options while preserving the explicit `webm` UI default.
 
 ## 11. Convert Presets To Data And Bulk Registration
 
@@ -860,13 +906,14 @@ Risks and mitigations:
 Expected outcome:
 
 - Preset additions require one data entry and no module import choreography.
+- Current implementation note: `preset-definitions.ts` now owns every built-in preset record, package default `true-color`, renderer default `vibrant`, and `performance` UI visibility metadata. `settings.definitions.json` resolves `renderPreset` through `PRESET_POLICY.rendererDefaultId`, and `packages/prismgb-gpu/src/index.ts` explicitly registers `BUILT_IN_PRESETS` through `PresetRegistry.registerMany`.
 
 ## 12. Replace Presentation Lifecycle Boilerplate With A Component Base Or Lit
 
 Grounded repo truth:
 
 - Presentation components manually track subscriptions, listeners, initialized flags, refs, timers, observers, and disposal.
-- `createDomListenerManager()` already exists but covers only part of lifecycle ownership.
+- Production source no longer depends on `createDomListenerManager()`; delegated orchestrator actions and presentation primitives now use `BaseOrchestrator`/`PresentationComponent` lifecycle ownership, with stale test-only helper cleanup deferred.
 - Presentation has 92 `.js`/`.ts`/`.css` files and multiple dynamic JS components.
 
 Long-term target:
@@ -911,14 +958,15 @@ Risks and mitigations:
 Expected outcome:
 
 - Presentation code becomes lifecycle-consistent and ready for generated refs/actions.
+- Current implementation note: `PresentationComponent` now owns lifecycle cleanup for the update section, settings menu, toolbar shader selector/preset/sliders/cinematic controls, streaming controls, shared status notification/device status components, disclosure/listbox primitive listeners, activity auto-hide frames/timers/listeners, cursor/toolbar/controls auto-hide wrappers, `UIEffects`, notes panel child components, notes search/list/editor/resize setup listeners, notes resize drag frames, transcode toast, body-class transitions, button feedback, capture flash overlays, and UI update/capture/transcode/event bridges. Its keyed managed lifecycle now delegates to async-aware `DisposableBag`, and the presentation registry/controller/app cleanup path awaits component, effect, primitive, and bridge teardown while snapshotting reinitialized child components so delayed disposal cannot clear new refs. Notes editor autosave is explicitly flushed before visibility, lifecycle, disposal, and new-note selection changes only when a pending debounce exists, so managed timeout cleanup cannot drop pending edits or create duplicate no-op updates. `TranscodeUIBridge` no longer disposes the registry-owned transcode toast, and game-filter cleanup identity-guards both dropdown refs and open state. `DisclosureController` and `ListboxDropdownController` now reset stale DOM state and avoid stacked listeners on repeated initialize through managed lifecycle keys, the settings disclaimer tooltip uses `DisclosureController` rather than component-local expanded state, and toolbar auto-hide recomputes panel state when `MutationObserver` setup is unavailable instead of caching stale fallback state. GPT-5.5 follow-up audits of the settings, shader/disclosure/listbox, timed-effects, notes-resize lifecycle, auto-hide lifecycle, settings-disclaimer disclosure, notes-subcomponent lifecycle, shared status/device lifecycle, auto-hide wrapper lifecycle, disclosure/listbox primitive lifecycle, and async presentation lifecycle slices reported no remaining source findings after remediating notes autosave, stale-ref, status `validTypes`, toolbar observer fallback, duplicate pending autosave flush, registry-owned transcode toast disposal, and stale game-filter open-state findings. Existing unit tests still include stale assertions against removed internals and dependency-null disposal behavior; those test updates are intentionally deferred until production source cleanup is complete.
 
 ## 13. Generate DOM Refs, Actions, And Template Bindings
 
 Grounded repo truth:
 
-- IDs live in templates; selector constants live in `src/renderer/presentation/config/dom-selectors.config.ts`; components separately define refs and dependency shapes.
-- `createDomBindings()` documents `Document | Element`, but `bindById()` uses `getElementById()`, a `Document` API.
-- `register-ui.ts` manually wires component IDs, stages, constructors, and element dependency slices.
+- Stable IDs still live in templates for CSS/E2E, and production templates now also expose static refs through `data-ref`; generated ref groups now describe those static template refs while components separately define dependency shapes.
+- `DOMSelectors` is retired from production source. `createDomBindings()` now accepts a `ParentNode`, consumes generated ref groups, binds `data-ref` first, and keeps legacy ID fallback during migration.
+- `register-ui.ts` no longer wires component IDs, stages, constructors, and element dependency slices directly; component constructors stay in the presentation catalog while generated template component bindings now own element slices.
 
 Long-term target:
 
@@ -963,6 +1011,7 @@ Risks and mitigations:
 Expected outcome:
 
 - UI wiring shrinks and template-to-component drift becomes mechanically detectable.
+- Current implementation note: static shell, streaming, toolbar, fullscreen, settings/update, and notes refs now live in templates through `data-ref` while existing IDs/classes stay stable. `template-dom.generated.ts` owns `TemplateDomRefGroups`, legacy ref ids, `TemplateActionTargets` with required event lists, core/deferred component IDs and element slices, and the generated core component registry aggregate; `dom-bindings.utils.ts` imports the generated ref groups, and `template-ref.utils.ts` preserves generated action events while centralizing command descriptors, delegated action-target lookup, and legacy ID fallback. `createDomBindings()` no longer depends on the retired `DOMSelectors` source map and derives settings control refs from `SettingsDefinitions`; canvas recreation preserves `data-*`, and body-root action delegation resolves the current live target without explicit canvas rebinding. Header, toolbar, fullscreen, stream overlay/video/canvas, notes, and settings external/support controls declare `data-action`; `UISetupOrchestrator` now consumes the template action contract for stream start/stop, screenshot, recording, fullscreen, settings, shader, notes, external-link, blur, stop-propagation, tooltip-title, guard, logging, and link-opening behavior while owning only runtime binding/execution against app state, EventBus, controller methods, and shell/window APIs. `ui-component.catalog.ts` now owns renderer UI component constructors and dependency guards through a generated-ID keyed input map, while generated template metadata owns component IDs/stages/element slices, `UIController` initializes core components through the generated registry aggregate and deferred components through one generated-ID path, `AppOrchestrator` no longer hand-calls each deferred component at startup, `register-ui.ts` registers the registry from the catalog, and catalog-only helper types/functions are no longer exported. Phase1 drift now checks template `data-ref`s against generated DOM ref groups plus dynamic settings refs, template `data-action` target cardinality against generated `TemplateActionTargets`, executable generated `action event` pairs against `UIActionDescriptors`, generated component slice IDs against the template component ID arrays, element factories, and UI component catalog definitions, generated core/deferred stage derivation against `RendererTemplateCoreComponentIds`, and AST-level catalog metadata ownership so `id`/`stage` cannot re-enter through direct, quoted, computed, or resolvable spread properties. GPT-5.5 source audits found one low grouped/flat canvas drift item, later executable action descriptor gaps, an event-level generated action coverage gap, and catalog metadata drift hardening gaps, all of which were remediated and re-audited clean; the generated core registry initialization and UI catalog id/stage ownership audits found no blocking issues after remediation. No production source findings remain in the action-descriptor, settings-definition, stream-action, settings-link, UI component catalog, deferred element-slicing, action-catalog ownership, component element-slice catalog, notes-action ownership, settings-disclaimer disclosure, production-scoped action ownership, catalog export-surface, template ref/action drift-check, delegated-action runtime, generated template DOM contract, core UI generated-registry initialization, or UI catalog id/stage ownership slices after dynamic-ref and AST metadata audit fixes. Full generated template/component outputs, async-safe reinitialization cleanup, and test cleanup remain future work.
 
 ## 14. Promote Headless UI Controllers For Disclosure, Listbox, Combobox, And Auto-Hide
 
@@ -974,7 +1023,7 @@ Grounded repo truth:
 
 Long-term target:
 
-- Headless controllers are the authoritative source for reusable listbox, combobox, disclosure, activity auto-hide, and positioning behavior. Floating UI or Web Awesome/Shoelace are considered only if they replace enough local code.
+- Headless controllers are the authoritative source for reusable listbox, combobox, disclosure, activity auto-hide, and positioning behavior. Current disclosure/listbox primitives now share `PresentationComponent` lifecycle ownership for global/trigger/menu listeners. Floating UI or Web Awesome/Shoelace are considered only if they replace enough local code.
 
 Reasoning:
 
@@ -993,6 +1042,7 @@ Phases and tasks:
 - Phase 3: Add `ActivityAutoHideController`.
   - Replace cursor, toolbar, and fullscreen auto-hide internals behind current UI boundaries.
   - Centralize pause conditions and timer/RAF behavior.
+  - Current source state: cursor, toolbar, controls auto-hide wrappers and `UIEffects` now use `PresentationComponent` lifecycle ownership around `ActivityAutoHideController`, with toolbar panel observer fallback state kept live when observation is unavailable.
 - Phase 4: Evaluate positioning library.
   - Prototype Floating UI for notes panel/dropdowns and compare deleted placement code.
   - Adopt only if accessibility and bundle impact are acceptable.
@@ -1013,6 +1063,7 @@ Risks and mitigations:
 Expected outcome:
 
 - UI behavior code shrinks and accessibility-sensitive logic becomes centralized.
+- Current implementation note: Phase 14 is complete for this plan scope. `src/renderer/presentation/primitives/hide-timer.class.js` and `tests/unit/ui/primitives/hide-timer.test.js` stay retired, and governance enforcement now rejects `HideTimer`/`hide-timer` references in owned source/test roots.
 
 ## 15. Consolidate CSS Into Semantic Tokens And Utilities
 
@@ -1067,7 +1118,7 @@ Expected outcome:
 
 Grounded repo truth:
 
-- `src/renderer/presentation/icons/icon.utils.js` manually imports and maps SVG assets.
+- `src/renderer/presentation/icons/icon.utils.ts` discovers raw SVG assets with `import.meta.glob` and normalizes filenames to current icon keys.
 - Vite supports `import.meta.glob`, and the app already uses Vite.
 
 Long-term target:
@@ -1084,20 +1135,20 @@ Phases and tasks:
   - List SVG assets and current registry keys.
   - Add tests for current `getIconSvg()` behavior and fallback/error behavior.
 - Phase 1: Add generated/discovered registry.
-  - Use `import.meta.glob('@renderer/assets/icons/*.svg', { query: '?raw', import: 'default', eager: true })`.
+  - Use `import.meta.glob('../../assets/icons/*.svg', { query: '?raw', import: 'default', eager: true })`.
   - Normalize filenames to keys matching current API.
 - Phase 2: Add drift report.
   - Report assets without callers and callers without assets.
   - Keep explicit aliases only where the current icon key is still the owned contract.
 - Phase 3: Delete manual map.
   - Replace hand-maintained imports with glob output.
-  - Add test that asset files and registry keys cannot drift silently.
+  - Add test coverage for existing icons, discovered assets, size overrides, and missing-icon fallback.
 
 Success criteria:
 
 - Adding an SVG asset does not require editing a manual registry.
 - Existing icon keys remain stable.
-- Unused/unregistered assets are visible in CI or scorecard output.
+- Icon assets and literal `getIconSvg()` callers stay in lockstep through clean-break coverage.
 
 Risks and mitigations:
 
@@ -1114,8 +1165,7 @@ Expected outcome:
 
 Grounded repo truth:
 
-- Renderer update and transcode services subscribe to preload API events, map them to EventBus events, store state, and cleanup via local arrays.
-- Device and window/fullscreen paths also subscribe to preload-backed events.
+- Renderer update, transcode, device, and window/fullscreen paths subscribe to preload-backed events through manifest-derived bridge method and owner metadata descriptors plus lifecycle-owned bridge disposers. Device connected/disconnected preload events now flow through manifest-owned renderer EventBus channel descriptors before the orchestrator applies sequencer behavior.
 - Namespace-wide public preload teardown methods were removed because they can become unsafe if APIs gain multiple consumers.
 
 Long-term target:
@@ -1140,7 +1190,7 @@ Phases and tasks:
 - Phase 3: Convert device/window bridge paths.
   - Use the same descriptor model where it reduces code without hiding domain behavior.
 - Phase 4: Generate bridge descriptors.
-  - Generate from IPC/event contracts once both manifests are authoritative.
+  - Current source generates bridge method, owner, lifecycle, and direct forwarded EventBus channel metadata from the IPC manifest for update, transcode, window resize, and device connected/disconnected subscriptions; next generate runtime bridge/payload mapper descriptors only where they reduce code without hiding state ownership.
   - Enforce that new preload event subscriptions are declared as bridge descriptors unless they have a documented domain-specific exception.
 
 Success criteria:
@@ -1212,13 +1262,13 @@ Expected outcome:
 
 Grounded repo truth:
 
-- Shared base/interface files include `.js` plus `.d.ts` twins, such as `src/shared/base/service.base.js` and `service.base.d.ts`, `device-adapter.interface.js` and `.d.ts`.
-- `tsconfig.app.json` has `allowJs: true` but `checkJs: false`, and includes TS/declarations rather than checking runtime JS.
-- Presentation still has many `.js` modules.
+- The runtime `src` tree is TypeScript-only after the 2026-05-26 source-first pass; remaining declarations under `src/types` are ambient API/module types, not `.js` twins.
+- `tsconfig.app.json` has `allowJs: false`, and includes TS/declarations rather than checking runtime JS.
+- Remaining presentation work is typed ref/action ownership and component boundary cleanup, not `.js` conversion.
 
 Long-term target:
 
-- Shared base/interface modules and gradually presentation components are TypeScript. Declarations are emitted, not hand-authored twins.
+- Shared base/interface modules and presentation components stay TypeScript. Declarations are emitted or intentionally ambient, not hand-authored runtime twins.
 - New runtime `.js` in `src` is disallowed unless generated or documented by build constraints.
 
 Reasoning:
@@ -1259,6 +1309,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Type drift from hand-authored declaration twins disappears and strictness can ratchet by directory.
+- Current implementation note: the architecture scorecard now reports `sourceRuntimeJsFileCount`, enforces zero `src/**/*.js` files after migrating `src/renderer/presentation/features/notes/notes-panel.component.ts`, `src/renderer/presentation/features/notes/components/game-autocomplete.component.ts`, `src/renderer/presentation/features/notes/components/game-filter.component.ts`, `src/renderer/presentation/features/notes/components/notes-editor-view.component.ts`, `src/renderer/presentation/features/notes/components/notes-list-view.component.ts`, `src/renderer/presentation/features/notes/components/notes-panel-layout.component.ts`, `src/renderer/presentation/features/notes/components/notes-resize-handler.component.ts`, `src/renderer/presentation/features/notes/components/notes-search.component.ts`, `src/renderer/presentation/features/settings/settings-menu.component.ts`, `src/renderer/presentation/features/streaming/streaming-controls.component.ts`, `src/renderer/presentation/features/updates/update-section.component.ts`, `src/renderer/presentation/features/transcode/transcode-toast.component.ts`, `src/renderer/presentation/features/toolbar/components/cinematic-toggle.component.ts`, `src/renderer/presentation/features/toolbar/components/shader-preset-list.component.ts`, `src/renderer/presentation/features/toolbar/components/shader-selector.component.ts`, `src/renderer/presentation/features/toolbar/components/shader-slider-controls.component.ts`, `src/renderer/presentation/shared/device-status.component.ts`, `src/renderer/presentation/shared/status-notification.component.ts`, `src/renderer/presentation/primitives/dom-bindings.utils.ts`, `src/renderer/presentation/controller/component.registry.ts`, `src/renderer/presentation/controller/ui.controller.ts`, `src/renderer/presentation/primitives/disclosure.class.ts`, `src/renderer/presentation/primitives/listbox.utils.ts`, `src/renderer/presentation/primitives/listbox-dropdown.class.ts`, `src/renderer/presentation/icons/icon.utils.ts`, `src/renderer/presentation/features/fullscreen/fullscreen-controls.template.ts`, `src/renderer/presentation/features/notes/notes-panel.template.ts`, `src/renderer/presentation/features/settings/settings-menu.template.ts`, `src/renderer/presentation/features/streaming/stream-viewer.template.ts`, `src/renderer/presentation/features/toolbar/toolbar.template.ts`, `src/renderer/presentation/shell/header.template.ts`, `src/renderer/presentation/shell/app-shell.template.ts`, `src/renderer/presentation/shell/status-footer.template.ts`, `src/shared/features/devices/device.registry.ts`, `src/shared/features/devices/device-iterator.utils.ts`, `src/shared/features/devices/device-detection.utils.ts`, `src/shared/features/devices/profiles/chromatic/device-chromatic.config.ts`, `src/shared/features/devices/profiles/chromatic/device-chromatic.profile.ts`, `src/shared/features/devices/device-profile.base.ts`, `src/shared/config/config-loader.utils.ts`, `src/shared/utils/performance-cache.utils.ts`, `src/renderer/infrastructure/browser/browser-storage.adapter.ts`, `src/renderer/infrastructure/browser/browser-media.adapter.ts`, `src/renderer/infrastructure/logging/logger.factory.ts`, `src/renderer/infrastructure/adapters/reduced-motion.adapter.ts`, `src/renderer/infrastructure/adapters/user-activity.adapter.ts`, `src/renderer/infrastructure/adapters/visibility.adapter.ts`, `src/renderer/infrastructure/events/event-bus.class.ts`, `src/shared/lib/errors.utils.ts`, `src/shared/utils/safe-disposer.utils.ts`, `src/shared/features/transcode/transcode.config.ts`, `src/preload/index.ts`, `src/preload/listener-registry.ts`, `src/preload/exposure.factory.ts`, `src/preload/subscription.factory.ts`, `src/preload/validators.ts`, `src/preload/apis/window.preload-api.ts`, `src/preload/apis/update.preload-api.ts`, `src/preload/apis/transcode.preload-api.ts`, `src/preload/apis/inline.preload-api.ts`, and `src/renderer/presentation/shell/app-shell.renderer.ts`, and separately enforces zero retired-HideTimer violations (`hide-timer.class.js`, `hide-timer.test.js`, and `HideTimer`/`hide-timer` references), so unchecked runtime JS growth cannot mask that clean break while future work shifts to generated ownership and enforcement hardening.
 
 ## 20. Hoist Official WebGPU Types
 
@@ -1414,9 +1465,9 @@ Expected outcome:
 Grounded repo truth:
 
 - Strict base TS flags are enabled, but `tsconfig.app.json` relaxes `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, and `exactOptionalPropertyTypes`.
-- `scripts/type-debt-allowlist.json` is large.
+- `scripts/type-debt-allowlist.json` currently has zero tracked buckets after regenerating from zero strict app diagnostics.
 - Generated type-debt artifacts live under ignored `artifacts/`.
-- `typecheck:app:allowlist` writes allowlists with a default expiry that the findings say is already past as of 2026-05-18 unless explicitly overridden.
+- `typecheck:app:allowlist` writes allowlists with an explicit future default expiry and owner metadata.
 - Current typecheck does not check runtime presentation JS.
 
 Long-term target:
@@ -1461,18 +1512,20 @@ Risks and mitigations:
 Expected outcome:
 
 - Type debt becomes an actively shrinking budget rather than permanent infrastructure.
+- Current implementation note: strict diagnostics are zero, the type-debt allowlist has zero entries, and the architecture scorecard ratchets `sourceRuntimeJsFileCountMax` at the current zero-file runtime JS baseline.
 
 ## 24. Build Canonical Test Support Factories
 
 Grounded repo truth:
 
-- `tests/factories/event-bus.factory.js`, `tests/mocks/index.js`, and inline mocks repeat EventBus, logger, app state, UI controller, service, and preload API collaborators.
-- `tests/factories/index.js#createMockDependencies()` uses CommonJS `require(...)` inside an ESM package.
-- Preload/global `window.*API` mocks are duplicated across tests.
+- `tests/factories/event-bus.factory.js` now owns canonical EventBus behavior, while `tests/mocks/index.js` still carries legacy UI controller and service helpers around canonical logger/EventBus/AppState wrappers.
+- `tests/factories/index.js#createMockDependencies()` uses ESM imports inside the ESM package.
+- Preload/global `window.*API` API names and subscription mock bodies derive from `src/shared/ipc/ipc.manifest.json`; legacy logger/EventBus/AppState entrypoints and the remediated performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumer, shared base/component registry, presentation-mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrator, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock test slices delegate to `tests/factories`, while broader service mocks are still duplicated across tests.
+- Residual inline scan hits are scenario-specific fakes: the Winston backend child logger in `main-logger.test.js`, device debounce/IPC adapter subscription behavior, the notes panel unsubscribe-error EventBus, and the partial logger tolerance check in `constraint.builder.test.js`.
 
 Long-term target:
 
-- `tests/support/dependencies.ts` owns canonical factories for logger, logger factory, EventBus, AppState, services, and preload API mocks generated from the IPC contract.
+- Test support owns canonical factories for logger, logger factory, EventBus, AppState, services, and preload API mocks generated from the IPC contract.
 
 Reasoning:
 
@@ -1487,6 +1540,7 @@ Phases and tasks:
   - Add `createLogger`, `createLoggerFactory`, `createEventBus`, `createAppState`, and service dependency bundles using ESM imports.
   - Deprecate CommonJS `require` paths.
 - Phase 2: Add generated preload mocks.
+  - Derive preload API names from the IPC manifest.
   - Generate `createIpcApiMock(manifest)` from IPC contract.
   - Include subscription methods that return unsubscribe closures.
 - Phase 3: Migrate tests by directory.
@@ -1499,7 +1553,7 @@ Success criteria:
 
 - Tests import canonical support factories instead of repeating common collaborators.
 - No CommonJS `require` remains in ESM factory indexes.
-- Preload mocks are generated from IPC contract.
+- Preload API mock names and subscription bodies are generated from the IPC contract, legacy logger/EventBus/AppState entrypoints route through canonical factories, and the remediated performance/animation, device-operation sequencer, toolbar/primitive UI, direct legacy-wrapper consumer, shared base/component registry, presentation-mode, settings mode/preference, update orchestrator, renderer factory, GPU frame buffer, app/device/streaming orchestrator, audio pipeline, main EventBus/login item, notes UI logger, UI event/transcode/capture bridge, shader selector, transcode service, notes panel, capture service, update service/UI, fullscreen service, stream-view service, device shared/adapter, streaming acquisition/health, streaming rendering/adapter-factory, main update/device/settings-menu, renderer device service, canvas lifecycle/GPU worker, main app logger, notes service, UI/browser/shared logger, streaming/main IPC/preload bridge, GPU renderer service, settings service, device IPC adapter logger, UI setup orchestrator, AppState EventBus, capture orchestrator, streaming render pipeline, non-IPC baseline SettingsService helper, and renderer bootstrap container mock test slices use canonical factories; remaining work is broader migration away from inline service dependency mocks.
 
 Risks and mitigations:
 
@@ -1617,6 +1671,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Test state leakage declines and test setup code shrinks to reusable installers.
+- Current implementation note: `tests/support/mocks/browser-api.installers.js` owns explicit installers for RAF with overrideable callbacks, canvas, media and supported-constraints behavior, ResizeObserver, video-frame callbacks, performance, `devicePixelRatio`, `getComputedStyle`, `document.createElement`, fullscreen document behavior, `matchMedia`, missing-window and missing-`MutationObserver` cases, blob-download URL/anchor behavior, deterministic Blob construction, MediaRecorder recording behavior, clipboard behavior, navigator availability, localStorage backing with handle-level behavior overrides, Worker construction, worker `self` scope installation, and `createImageBitmap`. Renderer setup no longer installs ResizeObserver or media devices eagerly, and Testing Library setup no longer installs clipboard eagerly. Phase 4 enforcement guards the migrated unit-test globals against direct inline mutation.
 
 ## 27. Standardize DOM Tests Around Testing Library
 
@@ -1724,7 +1779,7 @@ Expected outcome:
 Grounded repo truth:
 
 - Unit mocks, fixtures, E2E helpers, and browser-injected mocks repeat Chromatic VID/PID, native resolution, labels, stream settings, and media constraints.
-- `tests/e2e/helpers/ipc-mock.js` now uses production-aligned VID/PID values and current preload names.
+- The retired `tests/e2e/helpers/ipc-mock.js` no longer carries duplicate device/API mocks; current E2E Chromatic helpers use production-aligned VID/PID values and current preload names.
 - `mock-chromatic.helper.js` now restores the media-device listener patches it stores during setup.
 
 Long-term target:
@@ -1742,7 +1797,7 @@ Phases and tasks:
   - Add cleanup tests for media device listener restoration.
 - Phase 1: Generate serialized test data.
   - Emit JSON-safe Chromatic specs from the device manifest for Playwright browser contexts.
-  - Replace constants in `ipc-mock.js` and `mock-chromatic.helper.js`.
+  - Keep the retired `ipc-mock.js` helper absent and replace constants in `mock-chromatic.helper.js`.
 - Phase 2: Generate unit fixtures.
   - Replace `tests/mocks/MockDevice.js`, factories, and settings/media fixtures where values duplicate manifest data.
 - Phase 3: Integrate with E2E fixtures.
@@ -1767,6 +1822,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Device mocks become production-aligned and future device additions automatically produce test scaffolding.
+- Current implementation note: `tests/support/chromatic-device-specs.js` now derives `CHROMATIC_E2E_FIXTURE`, a JSON-serializable Playwright fixture payload, from `device.manifest.json`. `mock-chromatic.helper.js` passes that payload into `page.evaluate`, `chromatic-device.fixture.js` exposes manifest-derived media/device assertions, and the phase drift report enforces both the support fixture and browser injection path.
 
 ## 30. Add Playwright Page Objects And Fixtures
 
@@ -1774,7 +1830,7 @@ Grounded repo truth:
 
 - E2E specs repeat settings popup opening, toggle flows, selectors, waits, and assertions.
 - `tests/e2e/fixtures/electron.fixture.js` already provides an Electron app/window fixture and launches `dist/main/index.js`.
-- `npm run test:e2e` does not build first, so tests rely on existing `dist`.
+- `npm run test:e2e` runs `npm run build:vite` before Playwright; `npm run test:e2e:built` runs Playwright directly against existing `dist`.
 
 Long-term target:
 
@@ -1797,6 +1853,7 @@ Phases and tasks:
   - Generate table-driven tests from settings/device manifests.
 - Phase 3: Make build deterministic.
   - Add a Playwright global setup or npm script that runs `npm run build:vite` or verifies a fresh build artifact.
+  - Default `test:e2e` now runs `npm run build:vite && npm run test:e2e:built`.
   - Document when full packaged Electron builds are required versus Vite build output.
 - Phase 4: Enforce page-object usage.
   - Add review/lint guidance for no repeated selector flows in specs.
@@ -1804,7 +1861,7 @@ Phases and tasks:
 Success criteria:
 
 - E2E specs use page objects/fixtures for common workflows.
-- `test:e2e` fails early if build output is missing or out of date.
+- `test:e2e` builds Vite output before launching Electron; `test:e2e:built` is the explicit existing-output path.
 - Generated settings/device data drives repetitive test cases.
 
 Risks and mitigations:
@@ -1817,6 +1874,7 @@ Risks and mitigations:
 Expected outcome:
 
 - E2E code is shorter, less brittle, and aligned with generated UI/device metadata.
+- Current implementation note: `tests/e2e/pages/app-shell.page.js`, `settings.page.js`, and `stream.page.js` provide shared page-object selectors and workflows. `settings.page.js` derives its settings control map and toggle cases from the same settings definition UI metadata that renders the settings menu instead of hardcoding E2E selectors. `tests/e2e/fixtures/electron.fixture.js` exposes `appShell`, `settingsMenu`, `streamPage`, and `chromaticDevice` fixtures, `tests/e2e/fixtures/chromatic-device.fixture.js` owns mock Chromatic connection/disconnection cleanup, media-only mock workflows, fixture-derived device expectations, and shared MediaDevices stream introspection. `settings.spec.js`, `streaming-smoke.spec.js`, `device-connection.spec.js`, `fullscreen.spec.js`, `device-streaming.spec.js`, and app-launch settings/update/link/fullscreen/status/window coverage now use fixtures instead of repeating settings, stream, fullscreen, and device setup flows.
 
 ## 31. Generate Architecture Docs And Feature Maps
 
@@ -1866,6 +1924,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Docs stop duplicating architecture/source maps manually.
+- Current implementation note: `docs/feature-map.md` contains a marked `CODEBASE_FEATURE_MAP` block generated from architecture aliases/layers, device manifest data, and settings UI metadata. `codebase-phase1-drift-report.js` generates the same block and fails when the tracked docs drift.
 
 ## 32. Generate Platform Build Matrix And Packaging Config From One Manifest
 
@@ -1917,6 +1976,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Platform/release policy stops drifting across package config, scripts, and workflows.
+- Current implementation note: `scripts/ci/build-matrix.mjs` derives release and smoke matrices from `scripts/manifests/platforms.manifest.json` platform groups, entries, and smoke aliases. `scripts/smoke-test.js` resolves the current platform entry and executable priority from the same manifest. `codebase-phase1-drift-report.js` and script/unit ratchets enforce both manifest-derived paths.
 
 ## 33. Local Generated Artifact Policy
 
@@ -1925,6 +1985,7 @@ Grounded repo truth:
 - `.gitignore` ignores `tests/coverage/`, `.vitest/`, `artifacts/`, Playwright outputs, and release/build outputs.
 - Local `tests/coverage/` and `artifacts/` exist and add workspace noise.
 - `vitest.config.js` writes coverage under `tests/coverage`.
+- Current audit note: `clean:generated` is scoped to ignored reports, caches, and test artifacts. `clean:build` separately owns ignored build and release cleanup for `dist`, `release`, `build`, and `out`.
 
 Long-term target:
 
@@ -1967,6 +2028,7 @@ Risks and mitigations:
 Expected outcome:
 
 - Local workspace noise declines and generated outputs have a clear ownership policy.
+- Current implementation note: `scripts/clean-generated.js` keeps generated artifact cleanup and build output cleanup on separate ownership lists. `npm run clean:generated` removes report/cache/test artifacts, while `npm run clean:build` uses the same audited deletion logic for ignored build and release outputs.
 
 ## Integrated Migration Sequence
 
@@ -2040,152 +2102,23 @@ Expected outcome:
 
 ## Ten Audit Rounds
 
-These audit rounds were used to harden this implementation plan after drafting. Each round states the check and the refinement applied or confirmed.
-
-### Audit Round 1: Finding Coverage
-
-Check:
-
-- Compare plan sections against the 33 numbered headings in `CODEBASE_SIZE_REDUCTION_FINDINGS.md`.
-
-Result:
-
-- The plan includes sections for findings 1 through 33, with titles matching the source finding names.
-
-Refinement:
-
-- Added this audit log and the explicit source mapping statement at the top.
-
-### Audit Round 2: Repository Grounding
-
-Check:
-
-- Verify that plan claims reference actual files or observed repo facts instead of generic advice.
-
-Result:
-
-- The plan cites the current IPC/preload files, renderer DI files, GPU package paths, duplicated shader directories, settings/transcode config, device config, Vitest config, tests, scripts, docs, workflows, and `.gitignore`.
-
-Refinement:
-
-- Added the `Grounding Snapshot` section so the evidence is visible before the plan details.
-
-### Audit Round 3: Long-Term Design Bias
-
-Check:
-
-- Ensure recommendations favor durable architecture rather than quick patches.
-
-Result:
-
-- Each finding targets manifests, generated outputs, shared lifecycle utilities, typed registries, or ratcheted enforcement.
-
-Refinement:
-
-- Added program-level success criteria requiring deletion, generation ownership, and CI enforcement.
-
-### Audit Round 4: Phase Structure
-
-Check:
-
-- Ensure every finding is broken into phases with concrete tasks.
-
-Result:
-
-- Every finding has phased tasks, generally starting with baseline/inventory, then report-only foundations, migration, deletion, and enforcement.
-
-Refinement:
-
-- Normalized phase wording across sections so auditability is consistent.
-
-### Audit Round 5: Success Criteria
-
-Check:
-
-- Ensure every finding and global program has testable success criteria.
-
-Result:
-
-- Every finding has a `Success criteria` subsection, and the program has overall success criteria.
-
-Refinement:
-
-- Tightened criteria to require deletion/reduction of old surfaces, not just introduction of new abstractions.
-
-### Audit Round 6: Risks And Mitigations
-
-Check:
-
-- Ensure every finding includes risks and mitigations, especially for rendering, IPC, settings, and release work.
-
-Result:
-
-- Every finding has risks and mitigations.
-
-Refinement:
-
-- Added extra mitigation language for generated-code opacity, release packaging, and tests comparing generated code to itself.
-
-### Audit Round 7: Expected Outcomes
-
-Check:
-
-- Ensure each finding states expected outcomes in codebase-size and maintainability terms.
-
-Result:
-
-- Every finding has an `Expected outcome` subsection.
-
-Refinement:
-
-- Reworded outcomes to focus on reducing repeated maintenance surfaces and preventing future growth.
-- Added explicit authoritative-owner wording where long-term intent was implied but not mechanically auditable.
-
-### Audit Round 8: Cross-Finding Dependencies
-
-Check:
-
-- Ensure dependent work is sequenced correctly.
-
-Result:
-
-- The integrated sequence puts measurement, lifecycle utilities, subscription factory, and canonical tests before generated runtime adoption and high-risk rendering/UI changes.
-
-Refinement:
-
-- Added an `Integrated Migration Sequence` section tying findings together.
-
-### Audit Round 9: Known Drift Handling
-
-Check:
-
-- Ensure known live drift from the findings is not lost.
-
-Result:
-
-- The plan calls out the resolved `transcodeAPI.getStatus` argument drift, resolved E2E device VID/PID and preload-name drift, settings `webm` versus transcode `mp4`, ignored coverage/artifact noise, and event scope collisions.
-
-Refinement:
-
-- Added explicit baseline tests for these drift areas in their finding phases.
-
-### Audit Round 10: Completion And Enforcement
-
-Check:
-
-- Ensure the plan does not stop at implementation ideas and includes deletion/enforcement gates.
-
-Result:
-
-- Each finding includes final deletion or enforcement phases where applicable.
-
-Refinement:
-
-- Added global risks and mitigations plus enforcement language that CI/lint/scorecard checks must prevent regression.
+These rounds hardened the plan after drafting:
+
+1. Finding coverage: all 33 source findings are represented with matching section intent.
+2. Repository grounding: claims cite concrete PrismGB files, configs, scripts, docs, workflows, and observed duplication.
+3. Long-term design bias: each finding targets manifests, generation, shared primitives, typed registries, or ratcheted enforcement.
+4. Phase structure: every finding moves through baseline, report-only foundation, migration, deletion, and enforcement where applicable.
+5. Success criteria: every finding and the overall program require testable deletion or reduction of old surfaces.
+6. Risks and mitigations: rendering, IPC, settings, generated code, release packaging, and test-oracle risks are called out.
+7. Expected outcomes: outcomes focus on reducing repeated maintenance surfaces and preventing future growth.
+8. Cross-finding dependencies: the integrated sequence puts measurement, lifecycle utilities, subscription factory, and canonical tests before high-risk runtime adoption.
+9. Known drift handling: known IPC, device, settings, coverage/artifact, and event-scope drift points are kept visible.
+10. Completion and enforcement: each finding has final deletion or enforcement gates, backed by CI/lint/scorecard checks where applicable.
 
 ## Completion Checklist
 
 - Every numbered finding in `CODEBASE_SIZE_REDUCTION_FINDINGS.md` has a corresponding section in this document.
+- The `Future-First Architecture Alignment` section covers all 33 findings and states the intended long-term ownership model before incremental migration details.
 - Every finding section includes grounded repo truth, a long-term target, phases/tasks, success criteria, risks and mitigations, and expected outcomes.
 - The plan is root-level Markdown and is intentionally named `CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md`.
 - The plan includes an integrated migration sequence across findings.

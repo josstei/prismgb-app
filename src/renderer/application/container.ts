@@ -1,14 +1,10 @@
-/**
- * Renderer DI container composition shell.
- */
-
 import {
   asValue,
   createContainer,
   InjectionMode,
 } from '@renderer/infrastructure/di/renderer-container.factory.js';
 import type { AwilixContainer } from 'awilix';
-import { PresetRegistry } from '@prismgb/gpu';
+import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 import { registerInfrastructure } from '@renderer/application/di/register-infrastructure';
 import { registerDevices } from '@renderer/application/di/register-devices';
 import { registerStreaming } from '@renderer/application/di/register-streaming';
@@ -17,9 +13,20 @@ import { registerUi } from '@renderer/application/di/register-ui';
 import { registerOrchestrators } from '@renderer/application/di/register-orchestrators';
 import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
 
-PresetRegistry.setDefault('vibrant');
+PresetRegistry.setDefault(PRESET_POLICY.rendererDefaultId);
 
 type RendererServiceContainer = AwilixContainer<RendererContainerMap>;
+type Cleanable = {
+  cleanup(): void | Promise<void>;
+};
+
+function isCleanable(value: unknown): value is Cleanable {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { cleanup?: unknown }).cleanup === 'function'
+  );
+}
 
 function createRendererContainer(): RendererServiceContainer {
   const container = createContainer<RendererContainerMap>({
@@ -56,10 +63,18 @@ function getContainer(): RendererServiceContainer {
   return container;
 }
 
-function resetContainer() {
-  if (container) {
-    container.dispose();
+async function resetContainer(): Promise<void> {
+  const activeContainer = container;
+  if (activeContainer) {
     container = null;
+    try {
+      const appOrchestrator = activeContainer.cache.get('appOrchestrator')?.value;
+      if (isCleanable(appOrchestrator)) {
+        await appOrchestrator.cleanup();
+      }
+    } finally {
+      await activeContainer.dispose();
+    }
   }
 }
 

@@ -4,7 +4,6 @@
  */
 
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
@@ -12,7 +11,7 @@ import type {
   UpdateInstallResponse,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
-import { defineIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface UpdateService {
   checkForUpdates(): Promise<Record<string, unknown>>;
@@ -33,12 +32,9 @@ function toObjectPayload(value: unknown): Record<string, unknown> {
   return {};
 }
 
-export const updateHandlerDescriptors = defineIpcHandlers<UpdateHandlerDependencies>([
+export const updateHandlerDescriptors = defineManifestIpcHandlers<UpdateHandlerDependencies>('updateAPI', [
   {
-    channel: IPC_CHANNELS.UPDATE.CHECK,
-    dependencyTokens: ['updateService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'checkForUpdates',
     async invoke({ updateService }: UpdateHandlerDependencies): Promise<UpdateCheckResponse> {
       const result = await updateService.checkForUpdates();
       return { success: true, ...toObjectPayload(result) } as UpdateCheckResponse;
@@ -50,10 +46,7 @@ export const updateHandlerDescriptors = defineIpcHandlers<UpdateHandlerDependenc
     }
   },
   {
-    channel: IPC_CHANNELS.UPDATE.DOWNLOAD,
-    dependencyTokens: ['updateService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'downloadUpdate',
     async invoke({ updateService }: UpdateHandlerDependencies): Promise<UpdateDownloadResponse> {
       await updateService.downloadUpdate();
       return { success: true } as UpdateDownloadResponse;
@@ -65,10 +58,7 @@ export const updateHandlerDescriptors = defineIpcHandlers<UpdateHandlerDependenc
     }
   },
   {
-    channel: IPC_CHANNELS.UPDATE.INSTALL,
-    dependencyTokens: ['updateService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'installUpdate',
     invoke({ updateService }: UpdateHandlerDependencies): UpdateInstallResponse {
       updateService.installUpdate();
       return { success: true } as UpdateInstallResponse;
@@ -80,10 +70,7 @@ export const updateHandlerDescriptors = defineIpcHandlers<UpdateHandlerDependenc
     }
   },
   {
-    channel: IPC_CHANNELS.UPDATE.GET_STATUS,
-    dependencyTokens: ['updateService', 'logger'],
-    argumentSchema: [],
-    responseMode: 'result-envelope',
+    method: 'getStatus',
     invoke({ updateService }: UpdateHandlerDependencies): UpdateGetStatusResponse {
       const status = updateService.getStatus();
       return { success: true, ...toObjectPayload(status) } as UpdateGetStatusResponse;

@@ -1,6 +1,5 @@
 import type {
   Dimensions,
-  NativeResolution,
   PerformanceStatePayload,
   RecordingDegradedPayload,
   RecordingErrorPayload,
@@ -52,7 +51,7 @@ export type IStreamingRenderer = {
   initialize(canvasElement: HTMLCanvasElement, nativeResolution?: Dimensions): Promise<boolean>;
   renderFrame(videoElement: HTMLVideoElement): Promise<void> | void;
   resize(width: number, height: number): void;
-  cleanup?(): void;
+  cleanup?(): void | Promise<void>;
   isActive?(): boolean;
   isFallback?(): boolean;
 };
@@ -99,7 +98,7 @@ export function isPerformanceStatePayload(value: unknown): value is PerformanceS
 export function isStreamStartedPayload(value: unknown): value is StreamStartedPayload {
   return (
     isRecord(value) &&
-    isRecord(value.settings) &&
+    (value.settings === null || isRecord(value.settings)) &&
     isStreamingCapabilities(value.capabilities) &&
     isRecord(value.stream) &&
     isRecord(value.device)

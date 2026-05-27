@@ -1,6 +1,4 @@
-type MaybePromise<T> = T | Promise<T>;
-
-type DisposableFunction = () => MaybePromise<void>;
+export type DisposableFunction = () => void | Promise<void>;
 
 type DisposableObject = {
   dispose?: DisposableFunction;
@@ -8,15 +6,21 @@ type DisposableObject = {
   abort?: DisposableFunction;
 };
 
-type Disposable = DisposableFunction | DisposableObject | null | undefined;
+export type Disposable = DisposableFunction | DisposableObject | null | undefined;
+export type DisposableKey = string | symbol;
 
-type EventTargetLike = {
+export type EventTargetLike = {
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
   removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
 };
 
 type TimerHandle = ReturnType<typeof setTimeout> | number;
 type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
+
+function isPromiseLike(value: unknown): value is Promise<void> {
+  return typeof value === 'object' && value !== null && 'then' in value &&
+    typeof (value as { then?: unknown }).then === 'function';
+}
 
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
@@ -44,6 +48,7 @@ function toDisposableFunction(disposable: Disposable): DisposableFunction | null
 
 export class DisposableBag {
   private disposables: DisposableFunction[] = [];
+  private readonly managed = new Map<DisposableKey, DisposableFunction>();
 
   get size(): number {
     return this.disposables.length;
@@ -56,20 +61,49 @@ export class DisposableBag {
     }
 
     let active = true;
-    const tracked = async (): Promise<void> => {
+    const tracked = (): void | Promise<void> => {
       if (!active) {
         return;
       }
       active = false;
-      await dispose();
+      return dispose();
     };
 
     this.disposables.push(tracked);
 
     return () => {
-      void tracked();
       this.disposables = this.disposables.filter((entry) => entry !== tracked);
+      return tracked();
     };
+  }
+
+  replace(key: DisposableKey, disposable: Disposable): DisposableFunction {
+    const cancelled = this.cancel(key);
+    if (isPromiseLike(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
+    return this.setManaged(key, disposable);
+  }
+
+  async replaceAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
+    await this.cancel(key);
+    return this.setManaged(key, disposable);
+  }
+
+  private setManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
+    const release = this.add(disposable);
+    const managedRelease = () => {
+      if (this.managed.get(key) === managedRelease) {
+        this.managed.delete(key);
+      }
+      return release();
+    };
+    this.managed.set(key, managedRelease);
+    return managedRelease;
+  }
+
+  cancel(key: DisposableKey): void | Promise<void> {
+    const dispose = this.managed.get(key);
+    this.managed.delete(key);
+    return dispose?.();
   }
 
   addEvent(
@@ -98,29 +132,38 @@ export class DisposableBag {
     return this.add(() => observer.disconnect());
   }
 
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
+    this.managed.clear();
     const pending = [...this.disposables].reverse();
     this.disposables = [];
 
     const errors: unknown[] = [];
+    const asyncDisposals: Promise<void>[] = [];
+
     for (const dispose of pending) {
       try {
-        await dispose();
+        const result = dispose();
+        if (isPromiseLike(result)) {
+          asyncDisposals.push(result.catch((error) => {
+            errors.push(error);
+          }));
+        }
       } catch (error) {
         errors.push(error);
       }
     }
 
-    if (errors.length === 1) {
-      throw errors[0];
-    }
-
-    if (errors.length > 1) {
-      throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
-    }
+    return Promise.all(asyncDisposals).then(() => {
+      if (errors.length === 1) {
+        throw errors[0];
+      }
+      if (errors.length > 1) {
+        throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
+      }
+    });
   }
 
-  async dispose(): Promise<void> {
-    await this.clear();
+  dispose(): Promise<void> {
+    return this.clear();
   }
 }

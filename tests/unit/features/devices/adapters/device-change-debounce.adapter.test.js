@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/devices/device-change-debounce.adapter.ts';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('DeviceChangeDebounceAdapter', () => {
   let adapter;
@@ -21,12 +22,7 @@ describe('DeviceChangeDebounceAdapter', () => {
       removeEventListener: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DeviceChangeDebounceAdapter' });
 
     adapter = new DeviceChangeDebounceAdapter({
       browserMediaService: mockBrowserMediaService,

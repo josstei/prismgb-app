@@ -30,7 +30,7 @@ const rendererCaptureDescriptors = defineRendererDescriptors<RendererContainerMa
     kind: 'class',
     resolver: CaptureSaveService
   }
-]);
+], { disposal: 'dispose' });
 
 export function registerCapture(container: RegistrableContainer<RendererContainerMap>): void {
   registerRendererDescriptors(container, rendererCaptureDescriptors);

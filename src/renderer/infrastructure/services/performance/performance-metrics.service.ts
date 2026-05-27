@@ -5,93 +5,144 @@
  */
 
 import { BaseService } from '@shared/base/service.base.js';
+import type { MemorySnapshotRequestPayload } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type {
+  ProcessMetricPayload,
+  ProcessMetricsResponse
+} from '@shared/ipc/preload-api.contract.js';
+
+type ProcessMetricsErrorResponse = {
+  success: false;
+  error: string;
+};
+
+type MetricsAdapterLike = {
+  isAvailable: () => boolean;
+  getProcessMetrics: () => Promise<ProcessMetricsResponse | ProcessMetricsErrorResponse>;
+};
+
+type PerformanceMetricsDependencies = {
+  loggerFactory: LoggerFactoryLike;
+  metricsAdapter: MetricsAdapterLike;
+};
+
+function hasProcessMetricsSnapshot(snapshot: unknown): snapshot is ProcessMetricsResponse {
+  return (
+    typeof snapshot === 'object' &&
+    snapshot !== null &&
+    (snapshot as ProcessMetricsResponse).success === true &&
+    Array.isArray((snapshot as ProcessMetricsResponse).processes)
+  );
+}
+
+function isMemorySnapshotRequestPayload(value: unknown): value is MemorySnapshotRequestPayload {
+  return typeof value === 'object' && value !== null;
+}
 
 export class PerformanceMetricsService extends BaseService {
+  protected readonly metricsAdapter: MetricsAdapterLike;
 
-  constructor(dependencies) {
+  private readonly _pendingSnapshotCancels: Set<() => void | Promise<void>>;
+  private _periodicIntervalCancel: (() => void | Promise<void>) | null;
+  private _periodicStartCancel: (() => void | Promise<void>) | null;
+  private readonly _intervalMs: number;
+  private readonly _initialDelayMs: number;
+
+  constructor(dependencies: PerformanceMetricsDependencies) {
     super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
 
-    this._pendingTimeouts = new Set();
-    this._intervalId = null;
-    this._timeoutId = null;
+    this.metricsAdapter = dependencies.metricsAdapter;
+    this._pendingSnapshotCancels = new Set();
+    this._periodicIntervalCancel = null;
+    this._periodicStartCancel = null;
     this._intervalMs = 10000;
     this._initialDelayMs = 2000;
   }
 
-  requestSnapshot(payload) {
-    const label = payload?.label || 'snapshot';
-    const delayMs = Number(payload?.delayMs) || 0;
+  requestSnapshot(payload: unknown = {}): void {
+    const request: MemorySnapshotRequestPayload = isMemorySnapshotRequestPayload(payload)
+      ? payload
+      : {};
+    const label = typeof request.label === 'string' && request.label.length > 0
+      ? request.label
+      : 'snapshot';
+    const delayMs = typeof request.delayMs === 'number' && Number.isFinite(request.delayMs)
+      ? request.delayMs
+      : 0;
 
     if (delayMs > 0) {
-      const timeoutId = setTimeout(() => {
-        this._pendingTimeouts.delete(timeoutId);
+      let cancelSnapshot: () => void | Promise<void> = () => {};
+      cancelSnapshot = this.timeout(() => {
+        this._pendingSnapshotCancels.delete(cancelSnapshot);
+        void cancelSnapshot();
         this._logSnapshot(label);
       }, delayMs);
-      this._pendingTimeouts.add(timeoutId);
+      this._pendingSnapshotCancels.add(cancelSnapshot);
       return;
     }
 
     this._logSnapshot(label);
   }
 
-  startPeriodicSnapshots() {
-    if (this._intervalId || this._timeoutId) {
+  startPeriodicSnapshots(): void {
+    if (this._periodicIntervalCancel || this._periodicStartCancel) {
       return;
     }
 
-    this._timeoutId = setTimeout(() => {
-      this._timeoutId = null;
+    this._periodicStartCancel = this.timeout(() => {
+      const cancelStart = this._periodicStartCancel;
+      this._periodicStartCancel = null;
+      void cancelStart?.();
       this._logSnapshot('periodic');
-      this._intervalId = setInterval(() => this._logSnapshot('periodic'), this._intervalMs);
+      this._periodicIntervalCancel = this.interval(() => this._logSnapshot('periodic'), this._intervalMs);
     }, this._initialDelayMs);
   }
 
-  stopPeriodicSnapshots() {
-    if (this._timeoutId) {
-      clearTimeout(this._timeoutId);
-      this._timeoutId = null;
-    }
-
-    if (this._intervalId) {
-      clearInterval(this._intervalId);
-      this._intervalId = null;
-    }
+  stopPeriodicSnapshots(): void {
+    void this._periodicStartCancel?.();
+    void this._periodicIntervalCancel?.();
+    this._periodicStartCancel = null;
+    this._periodicIntervalCancel = null;
   }
 
-  clearPendingRequests() {
-    this._pendingTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-    this._pendingTimeouts.clear();
+  clearPendingRequests(): void {
+    this._pendingSnapshotCancels.forEach((cancel) => {
+      void cancel();
+    });
+    this._pendingSnapshotCancels.clear();
   }
 
   /**
    * Cleanup all resources and stop all timers
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.stopPeriodicSnapshots();
     this.clearPendingRequests();
+    return super.dispose();
   }
 
-  _logSnapshot(label) {
+  _logSnapshot(label: string): void {
     if (!this.metricsAdapter.isAvailable()) {
       this.logger.debug(`[Perf] ${label} - process metrics unavailable`);
       return;
     }
 
     this.metricsAdapter.getProcessMetrics()
-      .then((snapshot) => {
-        if (!snapshot?.success) {
+      .then((snapshot: ProcessMetricsResponse | ProcessMetricsErrorResponse | null) => {
+        if (!hasProcessMetricsSnapshot(snapshot)) {
           this.logger.debug(`[Perf] ${label} - process metrics error`);
           return;
         }
 
-        const renderer = snapshot.processes?.find(proc => proc.type === 'Renderer');
-        const gpu = snapshot.processes?.find(proc => proc.type === 'GPU');
+        const renderer = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'Renderer');
+        const gpu = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'GPU');
         const rendererMem = renderer ? `${renderer.memoryMB} MB` : 'n/a';
         const gpuMem = gpu ? `${gpu.memoryMB} MB` : 'n/a';
 
         this.logger.debug(`[Perf] ${label} - total ${snapshot.totalMB} MB, renderer ${rendererMem}, gpu ${gpuMem}`);
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         this.logger.debug(`[Perf] ${label} - process metrics error`, error);
       });
   }

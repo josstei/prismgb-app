@@ -245,4 +245,36 @@ describe('coverage threshold evaluation', () => {
       passes: true
     });
   });
+
+  it('fails enforced targets that match no files even when minimums are zero', () => {
+    const summary = {
+      total: { lines: 0, covered: 0, skipped: 0, pct: 100 }
+    };
+
+    const thresholds = {
+      mode: 'enforce',
+      defaultMinimums: { lines: 0, statements: 0, functions: 0, branches: 0 },
+      targets: [
+        {
+          id: 'main-preload',
+          owner: 'platform/runtime',
+          scope: ['src/main', 'src/preload'],
+          minimums: { lines: 0, statements: 0, functions: 0, branches: 0 },
+          expiresOn: '2026-12-31'
+        }
+      ]
+    };
+
+    const evaluation = evaluateCoverageRatchet(summary, thresholds, {
+      asOfDate: '2026-05-20'
+    });
+
+    expect(evaluation.passed).toBe(false);
+    expect(evaluation.failures).toContainEqual(
+      expect.objectContaining({
+        target: 'main-preload',
+        type: 'missing-data'
+      })
+    );
+  });
 });

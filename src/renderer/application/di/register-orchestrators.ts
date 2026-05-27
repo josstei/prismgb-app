@@ -26,89 +26,134 @@ const rendererOrchestratorDescriptors = defineRendererDescriptors<RendererContai
   {
     token: 'deviceOrchestrator',
     kind: 'class',
-    resolver: DeviceOrchestrator
+    resolver: DeviceOrchestrator,
+    dependencies: ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory']
   },
   {
     token: 'streamingAudioOrchestrator',
     kind: 'class',
-    resolver: StreamingAudioOrchestrator
+    resolver: StreamingAudioOrchestrator,
+    dependencies: ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory']
   },
   {
     token: 'streamingOrchestrator',
     kind: 'class',
-    resolver: StreamingOrchestrator
+    resolver: StreamingOrchestrator,
+    dependencies: ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory']
   },
   {
     token: 'captureOrchestrator',
     kind: 'class',
-    resolver: CaptureOrchestrator
+    resolver: CaptureOrchestrator,
+    dependencies: [
+      'captureService',
+      'appState',
+      'streamViewService',
+      'gpuRendererService',
+      'gpuRecordingService',
+      'canvasRenderLoopService',
+      'transcodeService',
+      'captureSaveService',
+      'eventBus',
+      'loggerFactory'
+    ]
   },
   {
     token: 'preferencesOrchestrator',
     kind: 'class',
-    resolver: SettingsPreferencesOrchestrator
+    resolver: SettingsPreferencesOrchestrator,
+    dependencies: ['settingsService', 'eventBus', 'loggerFactory']
   },
   {
     token: 'fullscreenService',
     kind: 'class',
-    resolver: SettingsFullscreenService
+    resolver: SettingsFullscreenService,
+    disposal: 'dispose'
   },
   {
     token: 'cinematicModeService',
     kind: 'class',
-    resolver: SettingsCinematicModeService
+    resolver: SettingsCinematicModeService,
+    disposal: 'dispose'
   },
   {
     token: 'displayModeOrchestrator',
     kind: 'class',
-    resolver: SettingsDisplayModeOrchestrator
+    resolver: SettingsDisplayModeOrchestrator,
+    dependencies: ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory']
   },
   {
     token: 'updateOrchestrator',
     kind: 'class',
-    resolver: UpdateOrchestrator
+    resolver: UpdateOrchestrator,
+    dependencies: ['updateService', 'updateUiService', 'loggerFactory']
   },
   {
     token: 'performanceStateOrchestrator',
     kind: 'class',
-    resolver: PerformanceStateOrchestrator
+    resolver: PerformanceStateOrchestrator,
+    dependencies: ['eventBus', 'performanceStateService', 'loggerFactory']
   },
   {
     token: 'animationPerformanceOrchestrator',
     kind: 'class',
-    resolver: PerformanceAnimationOrchestrator
+    resolver: PerformanceAnimationOrchestrator,
+    dependencies: ['eventBus', 'animationPerformanceService', 'bodyClassManager', 'loggerFactory']
   },
   {
     token: 'performanceMetricsService',
     kind: 'class',
-    resolver: PerformanceMetricsService
+    resolver: PerformanceMetricsService,
+    dependencies: ['loggerFactory', 'metricsAdapter'],
+    disposal: 'dispose'
   },
   {
     token: 'performanceStateService',
     kind: 'class',
-    resolver: PerformanceStateService
+    resolver: PerformanceStateService,
+    dependencies: ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'],
+    disposal: 'dispose'
   },
   {
     token: 'animationPerformanceService',
     kind: 'class',
-    resolver: PerformanceAnimationService
+    resolver: PerformanceAnimationService,
+    dependencies: ['loggerFactory'],
+    disposal: 'dispose'
   },
   {
     token: 'performanceMetricsOrchestrator',
     kind: 'class',
-    resolver: PerformanceMetricsOrchestrator
+    resolver: PerformanceMetricsOrchestrator,
+    dependencies: ['eventBus', 'loggerFactory', 'performanceMetricsService']
   },
   {
     token: 'uiSetupOrchestrator',
     kind: 'class',
-    resolver: UISetupOrchestrator
+    resolver: UISetupOrchestrator,
+    dependencies: ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory']
   },
   {
     token: 'appOrchestrator',
     kind: 'class',
-    resolver: AppOrchestrator
+    resolver: AppOrchestrator,
+    dependencies: [
+      'deviceOrchestrator',
+      'streamingOrchestrator',
+      'streamingAudioOrchestrator',
+      'captureOrchestrator',
+      'preferencesOrchestrator',
+      'displayModeOrchestrator',
+      'updateOrchestrator',
+      'uiSetupOrchestrator',
+      'animationPerformanceOrchestrator',
+      'performanceMetricsOrchestrator',
+      'performanceStateOrchestrator',
+      'eventBus',
+      'loggerFactory'
+    ]
   }
-]);
+], { disposal: 'cleanup' });
 
 export function registerOrchestrators(container: RegistrableContainer<RendererContainerMap>): void {
   registerRendererDescriptors(container, rendererOrchestratorDescriptors);

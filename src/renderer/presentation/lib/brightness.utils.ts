@@ -7,20 +7,10 @@
  * Slider 100 = 1.5x brightness (brighter)
  */
 
-/**
- * Convert slider value (0-100) to brightness multiplier (0.5-1.5)
- * @param {number} sliderValue - Slider value 0-100
- * @returns {number} Brightness multiplier 0.5-1.5
- */
-export function sliderToBrightness(sliderValue) {
+export function sliderToBrightness(sliderValue: number): number {
   return (sliderValue / 100) + 0.5;
 }
 
-/**
- * Convert brightness multiplier (0.5-1.5) to slider value (0-100)
- * @param {number} brightness - Brightness multiplier 0.5-1.5
- * @returns {number} Slider value 0-100
- */
-export function brightnessToSlider(brightness) {
+export function brightnessToSlider(brightness: number): number {
   return Math.round((brightness - 0.5) * 100);
 }

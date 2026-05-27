@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 describe('TranscodeUIBridge', () => {
   let bridge;
@@ -20,14 +21,11 @@ describe('TranscodeUIBridge', () => {
     // Track subscribed handlers
     subscribedHandlers = {};
 
-    // Create mock EventBus
-    mockEventBus = {
-      subscribe: vi.fn((event, handlerFn) => {
+    mockEventBus = createEventBus({
+      onSubscribe: (event, handlerFn) => {
         subscribedHandlers[event] = handlerFn;
-        return vi.fn(); // Return unsubscribe function
-      }),
-      publish: vi.fn()
-    };
+      },
+    });
 
     // Create mock TranscodeToast
     mockTranscodeToast = {
@@ -51,17 +49,8 @@ describe('TranscodeUIBridge', () => {
       }
     };
 
-    // Create mock logger
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
+    mockLogger = mockLoggerFactory.create('TranscodeUIBridge');
 
     // Clear mocks
     vi.clearAllMocks();

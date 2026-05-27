@@ -40,6 +40,26 @@ export const GENERATED_ARTIFACT_PATHS = [
 ];
 export const GENERATED_PATHS = GENERATED_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);
 
+export const BUILD_OUTPUT_ARTIFACT_PATHS = [
+  {
+    path: 'dist',
+    owner: 'Vite/Electron build output'
+  },
+  {
+    path: 'release',
+    owner: 'Electron Builder release output'
+  },
+  {
+    path: 'build',
+    owner: 'Local build output'
+  },
+  {
+    path: 'out',
+    owner: 'Local build output'
+  }
+];
+export const BUILD_OUTPUT_PATHS = BUILD_OUTPUT_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);
+
 export function getArtifactOwnership(pathName, paths = GENERATED_ARTIFACT_PATHS) {
   const normalizedPath = normalizeRelativePath(pathName);
   const match = paths.find((entry) => entry.path === normalizedPath);
@@ -59,10 +79,10 @@ export function resolveGeneratedPaths(paths = GENERATED_PATHS, root = PROJECT_RO
   return sorted.map((relativePath) => path.join(root, relativePath));
 };
 
-function toDeletionSummary(targetPath, removed, failed) {
+function toDeletionSummary(targetPath, removed, failed, ownershipPaths = GENERATED_ARTIFACT_PATHS) {
   return {
     target: targetPath,
-    owner: getArtifactOwnership(targetPath),
+    owner: getArtifactOwnership(targetPath, ownershipPaths),
     removed,
     failed
   };
@@ -72,12 +92,13 @@ function normalizeOptions(options = {}) {
   return {
     dryRun: options.dryRun ?? false,
     paths: options.paths ?? GENERATED_PATHS,
+    ownershipPaths: options.ownershipPaths ?? GENERATED_ARTIFACT_PATHS,
     root: options.root ?? PROJECT_ROOT
   };
 }
 
 export function cleanGeneratedOutputs(options = {}) {
-  const { dryRun, paths, root } = normalizeOptions(options);
+  const { dryRun, paths, ownershipPaths, root } = normalizeOptions(options);
 
   const absolutePaths = resolveGeneratedPaths(paths, root);
   const deleted = [];
@@ -90,25 +111,34 @@ export function cleanGeneratedOutputs(options = {}) {
 
     const relativePath = normalizeRelativePath(path.relative(root, generatedPath));
     if (dryRun) {
-      deleted.push(toDeletionSummary(relativePath, true, false));
+      deleted.push(toDeletionSummary(relativePath, true, false, ownershipPaths));
       continue;
     }
 
     try {
       fs.rmSync(generatedPath, { recursive: true, force: true });
-      deleted.push(toDeletionSummary(relativePath, true, false));
+      deleted.push(toDeletionSummary(relativePath, true, false, ownershipPaths));
     } catch (error) {
-      skipped.push(toDeletionSummary(relativePath, false, error));
+      skipped.push(toDeletionSummary(relativePath, false, error, ownershipPaths));
     }
   }
 
   return { deleted, skipped };
 }
 
-export function printSummary(result) {
+export function cleanBuildOutputs(options = {}) {
+  return cleanGeneratedOutputs({
+    ...options,
+    paths: options.paths ?? BUILD_OUTPUT_PATHS,
+    ownershipPaths: options.ownershipPaths ?? BUILD_OUTPUT_ARTIFACT_PATHS
+  });
+}
+
+export function printSummary(result, commandName = 'clean:generated', dryRun = false) {
+  const actionLabel = dryRun ? 'would remove' : 'removed';
   for (const entry of result.deleted) {
     if (entry.removed) {
-      console.log(`removed: ${entry.target}`);
+      console.log(`${actionLabel}: ${entry.target}`);
     }
   }
 
@@ -118,22 +148,24 @@ export function printSummary(result) {
     }
   }
 
-  if (result.skipped.length === 0 && result.deleted.length > 0) {
-    console.log(`clean:generated removed ${result.deleted.length} target(s).`);
+  if (!dryRun && result.skipped.length === 0 && result.deleted.length > 0) {
+    console.log(`${commandName} removed ${result.deleted.length} target(s).`);
   }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const dryRun = process.argv.includes('--dry-run');
-  const result = cleanGeneratedOutputs({ dryRun });
+  const cleanBuild = process.argv.includes('--build');
+  const commandName = cleanBuild ? 'clean:build' : 'clean:generated';
+  const result = cleanBuild ? cleanBuildOutputs({ dryRun }) : cleanGeneratedOutputs({ dryRun });
   if (dryRun) {
     if (result.deleted.length === 0) {
-      console.log('clean:generated had no matches');
+      console.log(`${commandName} had no matches`);
     } else {
-      console.log(`clean:generated would remove ${result.deleted.length} target(s):`);
-      printSummary(result);
+      console.log(`${commandName} would remove ${result.deleted.length} target(s):`);
+      printSummary(result, commandName, true);
     }
   } else {
-    printSummary(result);
+    printSummary(result, commandName);
   }
 }

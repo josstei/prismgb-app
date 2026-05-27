@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import IPC_CHANNELS from '@shared/ipc/channels.json';
+import { IPC_CHANNELS, IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import {
   deviceHandlerDescriptors,
@@ -12,6 +12,7 @@ import {
   gpuHandlerDescriptors,
   loginItemHandlerDescriptors
 } from '@main/ipc/handlers/index.js';
+import { createLogger } from '../../../../factories/index.js';
 
 function captureHandlers(descriptors, deps) {
   const handlers = {};
@@ -25,90 +26,41 @@ function captureHandlers(descriptors, deps) {
   return handlers;
 }
 
-const mockLogger = {
-  debug: vi.fn(),
-  error: vi.fn()
-};
+const mockLogger = createLogger({ name: 'IpcHandlerDescriptors' });
 
-const mockDeviceService = {
-  getStatus: vi.fn()
-};
+const mockDeviceService = { getStatus: vi.fn() };
+const mockUpdateService = { checkForUpdates: vi.fn(), downloadUpdate: vi.fn(), installUpdate: vi.fn(), getStatus: vi.fn() };
+const mockWindowService = { setFullScreen: vi.fn(), isFullScreen: vi.fn() };
+const mockTranscodeService = { transcode: vi.fn(), cancel: vi.fn(), getStatus: vi.fn() };
+const mockLoginItemService = { isEnabled: vi.fn(), setEnabled: vi.fn() };
 
-const mockUpdateService = {
-  checkForUpdates: vi.fn(),
-  downloadUpdate: vi.fn(),
-  installUpdate: vi.fn(),
-  getStatus: vi.fn()
-};
+const descriptorGroups = [
+  ['DEVICE', deviceHandlerDescriptors], ['SHELL', shellHandlerDescriptors], ['UPDATE', updateHandlerDescriptors], ['WINDOW', windowHandlerDescriptors],
+  ['TRANSCODE', transcodeHandlerDescriptors], ['PERFORMANCE', performanceHandlerDescriptors], ['GPU', gpuHandlerDescriptors], ['LOGIN_ITEM', loginItemHandlerDescriptors]
+];
+const allDescriptors = descriptorGroups.flatMap(([, descriptors]) => descriptors);
+const manifestInvokeEntries = (namespaceKey) => IpcContractManifest.namespaces.find(({ namespace }) => namespace === namespaceKey).invoke;
 
-const mockWindowService = {
-  setFullScreen: vi.fn(),
-  isFullScreen: vi.fn()
-};
-
-const mockTranscodeService = {
-  transcode: vi.fn(),
-  cancel: vi.fn(),
-  getStatus: vi.fn()
-};
-
-const mockLoginItemService = {
-  isEnabled: vi.fn(),
-  setEnabled: vi.fn()
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+beforeEach(() => { vi.clearAllMocks(); });
 
 describe('Main IPC handler descriptors', () => {
-  it('keeps descriptor metadata discoverable for migrated domains', () => {
-    expect(deviceHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.DEVICE.GET_STATUS
-    ]);
-    expect(shellHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.SHELL.OPEN_EXTERNAL
-    ]);
-    expect(updateHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.UPDATE.CHECK,
-      IPC_CHANNELS.UPDATE.DOWNLOAD,
-      IPC_CHANNELS.UPDATE.INSTALL,
-      IPC_CHANNELS.UPDATE.GET_STATUS
-    ]);
-    expect(windowHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.WINDOW.SET_FULLSCREEN,
-      IPC_CHANNELS.WINDOW.IS_FULLSCREEN
-    ]);
-    expect(transcodeHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.TRANSCODE.START,
-      IPC_CHANNELS.TRANSCODE.CANCEL,
-      IPC_CHANNELS.TRANSCODE.GET_STATUS
-    ]);
-    expect(performanceHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.PERFORMANCE.GET_METRICS
-    ]);
-    expect(gpuHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.GPU.GET_POLICY
-    ]);
-    expect(loginItemHandlerDescriptors.map((descriptor) => descriptor.channel)).toEqual([
-      IPC_CHANNELS.LOGIN_ITEM.GET,
-      IPC_CHANNELS.LOGIN_ITEM.SET
-    ]);
+  it('derives descriptor metadata from manifest invoke entries', () => {
+    descriptorGroups.forEach(([namespaceKey, descriptors]) => {
+      const invokeEntriesByChannel = new Map(manifestInvokeEntries(namespaceKey).map((entry) => [entry.channel, entry]));
+      expect(descriptors.length).toBe(invokeEntriesByChannel.size);
+
+      descriptors.forEach((descriptor) => {
+        const invokeEntry = invokeEntriesByChannel.get(descriptor.channel);
+        expect(invokeEntry).toBeDefined();
+        expect(descriptor.argumentSchema ?? []).toEqual(invokeEntry.request ?? []);
+        expect(descriptor.dependencyTokens).toEqual(invokeEntry.handler?.dependencyTokens ?? []);
+        expect(descriptor.responseMode).toBe(invokeEntry.handler?.responseMode);
+      });
+    });
   });
 
   it('requires explicit mapError handlers for migrated descriptors', () => {
-    const allDescriptors = [
-      ...deviceHandlerDescriptors,
-      ...shellHandlerDescriptors,
-      ...updateHandlerDescriptors,
-      ...windowHandlerDescriptors,
-      ...transcodeHandlerDescriptors,
-      ...performanceHandlerDescriptors,
-      ...gpuHandlerDescriptors,
-      ...loginItemHandlerDescriptors
-    ];
-
-    expect(allDescriptors.length).toBe(15);
+    expect(allDescriptors.length).toBe(IpcContractManifest.namespaces.reduce((count, namespace) => count + namespace.invoke.length, 0));
     allDescriptors.forEach((descriptor) => {
       expect(typeof descriptor.mapError).toBe('function');
     });
@@ -163,13 +115,12 @@ describe('Main IPC handler descriptors', () => {
     const updateError = await updateHandlers[IPC_CHANNELS.UPDATE.CHECK]();
     expect(updateError).toEqual({ success: false, error: 'update failure' });
 
-    const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, {
-      transcodeService: {
-        ...mockTranscodeService,
-        transcode: vi.fn(() => Promise.reject(new Error('transcode failure')))
-      },
-      logger: mockLogger
-    });
+    const transcodeService = {
+      transcode: vi.fn(() => Promise.reject(new Error('transcode failure'))),
+      cancel: vi.fn(),
+      getStatus: vi.fn()
+    };
+    const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, { transcodeService, logger: mockLogger });
 
     const transcodeError = await transcodeHandlers[IPC_CHANNELS.TRANSCODE.START]({}, {
       inputBuffer: Buffer.from('x'),
@@ -178,6 +129,8 @@ describe('Main IPC handler descriptors', () => {
     });
 
     expect(transcodeError).toEqual({ success: false, error: 'transcode failure' });
+    expect(await transcodeHandlers[IPC_CHANNELS.TRANSCODE.START]({}, [])).toEqual({ success: false, error: 'argument options must be object' });
+    expect(transcodeService.transcode).toHaveBeenCalledTimes(1);
 
     const gpuHandlers = captureHandlers(gpuHandlerDescriptors, {
       logger: mockLogger
@@ -188,19 +141,21 @@ describe('Main IPC handler descriptors', () => {
   });
 
   it('uses window and login item boolean/bare response modes', async () => {
-    const windowHandlers = captureHandlers(windowHandlerDescriptors, {
-      windowService: {
-        ...mockWindowService,
-        isFullScreen: vi.fn(() => true)
-      },
-      logger: mockLogger
-    });
+    const windowService = {
+      setFullScreen: vi.fn(),
+      isFullScreen: vi.fn(() => true)
+    };
+    const windowHandlers = captureHandlers(windowHandlerDescriptors, { windowService, logger: mockLogger });
 
     const isFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]();
     expect(isFullscreen).toBe(true);
 
     const setFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, true);
     expect(setFullscreen).toEqual({ success: true });
+    expect(await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, 'yes')).toEqual({ success: false, error: 'argument enabled must be boolean' });
+    expect(await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]({}, true)).toBe(false);
+    expect(windowService.setFullScreen).toHaveBeenCalledTimes(1);
+    expect(windowService.isFullScreen).toHaveBeenCalledTimes(1);
 
     const loginItemHandlers = captureHandlers(loginItemHandlerDescriptors, {
       loginItemService: {

@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 class MockGpuRenderer {
   constructor() {
@@ -27,21 +28,8 @@ describe('StreamingRendererFactory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     rendererClasses = new Map([
       ['gpu', MockGpuRenderer],
@@ -49,6 +37,7 @@ describe('StreamingRendererFactory', () => {
     ]);
 
     factory = new StreamingRendererFactory(mockEventBus, mockLoggerFactory, rendererClasses);
+    mockLogger = mockLoggerFactory._getLogger('StreamingRendererFactory');
   });
 
   afterEach(() => {

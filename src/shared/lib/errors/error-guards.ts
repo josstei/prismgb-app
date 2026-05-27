@@ -13,7 +13,7 @@ export function isErrorLike(value: unknown): value is ErrorLike {
 
 export function getErrorMessage(value: unknown, fallback = 'Unknown error'): string {
   if (isErrorLike(value)) {
-    return value.message;
+    return value.message || fallback;
   }
 
   if (typeof value === 'string' && value.length > 0) {

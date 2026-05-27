@@ -1,5 +1,5 @@
 import { validateDependencies } from './validate-deps.utils.js';
-import { DisposableBag } from './disposable-bag.js';
+import { DisposableBag, type DisposableFunction, type EventTargetLike } from './disposable-bag.js';
 
 export interface LoggerLike {
   info(...args: unknown[]): void;
@@ -8,41 +8,34 @@ export interface LoggerLike {
   error(...args: unknown[]): void;
 }
 
-export type ServiceDependencies = object;
-type DisposableFunction = () => void | Promise<void>;
-
-export interface EventTargetLike {
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions | boolean
-  ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: EventListenerOptions | boolean
-  ): void;
-}
-
 export interface EventBusLike {
   publish(event: string, payload?: unknown): void;
-  subscribe(event: string, handler: (...args: unknown[]) => void): DisposableFunction;
+  publishAsync?(event: string, payload?: unknown): Promise<void>;
+  subscribe(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction;
   unsubscribe?(event: string, handler: (...args: unknown[]) => void): void;
 }
 
-interface LoggerFactoryLike {
+export interface LoggerFactoryLike {
   create(name: string): LoggerLike;
 }
 
-export class BaseService {
-  [dependencyName: string]: any;
+export type ServiceEventDescriptor<TOwner> = readonly [string, (owner: TOwner, payload?: unknown) => void | Promise<void>];
 
+function isEventBusLike(value: unknown): value is EventBusLike {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { subscribe?: unknown }).subscribe === 'function'
+  );
+}
+
+export class BaseService {
   protected logger!: LoggerLike;
-  protected readonly _serviceName: string;
   protected readonly disposables: DisposableBag;
+  private readonly _eventBus: EventBusLike | null;
 
   constructor(
-    dependencies: ServiceDependencies,
+    dependencies: object,
     requiredDeps: string[] = [],
     serviceName: string | null = null
   ) {
@@ -50,28 +43,28 @@ export class BaseService {
     validateDependencies(dependencies, requiredDeps, name);
     const dependencyMap = dependencies as Record<string, unknown>;
 
-    for (const dep of requiredDeps) {
-      this[dep] = dependencyMap[dep];
-    }
-
     const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(name);
     }
 
     this.disposables = new DisposableBag();
-    this._serviceName = name;
+    this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
   }
 
-  listen(event: string, handler: (...args: unknown[]) => void): DisposableFunction {
-    const eventBus = this.eventBus as EventBusLike | undefined;
-    if (!eventBus || typeof eventBus.subscribe !== 'function') {
+  listen(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction {
+    if (!this._eventBus) {
       this.logger?.warn(`Cannot subscribe to "${event}" - eventBus not available`);
       return () => {};
     }
 
-    const unsubscribe = eventBus.subscribe(event, handler);
+    const unsubscribe = this._eventBus.subscribe(event, handler);
     return this.disposables.add(unsubscribe);
+  }
+
+  protected listenToDescriptors<TOwner extends this>(descriptors: readonly ServiceEventDescriptor<TOwner>[]): void {
+    const owner = this as TOwner;
+    descriptors.forEach(([event, handle]) => this.listen(event, (payload) => handle(owner, payload)));
   }
 
   subscribe(

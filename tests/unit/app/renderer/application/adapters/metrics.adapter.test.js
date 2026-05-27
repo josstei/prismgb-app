@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter.ts';
-import { clearPreloadApi, setPreloadApi } from '../../../../../support/mocks/preload-api-globals.js';
+import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../../support/mocks/preload-api-globals.js';
 
 describe('MetricsAdapter', () => {
   let adapter;
@@ -19,13 +19,13 @@ describe('MetricsAdapter', () => {
 
   describe('constructor', () => {
     it('should initialize with globalThis.metricsAPI if available', () => {
-      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() });
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'));
       adapter = new MetricsAdapter();
       expect(adapter._metricsAPI).toBe(globalThis.metricsAPI);
     });
 
     it('should fallback to window.metricsAPI if globalThis is not available', () => {
-      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() }, { exposeOnGlobalThis: false });
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'), { exposeOnGlobalThis: false });
       adapter = new MetricsAdapter();
       expect(adapter._metricsAPI).toBe(window.metricsAPI);
     });
@@ -38,7 +38,7 @@ describe('MetricsAdapter', () => {
 
   describe('isAvailable', () => {
     it('should return true when metricsAPI with getProcessMetrics exists', () => {
-      setPreloadApi('metricsAPI', { getProcessMetrics: vi.fn() });
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'));
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(true);
     });
@@ -49,13 +49,13 @@ describe('MetricsAdapter', () => {
     });
 
     it('should return false when metricsAPI exists but getProcessMetrics is missing', () => {
-      setPreloadApi('metricsAPI', {});
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', { getProcessMetrics: undefined }));
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(false);
     });
 
     it('should return false when getProcessMetrics is not a function', () => {
-      setPreloadApi('metricsAPI', { getProcessMetrics: 'not-a-function' });
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', { getProcessMetrics: 'not-a-function' }));
       adapter = new MetricsAdapter();
       expect(adapter.isAvailable()).toBe(false);
     });
@@ -78,9 +78,9 @@ describe('MetricsAdapter', () => {
         ]
       };
 
-      setPreloadApi('metricsAPI', {
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      });
+      }));
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -90,9 +90,9 @@ describe('MetricsAdapter', () => {
     });
 
     it('should handle promise rejection gracefully', async () => {
-      setPreloadApi('metricsAPI', {
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockRejectedValue(new Error('IPC error'))
-      });
+      }));
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -102,9 +102,9 @@ describe('MetricsAdapter', () => {
     });
 
     it('should handle errors without message property', async () => {
-      setPreloadApi('metricsAPI', {
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockRejectedValue('string error')
-      });
+      }));
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
@@ -124,9 +124,9 @@ describe('MetricsAdapter', () => {
         ]
       };
 
-      setPreloadApi('metricsAPI', {
+      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      });
+      }));
 
       adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();

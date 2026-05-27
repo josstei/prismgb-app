@@ -11,8 +11,7 @@ export const WorkerMessageType = Object.freeze({
   DESTROY: 'destroy'
 } as const);
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export type WorkerMessageType = typeof WorkerMessageType[keyof typeof WorkerMessageType];
+export type WorkerMessageTypeValue = typeof WorkerMessageType[keyof typeof WorkerMessageType];
 
 export const WorkerResponseType = Object.freeze({
   READY: 'ready',
@@ -25,8 +24,7 @@ export const WorkerResponseType = Object.freeze({
   DESTROYED: 'destroyed'
 } as const);
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export type WorkerResponseType = typeof WorkerResponseType[keyof typeof WorkerResponseType];
+export type WorkerResponseTypeValue = typeof WorkerResponseType[keyof typeof WorkerResponseType];
 
 export type WorkerRenderAPI = Extract<RenderAPI, 'webgpu' | 'webgl2'>;
 
@@ -74,8 +72,8 @@ export type WorkerMessagePayloadMap = {
   [WorkerMessageType.DESTROY]: EmptyWorkerPayload;
 };
 
-export type WorkerMessage<K extends WorkerMessageType = WorkerMessageType> = {
-  [Type in WorkerMessageType]: WorkerMessagePayloadMap[Type] extends EmptyWorkerPayload
+export type WorkerMessage<K extends WorkerMessageTypeValue = WorkerMessageTypeValue> = {
+  [Type in WorkerMessageTypeValue]: WorkerMessagePayloadMap[Type] extends EmptyWorkerPayload
     ? {
         type: Type;
         payload?: WorkerMessagePayloadMap[Type];
@@ -121,8 +119,8 @@ export type WorkerResponsePayloadMap = {
   [WorkerResponseType.DESTROYED]: EmptyWorkerPayload;
 };
 
-export type WorkerResponse<K extends WorkerResponseType = WorkerResponseType> = {
-  [Type in WorkerResponseType]: WorkerResponsePayloadMap[Type] extends EmptyWorkerPayload
+export type WorkerResponse<K extends WorkerResponseTypeValue = WorkerResponseTypeValue> = {
+  [Type in WorkerResponseTypeValue]: WorkerResponsePayloadMap[Type] extends EmptyWorkerPayload
     ? {
         type: Type;
         payload?: WorkerResponsePayloadMap[Type];
@@ -136,24 +134,24 @@ export type WorkerResponse<K extends WorkerResponseType = WorkerResponseType> = 
 }[K];
 
 type WorkerMessageTypesWithRequiredPayload = {
-  [Type in WorkerMessageType]: WorkerMessagePayloadMap[Type] extends EmptyWorkerPayload
+  [Type in WorkerMessageTypeValue]: WorkerMessagePayloadMap[Type] extends EmptyWorkerPayload
     ? never
     : Type;
-}[WorkerMessageType];
+}[WorkerMessageTypeValue];
 
 type WorkerMessageTypesWithOptionalPayload = Exclude<
-  WorkerMessageType,
+  WorkerMessageTypeValue,
   WorkerMessageTypesWithRequiredPayload
 >;
 
 type WorkerResponseTypesWithRequiredPayload = {
-  [Type in WorkerResponseType]: WorkerResponsePayloadMap[Type] extends EmptyWorkerPayload
+  [Type in WorkerResponseTypeValue]: WorkerResponsePayloadMap[Type] extends EmptyWorkerPayload
     ? never
     : Type;
-}[WorkerResponseType];
+}[WorkerResponseTypeValue];
 
 type WorkerResponseTypesWithOptionalPayload = Exclude<
-  WorkerResponseType,
+  WorkerResponseTypeValue,
   WorkerResponseTypesWithRequiredPayload
 >;
 
@@ -165,13 +163,13 @@ export function createWorkerMessage<K extends WorkerMessageTypesWithOptionalPayl
   type: K,
   payload?: WorkerMessagePayloadMap[K]
 ): WorkerMessage<K>;
-export function createWorkerMessage<K extends WorkerMessageType>(
+export function createWorkerMessage<K extends WorkerMessageTypeValue>(
   type: K,
   payload?: WorkerMessagePayloadMap[K]
 ): WorkerMessage<K>;
 export function createWorkerMessage(
-  type: WorkerMessageType,
-  payload?: WorkerMessagePayloadMap[WorkerMessageType]
+  type: WorkerMessageTypeValue,
+  payload?: WorkerMessagePayloadMap[WorkerMessageTypeValue]
 ): WorkerMessage {
   return {
     type,
@@ -188,13 +186,13 @@ export function createWorkerResponse<K extends WorkerResponseTypesWithOptionalPa
   type: K,
   payload?: WorkerResponsePayloadMap[K]
 ): WorkerResponse<K>;
-export function createWorkerResponse<K extends WorkerResponseType>(
+export function createWorkerResponse<K extends WorkerResponseTypeValue>(
   type: K,
   payload?: WorkerResponsePayloadMap[K]
 ): WorkerResponse<K>;
 export function createWorkerResponse(
-  type: WorkerResponseType,
-  payload?: WorkerResponsePayloadMap[WorkerResponseType]
+  type: WorkerResponseTypeValue,
+  payload?: WorkerResponsePayloadMap[WorkerResponseTypeValue]
 ): WorkerResponse {
   return {
     type,
@@ -230,11 +228,11 @@ function isEmptyWorkerPayload(value: unknown): value is EmptyWorkerPayload {
 const WORKER_MESSAGE_TYPES: readonly string[] = Object.values(WorkerMessageType);
 const WORKER_RESPONSE_TYPES: readonly string[] = Object.values(WorkerResponseType);
 
-export function isWorkerMessageType(value: unknown): value is WorkerMessageType {
+export function isWorkerMessageType(value: unknown): value is WorkerMessageTypeValue {
   return isString(value) && WORKER_MESSAGE_TYPES.includes(value);
 }
 
-export function isWorkerResponseType(value: unknown): value is WorkerResponseType {
+export function isWorkerResponseType(value: unknown): value is WorkerResponseTypeValue {
   return isString(value) && WORKER_RESPONSE_TYPES.includes(value);
 }
 
@@ -280,7 +278,7 @@ export function isPresetPayload(value: unknown): value is PresetPayload {
   return isRecord(value) && isString(value.presetId) && isRecord(value.preset);
 }
 
-export function isWorkerMessagePayload<K extends WorkerMessageType>(
+export function isWorkerMessagePayload<K extends WorkerMessageTypeValue>(
   type: K,
   payload: unknown
 ): payload is WorkerMessagePayloadMap[K] {
@@ -321,7 +319,7 @@ export function isWorkerCaptureReadyPayload(value: unknown): value is WorkerCapt
   return isRecord(value) && isImageBitmapLike(value.bitmap);
 }
 
-export function isWorkerResponsePayload<K extends WorkerResponseType>(
+export function isWorkerResponsePayload<K extends WorkerResponseTypeValue>(
   type: K,
   payload: unknown
 ): payload is WorkerResponsePayloadMap[K] {

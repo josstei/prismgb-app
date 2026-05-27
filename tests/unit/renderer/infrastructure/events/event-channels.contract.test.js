@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EventChannels } from '@shared/events/event-channels.js';
+import eventManifest from '@shared/events/event.manifest.json';
 
 function flattenEventValues(node) {
   const values = [];
@@ -29,6 +30,17 @@ describe('Renderer event channel contract', () => {
   it('keeps all event channels unique', () => {
     const values = flattenEventValues(EventChannels);
     expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('derives renderer channels from event manifest scope', () => {
+    const values = flattenEventValues(EventChannels);
+    const manifestValues = eventManifest.scopes
+      .find((scope) => scope.scope === 'renderer')
+      .events
+      .map((entry) => entry.value);
+
+    expect(new Set(values)).toEqual(new Set(manifestValues));
+    expect(values).toHaveLength(manifestValues.length);
   });
 
   it('enforces event naming format', () => {

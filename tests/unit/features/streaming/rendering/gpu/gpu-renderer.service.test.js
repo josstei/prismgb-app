@@ -8,6 +8,10 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { buildUniforms } from '@prismgb/gpu';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
+import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock the capability detector
 vi.mock('@renderer/infrastructure/rendering/capability-detector.utils.ts', () => ({
@@ -72,25 +76,13 @@ describe('StreamingGpuRendererService', () => {
   let mockSettingsService;
   let mockGpuFrameBuffer;
   let mockGpuWorkerManager;
+  let createImageBitmapMock;
 
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     mockSettingsService = {
       getNumberSetting: vi.fn(() => 1.0),
@@ -126,9 +118,11 @@ describe('StreamingGpuRendererService', () => {
       gpuFrameBuffer: mockGpuFrameBuffer,
       gpuWorkerManager: mockGpuWorkerManager
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingGpuRendererService');
   });
 
   afterEach(() => {
+    createImageBitmapMock?.cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -159,6 +153,25 @@ describe('StreamingGpuRendererService', () => {
           nativeWidth: 160,
           nativeHeight: 144,
           api: 'webgl2'
+        }),
+        5000
+      );
+    });
+
+    it('should derive worker sizing from provided native resolution', async () => {
+      const canvasElement = { clientWidth: 960, clientHeight: 720, transferControlToOffscreen: vi.fn() };
+
+      const result = await service.initialize(canvasElement, { width: 320, height: 240 });
+
+      expect(result).toBe(true);
+      expect(mockGpuWorkerManager.initialize).toHaveBeenCalledWith(
+        canvasElement,
+        expect.objectContaining({
+          nativeWidth: 320,
+          nativeHeight: 240,
+          targetWidth: 960,
+          targetHeight: 720,
+          scaleFactor: 3
         }),
         5000
       );
@@ -257,7 +270,7 @@ describe('StreamingGpuRendererService', () => {
     it('should send frame via worker manager', async () => {
       mockGpuWorkerManager.isReady.mockReturnValue(true);
       const mockBitmap = { close: vi.fn() };
-      global.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap);
+      createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       service._currentPreset = { id: 'default' };
       service._currentPresetId = 'default';
@@ -271,6 +284,32 @@ describe('StreamingGpuRendererService', () => {
         [mockBitmap]
       );
       expect(service._pendingFrames).toBe(1);
+    });
+
+    it('should create frame bitmaps at the active native resolution', async () => {
+      const mockBitmap = { close: vi.fn() };
+      createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
+
+      await service.initialize(
+        { clientWidth: 960, clientHeight: 720, transferControlToOffscreen: vi.fn() },
+        { width: 320, height: 240 }
+      );
+
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._currentPreset = { id: 'default' };
+      service._currentPresetId = 'default';
+
+      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      await service.renderFrame(videoElement);
+
+      expect(createImageBitmapMock.createImageBitmap).toHaveBeenCalledWith(
+        videoElement,
+        expect.objectContaining({
+          resizeWidth: 320,
+          resizeHeight: 240,
+          resizeQuality: 'pixelated'
+        })
+      );
     });
 
     it('should track backpressure when frames skipped', async () => {
@@ -342,6 +381,25 @@ describe('StreamingGpuRendererService', () => {
           width: 640,
           height: 576,
           scaleFactor: 4
+        })
+      );
+    });
+
+    it('should calculate resize scale from active native resolution', () => {
+      mockGpuWorkerManager.isReady.mockReturnValue(true);
+      service._nativeResolution = { width: 320, height: 240 };
+
+      service.resize(960, 720);
+
+      expect(service._scaleFactor).toBe(3);
+      expect(service._targetWidth).toBe(960);
+      expect(service._targetHeight).toBe(720);
+      expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
+        'RESIZE',
+        expect.objectContaining({
+          width: 960,
+          height: 720,
+          scaleFactor: 3
         })
       );
     });
@@ -589,6 +647,9 @@ describe('StreamingGpuRendererService', () => {
       service._cachedUniforms = uniforms;
       service._cachedPresetId = 'default';
       service._currentPresetId = 'default';
+      service._cachedNativeWidth = 160;
+      service._cachedNativeHeight = 144;
+      service._nativeResolution = { width: 160, height: 144 };
       service._cachedScaleFactor = 4;
       service._scaleFactor = 4;
       service._cachedTargetWidth = 640;
@@ -611,6 +672,26 @@ describe('StreamingGpuRendererService', () => {
 
       expect(result).not.toEqual({ old: true });
       expect(service._cachedPresetId).toBe('new');
+    });
+
+    it('should rebuild uniforms with the active native resolution', () => {
+      service._nativeResolution = { width: 320, height: 240 };
+      service._targetWidth = 960;
+      service._targetHeight = 720;
+      service._scaleFactor = 3;
+      service._currentPresetId = 'default';
+      service._currentPreset = { id: 'default' };
+
+      service._getCachedUniforms();
+
+      expect(buildUniforms).toHaveBeenCalledWith(expect.objectContaining({
+        nativeWidth: 320,
+        nativeHeight: 240,
+        outputWidth: 960,
+        outputHeight: 720
+      }));
+      expect(service._cachedNativeWidth).toBe(320);
+      expect(service._cachedNativeHeight).toBe(240);
     });
   });
 

@@ -1,12 +1,14 @@
 {
   "version": 1,
-  "mode": "report-only",
+  "mode": "enforced",
   "scopes": [
     {
       "scope": "renderer",
       "events": [
         { "domain": "system", "name": "handler-error", "value": "system:handler-error", "payload": "HandlerErrorPayload" },
         { "domain": "device", "name": "status-changed", "value": "device:status-changed", "payload": "unknown" },
+        { "domain": "device", "name": "connected", "value": "device:connected", "payload": "DeviceInfoPayload" },
+        { "domain": "device", "name": "disconnected", "value": "device:disconnected", "payload": "DeviceInfoPayload | null | undefined" },
         { "domain": "device", "name": "supported-device-available", "value": "device:supported-device-available", "payload": "SupportedDeviceAvailablePayload" },
         { "domain": "device", "name": "enumeration-failed", "value": "device:enumeration-failed", "payload": "DeviceEnumerationFailedPayload" },
         { "domain": "device", "name": "disconnected-during-session", "value": "device:disconnected-during-session", "payload": "void" },
@@ -62,11 +64,11 @@
         { "domain": "ui", "name": "cinematic-toggle-requested", "value": "ui:cinematic-toggle-requested", "payload": "void" },
         { "domain": "ui", "name": "stream-start-requested", "value": "ui:stream-start-requested", "payload": "void" },
         { "domain": "ui", "name": "stream-stop-requested", "value": "ui:stream-stop-requested", "payload": "void" },
-        { "domain": "update", "name": "available", "value": "update:available", "payload": "unknown" },
-        { "domain": "update", "name": "not-available", "value": "update:not-available", "payload": "unknown" },
+        { "domain": "update", "name": "available", "value": "update:available", "payload": "UpdateInfoPayload" },
+        { "domain": "update", "name": "not-available", "value": "update:not-available", "payload": "UpdateInfoPayload" },
         { "domain": "update", "name": "progress", "value": "update:progress", "payload": "UpdateProgressPayload" },
-        { "domain": "update", "name": "downloaded", "value": "update:downloaded", "payload": "unknown" },
-        { "domain": "update", "name": "error", "value": "update:error", "payload": "unknown" },
+        { "domain": "update", "name": "downloaded", "value": "update:downloaded", "payload": "UpdateInfoPayload" },
+        { "domain": "update", "name": "error", "value": "update:error", "payload": "UpdateErrorPayload" },
         { "domain": "update", "name": "state-changed", "value": "update:state-changed", "payload": "unknown" },
         { "domain": "update", "name": "badge-show", "value": "update:badge-show", "payload": "void" },
         { "domain": "update", "name": "badge-hide", "value": "update:badge-hide", "payload": "void" },
@@ -90,4 +92,3 @@
     }
   ]
 }
-

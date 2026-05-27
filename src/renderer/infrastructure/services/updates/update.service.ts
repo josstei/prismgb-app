@@ -1,26 +1,13 @@
-/**
- * Update Service (Renderer)
- *
- * Bridges window.updateAPI (preload) with EventBus for renderer-side update handling.
- * Tracks update state and re-emits IPC events as EventBus events.
- *
- * Events emitted:
- * - 'update:available' - Update is available
- * - 'update:not-available' - No update available
- * - 'update:progress' - Download progress
- * - 'update:downloaded' - Update downloaded and ready
- * - 'update:error' - Update error occurred
- * - 'update:state-changed' - State transition
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
-  createPreloadEventBridge,
-  type PreloadEventBridge
+  createRendererPreloadEventBridge,
+  RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { UpdateState } from '@shared/config/update-state.config';
+import type { UpdateStateValue } from '@shared/config/update-state.config.js';
 import type {
+  IpcActionResult,
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateErrorPayload,
@@ -31,6 +18,13 @@ import type {
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
 
+function getFailureMessage(result: IpcActionResult, fallback: string): string | null {
+  if (result.success !== false) {
+    return null;
+  }
+  return typeof result.error === 'string' && result.error.length > 0 ? result.error : fallback;
+}
+
 interface UpdateEventBus {
   publish(event: string, payload?: unknown): void;
 }
@@ -40,23 +34,26 @@ interface UpdateServiceDependencies {
   loggerFactory: unknown;
 }
 
+type UpdateStatusSnapshot = UpdateStatusPayload & {
+  state: UpdateStateValue;
+};
+
 class UpdateService extends BaseService {
-  declare eventBus: UpdateEventBus;
-  private _state: string;
+  private readonly eventBus: UpdateEventBus;
+  private _state: UpdateStateValue;
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
-  private _eventBridge: PreloadEventBridge | null;
   private _initialized: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
 
+    this.eventBus = dependencies.eventBus;
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._eventBridge = null;
     this._initialized = false;
   }
 
@@ -66,7 +63,8 @@ class UpdateService extends BaseService {
       return;
     }
 
-    if (!window.updateAPI) {
+    const updateAPI = window.updateAPI;
+    if (!updateAPI) {
       this.logger.warn('updateAPI not available - updates disabled');
       return;
     }
@@ -75,18 +73,18 @@ class UpdateService extends BaseService {
 
     await this._loadInitialStatus();
 
-    this._eventBridge = createPreloadEventBridge({
-      api: window.updateAPI,
-      bridgeName: 'UpdateService',
+    this.disposables.replace(RendererPreloadBridgeDescriptors.updateAPI.lifecycleKey, createRendererPreloadEventBridge({
+      api: updateAPI,
+      descriptor: RendererPreloadBridgeDescriptors.updateAPI,
       logger: this.logger,
-      subscriptions: [
-        { id: 'available', subscribe: (api) => api.onAvailable((info) => this._handleAvailable(info)) },
-        { id: 'notAvailable', subscribe: (api) => api.onNotAvailable((info) => this._handleNotAvailable(info)) },
-        { id: 'progress', subscribe: (api) => api.onProgress((progress) => this._handleProgress(progress)) },
-        { id: 'downloaded', subscribe: (api) => api.onDownloaded((info) => this._handleDownloaded(info)) },
-        { id: 'error', subscribe: (api) => api.onError((error) => this._handleError(error)) }
-      ]
-    });
+      handlers: {
+        onAvailable: (info: UpdateInfoPayload) => this._handleAvailable(info),
+        onNotAvailable: (info: UpdateInfoPayload) => this._handleNotAvailable(info),
+        onProgress: (progress: UpdateProgressPayload) => this._handleProgress(progress),
+        onDownloaded: (info: UpdateInfoPayload) => this._handleDownloaded(info),
+        onError: (error: UpdateErrorPayload) => this._handleError(error)
+      }
+    }));
 
     this._initialized = true;
     this.logger.info('UpdateService initialized');
@@ -102,9 +100,9 @@ class UpdateService extends BaseService {
       const result: UpdateGetStatusResponse = await updateAPI.getStatus();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
-        this._updateInfo = result.updateInfo;
-        this._downloadProgress = result.downloadProgress;
-        this._error = result.error;
+        this._updateInfo = result.updateInfo ?? null;
+        this._downloadProgress = result.downloadProgress ?? null;
+        this._error = result.error ?? null;
       }
     } catch (error) {
       this.logger.warn('Failed to load initial update status', error);
@@ -115,36 +113,63 @@ class UpdateService extends BaseService {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
-    this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onAvailable, info);
   }
 
   _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
-    this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onNotAvailable, info);
   }
 
   _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
-    this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onProgress, progress);
   }
 
   _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
-    this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onDownloaded, info);
   }
 
   _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
-    this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onError, error);
   }
 
-  _setState(newState: string) {
+  _handleResultFailure(result: IpcActionResult, fallback: string): boolean {
+    const message = getFailureMessage(result, fallback);
+    if (!message) {
+      return false;
+    }
+    this._handleError({ message });
+    return true;
+  }
+
+  _reconcileCheckResult(result: UpdateCheckResponse): void {
+    if (this._state !== UpdateState.CHECKING) {
+      return;
+    }
+
+    if (result.updateAvailable === false) {
+      this._handleNotAvailable({
+        ...(result.updateInfo ?? {}),
+        reason: result.reason
+      });
+      return;
+    }
+
+    if (result.updateAvailable === true && result.updateInfo) {
+      this._handleAvailable(result.updateInfo);
+    }
+  }
+
+  _setState(newState: UpdateStateValue) {
     const oldState = this._state;
     this._state = newState;
     this._emitStateChanged();
@@ -155,7 +180,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, this.getStatus());
   }
 
-  getStatus(): UpdateStatusPayload {
+  getStatus(): UpdateStatusSnapshot {
     return {
       state: this._state,
       updateInfo: this._updateInfo,
@@ -182,6 +207,10 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.checkForUpdates();
+      if (this._handleResultFailure(result, 'Check for updates failed')) {
+        return result;
+      }
+      this._reconcileCheckResult(result);
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -206,6 +235,9 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.downloadUpdate();
+      if (this._handleResultFailure(result, 'Download update failed')) {
+        return result;
+      }
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -230,6 +262,9 @@ class UpdateService extends BaseService {
 
     try {
       const result = await window.updateAPI.installUpdate();
+      if (this._handleResultFailure(result, 'Install update failed')) {
+        return result;
+      }
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -239,16 +274,14 @@ class UpdateService extends BaseService {
     }
   }
 
-  dispose() {
-    this._eventBridge?.dispose();
-    this._eventBridge = null;
-
+  override dispose(): void | Promise<void> {
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
     this._initialized = false;
     this.logger.info('UpdateService disposed');
+    return super.dispose();
   }
 }
 

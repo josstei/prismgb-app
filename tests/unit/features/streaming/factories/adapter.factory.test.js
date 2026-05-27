@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
 vi.mock('@renderer/infrastructure/streaming/acquisition/constraint-builder.ts', () => {
@@ -39,21 +40,8 @@ describe('StreamingAdapterFactory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     // Adapter classes injected via DI (same pattern as container.js)
     adapterClasses = new Map([
@@ -61,6 +49,7 @@ describe('StreamingAdapterFactory', () => {
     ]);
 
     factory = new StreamingAdapterFactory(mockEventBus, mockLoggerFactory, null, adapterClasses);
+    mockLogger = mockLoggerFactory._getLogger('StreamingAdapterFactory');
   });
 
   afterEach(() => {
@@ -81,9 +70,10 @@ describe('StreamingAdapterFactory', () => {
       expect(factory.logger).toBe(mockLogger);
     });
 
-    it('should initialize adapter and metadata registries', () => {
-      expect(factory.adapterRegistry).toBeInstanceOf(Map);
-      expect(factory.metadataRegistry).toBeInstanceOf(Map);
+    it('should keep registry state behind the factory API', () => {
+      expect(factory.adapterRegistry).toBeUndefined();
+      expect(factory.metadataRegistry).toBeUndefined();
+      expect(factory.getRegisteredTypes()).toEqual([]);
     });
 
     it('should initialize as not initialized', () => {

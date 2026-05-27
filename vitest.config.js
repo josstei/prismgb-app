@@ -32,10 +32,6 @@ const baseCoverageConfig = {
     '**/index.{js,ts}',
     'scripts/**',
     'assets/**',
-    // Main process files require Electron APIs that can't be tested with vitest/happy-dom
-    'src/main/**',
-    // Preload scripts require Electron contextBridge/ipcRenderer APIs
-    'src/preload/**',
     // Auto-update feature requires Electron autoUpdater API
     'src/renderer/infrastructure/services/updates/**',
     // Web Worker files run in Worker context, not testable in vitest

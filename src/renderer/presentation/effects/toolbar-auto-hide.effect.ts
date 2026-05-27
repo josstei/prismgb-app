@@ -8,6 +8,7 @@
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 type ToolbarAutoHideOptions = {
   onActivity?: () => void;
@@ -16,8 +17,9 @@ type ToolbarAutoHideOptions = {
   onHoverEnd?: () => void;
 };
 
-export class ToolbarAutoHide {
-  _enabled: boolean;
+const TOOLBAR_PANEL_OBSERVER_LIFECYCLE = Symbol('toolbarPanelObserverLifecycle');
+
+export class ToolbarAutoHide extends PresentationComponent {
   _element: HTMLElement | null;
   _hovering: boolean;
   _activityController: ActivityAutoHideController;
@@ -31,15 +33,9 @@ export class ToolbarAutoHide {
   _boundHandleMouseEnter: () => void;
   _boundHandleMouseLeave: () => void;
 
-  /**
-   * @param {Object} options
-   * @param {Function} [options.onActivity] - Callback when toolbar activity detected
-   * @param {Function} [options.onHide] - Callback when toolbar is hidden
-   * @param {Function} [options.onHoverStart] - Callback when hovering starts
-   * @param {Function} [options.onHoverEnd] - Callback when hovering ends
-   */
   constructor(options: ToolbarAutoHideOptions = {}) {
-    this._enabled = false;
+    super();
+
     this._element = null;
     this._hovering = false;
     this._onActivity = options.onActivity || (() => {});
@@ -61,35 +57,23 @@ export class ToolbarAutoHide {
     this._panelOpenCache = false;
     this._panelCacheDirty = true;
     this._panelObserver = null;
+    this.track(this._activityController);
   }
 
-  /**
-   * Check if toolbar auto-hide is enabled
-   * @returns {boolean}
-   */
   get isEnabled() {
-    return this._enabled;
+    return this._activityController.isEnabled;
   }
 
-  /**
-   * Check if currently hovering over toolbar
-   * @returns {boolean}
-   */
   get isHovering() {
     return this._hovering;
   }
 
-  /**
-   * Enable toolbar auto-hide
-   * @param {HTMLElement} element - The toolbar element
-   */
-  enable(element) {
-    if (this._enabled) return;
+  enable(element: HTMLElement | null) {
+    if (this.isEnabled) return;
 
     this._element = element;
     if (!this._element) return;
 
-    this._enabled = true;
     this._hovering = false;
     this._panelCacheDirty = true;
 
@@ -108,19 +92,10 @@ export class ToolbarAutoHide {
    * Disable toolbar auto-hide
    */
   disable() {
-    if (!this._enabled) return;
+    if (!this.isEnabled) return;
 
-    this._enabled = false;
     this._activityController.disable();
-
-    if (this._panelObserver) {
-      try {
-        this._panelObserver.disconnect();
-      } catch {
-        // MutationObserver may not be fully supported in test environments
-      }
-      this._panelObserver = null;
-    }
+    this.cancelManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE);
 
     this.show();
     this._element = null;
@@ -129,20 +104,12 @@ export class ToolbarAutoHide {
     this._panelOpenCache = false;
   }
 
-  /**
-   * Handle mouse enter on toolbar
-   * @private
-   */
   _handleMouseEnter() {
     this._hovering = true;
     this.show();
     this._onHoverStart();
   }
 
-  /**
-   * Handle mouse leave on toolbar
-   * @private
-   */
   _handleMouseLeave() {
     this._hovering = false;
     if (!this.isPanelOpen()) {
@@ -172,21 +139,18 @@ export class ToolbarAutoHide {
     }
   }
 
-  /**
-   * Check if any toolbar panel is currently open
-   * Uses cached value when available to avoid repeated DOM queries
-   * @returns {boolean}
-   */
   isPanelOpen() {
     if (!this._element) return false;
+
+    if (!this._panelObserver) {
+      return this._readPanelOpenState();
+    }
 
     if (!this._panelCacheDirty) {
       return this._panelOpenCache;
     }
 
-    const shaderPanel = this._element.querySelector('.shader-panel.visible');
-    const openButton = this._element.querySelector('.panel-open');
-    this._panelOpenCache = !!(shaderPanel || openButton);
+    this._panelOpenCache = this._readPanelOpenState();
     this._panelCacheDirty = false;
 
     return this._panelOpenCache;
@@ -200,18 +164,12 @@ export class ToolbarAutoHide {
     this._panelCacheDirty = true;
   }
 
-  /**
-   * Observe panel-related class changes to keep cache fresh
-   * @private
-   */
   _bindPanelObserver() {
     if (!this._element || typeof globalThis.MutationObserver === 'undefined') return;
 
-    if (this._panelObserver) {
-      this._panelObserver.disconnect();
-    }
+    this.cancelManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE);
 
-    this._panelObserver = new globalThis.MutationObserver((mutations) => {
+    const observer = new globalThis.MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') {
           continue;
@@ -234,9 +192,20 @@ export class ToolbarAutoHide {
         }
       }
     });
+    this._panelObserver = observer;
+    this.replaceManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE, () => {
+      try {
+        observer.disconnect();
+      } catch {
+        // MutationObserver may not be fully supported in test environments
+      }
+      if (this._panelObserver === observer) {
+        this._panelObserver = null;
+      }
+    });
 
     try {
-      this._panelObserver.observe(this._element, {
+      observer.observe(this._element, {
         attributes: true,
         attributeFilter: ['class'],
         attributeOldValue: true,
@@ -245,14 +214,23 @@ export class ToolbarAutoHide {
     } catch {
       // MutationObserver may not be fully supported in test environments (Happy-DOM)
       // Fall back to always checking panel state on hide timer
+      this.cancelManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE);
       this._panelCacheDirty = true;
     }
+  }
+
+  _readPanelOpenState() {
+    if (!this._element) return false;
+    const shaderPanel = this._element.querySelector('.shader-panel.visible');
+    const openButton = this._element.querySelector('.panel-open');
+    return !!(shaderPanel || openButton);
   }
 
   /**
    * Dispose and cleanup resources
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.disable();
+    return super.dispose();
   }
 }

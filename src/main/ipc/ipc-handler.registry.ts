@@ -1,8 +1,3 @@
-/**
- * IPC Handler Registry
- * Centralized registration of all IPC handler modules.
- */
-
 import type { IpcMainInvokeEvent } from 'electron';
 import { app, ipcMain, shell } from 'electron';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
@@ -14,7 +9,8 @@ import type {
   TranscodeStatusResponse,
   UpdateStatusPayload
 } from '@shared/ipc/preload-api.contract.js';
-import { registerIpcHandlerDescriptors } from './ipc-handler.descriptor.js';
+import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { defineIpcHandlerRegistrationGroup, type IpcHandlerRegistrationGroup, type IpcHandlerDescriptor, registerIpcHandlerRegistrationGroups } from './ipc-handler.descriptor.js';
 import {
   deviceHandlerDescriptors,
   updateHandlerDescriptors,
@@ -59,6 +55,52 @@ interface TranscodeService {
   getStatus(): TranscodeStatusResponse;
 }
 
+const handlerRegistrationGroupDefinitions = [
+  defineIpcHandlerRegistrationGroup('deviceAPI', deviceHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('shellAPI', shellHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('updateAPI', updateHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('metricsAPI', performanceHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('windowAPI', windowHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('transcodeAPI', transcodeHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('gpuAPI', gpuHandlerDescriptors),
+  defineIpcHandlerRegistrationGroup('loginItemAPI', loginItemHandlerDescriptors)
+] as const;
+
+const handlerRegistrationGroupsByApiName = new Map(
+  handlerRegistrationGroupDefinitions.map((group) => [group.apiName, group])
+);
+
+function createIpcHandlerRegistrationGroups() {
+  const manifestInvokeNamespaces = IpcContractManifest.namespaces.filter(({ invoke }) => (invoke || []).length > 0);
+  const manifestInvokeApiNames = manifestInvokeNamespaces.map(({ apiName }) => apiName);
+  const manifestInvokeApiNameSet = new Set(manifestInvokeApiNames);
+  const extraApiNames = handlerRegistrationGroupDefinitions.map(({ apiName }) => apiName).filter((apiName) => !manifestInvokeApiNameSet.has(apiName));
+  if (extraApiNames.length > 0) throw new Error(`IPC handler descriptor API names not declared in manifest: ${extraApiNames.join(', ')}`);
+  return manifestInvokeNamespaces.map(({ apiName, invoke }) => {
+    const registrationGroup = handlerRegistrationGroupsByApiName.get(apiName);
+    if (!registrationGroup) throw new Error(`IPC handler descriptors missing for manifest API "${apiName}"`);
+    const { descriptors } = registrationGroup;
+    const manifestChannels = invoke.map(({ channel }) => channel);
+    const descriptorByChannel = new Map<string, IpcHandlerDescriptor<Record<string, unknown>>>(), duplicateChannels = [];
+    for (const descriptor of descriptors) {
+      if (descriptorByChannel.has(descriptor.channel)) duplicateChannels.push(descriptor.channel);
+      descriptorByChannel.set(descriptor.channel, descriptor);
+    }
+    const manifestChannelSet = new Set(manifestChannels);
+    const missingChannels = manifestChannels.filter((channel) => !descriptorByChannel.has(channel));
+    const extraChannels = descriptors.map(({ channel }) => channel).filter((channel) => !manifestChannelSet.has(channel));
+    const failures = [
+      missingChannels.length ? `missing channels ${missingChannels.join(', ')}` : '',
+      extraChannels.length ? `extra channels ${extraChannels.join(', ')}` : '',
+      duplicateChannels.length ? `duplicate channels ${duplicateChannels.join(', ')}` : ''
+    ].filter(Boolean);
+    if (failures.length > 0) throw new Error(`IPC handler descriptors for ${apiName} do not match manifest: ${failures.join('; ')}`);
+    return { apiName, descriptors: manifestChannels.map((channel) => descriptorByChannel.get(channel)!) } satisfies IpcHandlerRegistrationGroup;
+  });
+}
+
+const IpcHandlerRegistrationGroups = createIpcHandlerRegistrationGroups();
+
 export interface IpcHandlerRegistryDependencies {
   deviceService: DeviceService;
   updateService: UpdateService;
@@ -89,56 +131,20 @@ class IpcHandlerRegistry extends BaseService {
     this._registeredChannelsSet = new Set<string>();
   }
 
-  /**
-   * Register all IPC handlers
-   */
   registerHandlers(): void {
     this.logger.info('Registering IPC handlers');
-    const registerHandler = this._registerHandler.bind(this);
-
-    registerIpcHandlerDescriptors(registerHandler, {
+    registerIpcHandlerRegistrationGroups(this._registerHandler.bind(this), {
       deviceService: this.deviceService,
-      logger: this.logger
-    }, deviceHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
+      updateService: this.updateService,
+      windowService: this.windowService,
+      transcodeService: this.transcodeService,
+      loginItemService: this.loginItemService,
+      app,
       shell,
       logger: this.logger
-    }, shellHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      updateService: this.updateService,
-      logger: this.logger
-    }, updateHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      app,
-      logger: this.logger
-    }, performanceHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      windowService: this.windowService,
-      logger: this.logger
-    }, windowHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      transcodeService: this.transcodeService,
-      logger: this.logger
-    }, transcodeHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      logger: this.logger
-    }, gpuHandlerDescriptors);
-
-    registerIpcHandlerDescriptors(registerHandler, {
-      loginItemService: this.loginItemService,
-      logger: this.logger
-    }, loginItemHandlerDescriptors);
+    }, IpcHandlerRegistrationGroups);
   }
 
-  /**
-   * Remove all registered IPC handlers
-   */
   dispose(): void {
     this.logger.info('Removing IPC handlers');
     [...this._registeredChannels].forEach(channel => {

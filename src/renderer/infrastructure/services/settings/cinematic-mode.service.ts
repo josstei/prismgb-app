@@ -6,11 +6,27 @@
 
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+
+type CinematicModeAppStateLike = {
+  readonly isCinematicModeEnabled: boolean;
+  setCinematicMode(enabled: boolean): void;
+};
+
+type SettingsCinematicModeServiceDependencies = {
+  appState: CinematicModeAppStateLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
 
 class SettingsCinematicModeService extends BaseService {
+  private readonly appState: CinematicModeAppStateLike;
+  private readonly eventBus: EventBusLike;
 
-  constructor(dependencies) {
+  constructor(dependencies: SettingsCinematicModeServiceDependencies) {
     super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'SettingsCinematicModeService');
+    this.appState = dependencies.appState;
+    this.eventBus = dependencies.eventBus;
   }
 
   toggleCinematicMode() {

@@ -1,4 +1,29 @@
 import { BaseService } from '@shared/base/service.base.js';
+import type {
+  LoggerFactoryLike
+} from '@shared/interfaces/infrastructure.types.js';
+
+type HealthServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
+type StreamHealthyPayload = {
+  frameTime: number;
+};
+
+type StreamUnhealthyPayload = {
+  timeoutMs: number;
+  reason: 'NO_FRAMES_RECEIVED';
+};
+
+type VideoFrameCallbackTarget = HTMLVideoElement & {
+  requestVideoFrameCallback?: HTMLVideoElement['requestVideoFrameCallback'];
+  cancelVideoFrameCallback?: HTMLVideoElement['cancelVideoFrameCallback'];
+};
+
+const HEALTH_TIMEOUT_LIFECYCLE = Symbol('streamHealthTimeout');
+const HEALTH_RVFC_LIFECYCLE = Symbol('streamHealthRvfc');
+const HEALTH_TIMEUPDATE_LIFECYCLE = Symbol('streamHealthTimeupdate');
 
 /**
  * Stream Health Service
@@ -10,13 +35,18 @@ import { BaseService } from '@shared/base/service.base.js';
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
 export class StreamingHealthService extends BaseService {
-  constructor(dependencies) {
+  private _timeoutMs: number;
+  private _isMonitoring: boolean;
+  private _firstFrameReceived: boolean;
+  private _onHealthy: ((payload: StreamHealthyPayload) => void) | null;
+  private _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
+  private _videoElement: HTMLVideoElement | null;
+
+  constructor(dependencies: HealthServiceDependencies) {
     super(dependencies, ['loggerFactory'], 'StreamingHealthService');
 
     this._timeoutMs = 4000;
     this._isMonitoring = false;
-    this._timeoutHandle = null;
-    this._rvfcHandle = null;
     this._firstFrameReceived = false;
     this._onHealthy = null;
     this._onUnhealthy = null;
@@ -27,15 +57,12 @@ export class StreamingHealthService extends BaseService {
     this._handleTimeUpdate = this._handleTimeUpdate.bind(this);
   }
 
-  /**
-   * Perform a one-shot stream health check
-   * Verifies frames are being received within the timeout period.
-   * @param {HTMLVideoElement} videoElement - Video element to monitor
-   * @param {Function} onHealthy - Callback when first frame received
-   * @param {Function} onUnhealthy - Callback when timeout expires without frames
-   * @param {number} timeoutMs - Timeout in milliseconds (default 4000)
-   */
-  checkStreamHealth(videoElement, onHealthy, onUnhealthy, timeoutMs = 4000) {
+  checkStreamHealth(
+    videoElement: HTMLVideoElement,
+    onHealthy: (payload: StreamHealthyPayload) => void,
+    onUnhealthy: (payload: StreamUnhealthyPayload) => void,
+    timeoutMs = 4000
+  ): void {
     if (this._isMonitoring) {
       this.stopMonitoring();
     }
@@ -48,7 +75,11 @@ export class StreamingHealthService extends BaseService {
     this._firstFrameReceived = false;
 
     // Start timeout
-    this._timeoutHandle = setTimeout(() => this._handleTimeout(), this._timeoutMs);
+    const timeoutHandle = setTimeout(() => {
+      this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
+      this._handleTimeout();
+    }, this._timeoutMs);
+    this.disposables.replace(HEALTH_TIMEOUT_LIFECYCLE, () => clearTimeout(timeoutHandle));
 
     // Register for first frame callback
     this._registerFrameCallback();
@@ -56,29 +87,26 @@ export class StreamingHealthService extends BaseService {
     this.logger.debug(`Stream health monitoring started (timeout: ${timeoutMs}ms)`);
   }
 
-  /**
-   * Register for frame callback using RVFC or fallback
-   * @private
-   */
-  _registerFrameCallback() {
+  _registerFrameCallback(): void {
     if (!this._videoElement || !this._isMonitoring) return;
+    const videoElement = this._videoElement as VideoFrameCallbackTarget;
 
     // Prefer requestVideoFrameCallback (more accurate, synced to video frames)
-    if (this._videoElement.requestVideoFrameCallback) {
-      this._rvfcHandle = this._videoElement.requestVideoFrameCallback(this._handleFrameCallback);
+    if (typeof videoElement.requestVideoFrameCallback === 'function') {
+      const rvfcHandle = videoElement.requestVideoFrameCallback(this._handleFrameCallback);
+      this.disposables.replace(HEALTH_RVFC_LIFECYCLE, () => {
+        videoElement.cancelVideoFrameCallback?.(rvfcHandle);
+      });
     } else {
       // Fallback to timeupdate event (fires during playback)
-      this._videoElement.addEventListener('timeupdate', this._handleTimeUpdate, { once: true });
+      videoElement.addEventListener('timeupdate', this._handleTimeUpdate, { once: true });
+      this.disposables.replace(HEALTH_TIMEUPDATE_LIFECYCLE, () => {
+        videoElement.removeEventListener('timeupdate', this._handleTimeUpdate);
+      });
     }
   }
 
-  /**
-   * Handle RVFC callback - first frame received
-   * @param {number} now - Current time
-   * @param {Object} metadata - Video frame metadata
-   * @private
-   */
-  _handleFrameCallback(now, metadata) {
+  _handleFrameCallback(now: DOMHighResTimeStamp, metadata: VideoFrameCallbackMetadata): void {
     if (!this._isMonitoring || this._firstFrameReceived) return;
 
     this._firstFrameReceived = true;
@@ -92,11 +120,7 @@ export class StreamingHealthService extends BaseService {
     this._cleanup();
   }
 
-  /**
-   * Handle timeupdate fallback - indicates playback progress
-   * @private
-   */
-  _handleTimeUpdate() {
+  _handleTimeUpdate(): void {
     if (!this._isMonitoring || this._firstFrameReceived) return;
 
     this._firstFrameReceived = true;
@@ -110,11 +134,7 @@ export class StreamingHealthService extends BaseService {
     this._cleanup();
   }
 
-  /**
-   * Handle timeout - no frames received
-   * @private
-   */
-  _handleTimeout() {
+  _handleTimeout(): void {
     if (!this._isMonitoring || this._firstFrameReceived) return;
 
     this.logger.warn(`No frames received in ${this._timeoutMs}ms - device may be powered off`);
@@ -133,54 +153,27 @@ export class StreamingHealthService extends BaseService {
   /**
    * Stop monitoring
    */
-  stopMonitoring() {
+  stopMonitoring(): void {
     if (!this._isMonitoring) return;
 
     this.logger.debug('Stream health monitoring stopped');
     this._cleanup();
   }
 
-  /**
-   * Check if currently monitoring
-   * @returns {boolean}
-   */
-  isMonitoring() {
+  isMonitoring(): boolean {
     return this._isMonitoring;
   }
 
-  /**
-   * Clear the timeout
-   * @private
-   */
-  _clearTimeout() {
-    if (this._timeoutHandle !== null) {
-      clearTimeout(this._timeoutHandle);
-      this._timeoutHandle = null;
-    }
+  _clearTimeout(): void {
+    this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
   }
 
-  /**
-   * Cancel RVFC and remove event listeners
-   * @private
-   */
-  _cancelRvfc() {
-    // Cancel RVFC if active
-    if (this._rvfcHandle !== null && this._videoElement?.cancelVideoFrameCallback) {
-      this._videoElement.cancelVideoFrameCallback(this._rvfcHandle);
-      this._rvfcHandle = null;
-    }
-
-    // Remove fallback event listener
-    if (this._videoElement) {
-      this._videoElement.removeEventListener('timeupdate', this._handleTimeUpdate);
-    }
+  _cancelRvfc(): void {
+    this.disposables.cancel(HEALTH_RVFC_LIFECYCLE);
+    this.disposables.cancel(HEALTH_TIMEUPDATE_LIFECYCLE);
   }
 
-  /**
-   * Clean up all resources
-   * @private
-   */
-  _cleanup() {
+  _cleanup(): void {
     this._clearTimeout();
     this._cancelRvfc();
     this._isMonitoring = false;
@@ -192,15 +185,17 @@ export class StreamingHealthService extends BaseService {
   /**
    * Full cleanup (for orchestrator disposal)
    */
-  cleanup() {
+  cleanup(): void {
     this.stopMonitoring();
   }
 
   /**
    * Dispose the service
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.cleanup();
+    const disposed = super.dispose();
     this.logger.info('StreamingHealthService disposed');
+    return disposed;
   }
 }

@@ -10,19 +10,17 @@ import {
   MockDevice,
   MockDeviceManager,
   CHROMATIC_SPECS,
-  createMockDependencies,
-  createMockEventBus,
-  createMockAppState,
   createMockUIController,
   performanceUtils,
 } from '../mocks/index.js';
+import { createEventBus, createAppState } from '../factories/index.js';
+import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
 
 describe('Streaming Pipeline Integration', () => {
   let mockDeviceManager;
   let chromaticDevice;
-  let deps;
   let animationCache;
 
   beforeEach(() => {
@@ -31,9 +29,6 @@ describe('Streaming Pipeline Integration', () => {
     chromaticDevice = MockDeviceManager.createChromatic();
     mockDeviceManager.addDevice(chromaticDevice);
     mockDeviceManager.setupMediaDevicesMock();
-
-    // Setup mock dependencies
-    deps = createMockDependencies();
 
     // Create test animation cache
     animationCache = new AnimationCache();
@@ -66,6 +61,20 @@ describe('Streaming Pipeline Integration', () => {
       mockDeviceManager.addDevice(secondDevice);
 
       expect(changeHandler).toHaveBeenCalled();
+    });
+
+    it('should clear stale device change listeners when reinstalling mediaDevices mock', () => {
+      const staleHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', staleHandler);
+
+      mockDeviceManager.setupMediaDevicesMock();
+
+      const currentHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', currentHandler);
+      mockDeviceManager.addDevice(new MockDevice({ deviceId: 'second-device', label: 'Second Camera' }));
+
+      expect(staleHandler).not.toHaveBeenCalled();
+      expect(currentHandler).toHaveBeenCalledTimes(1);
     });
 
     it('should handle device disconnection', async () => {
@@ -155,7 +164,7 @@ describe('Streaming Pipeline Integration', () => {
   describe('Event Flow Integration', () => {
     it('should publish stream events in correct order', async () => {
       const eventOrder = [];
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
 
       eventBus.subscribe('stream:starting', () => eventOrder.push('starting'));
       eventBus.subscribe('stream:started', () => eventOrder.push('started'));
@@ -171,7 +180,7 @@ describe('Streaming Pipeline Integration', () => {
 
     it('should handle device events triggering stream events', async () => {
       const events = [];
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
 
       eventBus.subscribe('device:connected', () => events.push('device:connected'));
       eventBus.subscribe('device:disconnected', () => events.push('device:disconnected'));
@@ -192,7 +201,7 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('State Management Integration', () => {
     it('should update app state during stream lifecycle', () => {
-      const appState = createMockAppState();
+      const appState = createAppState();
 
       // Initial state
       expect(appState.isStreaming).toBe(false);
@@ -245,8 +254,8 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Full Pipeline Simulation', () => {
     it('should complete full stream start/stop cycle', async () => {
-      const eventBus = createMockEventBus();
-      const appState = createMockAppState();
+      const eventBus = createEventBus();
+      const appState = createAppState();
       const events = [];
 
       // Subscribe to all events
@@ -281,7 +290,7 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should handle visibility change during streaming', async () => {
-      const appState = createMockAppState();
+      const appState = createAppState();
       appState.setStreaming(true);
 
       // Simulate tab hidden
@@ -289,24 +298,27 @@ describe('Streaming Pipeline Integration', () => {
       expect(wasRendering).toBe(true);
 
       // Simulate visibility change
-      Object.defineProperty(document, 'hidden', { value: true, writable: true });
+      const hiddenMock = installDocumentPropertyMock('hidden', true);
+      try {
+        // Should pause rendering
+        const shouldRender = appState.isStreaming && !document.hidden;
+        expect(shouldRender).toBe(false);
 
-      // Should pause rendering
-      const shouldRender = appState.isStreaming && !document.hidden;
-      expect(shouldRender).toBe(false);
+        // Restore visibility
+        hiddenMock.setValue(false);
 
-      // Restore visibility
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
-
-      // Should resume rendering
-      const shouldRenderAgain = appState.isStreaming && !document.hidden;
-      expect(shouldRenderAgain).toBe(true);
+        // Should resume rendering
+        const shouldRenderAgain = appState.isStreaming && !document.hidden;
+        expect(shouldRenderAgain).toBe(true);
+      } finally {
+        hiddenMock.cleanup();
+      }
     });
   });
 
   describe('Error Handling Integration', () => {
     it('should handle stream acquisition failure gracefully', async () => {
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
       let errorReceived = null;
 
       eventBus.subscribe('stream:error', (error) => {
@@ -329,8 +341,8 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should clean up on unexpected disconnection', async () => {
-      const appState = createMockAppState();
-      const eventBus = createMockEventBus();
+      const appState = createAppState();
+      const eventBus = createEventBus();
 
       // Start streaming
       const stream = await chromaticDevice.getStream();

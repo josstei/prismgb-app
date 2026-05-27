@@ -5,7 +5,8 @@ import {
   getShaderDuplicateStatus
 } from '../../../scripts/codebase-size-report.js';
 import {
-  extractPreloadExposures
+  extractPreloadExposures,
+  loadManifests
 } from '../../../scripts/codebase-phase1-drift-report.js';
 
 const projectRoot = process.cwd();
@@ -24,14 +25,12 @@ function expectMissing(relativePath) {
 
 describe('Phase 3 clean-break consolidation', () => {
   it('keeps stale phase audit artifacts retired after status moved into the implementation plan', () => {
+    const implementationPlan = readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_1_AUDIT.md');
     expectMissing('CODEBASE_SIZE_REDUCTION_PHASE_0_3_AUDIT.md');
-    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).toContain(
-      'Phase 4 delivered'
-    );
-    expect(readProjectFile('CODEBASE_SIZE_REDUCTION_IMPLEMENTATION_PLAN.md')).not.toContain(
-      'Next phase when resumed: Phase 4'
-    );
+    expect(implementationPlan).toContain('Historical phase delivery summary');
+    expect(implementationPlan).toContain('Phase 4-6 added scorecard enforcement');
+    expect(implementationPlan).not.toContain('Next phase when resumed: Phase 4');
   });
 
   it('keeps renderer GPU consolidation package-owned without renderer-private engines or shader trees', () => {
@@ -71,50 +70,64 @@ describe('Phase 3 clean-break consolidation', () => {
   });
 
   it('does not expose obsolete preload listener cleanup or old public listener names', () => {
-    const exposures = extractPreloadExposures(readProjectFile('src/preload/index.js'));
+    const exposures = extractPreloadExposures(
+      readProjectFile('src/preload/index.ts'),
+      loadManifests().ipc
+    );
     const exposedMethods = Object.values(exposures).flat();
+    const manifestExposures = Object.fromEntries(loadManifests().ipc.namespaces.map((namespace) => [namespace.apiName, namespace.exposedMethods]));
 
-    expect(exposures.deviceAPI).toEqual([
-      'getDeviceStatus',
-      'onDeviceConnected',
-      'onDeviceDisconnected'
-    ]);
-    expect(exposures.windowAPI).toEqual([
-      'onEnterFullscreen',
-      'onLeaveFullscreen',
-      'onResized',
-      'setFullScreen',
-      'isFullScreen'
-    ]);
-    expect(exposures.updateAPI).toEqual([
-      'getStatus',
-      'checkForUpdates',
-      'downloadUpdate',
-      'installUpdate',
-      'onAvailable',
-      'onNotAvailable',
-      'onProgress',
-      'onDownloaded',
-      'onError'
-    ]);
-    expect(exposures.transcodeAPI).toEqual([
-      'start',
-      'cancel',
-      'getStatus',
-      'onProgress',
-      'onCompleted',
-      'onError',
-      'onCancelled'
-    ]);
+    expect(exposures.deviceAPI).toEqual(manifestExposures.deviceAPI);
+    expect(exposures.windowAPI).toEqual(manifestExposures.windowAPI);
+    expect(exposures.updateAPI).toEqual(manifestExposures.updateAPI);
+    expect(exposures.transcodeAPI).toEqual(manifestExposures.transcodeAPI);
     expect(exposedMethods).not.toContain('removeListeners');
     expect(exposedMethods).not.toContain('onConnected');
     expect(exposedMethods).not.toContain('onDisconnected');
 
-    const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.js');
+    const deviceFactorySource = readProjectFile('src/preload/apis/device.preload-api.ts');
     expect(deviceFactorySource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
+
+    const subscriptionFactorySource = readProjectFile('src/preload/subscription.factory.ts');
+    expect(subscriptionFactorySource).toContain('createSubscriptionDisposer');
+    expect(subscriptionFactorySource).toContain('registryInput instanceof Map');
+    expect(subscriptionFactorySource).not.toMatch(/return\s+registry\s*;/);
+
+    [
+      'src/preload/apis/device.preload-api.ts',
+      'src/preload/apis/window.preload-api.ts',
+      'src/preload/apis/update.preload-api.ts',
+      'src/preload/apis/transcode.preload-api.ts'
+    ].forEach((relativePath) => {
+      const source = readProjectFile(relativePath);
+      expect(source).toContain('createManifestSubscriptionMethods');
+      expect(source).not.toMatch(/\bipcRenderer\.(on|once)\s*\(/);
+      expect(source).not.toContain('disposeListenersForKey');
+      expect(source).not.toContain('listenerKeys');
+    });
 
     const deviceIpcAdapterSource = readProjectFile('src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts');
     expect(deviceIpcAdapterSource).not.toMatch(/\bonConnected\b|\bonDisconnected\b/);
+  });
+
+  it('awaits cleanup ownership instead of fire-and-forget disposal shims', () => {
+    const mainIndex = readProjectFile('src/main/index.ts');
+    const transcodeSource = readProjectFile('src/main/infrastructure/transcode/transcode.service.ts');
+    const renderLoopSource = readProjectFile('src/renderer/infrastructure/services/streaming/canvas-render-loop.service.ts');
+    const renderPipelineSource = readProjectFile('src/renderer/infrastructure/services/streaming/render-pipeline.service.ts');
+    const rendererContainerSource = readProjectFile('src/renderer/application/container.ts');
+
+    expect(mainIndex).toContain('quitCleanupPromise = application.cleanup()');
+    expect(mainIndex).not.toContain('setTimeout(() => {\n          app.quit();');
+    expect(transcodeSource).not.toContain("app.on('before-quit'");
+    expect(transcodeSource).not.toContain('_cleanupOnQuit');
+    expect(renderLoopSource).toContain('async resetCanvasState(): Promise<void>');
+    expect(renderLoopSource).toContain('await this._disposePipeline()');
+    expect(renderLoopSource).not.toContain('void this._disposePipeline()');
+    expect(renderPipelineSource).toContain('async cleanup(): Promise<void>');
+    expect(renderPipelineSource).toContain('await this._activeRenderer.cleanup()');
+    expect(rendererContainerSource).toContain('async function resetContainer(): Promise<void>');
+    expect(rendererContainerSource).toContain('await container.dispose()');
   });
 
   it('keeps test mocks project-scoped without the deleted lazy/global sandbox helpers', () => {
@@ -133,5 +146,12 @@ describe('Phase 3 clean-break consolidation', () => {
     expect(vitestConfig).toContain("name: 'gpu-package'");
     expect(vitestConfig).toContain('tests/support/mocks/node-browser-mocks.setup.js');
     expect(vitestConfig).toContain('tests/support/mocks/renderer-browser-mocks.setup.js');
+
+    const rendererBrowserSetup = readProjectFile('tests/support/mocks/renderer-browser-mocks.setup.js');
+    expect(rendererBrowserSetup).not.toMatch(/ResizeObserver|resizeObserver|stubGlobal\(['"]ResizeObserver['"]/);
+    expect(rendererBrowserSetup).not.toMatch(/installMediaMocks|mediaDevices|MediaStream/);
+
+    const testingLibrarySetup = readProjectFile('tests/testing-library.setup.js');
+    expect(testingLibrarySetup).not.toMatch(/navigator\.clipboard|clipboardData|Object\.defineProperty\(\s*navigator/);
   });
 });

@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { createLogger } from '../../../../factories/index.js';
 
 describe('Device Iterator', () => {
   let mockDevices;
@@ -14,12 +15,7 @@ describe('Device Iterator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLogger = createLogger({ name: 'DeviceIterator' });
 
     mockDevices = [
       {

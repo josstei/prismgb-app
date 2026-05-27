@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
+import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingOrchestrator', () => {
   let orchestrator;
@@ -12,6 +13,7 @@ describe('StreamingOrchestrator', () => {
   let mockStreamingViewService;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
   let mockStreamingRenderPipelineService;
   let mockCaptureGpuRecordingService;
   let mockSettingsService;
@@ -24,10 +26,12 @@ describe('StreamingOrchestrator', () => {
       isActive: vi.fn()
     };
 
-    mockAppState = {
-      isStreaming: false,
-      deviceConnected: false
-    };
+    mockAppState = createAppState({
+      initialState: {
+        isStreaming: false,
+        deviceConnected: false
+      }
+    });
 
     mockStreamingViewService = {
       attachMutedStream: vi.fn(),
@@ -35,17 +39,8 @@ describe('StreamingOrchestrator', () => {
       setMuted: vi.fn()
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     mockStreamingRenderPipelineService = {
       initialize: vi.fn(),
@@ -76,8 +71,9 @@ describe('StreamingOrchestrator', () => {
       gpuRecordingService: mockCaptureGpuRecordingService,
       settingsService: mockSettingsService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('StreamingOrchestrator');
   });
 
   afterEach(() => {
@@ -102,7 +98,7 @@ describe('StreamingOrchestrator', () => {
 
   describe('start', () => {
     it('should start streaming when device connected', async () => {
-      mockAppState.deviceConnected = true;
+      mockAppState._forceSet('deviceConnected', true);
 
       await orchestrator.start('device-1');
 
@@ -110,7 +106,7 @@ describe('StreamingOrchestrator', () => {
     });
 
     it('should warn when device not connected', async () => {
-      mockAppState.deviceConnected = false;
+      mockAppState._forceSet('deviceConnected', false);
 
       await orchestrator.start();
 
@@ -122,7 +118,7 @@ describe('StreamingOrchestrator', () => {
     });
 
     it('should handle start error', async () => {
-      mockAppState.deviceConnected = true;
+      mockAppState._forceSet('deviceConnected', true);
       const error = new Error('Start failed');
       mockStreamingService.start.mockRejectedValue(error);
 
@@ -209,7 +205,7 @@ describe('StreamingOrchestrator', () => {
     });
 
     it('should update UI', () => {
-      mockAppState.deviceConnected = true;
+      mockAppState._forceSet('deviceConnected', true);
 
       orchestrator._handleStreamStopped();
 
@@ -232,7 +228,7 @@ describe('StreamingOrchestrator', () => {
 
   describe('_handleDeviceDisconnectedDuringStream', () => {
     it('should stop streaming when streaming is active', () => {
-      mockAppState.isStreaming = true;
+      mockAppState._forceSet('isStreaming', true);
 
       orchestrator._handleDeviceDisconnectedDuringStream();
 
@@ -240,7 +236,7 @@ describe('StreamingOrchestrator', () => {
     });
 
     it('should not stop when not streaming', () => {
-      mockAppState.isStreaming = false;
+      mockAppState._forceSet('isStreaming', false);
 
       orchestrator._handleDeviceDisconnectedDuringStream();
 
@@ -264,7 +260,7 @@ describe('StreamingOrchestrator', () => {
     });
 
     it('should bypass appState.deviceConnected check (browser enumeration is source of truth)', async () => {
-      mockAppState.deviceConnected = false;
+      mockAppState._forceSet('deviceConnected', false);
       mockStreamingService.isActive.mockReturnValue(false);
       mockSettingsService.getBooleanSetting.mockReturnValue(true);
 

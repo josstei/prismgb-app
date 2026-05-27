@@ -1,18 +1,10 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import channels from '@shared/ipc/channels.json';
+import { IPC_CHANNELS as channels } from '@shared/ipc/ipc.manifest.js';
 import { DisposableBag } from '@shared/base/disposable-bag.js';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
 import { createListenerRegistry, MAX_LISTENERS_PER_CHANNEL } from '@preload/listener-registry.js';
-
-function createMockIpcRenderer() {
-  return {
-    invoke: vi.fn(),
-    on: vi.fn(),
-    removeListener: vi.fn(),
-    removeAllListeners: vi.fn()
-  };
-}
+import { createMockIpcRenderer } from '../../support/mocks/preload-api-globals.js';
 
 function createUpdateApi(ipcRenderer, registry = createListenerRegistry()) {
   return createUpdatePreloadAPI({
@@ -118,18 +110,19 @@ describe('Phase 1 typed registry foundation', () => {
     expect(registry.has('alpha')).toBe(false);
   });
 
-  it('exposes constant value and metadata maps as registry-owned views', () => {
+  it('creates constant values without exposing mutable registry internals', () => {
     const registry = new TypedRegistryFactory();
     const value = { type: 'constant' };
 
     registry.registerValue('constant', value, { enabled: true });
 
-    expect(registry.getValueMap().get('constant')).toBe(value);
     expect(registry.create('constant')).toBe(value);
-    expect(registry.getMetadataMap().get('constant')).toEqual({ enabled: true });
+    expect(registry.getMetadata('constant')).toEqual({ enabled: true });
+    expect(registry).not.toHaveProperty('getValueMap');
+    expect(registry).not.toHaveProperty('getMetadataMap');
 
     registry.unregister('constant');
-    expect(registry.getValueMap().has('constant')).toBe(false);
-    expect(registry.getMetadataMap().has('constant')).toBe(false);
+    expect(registry.has('constant')).toBe(false);
+    expect(registry.getMetadata('constant')).toBeUndefined();
   });
 });

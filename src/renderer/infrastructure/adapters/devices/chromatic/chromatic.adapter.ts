@@ -14,8 +14,9 @@ interface IpcClientLike {
 }
 
 interface ChromaticConfigLike {
-  rendering: { canvasScale: number; [key: string]: unknown };
-  display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: unknown[] };
+  name?: string;
+  rendering: { canvasScale: number; recommendedScales?: readonly number[]; [key: string]: unknown };
+  display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: ReadonlyArray<unknown> };
   media?: ChromaticMediaConfig;
 }
 
@@ -45,6 +46,18 @@ interface BrowserMediaServiceLike {
   enumerateDevices(): Promise<MediaDeviceInfo[]>;
 }
 
+type BaseDeviceAdapterDependencyBag = ConstructorParameters<typeof BaseDeviceAdapter>[0];
+
+type ChromaticAdapterDependencies = BaseDeviceAdapterDependencyBag & {
+  ipcClient?: IpcClientLike;
+  config?: ChromaticConfigLike;
+  mediaConfig?: ChromaticMediaConfig;
+  helpers?: ChromaticHelpersLike;
+  browserMediaService?: BrowserMediaServiceLike | null;
+  acquisitionCoordinator?: StreamAcquisitionOrchestrator;
+  fallbackStrategy?: DeviceAwareFallbackStrategy;
+};
+
 export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   ipcClient: IpcClientLike;
   deviceProfile: ChromaticDeviceProfile | null;
@@ -55,11 +68,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   canvasScale: number;
   acquisitionCoordinator: StreamAcquisitionOrchestrator;
 
-  /**
-   * Create Chromatic adapter
-   * @param {Object} dependencies - Injected dependencies
-   */
-  constructor(dependencies) {
+  constructor(dependencies: ChromaticAdapterDependencies) {
     super(dependencies);
 
     if (!dependencies.ipcClient) {
@@ -70,7 +79,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     this.deviceProfile = null;
 
     // Allow config injection for testing, fall back to defaults
-    this.config = dependencies.config || defaultConfig;
+    this.config = (dependencies.config || defaultConfig) as ChromaticConfigLike;
     this.mediaConfig = dependencies.mediaConfig || defaultMediaConfig;
     this.helpers = dependencies.helpers || defaultHelpers;
     this.browserMediaService = dependencies.browserMediaService || null;
@@ -97,7 +106,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Initialize adapter with device info
    */
-  async initialize(deviceInfo) {
+  async initialize(deviceInfo: MediaDeviceInfo): Promise<void> {
     await super.initialize(deviceInfo);
 
     // Load device profile from main process
@@ -110,14 +119,11 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     };
   }
 
-  /**
-   * Get media stream from Chromatic device
-   * @param {Object} device - Device info
-   */
-  async getStream(device) {
+  async getStream(options: Record<string, unknown> = {}): Promise<MediaStream> {
+    const device = options as Partial<MediaDeviceInfo>;
     // Handle initialization if needed
     if (device && device.deviceId && !this.deviceInfo) {
-      await this.initialize(device);
+      await this.initialize(device as MediaDeviceInfo);
     }
 
     if (!this.deviceInfo || !this.deviceInfo.deviceId) {
@@ -133,7 +139,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
     const context = new AcquisitionContext({
       deviceId: this.deviceInfo.deviceId,
       groupId: this.deviceInfo.groupId || null,
-      profile: this.profile
+      profile: this.profile ?? undefined
     });
 
     const audioDeviceId = await this._resolveAudioDeviceId();
@@ -191,7 +197,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
 
     // Use static config - profile is defined in chromatic.config.js
     this.deviceProfile = {
-      name: 'Chromatic',
+      name: this.config.name || defaultConfig.name,
       rendering: this.config.rendering,
       media: this.config.media || this.mediaConfig,
       display: this.config.display
@@ -209,9 +215,10 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
   /**
    * Set canvas scale
    */
-  setCanvasScale(scale) {
-    if (typeof scale !== 'number' || scale < 1 || scale > 8) {
-      throw new Error('DeviceChromaticAdapter.setCanvasScale: Scale must be a number between 1 and 8');
+  setCanvasScale(scale: number) {
+    const { min, max } = this._getScaleBounds();
+    if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < min || scale > max) {
+      throw new Error(`DeviceChromaticAdapter.setCanvasScale: Scale must be a number between ${min} and ${max}`);
     }
 
     this.canvasScale = scale;
@@ -223,6 +230,12 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
    */
   getConfig() {
     return this.config;
+  }
+
+  private _getScaleBounds(): { min: number; max: number } {
+    const configuredScales = this.config.rendering.recommendedScales?.filter((scale) => Number.isFinite(scale)) || [];
+    const scales = configuredScales.length > 0 ? configuredScales : defaultConfig.rendering.recommendedScales;
+    return { min: Math.min(...scales), max: Math.max(...scales) };
   }
 
   async _resolveAudioDeviceId() {

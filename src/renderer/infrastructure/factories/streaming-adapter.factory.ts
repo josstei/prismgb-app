@@ -14,7 +14,7 @@ import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisitio
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
 import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
 import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
+import { DeviceRegistry, type DeviceRegistryEntry } from '@shared/features/devices/device.registry.js';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
@@ -48,8 +48,6 @@ export class StreamingAdapterFactory {
   logger: LoggerLike;
   _adapterClasses: Map<string, AdapterConstructor>;
   commonDependencies: DependencyBag;
-  adapterRegistry: Map<string, AdapterConstructor>;
-  metadataRegistry: Map<string, AdapterMetadata>;
   _adapterRegistry: TypedRegistryFactory<AdapterConstructor, AdapterMetadata>;
   initialized: boolean;
 
@@ -82,8 +80,6 @@ export class StreamingAdapterFactory {
     };
 
     this._adapterRegistry = new TypedRegistryFactory();
-    this.adapterRegistry = this._adapterRegistry.getValueMap();
-    this.metadataRegistry = this._adapterRegistry.getMetadataMap();
 
     // Track initialization
     this.initialized = false;
@@ -91,7 +87,7 @@ export class StreamingAdapterFactory {
 
   /**
    * Initialize adapter registry
-   * Registers adapters from DEVICE_REGISTRY using classes injected via DI
+   * Registers adapters from DeviceRegistry using classes injected via DI
    */
   initialize() {
     if (this.initialized) {
@@ -116,7 +112,7 @@ export class StreamingAdapterFactory {
   }
 
   /**
-   * Register built-in adapters from DEVICE_REGISTRY
+   * Register built-in adapters from DeviceRegistry
    * Uses shared iterator for consistent filtering
    * @private
    * @returns {number} Number of adapters registered
@@ -125,8 +121,8 @@ export class StreamingAdapterFactory {
     let registeredCount = 0;
 
     // Collect all devices with adapter modules
-    const devices: Array<{ id: string; name: string }> = [];
-    forEachDeviceWithModule('adapterModule', (device: { id: string; name: string }) => {
+    const devices: DeviceRegistryEntry[] = [];
+    forEachDeviceWithModule('adapterModule', (device) => {
       devices.push(device);
     }, { logger: this.logger });
 

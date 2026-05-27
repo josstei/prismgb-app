@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 // Mock DeviceRegistry
 vi.mock('@shared/features/devices/device.registry.js', () => ({
@@ -76,16 +77,7 @@ describe('DeviceService (Main Process)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    mockLoggerFactory = {
-      create: vi.fn(() => mockLogger)
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockProfileRegistry = {
       registerProfile: vi.fn(),
@@ -93,10 +85,7 @@ describe('DeviceService (Main Process)', () => {
       detectDevice: vi.fn(() => ({ matched: false, profile: null }))
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
 
     // Default profile classes injected via DI
     mockProfileClasses = new Map([
@@ -110,58 +99,58 @@ describe('DeviceService (Main Process)', () => {
     });
   });
 
+  function createDeviceService(profileClasses = mockProfileClasses) {
+    const instance = new DeviceService({
+      profileRegistry: mockProfileRegistry,
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory
+    }, profileClasses);
+    mockLogger = mockLoggerFactory._getLogger('DeviceService');
+    return instance;
+  }
+
+  function createDeviceServiceWithoutProfileClasses() {
+    const instance = new DeviceService({
+      profileRegistry: mockProfileRegistry,
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory
+    });
+    mockLogger = mockLoggerFactory._getLogger('DeviceService');
+    return instance;
+  }
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   describe('Constructor', () => {
     it('should accept profileClasses parameter', () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
 
       expect(deviceService._profileClasses).toBe(mockProfileClasses);
     });
 
     it('should default to empty Map if profileClasses not provided', () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      deviceService = createDeviceServiceWithoutProfileClasses();
 
       expect(deviceService._profileClasses).toBeInstanceOf(Map);
       expect(deviceService._profileClasses.size).toBe(0);
     });
 
     it('should store profile registry dependency', () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
 
       expect(deviceService.profileRegistry).toBe(mockProfileRegistry);
     });
 
     it('should create logger with correct name', () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
 
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('DeviceService');
     });
 
     it('should initialize state properties', () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
 
       expect(deviceService.isDeviceConnected).toBe(false);
       expect(deviceService.connectedDeviceInfo).toBeNull();
@@ -172,11 +161,7 @@ describe('DeviceService (Main Process)', () => {
 
   describe('initialize', () => {
     beforeEach(() => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
     });
 
     it('should register profile classes with DeviceRegistry', async () => {
@@ -282,11 +267,7 @@ describe('DeviceService (Main Process)', () => {
 
   describe('DI pattern consistency', () => {
     it('should work with empty profileClasses map', async () => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, new Map());
+      deviceService = createDeviceService(new Map());
 
       // Mock no devices with profileModule
       forEachDeviceWithModule.mockImplementation(() => {});
@@ -320,11 +301,7 @@ describe('DeviceService (Main Process)', () => {
         return multipleClasses.get(deviceId) || null;
       });
 
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, multipleClasses);
+      deviceService = createDeviceService(multipleClasses);
 
       await deviceService.initialize();
 
@@ -337,11 +314,7 @@ describe('DeviceService (Main Process)', () => {
 
   describe('getStatus', () => {
     beforeEach(() => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
     });
 
     it('should return connected status', () => {
@@ -368,11 +341,7 @@ describe('DeviceService (Main Process)', () => {
 
   describe('isConnected', () => {
     beforeEach(() => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
     });
 
     it('should return true when device is connected', () => {
@@ -388,11 +357,7 @@ describe('DeviceService (Main Process)', () => {
 
   describe('getConnectedDevice', () => {
     beforeEach(() => {
-      deviceService = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      }, mockProfileClasses);
+      deviceService = createDeviceService();
     });
 
     it('should return connected device info', () => {

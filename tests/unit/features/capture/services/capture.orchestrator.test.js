@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -12,11 +13,12 @@ describe('CaptureOrchestrator', () => {
   let mockStreamingViewService;
   let mockGpuRendererService;
   let mockCaptureGpuRecordingService;
-  let mockStreamingCanvasRenderer;
+  let mockCanvasRenderLoopService;
   let mockTranscodeService;
   let mockCaptureSaveService;
   let mockEventBus;
   let mockLogger;
+  let mockLoggerFactory;
 
   beforeEach(() => {
     mockCaptureService = {
@@ -63,7 +65,7 @@ describe('CaptureOrchestrator', () => {
       stop: vi.fn()
     };
 
-    mockStreamingCanvasRenderer = {
+    mockCanvasRenderLoopService = {
       isActive: vi.fn(() => false)
     };
 
@@ -75,35 +77,8 @@ describe('CaptureOrchestrator', () => {
       saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false })
     };
 
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn(() => vi.fn())
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
-
-    global.window = {
-      URL: {
-        createObjectURL: vi.fn(() => 'blob:url'),
-        revokeObjectURL: vi.fn()
-      }
-    };
-    global.document = {
-      createElement: vi.fn(() => ({
-        href: '',
-        download: '',
-        click: vi.fn()
-      })),
-      body: {
-        appendChild: vi.fn(),
-        removeChild: vi.fn()
-      }
-    };
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
 
     orchestrator = new CaptureOrchestrator({
       captureService: mockCaptureService,
@@ -111,12 +86,13 @@ describe('CaptureOrchestrator', () => {
       streamViewService: mockStreamingViewService,
       gpuRendererService: mockGpuRendererService,
       gpuRecordingService: mockCaptureGpuRecordingService,
-      canvasRenderer: mockStreamingCanvasRenderer,
+      canvasRenderLoopService: mockCanvasRenderLoopService,
       transcodeService: mockTranscodeService,
       captureSaveService: mockCaptureSaveService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) }
+      loggerFactory: mockLoggerFactory
     });
+    mockLogger = mockLoggerFactory._getLogger('CaptureOrchestrator');
   });
 
   describe('Constructor', () => {
@@ -148,7 +124,7 @@ describe('CaptureOrchestrator', () => {
     it('should capture from video element when no rendering pipeline active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
 
       await orchestrator.takeScreenshot();
 
@@ -170,7 +146,7 @@ describe('CaptureOrchestrator', () => {
     it('should capture from canvas when Canvas2D rendering is active', async () => {
       mockAppState.isStreaming = true;
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
 
       await orchestrator.takeScreenshot();
 
@@ -366,7 +342,7 @@ describe('CaptureOrchestrator', () => {
 
     it('should return canvas when Canvas2D is active but GPU is not', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(true);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
 
       const source = await orchestrator._getCaptureSource();
 
@@ -376,7 +352,7 @@ describe('CaptureOrchestrator', () => {
 
     it('should return video element when no rendering pipeline is active', async () => {
       mockGpuRendererService.isActive.mockReturnValue(false);
-      mockStreamingCanvasRenderer.isActive.mockReturnValue(false);
+      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
 
       const source = await orchestrator._getCaptureSource();
 

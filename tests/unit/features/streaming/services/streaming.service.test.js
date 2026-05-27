@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
+import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('StreamingService', () => {
   let service;
@@ -13,13 +14,11 @@ describe('StreamingService', () => {
   let mockAdapterRegistry;
   let mockIpcClient;
   let mockLogger;
+  let mockLoggerFactory;
   let mockAdapter;
 
   beforeEach(() => {
-    mockEventBus = {
-      publish: vi.fn(),
-      subscribe: vi.fn()
-    };
+    mockEventBus = createEventBus();
 
     mockDeviceService = {
       getRegisteredStoredDeviceIds: vi.fn(),
@@ -42,22 +41,18 @@ describe('StreamingService', () => {
       getDeviceStatus: vi.fn()
     };
 
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn()
-    };
+    mockLoggerFactory = createLoggerFactory();
 
     mockDependencies = {
       deviceService: mockDeviceService,
       eventBus: mockEventBus,
-      loggerFactory: { create: vi.fn(() => mockLogger) },
+      loggerFactory: mockLoggerFactory,
       adapterFactory: mockAdapterRegistry,
       ipcClient: mockIpcClient
     };
 
     service = new StreamingService(mockDependencies);
+    mockLogger = mockLoggerFactory._getLogger('StreamingService');
   });
 
   describe('Constructor', () => {
@@ -129,6 +124,38 @@ describe('StreamingService', () => {
       }));
     });
 
+    it('should preserve null audio settings in stream:started event payload', async () => {
+      await service.start('device-1');
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:started', expect.objectContaining({
+        settings: {
+          video: { width: 160 },
+          audio: null,
+          hasAudio: false
+        }
+      }));
+    });
+
+    it('should preserve null video settings in stream:started event payload', async () => {
+      const audioSettings = { sampleRate: 48000 };
+      const noVideoStream = {
+        id: 'stream-audio-only',
+        getVideoTracks: vi.fn(() => []),
+        getAudioTracks: vi.fn(() => [{ getSettings: vi.fn(() => audioSettings) }])
+      };
+      mockAdapter.getStream.mockResolvedValue(noVideoStream);
+
+      await service.start('device-1');
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:started', expect.objectContaining({
+        settings: {
+          video: null,
+          audio: audioSettings,
+          hasAudio: true
+        }
+      }));
+    });
+
     it('should throw when device not found', async () => {
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
 
@@ -157,6 +184,20 @@ describe('StreamingService', () => {
         operation: 'start',
         deviceId: 'device-1',
         message: 'Stream failed'
+      });
+    });
+
+    it('should publish fallback message for error objects with empty messages', async () => {
+      const error = new Error('');
+      mockAdapter.getStream.mockRejectedValue(error);
+
+      await expect(service.start('device-1')).rejects.toThrow();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:error', {
+        error,
+        operation: 'start',
+        deviceId: 'device-1',
+        message: 'Unknown error'
       });
     });
   });

@@ -39,13 +39,6 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
   profile: MediaProfile | null;
   currentStream: MediaStream | null;
 
-  /**
-   * @param {Object} [dependencies={}] - Injected dependencies
-   * @param {EventBus} [dependencies.eventBus] - Event publisher
-   * @param {Object} [dependencies.logger] - Logger instance
-   * @param {ConstraintBuilder} [dependencies.constraintBuilder] - Builds media constraints
-   * @param {BaseStreamLifecycle} [dependencies.streamLifecycle] - Stream lifecycle manager
-   */
   constructor(dependencies: BaseDeviceAdapterDependencies = {}) {
     super();
 
@@ -59,23 +52,11 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
     this.currentStream = null;
   }
 
-  /**
-   * Initialize adapter with device info
-   * @param {MediaDeviceInfo} deviceInfo - Device information from enumeration
-   * @returns {Promise<void>}
-   */
-  async initialize(deviceInfo) {
+  async initialize(deviceInfo: MediaDeviceInfo): Promise<void> {
     this.deviceInfo = deviceInfo;
     this._log('info', 'Adapter initialized for device:', deviceInfo);
   }
 
-  /**
-   * Get media stream from device
-   * Subclasses should override for device-specific acquisition.
-   * @param {Object} [options={}] - Stream acquisition options
-   * @returns {Promise<MediaStream>} Acquired media stream
-   * @throws {Error} If adapter not properly initialized
-   */
   async getStream(options = {}) {
     if (!this.profile) {
       throw new Error('Adapter not properly initialized - missing profile');
@@ -98,12 +79,7 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
     return this.currentStream;
   }
 
-  /**
-   * Release a media stream and stop all tracks
-   * @param {MediaStream} stream - Stream to release
-   * @returns {Promise<void>}
-   */
-  async releaseStream(stream) {
+  async releaseStream(stream: MediaStream): Promise<void> {
     if (stream) {
       await this.streamLifecycle?.releaseStream(stream);
     }
@@ -112,10 +88,6 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
     }
   }
 
-  /**
-   * Get device capabilities
-   * @returns {Object} Capabilities object with hasAudio, hasVideo, supportsFallback
-   */
   getCapabilities() {
     return {
       hasAudio: !!this.profile?.audio,
@@ -124,18 +96,10 @@ export class BaseDeviceAdapter extends IDeviceAdapter {
     };
   }
 
-  /**
-   * Get device profile configuration
-   * @returns {DeviceProfile|null} Device profile or null
-   */
   getProfile() {
     return this.profile;
   }
 
-  /**
-   * Cleanup adapter and release current stream
-   * @returns {Promise<void>}
-   */
   async cleanup() {
     if (this.currentStream) {
       await this.releaseStream(this.currentStream);
