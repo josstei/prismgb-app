@@ -6,7 +6,6 @@ export interface PerformanceCacheOptions {
 interface CacheEntry<T> {
   value: T;
   expires: number | null;
-  created: number;
 }
 
 interface AnimationEntry {
@@ -14,9 +13,6 @@ interface AnimationEntry {
   startTime: number;
 }
 
-/**
- * LRU cache with TTL support for expensive computations and reusable data.
- */
 export class PerformanceCache<T = unknown> {
   #cache: Map<string, CacheEntry<T>>;
   #maxSize: number;
@@ -73,8 +69,7 @@ export class PerformanceCache<T = unknown> {
 
     this.#cache.set(key, {
       value,
-      expires: ttl > 0 ? Date.now() + ttl : null,
-      created: Date.now()
+      expires: ttl > 0 ? Date.now() + ttl : null
     });
   }
 
@@ -145,12 +140,6 @@ export class PerformanceCache<T = unknown> {
   }
 }
 
-/**
- * Cache for animation states and reusable animation data.
- *
- * This class is designed for main-thread use only because it requires
- * requestAnimationFrame/cancelAnimationFrame APIs.
- */
 export class AnimationCache extends PerformanceCache {
   #activeAnimations: Map<string, AnimationEntry>;
   #cancelAnimationFrame: (handle: number) => void;
@@ -190,6 +179,11 @@ export class AnimationCache extends PerformanceCache {
       this.#cancelAnimationFrame(animation.frameId);
     }
     this.#activeAnimations.clear();
+  }
+
+  dispose(): void {
+    this.cancelAllAnimations();
+    this.clear();
   }
 
   get activeCount(): number {

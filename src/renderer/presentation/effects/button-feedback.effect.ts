@@ -73,8 +73,9 @@ export class ButtonFeedback extends PresentationComponent {
     }
   }
 
-  override dispose() {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.elements = null;
+    return disposed;
   }
 }

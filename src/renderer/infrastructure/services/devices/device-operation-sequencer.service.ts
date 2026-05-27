@@ -1,12 +1,3 @@
-/**
- * Device Operation Sequencer Service
- *
- * Ensures device operations (status updates, enumeration) are executed
- * sequentially to prevent race conditions from rapid IPC events.
- *
- * Follows the operation promise pattern established in StreamingService.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
@@ -77,7 +68,6 @@ export class DeviceOperationSequencerService extends BaseService {
     this._queueDepth++;
     this.logger.debug(`Queuing ${type} operation (queue depth: ${this._queueDepth})`);
 
-    // Chain onto existing queue
     this._operationQueue = this._operationQueue
       .then(async () => {
         this._currentOperation = type;
@@ -88,7 +78,6 @@ export class DeviceOperationSequencerService extends BaseService {
           this.logger.debug(`Completed ${type} operation`);
         } catch (error) {
           this.logger.error(`Error in ${type} operation:`, error);
-          // Don't rethrow - allow queue to continue processing
         } finally {
           this._currentOperation = null;
           this._queueDepth--;
@@ -100,5 +89,10 @@ export class DeviceOperationSequencerService extends BaseService {
 
   async flush() {
     await this._operationQueue;
+  }
+
+  override async dispose(): Promise<void> {
+    await this.flush();
+    await super.dispose();
   }
 }

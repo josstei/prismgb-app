@@ -1,9 +1,3 @@
-/**
- * Canvas Lifecycle Service
- *
- * Owns canvas creation and size management for rendering.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
@@ -87,10 +81,6 @@ class StreamingCanvasLifecycleService extends BaseService {
     this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer);
   }
 
-  /**
-   * Handle fullscreen state change - immediately resize canvas without debounce delay.
-   * This prevents the visual glitch where canvas appears mispositioned during fullscreen transitions.
-   */
   handleFullscreenChange(): void {
     this.viewportService.forceResize();
   }
@@ -161,6 +151,11 @@ class StreamingCanvasLifecycleService extends BaseService {
 
   cleanup(): void {
     this.viewportService.cleanup();
+  }
+
+  override dispose(): void | Promise<void> {
+    this.cleanup();
+    return super.dispose();
   }
 }
 

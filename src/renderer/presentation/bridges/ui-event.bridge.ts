@@ -1,7 +1,6 @@
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type {
-  EventPayloadMap,
   TypedEventBusLike,
   UiButtonFeedbackPayload
 } from '@shared/events/event-payloads.js';
@@ -48,6 +47,27 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 }
 
 export class UIEventBridge extends BaseService {
+  private static readonly eventDescriptors = [
+    [EventChannels.UI.STATUS_MESSAGE, (bridge, data) => bridge._handleStatusMessage(data)],
+    [EventChannels.UI.DEVICE_STATUS, (bridge, data) => bridge._handleDeviceStatus(data)],
+    [EventChannels.UI.OVERLAY_MESSAGE, (bridge, data) => bridge._handleOverlayMessage(data)],
+    [EventChannels.UI.OVERLAY_VISIBLE, (bridge, data) => bridge._handleOverlayVisible(data)],
+    [EventChannels.UI.OVERLAY_ERROR, (bridge, data) => bridge._handleOverlayError(data)],
+    [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
+    [EventChannels.UI.STREAM_INFO, (bridge, data) => bridge._handleStreamInfo(data)],
+    [EventChannels.UI.SHUTTER_FLASH, (bridge) => bridge._handleShutterFlash()],
+    [EventChannels.UI.RECORD_BUTTON_POP, (bridge) => bridge._handleRecordButtonPop()],
+    [EventChannels.UI.RECORD_BUTTON_PRESS, (bridge) => bridge._handleRecordButtonPress()],
+    [EventChannels.UI.BUTTON_FEEDBACK, (bridge, data) => bridge._handleButtonFeedback(data)],
+    [EventChannels.UI.RECORDING_STATE, (bridge, data) => bridge._handleRecordingState(data)],
+    [EventChannels.UI.RECORD_BUTTON_DISABLED, (bridge) => bridge._handleRecordButtonDisabled()],
+    [EventChannels.UI.RECORD_BUTTON_ENABLED, (bridge) => bridge._handleRecordButtonEnabled()],
+    [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (bridge, data) => bridge._handleCinematicMode(data)],
+    [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (bridge, enabled) =>
+      bridge._handleMinimalistFullscreenChanged(enabled)],
+    [EventChannels.UI.FULLSCREEN_STATE, (bridge, data) => bridge._handleFullscreenState(data)]
+  ] satisfies readonly ServiceEventDescriptor<UIEventBridge>[];
+
   protected readonly eventBus: TypedEventBusLike;
   private readonly uiController: UiControllerLike;
   private readonly presentationModeService: PresentationModeServiceLike;
@@ -61,35 +81,8 @@ export class UIEventBridge extends BaseService {
   }
 
   initialize(): void {
-    this._subscribeToEvents();
+    this.listenToDescriptors(UIEventBridge.eventDescriptors);
     this.logger.info('UIEventBridge initialized');
-  }
-
-  private _subscribeToEvents(): void {
-    const eventHandlers: Array<[keyof EventPayloadMap, (data?: unknown) => void]> = [
-      [EventChannels.UI.STATUS_MESSAGE, (data) => this._handleStatusMessage(data)],
-      [EventChannels.UI.DEVICE_STATUS, (data) => this._handleDeviceStatus(data)],
-      [EventChannels.UI.OVERLAY_MESSAGE, (data) => this._handleOverlayMessage(data)],
-      [EventChannels.UI.OVERLAY_VISIBLE, (data) => this._handleOverlayVisible(data)],
-      [EventChannels.UI.OVERLAY_ERROR, (data) => this._handleOverlayError(data)],
-      [EventChannels.UI.STREAMING_MODE, (data) => this._handleStreamingMode(data)],
-      [EventChannels.UI.STREAM_INFO, (data) => this._handleStreamInfo(data)],
-      [EventChannels.UI.SHUTTER_FLASH, () => this._handleShutterFlash()],
-      [EventChannels.UI.RECORD_BUTTON_POP, () => this._handleRecordButtonPop()],
-      [EventChannels.UI.RECORD_BUTTON_PRESS, () => this._handleRecordButtonPress()],
-      [EventChannels.UI.BUTTON_FEEDBACK, (data) => this._handleButtonFeedback(data)],
-      [EventChannels.UI.RECORDING_STATE, (data) => this._handleRecordingState(data)],
-      [EventChannels.UI.RECORD_BUTTON_DISABLED, () => this._handleRecordButtonDisabled()],
-      [EventChannels.UI.RECORD_BUTTON_ENABLED, () => this._handleRecordButtonEnabled()],
-      [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (data) => this._handleCinematicMode(data)],
-      [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (enabled) =>
-        this._handleMinimalistFullscreenChanged(enabled)],
-      [EventChannels.UI.FULLSCREEN_STATE, (data) => this._handleFullscreenState(data)]
-    ];
-
-    for (const [event, handler] of eventHandlers) {
-      this.listen(event, handler);
-    }
   }
 
   private _handleStatusMessage(data: unknown): void {

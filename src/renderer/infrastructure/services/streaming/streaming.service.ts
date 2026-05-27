@@ -32,6 +32,8 @@ const StreamState = {
   ERROR: 'error'
 };
 
+const TRACK_ENDED_LIFECYCLE = Symbol('streamTrackEnded');
+
 type StreamLifecycleState = (typeof StreamState)[keyof typeof StreamState];
 
 type StreamSettingsSnapshot = {
@@ -106,7 +108,6 @@ export class StreamingService extends BaseService {
   currentAdapter: StreamingAdapterLike | null;
   currentDevice: MediaDeviceInfo | null;
   currentCapabilities: StreamingCapabilities | null;
-  private _trackEndedHandler: (() => void) | null;
 
   constructor(dependencies: StreamingServiceDependencies) {
     super(dependencies, ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'], 'StreamingService');
@@ -124,9 +125,6 @@ export class StreamingService extends BaseService {
     this.currentAdapter = null;
     this.currentDevice = null;
     this.currentCapabilities = null;
-
-    // Track event handlers for cleanup
-    this._trackEndedHandler = null;
   }
 
   get isStreaming(): boolean {
@@ -293,8 +291,7 @@ export class StreamingService extends BaseService {
     this.currentDevice = null;
     this.currentCapabilities = null;
 
-    // Emit event
-    this.eventBus.publish(EventChannels.STREAM.STOPPED);
+    await this.eventBus.publishAsync(EventChannels.STREAM.STOPPED);
 
     this.logger.info('Stream stopped');
   }
@@ -304,9 +301,10 @@ export class StreamingService extends BaseService {
 
     const videoTrack = this.currentStream.getVideoTracks()[0];
     if (!videoTrack) return;
+    this.disposables.cancel(TRACK_ENDED_LIFECYCLE);
 
     // Create handler that stops the stream when track ends
-    this._trackEndedHandler = () => {
+    const trackEndedHandler = () => {
       this.logger.warn('Video track ended - device may have been disconnected or powered off');
 
       // Emit error event to notify UI
@@ -322,25 +320,15 @@ export class StreamingService extends BaseService {
       });
     };
 
-    videoTrack.addEventListener('ended', this._trackEndedHandler);
+    videoTrack.addEventListener('ended', trackEndedHandler);
+    this.disposables.replace(TRACK_ENDED_LIFECYCLE, () => {
+      videoTrack.removeEventListener('ended', trackEndedHandler);
+    });
     this.logger.debug('Track monitoring set up for video track');
   }
 
   private _removeTrackMonitoring(): void {
-    // Always clear handler reference to prevent leaks, even if stream is gone
-    const handler = this._trackEndedHandler;
-    this._trackEndedHandler = null;
-
-    if (!handler) return;
-
-    // Only try to remove from track if stream exists
-    if (this.currentStream) {
-      const videoTrack = this.currentStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.removeEventListener('ended', handler);
-      }
-    }
-
+    this.disposables.cancel(TRACK_ENDED_LIFECYCLE);
     this.logger.debug('Track monitoring removed');
   }
 
@@ -453,6 +441,7 @@ export class StreamingService extends BaseService {
    */
   async dispose(): Promise<void> {
     await this.stop();
+    await super.dispose();
     this.logger.info('StreamingService disposed');
   }
 }

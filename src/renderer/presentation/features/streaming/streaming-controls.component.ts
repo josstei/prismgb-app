@@ -141,13 +141,14 @@ class StreamingControlsComponent extends PresentationComponent {
     }
   }
 
-  override dispose(): void {
+  override dispose(): void | Promise<void> {
     if (this._targetStreamingMode === true) this._finishStreamingEnter();
     else if (this._targetStreamingMode === false) this._finishStreamingExit();
-    super.dispose();
+    const disposed = super.dispose();
     this.elements = null;
     this.bodyClassManager = null;
     this._targetStreamingMode = null;
+    return disposed;
   }
 }
 

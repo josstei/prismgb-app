@@ -7,13 +7,14 @@
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 type CursorAutoHideOptions = {
   onActivity?: () => void;
   onHide?: () => void;
 };
 
-export class CursorAutoHide {
+export class CursorAutoHide extends PresentationComponent {
   _activityController: ActivityAutoHideController;
   _onActivity: () => void;
   _onHide: () => void;
@@ -24,6 +25,8 @@ export class CursorAutoHide {
    * @param {Function} [options.onHide] - Callback when cursor is hidden
    */
   constructor(options: CursorAutoHideOptions = {}) {
+    super();
+
     this._activityController = new ActivityAutoHideController({
       onActivity: () => {
         this._handleActivity();
@@ -36,18 +39,11 @@ export class CursorAutoHide {
 
     this._onActivity = options.onActivity || (() => {});
     this._onHide = options.onHide || (() => {});
+    this.track(this._activityController);
   }
 
   get isEnabled() {
     return this._activityController.isEnabled;
-  }
-
-  get _mouseMoveFramePending() {
-    return this._activityController.isActivityFramePending;
-  }
-
-  get _rafId() {
-    return this._activityController.rafId;
   }
 
   /**
@@ -96,7 +92,8 @@ export class CursorAutoHide {
   /**
    * Dispose and cleanup resources
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.disable();
+    return super.dispose();
   }
 }

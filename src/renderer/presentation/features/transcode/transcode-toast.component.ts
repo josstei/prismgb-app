@@ -119,9 +119,10 @@ class TranscodeToastComponent extends PresentationComponent {
     return this._isVisible;
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.hide();
+    return disposed;
   }
 }
 

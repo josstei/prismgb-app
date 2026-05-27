@@ -1,18 +1,3 @@
-/**
- * GPU Renderer Service
- *
- * Main thread service that coordinates GPU-accelerated rendering.
- * Delegates worker lifecycle to GpuWorkerManager and handles domain-specific
- * concerns: frame submission, preset management, capture, and fallback.
- *
- * Features:
- * - Automatic capability detection
- * - Worker-based rendering with OffscreenCanvas
- * - Triple buffering to prevent frame drops
- * - Seamless preset switching
- * - Graceful fallback chain
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
@@ -38,6 +23,10 @@ import type {
   LoggerFactoryLike
 } from '@shared/interfaces/infrastructure.types.js';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+
+type GpuRendererCleanupOptions = {
+  emitCanvasExpired?: boolean;
+};
 import type { GpuWorkerManager } from './gpu-worker-manager';
 import {
   calculateNativeScaleFactor,
@@ -50,6 +39,8 @@ import {
  * This implements triple buffering
  */
 const MAX_PENDING_FRAMES = 2;
+const CAPTURE_TIMEOUT_LIFECYCLE = Symbol('gpuCaptureTimeout');
+const BRIGHTNESS_SUBSCRIPTION_LIFECYCLE = Symbol('gpuBrightnessSubscription');
 
 type RendererCapabilities = IPipelineCapabilities & {
   gpuPolicyApplied: boolean;
@@ -107,9 +98,7 @@ export class StreamingGpuRendererService extends BaseService {
   private _isUsingFallback: boolean;
   private _pendingCaptureResolve: ((result: ImageBitmap) => void) | null;
   private _pendingCaptureReject: ((error: Error) => void) | null;
-  private _captureTimeoutId: ReturnType<typeof setTimeout> | null;
   private _isWaitingForCapturedFrame: boolean;
-  private _brightnessUnsubscribe: (() => void) | null;
   private _isDestroying: boolean;
   private _skippedFrames: number;
   private _lastBackpressureLog: number;
@@ -163,10 +152,7 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._pendingCaptureResolve = null;
     this._pendingCaptureReject = null;
-    this._captureTimeoutId = null;
     this._isWaitingForCapturedFrame = false;
-
-    this._brightnessUnsubscribe = null;
 
     this._isDestroying = false;
 
@@ -196,8 +182,9 @@ export class StreamingGpuRendererService extends BaseService {
     this._cachedUniforms = null;
 
     this._globalBrightness = this.settingsService.getNumberSetting('globalBrightness');
-    if (!this._brightnessUnsubscribe) {
-      this._brightnessUnsubscribe = this.eventBus.subscribe(
+    this.disposables.replace(
+      BRIGHTNESS_SUBSCRIPTION_LIFECYCLE,
+      this.eventBus.subscribe(
         EventChannels.SETTINGS.BRIGHTNESS_CHANGED,
         (brightness) => {
           if (!Number.isFinite(brightness)) {
@@ -207,8 +194,8 @@ export class StreamingGpuRendererService extends BaseService {
           this._globalBrightness = brightness;
           this.logger.debug(`Global brightness updated to ${brightness.toFixed(2)}`);
         }
-      );
-    }
+      )
+    );
 
     this._capabilities = await CapabilityDetector.detect();
     this.logger.info(CapabilityDetector.describeCapabilities(this._capabilities));
@@ -314,20 +301,12 @@ export class StreamingGpuRendererService extends BaseService {
         this.logger.error('Render worker error:', payload.message);
         this._pendingFrames = 0;
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
-        if (this._captureTimeoutId) {
-          clearTimeout(this._captureTimeoutId);
-          this._captureTimeoutId = null;
-        }
         this._resolvePendingCapture(null, new Error(payload.message));
       }),
 
       this._workerManager.onMessage(WorkerResponseType.CAPTURE_REQUESTED, () => {}),
 
       this._workerManager.onMessage(WorkerResponseType.CAPTURE_READY, (payload) => {
-        if (this._captureTimeoutId) {
-          clearTimeout(this._captureTimeoutId);
-          this._captureTimeoutId = null;
-        }
         this._resolvePendingCapture(payload.bitmap, null);
       }),
 
@@ -570,10 +549,12 @@ export class StreamingGpuRendererService extends BaseService {
 
       this._isWaitingForCapturedFrame = true;
 
-      this._captureTimeoutId = setTimeout(() => {
+      const captureTimeoutId = setTimeout(() => {
+        this.disposables.cancel(CAPTURE_TIMEOUT_LIFECYCLE);
         this._isWaitingForCapturedFrame = false;
         this._resolvePendingCapture(null, new Error('Capture request timed out'));
       }, 1000);
+      this.disposables.replace(CAPTURE_TIMEOUT_LIFECYCLE, () => clearTimeout(captureTimeoutId));
     });
   }
 
@@ -625,10 +606,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @private
    */
   _resolvePendingCapture(result: ImageBitmap | null, error: Error | null): void {
-    if (this._captureTimeoutId !== null) {
-      clearTimeout(this._captureTimeoutId);
-      this._captureTimeoutId = null;
-    }
+    this.disposables.cancel(CAPTURE_TIMEOUT_LIFECYCLE);
 
     if (error && this._pendingCaptureReject) {
       this._pendingCaptureReject(error);
@@ -647,10 +625,7 @@ export class StreamingGpuRendererService extends BaseService {
   _cleanup(emitCanvasExpired = true): void {
     this._isDestroying = true;
 
-    if (this._brightnessUnsubscribe) {
-      this._brightnessUnsubscribe();
-      this._brightnessUnsubscribe = null;
-    }
+    this.disposables.cancel(BRIGHTNESS_SUBSCRIPTION_LIFECYCLE);
 
     this._resolvePendingCapture(null, new Error('GPU renderer cleanup'));
 
@@ -672,12 +647,13 @@ export class StreamingGpuRendererService extends BaseService {
     this._isDestroying = false;
   }
 
-  /**
-   * Cleanup on service disposal
-   * Terminates worker and releases all resources.
-   */
-  cleanup(): void {
-    this._cleanup();
+  cleanup(options: GpuRendererCleanupOptions = {}): void {
+    this._cleanup(options.emitCanvasExpired ?? true);
     this.logger.info('GPU renderer service cleaned up');
+  }
+
+  override dispose(): void | Promise<void> {
+    this.cleanup({ emitCanvasExpired: false });
+    return super.dispose();
   }
 }

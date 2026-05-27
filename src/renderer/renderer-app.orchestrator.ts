@@ -3,10 +3,6 @@ import { UIController } from '@renderer/presentation/controller/ui.controller.js
 import { safeDispose } from '@shared/utils/safe-disposer.utils.js';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
-import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
-import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
-import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import type { LoggerLike } from '@shared/base/service.base.js';
 
 async function importWithRetry<T>(importFn: () => Promise<T>, maxRetries = 3, baseDelayMs = 300): Promise<T> {
@@ -32,20 +28,12 @@ class RendererAppOrchestrator {
   isInitialized: boolean;
   logger: LoggerLike;
   _uiController: UIController | null;
-  _uiEventBridge: UIEventBridge | null;
-  _captureUiBridge: CaptureUIBridge | null;
-  _transcodeUiBridge: TranscodeUIBridge | null;
-  _transcodeService: TranscodeService | null;
 
   constructor() {
     this.container = null;
     this.orchestrator = null;
     this.isInitialized = false;
     this._uiController = null;
-    this._uiEventBridge = null;
-    this._captureUiBridge = null;
-    this._transcodeUiBridge = null;
-    this._transcodeService = null;
 
     const loggerFactory = new RendererLogger();
     this.logger = loggerFactory.create('RendererAppOrchestrator') as LoggerLike;
@@ -110,28 +98,17 @@ class RendererAppOrchestrator {
       await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
     }
 
-    if (this._transcodeService) {
-      await safeDispose(this.logger, 'TranscodeService', this._transcodeService as Object);
-    }
-    if (this._transcodeUiBridge) {
-      await safeDispose(this.logger, 'TranscodeUIBridge', this._transcodeUiBridge as Object);
-    }
-    if (this._captureUiBridge) {
-      await safeDispose(this.logger, 'CaptureUIBridge', this._captureUiBridge as Object);
-    }
     if (this._uiController) {
-      await safeDispose(this.logger, 'UIController', this._uiController as Object);
-    }
-
-    const appState = this.container?.resolve?.('appState');
-    if (appState) {
-      await safeDispose(this.logger, 'AppState', appState as Object);
+      await safeDispose(this.logger, 'uiController', this._uiController);
     }
 
     if (this.container) {
       await safeDispose(this.logger, 'container', this.container as Object);
     }
 
+    this.orchestrator = null;
+    this.container = null;
+    this._uiController = null;
     delete document.body.dataset.prismgbAppStarted;
     this.isInitialized = false;
     this.logger.info('Renderer application cleanup complete');
@@ -171,19 +148,15 @@ class RendererAppOrchestrator {
       const container = this._requireContainer();
       const uiEventBridge = container.resolve('uiEventBridge');
       uiEventBridge.initialize();
-      this._uiEventBridge = uiEventBridge;
 
       const captureUiBridge = container.resolve('captureUiBridge');
       captureUiBridge.initialize();
-      this._captureUiBridge = captureUiBridge;
 
       const transcodeUiBridge = container.resolve('transcodeUiBridge');
       transcodeUiBridge.initialize();
-      this._transcodeUiBridge = transcodeUiBridge;
 
       const transcodeService = container.resolve('transcodeService');
       transcodeService.initialize();
-      this._transcodeService = transcodeService;
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);
       throw error;
@@ -198,10 +171,6 @@ class RendererAppOrchestrator {
   }
 }
 
-/**
- * Create and initialize application
- * @returns {Promise<RendererAppOrchestrator>}
- */
 async function createApplication() {
   const app = new RendererAppOrchestrator();
   await app.initialize();

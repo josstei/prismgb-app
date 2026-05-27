@@ -38,7 +38,7 @@ class CinematicToggleComponent extends PresentationComponent {
   }
 
   initialize({ toggleElement, textElement }: CinematicToggleElements): void {
-    this.dispose();
+    void this.dispose();
     this.toggleElement = toggleElement;
     this.textElement = textElement;
 
@@ -78,10 +78,11 @@ class CinematicToggleComponent extends PresentationComponent {
     }
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.toggleElement = null;
     this.textElement = null;
+    return disposed;
   }
 }
 

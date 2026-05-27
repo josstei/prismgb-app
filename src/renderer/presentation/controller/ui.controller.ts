@@ -1,8 +1,3 @@
-import {
-  createDomListenerManager,
-  type DomListenerLogger,
-  type DomListenerManager
-} from '@shared/base/dom-listener.utils.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
 import {
@@ -10,13 +5,17 @@ import {
   type DomBindings,
   type DomBindingsFlat
 } from '@renderer/presentation/primitives/dom-bindings.utils.js';
+import {
+  createTemplateComponentElements,
+  createTemplateCoreComponentRegistryElements,
+  type RendererTemplateDeferredComponentId
+} from '@renderer/presentation/generated/template-dom.generated.js';
 import type {
   UIComponentRegistry
 } from '@renderer/presentation/controller/component.registry.js';
-import type {
-  RendererUiComponentCatalog,
-  RendererUiComponentDependencies,
-  RendererUiComponentElements
+import {
+  type RendererUiComponentCatalog,
+  type RendererUiComponentDependencies
 } from '@renderer/presentation/controller/ui-component.catalog.js';
 import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
 import type { DeviceStatusPayloadLike } from '@renderer/presentation/shared/device-status.component.js';
@@ -36,7 +35,7 @@ interface UIEffectsLike {
   setMinimalistFullscreen(isActive: boolean): void;
   enableControlsAutoHide(controlsElement: HTMLElement | null): void;
   disableControlsAutoHide(): void;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 }
 
 type UIControllerBodyClassManager = NonNullable<
@@ -85,10 +84,9 @@ class UIController {
   declare registry: UIComponentRegistry<RendererUiComponentCatalog> | null | undefined;
   declare effects: UIEffectsLike | null | undefined;
   declare bodyClassManager: UIControllerBodyClassManager | null | undefined;
-  declare logger: (LoggerLike & DomListenerLogger) | null;
+  declare logger: LoggerLike | null;
   declare elements: UIControllerElements;
   declare dom: DomBindings;
-  declare private _domListeners: DomListenerManager;
 
   constructor(dependencies: UIControllerDependencies = {}) {
     const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager } = dependencies;
@@ -98,7 +96,6 @@ class UIController {
     this.bodyClassManager = bodyClassManager;
     this.logger = loggerFactory?.create('UIController') || null;
     this.elements = this.initializeElements();
-    this._domListeners = createDomListenerManager({ logger: this.logger ?? undefined });
   }
 
   initializeElements(): UIControllerElements {
@@ -108,19 +105,23 @@ class UIController {
   }
 
   initializeComponents(): void {
-    if (this.registry) {
-      this.registry.initialize(this.elements, { bodyClassManager: this.bodyClassManager });
+    if (!this.registry) {
+      return;
     }
+
+    this.registry.initialize(
+      createTemplateCoreComponentRegistryElements(this.dom),
+      { bodyClassManager: this.bodyClassManager }
+    );
   }
 
-  initSettingsMenu(dependencies: RendererUiComponentDependencies<'settingsMenuComponent'>): void {
+  initializeDeferredComponent<TId extends RendererTemplateDeferredComponentId>(
+    id: TId,
+    dependencies: RendererUiComponentDependencies<TId>
+  ): void {
     if (this.registry) {
-      const settingsElements: RendererUiComponentElements<'settingsMenuComponent'> = {
-        ...this.dom?.settings,
-        ...this.dom?.updates
-      };
-      this.registry.initializeComponent('settingsMenuComponent', {
-        elements: settingsElements,
+      this.registry.initializeComponent(id, {
+        elements: createTemplateComponentElements(id, this.dom),
         dependencies
       });
     }
@@ -130,26 +131,8 @@ class UIController {
     this.registry?.get('settingsMenuComponent')?.toggle();
   }
 
-  initShaderSelector(
-    dependencies: RendererUiComponentDependencies<'shaderSelectorComponent'>,
-    elements: RendererUiComponentElements<'shaderSelectorComponent'>
-  ): void {
-    if (this.registry) {
-      this.registry.initializeComponent('shaderSelectorComponent', { elements, dependencies });
-    }
-  }
-
   toggleShaderSelector(): void {
     this.registry?.get('shaderSelectorComponent')?.toggle();
-  }
-
-  initNotesPanel(
-    dependencies: RendererUiComponentDependencies<'notesPanelComponent'>,
-    elements: RendererUiComponentElements<'notesPanelComponent'>
-  ): void {
-    if (this.registry) {
-      this.registry.initializeComponent('notesPanelComponent', { elements, dependencies });
-    }
   }
 
   toggleNotesPanel(): void {
@@ -274,14 +257,6 @@ class UIController {
     this.effects?.disableControlsAutoHide();
   }
 
-  getFullscreenControls(): HTMLElement | null {
-    return this.elements.fullscreenControls;
-  }
-
-  getStreamCanvas(): HTMLCanvasElement | null {
-    return this.elements.streamCanvas;
-  }
-
   setStreamCanvas(canvas: HTMLCanvasElement): void {
     this.elements.streamCanvas = canvas;
     if (this.dom?.streaming) {
@@ -289,31 +264,17 @@ class UIController {
     }
   }
 
-  getStreamVideo(): HTMLVideoElement | null {
-    return this.elements.streamVideo;
-  }
-
   triggerDownload(blob: Blob, filename: string): void {
     downloadFile(blob, filename);
   }
 
-  on(
-    elementKey: keyof UIControllerElements & string,
-    event: string,
-    handler: EventListenerOrEventListenerObject
-  ): void {
-    const element = this.elements[elementKey];
-    if (element) {
-      this._domListeners.add(element, event, handler);
-    } else {
-      this.logger?.warn(`Element not found: ${elementKey}`);
-    }
-  }
-
-  dispose(): void {
-    this.effects?.dispose();
-    this.registry?.dispose();
-    this._domListeners.removeAll();
+  async dispose(): Promise<void> {
+    const effects = this.effects;
+    const registry = this.registry;
+    this.effects = null;
+    this.registry = null;
+    await effects?.dispose();
+    await registry?.dispose();
   }
 }
 

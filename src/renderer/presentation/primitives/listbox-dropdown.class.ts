@@ -1,8 +1,3 @@
-import {
-  createDomListenerManager,
-  type DomListenerLogger,
-  type DomListenerManager
-} from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { DisclosureController } from './disclosure.class.js';
@@ -10,9 +5,13 @@ import { updateListboxActiveState } from './listbox.utils.js';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
+const LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE = Symbol('listboxDropdownRuntimeLifecycle');
 
 type ListboxDropdownCallback = () => void;
 type ListboxDropdownChangeCallback = (value: string, label: string) => void;
+type PresentationPrimitiveLogger = {
+  warn(message: string, ...args: unknown[]): void;
+};
 
 export interface ListboxDropdownControllerOptions {
   triggerElement: HTMLElement | null;
@@ -29,7 +28,7 @@ export interface ListboxDropdownControllerOptions {
   enableTriggerKeyboard?: boolean;
   focusOnTriggerOpen?: boolean;
   onChange?: ListboxDropdownChangeCallback | null;
-  logger?: DomListenerLogger | null;
+  logger?: PresentationPrimitiveLogger | null;
 }
 
 export interface ListboxDropdownInitializeOptions {
@@ -40,7 +39,7 @@ type ComboboxCallback = () => void;
 type ComboboxSelectCallback = (value: string) => void;
 
 export interface ComboboxListboxControllerOptions<TOption = unknown> {
-  logger?: DomListenerLogger | null;
+  logger?: PresentationPrimitiveLogger | null;
   optionSelector?: string;
   optionClassName?: string;
   optionIdPrefix?: string;
@@ -65,7 +64,7 @@ export interface ComboboxListboxInitializeOptions {
   listboxElement: HTMLElement | null;
 }
 
-class ListboxDropdownController {
+class ListboxDropdownController extends PresentationComponent {
   declare triggerElement: HTMLElement | null;
   declare menuElement: HTMLElement | null;
   declare labelElement: HTMLElement | null | undefined;
@@ -80,8 +79,7 @@ class ListboxDropdownController {
   declare enableTriggerKeyboard: boolean;
   declare focusOnTriggerOpen: boolean;
   declare onChange: ListboxDropdownChangeCallback | null | undefined;
-  declare logger: DomListenerLogger | null | undefined;
-  declare private _domListeners: DomListenerManager;
+  declare logger: PresentationPrimitiveLogger | null | undefined;
   declare private _disclosure: DisclosureController | null;
 
   constructor({
@@ -101,6 +99,8 @@ class ListboxDropdownController {
     onChange,
     logger
   }: ListboxDropdownControllerOptions) {
+    super();
+
     this.triggerElement = triggerElement;
     this.menuElement = menuElement;
     this.labelElement = labelElement;
@@ -117,19 +117,18 @@ class ListboxDropdownController {
     this.onChange = onChange;
     this.logger = logger;
 
-    this._domListeners = createDomListenerManager({ logger: logger ?? undefined });
     this._disclosure = null;
   }
 
   initialize({ activeValue = '' }: ListboxDropdownInitializeOptions = {}): void {
-    this._releaseRuntimeLifecycle();
+    void this._releaseRuntimeLifecycle();
 
     if (!this.triggerElement || !this.menuElement) {
       this.logger?.warn('Listbox dropdown elements not found');
       return;
     }
 
-    this._disclosure = new DisclosureController({
+    const disclosure = new DisclosureController({
       toggleElement: this.triggerElement,
       panelElement: this.menuElement,
       visibleClass: CSSClasses.VISIBLE,
@@ -147,14 +146,17 @@ class ListboxDropdownController {
       },
       logger: this.logger
     });
-    this._disclosure.initialize();
+    this._disclosure = disclosure;
+    disclosure.initialize();
 
-    this._domListeners.add(this.triggerElement, 'click', () => {
+    const listenerDisposers: Array<() => void> = [];
+
+    listenerDisposers.push(this.listen(this.triggerElement, 'click', () => {
       this.toggleFromTrigger();
-    });
+    }));
 
     if (this.enableTriggerKeyboard) {
-      this._domListeners.add(this.triggerElement, 'keydown', (event) => {
+      listenerDisposers.push(this.listen(this.triggerElement, 'keydown', (event) => {
         const keyboardEvent = event as KeyboardEvent;
         if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
           keyboardEvent.preventDefault();
@@ -167,14 +169,22 @@ class ListboxDropdownController {
           this.show();
           this.focusActiveOrFirstOption();
         }
-      });
+      }));
     }
 
-    this._domListeners.add(this.menuElement, 'click', (event) => {
+    listenerDisposers.push(this.listen(this.menuElement, 'click', (event) => {
       const option = this._optionFromEvent(event);
       if (option) this._selectOption(option);
+    }));
+    listenerDisposers.push(this.listen(this.menuElement, 'keydown', (event) => this._handleMenuKeydown(event as KeyboardEvent)));
+
+    this.replaceManaged(LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE, async () => {
+      listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
+      await disclosure.dispose();
+      if (this._disclosure === disclosure) {
+        this._disclosure = null;
+      }
     });
-    this._domListeners.add(this.menuElement, 'keydown', (event) => this._handleMenuKeydown(event as KeyboardEvent));
 
     if (activeValue !== undefined) {
       this.setActive(activeValue);
@@ -306,15 +316,14 @@ class ListboxDropdownController {
     });
   }
 
-  private _releaseRuntimeLifecycle(): void {
+  private _releaseRuntimeLifecycle(): void | Promise<void> {
     this.hide();
-    this._domListeners.removeAll();
-    this._disclosure?.dispose();
-    this._disclosure = null;
+    return this.cancelManaged(LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE);
   }
 
-  dispose(): void {
-    this._releaseRuntimeLifecycle();
+  override async dispose(): Promise<void> {
+    await this._releaseRuntimeLifecycle();
+    await super.dispose();
 
     this.triggerElement = null;
     this.menuElement = null;
@@ -327,7 +336,7 @@ class ListboxDropdownController {
 }
 
 class ComboboxListboxController<TOption = unknown> extends PresentationComponent {
-  declare logger: DomListenerLogger | null | undefined;
+  declare logger: PresentationPrimitiveLogger | null | undefined;
   declare optionSelector: string;
   declare optionClassName: string;
   declare optionIdPrefix: string;
@@ -520,14 +529,15 @@ class ComboboxListboxController<TOption = unknown> extends PresentationComponent
     return this.listboxElement ? Array.from(this.listboxElement.querySelectorAll<HTMLElement>(this.optionSelector)) : [];
   }
 
-  override dispose(): void {
+  override dispose(): void | Promise<void> {
     this.hide();
-    super.dispose();
+    const disposed = super.dispose();
     Object.assign(this, {
       inputElement: null, listboxElement: null, getOptions: null, getOptionValue: null,
       getOptionLabel: null, onInput: null, onSelect: null, onEnter: null,
       onEscape: null, onBlur: null, onFocus: null, logger: null, highlightedIndex: -1
     });
+    return disposed;
   }
 }
 

@@ -8,6 +8,9 @@ import { UpdateState, type UpdateStateValue } from '@shared/config/update-state.
 export { UpdateState };
 export type UpdateStateType = UpdateStateValue;
 
+const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
+const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
+
 interface WindowService {
   send(channel: string, data: unknown): void;
 }
@@ -67,8 +70,7 @@ class UpdateService extends BaseService {
   error: Error | null;
 
   private _initialized: boolean;
-  private _autoCheckIntervalId: NodeJS.Timeout | null;
-  private _initialCheckTimeoutId: NodeJS.Timeout | null;
+  private _autoCheckRunning: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory', 'config'], 'UpdateService');
@@ -82,8 +84,7 @@ class UpdateService extends BaseService {
     this.error = null;
 
     this._initialized = false;
-    this._autoCheckIntervalId = null;
-    this._initialCheckTimeoutId = null;
+    this._autoCheckRunning = false;
   }
 
   /**
@@ -336,25 +337,29 @@ class UpdateService extends BaseService {
    * @param intervalMs - Check interval in milliseconds (default: 1 hour)
    */
   startAutoCheck(intervalMs = 60 * 60 * 1000): void {
-    if (this._autoCheckIntervalId) {
+    if (this._autoCheckRunning) {
       this.logger.warn('Auto-check already running');
       return;
     }
 
+    this._autoCheckRunning = true;
+
     // Perform initial check after a short delay (don't block startup)
-    this._initialCheckTimeoutId = setTimeout(() => {
-      this._initialCheckTimeoutId = null;
+    const initialCheckTimeoutId = setTimeout(() => {
+      this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Initial update check failed', (error as Error).message);
       });
     }, 10000); // 10 seconds after startup
+    this.disposables.replace(INITIAL_UPDATE_CHECK_LIFECYCLE, () => clearTimeout(initialCheckTimeoutId));
 
     // Set up periodic checks
-    this._autoCheckIntervalId = setInterval(() => {
+    const autoCheckIntervalId = setInterval(() => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Periodic update check failed', (error as Error).message);
       });
     }, intervalMs);
+    this.disposables.replace(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => clearInterval(autoCheckIntervalId));
 
     this.logger.info(`Auto-update check started (interval: ${intervalMs / 1000 / 60} minutes)`);
   }
@@ -363,13 +368,11 @@ class UpdateService extends BaseService {
    * Stop automatic update checking
    */
   stopAutoCheck(): void {
-    if (this._initialCheckTimeoutId) {
-      clearTimeout(this._initialCheckTimeoutId);
-      this._initialCheckTimeoutId = null;
-    }
-    if (this._autoCheckIntervalId) {
-      clearInterval(this._autoCheckIntervalId);
-      this._autoCheckIntervalId = null;
+    const wasRunning = this._autoCheckRunning;
+    this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.disposables.cancel(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this._autoCheckRunning = false;
+    if (wasRunning) {
       this.logger.info('Auto-update check stopped');
     }
   }

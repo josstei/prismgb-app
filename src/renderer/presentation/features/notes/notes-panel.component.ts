@@ -14,6 +14,7 @@ const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
 const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');
 const NOTES_UPDATED_SUBSCRIPTION = Symbol('notesPanelUpdatedSubscription');
 const NOTES_PANEL_SETUP_LIFECYCLE = Symbol('notesPanelSetupLifecycle');
+const NOTES_PANEL_SUBCOMPONENT_LIFECYCLE = Symbol('notesPanelSubcomponentLifecycle');
 
 interface UserNoteLike {
   id?: string;
@@ -98,10 +99,11 @@ class NotesPanelComponent extends PresentationComponent {
     this.isVisible = false;
     this.currentNoteId = null;
     this.elements = null;
-    this._createSubComponents();
+    this._replaceSubComponents();
   }
 
-  _createSubComponents(): void {
+  _replaceSubComponents(): void {
+    this.cancelManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE);
     this.listView = new NotesListViewComponent({ notesService: this.notesService!, logger: this.logger });
     this.editorView = new NotesEditorViewComponent({ notesService: this.notesService, logger: this.logger });
     this.searchComponent = new NotesSearchComponent({ logger: this.logger });
@@ -109,16 +111,35 @@ class NotesPanelComponent extends PresentationComponent {
     this.gameAutocomplete = new GameAutocompleteComponent({ notesService: this.notesService!, logger: this.logger });
     this.resizeHandler = new NotesResizeHandlerComponent({ logger: this.logger });
     this.layout = new NotesPanelLayoutComponent({ logger: this.logger });
-  }
 
-  _disposeSubComponents(): void {
-    this.listView?.dispose();
-    this.editorView?.dispose();
-    this.searchComponent?.dispose();
-    this.gameFilter?.dispose();
-    this.gameAutocomplete?.dispose();
-    this.resizeHandler?.dispose();
-    this.layout?.dispose();
+    const subcomponents = {
+      listView: this.listView,
+      editorView: this.editorView,
+      searchComponent: this.searchComponent,
+      gameFilter: this.gameFilter,
+      gameAutocomplete: this.gameAutocomplete,
+      resizeHandler: this.resizeHandler,
+      layout: this.layout
+    };
+
+    this.replaceManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE, async () => {
+      await Promise.all([
+        subcomponents.listView?.dispose(),
+        subcomponents.editorView?.dispose(),
+        subcomponents.searchComponent?.dispose(),
+        subcomponents.gameFilter?.dispose(),
+        subcomponents.gameAutocomplete?.dispose(),
+        subcomponents.resizeHandler?.dispose(),
+        subcomponents.layout?.dispose()
+      ]);
+      if (this.listView === subcomponents.listView) this.listView = null;
+      if (this.editorView === subcomponents.editorView) this.editorView = null;
+      if (this.searchComponent === subcomponents.searchComponent) this.searchComponent = null;
+      if (this.gameFilter === subcomponents.gameFilter) this.gameFilter = null;
+      if (this.gameAutocomplete === subcomponents.gameAutocomplete) this.gameAutocomplete = null;
+      if (this.resizeHandler === subcomponents.resizeHandler) this.resizeHandler = null;
+      if (this.layout === subcomponents.layout) this.layout = null;
+    });
   }
 
   _resetPanelVisibilityState(): void {
@@ -135,8 +156,7 @@ class NotesPanelComponent extends PresentationComponent {
     const currentGameFilter = this.gameFilter?.getCurrentFilter?.() || '';
     this.cancelManaged(NOTES_PANEL_SETUP_LIFECYCLE);
     [NOTES_CREATED_SUBSCRIPTION, NOTES_DELETED_SUBSCRIPTION, NOTES_UPDATED_SUBSCRIPTION].forEach((key) => this.cancelManaged(key));
-    this._disposeSubComponents();
-    this._createSubComponents();
+    this._replaceSubComponents();
 
     this.elements = {
       notesBtn: elements.notesBtn,
@@ -165,6 +185,7 @@ class NotesPanelComponent extends PresentationComponent {
 
     if (!this.elements.notesBtn || !this.elements.notesPanel) {
       this.logger?.warn('Notes panel elements not found');
+      this.elements = null;
       return;
     }
 
@@ -177,7 +198,6 @@ class NotesPanelComponent extends PresentationComponent {
 
     const setupDisposers: Array<() => void> = [];
     this.replaceManaged(NOTES_PANEL_SETUP_LIFECYCLE, () => setupDisposers.splice(0).reverse().forEach((dispose) => dispose()));
-    this._setupToggleButton(setupDisposers);
     this._setupNewButton(setupDisposers);
     this._setupEscapeKey(setupDisposers);
     this.layout!.initialize({
@@ -269,11 +289,6 @@ class NotesPanelComponent extends PresentationComponent {
     this.logger?.debug('Notes panel hidden');
   }
 
-  _setupToggleButton(setupDisposers: Array<() => void>): void {
-    if (!this.elements?.notesBtn) return;
-    setupDisposers.push(this.listen(this.elements.notesBtn, 'click', () => this.toggle()));
-  }
-
   _handleSearch(query: string): void {
     this.listView!.render(query);
   }
@@ -333,6 +348,7 @@ class NotesPanelComponent extends PresentationComponent {
   }
 
   _handleAutocompleteSelect(_value: string): void {
+    this.editorView!.scheduleSave();
     this.editorView!.hideGameInput();
     this.editorView!.flushSave();
   }
@@ -369,6 +385,7 @@ class NotesPanelComponent extends PresentationComponent {
   }
 
   _createNewNote(): void {
+    this.editorView!.flushSave();
     const gameName = this.gameFilter!.getCurrentFilter() || '';
     const note = this.notesService!.createNote('', '', gameName);
     if (!note) {
@@ -384,6 +401,7 @@ class NotesPanelComponent extends PresentationComponent {
   _deleteCurrentNote(): void {
     if (!this.currentNoteId) return;
 
+    this.editorView!.flushSave();
     const success = this.notesService!.deleteNote(this.currentNoteId);
     if (!success) {
       this.logger?.warn('Failed to delete note');
@@ -446,6 +464,7 @@ class NotesPanelComponent extends PresentationComponent {
           const searchQuery = this.searchComponent!.getQuery();
           const currentFilter = this._refreshGameFilterOptionsAndRenderList(searchQuery);
           if (getPayloadNoteId(payload) === this.currentNoteId) {
+            this.editorView!.cancelPendingSave();
             this.currentNoteId = null;
             this.editorView!.clear();
             this._selectFirstNoteForFilter(currentFilter, searchQuery);
@@ -472,22 +491,16 @@ class NotesPanelComponent extends PresentationComponent {
     this.logger?.warn('Error disposing notes panel lifecycle resources', error);
   }
 
-  override dispose(): void {
-    this._disposeSubComponents();
-    super.dispose();
+  override async dispose(): Promise<void> {
+    this.editorView?.flushSave?.();
+    await this.cancelManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE);
+    await super.dispose();
     this.elements = null;
     this.notesService = null;
     this.eventBus = null;
     this.logger = null;
     this.currentNoteId = null;
     this.isVisible = false;
-    this.listView = null;
-    this.editorView = null;
-    this.searchComponent = null;
-    this.gameFilter = null;
-    this.gameAutocomplete = null;
-    this.resizeHandler = null;
-    this.layout = null;
   }
 }
 

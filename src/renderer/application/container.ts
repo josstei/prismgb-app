@@ -1,7 +1,3 @@
-/**
- * Renderer DI container composition shell.
- */
-
 import {
   asValue,
   createContainer,
@@ -20,6 +16,17 @@ import type { RendererContainerMap } from '@renderer/application/di/renderer-con
 PresetRegistry.setDefault(PRESET_POLICY.rendererDefaultId);
 
 type RendererServiceContainer = AwilixContainer<RendererContainerMap>;
+type Cleanable = {
+  cleanup(): void | Promise<void>;
+};
+
+function isCleanable(value: unknown): value is Cleanable {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { cleanup?: unknown }).cleanup === 'function'
+  );
+}
 
 function createRendererContainer(): RendererServiceContainer {
   const container = createContainer<RendererContainerMap>({
@@ -57,9 +64,17 @@ function getContainer(): RendererServiceContainer {
 }
 
 async function resetContainer(): Promise<void> {
-  if (container) {
-    await container.dispose();
+  const activeContainer = container;
+  if (activeContainer) {
     container = null;
+    try {
+      const appOrchestrator = activeContainer.cache.get('appOrchestrator')?.value;
+      if (isCleanable(appOrchestrator)) {
+        await appOrchestrator.cleanup();
+      }
+    } finally {
+      await activeContainer.dispose();
+    }
   }
 }
 

@@ -99,14 +99,7 @@ class GameFilterComponent extends PresentationComponent {
   _setupGameFilter(): void {
     if (!this.filterButton || !this.filterMenu) return;
 
-    this.replaceManaged(FILTER_SETUP_LIFECYCLE, () => {
-      this._filterDropdown?.hide();
-      this._filterDropdown?.dispose();
-      this._filterDropdown = null;
-      this.isGameFilterOpen = false;
-    });
-
-    this._filterDropdown = new ListboxDropdownController({
+    const filterDropdown = new ListboxDropdownController({
       triggerElement: this.filterButton,
       menuElement: this.filterMenu,
       labelElement: this.filterLabel,
@@ -125,7 +118,16 @@ class GameFilterComponent extends PresentationComponent {
       },
       logger: this.logger
     });
-    this._filterDropdown.initialize({ activeValue: this.currentGameFilter });
+    this._filterDropdown = filterDropdown;
+    this.replaceManaged(FILTER_SETUP_LIFECYCLE, async () => {
+      filterDropdown.hide();
+      await filterDropdown.dispose();
+      if (this._filterDropdown === filterDropdown) {
+        this._filterDropdown = null;
+        this.isGameFilterOpen = false;
+      }
+    });
+    filterDropdown.initialize({ activeValue: this.currentGameFilter });
   }
 
   _updateGameFilterLabel(labelOverride = ''): void {
@@ -171,8 +173,8 @@ class GameFilterComponent extends PresentationComponent {
     this._filterDropdown?.hide();
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.filterButton = null;
     this.filterLabel = null;
     this.filterMenu = null;
@@ -182,6 +184,7 @@ class GameFilterComponent extends PresentationComponent {
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
     this._filterDropdown = null;
+    return disposed;
   }
 }
 

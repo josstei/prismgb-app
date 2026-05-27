@@ -1,6 +1,11 @@
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
+import type { StreamingRendererCleanupOptions } from './streaming-renderer.interface';
+
+type GpuCleanupOptions = {
+  emitCanvasExpired?: boolean;
+};
 
 interface GpuRendererServiceLike {
   initialize(canvasElement: HTMLCanvasElement, nativeResolution: { width: number; height: number }): Promise<boolean>;
@@ -12,7 +17,7 @@ interface GpuRendererServiceLike {
   isCanvasTransferred(): boolean;
   releaseGpuResources(): void;
   terminateAndReset(emitCanvasExpired: boolean): void;
-  cleanup(): void | Promise<void>;
+  cleanup(options?: GpuCleanupOptions): void | Promise<void>;
 }
 
 interface GpuRenderLoopServiceLike {
@@ -115,13 +120,15 @@ export class StreamingGpuRendererAdapter extends IStreamingRenderer {
     this.logger.debug('GPU render loop stopped');
   }
 
-  async cleanup(): Promise<void> {
+  async cleanup(options: StreamingRendererCleanupOptions = {}): Promise<void> {
     if (this._videoElement) {
       this.gpuRenderLoopService.stop(this._videoElement);
     }
     this._renderLoopActive = false;
     this._videoElement = null;
-    await this.gpuRendererService.cleanup();
+    await this.gpuRendererService.cleanup({
+      emitCanvasExpired: options.emitCanvasExpired ?? true
+    });
     this.logger.info('GPU renderer adapter cleaned up');
   }
 

@@ -88,7 +88,7 @@ type InitializableComponent<TElements extends object> = {
 };
 
 type DisposableComponent = {
-  dispose(): void;
+  dispose(): void | Promise<void>;
 };
 
 export interface UIComponentRegistryOptions<TCatalog extends UIComponentCatalogShape<TCatalog>> {
@@ -139,6 +139,7 @@ export class UIComponentRegistry<TCatalog extends UIComponentCatalogShape<TCatal
       .filter((definition) => definition.stage === 'core');
 
     coreDefinitions.forEach((definition) => {
+      if (this.components.has(definition.id)) return;
       this._createComponent(definition, { elements, dependencies });
     });
 
@@ -172,13 +173,17 @@ export class UIComponentRegistry<TCatalog extends UIComponentCatalogShape<TCatal
     return this.components.get(name) as UIComponentInstance<TCatalog, TId> | undefined;
   }
 
-  dispose(): void {
+  async dispose(): Promise<void> {
     this.logger?.debug('Disposing UI components');
 
-    for (const [name, component] of this.components.entries()) {
+    for (const [name, component] of Array.from(this.components.entries()).reverse()) {
       if (hasDisposer(component)) {
         this.logger?.debug(`Disposing component: ${name}`);
-        component.dispose();
+        try {
+          await component.dispose();
+        } catch (error) {
+          this.logger?.error(`Error disposing component: ${name}`, error);
+        }
       }
     }
 

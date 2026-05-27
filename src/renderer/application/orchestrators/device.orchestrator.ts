@@ -7,7 +7,7 @@ type Unsubscribe = () => void;
 type DeviceServiceLike = {
   setupDeviceChangeListener(): void;
   isDeviceConnected(): boolean;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 };
 
 type DeviceIpcAdapterLike = {
@@ -83,21 +83,13 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     });
   }
 
-  /**
-   * Cleanup resources
-   */
   async onCleanup(): Promise<void> {
-    // Cleanup IPC adapter listeners
     if (typeof this._unsubscribeIPC === 'function') {
       this._unsubscribeIPC();
       this._unsubscribeIPC = null;
     }
     this.logger.info('IPC device listeners removed');
 
-    // Wait for pending operations before cleanup
     await this.deviceOperationSequencer.flush();
-
-    // Cleanup device service
-    this.deviceService.dispose();
   }
 }

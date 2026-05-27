@@ -1,16 +1,6 @@
 import { validateDependencies } from './validate-deps.utils.js';
-import type { LoggerLike } from './service.base.js';
-
-type Unsubscribe = () => void;
-
-interface EventBusLike {
-  subscribe(event: string, handler: (...args: unknown[]) => void): Unsubscribe;
-  publish(event: string, data?: unknown): void;
-}
-
-interface LoggerFactoryLike {
-  create(name: string): LoggerLike;
-}
+import { DisposableBag, type Disposable, type DisposableFunction, type DisposableKey, type EventTargetLike } from './disposable-bag.js';
+import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
 
 export class BaseOrchestrator {
   protected logger!: LoggerLike;
@@ -18,7 +8,7 @@ export class BaseOrchestrator {
   isInitialized: boolean;
   protected _isCleanedUp: boolean;
   protected readonly _orchestratorName: string;
-  private _subscriptions: Unsubscribe[];
+  private readonly _disposables: DisposableBag;
 
   constructor(
     dependencies: object,
@@ -37,7 +27,7 @@ export class BaseOrchestrator {
     this.isInitialized = false;
     this._isCleanedUp = false;
     this._orchestratorName = orchestratorName;
-    this._subscriptions = [];
+    this._disposables = new DisposableBag();
   }
 
   async initialize(): Promise<void> {
@@ -69,7 +59,6 @@ export class BaseOrchestrator {
     }
 
     this.logger?.info(`Cleaning up ${this._orchestratorName}`);
-    this._cleanupSubscriptions();
 
     try {
       await this.onCleanup();
@@ -77,11 +66,13 @@ export class BaseOrchestrator {
       this.logger?.error(`${this._orchestratorName} cleanup failed`, error);
     }
 
+    await this._cleanupLifecycle();
+
     this.isInitialized = false;
     this._isCleanedUp = true;
   }
 
-  subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void>): void {
+  subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void | Promise<void>>): void {
     const eventBus = this.eventBus;
     if (!eventBus) {
       this.logger?.warn('Cannot subscribe - eventBus not available');
@@ -90,17 +81,41 @@ export class BaseOrchestrator {
 
     Object.entries(eventMap).forEach(([event, handler]) => {
       const unsubscribe = eventBus.subscribe(event, handler);
-      this._subscriptions.push(unsubscribe);
+      this.track(unsubscribe);
     });
   }
 
-  protected _cleanupSubscriptions(): void {
-    this._subscriptions.forEach((unsubscribe) => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
+  protected listen(
+    target: EventTargetLike,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: AddEventListenerOptions | boolean
+  ): DisposableFunction {
+    return this._disposables.addEvent(target, type, listener, options);
+  }
+
+  protected track(disposable: Disposable): DisposableFunction {
+    return this._disposables.add(disposable);
+  }
+
+  protected replaceManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
+    return this._disposables.replace(key, disposable);
+  }
+
+  protected async replaceManagedAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
+    return this._disposables.replaceAsync(key, disposable);
+  }
+
+  protected cancelManaged(key: DisposableKey): void | Promise<void> {
+    return this._disposables.cancel(key);
+  }
+
+  protected async _cleanupLifecycle(): Promise<void> {
+    try {
+      await this._disposables.clear();
+    } catch (error) {
+      this.logger?.error(`${this._orchestratorName} lifecycle cleanup failed`, error);
+    }
   }
 
   async onCleanup(): Promise<void> {}

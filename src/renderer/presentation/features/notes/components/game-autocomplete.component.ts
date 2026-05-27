@@ -60,7 +60,7 @@ class GameAutocompleteComponent extends PresentationComponent {
     onBlur,
     onFocus
   }: GameAutocompleteInitializeOptions): void {
-    this.comboboxController?.dispose();
+    void this.comboboxController?.dispose();
     this.comboboxController = null;
     this.gameInput = gameInput;
     this.autocompleteDropdown = autocompleteDropdown;
@@ -155,10 +155,10 @@ class GameAutocompleteComponent extends PresentationComponent {
       : games;
   }
 
-  override dispose(): void {
-    this.comboboxController?.dispose();
+  override async dispose(): Promise<void> {
+    await this.comboboxController?.dispose();
     this.comboboxController = null;
-    super.dispose();
+    await super.dispose();
     this.gameInput = null;
     this.autocompleteDropdown = null;
     this.onInput = null;

@@ -1,6 +1,4 @@
-type MaybePromise<T> = T | Promise<T>;
-
-type DisposableFunction = () => MaybePromise<void>;
+export type DisposableFunction = () => void | Promise<void>;
 
 type DisposableObject = {
   dispose?: DisposableFunction;
@@ -8,9 +6,10 @@ type DisposableObject = {
   abort?: DisposableFunction;
 };
 
-type Disposable = DisposableFunction | DisposableObject | null | undefined;
+export type Disposable = DisposableFunction | DisposableObject | null | undefined;
+export type DisposableKey = string | symbol;
 
-type EventTargetLike = {
+export type EventTargetLike = {
   addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
   removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
 };
@@ -49,6 +48,7 @@ function toDisposableFunction(disposable: Disposable): DisposableFunction | null
 
 export class DisposableBag {
   private disposables: DisposableFunction[] = [];
+  private readonly managed = new Map<DisposableKey, DisposableFunction>();
 
   get size(): number {
     return this.disposables.length;
@@ -61,20 +61,49 @@ export class DisposableBag {
     }
 
     let active = true;
-    const tracked = async (): Promise<void> => {
+    const tracked = (): void | Promise<void> => {
       if (!active) {
         return;
       }
       active = false;
-      await dispose();
+      return dispose();
     };
 
     this.disposables.push(tracked);
 
     return () => {
-      void tracked();
       this.disposables = this.disposables.filter((entry) => entry !== tracked);
+      return tracked();
     };
+  }
+
+  replace(key: DisposableKey, disposable: Disposable): DisposableFunction {
+    const cancelled = this.cancel(key);
+    if (isPromiseLike(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
+    return this.setManaged(key, disposable);
+  }
+
+  async replaceAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
+    await this.cancel(key);
+    return this.setManaged(key, disposable);
+  }
+
+  private setManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
+    const release = this.add(disposable);
+    const managedRelease = () => {
+      if (this.managed.get(key) === managedRelease) {
+        this.managed.delete(key);
+      }
+      return release();
+    };
+    this.managed.set(key, managedRelease);
+    return managedRelease;
+  }
+
+  cancel(key: DisposableKey): void | Promise<void> {
+    const dispose = this.managed.get(key);
+    this.managed.delete(key);
+    return dispose?.();
   }
 
   addEvent(
@@ -104,6 +133,7 @@ export class DisposableBag {
   }
 
   clear(): Promise<void> {
+    this.managed.clear();
     const pending = [...this.disposables].reverse();
     this.disposables = [];
 

@@ -30,7 +30,6 @@ type DeviceMediaServiceLike = {
   discoverSupportedDevice(): Promise<MediaDeviceInfo | null>;
   registerSupportedDevice(device: MediaDeviceInfo): unknown;
   setupDeviceChangeListener(onDeviceChange: () => Promise<RendererDeviceStatus> | RendererDeviceStatus): void;
-  dispose(): void;
 };
 
 type DeviceServiceDependencies = {
@@ -102,8 +101,8 @@ class DeviceService extends BaseService {
     this.deviceMediaService.setupDeviceChangeListener(() => this.updateDeviceStatus());
   }
 
-  dispose() {
-    this.deviceMediaService.dispose();
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 }
 

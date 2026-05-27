@@ -42,6 +42,11 @@ type PerformanceStateDependencies = {
   reducedMotionAdapter: ReducedMotionAdapterLike;
 };
 
+const IDLE_TIMER_LIFECYCLE = Symbol('performanceStateIdleTimer');
+const VISIBILITY_LIFECYCLE = Symbol('performanceStateVisibility');
+const ACTIVITY_LIFECYCLE = Symbol('performanceStateActivity');
+const MOTION_LIFECYCLE = Symbol('performanceStateMotion');
+
 const DEFAULT_STATE: PerformanceState = Object.freeze({
   performanceModeEnabled: false,
   weakGpuDetected: false,
@@ -65,13 +70,9 @@ class PerformanceStateService extends BaseService {
 
   private readonly _state: PerformanceState;
   private _isStreaming: boolean;
-  private _idleTimeoutId: ReturnType<typeof setTimeout> | null;
   private readonly _idleDelayMs: number;
   private _lastIdleReset: number;
   private _onStateChange: ((state: PerformanceState) => void) | null;
-  private _visibilityCleanup: (() => void) | null;
-  private _activityCleanup: (() => void) | null;
-  private _motionCleanup: (() => void) | null;
 
   constructor(dependencies: PerformanceStateDependencies) {
     super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
@@ -83,13 +84,9 @@ class PerformanceStateService extends BaseService {
     this._state = { ...DEFAULT_STATE };
     this._isStreaming = false;
 
-    this._idleTimeoutId = null;
     this._idleDelayMs = 30000;
     this._lastIdleReset = 0;
     this._onStateChange = null;
-    this._visibilityCleanup = null;
-    this._activityCleanup = null;
-    this._motionCleanup = null;
   }
 
   initialize({ onStateChange }: PerformanceStateInitOptions = {}): void {
@@ -101,20 +98,9 @@ class PerformanceStateService extends BaseService {
     this._emitState();
   }
 
-  dispose(): void {
-    this._clearIdleTimer();
-    if (this._visibilityCleanup) {
-      this._visibilityCleanup();
-      this._visibilityCleanup = null;
-    }
-    if (this._activityCleanup) {
-      this._activityCleanup();
-      this._activityCleanup = null;
-    }
-    if (this._motionCleanup) {
-      this._motionCleanup();
-      this._motionCleanup = null;
-    }
+  override dispose(): void | Promise<void> {
+    this._onStateChange = null;
+    return super.dispose();
   }
 
   getState(): PerformanceState {
@@ -144,7 +130,8 @@ class PerformanceStateService extends BaseService {
 
   _setupVisibilityHandling(): void {
     // Subscribe to visibility changes
-    this._visibilityCleanup = this._visibilityAdapter.onVisibilityChange((hidden: boolean) => {
+    this.disposables.cancel(VISIBILITY_LIFECYCLE);
+    this.disposables.replace(VISIBILITY_LIFECYCLE, this._visibilityAdapter.onVisibilityChange((hidden: boolean) => {
       const changed = this._updateState({ hidden });
       if (hidden) {
         this._updateState({ idle: false });
@@ -152,7 +139,7 @@ class PerformanceStateService extends BaseService {
       if (changed) {
         this._syncIdleTimer();
       }
-    });
+    }));
 
     // Initialize with current visibility state
     const currentlyHidden = this._visibilityAdapter.isHidden();
@@ -161,9 +148,10 @@ class PerformanceStateService extends BaseService {
 
   _setupReducedMotionHandling(): void {
     // Subscribe to reduced motion preference changes
-    this._motionCleanup = this._reducedMotionAdapter.onChange((reducedMotion: boolean) => {
+    this.disposables.cancel(MOTION_LIFECYCLE);
+    this.disposables.replace(MOTION_LIFECYCLE, this._reducedMotionAdapter.onChange((reducedMotion: boolean) => {
       this._updateState({ reducedMotion });
-    });
+    }));
 
     // Initialize with current preference
     const currentlyReducedMotion = this._reducedMotionAdapter.prefersReducedMotion();
@@ -172,7 +160,8 @@ class PerformanceStateService extends BaseService {
 
   _setupIdleHandling(): void {
     // Subscribe to user activity events
-    this._activityCleanup = this._userActivityAdapter.onActivity(() => {
+    this.disposables.cancel(ACTIVITY_LIFECYCLE);
+    this.disposables.replace(ACTIVITY_LIFECYCLE, this._userActivityAdapter.onActivity(() => {
       if (!this._shouldTrackIdle()) {
         return;
       }
@@ -183,7 +172,7 @@ class PerformanceStateService extends BaseService {
       }
 
       this._resetIdleTimer();
-    });
+    }));
   }
 
   _shouldTrackIdle(): boolean {
@@ -208,16 +197,15 @@ class PerformanceStateService extends BaseService {
 
     this._clearIdleTimer();
     this._lastIdleReset = performance.now();
-    this._idleTimeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      this._clearIdleTimer();
       this._updateState({ idle: true });
     }, this._idleDelayMs);
+    this.disposables.replace(IDLE_TIMER_LIFECYCLE, () => clearTimeout(timeoutId));
   }
 
   _clearIdleTimer(): void {
-    if (this._idleTimeoutId) {
-      clearTimeout(this._idleTimeoutId);
-      this._idleTimeoutId = null;
-    }
+    this.disposables.cancel(IDLE_TIMER_LIFECYCLE);
   }
 
   _detectWeakGPU(capabilities: unknown): boolean {

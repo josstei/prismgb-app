@@ -16,6 +16,15 @@ type StreamUnhealthyPayload = {
   reason: 'NO_FRAMES_RECEIVED';
 };
 
+type VideoFrameCallbackTarget = HTMLVideoElement & {
+  requestVideoFrameCallback?: HTMLVideoElement['requestVideoFrameCallback'];
+  cancelVideoFrameCallback?: HTMLVideoElement['cancelVideoFrameCallback'];
+};
+
+const HEALTH_TIMEOUT_LIFECYCLE = Symbol('streamHealthTimeout');
+const HEALTH_RVFC_LIFECYCLE = Symbol('streamHealthRvfc');
+const HEALTH_TIMEUPDATE_LIFECYCLE = Symbol('streamHealthTimeupdate');
+
 /**
  * Stream Health Service
  *
@@ -28,8 +37,6 @@ type StreamUnhealthyPayload = {
 export class StreamingHealthService extends BaseService {
   private _timeoutMs: number;
   private _isMonitoring: boolean;
-  private _timeoutHandle: ReturnType<typeof setTimeout> | null;
-  private _rvfcHandle: number | null;
   private _firstFrameReceived: boolean;
   private _onHealthy: ((payload: StreamHealthyPayload) => void) | null;
   private _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
@@ -40,8 +47,6 @@ export class StreamingHealthService extends BaseService {
 
     this._timeoutMs = 4000;
     this._isMonitoring = false;
-    this._timeoutHandle = null;
-    this._rvfcHandle = null;
     this._firstFrameReceived = false;
     this._onHealthy = null;
     this._onUnhealthy = null;
@@ -70,7 +75,11 @@ export class StreamingHealthService extends BaseService {
     this._firstFrameReceived = false;
 
     // Start timeout
-    this._timeoutHandle = setTimeout(() => this._handleTimeout(), this._timeoutMs);
+    const timeoutHandle = setTimeout(() => {
+      this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
+      this._handleTimeout();
+    }, this._timeoutMs);
+    this.disposables.replace(HEALTH_TIMEOUT_LIFECYCLE, () => clearTimeout(timeoutHandle));
 
     // Register for first frame callback
     this._registerFrameCallback();
@@ -80,13 +89,20 @@ export class StreamingHealthService extends BaseService {
 
   _registerFrameCallback(): void {
     if (!this._videoElement || !this._isMonitoring) return;
+    const videoElement = this._videoElement as VideoFrameCallbackTarget;
 
     // Prefer requestVideoFrameCallback (more accurate, synced to video frames)
-    if (this._videoElement.requestVideoFrameCallback) {
-      this._rvfcHandle = this._videoElement.requestVideoFrameCallback(this._handleFrameCallback);
+    if (typeof videoElement.requestVideoFrameCallback === 'function') {
+      const rvfcHandle = videoElement.requestVideoFrameCallback(this._handleFrameCallback);
+      this.disposables.replace(HEALTH_RVFC_LIFECYCLE, () => {
+        videoElement.cancelVideoFrameCallback?.(rvfcHandle);
+      });
     } else {
       // Fallback to timeupdate event (fires during playback)
-      this._videoElement.addEventListener('timeupdate', this._handleTimeUpdate, { once: true });
+      videoElement.addEventListener('timeupdate', this._handleTimeUpdate, { once: true });
+      this.disposables.replace(HEALTH_TIMEUPDATE_LIFECYCLE, () => {
+        videoElement.removeEventListener('timeupdate', this._handleTimeUpdate);
+      });
     }
   }
 
@@ -149,23 +165,12 @@ export class StreamingHealthService extends BaseService {
   }
 
   _clearTimeout(): void {
-    if (this._timeoutHandle !== null) {
-      clearTimeout(this._timeoutHandle);
-      this._timeoutHandle = null;
-    }
+    this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
   }
 
   _cancelRvfc(): void {
-    // Cancel RVFC if active
-    if (this._rvfcHandle !== null && this._videoElement?.cancelVideoFrameCallback) {
-      this._videoElement.cancelVideoFrameCallback(this._rvfcHandle);
-      this._rvfcHandle = null;
-    }
-
-    // Remove fallback event listener
-    if (this._videoElement) {
-      this._videoElement.removeEventListener('timeupdate', this._handleTimeUpdate);
-    }
+    this.disposables.cancel(HEALTH_RVFC_LIFECYCLE);
+    this.disposables.cancel(HEALTH_TIMEUPDATE_LIFECYCLE);
   }
 
   _cleanup(): void {
@@ -187,8 +192,10 @@ export class StreamingHealthService extends BaseService {
   /**
    * Dispose the service
    */
-  dispose(): void {
+  override dispose(): void | Promise<void> {
     this.cleanup();
+    const disposed = super.dispose();
     this.logger.info('StreamingHealthService disposed');
+    return disposed;
   }
 }

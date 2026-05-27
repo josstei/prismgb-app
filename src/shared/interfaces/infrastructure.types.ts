@@ -10,8 +10,9 @@ export interface LoggerFactoryLike {
 }
 
 export interface EventBusLike {
-  subscribe(event: string, handler: (...args: unknown[]) => void): () => void;
+  subscribe(event: string, handler: (...args: unknown[]) => void | Promise<void>): () => void;
   publish(event: string, data?: unknown): void;
+  publishAsync?(event: string, data?: unknown): Promise<void>;
 }
 
 export interface StorageServiceLike {

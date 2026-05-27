@@ -50,6 +50,8 @@ type DeviceMediaServiceDependencies = {
   deviceChangeDebounceAdapter: DeviceChangeDebounceAdapterLike;
 };
 
+const DEVICE_CHANGE_LIFECYCLE = Symbol('deviceMediaDeviceChangeLifecycle');
+
 function stopStreamTracks(stream: MediaStream | null): void {
   if (!stream) {
     return;
@@ -73,7 +75,6 @@ class DeviceMediaService extends BaseService {
   private _lastEnumerateAt: number;
   private readonly _enumerateCooldownMs: number;
   private _lastEnumerateResult: DeviceEnumerationResult | null;
-  private _unsubscribeDeviceChange: (() => void) | null;
   private readonly _knownSupportedDeviceIds: Set<string>;
   private _permissionProbeInFlight: Promise<void> | null;
 
@@ -98,7 +99,6 @@ class DeviceMediaService extends BaseService {
     this._lastEnumerateAt = 0;
     this._enumerateCooldownMs = TIMING.DEVICE_ENUMERATE_COOLDOWN_MS;
     this._lastEnumerateResult = null;
-    this._unsubscribeDeviceChange = null;
     this._knownSupportedDeviceIds = new Set();
     this._permissionProbeInFlight = null;
   }
@@ -302,21 +302,21 @@ class DeviceMediaService extends BaseService {
   }
 
   setupDeviceChangeListener(onChange: () => Promise<void> | void): void {
-    if (this._unsubscribeDeviceChange) {
-      return;
-    }
-
     // Subscribe via debounce adapter - handles rapid event bursts
-    this._unsubscribeDeviceChange = this.deviceChangeDebounceAdapter.subscribe(async () => {
-      try {
-        this.logger.info('Device change detected');
-        this.invalidateEnumerationCache();
-        await onChange();
-        await this.enumerateDevices();
-      } catch (error) {
-        this.logger.error('Device change handling failed:', getErrorMessage(error, 'Device change handling failed'));
-      }
-    });
+    this.disposables.cancel(DEVICE_CHANGE_LIFECYCLE);
+    this.disposables.replace(
+      DEVICE_CHANGE_LIFECYCLE,
+      this.deviceChangeDebounceAdapter.subscribe(async () => {
+        try {
+          this.logger.info('Device change detected');
+          this.invalidateEnumerationCache();
+          await onChange();
+          await this.enumerateDevices();
+        } catch (error) {
+          this.logger.error('Device change handling failed:', getErrorMessage(error, 'Device change handling failed'));
+        }
+      })
+    );
 
     this.logger.info('Device change listener set up');
   }
@@ -334,11 +334,8 @@ class DeviceMediaService extends BaseService {
     }
   }
 
-  dispose(): void {
-    if (this._unsubscribeDeviceChange) {
-      this._unsubscribeDeviceChange();
-      this._unsubscribeDeviceChange = null;
-    }
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 
   private _isMatchingDevice(label: string): string | null {

@@ -79,7 +79,4 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     }
   }
 
-  async onCleanup(): Promise<void> {
-    this.performanceStateService.dispose();
-  }
 }

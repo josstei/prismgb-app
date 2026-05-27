@@ -47,7 +47,7 @@ export class CaptureEffects extends PresentationComponent {
   /**
    * Dispose any pending flash overlays.
    */
-  override dispose() {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 }

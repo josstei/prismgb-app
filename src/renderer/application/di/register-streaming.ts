@@ -12,7 +12,7 @@ const rendererStreamingDescriptors = defineRendererDescriptors<RendererContainer
     kind: 'class',
     resolver: StreamingService
   }
-]);
+], { disposal: 'dispose' });
 
 export function registerStreaming(container: RegistrableContainer<RendererContainerMap>): void {
   registerRendererDescriptors(container, rendererStreamingDescriptors);

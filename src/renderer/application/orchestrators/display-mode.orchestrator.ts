@@ -7,7 +7,7 @@ type FullscreenServiceLike = {
   enterFullscreen(): void;
   exitFullscreen(): void;
   toggleFullscreen(): void;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 };
 
 type CinematicModeServiceLike = {
@@ -26,11 +26,12 @@ type SettingsDisplayModeOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
+
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   private readonly fullscreenService: FullscreenServiceLike;
   private readonly cinematicModeService: CinematicModeServiceLike;
   private readonly settingsService: SettingsServiceLike;
-  private _removeStartupVisibilityListener: (() => void) | null = null;
 
   constructor(dependencies: SettingsDisplayModeOrchestratorDependencies) {
     super(
@@ -71,10 +72,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
           this._clearStartupVisibilityListener();
           this.fullscreenService.enterFullscreen();
         };
-        document.addEventListener('visibilitychange', onVisible);
-        this._removeStartupVisibilityListener = () => {
-          document.removeEventListener('visibilitychange', onVisible);
-        };
+        this.replaceManaged(STARTUP_VISIBILITY_LIFECYCLE, this.listen(document, 'visibilitychange', onVisible));
       } else {
         this.fullscreenService.enterFullscreen();
       }
@@ -82,16 +80,11 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   }
 
   _clearStartupVisibilityListener(): void {
-    this._removeStartupVisibilityListener?.();
-    this._removeStartupVisibilityListener = null;
+    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
   }
 
-  /**
-   * Cleanup - remove fullscreen listeners
-   */
   async onCleanup(): Promise<void> {
     this._clearStartupVisibilityListener();
-    this.fullscreenService.dispose();
   }
 
   /**

@@ -67,12 +67,14 @@ const rendererOrchestratorDescriptors = defineRendererDescriptors<RendererContai
   {
     token: 'fullscreenService',
     kind: 'class',
-    resolver: SettingsFullscreenService
+    resolver: SettingsFullscreenService,
+    disposal: 'dispose'
   },
   {
     token: 'cinematicModeService',
     kind: 'class',
-    resolver: SettingsCinematicModeService
+    resolver: SettingsCinematicModeService,
+    disposal: 'dispose'
   },
   {
     token: 'displayModeOrchestrator',
@@ -102,19 +104,22 @@ const rendererOrchestratorDescriptors = defineRendererDescriptors<RendererContai
     token: 'performanceMetricsService',
     kind: 'class',
     resolver: PerformanceMetricsService,
-    dependencies: ['loggerFactory', 'metricsAdapter']
+    dependencies: ['loggerFactory', 'metricsAdapter'],
+    disposal: 'dispose'
   },
   {
     token: 'performanceStateService',
     kind: 'class',
     resolver: PerformanceStateService,
-    dependencies: ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter']
+    dependencies: ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'],
+    disposal: 'dispose'
   },
   {
     token: 'animationPerformanceService',
     kind: 'class',
     resolver: PerformanceAnimationService,
-    dependencies: ['loggerFactory']
+    dependencies: ['loggerFactory'],
+    disposal: 'dispose'
   },
   {
     token: 'performanceMetricsOrchestrator',
@@ -148,7 +153,7 @@ const rendererOrchestratorDescriptors = defineRendererDescriptors<RendererContai
       'loggerFactory'
     ]
   }
-]);
+], { disposal: 'cleanup' });
 
 export function registerOrchestrators(container: RegistrableContainer<RendererContainerMap>): void {
   registerRendererDescriptors(container, rendererOrchestratorDescriptors);

@@ -1,4 +1,4 @@
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
@@ -8,7 +8,6 @@ type TranscodeToastLike = {
   showSuccess(): void;
   showError(): void;
   hide(): void;
-  dispose(): void;
 };
 
 type TranscodeUiControllerLike = {
@@ -24,6 +23,14 @@ type TranscodeUIBridgeDependencies = {
 };
 
 class TranscodeUIBridge extends BaseService {
+  private static readonly eventDescriptors = [
+    [EventChannels.TRANSCODE.STARTED, (bridge, data) => bridge._handleStarted(data)],
+    [EventChannels.TRANSCODE.PROGRESS, (bridge, data) => bridge._handleProgress(data)],
+    [EventChannels.TRANSCODE.COMPLETED, (bridge, data) => bridge._handleCompleted(data)],
+    [EventChannels.TRANSCODE.ERROR, (bridge, data) => bridge._handleError(data)],
+    [EventChannels.TRANSCODE.CANCELLED, (bridge) => bridge._handleCancelled()]
+  ] satisfies readonly ServiceEventDescriptor<TranscodeUIBridge>[];
+
   private readonly eventBus: EventBusLike;
   private readonly uiController: TranscodeUiControllerLike;
 
@@ -38,19 +45,13 @@ class TranscodeUIBridge extends BaseService {
   }
 
   initialize() {
-    this.listen(EventChannels.TRANSCODE.STARTED, (data: unknown) => this._handleStarted(data));
-    this.listen(EventChannels.TRANSCODE.PROGRESS, (data: unknown) => this._handleProgress(data));
-    this.listen(EventChannels.TRANSCODE.COMPLETED, (data: unknown) => this._handleCompleted(data));
-    this.listen(EventChannels.TRANSCODE.ERROR, (data: unknown) => this._handleError(data));
-    this.listen(EventChannels.TRANSCODE.CANCELLED, () => this._handleCancelled());
+    this.listenToDescriptors(TranscodeUIBridge.eventDescriptors);
     this.logger.info('TranscodeUIBridge initialized');
   }
 
-  override dispose(): void | Promise<void> {
-    const disposed = super.dispose();
-    this._toast?.dispose();
+  override async dispose(): Promise<void> {
+    await super.dispose();
     this.logger.info('TranscodeUIBridge disposed');
-    return disposed;
   }
 
   _handleStarted(data: unknown) {

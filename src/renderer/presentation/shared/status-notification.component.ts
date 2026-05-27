@@ -1,19 +1,23 @@
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+
 type StatusMessageElementLike = {
   textContent: string | null;
   dataset: Record<string, string | undefined>;
 };
 
+const STATUS_NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
+
 export interface StatusNotificationElements {
   statusMessage?: StatusMessageElementLike | null;
 }
 
-class StatusNotificationComponent {
+class StatusNotificationComponent extends PresentationComponent {
   declare elements: StatusNotificationElements;
-  declare validTypes: string[];
+  readonly validTypes: readonly string[] = STATUS_NOTIFICATION_TYPES;
 
   constructor(elements: StatusNotificationElements) {
+    super();
     this.elements = elements;
-    this.validTypes = ['info', 'success', 'warning', 'error'];
   }
 
   show(message: string, type = 'info'): void {

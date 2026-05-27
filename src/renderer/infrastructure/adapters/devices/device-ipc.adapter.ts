@@ -1,15 +1,14 @@
 import {
-  createManifestPreloadEventBridge,
-  RendererPreloadBridgeDescriptors,
-  type PreloadEventBridge
+  createRendererPreloadEventBridge,
+  RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
+import { DisposableBag } from '@shared/base/disposable-bag.js';
 
 type DeviceEventHandler = (...args: unknown[]) => void;
 
 export class DeviceIpcAdapter {
   _logger?: { warn?: (...args: unknown[]) => void };
-  _eventBridge: PreloadEventBridge | null = null;
-  _eventBridges = new Set<PreloadEventBridge>();
+  private readonly disposables = new DisposableBag();
 
   constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
     this._logger = logger;
@@ -25,39 +24,20 @@ export class DeviceIpcAdapter {
       return () => {};
     }
 
-    this._eventBridge = createManifestPreloadEventBridge({
+    const disposeBridge = this.disposables.add(createRendererPreloadEventBridge({
       api: window.deviceAPI,
       descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
-      bridgeName: 'DeviceIpcAdapter',
       logger: this._logger,
       handlers: {
         onDeviceConnected: handleConnected,
         onDeviceDisconnected: handleDisconnected
       }
-    });
+    }));
 
-    const eventBridge = this._eventBridge;
-    this._eventBridges.add(eventBridge);
-
-    return () => this._disposeBridge(eventBridge);
-  }
-
-  _disposeBridge(eventBridge: PreloadEventBridge) {
-    if (!this._eventBridges.delete(eventBridge)) {
-      return;
-    }
-
-    eventBridge.dispose();
-
-    if (this._eventBridge === eventBridge) {
-      this._eventBridge = [...this._eventBridges].pop() ?? null;
-    }
+    return () => { void disposeBridge(); };
   }
 
   dispose() {
-    for (const eventBridge of this._eventBridges) eventBridge.dispose();
-
-    this._eventBridges.clear();
-    this._eventBridge = null;
+    return this.disposables.clear();
   }
 }

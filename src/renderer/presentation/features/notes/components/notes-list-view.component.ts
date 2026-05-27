@@ -3,6 +3,8 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@shared/utils/string.utils.js';
 import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
+const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
+
 interface UserNoteLike {
   id?: string;
   gameName?: string;
@@ -45,6 +47,7 @@ class NotesListViewComponent extends PresentationComponent {
   }
 
   initialize({ listElement, onNoteSelect }: NotesListViewInitializeOptions): void {
+    this.cancelManaged(LIST_SETUP_LIFECYCLE);
     this.listElement = listElement;
     this.onNoteSelect = onNoteSelect;
 
@@ -126,22 +129,25 @@ class NotesListViewComponent extends PresentationComponent {
   _setupListClickHandler(): void {
     if (!this.listElement) return;
 
-    this.listen(this.listElement, 'click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      const gameHeader = target?.closest<HTMLElement>('.notes-game-header');
-      if (gameHeader) {
-        this._toggleGameGroup(gameHeader.dataset.gameToggle || '');
-        return;
-      }
+    this.replaceManaged(
+      LIST_SETUP_LIFECYCLE,
+      this.listen(this.listElement, 'click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const gameHeader = target?.closest<HTMLElement>('.notes-game-header');
+        if (gameHeader) {
+          this._toggleGameGroup(gameHeader.dataset.gameToggle || '');
+          return;
+        }
 
-      const item = target?.closest<HTMLElement>('.note-list-item');
-      if (!item) return;
+        const item = target?.closest<HTMLElement>('.note-list-item');
+        if (!item) return;
 
-      const noteId = item.dataset.noteId;
-      if (noteId && noteId !== this.currentNoteId) {
-        this.onNoteSelect?.(noteId);
-      }
-    });
+        const noteId = item.dataset.noteId;
+        if (noteId && noteId !== this.currentNoteId) {
+          this.onNoteSelect?.(noteId);
+        }
+      })
+    );
   }
 
   _toggleGameGroup(gameName: string): void {
@@ -207,8 +213,8 @@ class NotesListViewComponent extends PresentationComponent {
     `;
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.collapsedGameGroups.clear();
     this.currentNoteId = null;
     this.currentGameFilter = '';
@@ -216,6 +222,7 @@ class NotesListViewComponent extends PresentationComponent {
     this.onNoteSelect = null;
     this.notesService = null;
     this.logger = null;
+    return disposed;
   }
 }
 

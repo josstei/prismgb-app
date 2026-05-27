@@ -14,6 +14,7 @@ const DRAG_END_MOUSE_LIFECYCLE = Symbol('notesResizeDragEndMouseLifecycle');
 const DRAG_END_TOUCH_LIFECYCLE = Symbol('notesResizeDragEndTouchLifecycle');
 const DRAG_CANCEL_TOUCH_LIFECYCLE = Symbol('notesResizeDragCancelTouchLifecycle');
 const DRAG_FRAME_LIFECYCLE = Symbol('notesResizeDragFrameLifecycle');
+const LIST_TOGGLE_SETUP_LIFECYCLE = Symbol('notesResizeListToggleSetupLifecycle');
 
 type BodyStyleSnapshot = { cursor: string; userSelect: string };
 
@@ -36,10 +37,7 @@ class NotesResizeHandlerComponent extends PresentationComponent {
   declare _dragStartX: number;
   declare _dragStartWidth: number;
   declare _customListWidth: number;
-  declare _boundDragMove: EventListener | null;
-  declare _boundDragEnd: EventListener | null;
   declare _dragFramePending: boolean;
-  declare _rafId: number | null;
   declare _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
   declare listToggle: HTMLElement | null | undefined;
   declare panelElement: HTMLElement | null | undefined;
@@ -55,10 +53,7 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._dragStartX = 0;
     this._dragStartWidth = 0;
     this._customListWidth = LIST_WIDTH_DEFAULT;
-    this._boundDragMove = null;
-    this._boundDragEnd = null;
     this._dragFramePending = false;
-    this._rafId = null;
     this._dragBodyStyleSnapshot = null;
     this.listToggle = null;
     this.panelElement = null;
@@ -67,17 +62,22 @@ class NotesResizeHandlerComponent extends PresentationComponent {
   }
 
   initialize({ listToggle, panelElement, panelContent, listWrapper, onToggle }: NotesResizeHandlerInitializeOptions): void {
+    this.cancelManaged(LIST_TOGGLE_SETUP_LIFECYCLE);
+    this._cleanupDragListeners();
+    this._cancelDragFrame();
+    this._cleanupDragVisualState();
+    this._isDragging = false;
     this.listToggle = listToggle;
     this.panelElement = panelElement;
     this.onToggle = onToggle;
+    this._contentElement = panelContent || null;
+    this._listWrapperElement = listWrapper || null;
 
     if (!this.listToggle) {
       this.logger?.warn('List toggle element not found');
       return;
     }
 
-    this._contentElement = panelContent || null;
-    this._listWrapperElement = listWrapper || null;
     this._setupListToggle();
   }
 
@@ -113,8 +113,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
       this._dragStartX = getClientX(event);
       this._dragStartWidth = this._getListWidth();
       this._isDragging = false;
-      this._boundDragMove = handleMove;
-      this._boundDragEnd = endDrag;
 
       this.replaceManaged(DRAG_MOVE_MOUSE_LIFECYCLE, this.listen(document, 'mousemove', handleMove));
       this.replaceManaged(DRAG_END_MOUSE_LIFECYCLE, this.listen(document, 'mouseup', endDrag));
@@ -139,31 +137,16 @@ class NotesResizeHandlerComponent extends PresentationComponent {
         this._dragFramePending = true;
 
         const newWidth = Math.min(LIST_WIDTH_MAX, Math.max(LIST_WIDTH_MIN, this._dragStartWidth + delta));
-        const rafId = requestAnimationFrame(() => {
+        this.replaceAnimationFrame(DRAG_FRAME_LIFECYCLE, () => {
           this._dragFramePending = false;
-          this._rafId = null;
-          this.cancelManaged(DRAG_FRAME_LIFECYCLE);
           this._setListWidth(newWidth);
         });
-        this._rafId = rafId;
-        this.replaceManaged(DRAG_FRAME_LIFECYCLE, this.track(() => {
-          cancelAnimationFrame(rafId);
-          if (this._rafId === rafId) {
-            this._rafId = null;
-          }
-          this._dragFramePending = false;
-        }));
       }
     };
 
     endDrag = (): void => {
       this._cleanupDragListeners();
-      this.cancelManaged(DRAG_FRAME_LIFECYCLE);
-      if (this._rafId) {
-        cancelAnimationFrame(this._rafId);
-        this._rafId = null;
-      }
-      this._dragFramePending = false;
+      this._cancelDragFrame();
       this._cleanupDragVisualState();
 
       if (!this._isDragging) {
@@ -173,12 +156,16 @@ class NotesResizeHandlerComponent extends PresentationComponent {
       }
 
       this._isDragging = false;
-      this._boundDragMove = null;
-      this._boundDragEnd = null;
     };
 
-    this.listen(this.listToggle, 'mousedown', startDrag);
-    this.listen(this.listToggle, 'touchstart', startDrag, { passive: false });
+    const setupDisposers = [
+      this.listen(this.listToggle, 'mousedown', startDrag),
+      this.listen(this.listToggle, 'touchstart', startDrag, { passive: false })
+    ];
+
+    this.replaceManaged(LIST_TOGGLE_SETUP_LIFECYCLE, () => {
+      setupDisposers.splice(0).reverse().forEach((dispose) => dispose());
+    });
   }
 
   _toggleListVisibility(): void {
@@ -216,6 +203,11 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this.cancelManaged(DRAG_CANCEL_TOUCH_LIFECYCLE);
   }
 
+  _cancelDragFrame(): void {
+    this.cancelManaged(DRAG_FRAME_LIFECYCLE);
+    this._dragFramePending = false;
+  }
+
   _applyDragVisualState(): void {
     if (!this._dragBodyStyleSnapshot) {
       this._dragBodyStyleSnapshot = {
@@ -236,20 +228,13 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this.listToggle?.classList.remove('dragging');
   }
 
-  override dispose(): void {
+  override dispose(): void | Promise<void> {
     this._cleanupDragListeners();
     this._cleanupDragVisualState();
     this._isDragging = false;
-    this._boundDragMove = null;
-    this._boundDragEnd = null;
-    this.cancelManaged(DRAG_FRAME_LIFECYCLE);
-    if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
-    this._dragFramePending = false;
+    this._cancelDragFrame();
     this._dragBodyStyleSnapshot = null;
-    super.dispose();
+    const disposed = super.dispose();
     this.listToggle = null;
     this.panelElement = null;
     this._contentElement = null;
@@ -258,6 +243,7 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this.logger = null;
     this.isListVisible = true;
     this._customListWidth = LIST_WIDTH_DEFAULT;
+    return disposed;
   }
 }
 

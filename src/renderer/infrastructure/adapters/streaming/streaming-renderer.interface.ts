@@ -1,3 +1,7 @@
+export type StreamingRendererCleanupOptions = {
+  emitCanvasExpired?: boolean;
+};
+
 export class IStreamingRenderer {
 
   async initialize(_canvasElement: HTMLCanvasElement, _nativeResolution: { width: number; height: number }): Promise<boolean> {
@@ -28,7 +32,7 @@ export class IStreamingRenderer {
     // no-op
   }
 
-  cleanup(): void | Promise<void> {
+  cleanup(_options?: StreamingRendererCleanupOptions): void | Promise<void> {
     throw new Error('cleanup() must be implemented');
   }
 

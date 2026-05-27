@@ -71,7 +71,7 @@ class ShaderSelectorComponent extends PresentationComponent {
   }
 
   initialize(elements: ShaderSelectorElements): void {
-    this.dispose();
+    void this.dispose();
     this.button = elements.shaderBtn;
     this.dropdown = elements.shaderDropdown;
 
@@ -135,16 +135,21 @@ class ShaderSelectorComponent extends PresentationComponent {
     this._panelDisclosure.initialize();
   }
 
-  override dispose(): void {
-    super.dispose();
-    this._presetList?.dispose();
-    this._sliderControls?.dispose();
-    this._cinematicToggle?.dispose();
-    this._panelDisclosure?.dispose();
+  override async dispose(): Promise<void> {
+    const panelDisclosure = this._panelDisclosure;
     this._panelDisclosure = null;
     this.button = null;
     this.dropdown = null;
     this.isVisible = false;
+
+    const childDisposals = [
+      this._presetList?.dispose(),
+      this._sliderControls?.dispose(),
+      this._cinematicToggle?.dispose(),
+      panelDisclosure?.dispose()
+    ];
+    await super.dispose();
+    await Promise.all(childDisposals);
   }
 }
 

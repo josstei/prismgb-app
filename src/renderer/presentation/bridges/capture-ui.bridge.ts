@@ -1,4 +1,4 @@
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { UiButtonFeedbackPayload } from '@shared/events/event-payloads.js';
 import { TIMING } from '@renderer/presentation/config/constants.config';
@@ -15,6 +15,15 @@ type CaptureUIBridgeDependencies = {
 };
 
 class CaptureUIBridge extends BaseService {
+  private static readonly eventDescriptors = [
+    [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, (bridge) => bridge._handleScreenshotTriggered()],
+    [EventChannels.CAPTURE.SCREENSHOT_READY, (bridge, data) => bridge._handleScreenshotReady(data)],
+    [EventChannels.CAPTURE.RECORDING_STARTED, (bridge) => bridge._handleRecordingStarted()],
+    [EventChannels.CAPTURE.RECORDING_STOPPED, (bridge) => bridge._handleRecordingStopped()],
+    [EventChannels.CAPTURE.RECORDING_ERROR, (bridge, data) => bridge._handleRecordingError(data)],
+    [EventChannels.CAPTURE.RECORDING_DEGRADED, (bridge, data) => bridge._handleRecordingDegraded(data)]
+  ] satisfies readonly ServiceEventDescriptor<CaptureUIBridge>[];
+
   private readonly eventBus: EventBusLike;
   private readonly uiController: CaptureUiControllerLike;
 
@@ -25,12 +34,7 @@ class CaptureUIBridge extends BaseService {
   }
 
   initialize() {
-    this.listen(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () => this._handleScreenshotTriggered());
-    this.listen(EventChannels.CAPTURE.SCREENSHOT_READY, (data: unknown) => this._handleScreenshotReady(data));
-    this.listen(EventChannels.CAPTURE.RECORDING_STARTED, () => this._handleRecordingStarted());
-    this.listen(EventChannels.CAPTURE.RECORDING_STOPPED, () => this._handleRecordingStopped());
-    this.listen(EventChannels.CAPTURE.RECORDING_ERROR, (data: unknown) => this._handleRecordingError(data));
-    this.listen(EventChannels.CAPTURE.RECORDING_DEGRADED, (data: unknown) => this._handleRecordingDegraded(data));
+    this.listenToDescriptors(CaptureUIBridge.eventDescriptors);
     this.logger.info('CaptureUIBridge initialized');
   }
 

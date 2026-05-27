@@ -1,6 +1,7 @@
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
+import type { StreamingRendererCleanupOptions } from './streaming-renderer.interface';
 
 interface CanvasRenderLoopServiceLike {
   initialize(canvasElement: HTMLCanvasElement, nativeResolution?: { width: number; height: number }): Promise<void>;
@@ -102,7 +103,7 @@ export class StreamingCanvas2DRendererAdapter extends IStreamingRenderer {
     this.clearCanvas();
   }
 
-  async cleanup(): Promise<void> {
+  async cleanup(_options: StreamingRendererCleanupOptions = {}): Promise<void> {
     if (this._videoElement) {
       this.canvasRenderLoopService.stopRendering(this._videoElement);
     }

@@ -3,6 +3,7 @@ import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesSearchDebounceTimeout');
+const SEARCH_SETUP_LIFECYCLE = Symbol('notesSearchSetupLifecycle');
 
 export interface NotesSearchComponentOptions {
   logger?: LoggerLike | null;
@@ -27,6 +28,8 @@ class NotesSearchComponent extends PresentationComponent {
   }
 
   initialize({ searchInput, onSearch }: NotesSearchInitializeOptions): void {
+    this.cancelManaged(SEARCH_SETUP_LIFECYCLE);
+    this.cancelManaged(SEARCH_DEBOUNCE_TIMEOUT);
     this.searchInput = searchInput;
     this.onSearch = onSearch;
 
@@ -56,9 +59,12 @@ class NotesSearchComponent extends PresentationComponent {
   _setupSearch(): void {
     if (!this.searchInput) return;
 
-    this.listen(this.searchInput, 'input', () => {
-      this._scheduleSearch();
-    });
+    this.replaceManaged(
+      SEARCH_SETUP_LIFECYCLE,
+      this.listen(this.searchInput, 'input', () => {
+        this._scheduleSearch();
+      })
+    );
   }
 
   _scheduleSearch(): void {
@@ -73,12 +79,13 @@ class NotesSearchComponent extends PresentationComponent {
     this.onSearch?.(query);
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.searchInput = null;
     this.onSearch = null;
     this.logger = null;
     this.currentQuery = '';
+    return disposed;
   }
 }
 

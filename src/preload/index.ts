@@ -1,14 +1,9 @@
 import type { IpcRenderer } from 'electron';
 import { IPC_CHANNELS, type IpcChannels } from '@shared/ipc/ipc.manifest.js';
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
+import type { PreloadApiName } from '@preload/subscription.factory.js';
 import { MAX_LISTENERS_PER_CHANNEL, createListenerRegistry } from '@preload/listener-registry.js';
-import {
-  isValidCallback,
-  isValidExternalUrl,
-  isValidTranscodeParams,
-  isValidFfmpegArgs,
-  isValidGpuPolicy
-} from '@preload/validators.js';
+import { isValidCallback } from '@preload/validators.js';
 import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
@@ -29,14 +24,10 @@ type PreloadApiFactoryContext = {
   listenerRegistry: ReturnType<typeof createListenerRegistry>;
   maxListeners: number;
   isValidCallback: typeof isValidCallback;
-  isValidExternalUrl: typeof isValidExternalUrl;
-  isValidTranscodeParams: typeof isValidTranscodeParams;
-  isValidFfmpegArgs: typeof isValidFfmpegArgs;
-  isValidGpuPolicy: typeof isValidGpuPolicy;
 };
 type DisposablePreloadAPI = object & { dispose?: () => void };
 type PreloadApiFactory = (context: PreloadApiFactoryContext) => DisposablePreloadAPI;
-type PreloadApiImplementations = Record<string, DisposablePreloadAPI>;
+type PreloadApiImplementations = Record<PreloadApiName, DisposablePreloadAPI>;
 
 const { contextBridge, ipcRenderer } = require('electron') as ElectronPreloadRuntime;
 const listenerRegistry = createListenerRegistry();
@@ -46,11 +37,7 @@ const apiFactoryContext: PreloadApiFactoryContext = {
   channels: IPC_CHANNELS,
   listenerRegistry,
   maxListeners: MAX_LISTENERS_PER_CHANNEL,
-  isValidCallback,
-  isValidExternalUrl,
-  isValidTranscodeParams,
-  isValidFfmpegArgs,
-  isValidGpuPolicy
+  isValidCallback
 };
 
 const preloadApiFactories = {
@@ -62,23 +49,27 @@ const preloadApiFactories = {
   gpuAPI: createGpuPreloadAPI,
   loginItemAPI: createLoginItemPreloadAPI,
   transcodeAPI: createTranscodePreloadAPI
-} satisfies Record<string, PreloadApiFactory>;
+} satisfies { readonly [TApiName in PreloadApiName]: PreloadApiFactory };
 type PreloadApiFactoryName = keyof typeof preloadApiFactories;
 
+function isPreloadApiFactoryName(apiName: string): apiName is PreloadApiFactoryName {
+  return Object.prototype.hasOwnProperty.call(preloadApiFactories, apiName);
+}
+
 function getPreloadApiFactory(apiName: string): PreloadApiFactory {
-  if (!Object.prototype.hasOwnProperty.call(preloadApiFactories, apiName)) {
+  if (!isPreloadApiFactoryName(apiName)) {
     throw new Error(`Preload API factory not found for ${apiName}`);
   }
-  return preloadApiFactories[apiName as PreloadApiFactoryName];
+  return preloadApiFactories[apiName];
 }
 
 function createApiImplementationEntry({ apiName }: { apiName: string }): [string, DisposablePreloadAPI] {
   return [apiName, getPreloadApiFactory(apiName)(apiFactoryContext)];
 }
 
-const apiImplementations: PreloadApiImplementations = Object.fromEntries(
+const apiImplementations = Object.fromEntries(
   IpcManifest.namespaces.map(createApiImplementationEntry)
-);
+) as PreloadApiImplementations;
 
 window.addEventListener('beforeunload', () => {
   for (const api of Object.values(apiImplementations)) api.dispose?.();

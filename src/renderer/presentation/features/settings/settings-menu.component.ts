@@ -1,8 +1,10 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
 import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
-import { getTemplateAction } from '@renderer/presentation/primitives/template-ref.utils.js';
+import {
+  PresentationComponent,
+  type PresentationLifecycleToken
+} from '@renderer/presentation/primitives/presentation-component.base';
 import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,
@@ -29,25 +31,20 @@ interface SettingsServiceLike {
   setSetting(name: string, value: unknown): boolean | Promise<boolean>;
 }
 
-type UpdateSectionLike = { initialize(elements: UpdateSectionElements): void; setCurrentVersion(version: string): void; dispose(): void };
+type UpdateSectionLike = { initialize(elements: UpdateSectionElements): void; setCurrentVersion(version: string): void; dispose(): void | Promise<void> };
 
 const BOOLEAN_SETTING_SIDE_EFFECTS = {
   statusStripVisible: (component: SettingsMenuComponent, visible: boolean) => component._applyStatusStripVisibility(visible)
 } as const;
-const EXTERNAL_LINK_ACTIONS = [
-  ['external.github', 'linkGithub', 'https://github.com/josstei/prismgb-app'],
-  ['external.website', 'linkWebsite', 'https://prismgb.com'],
-  ['external.x', 'linkX', 'https://x.com/prism_gb'],
-  ['external.kofi', 'linkKofi', 'https://ko-fi.com/josstei'],
-  ['external.modretro', 'linkModRetro', 'https://modretro.com']
-] as const;
+const SETTINGS_MENU_ASYNC_SETTINGS_LIFECYCLE = Symbol('settingsMenuAsyncSettingsLifecycle');
+const SETTINGS_MENU_CHILD_COMPONENT_LIFECYCLE = Symbol('settingsMenuChildComponentLifecycle');
 
 function getSettingsElement<TElement extends HTMLElement>(elements: SettingsMenuElements, ref: string): TElement | null {
-  return (elements[ref] ?? null) as TElement | null;
+  const elementMap = elements as Partial<Record<string, HTMLElement | null>>;
+  return (elementMap[ref] ?? null) as TElement | null;
 }
 
 export interface SettingsMenuElements extends UpdateSectionDomElements {
-  [ref: string]: HTMLElement | null | undefined;
   settingsMenuContainer?: HTMLElement | null;
   settingsBtn?: HTMLElement | null;
   disclaimerBtn?: HTMLElement | null;
@@ -77,13 +74,12 @@ class SettingsMenuComponent extends PresentationComponent {
   declare settingsService: SettingsServiceLike;
   declare logger: LoggerLike | null | undefined;
   declare isVisible: boolean;
-  declare disclaimerExpanded: boolean;
   declare _menuDisclosure: DisclosureController | null;
+  declare _disclaimerDisclosure: DisclosureController | null;
   declare listboxDropdowns: Map<string, ListboxDropdownController>;
   declare listboxElements: Map<string, ListboxElementBinding>;
   declare _updateSection: UpdateSectionLike | null;
   declare _initialized: boolean;
-  declare _lifecycleGeneration: number;
   declare container: HTMLElement | null | undefined;
   declare toggleButton: HTMLElement | null | undefined;
   declare checkboxElements: Map<string, CheckboxElement>;
@@ -98,20 +94,19 @@ class SettingsMenuComponent extends PresentationComponent {
     this.settingsService = settingsService;
     this.logger = logger;
     this.isVisible = false;
-    this.disclaimerExpanded = false;
     this._menuDisclosure = null;
+    this._disclaimerDisclosure = null;
     this.listboxDropdowns = new Map();
     this.listboxElements = new Map();
     this._updateSection = updateSectionComponent || null;
     this._initialized = false;
-    this._lifecycleGeneration = 0;
     this.checkboxElements = new Map();
     this.updateElements = {};
   }
 
   initialize(elements: SettingsMenuElements): void {
     this._resetExistingInitialization();
-    const lifecycleGeneration = ++this._lifecycleGeneration;
+    const asyncSettingsToken = this.createLifecycleToken(SETTINGS_MENU_ASYNC_SETTINGS_LIFECYCLE);
 
     this.container = elements.settingsMenuContainer;
     this.toggleButton = elements.settingsBtn;
@@ -135,15 +130,17 @@ class SettingsMenuComponent extends PresentationComponent {
     if (!this.container || !this.toggleButton) {
       this.logger?.warn('Settings menu elements not found');
       this._initialized = false;
+      void asyncSettingsToken.dispose();
       return;
     }
 
     this._initialized = true;
-    this._bindEvents(elements);
+    this._bindEvents();
     this._setupMenuDisclosure();
     this._setupListboxDropdowns();
-    this._loadCurrentSettings(lifecycleGeneration);
+    this._trackRuntimeChildren();
     this._initializeUpdateSection();
+    this._loadCurrentSettings(asyncSettingsToken);
 
     this.logger?.debug('SettingsMenuComponent initialized');
   }
@@ -161,7 +158,7 @@ class SettingsMenuComponent extends PresentationComponent {
     }
   }
 
-  _bindEvents(elements: SettingsMenuElements): void {
+  _bindEvents(): void {
     for (const [checkbox, settingName, afterChange] of this._getBooleanSettingBindings()) {
       if (!checkbox) continue;
       this.listen(checkbox, 'change', () => {
@@ -173,14 +170,12 @@ class SettingsMenuComponent extends PresentationComponent {
 
     if (this.disclaimerBtn && this.disclaimerContent) {
       this.listen(this.disclaimerBtn, 'click', () => {
-        this._toggleDisclaimer();
+        this._disclaimerDisclosure?.toggle();
       });
     }
-
-    this._bindExternalLinks(elements);
   }
 
-  _loadCurrentSettings(lifecycleGeneration: number): void {
+  _loadCurrentSettings(asyncSettingsToken: PresentationLifecycleToken): void {
     for (const [checkbox, settingName, afterLoad] of this._getBooleanSettingBindings({ includeAsync: false })) {
       const value = this.settingsService.getBooleanSetting(settingName);
       if (checkbox) checkbox.checked = value;
@@ -193,15 +188,15 @@ class SettingsMenuComponent extends PresentationComponent {
         dropdown.setActive(this.settingsService.getStringSetting(definition.name));
       }
     }
-    void this._loadAsyncSettings(lifecycleGeneration);
+    void this._loadAsyncSettings(asyncSettingsToken);
   }
 
-  async _loadAsyncSettings(lifecycleGeneration: number): Promise<void> {
+  async _loadAsyncSettings(asyncSettingsToken: PresentationLifecycleToken): Promise<void> {
     const asyncDefinitions = getBooleanSettingsUiDefinitions().filter(hasExternalSource);
     for (const definition of asyncDefinitions) {
       const enabled = await this.settingsService.getSetting(definition.name);
 
-      if (!this._initialized || lifecycleGeneration !== this._lifecycleGeneration) {
+      if (!this._initialized || !asyncSettingsToken.isActive()) {
         return;
       }
 
@@ -257,35 +252,66 @@ class SettingsMenuComponent extends PresentationComponent {
         for (const dropdown of this.listboxDropdowns.values()) {
           dropdown.hide();
         }
-        if (this.disclaimerExpanded) {
-          this._collapseDisclaimer();
-        }
+        this._disclaimerDisclosure?.hide();
         this.logger?.debug('Settings menu hidden');
       }
     });
 
     this._menuDisclosure.initialize();
+    this._setupDisclaimerDisclosure();
+  }
+
+  _setupDisclaimerDisclosure(): void {
+    if (!this.disclaimerBtn || !this.disclaimerContent) return;
+
+    this._disclaimerDisclosure = new DisclosureController({
+      toggleElement: this.disclaimerBtn,
+      panelElement: this.disclaimerContent,
+      visibleClass: CSSClasses.VISIBLE,
+      closeOnEscape: false,
+      closeOnClickOutside: false,
+      logger: this.logger
+    });
+
+    this._disclaimerDisclosure.initialize();
   }
 
   _resetExistingInitialization(): void {
     if (this._initialized || this._disposables.size || this._menuDisclosure || this.listboxDropdowns.size) {
-      this._releaseRuntimeLifecycle();
+      void this._releaseRuntimeLifecycle();
     }
   }
 
-  _releaseRuntimeLifecycle(): void {
-    this._lifecycleGeneration += 1;
-    super.dispose();
-    this._menuDisclosure?.dispose();
-    for (const dropdown of this.listboxDropdowns.values()) dropdown.dispose();
-    this._updateSection?.dispose();
-    if (this.disclaimerExpanded) this._collapseDisclaimer();
+  _trackRuntimeChildren(): void {
+    const menuDisclosure = this._menuDisclosure;
+    const disclaimerDisclosure = this._disclaimerDisclosure;
+    const dropdowns = new Map(this.listboxDropdowns);
+    const updateSection = this._updateSection;
+
+    this.replaceManaged(SETTINGS_MENU_CHILD_COMPONENT_LIFECYCLE, async () => {
+      await Promise.all([
+        menuDisclosure?.dispose(),
+        disclaimerDisclosure?.dispose(),
+        ...Array.from(dropdowns.values(), (dropdown) => dropdown.dispose()),
+        updateSection?.dispose()
+      ]);
+      if (this._menuDisclosure === menuDisclosure) this._menuDisclosure = null;
+      if (this._disclaimerDisclosure === disclaimerDisclosure) this._disclaimerDisclosure = null;
+      for (const [name, dropdown] of dropdowns) {
+        if (this.listboxDropdowns.get(name) === dropdown) this.listboxDropdowns.delete(name);
+      }
+    });
+  }
+
+  _releaseRuntimeLifecycle(): Promise<void> {
+    const disposed = super.dispose();
     this._menuDisclosure = null;
+    this._disclaimerDisclosure = null;
     this.listboxDropdowns.clear();
     this._clearElementReferences();
     this.isVisible = false;
-    this.disclaimerExpanded = false;
     this._initialized = false;
+    return Promise.resolve(disposed);
   }
 
   _clearElementReferences(): void {
@@ -296,25 +322,6 @@ class SettingsMenuComponent extends PresentationComponent {
     this.checkboxElements.clear();
     this.listboxElements.clear();
     this.updateElements = {};
-  }
-
-  _bindExternalLinks(elements: SettingsMenuElements): void {
-    const handleExternalLink = (event: Event, url: string): void => {
-      event.preventDefault();
-      if (window.shellAPI?.openExternal) {
-        window.shellAPI.openExternal(url);
-      } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    };
-
-    for (const [action, ref, url] of EXTERNAL_LINK_ACTIONS) {
-      const link = getSettingsElement(elements, ref);
-      if (link && getTemplateAction(link) !== action) {
-        this.logger?.warn(`Settings link action metadata drift for ${ref}: expected ${action}, found ${getTemplateAction(link) || 'none'}`);
-      }
-      if (link) this.listen(link, 'click', (event) => handleExternalLink(event, url));
-    }
   }
 
   _getBooleanSettingBindings({ includeAsync = true }: { includeAsync?: boolean } = {}): BooleanSettingBinding[] {
@@ -359,25 +366,7 @@ class SettingsMenuComponent extends PresentationComponent {
     return sideEffect ? (visible) => sideEffect(this, visible) : undefined;
   }
 
-  _toggleDisclaimer(): void { this.disclaimerExpanded ? this._collapseDisclaimer() : this._expandDisclaimer(); }
-
-  _expandDisclaimer(): void {
-    if (!this.disclaimerContent || !this.disclaimerBtn) return;
-
-    this.disclaimerContent.classList.add(CSSClasses.VISIBLE);
-    this.disclaimerBtn.setAttribute('aria-expanded', 'true');
-    this.disclaimerExpanded = true;
-  }
-
-  _collapseDisclaimer(): void {
-    if (!this.disclaimerContent || !this.disclaimerBtn) return;
-
-    this.disclaimerContent.classList.remove(CSSClasses.VISIBLE);
-    this.disclaimerBtn.setAttribute('aria-expanded', 'false');
-    this.disclaimerExpanded = false;
-  }
-
-  override dispose(): void { this._releaseRuntimeLifecycle(); }
+  override dispose(): Promise<void> { return this._releaseRuntimeLifecycle(); }
 }
 
 export { SettingsMenuComponent };

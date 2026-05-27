@@ -36,10 +36,12 @@ type CachedViewportStyles = {
   gap: number;
 };
 
+const RESIZE_OBSERVER_LIFECYCLE = Symbol('streamingViewportResizeObserver');
+const RESIZE_DEBOUNCE_LIFECYCLE = Symbol('streamingViewportResizeDebounce');
+const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
+
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
-  private _resizeTimeout: ReturnType<typeof setTimeout> | null;
-  private _forceResizeTimeout: ReturnType<typeof setTimeout> | null;
   private _onResizeCallback: (() => void) | null;
   private _lastDimensions: ResizeDimensions | null;
   private _forceResizePending: boolean;
@@ -50,8 +52,6 @@ export class StreamingViewportService extends BaseService {
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
-    this._resizeTimeout = null;
-    this._forceResizeTimeout = null;
 
     // Callback to invoke when resize occurs
     this._onResizeCallback = null;
@@ -74,8 +74,16 @@ export class StreamingViewportService extends BaseService {
 
     // Set up ResizeObserver
     if (!this._resizeObserver && observeElement) {
-      this._resizeObserver = new ResizeObserver(this._handleResize);
-      this._resizeObserver.observe(observeElement);
+      const resizeObserver = new ResizeObserver(this._handleResize);
+      resizeObserver.observe(observeElement);
+      this._resizeObserver = resizeObserver;
+      this.disposables.replace(RESIZE_OBSERVER_LIFECYCLE, () => {
+        resizeObserver.disconnect();
+        if (this._resizeObserver === resizeObserver) {
+          this._resizeObserver = null;
+        }
+        this.logger.debug('ResizeObserver disconnected');
+      });
       this.logger.debug('StreamingViewportService initialized with ResizeObserver');
     }
   }
@@ -153,12 +161,14 @@ export class StreamingViewportService extends BaseService {
     }
 
     // Debounce resize events
-    if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
-    this._resizeTimeout = setTimeout(() => {
+    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    const resizeTimeout = setTimeout(() => {
+      this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
     }, TIMING.RESIZE_DEBOUNCE_MS);
+    this.disposables.replace(RESIZE_DEBOUNCE_LIFECYCLE, () => clearTimeout(resizeTimeout));
   }
 
   /**
@@ -175,13 +185,8 @@ export class StreamingViewportService extends BaseService {
    */
   forceResize(): void {
     // Cancel any pending resize (both ResizeObserver debounce and forceResize)
-    if (this._resizeTimeout) {
-      clearTimeout(this._resizeTimeout);
-      this._resizeTimeout = null;
-    }
-    if (this._forceResizeTimeout) {
-      clearTimeout(this._forceResizeTimeout);
-    }
+    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
 
     // Suppress ResizeObserver callbacks while forceResize is pending
     this._forceResizePending = true;
@@ -191,35 +196,23 @@ export class StreamingViewportService extends BaseService {
     this._cachedStyles = null;
 
     // Short delay (2 frames) to ensure layout has settled after CSS changes
-    this._forceResizeTimeout = setTimeout(() => {
-      this._forceResizeTimeout = null;
+    const forceResizeTimeout = setTimeout(() => {
+      this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
       this._forceResizePending = false;
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
     }, 32);
+    this.disposables.replace(FORCE_RESIZE_LIFECYCLE, () => clearTimeout(forceResizeTimeout));
   }
 
   /**
    * Cleanup resources
    */
   cleanup(): void {
-    // Clean up ResizeObserver
-    if (this._resizeObserver) {
-      this._resizeObserver.disconnect();
-      this._resizeObserver = null;
-      this.logger.debug('ResizeObserver disconnected');
-    }
-
-    // Clear timeouts
-    if (this._resizeTimeout) {
-      clearTimeout(this._resizeTimeout);
-      this._resizeTimeout = null;
-    }
-    if (this._forceResizeTimeout) {
-      clearTimeout(this._forceResizeTimeout);
-      this._forceResizeTimeout = null;
-    }
+    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
+    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.disposables.cancel(RESIZE_OBSERVER_LIFECYCLE);
 
     // Clear callback
     this._onResizeCallback = null;
@@ -233,8 +226,10 @@ export class StreamingViewportService extends BaseService {
   /**
    * Dispose the service
    */
-  dispose(): void {
+  override dispose(): void | Promise<void> {
     this.cleanup();
+    const disposed = super.dispose();
     this.logger.info('StreamingViewportService disposed');
+    return disposed;
   }
 }

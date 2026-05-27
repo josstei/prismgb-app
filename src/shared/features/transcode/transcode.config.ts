@@ -1,14 +1,3 @@
-/**
- * Transcode Configuration - Browser-safe
- *
- * Pure constants for video transcoding.
- * No Node.js dependencies - safe for renderer process.
- */
-
-// =============================================================================
-// FORMAT CONFIGURATIONS
-// =============================================================================
-
 type TranscodeFormatConfig = Readonly<{
   extension: string;
   mimeType: string;
@@ -54,10 +43,6 @@ const FORMAT_MOV: TranscodeFormatConfig = Object.freeze({
   ]
 });
 
-// =============================================================================
-// TRANSCODE STATES
-// =============================================================================
-
 export const TranscodeState = Object.freeze({
   IDLE: 'idle',
   TRANSCODING: 'transcoding',
@@ -68,28 +53,16 @@ export const TranscodeState = Object.freeze({
 
 export type TranscodeStateValue = typeof TranscodeState[keyof typeof TranscodeState];
 
-// =============================================================================
-// EXPORTED CONFIGURATION
-// =============================================================================
-
 export const TRANSCODE_CONFIG = Object.freeze({
-  // Supported output formats
   formats: Object.freeze({
     webm: FORMAT_WEBM,
     mp4: FORMAT_MP4,
     mov: FORMAT_MOV
   }),
 
-  // Default format
   defaultFormat: 'mp4',
-
-  // Temp file prefix for transcode sessions
   tempPrefix: 'prismgb-transcode-',
-
-  // Progress update interval (ms) - used to throttle IPC emissions
   progressIntervalMs: 100,
-
-  // Timeout for ffprobe duration detection (ms)
   probeDurationTimeoutMs: 10000
 } as const);
 

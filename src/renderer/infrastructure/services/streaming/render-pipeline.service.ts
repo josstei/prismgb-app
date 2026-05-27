@@ -93,6 +93,7 @@ export class StreamingRenderPipelineService extends BaseService {
   private _performanceModeEnabled: boolean;
   private _userPresetId: string | null;
   private _canvas2dContextCreated: boolean;
+  private _cleanupPromise: Promise<void> | null;
 
   constructor(dependencies: RenderPipelineDependencies) {
     super(
@@ -128,6 +129,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this._performanceModeEnabled = false;
     this._userPresetId = null;
     this._canvas2dContextCreated = false;
+    this._cleanupPromise = null;
   }
 
   initialize(): void {
@@ -211,6 +213,19 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   async cleanup(): Promise<void> {
+    if (this._cleanupPromise) {
+      return this._cleanupPromise;
+    }
+
+    this._cleanupPromise = this._cleanup();
+    try {
+      await this._cleanupPromise;
+    } finally {
+      this._cleanupPromise = null;
+    }
+  }
+
+  private async _cleanup(): Promise<void> {
     this._performanceModeEnabled = false;
     this._userPresetId = null;
     const activeRendererType = this._activeRendererType;
@@ -218,7 +233,7 @@ export class StreamingRenderPipelineService extends BaseService {
     if (this._activeRenderer) {
       const video = this.streamViewService.getVideo();
       this._activeRenderer.pause(video);
-      await this._activeRenderer.cleanup();
+      await this._activeRenderer.cleanup({ emitCanvasExpired: false });
       this._activeRenderer = null;
       this._activeRendererType = null;
     }
@@ -228,6 +243,11 @@ export class StreamingRenderPipelineService extends BaseService {
     }
     this.canvasLifecycleService.cleanup();
     this.streamHealthService.cleanup();
+  }
+
+  override async dispose(): Promise<void> {
+    await this.cleanup();
+    await super.dispose();
   }
 
   private _handleVisible(): void {

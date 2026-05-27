@@ -8,6 +8,7 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 type ControlsAutoHideOptions = {
   onShowAll?: () => void;
@@ -16,7 +17,7 @@ type ControlsAutoHideOptions = {
   onDisable?: () => void;
 };
 
-export class ControlsAutoHide {
+export class ControlsAutoHide extends PresentationComponent {
   _element: HTMLElement | null;
   _activityController: ActivityAutoHideController;
   _onShowAll: () => void;
@@ -29,6 +30,8 @@ export class ControlsAutoHide {
   _boundHandleFocusOut: () => void;
 
   constructor(options: ControlsAutoHideOptions = {}) {
+    super();
+
     this._element = null;
     this._onShowAll = options.onShowAll || (() => {});
     this._onHideAll = options.onHideAll || (() => {});
@@ -60,18 +63,11 @@ export class ControlsAutoHide {
     this._boundHandleMouseLeave = this._handleMouseLeave.bind(this);
     this._boundHandleFocusIn = this._handleFocusIn.bind(this);
     this._boundHandleFocusOut = this._handleFocusOut.bind(this);
+    this.track(this._activityController);
   }
 
   get isEnabled() {
     return this._activityController.isEnabled;
-  }
-
-  get _mouseMoveFramePending() {
-    return this._activityController.isActivityFramePending;
-  }
-
-  get _rafId() {
-    return this._activityController.rafId;
   }
 
   enable(element: HTMLElement | null) {
@@ -145,7 +141,8 @@ export class ControlsAutoHide {
   /**
    * Dispose and cleanup resources
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.disable();
+    return super.dispose();
   }
 }

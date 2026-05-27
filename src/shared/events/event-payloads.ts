@@ -323,10 +323,11 @@ type PublishArgs<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends v
   : [event: K, data: EventPayloadMap[K]];
 
 type EventHandler<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends void
-  ? () => void
-  : (payload: EventPayloadMap[K]) => void;
+  ? () => void | Promise<void>
+  : (payload: EventPayloadMap[K]) => void | Promise<void>;
 
 export interface TypedEventBusLike {
   publish<K extends keyof EventPayloadMap>(...args: PublishArgs<K>): void;
+  publishAsync<K extends keyof EventPayloadMap>(...args: PublishArgs<K>): Promise<void>;
   subscribe<K extends keyof EventPayloadMap>(event: K, handler: EventHandler<K>): () => void;
 }

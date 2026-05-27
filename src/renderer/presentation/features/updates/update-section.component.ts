@@ -398,11 +398,12 @@ class UpdateSectionComponent extends PresentationComponent {
     this.logger.error('UpdateSectionComponent disposal failed', error);
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this._initialized = false;
     this.elements = createEmptyUpdateSectionElements();
     this.logger.info('UpdateSectionComponent disposed');
+    return disposed;
   }
 }
 

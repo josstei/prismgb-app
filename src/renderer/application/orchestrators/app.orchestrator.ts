@@ -8,9 +8,7 @@ type LifecycleOrchestrator = {
 };
 
 type UISetupOrchestratorLike = LifecycleOrchestrator & {
-  initializeSettingsMenu(): void;
-  initializeShaderSelector(): void;
-  initializeNotesPanel(): void;
+  initializeDeferredComponents(): void;
   setupUIEventListeners(): void;
 };
 
@@ -105,9 +103,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('Starting application orchestrator...');
 
     // Delegate UI setup to UISetupOrchestrator
-    this.uiSetupOrchestrator.initializeSettingsMenu();
-    this.uiSetupOrchestrator.initializeShaderSelector();
-    this.uiSetupOrchestrator.initializeNotesPanel();
+    this.uiSetupOrchestrator.initializeDeferredComponents();
     this.uiSetupOrchestrator.setupUIEventListeners();
 
     // Note: Preferences are loaded in PreferencesOrchestrator.onInitialize()

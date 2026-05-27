@@ -5,12 +5,8 @@
  * escape key and click-outside handling.
  */
 
-import {
-  createDomListenerManager,
-  type DomListenerLogger,
-  type DomListenerManager
-} from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 export interface AnchoredLayoutSizeDefaults {
   minWidth: number;
@@ -49,11 +45,14 @@ export interface AnchoredDisclosureLayout {
 }
 
 type DisclosureCallback = () => void;
+type PresentationPrimitiveLogger = {
+  warn(message: string, ...args: unknown[]): void;
+};
 
 export interface DisclosureControllerOptions {
   toggleElement: HTMLElement | null;
   panelElement: HTMLElement | null;
-  logger?: DomListenerLogger | null;
+  logger?: PresentationPrimitiveLogger | null;
   visibleClass?: string;
   toggleOpenClass?: string | null;
   ariaExpandedElement?: HTMLElement | null;
@@ -76,6 +75,7 @@ const DEFAULT_ANCHORED_LAYOUT_SIZES: Readonly<AnchoredLayoutSizeDefaults> = Obje
   minHeight: 300,
   maxHeight: 600
 });
+const DISCLOSURE_LISTENER_LIFECYCLE = Symbol('disclosureListenerLifecycle');
 
 function toFiniteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -175,7 +175,7 @@ function calculateAnchoredDisclosureLayout({
   };
 }
 
-class DisclosureController {
+class DisclosureController extends PresentationComponent {
   declare toggleElement: HTMLElement | null;
   declare panelElement: HTMLElement | null;
   declare visibleClass: string;
@@ -189,12 +189,10 @@ class DisclosureController {
   declare onShow: DisclosureCallback | null | undefined;
   declare onHide: DisclosureCallback | null | undefined;
   declare private _isOpen: boolean;
-  declare private _domListeners: DomListenerManager;
 
   constructor({
     toggleElement,
     panelElement,
-    logger,
     visibleClass = CSSClasses.VISIBLE,
     toggleOpenClass = null,
     ariaExpandedElement = null,
@@ -206,6 +204,8 @@ class DisclosureController {
     onShow,
     onHide
   }: DisclosureControllerOptions) {
+    super();
+
     this.toggleElement = toggleElement;
     this.panelElement = panelElement;
     this.visibleClass = visibleClass;
@@ -220,11 +220,10 @@ class DisclosureController {
     this.onHide = onHide;
 
     this._isOpen = false;
-    this._domListeners = createDomListenerManager({ logger: logger ?? undefined });
   }
 
   initialize({ isOpen = false }: DisclosureControllerInitializeOptions = {}): void {
-    this._domListeners.removeAll();
+    this.cancelManaged(DISCLOSURE_LISTENER_LIFECYCLE);
     this._bindGlobalListeners();
 
     if (isOpen) {
@@ -295,28 +294,31 @@ class DisclosureController {
     else this.panelElement.removeAttribute('inert');
   }
 
-  dispose(): void {
+  override dispose(): void | Promise<void> {
     this._applyClosedState();
-    this._domListeners.removeAll();
+    const disposed = super.dispose();
     this.toggleElement = null;
     this.panelElement = null;
     this.ariaExpandedElement = null;
     this.ignoreOutsideElements = [];
     this.ignoreOutsideSelectors = [];
+    return disposed;
   }
 
   private _bindGlobalListeners(): void {
+    const disposers: Array<() => void> = [];
+
     if (this.closeOnEscape) {
-      this._domListeners.add(document, 'keydown', (event) => {
+      disposers.push(this.listen(document, 'keydown', (event) => {
         const keyboardEvent = event as KeyboardEvent;
         if (keyboardEvent.key === 'Escape' && this._isOpen) {
           this.hide();
         }
-      });
+      }));
     }
 
     if (this.closeOnClickOutside) {
-      this._domListeners.add(document, this.outsideEvent, (event) => {
+      disposers.push(this.listen(document, this.outsideEvent, (event) => {
         if (!this._isOpen) return;
 
         const target = event.target instanceof Element ? event.target : null;
@@ -327,7 +329,14 @@ class DisclosureController {
         }
 
         this.hide();
-      });
+      }));
+    }
+
+    if (disposers.length > 0) {
+      this.replaceManaged(
+        DISCLOSURE_LISTENER_LIFECYCLE,
+        () => disposers.splice(0).reverse().forEach((dispose) => dispose())
+      );
     }
   }
 

@@ -1,34 +1,38 @@
 import type { IpcRenderer } from 'electron';
 import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
+import type { TranscodeCancelResponse, TranscodeStartResponse } from '@shared/ipc/preload-api.contract.js';
 import { createManifestInvokeMethods, createManifestSubscriptionMethods } from '../subscription.factory.js';
-import { createPayloadValidatorMetadata } from '../validators.js';
+import { createPayloadValidatorMetadata, requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeManifestEntry } from '../validators.js';
 
 type TranscodePreloadAPI = NonNullable<Window['transcodeAPI']> & { dispose(): void };
-type TranscodePreloadApiFactoryContext = { ipcRenderer: Pick<IpcRenderer, 'invoke' | 'on' | 'removeListener'>; channels: IpcChannels; listenerRegistry: Map<string, Set<(...args: unknown[]) => void>>; maxListeners: number; isValidCallback: (callback: unknown) => boolean; isValidTranscodeParams: (buffer: unknown, format: unknown) => boolean; isValidFfmpegArgs: (args: unknown) => boolean };
+type TranscodePreloadApiFactoryContext = { ipcRenderer: Pick<IpcRenderer, 'invoke' | 'on' | 'removeListener'>; channels: IpcChannels; listenerRegistry: Map<string, Set<(...args: unknown[]) => void>>; maxListeners: number; isValidCallback: (callback: unknown) => boolean };
 
-function createStartInvoker({ ipcRenderer, channel, isValidTranscodeParams, isValidFfmpegArgs }: Pick<TranscodePreloadApiFactoryContext, 'ipcRenderer' | 'isValidTranscodeParams' | 'isValidFfmpegArgs'> & { channel: string }): TranscodePreloadAPI['start'] {
+function createStartInvoker({ ipcRenderer, channel, manifestEntry }: Pick<TranscodePreloadApiFactoryContext, 'ipcRenderer'> & { channel: string; manifestEntry: PreloadInvokeManifestEntry }): TranscodePreloadAPI['start'] {
+  const metadata = requirePreloadInvokeMetadata('transcodeAPI', 'start', manifestEntry);
   return (arrayBuffer, format, outputFilename, options = {}) => {
-    if (!isValidTranscodeParams(arrayBuffer, format)) { console.warn('transcodeAPI.start: Invalid parameters provided'); return Promise.resolve({ success: false, error: 'Invalid parameters' }); }
-    if (options?.inputArgs && !isValidFfmpegArgs(options.inputArgs)) { console.warn('transcodeAPI.start: Invalid input arguments provided'); return Promise.resolve({ success: false, error: 'Invalid input arguments' }); }
+    const failure = validatePreloadInvokeArguments<TranscodeStartResponse>(metadata, [arrayBuffer, format, outputFilename, options]);
+    if (failure) { console.warn(failure.invalidMessage); return Promise.resolve(failure.fallback); }
     return ipcRenderer.invoke(channel, { inputBuffer: arrayBuffer, format, outputFilename: typeof outputFilename === 'string' ? outputFilename : undefined, inputArgs: options?.inputArgs, interrupted: Boolean(options?.interrupted) });
   };
 }
 
-function createCancelInvoker(ipcRenderer: Pick<IpcRenderer, 'invoke'>, channel: string): TranscodePreloadAPI['cancel'] {
+function createCancelInvoker(ipcRenderer: Pick<IpcRenderer, 'invoke'>, channel: string, manifestEntry: PreloadInvokeManifestEntry): TranscodePreloadAPI['cancel'] {
+  const metadata = requirePreloadInvokeMetadata('transcodeAPI', 'cancel', manifestEntry);
   return (jobId) => {
-    if (typeof jobId !== 'string' || jobId.length === 0) { console.warn('transcodeAPI.cancel: Invalid jobId provided'); return Promise.resolve({ success: false, error: 'Invalid jobId' }); }
+    const failure = validatePreloadInvokeArguments<TranscodeCancelResponse>(metadata, [jobId]);
+    if (failure) { console.warn(failure.invalidMessage); return Promise.resolve(failure.fallback); }
     return ipcRenderer.invoke(channel, { jobId });
   };
 }
 
-function createTranscodePreloadAPI({ ipcRenderer, channels, listenerRegistry, maxListeners, isValidCallback, isValidTranscodeParams, isValidFfmpegArgs }: TranscodePreloadApiFactoryContext): TranscodePreloadAPI {
+function createTranscodePreloadAPI({ ipcRenderer, channels, listenerRegistry, maxListeners, isValidCallback }: TranscodePreloadApiFactoryContext): TranscodePreloadAPI {
   const invokes = createManifestInvokeMethods({
     apiName: 'transcodeAPI',
     ipcRenderer,
     channels,
     methodFactories: {
-      start: ({ channel }) => createStartInvoker({ ipcRenderer, channel, isValidTranscodeParams, isValidFfmpegArgs }),
-      cancel: ({ channel }) => createCancelInvoker(ipcRenderer, channel)
+      start: ({ channel, manifestEntry }) => createStartInvoker({ ipcRenderer, channel, manifestEntry }),
+      cancel: ({ channel, manifestEntry }) => createCancelInvoker(ipcRenderer, channel, manifestEntry)
     }
   });
   const subscriptions = createManifestSubscriptionMethods({ apiName: 'transcodeAPI', ipcRenderer, registry: listenerRegistry, maxListeners, validateCallback: isValidCallback, metadataByPayload: createPayloadValidatorMetadata('transcodeAPI') });

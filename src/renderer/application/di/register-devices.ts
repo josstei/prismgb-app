@@ -31,27 +31,32 @@ const rendererDeviceDescriptors = defineRendererDescriptors<RendererContainerMap
   {
     token: 'deviceStorageService',
     kind: 'class',
-    resolver: DeviceStorageService
+    resolver: DeviceStorageService,
+    disposal: 'dispose'
   },
   {
     token: 'deviceConnectionService',
     kind: 'class',
-    resolver: DeviceConnectionService
+    resolver: DeviceConnectionService,
+    disposal: 'dispose'
   },
   {
     token: 'deviceMediaService',
     kind: 'class',
-    resolver: DeviceMediaService
+    resolver: DeviceMediaService,
+    disposal: 'dispose'
   },
   {
     token: 'deviceService',
     kind: 'class',
-    resolver: DeviceService
+    resolver: DeviceService,
+    disposal: 'dispose'
   },
   {
     token: 'deviceOperationSequencer',
     kind: 'class',
-    resolver: DeviceOperationSequencerService
+    resolver: DeviceOperationSequencerService,
+    disposal: 'dispose'
   }
 ]);
 

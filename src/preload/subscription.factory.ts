@@ -1,31 +1,58 @@
 import type { IpcRenderer } from 'electron';
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
+import type { PreloadInvokeMetadata } from './validators.js';
 
 type Unsubscribe = () => void;
 type RegisteredListener = (...args: unknown[]) => void;
 type GeneratedMethod = (...args: never[]) => unknown;
 type InvokeIpcRenderer = Pick<IpcRenderer, 'invoke'>;
 type PreloadIpcRenderer = Pick<IpcRenderer, 'invoke' | 'on' | 'removeListener'>;
-type PreloadApiName = 'deviceAPI' | 'shellAPI' | 'windowAPI' | 'updateAPI' | 'metricsAPI' | 'gpuAPI' | 'loginItemAPI' | 'transcodeAPI';
+
+// CODEBASE_PRELOAD_METHOD_CONTRACT:START
+const preloadApiNames = ['deviceAPI', 'shellAPI', 'windowAPI', 'updateAPI', 'metricsAPI', 'gpuAPI', 'loginItemAPI', 'transcodeAPI'] as const satisfies readonly (Extract<keyof Window, `${string}API`>)[];
+export type PreloadApiName = (typeof preloadApiNames)[number];
 type ApiSurface<TApiName extends PreloadApiName> = NonNullable<Window[TApiName]>;
-type InvokeMethodNames = { deviceAPI: 'getDeviceStatus'; shellAPI: 'openExternal'; windowAPI: 'setFullScreen' | 'isFullScreen'; updateAPI: 'getStatus' | 'checkForUpdates' | 'downloadUpdate' | 'installUpdate'; metricsAPI: 'getProcessMetrics'; gpuAPI: 'getPolicy'; loginItemAPI: 'get' | 'set'; transcodeAPI: 'start' | 'cancel' | 'getStatus' };
-type SubscriptionMethodNames = { deviceAPI: 'onDeviceConnected' | 'onDeviceDisconnected'; windowAPI: 'onEnterFullscreen' | 'onLeaveFullscreen' | 'onResized'; updateAPI: 'onAvailable' | 'onNotAvailable' | 'onProgress' | 'onDownloaded' | 'onError'; transcodeAPI: 'onProgress' | 'onCompleted' | 'onError' | 'onCancelled' };
-type InvokeMethods<TApiName extends keyof InvokeMethodNames> = Pick<ApiSurface<TApiName>, Extract<InvokeMethodNames[TApiName], keyof ApiSurface<TApiName>>>;
-type SubscriptionMethods<TApiName extends keyof SubscriptionMethodNames> = Pick<ApiSurface<TApiName>, Extract<SubscriptionMethodNames[TApiName], keyof ApiSurface<TApiName>>>;
+type ApiMethodName<TApiName extends PreloadApiName> = Extract<keyof ApiSurface<TApiName>, string>;
+type InvokeMethodName<TApiName extends PreloadApiName> = Exclude<ApiMethodName<TApiName>, `on${string}`>;
+type SubscriptionMethodName<TApiName extends PreloadApiName> = Extract<ApiMethodName<TApiName>, `on${string}`>;
+type InvokeApiName = { [TApiName in PreloadApiName]: InvokeMethodName<TApiName> extends never ? never : TApiName }[PreloadApiName];
+type SubscriptionApiName = { [TApiName in PreloadApiName]: SubscriptionMethodName<TApiName> extends never ? never : TApiName }[PreloadApiName];
+type InvokeMethods<TApiName extends InvokeApiName> = Pick<ApiSurface<TApiName>, InvokeMethodName<TApiName>>;
+type SubscriptionMethods<TApiName extends SubscriptionApiName> = Pick<ApiSurface<TApiName>, SubscriptionMethodName<TApiName>>;
 type InvokeFactoryContext = { apiName: string; methodName: string; channel: string; ipcRenderer: InvokeIpcRenderer; manifestEntry: ManifestInvokeEntry };
 type InvokeMethodFactory<TMethod extends GeneratedMethod = GeneratedMethod> = (context: InvokeFactoryContext) => TMethod;
-type InvokeMethodFactories<TApiName extends keyof InvokeMethodNames> = Partial<{ [TMethodName in keyof InvokeMethods<TApiName>]: InvokeMethodFactory<Extract<InvokeMethods<TApiName>[TMethodName], GeneratedMethod>> }>;
+type InvokeMethodFactories<TApiName extends InvokeApiName> = Partial<{ [TMethodName in keyof InvokeMethods<TApiName>]: InvokeMethodFactory<Extract<InvokeMethods<TApiName>[TMethodName], GeneratedMethod>> }>;
+const invokeMethodNamesByApi = {
+  deviceAPI: ['getDeviceStatus'],
+  shellAPI: ['openExternal'],
+  windowAPI: ['setFullScreen', 'isFullScreen'],
+  updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate'],
+  metricsAPI: ['getProcessMetrics'],
+  gpuAPI: ['getPolicy'],
+  loginItemAPI: ['get', 'set'],
+  transcodeAPI: ['start', 'cancel', 'getStatus']
+} as const satisfies { readonly [TApiName in InvokeApiName]: readonly InvokeMethodName<TApiName>[] };
+const subscriptionMethodNamesByApi = {
+  deviceAPI: ['onDeviceConnected', 'onDeviceDisconnected'],
+  windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized'],
+  updateAPI: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
+  transcodeAPI: ['onProgress', 'onCompleted', 'onError', 'onCancelled']
+} as const satisfies { readonly [TApiName in SubscriptionApiName]: readonly SubscriptionMethodName<TApiName>[] };
+type MissingInvokeMethodName = { [TApiName in InvokeApiName]: `${TApiName}.${Exclude<InvokeMethodName<TApiName>, (typeof invokeMethodNamesByApi)[TApiName][number]>}` }[InvokeApiName];
+type MissingSubscriptionMethodName = { [TApiName in SubscriptionApiName]: `${TApiName}.${Exclude<SubscriptionMethodName<TApiName>, (typeof subscriptionMethodNamesByApi)[TApiName][number]>}` }[SubscriptionApiName];
+type AssertNoMissingGeneratedMethods<TMissing extends never> = TMissing;
+export type PreloadMethodContractIsComplete = [AssertNoMissingGeneratedMethods<MissingInvokeMethodName>, AssertNoMissingGeneratedMethods<MissingSubscriptionMethodName>];
+// CODEBASE_PRELOAD_METHOD_CONTRACT:END
+
 type PayloadValidatorMetadata = { validatePayload?: (payload: unknown) => boolean; invalidPayloadLabel?: string; invalidPayloadMessage?: string; invalidCallbackMessage?: string; listenerLimitMessage?: string; mapPayload?: (payload: unknown, event: unknown) => unknown; dispatchPayload?: boolean };
 
-interface ManifestInvokeEntry { method: string; factoryMethod?: string; channelKey: string; channel: string; request?: readonly string[]; }
+interface ManifestInvokeEntry { method: string; factoryMethod?: string; channelKey: string; channel: string; request?: readonly string[]; preload?: PreloadInvokeMetadata; }
 interface ManifestSubscriptionEntry { method: string; factoryMethod?: string; channelKey: string; channel: string; payload?: string; }
 interface ManifestNamespace { apiName: string; namespace: string; registryNamespace?: string; invoke?: readonly ManifestInvokeEntry[]; subscriptions?: readonly ManifestSubscriptionEntry[]; }
 interface ManifestShape { namespaces: readonly ManifestNamespace[]; }
 type DerivedManifestSubscription = ManifestSubscriptionEntry & { apiName: string; methodName: string; registryNamespace: string; registryKey: string };
 type ManifestSubscription = Omit<DerivedManifestSubscription, 'registryNamespace'> & PayloadValidatorMetadata & { dispatchPayload?: boolean };
-const invokeMethodNamesByApi = { deviceAPI: ['getDeviceStatus'], shellAPI: ['openExternal'], windowAPI: ['setFullScreen', 'isFullScreen'], updateAPI: ['getStatus', 'checkForUpdates', 'downloadUpdate', 'installUpdate'], metricsAPI: ['getProcessMetrics'], gpuAPI: ['getPolicy'], loginItemAPI: ['get', 'set'], transcodeAPI: ['start', 'cancel', 'getStatus'] } as const satisfies { readonly [TApiName in keyof InvokeMethodNames]: readonly InvokeMethodNames[TApiName][] };
-const subscriptionMethodNamesByApi = { deviceAPI: ['onDeviceConnected', 'onDeviceDisconnected'], windowAPI: ['onEnterFullscreen', 'onLeaveFullscreen', 'onResized'], updateAPI: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'], transcodeAPI: ['onProgress', 'onCompleted', 'onError', 'onCancelled'] } as const satisfies { readonly [TApiName in keyof SubscriptionMethodNames]: readonly SubscriptionMethodNames[TApiName][] };
 
 function assertManifestMethodSet(apiName: string, kind: 'invoke' | 'subscription', byMethod: Record<string, unknown>, expectedMethods: readonly string[]): void {
   const actual = Object.keys(byMethod), actualSet = new Set(actual), expectedSet = new Set(expectedMethods), missing = expectedMethods.filter((methodName) => !actualSet.has(methodName)), extra = actual.filter((methodName) => !expectedSet.has(methodName));
@@ -58,7 +85,8 @@ function createSubscriptionDisposer({ ipcRenderer, registry, subscriptions }: { 
 }
 
 const normalizeTrimmedString = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
-function requireManifestNamespace(apiName: string, manifest: ManifestShape = IpcManifest): ManifestNamespace { const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName); if (!namespace) throw new Error(`IPC manifest namespace not found for preload API "${apiName}"`); return namespace; }
+function isPreloadApiName(apiName: string): apiName is PreloadApiName { return (preloadApiNames as readonly string[]).includes(apiName); }
+function requireManifestNamespace(apiName: string, manifest: ManifestShape = IpcManifest): ManifestNamespace { if (!isPreloadApiName(apiName)) throw new Error(`Preload API "${apiName}" is not in the generated preload contract`); const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName); if (!namespace) throw new Error(`IPC manifest namespace not found for preload API "${apiName}"`); return namespace; }
 function deriveManifestSubscriptions(manifest: ManifestShape): DerivedManifestSubscription[] {
   const subscriptions = (manifest.namespaces || []).flatMap((namespace) => (namespace.subscriptions || []).map((entry) => {
     const registryNamespace = normalizeTrimmedString(namespace.registryNamespace), methodName = normalizeTrimmedString(entry.factoryMethod || entry.method);
@@ -95,7 +123,7 @@ function createDefaultInvokeMethod({ ipcRenderer, channel, manifestEntry }: Invo
   return ((...args: unknown[]) => ipcRenderer.invoke(channel, ...args.slice(0, argumentCount))) as GeneratedMethod;
 }
 
-function createManifestInvokeMethods<TApiName extends keyof InvokeMethodNames>({ apiName, ipcRenderer, channels, manifest = IpcManifest, methodFactories = {} as InvokeMethodFactories<TApiName> }: { apiName: TApiName; ipcRenderer: InvokeIpcRenderer; channels: IpcChannels; manifest?: ManifestShape; methodFactories?: InvokeMethodFactories<TApiName> }): InvokeMethods<TApiName> {
+function createManifestInvokeMethods<TApiName extends InvokeApiName>({ apiName, ipcRenderer, channels, manifest = IpcManifest, methodFactories = {} as InvokeMethodFactories<TApiName> }: { apiName: TApiName; ipcRenderer: InvokeIpcRenderer; channels: IpcChannels; manifest?: ManifestShape; methodFactories?: InvokeMethodFactories<TApiName> }): InvokeMethods<TApiName> {
   const { byMethod, metadataByMethod } = createManifestInvokeSet(apiName, channels, manifest), factories = methodFactories as Record<string, InvokeMethodFactory | undefined>;
   assertManifestMethodSet(apiName, 'invoke', byMethod, invokeMethodNamesByApi[apiName]);
   for (const methodName of Object.keys(factories)) if (!Object.prototype.hasOwnProperty.call(byMethod, methodName)) throw new Error(`IPC manifest invoke method not found for ${apiName}.${methodName}`);
@@ -120,7 +148,7 @@ function applyPayloadSubscriptionMetadata(apiName: string, subscriptions: readon
   });
 }
 
-function createManifestSubscriptionMethods<TApiName extends keyof SubscriptionMethodNames>({ apiName, ipcRenderer, registry, maxListeners, validateCallback, metadataByMethod = {}, metadataByPayload = {}, manifest = IpcManifest }: { apiName: TApiName; ipcRenderer: PreloadIpcRenderer; registry: Map<string, Set<RegisteredListener>>; maxListeners: number; validateCallback: (callback: unknown) => boolean; metadataByMethod?: Record<string, PayloadValidatorMetadata>; metadataByPayload?: Record<string, PayloadValidatorMetadata>; manifest?: ManifestShape }): { methods: SubscriptionMethods<TApiName>; dispose: Unsubscribe } {
+function createManifestSubscriptionMethods<TApiName extends SubscriptionApiName>({ apiName, ipcRenderer, registry, maxListeners, validateCallback, metadataByMethod = {}, metadataByPayload = {}, manifest = IpcManifest }: { apiName: TApiName; ipcRenderer: PreloadIpcRenderer; registry: Map<string, Set<RegisteredListener>>; maxListeners: number; validateCallback: (callback: unknown) => boolean; metadataByMethod?: Record<string, PayloadValidatorMetadata>; metadataByPayload?: Record<string, PayloadValidatorMetadata>; manifest?: ManifestShape }): { methods: SubscriptionMethods<TApiName>; dispose: Unsubscribe } {
   const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet(apiName, manifest);
   assertManifestMethodSet(apiName, 'subscription', Object.fromEntries(manifestSubscriptions.map((subscription) => [subscription.methodName, subscription])), subscriptionMethodNamesByApi[apiName]);
   const payloadSubscriptions = Object.keys(metadataByPayload).length ? applyPayloadSubscriptionMetadata(apiName, manifestSubscriptions, metadataByPayload) : manifestSubscriptions;

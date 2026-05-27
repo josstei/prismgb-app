@@ -1,10 +1,3 @@
-/**
- * Renderer dependency container factory and registration descriptors.
- *
- * This keeps registration metadata in one place:
- *   token + resolver type + lifecycle + dependencies.
- */
-
 import * as awilix from 'awilix';
 import type { AwilixContainer, Resolver } from 'awilix';
 
@@ -13,12 +6,14 @@ const { PROXY } = InjectionMode;
 
 type DependencyToken<TMap extends object> = keyof TMap & string;
 type Lifecycle = 'singleton' | 'transient';
+type DisposalPolicy = 'dispose' | 'cleanup' | 'none';
 
 export type RendererResolverKind = 'class' | 'function' | 'value';
 
 interface RendererDescriptorBase<TMap extends object, TToken extends DependencyToken<TMap>> {
   token: TToken;
   lifecycle?: Lifecycle;
+  disposal?: DisposalPolicy;
   disposer?: (value: TMap[TToken]) => void | Promise<void>;
 }
 
@@ -56,10 +51,19 @@ export type RendererDescriptor<
   | RendererFunctionDescriptor<TMap, TToken>
   | RendererValueDescriptor<TMap, TToken>;
 
+type RendererDescriptorDefaults = {
+  lifecycle?: Lifecycle;
+  disposal?: DisposalPolicy;
+};
+
 export function defineRendererDescriptors<TMap extends object>(
-  descriptors: readonly RendererDescriptor<TMap>[]
+  descriptors: readonly RendererDescriptor<TMap>[],
+  defaults: RendererDescriptorDefaults = {}
 ): readonly RendererDescriptor<TMap>[] {
-  return descriptors;
+  if (!defaults.lifecycle && !defaults.disposal) {
+    return descriptors;
+  }
+  return descriptors.map((descriptor) => ({ ...defaults, ...descriptor }));
 }
 
 type ContainerWithRegistrations<TMap extends object> = AwilixContainer<TMap> & {
@@ -93,7 +97,7 @@ function resolveDependencies<TMap extends object, TDependencies extends readonly
   return values as Pick<TMap, TDependencies[number]>;
 }
 
-function defaultDisposer(value: unknown): void | Promise<void> {
+function disposeValue(value: unknown): void | Promise<void> {
   if (!value || typeof value !== 'object') {
     return;
   }
@@ -102,6 +106,21 @@ function defaultDisposer(value: unknown): void | Promise<void> {
   if (typeof disposable.dispose === 'function') {
     return disposable.dispose();
   }
+
+  throw new Error('[RendererContainer] Explicit dispose policy requires a dispose() method');
+}
+
+function cleanupValue(value: unknown): void | Promise<void> {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+
+  const cleanable = value as { cleanup?: () => void | Promise<void> };
+  if (typeof cleanable.cleanup === 'function') {
+    return cleanable.cleanup();
+  }
+
+  throw new Error('[RendererContainer] Explicit cleanup policy requires a cleanup() method');
 }
 
 function applyLifecycle(resolver: unknown, lifecycle: Lifecycle): unknown {
@@ -130,7 +149,23 @@ function applyDisposer(
   return disposableResolver.disposer(disposer);
 }
 
-const fallbackDisposer = (value: unknown) => defaultDisposer(value);
+function getDescriptorDisposer<TMap extends object>(
+  descriptor: RendererDescriptor<TMap>
+): ((value: unknown) => void | Promise<void>) | undefined {
+  if (descriptor.disposer) {
+    return descriptor.disposer as (value: unknown) => void | Promise<void>;
+  }
+
+  if (descriptor.disposal === 'dispose') {
+    return disposeValue;
+  }
+
+  if (descriptor.disposal === 'cleanup') {
+    return cleanupValue;
+  }
+
+  return undefined;
+}
 
 export function registerRendererDescriptors<TMap extends object>(
   container: AwilixContainer<TMap>,
@@ -158,7 +193,7 @@ export function registerRendererDescriptors<TMap extends object>(
       resolver = applyLifecycle(resolver, lifecycle);
       resolver = applyDisposer(
         resolver,
-        (descriptor.disposer as ((value: unknown) => void | Promise<void>) | undefined) ?? fallbackDisposer
+        getDescriptorDisposer(descriptor)
       );
       typedContainer.register({
         [descriptor.token]: resolver as Resolver<unknown>
@@ -186,7 +221,7 @@ export function registerRendererDescriptors<TMap extends object>(
       resolver = applyLifecycle(classResolver, lifecycle);
       resolver = applyDisposer(
         resolver,
-        (descriptor.disposer as ((value: unknown) => void | Promise<void>) | undefined) ?? fallbackDisposer
+        getDescriptorDisposer(descriptor)
       );
       typedContainer.register({
         [descriptor.token]: resolver as Resolver<unknown>
@@ -202,7 +237,7 @@ export function registerRendererDescriptors<TMap extends object>(
     resolver = applyLifecycle(functionResolver as Resolver<unknown>, lifecycle);
     resolver = applyDisposer(
       resolver,
-      (descriptor.disposer as ((value: unknown) => void | Promise<void>) | undefined) ?? fallbackDisposer
+      getDescriptorDisposer(descriptor)
     );
     typedContainer.register({
       [descriptor.token]: resolver as Resolver<unknown>

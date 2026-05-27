@@ -49,7 +49,7 @@ class ShaderPresetListComponent extends PresentationComponent {
   }
 
   initialize({ optionsContainer, unavailableMessage }: ShaderPresetListElements): void {
-    this.dispose();
+    void this.dispose();
     this.optionsContainer = optionsContainer;
     this.unavailableMessage = unavailableMessage;
 
@@ -172,10 +172,11 @@ class ShaderPresetListComponent extends PresentationComponent {
     ));
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.optionsContainer = null;
     this.unavailableMessage = null;
+    return disposed;
   }
 }
 

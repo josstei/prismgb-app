@@ -121,25 +121,16 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingInterrupted = false;
   }
 
-  /**
-   * Initialize capture orchestrator
-   */
   async onInitialize(): Promise<void> {
     this.subscribeWithCleanup({
       [EventChannels.CAPTURE.RECORDING_ERROR]: (data: unknown) => this._handleRecordingError(data),
       [EventChannels.CAPTURE.RECORDING_READY]: (data: unknown) => this._handleRecordingReady(data),
-      // Stop recording when stream stops to prevent orphaned recording loop
       [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      // UI command events - decoupled from UISetupOrchestrator
       [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
       [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
     });
   }
 
-  /**
-   * Take screenshot
-   * Uses AppState.isStreaming instead of direct orchestrator call (decoupled)
-   */
   async takeScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
@@ -268,11 +259,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Clean up GPU recording resources
-   * @private
-   */
-
-  /**
    * Handle stream stopped - stop any active recording
    * Prevents orphaned GPU recording loop when stream stops
    * @private
@@ -345,13 +331,15 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup(): Promise<void> {
-    if (this.captureService.getRecordingState()) {
+    if (this._isRecordingActive()) {
       try {
-        await this.captureService.stopRecording();
+        this._recordingInterrupted = true;
+        await this._stopRecording();
       } catch (error) {
         this.logger.error('Error stopping recording during cleanup:', getErrorMessage(error, 'Failed to stop recording'));
       }
+    } else {
+      await this.gpuRecordingService.stop();
     }
-    await this.gpuRecordingService.stop();
   }
 }

@@ -71,7 +71,7 @@ export function createToolbarTemplate(): string {
       </button>
 
       <!-- Notes Button -->
-      <button class="toolbar-btn toolbar-capture toolbar-notes" id="notesBtn" data-ref="notesBtn" aria-label="Notes" aria-expanded="false">
+      <button class="toolbar-btn toolbar-capture toolbar-notes" id="notesBtn" data-ref="notesBtn" data-action="notes.toggle" aria-label="Notes" aria-expanded="false">
         ${getIconSvg('toolbar-notes')}
       </button>
     </div>

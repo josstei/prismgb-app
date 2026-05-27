@@ -90,6 +90,7 @@ interface TranscodeServiceDependencies {
 }
 
 type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
+const transcodeCleanupLifecycleKey = (jobId: string): string => `transcode-cleanup:${jobId}`;
 
 function isTranscodeFormat(value: string): value is TranscodeFormatKey {
   return Object.prototype.hasOwnProperty.call(TRANSCODE_CONFIG.formats, value);
@@ -101,8 +102,8 @@ class TranscodeService extends BaseService {
   private _jobs: Map<string, TranscodeJob> = new Map();
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
-  private _cleanupTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private _isInitialized = false;
+  private _isDisposing = false;
 
   constructor(dependencies: TranscodeServiceDependencies) {
     super(dependencies, ['windowService', 'eventBus', 'loggerFactory'], 'TranscodeService');
@@ -119,6 +120,7 @@ class TranscodeService extends BaseService {
     }
 
     this.logger.info('Initializing transcode service');
+    this._isDisposing = false;
 
     // Validate ffmpeg binaries are available
     try {
@@ -320,14 +322,21 @@ class TranscodeService extends BaseService {
 
     // Schedule job record cleanup after TTL (5 minutes)
     // This allows status queries for recently completed jobs while preventing memory leaks
+    if (this._isDisposing) {
+      this._jobs.delete(jobId);
+      return;
+    }
+
+    const cleanupLifecycleKey = transcodeCleanupLifecycleKey(jobId);
+    this.disposables.cancel(cleanupLifecycleKey);
     const timeoutHandle = setTimeout(() => {
-      this._cleanupTimeouts.delete(jobId);
+      this.disposables.cancel(cleanupLifecycleKey);
       if (this._jobs.has(jobId)) {
         this._jobs.delete(jobId);
         this.logger.debug('Removed stale job record', { jobId });
       }
     }, 5 * 60 * 1000);
-    this._cleanupTimeouts.set(jobId, timeoutHandle);
+    this.disposables.replace(cleanupLifecycleKey, () => clearTimeout(timeoutHandle));
   }
 
   private _notifyRenderer(channel: string, data: unknown): void {
@@ -341,21 +350,24 @@ class TranscodeService extends BaseService {
   /**
    * Dispose service resources
    */
-  dispose(): void {
+  override async dispose(): Promise<void> {
     this.logger.info('Disposing TranscodeService');
+    this._isDisposing = true;
 
-    // Cancel any running processes
-    for (const process of this._processes.values()) {
-      if (process.isRunning) {
-        process.cancel();
+    await Promise.all(Array.from(this._processes.entries()).map(async ([jobId, process]) => {
+      process.cancel();
+      try {
+        await process.waitForExit();
+      } catch {
+        // Cancellation and shutdown errors are expected here; cleanup below owns final state.
       }
-    }
+      if (this._processes.has(jobId)) {
+        this._cleanupJob(jobId, true);
+      }
+      process.removeAllListeners();
+    }));
 
-    // Clear all cleanup timeouts to prevent memory leaks
-    for (const timeoutHandle of this._cleanupTimeouts.values()) {
-      clearTimeout(timeoutHandle);
-    }
-    this._cleanupTimeouts.clear();
+    await super.dispose();
 
     // Clean up all temp sessions
     cleanupAllSessions();

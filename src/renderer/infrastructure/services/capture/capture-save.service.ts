@@ -1,13 +1,3 @@
-/**
- * Capture Save Service
- *
- * Coordinates saving recordings and screenshots with optional transcoding.
- * For recordings, checks the user's format preference and routes to
- * direct save (webm) or transcode (mp4/mov).
- *
- * Note: UI status feedback for transcode events is handled by TranscodeUIBridge.
- */
-
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils';
@@ -72,13 +62,10 @@ class CaptureSaveService extends BaseService {
 
     this.logger.info(`Saving recording with format preference: ${format}`);
 
-    // If format is webm or transcoding is not available, use direct download
     if (format === 'webm' || !this.transcodeService.isAvailable()) {
       return this._directSave(blob, filename);
     }
 
-    // Transcoding needed - the main process will save the file
-    // Extract base name (without extension) for consistent naming
     const baseName = filename.replace(/\.[^.]+$/, '');
     return this._transcodeAndSave(blob, format, baseName, { interrupted });
   }
@@ -111,8 +98,6 @@ class CaptureSaveService extends BaseService {
       const interrupted = Boolean(options.interrupted);
       const inputArgs = interrupted ? ['-fflags', '+genpts', '-err_detect', 'ignore_err'] : undefined;
 
-      // Start transcode - main process handles file saving
-      // UI status is handled by TranscodeUIBridge listening to TRANSCODE events
       const result = await this.transcodeService.transcode(blob, format, outputBaseName, {
         inputArgs,
         interrupted
@@ -127,7 +112,6 @@ class CaptureSaveService extends BaseService {
         return { success: false, error: result.error };
       }
 
-      // Transcode started successfully - completion will be handled by TranscodeUIBridge
       return { success: true, transcoded: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -140,11 +124,8 @@ class CaptureSaveService extends BaseService {
     }
   }
 
-  /**
-   * Cleanup resources
-   */
-  dispose() {
-    this.logger.info('CaptureSaveService disposed');
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 }
 

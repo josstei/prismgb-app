@@ -1,9 +1,8 @@
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
-  createManifestPreloadEventBridge,
-  RendererPreloadBridgeDescriptors,
-  type PreloadEventBridge
+  createRendererPreloadEventBridge,
+  RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import type {
   TranscodeCancelResponse,
@@ -29,7 +28,6 @@ class TranscodeService extends BaseService {
   private readonly eventBus: TranscodeEventBus;
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
-  private _eventBridge: PreloadEventBridge | null;
   private _initialized: boolean;
 
   constructor(dependencies: TranscodeServiceDependencies) {
@@ -38,7 +36,6 @@ class TranscodeService extends BaseService {
     this.eventBus = dependencies.eventBus;
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._eventBridge = null;
     this._initialized = false;
   }
 
@@ -48,17 +45,17 @@ class TranscodeService extends BaseService {
       return;
     }
 
-    if (!window.transcodeAPI) {
+    const transcodeAPI = window.transcodeAPI;
+    if (!transcodeAPI) {
       this.logger.warn('transcodeAPI not available - transcoding disabled');
       return;
     }
 
     this.logger.info('Initializing TranscodeService');
 
-    this._eventBridge = createManifestPreloadEventBridge({
-      api: window.transcodeAPI,
+    this.disposables.replace(RendererPreloadBridgeDescriptors.transcodeAPI.lifecycleKey, createRendererPreloadEventBridge({
+      api: transcodeAPI,
       descriptor: RendererPreloadBridgeDescriptors.transcodeAPI,
-      bridgeName: 'TranscodeService',
       logger: this.logger,
       handlers: {
         onProgress: (data: TranscodeProgressPayload) => this._handleProgress(data),
@@ -66,7 +63,7 @@ class TranscodeService extends BaseService {
         onError: (data: TranscodeErrorPayload) => this._handleError(data),
         onCancelled: (data: TranscodeCancelledPayload) => this._handleCancelled(data)
       }
-    });
+    }));
 
     this._initialized = true;
     this.logger.info('TranscodeService initialized');
@@ -143,38 +140,36 @@ class TranscodeService extends BaseService {
   }
 
   _handleProgress(data: TranscodeProgressPayload) {
-    this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onProgress, data);
   }
 
   _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onCompleted, data);
   }
 
   _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onError, data);
   }
 
   _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
+    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onCancelled, data);
   }
 
-  dispose() {
-    this._eventBridge?.dispose();
-    this._eventBridge = null;
-
+  override dispose(): void | Promise<void> {
     this._isTranscoding = false;
     this._activeJobId = null;
     this._initialized = false;
     this.logger.info('TranscodeService disposed');
+    return super.dispose();
   }
 }
 

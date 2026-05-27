@@ -5,6 +5,7 @@ import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;
 const SAVE_DEBOUNCE_TIMEOUT = Symbol('notesEditorSaveDebounceTimeout');
 const DELETE_HOLD_TIMEOUT = Symbol('notesEditorDeleteHoldTimeout');
+const EDITOR_SETUP_LIFECYCLE = Symbol('notesEditorSetupLifecycle');
 
 interface UserNoteLike {
   id?: string;
@@ -52,6 +53,7 @@ class NotesEditorViewComponent extends PresentationComponent {
   declare onDelete: EditorCallback | null | undefined;
   declare onGameInputChange: EditorCallback | null | undefined;
   declare onShowGameInput: EditorCallback | null | undefined;
+  private _hasPendingSave: boolean;
 
   constructor({ notesService, logger }: NotesEditorViewComponentOptions) {
     super();
@@ -67,6 +69,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.gameTag = null;
     this.gameInput = null;
     this.gameAddBtn = null;
+    this._hasPendingSave = false;
   }
 
   initialize({
@@ -83,6 +86,9 @@ class NotesEditorViewComponent extends PresentationComponent {
     onGameInputChange,
     onShowGameInput
   }: NotesEditorViewInitializeOptions): void {
+    this.flushSave();
+    this.cancelManaged(EDITOR_SETUP_LIFECYCLE);
+    this._cancelDeleteHold();
     this.editorElement = editorElement;
     this.titleInput = titleInput;
     this.contentArea = contentArea;
@@ -96,9 +102,13 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.onGameInputChange = onGameInputChange;
     this.onShowGameInput = onShowGameInput;
 
-    this._setupEditor();
-    this._setupGameTagUI();
-    this._setupDeleteButton();
+    const setupDisposers: Array<() => void> = [];
+    this._setupEditor(setupDisposers);
+    this._setupGameTagUI(setupDisposers);
+    this._setupDeleteButton(setupDisposers);
+    this.replaceManaged(EDITOR_SETUP_LIFECYCLE, () => {
+      setupDisposers.splice(0).reverse().forEach((dispose) => dispose());
+    });
   }
 
   loadNote(note: UserNoteLike | null | undefined): void {
@@ -153,28 +163,37 @@ class NotesEditorViewComponent extends PresentationComponent {
 
   flushSave(): void {
     this.cancelManaged(SAVE_DEBOUNCE_TIMEOUT);
+    if (!this._hasPendingSave) {
+      return;
+    }
+    this._hasPendingSave = false;
     this.onSave?.();
+  }
+
+  cancelPendingSave(): void {
+    this.cancelManaged(SAVE_DEBOUNCE_TIMEOUT);
+    this._hasPendingSave = false;
   }
 
   scheduleSave(): void {
     this._scheduleSave();
   }
 
-  _setupEditor(): void {
+  _setupEditor(setupDisposers: Array<() => void>): void {
     if (this.titleInput) {
-      this.listen(this.titleInput, 'input', () => this._scheduleSave());
+      setupDisposers.push(this.listen(this.titleInput, 'input', () => this._scheduleSave()));
     }
     if (this.contentArea) {
-      this.listen(this.contentArea, 'input', () => this._scheduleSave());
+      setupDisposers.push(this.listen(this.contentArea, 'input', () => this._scheduleSave()));
     }
   }
 
-  _setupGameTagUI(): void {
+  _setupGameTagUI(setupDisposers: Array<() => void>): void {
     if (this.gameAddBtn) {
-      this.listen(this.gameAddBtn, 'click', () => this.onShowGameInput?.());
+      setupDisposers.push(this.listen(this.gameAddBtn, 'click', () => this.onShowGameInput?.()));
     }
     if (this.gameTag) {
-      this.listen(this.gameTag, 'click', () => this.onShowGameInput?.());
+      setupDisposers.push(this.listen(this.gameTag, 'click', () => this.onShowGameInput?.()));
     }
   }
 
@@ -187,7 +206,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     }
   }
 
-  _setupDeleteButton(): void {
+  _setupDeleteButton(setupDisposers: Array<() => void>): void {
     if (!this.deleteBtn) return;
 
     const DELETE_HOLD_MS = 2000;
@@ -205,12 +224,12 @@ class NotesEditorViewComponent extends PresentationComponent {
     };
     const cancelHold = (): void => this._cancelDeleteHold();
 
-    this.listen(this.deleteBtn, 'mousedown', startHold);
-    this.listen(this.deleteBtn, 'touchstart', startHold);
-    this.listen(this.deleteBtn, 'mouseup', cancelHold);
-    this.listen(this.deleteBtn, 'mouseleave', cancelHold);
-    this.listen(this.deleteBtn, 'touchend', cancelHold);
-    this.listen(this.deleteBtn, 'touchcancel', cancelHold);
+    setupDisposers.push(this.listen(this.deleteBtn, 'mousedown', startHold));
+    setupDisposers.push(this.listen(this.deleteBtn, 'touchstart', startHold));
+    setupDisposers.push(this.listen(this.deleteBtn, 'mouseup', cancelHold));
+    setupDisposers.push(this.listen(this.deleteBtn, 'mouseleave', cancelHold));
+    setupDisposers.push(this.listen(this.deleteBtn, 'touchend', cancelHold));
+    setupDisposers.push(this.listen(this.deleteBtn, 'touchcancel', cancelHold));
   }
 
   _cancelDeleteHold(): void {
@@ -219,13 +238,16 @@ class NotesEditorViewComponent extends PresentationComponent {
   }
 
   _scheduleSave(): void {
+    this._hasPendingSave = true;
     this.replaceTimeout(SAVE_DEBOUNCE_TIMEOUT, () => {
+      this._hasPendingSave = false;
       this.onSave?.();
     }, SAVE_DEBOUNCE_MS);
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    this.flushSave();
+    const disposed = super.dispose();
     this.editorElement = null;
     this.titleInput = null;
     this.contentArea = null;
@@ -240,6 +262,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.onShowGameInput = null;
     this.notesService = null;
     this.logger = null;
+    return disposed;
   }
 }
 

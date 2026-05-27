@@ -67,7 +67,7 @@ class ShaderSliderControlsComponent extends PresentationComponent {
     volumePercentage,
     streamVideo
   }: ShaderSliderControlsElements): void {
-    this.dispose();
+    void this.dispose();
     this.brightnessSlider = brightnessSlider;
     this.brightnessPercentage = brightnessPercentage;
     this.brightnessControl = brightnessControl;
@@ -252,14 +252,15 @@ class ShaderSliderControlsComponent extends PresentationComponent {
     }
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.brightnessSlider = null;
     this.brightnessPercentage = null;
     this.brightnessControl = null;
     this.volumeSlider = null;
     this.volumePercentage = null;
     this.streamVideo = null;
+    return disposed;
   }
 }
 

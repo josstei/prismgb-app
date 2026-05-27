@@ -61,22 +61,26 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'browserMediaService',
     kind: 'class',
-    resolver: BrowserMediaAdapter
+    resolver: BrowserMediaAdapter,
+    disposal: 'dispose'
   },
   {
     token: 'visibilityAdapter',
     kind: 'class',
-    resolver: VisibilityAdapter
+    resolver: VisibilityAdapter,
+    disposal: 'dispose'
   },
   {
     token: 'userActivityAdapter',
     kind: 'class',
-    resolver: UserActivityAdapter
+    resolver: UserActivityAdapter,
+    disposal: 'dispose'
   },
   {
     token: 'reducedMotionAdapter',
     kind: 'class',
-    resolver: ReducedMotionAdapter
+    resolver: ReducedMotionAdapter,
+    disposal: 'dispose'
   },
   {
     token: 'metricsAdapter',
@@ -87,6 +91,7 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'deviceIpcAdapter',
     kind: 'function',
     dependencies: ['loggerFactory'],
+    disposal: 'dispose',
     resolver: (dependencies: DeviceIpcDependencies) => new DeviceIpcAdapter({
       logger: dependencies.loggerFactory.create('DeviceIpcAdapter')
     })
@@ -95,6 +100,7 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
     token: 'deviceChangeDebounceAdapter',
     kind: 'function',
     dependencies: ['browserMediaService', 'loggerFactory'],
+    disposal: 'dispose',
     resolver: (dependencies: DeviceChangeDebounceDependencies) => new DeviceChangeDebounceAdapter({
       browserMediaService: dependencies.browserMediaService,
       logger: dependencies.loggerFactory.create('DeviceChangeDebounceAdapter')
@@ -103,12 +109,14 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'animationCache',
     kind: 'class',
-    resolver: AnimationCache
+    resolver: AnimationCache,
+    disposal: 'dispose'
   },
   {
     token: 'canvasRenderLoopService',
     kind: 'function',
     dependencies: ['loggerFactory', 'animationCache'],
+    disposal: 'dispose',
     resolver: (dependencies: CanvasRenderLoopDependencies) => {
       return new StreamingCanvasRenderLoopService(
         dependencies.loggerFactory.create('StreamingCanvasRenderLoopService'),
@@ -119,22 +127,26 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'viewportService',
     kind: 'class',
-    resolver: StreamingViewportService
+    resolver: StreamingViewportService,
+    disposal: 'dispose'
   },
   {
     token: 'canvasLifecycleService',
     kind: 'class',
-    resolver: StreamingCanvasLifecycleService
+    resolver: StreamingCanvasLifecycleService,
+    disposal: 'dispose'
   },
   {
     token: 'gpuRenderLoopService',
     kind: 'class',
-    resolver: StreamingGpuRenderLoopService
+    resolver: StreamingGpuRenderLoopService,
+    disposal: 'dispose'
   },
   {
     token: 'streamHealthService',
     kind: 'class',
-    resolver: StreamingHealthService
+    resolver: StreamingHealthService,
+    disposal: 'dispose'
   },
   {
     token: 'gpuFrameBuffer',
@@ -145,12 +157,14 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'gpuWorkerManager',
     kind: 'class',
-    resolver: GpuWorkerManager
+    resolver: GpuWorkerManager,
+    disposal: 'dispose'
   },
   {
     token: 'gpuRendererService',
     kind: 'class',
-    resolver: StreamingGpuRendererService
+    resolver: StreamingGpuRendererService,
+    disposal: 'dispose'
   },
   {
     token: 'streamingRendererFactory',
@@ -169,7 +183,8 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'renderPipelineService',
     kind: 'class',
-    resolver: StreamingRenderPipelineService
+    resolver: StreamingRenderPipelineService,
+    disposal: 'dispose'
   },
   {
     token: 'ipcClient',

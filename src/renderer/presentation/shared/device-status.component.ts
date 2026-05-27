@@ -1,4 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 type ClassListLike = {
   add(...tokens: string[]): void;
@@ -32,10 +33,11 @@ export interface DeviceStatusPayloadLike {
   } | null;
 }
 
-class DeviceStatusComponent {
+class DeviceStatusComponent extends PresentationComponent {
   declare elements: DeviceStatusElements;
 
   constructor(elements: DeviceStatusElements) {
+    super();
     this.elements = elements;
   }
 

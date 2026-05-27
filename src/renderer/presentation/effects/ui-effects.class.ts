@@ -5,13 +5,14 @@ import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type BodyClassManagerLike = {
   setCinematicMode?: (isActive: boolean) => void;
   setMinimalistFullscreen?: (isActive: boolean) => void;
   setFullscreenMode?: (isActive: boolean) => void;
-  dispose?: () => void;
+  dispose?: () => void | Promise<void>;
 };
 
 type UIElements = DomBindingsFlat;
@@ -21,7 +22,7 @@ type UIEffectsDependencies = {
   bodyClassManager?: BodyClassManagerLike | null;
 };
 
-export class UIEffects {
+export class UIEffects extends PresentationComponent {
   elements: UIElements | null;
   _bodyClassManager: BodyClassManagerLike | null;
   _buttonFeedback: ButtonFeedback;
@@ -32,6 +33,8 @@ export class UIEffects {
   _unifiedTimer: ActivityAutoHideController;
 
   constructor(dependencies: UIEffectsDependencies = {}) {
+    super();
+
     const { elements, bodyClassManager } = dependencies;
     this.elements = elements ?? null;
     this._bodyClassManager = bodyClassManager || null;
@@ -63,6 +66,7 @@ export class UIEffects {
       timeoutMs: TIMING.CURSOR_HIDE_DELAY_MS
     });
     this._unifiedTimer.enable();
+    this.track(() => this._disposeRuntimeEffects());
   }
 
   setElements(elements: UIElements | null): void {
@@ -194,14 +198,20 @@ export class UIEffects {
     this._cursor.hide();
   }
 
-  dispose() {
-    this._cursor.dispose();
-    this._toolbar.dispose();
-    this._controls.dispose();
-    this._buttonFeedback.dispose();
-    this._captureEffects.dispose();
-    this._bodyClassManager?.dispose?.();
-    this._unifiedTimer.dispose();
+  private async _disposeRuntimeEffects(): Promise<void> {
+    await Promise.all([
+      this._cursor.dispose(),
+      this._toolbar.dispose(),
+      this._controls.dispose(),
+      this._buttonFeedback.dispose(),
+      this._captureEffects.dispose(),
+      this._unifiedTimer.dispose()
+    ]);
+  }
+
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.setElements(null);
+    return disposed;
   }
 }

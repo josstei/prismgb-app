@@ -12,6 +12,8 @@ import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;
+const DEVICE_CONNECTION_LIFECYCLE = Symbol('deviceLifecycleConnection');
+const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceLifecycleWindowLaunch');
 
 interface DeviceStatus {
   connected: boolean;
@@ -30,24 +32,24 @@ export class DeviceLifecycleService extends BaseService {
   private readonly deviceService: DeviceService;
   private readonly windowService: WindowService;
   private readonly eventBus: EventBus;
-  private _unsubscribe: (() => void) | null;
-  private _launchTimeoutId: NodeJS.Timeout | null;
 
   constructor(dependencies: DeviceLifecycleServiceDependencies) {
     super(dependencies, ['deviceService', 'windowService', 'eventBus', 'loggerFactory'], 'DeviceLifecycleService');
     this.deviceService = dependencies.deviceService;
     this.windowService = dependencies.windowService;
     this.eventBus = dependencies.eventBus;
-    this._unsubscribe = null;
-    this._launchTimeoutId = null;
   }
 
   initialize(): void {
     this.logger.info('Initializing device lifecycle service');
 
-    this._unsubscribe = this.eventBus.subscribe(
-      MainEventChannels.DEVICE.CONNECTION_CHANGED,
-      (status: DeviceStatus) => this._handleConnectionChanged(status)
+    this.disposables.cancel(DEVICE_CONNECTION_LIFECYCLE);
+    this.disposables.replace(
+      DEVICE_CONNECTION_LIFECYCLE,
+      this.eventBus.subscribe(
+        MainEventChannels.DEVICE.CONNECTION_CHANGED,
+        (status: DeviceStatus) => this._handleConnectionChanged(status)
+      )
     );
 
     this.logger.info('Device lifecycle service initialized');
@@ -66,37 +68,24 @@ export class DeviceLifecycleService extends BaseService {
    * Auto-launch window after device connection
    */
   private _launchWindow(): void {
-    // Clear any pending launch timeout
-    if (this._launchTimeoutId) {
-      clearTimeout(this._launchTimeoutId);
-    }
+    this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);
 
-    this._launchTimeoutId = setTimeout(() => {
-      this._launchTimeoutId = null;
+    const launchTimeoutId = setTimeout(() => {
+      this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);
       if (this.windowService) {
         this.logger.debug('Launching window');
         this.windowService.showWindow();
       }
     }, DEVICE_LAUNCH_DELAY);
+    this.disposables.replace(WINDOW_LAUNCH_LIFECYCLE, () => clearTimeout(launchTimeoutId));
   }
 
   /**
    * Cleanup and dispose of resources
    */
-  dispose(): void {
+  override async dispose(): Promise<void> {
     this.logger.info('Disposing device lifecycle service');
-
-    // Cancel any pending window launch
-    if (this._launchTimeoutId) {
-      clearTimeout(this._launchTimeoutId);
-      this._launchTimeoutId = null;
-    }
-
-    if (this._unsubscribe) {
-      this._unsubscribe();
-      this._unsubscribe = null;
-    }
-
+    await super.dispose();
     this.logger.info('Device lifecycle service disposed');
   }
 }

@@ -3,20 +3,46 @@ import {
   type IpcManifest,
   type IpcNamespaceManifest
 } from '@shared/ipc/ipc.manifest.js';
+import { EventChannels } from '@shared/events/event-channels.js';
+import type { EventChannelValue } from '@shared/events/event-payloads.js';
 
 type MaybeUnsubscribe = (() => void) | null | undefined;
 
-export interface RendererPreloadBridgeDescriptor<TMethod extends string = string> {
+type RendererPreloadBridgeLifecycle = 'add' | 'replace';
+export type RendererPreloadBridgeLifecycleKey = symbol;
+
+interface RendererPreloadBridgeDescriptorBase<TMethod extends string = string> {
   readonly apiName: string;
+  readonly bridgeName: string;
+  readonly events: RendererPreloadBridgeEventDescriptorMap<TMethod>;
   readonly methods: readonly TMethod[];
 }
+
+export type RendererPreloadBridgeDescriptor<TMethod extends string = string> =
+  RendererPreloadBridgeDescriptorBase<TMethod> & (
+    | { readonly lifecycle: 'add' }
+    | { readonly lifecycle: 'replace'; readonly lifecycleKey: RendererPreloadBridgeLifecycleKey }
+  );
 
 type ManifestSubscriptionEntry = NonNullable<IpcNamespaceManifest['subscriptions']>[number];
 type ManifestPreloadEventHandler = (...args: never[]) => void;
 type ManifestPreloadEventHandlers<TMethod extends string = string> = Readonly<Record<TMethod, ManifestPreloadEventHandler>>;
+type RendererPreloadBridgeEventDescriptorMap<TMethod extends string = string> = Partial<Readonly<Record<TMethod, EventChannelValue>>>;
 type RendererPreloadBridgeMethodMapBase = Readonly<Record<string, string>>;
-type RendererPreloadBridgeDescriptorMap<TMethodMap extends RendererPreloadBridgeMethodMapBase> = {
-  readonly [TApiName in keyof TMethodMap & string]: RendererPreloadBridgeDescriptor<TMethodMap[TApiName]>;
+type RendererPreloadBridgeLifecycleMapBase<TMethodMap extends RendererPreloadBridgeMethodMapBase> = {
+  readonly [TApiName in keyof TMethodMap & string]: RendererPreloadBridgeLifecycle;
+};
+type RendererPreloadBridgeDescriptorFor<
+  TMethod extends string,
+  TLifecycle extends RendererPreloadBridgeLifecycle
+> = RendererPreloadBridgeDescriptorBase<TMethod> & (TLifecycle extends 'replace'
+  ? { readonly lifecycle: 'replace'; readonly lifecycleKey: RendererPreloadBridgeLifecycleKey }
+  : { readonly lifecycle: 'add' });
+type RendererPreloadBridgeDescriptorMap<
+  TMethodMap extends RendererPreloadBridgeMethodMapBase,
+  TLifecycleMap extends RendererPreloadBridgeLifecycleMapBase<TMethodMap>
+> = {
+  readonly [TApiName in keyof TMethodMap & string]: RendererPreloadBridgeDescriptorFor<TMethodMap[TApiName], TLifecycleMap[TApiName]>;
 };
 
 interface PreloadEventBridgeLogger {
@@ -39,7 +65,6 @@ interface PreloadEventBridgeOptions<TApi> {
 interface ManifestPreloadEventBridgeOptions<TApi, TMethod extends string = string> {
   api: TApi;
   descriptor: RendererPreloadBridgeDescriptor<TMethod>;
-  bridgeName: string;
   handlers: ManifestPreloadEventHandlers<TMethod>;
   manifest?: IpcManifest;
   logger?: PreloadEventBridgeLogger;
@@ -67,6 +92,13 @@ type RendererPreloadBridgeMethodMap = {
   readonly updateAPI: 'onAvailable' | 'onNotAvailable' | 'onProgress' | 'onDownloaded' | 'onError';
   readonly transcodeAPI: 'onProgress' | 'onCompleted' | 'onError' | 'onCancelled';
 };
+type RendererPreloadBridgeLifecycleMap = {
+  readonly deviceAPI: 'add';
+  readonly windowAPI: 'replace';
+  readonly updateAPI: 'replace';
+  readonly transcodeAPI: 'replace';
+};
+type RendererPreloadBridgeReplaceApiName = { [TApiName in keyof RendererPreloadBridgeLifecycleMap]: RendererPreloadBridgeLifecycleMap[TApiName] extends 'replace' ? TApiName : never }[keyof RendererPreloadBridgeLifecycleMap] & string;
 const rendererPreloadBridgeApiNames = ['deviceAPI', 'windowAPI', 'updateAPI', 'transcodeAPI'] as const satisfies readonly (keyof RendererPreloadBridgeMethodMap)[];
 const rendererPreloadBridgeMethodNames = {
   deviceAPI: ['onDeviceConnected', 'onDeviceDisconnected'],
@@ -74,6 +106,22 @@ const rendererPreloadBridgeMethodNames = {
   updateAPI: ['onAvailable', 'onNotAvailable', 'onProgress', 'onDownloaded', 'onError'],
   transcodeAPI: ['onProgress', 'onCompleted', 'onError', 'onCancelled']
 } as const satisfies { readonly [TApiName in keyof RendererPreloadBridgeMethodMap]: readonly RendererPreloadBridgeMethodMap[TApiName][] };
+const rendererPreloadBridgeEventChannels = {
+  deviceAPI: {},
+  windowAPI: { onResized: EventChannels.UI.WINDOW_RESIZED },
+  updateAPI: { onAvailable: EventChannels.UPDATE.AVAILABLE, onNotAvailable: EventChannels.UPDATE.NOT_AVAILABLE, onProgress: EventChannels.UPDATE.PROGRESS, onDownloaded: EventChannels.UPDATE.DOWNLOADED, onError: EventChannels.UPDATE.ERROR },
+  transcodeAPI: { onProgress: EventChannels.TRANSCODE.PROGRESS, onCompleted: EventChannels.TRANSCODE.COMPLETED, onError: EventChannels.TRANSCODE.ERROR, onCancelled: EventChannels.TRANSCODE.CANCELLED }
+} as const satisfies { readonly [TApiName in keyof RendererPreloadBridgeMethodMap]: RendererPreloadBridgeEventDescriptorMap<RendererPreloadBridgeMethodMap[TApiName]> };
+const rendererPreloadBridgeLifecycleKeyNames = {
+  windowAPI: 'settingsFullscreenPreloadBridgeLifecycle',
+  updateAPI: 'updatePreloadBridgeLifecycle',
+  transcodeAPI: 'transcodePreloadBridgeLifecycle'
+} as const satisfies { readonly [TApiName in RendererPreloadBridgeReplaceApiName]: string };
+const rendererPreloadBridgeLifecycleKeys = {
+  windowAPI: Symbol(rendererPreloadBridgeLifecycleKeyNames.windowAPI),
+  updateAPI: Symbol(rendererPreloadBridgeLifecycleKeyNames.updateAPI),
+  transcodeAPI: Symbol(rendererPreloadBridgeLifecycleKeyNames.transcodeAPI)
+} as const satisfies { readonly [TApiName in RendererPreloadBridgeReplaceApiName]: RendererPreloadBridgeLifecycleKey };
 export type RendererPreloadBridgeApiName = keyof RendererPreloadBridgeMethodMap & string;
 
 function assertManifestMethodsMatchDescriptor(apiName: string, manifestMethods: readonly string[], descriptorMethods: readonly string[]): void {
@@ -97,14 +145,48 @@ function assertRendererPreloadBridgeDescriptorManifestParity(
   }
 }
 
+function requireManifestRendererBridgeMetadata(apiName: string, namespace: IpcNamespaceManifest): NonNullable<IpcNamespaceManifest['rendererBridge']> {
+  const metadata = namespace.rendererBridge;
+  if (!metadata || typeof metadata.bridgeName !== 'string' || typeof metadata.lifecycle !== 'string') {
+    throw new Error(`IPC manifest renderer bridge metadata missing for "${apiName}"`);
+  }
+  if (metadata.lifecycle === 'replace' && typeof metadata.lifecycleKey !== 'string') {
+    throw new Error(`IPC manifest renderer bridge lifecycleKey missing for "${apiName}"`);
+  }
+  return metadata;
+}
+
 assertRendererPreloadBridgeDescriptorManifestParity();
 
 export const RendererPreloadBridgeDescriptors = {
-  deviceAPI: { apiName: 'deviceAPI', methods: rendererPreloadBridgeMethodNames.deviceAPI },
-  windowAPI: { apiName: 'windowAPI', methods: rendererPreloadBridgeMethodNames.windowAPI },
-  updateAPI: { apiName: 'updateAPI', methods: rendererPreloadBridgeMethodNames.updateAPI },
-  transcodeAPI: { apiName: 'transcodeAPI', methods: rendererPreloadBridgeMethodNames.transcodeAPI }
-} as const satisfies RendererPreloadBridgeDescriptorMap<RendererPreloadBridgeMethodMap>;
+  deviceAPI: { apiName: 'deviceAPI', methods: rendererPreloadBridgeMethodNames.deviceAPI, events: rendererPreloadBridgeEventChannels.deviceAPI, bridgeName: 'DeviceIpcAdapter', lifecycle: 'add' },
+  windowAPI: { apiName: 'windowAPI', methods: rendererPreloadBridgeMethodNames.windowAPI, events: rendererPreloadBridgeEventChannels.windowAPI, bridgeName: 'SettingsFullscreenService', lifecycle: 'replace', lifecycleKey: rendererPreloadBridgeLifecycleKeys.windowAPI },
+  updateAPI: { apiName: 'updateAPI', methods: rendererPreloadBridgeMethodNames.updateAPI, events: rendererPreloadBridgeEventChannels.updateAPI, bridgeName: 'UpdateService', lifecycle: 'replace', lifecycleKey: rendererPreloadBridgeLifecycleKeys.updateAPI },
+  transcodeAPI: { apiName: 'transcodeAPI', methods: rendererPreloadBridgeMethodNames.transcodeAPI, events: rendererPreloadBridgeEventChannels.transcodeAPI, bridgeName: 'TranscodeService', lifecycle: 'replace', lifecycleKey: rendererPreloadBridgeLifecycleKeys.transcodeAPI }
+} as const satisfies RendererPreloadBridgeDescriptorMap<RendererPreloadBridgeMethodMap, RendererPreloadBridgeLifecycleMap>;
+
+function assertRendererPreloadBridgeMetadataManifestParity(
+  manifest: IpcManifest = IpcContractManifest,
+  descriptors: RendererPreloadBridgeDescriptorMap<RendererPreloadBridgeMethodMap, RendererPreloadBridgeLifecycleMap> = RendererPreloadBridgeDescriptors
+): void {
+  for (const apiName of rendererPreloadBridgeApiNames) {
+    const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName);
+    if (!namespace) {
+      throw new Error(`IPC manifest namespace not found for renderer preload bridge API "${apiName}"`);
+    }
+    const metadata = requireManifestRendererBridgeMetadata(apiName, namespace);
+    const descriptor = descriptors[apiName];
+    const descriptorLifecycleKey = descriptor.lifecycle === 'replace'
+      ? rendererPreloadBridgeLifecycleKeyNames[apiName as RendererPreloadBridgeReplaceApiName]
+      : undefined;
+    const manifestLifecycleKey = metadata.lifecycle === 'replace' ? metadata.lifecycleKey : undefined;
+    if (metadata.bridgeName !== descriptor.bridgeName || metadata.lifecycle !== descriptor.lifecycle || manifestLifecycleKey !== descriptorLifecycleKey) {
+      throw new Error(`IPC manifest renderer bridge metadata for "${apiName}" does not match generated descriptor`);
+    }
+  }
+}
+
+assertRendererPreloadBridgeMetadataManifestParity();
 // CODEBASE_RENDERER_PRELOAD_BRIDGE_DESCRIPTORS:END
 
 function requireManifestNamespace(apiName: string, manifest: IpcManifest): IpcNamespaceManifest {
@@ -221,15 +303,20 @@ export function createPreloadEventBridge<TApi>({
 export function createManifestPreloadEventBridge<TApi, TMethod extends string>({
   api,
   descriptor,
-  bridgeName,
   handlers,
   manifest = IpcContractManifest,
   logger
 }: ManifestPreloadEventBridgeOptions<TApi, TMethod>): PreloadEventBridge {
-  const { apiName, methods } = descriptor;
+  const { apiName, bridgeName, methods } = descriptor;
   const namespace = requireManifestNamespace(apiName, manifest);
   const subscriptions = collectDescriptorSubscriptions({ apiName, bridgeName, descriptorMethods: methods, namespace }).map((subscription) =>
     createManifestSubscriptionDescriptor({ api, apiName, bridgeName, handlers, subscription })
   );
   return createPreloadEventBridge({ api, bridgeName, subscriptions, logger });
+}
+
+export function createRendererPreloadEventBridge<TApi, TMethod extends string>(
+  options: ManifestPreloadEventBridgeOptions<TApi, TMethod>
+): PreloadEventBridge {
+  return createManifestPreloadEventBridge(options);
 }

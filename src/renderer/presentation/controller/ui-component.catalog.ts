@@ -1,3 +1,32 @@
+import {
+  StreamingControlsComponent,
+  type StreamingControlsComponentOptions
+} from '@renderer/presentation/features/streaming/streaming-controls.component.js';
+import {
+  ShaderSelectorComponent,
+  type ShaderSelectorComponentOptions
+} from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
+import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
+import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
+import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
+import {
+  UpdateSectionComponent,
+  type UpdateSectionComponentOptions
+} from '@renderer/presentation/features/updates/update-section.component.js';
+import {
+  SettingsMenuComponent,
+  type SettingsMenuComponentOptions
+} from '@renderer/presentation/features/settings/settings-menu.component.js';
+import {
+  NotesPanelComponent,
+  type NotesPanelComponentOptions
+} from '@renderer/presentation/features/notes/notes-panel.component.js';
+import {
+  RendererTemplateComponentIds,
+  RendererTemplateCoreComponentIds,
+  type RendererTemplateComponentElementSlices,
+  type RendererTemplateComponentId
+} from '@renderer/presentation/generated/template-dom.generated.js';
 import type {
   UIComponentContract,
   UIComponentDefinition,
@@ -5,44 +34,8 @@ import type {
   UIComponentDependencies,
   UIComponentElements,
   UIComponentId,
-  UIComponentRegistryDependencies,
-  UIComponentRegistryElements
+  UIComponentStage
 } from '@renderer/presentation/controller/component.registry.js';
-import type {
-  StreamingControlsComponent,
-  StreamingControlsComponentOptions,
-  StreamingControlsElements
-} from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import type {
-  ShaderSelectorComponent,
-  ShaderSelectorComponentOptions,
-  ShaderSelectorElements
-} from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
-import type {
-  StatusNotificationComponent,
-  StatusNotificationElements
-} from '@renderer/presentation/shared/status-notification.component.js';
-import type {
-  DeviceStatusComponent,
-  DeviceStatusElements
-} from '@renderer/presentation/shared/device-status.component.js';
-import type {
-  TranscodeToastComponent,
-  TranscodeToastElements
-} from '@renderer/presentation/features/transcode/transcode-toast.component.js';
-import type {
-  UpdateSectionComponentOptions
-} from '@renderer/presentation/features/updates/update-section.component.js';
-import type {
-  SettingsMenuComponent,
-  SettingsMenuComponentOptions,
-  SettingsMenuElements
-} from '@renderer/presentation/features/settings/settings-menu.component.js';
-import type {
-  NotesPanelComponent,
-  NotesPanelComponentOptions,
-  NotesPanelElements
-} from '@renderer/presentation/features/notes/notes-panel.component.js';
 
 type NoComponentDependencies = object;
 
@@ -60,37 +53,37 @@ export type SettingsMenuComponentDependencies =
 
 export interface RendererUiComponentCatalog {
   statusNotificationComponent: UIComponentContract<
-    StatusNotificationElements,
+    RendererTemplateComponentElementSlices['statusNotificationComponent'],
     NoComponentDependencies,
     StatusNotificationComponent
   >;
   deviceStatusComponent: UIComponentContract<
-    DeviceStatusElements,
+    RendererTemplateComponentElementSlices['deviceStatusComponent'],
     NoComponentDependencies,
     DeviceStatusComponent
   >;
   streamControlsComponent: UIComponentContract<
-    StreamingControlsElements,
+    RendererTemplateComponentElementSlices['streamControlsComponent'],
     StreamingControlsComponentDependencies,
     StreamingControlsComponent
   >;
   transcodeToastComponent: UIComponentContract<
-    TranscodeToastElements,
+    RendererTemplateComponentElementSlices['transcodeToastComponent'],
     NoComponentDependencies,
     TranscodeToastComponent
   >;
   settingsMenuComponent: UIComponentContract<
-    SettingsMenuElements,
+    RendererTemplateComponentElementSlices['settingsMenuComponent'],
     SettingsMenuComponentDependencies,
     SettingsMenuComponent
   >;
   shaderSelectorComponent: UIComponentContract<
-    ShaderSelectorElements,
+    RendererTemplateComponentElementSlices['shaderSelectorComponent'],
     ShaderSelectorComponentOptions,
     ShaderSelectorComponent
   >;
   notesPanelComponent: UIComponentContract<
-    NotesPanelElements,
+    RendererTemplateComponentElementSlices['notesPanelComponent'],
     NotesPanelComponentOptions,
     NotesPanelComponent
   >;
@@ -108,18 +101,114 @@ export type RendererUiComponentDependencies<TId extends RendererUiComponentId> =
   TId
 >;
 
-export type RendererUiRegistryElements = UIComponentRegistryElements<RendererUiComponentCatalog>;
-
-export type RendererUiRegistryDependencies = UIComponentRegistryDependencies<RendererUiComponentCatalog>;
-
-export type RendererUiComponentDefinition<TId extends RendererUiComponentId = RendererUiComponentId> =
+type RendererUiComponentDefinition<TId extends RendererUiComponentId = RendererUiComponentId> =
   UIComponentDefinition<RendererUiComponentCatalog, TId>;
 
-export type RendererUiComponentDefinitionUnion =
+type RendererUiComponentFactoryDefinition<TId extends RendererUiComponentId = RendererUiComponentId> =
+  Omit<RendererUiComponentDefinition<TId>, 'id' | 'stage'>;
+
+type RendererUiComponentDefinitionUnion =
   UIComponentDefinitionUnion<RendererUiComponentCatalog>;
 
-export function defineRendererUiComponent<TId extends RendererUiComponentId>(
-  definition: RendererUiComponentDefinition<TId>
-): RendererUiComponentDefinition<TId> {
-  return definition;
+type RendererUiComponentDefinitionById = {
+  readonly [TId in RendererUiComponentId]: TId extends RendererTemplateComponentId
+    ? RendererUiComponentDefinition<TId>
+    : never;
+} & {
+  readonly [TId in RendererTemplateComponentId]: TId extends RendererUiComponentId
+    ? RendererUiComponentDefinition<TId>
+    : never;
+};
+
+type RendererUiComponentFactoryDefinitionById = {
+  readonly [TId in RendererUiComponentId]: TId extends RendererTemplateComponentId
+    ? RendererUiComponentFactoryDefinition<TId>
+    : never;
+} & {
+  readonly [TId in RendererTemplateComponentId]: TId extends RendererUiComponentId
+    ? RendererUiComponentFactoryDefinition<TId>
+    : never;
+};
+
+function requireDependency<TDependencies extends object, TKey extends keyof TDependencies & string>(
+  componentId: string,
+  dependencies: Partial<TDependencies>,
+  key: TKey
+): NonNullable<TDependencies[TKey]> {
+  const value = dependencies[key];
+  if (value === undefined || value === null) {
+    throw new Error(`${componentId}: missing UI component dependency "${key}"`);
+  }
+  return value as NonNullable<TDependencies[TKey]>;
 }
+
+const rendererTemplateCoreComponentIds = new Set<RendererTemplateComponentId>(RendererTemplateCoreComponentIds);
+
+function getRendererUiComponentStage(id: RendererTemplateComponentId): UIComponentStage {
+  return rendererTemplateCoreComponentIds.has(id) ? 'core' : 'deferred';
+}
+
+const rendererUiComponentDefinitionInputsById = {
+  statusNotificationComponent: {
+    create: ({ elements = {} }) => new StatusNotificationComponent(elements)
+  },
+  deviceStatusComponent: {
+    create: ({ elements = {} }) => new DeviceStatusComponent(elements)
+  },
+  streamControlsComponent: {
+    create: ({ elements = {}, dependencies = {} }) => new StreamingControlsComponent({
+      elements,
+      bodyClassManager: dependencies.bodyClassManager
+    })
+  },
+  transcodeToastComponent: {
+    create: ({ elements = {} }) => new TranscodeToastComponent(elements)
+  },
+  settingsMenuComponent: {
+    create: ({ dependencies = {} }) => {
+      const eventBus = requireDependency('settingsMenuComponent', dependencies, 'eventBus');
+      const loggerFactory = requireDependency('settingsMenuComponent', dependencies, 'loggerFactory');
+      const updateSectionComponent = dependencies.updateOrchestrator
+        ? new UpdateSectionComponent({ updateOrchestrator: dependencies.updateOrchestrator, eventBus, loggerFactory })
+        : null;
+      return new SettingsMenuComponent({
+        settingsService: requireDependency('settingsMenuComponent', dependencies, 'settingsService'),
+        updateSectionComponent,
+        logger: dependencies.logger
+      });
+    }
+  },
+  shaderSelectorComponent: {
+    create: ({ dependencies = {} }) => new ShaderSelectorComponent({
+      settingsService: requireDependency('shaderSelectorComponent', dependencies, 'settingsService'),
+      appState: dependencies.appState,
+      eventBus: requireDependency('shaderSelectorComponent', dependencies, 'eventBus'),
+      logger: dependencies.logger
+    })
+  },
+  notesPanelComponent: {
+    create: ({ dependencies = {} }) => new NotesPanelComponent({
+      notesService: requireDependency('notesPanelComponent', dependencies, 'notesService'),
+      eventBus: requireDependency('notesPanelComponent', dependencies, 'eventBus'),
+      logger: dependencies.logger
+    })
+  }
+} as const satisfies RendererUiComponentFactoryDefinitionById;
+
+function createRendererUiComponentDefinition<TId extends RendererUiComponentId & RendererTemplateComponentId>(
+  id: TId
+): RendererUiComponentDefinition<TId> {
+  return {
+    id,
+    stage: getRendererUiComponentStage(id),
+    ...rendererUiComponentDefinitionInputsById[id]
+  };
+}
+
+const rendererUiComponentDefinitionsById = Object.fromEntries(
+  RendererTemplateComponentIds.map((id) => [id, createRendererUiComponentDefinition(id)])
+) as RendererUiComponentDefinitionById;
+
+export const rendererUiComponentDefinitions = RendererTemplateComponentIds.map(
+  (id) => rendererUiComponentDefinitionsById[id]
+) satisfies readonly RendererUiComponentDefinitionUnion[];

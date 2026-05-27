@@ -22,12 +22,12 @@ type UpdateServiceLike = {
   checkForUpdates(): Promise<UpdateCheckResponse>;
   downloadUpdate(): Promise<UpdateDownloadResponse>;
   installUpdate(): Promise<UpdateInstallResponse>;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 };
 
 type UpdateUiServiceLike = {
   initialize(): void;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 };
 
 type UpdateOrchestratorDependencies = {
@@ -82,10 +82,6 @@ class UpdateOrchestrator extends BaseOrchestrator {
     return this.updateService.installUpdate();
   }
 
-  async onCleanup(): Promise<void> {
-    this.updateService.dispose();
-    this.updateUiService.dispose();
-  }
 }
 
 export { UpdateOrchestrator, UpdateState };

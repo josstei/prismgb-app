@@ -55,7 +55,6 @@ export type SettingsDefinitionsManifest = typeof SettingsDefinitions;
 export type SettingsDefinition = SettingsDefinitionsManifest['definitions'][number];
 export type SettingsControlUi = NonNullable<SettingsDefinition['ui']> & { controlId: string; controlType: string; labelId?: string; menuId?: string; optionLabelFormat?: string };
 export type SettingsControlDefinition = SettingsDefinition & { ui: SettingsControlUi };
-export type SettingsControlRef = SettingsControlUi['controlId'] | NonNullable<SettingsControlUi['labelId']> | NonNullable<SettingsControlUi['menuId']>;
 export type SettingsListboxDefinition = SettingsControlDefinition & {
   default: string; allowedValues: string[];
   ui: SettingsControlUi & { controlType: 'listbox'; labelId: string; menuId: string };
@@ -93,14 +92,6 @@ export function getBooleanSettingsUiDefinitions(): SettingsControlDefinition[] {
 
 export function getListboxSettingsUiDefinitions(): SettingsListboxDefinition[] {
   return getSettingsUiDefinitions().filter(hasSettingsListboxControl);
-}
-
-export function getSettingsControlRefs(): SettingsControlRef[] {
-  return getSettingsUiDefinitions().flatMap((definition) => (
-    hasSettingsListboxControl(definition)
-      ? [definition.ui.controlId, definition.ui.labelId, definition.ui.menuId]
-      : [definition.ui.controlId]
-  ));
 }
 
 export function getSettingsListboxOptions(definition: SettingsListboxDefinition): SettingsListboxOption[] {

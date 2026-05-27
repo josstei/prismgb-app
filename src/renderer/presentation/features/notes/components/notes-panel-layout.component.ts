@@ -121,13 +121,14 @@ class NotesPanelLayoutComponent extends PresentationComponent {
     };
   }
 
-  override dispose(): void {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.panelElement = null;
     this.toolbarElement = null;
     this.streamContainer = null;
     this._resizeObserver = null;
     this._panelSizeDefaults = null;
+    return disposed;
   }
 }
 

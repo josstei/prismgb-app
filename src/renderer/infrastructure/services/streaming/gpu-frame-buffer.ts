@@ -1,10 +1,3 @@
-/**
- * GpuFrameBuffer
- *
- * Manages a triple-buffer queue for GPU frame rendering.
- * Prevents frame drops by throttling submission when the queue is full.
- * Tracks metrics for performance monitoring.
- */
 import type {
   LoggerFactoryLike,
   LoggerLike
@@ -33,7 +26,6 @@ export class GpuFrameBuffer {
     this._capacity = bufferSize;
     this._queue = [];
 
-    // Metrics
     this._totalEnqueued = 0;
     this._totalDropped = 0;
     this._enqueueTimes = [];
@@ -67,11 +59,9 @@ export class GpuFrameBuffer {
       return null;
     }
 
-    // Track latency for metrics
     const latency = performance.now() - entry.enqueueTime;
     this._enqueueTimes.push(latency);
 
-    // Keep only last 60 samples for rolling average
     if (this._enqueueTimes.length > 60) {
       this._enqueueTimes.shift();
     }
@@ -83,9 +73,6 @@ export class GpuFrameBuffer {
     return this._queue.length >= this._capacity;
   }
 
-  /**
-   * Clear all pending frames
-   */
   flush(): void {
     this._queue = [];
     this._logger?.debug('Frame buffer flushed');
@@ -103,9 +90,6 @@ export class GpuFrameBuffer {
     };
   }
 
-  /**
-   * Reset metrics counters (useful for diagnostics reset)
-   */
   resetMetrics(): void {
     this._totalDropped = 0;
     this._enqueueTimes = [];

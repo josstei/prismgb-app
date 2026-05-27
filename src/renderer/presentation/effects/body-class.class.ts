@@ -56,8 +56,9 @@ export class BodyClassManager extends PresentationComponent {
     }, TIMING.MINIMALIST_TRANSITION_MS);
   }
 
-  override dispose() {
-    super.dispose();
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     document.body.classList.remove(CSSClasses.MINIMALIST_TRANSITION);
+    return disposed;
   }
 }

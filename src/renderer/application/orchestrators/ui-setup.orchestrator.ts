@@ -1,59 +1,30 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import {
-  createDomListenerManager,
-  type DomListenerManager
-} from '@shared/base/dom-listener.utils.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { getTemplateAction } from '@renderer/presentation/primitives/template-ref.utils.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import {
+  UIActionDescriptors,
+  UIActionEvents,
+  UIActionTargets,
+  createTemplateRefSelector,
+  getTemplateAction,
+  getTemplateActionTarget,
+  isUIActionId,
+  type UIActionControllerCommand,
+  type UIActionDescriptor,
+  type UIActionEvent
+} from '@renderer/presentation/primitives/template-ref.utils.js';
+import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
 import type { SettingsService } from '@renderer/infrastructure/services/settings';
 import type { NotesService } from '@renderer/infrastructure/services/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
+import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/generated/template-dom.generated.js';
+import type { RendererUiComponentDependencies } from '@renderer/presentation/controller/ui-component.catalog.js';
 
 type AppStateLike = {
   readonly isStreaming: boolean;
   readonly isCinematicModeEnabled?: boolean;
 };
-
-const UIActionIds = { SCREENSHOT_CAPTURE: 'capture.screenshot', RECORDING_TOGGLE: 'recording.toggle', FULLSCREEN_TOGGLE: 'fullscreen.toggle', SETTINGS_TOGGLE: 'settings.toggle', SHADER_TOGGLE: 'shader.toggle', STREAM_START: 'stream.start', STREAM_STOP: 'stream.stop' } as const;
-
-type UIActionId = typeof UIActionIds[keyof typeof UIActionIds];
-
-type UIActionControllerCommand = 'toggleSettingsMenu' | 'toggleShaderSelector';
-
-type UIActionCommand =
-  | { kind: 'publish'; channel: string }
-  | { kind: 'controller'; method: UIActionControllerCommand }
-  | { kind: 'clear-title' };
-
-type UIActionCondition = 'overlay-visible' | 'streaming';
-
-interface UIActionDescriptor {
-  action: UIActionId;
-  element: keyof UIController['elements'] & string;
-  event: 'click' | 'mousedown';
-  command: UIActionCommand;
-  condition?: UIActionCondition;
-  logMessage?: string;
-  stopPropagation?: boolean;
-  blurCurrentTarget?: boolean;
-}
-
-const UIActionDescriptors = [
-  { action: UIActionIds.STREAM_START, element: 'streamOverlay', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_START_REQUESTED }, condition: 'overlay-visible', logMessage: 'Overlay clicked - requesting stream start' },
-  { action: UIActionIds.STREAM_STOP, element: 'streamVideo', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_STOP_REQUESTED }, condition: 'streaming', logMessage: 'Stream clicked - requesting stream stop' },
-  { action: UIActionIds.STREAM_STOP, element: 'streamCanvas', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.STREAM_STOP_REQUESTED }, condition: 'streaming', logMessage: 'Stream clicked - requesting stream stop' },
-  { action: UIActionIds.SCREENSHOT_CAPTURE, element: 'screenshotBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.SCREENSHOT_REQUESTED } },
-  { action: UIActionIds.RECORDING_TOGGLE, element: 'recordBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.RECORDING_TOGGLE_REQUESTED } },
-  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fullscreenBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED }, blurCurrentTarget: true },
-  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fullscreenBtn', event: 'mousedown', command: { kind: 'clear-title' } },
-  { action: UIActionIds.SETTINGS_TOGGLE, element: 'settingsBtn', event: 'click', command: { kind: 'controller', method: 'toggleSettingsMenu' }, stopPropagation: true },
-  { action: UIActionIds.SHADER_TOGGLE, element: 'shaderBtn', event: 'click', command: { kind: 'controller', method: 'toggleShaderSelector' }, stopPropagation: true },
-  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fsExitBtn', event: 'click', command: { kind: 'publish', channel: EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED }, blurCurrentTarget: true },
-  { action: UIActionIds.FULLSCREEN_TOGGLE, element: 'fsExitBtn', event: 'mousedown', command: { kind: 'clear-title' } }
-] as const satisfies readonly UIActionDescriptor[];
 
 type UISetupOrchestratorDependencies = {
   appState: AppStateLike;
@@ -61,18 +32,24 @@ type UISetupOrchestratorDependencies = {
   settingsService: SettingsService;
   notesService: NotesService;
   uiController: UIController;
-  eventBus: EventBusLike;
+  eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
 };
 
+type DeferredComponentDependencies = {
+  [TId in RendererTemplateDeferredComponentId]: RendererUiComponentDependencies<TId>;
+};
+
+const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
+
 export class UISetupOrchestrator extends BaseOrchestrator {
+  protected readonly eventBus: TypedEventBusLike;
   private readonly appState: AppStateLike;
   private readonly updateOrchestrator: UpdateOrchestrator;
   private readonly settingsService: SettingsService;
   private readonly notesService: NotesService;
   private readonly uiController: UIController;
   private readonly loggerFactory: LoggerFactoryLike;
-  private readonly _domListeners: DomListenerManager;
   private _uiActionsBound: boolean;
 
   constructor(dependencies: UISetupOrchestratorDependencies) {
@@ -89,123 +66,83 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     this.uiController = dependencies.uiController;
     this.eventBus = dependencies.eventBus;
     this.loggerFactory = dependencies.loggerFactory;
-    this._domListeners = createDomListenerManager({ logger: this.logger });
     this._uiActionsBound = false;
   }
 
-  async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_RECREATED]: (data) => this._handleCanvasRecreated(data)
+  initializeDeferredComponents(): void {
+    const dependenciesByComponent = this._createDeferredComponentDependencies();
+    RendererTemplateDeferredComponentIds.forEach((componentId) => {
+      this.uiController.initializeDeferredComponent(componentId, dependenciesByComponent[componentId]);
     });
   }
 
-  _handleCanvasRecreated(data: unknown): void {
-    if (typeof data !== 'object' || data === null) {
-      return;
-    }
-    const { oldCanvas, newCanvas } = data as {
-      oldCanvas?: HTMLCanvasElement;
-      newCanvas?: HTMLCanvasElement;
+  private _createDeferredComponentDependencies(): DeferredComponentDependencies {
+    return {
+      settingsMenuComponent: { settingsService: this.settingsService, updateOrchestrator: this.updateOrchestrator, eventBus: this.eventBus, loggerFactory: this.loggerFactory, logger: this.logger },
+      shaderSelectorComponent: { settingsService: this.settingsService, appState: this.appState, eventBus: this.eventBus, logger: this.logger },
+      notesPanelComponent: { notesService: this.notesService, eventBus: this.eventBus, logger: this.logger }
     };
-    if (!oldCanvas || !newCanvas) {
-      return;
-    }
-
-    const removed = this._domListeners.removeByTarget(oldCanvas);
-    this.logger.debug(`Removed ${removed} listener(s) from old canvas`);
-
-    if (this._uiActionsBound) {
-      UIActionDescriptors
-        .filter((descriptor) => descriptor.element === 'streamCanvas')
-        .forEach((descriptor) => this._bindUiAction(descriptor));
-      this.logger.debug('Rebound stream canvas action handler');
-    }
-  }
-
-  initializeSettingsMenu(): void {
-    this.uiController.initSettingsMenu({
-      settingsService: this.settingsService,
-      updateOrchestrator: this.updateOrchestrator,
-      eventBus: this.eventBus,
-      loggerFactory: this.loggerFactory,
-      logger: this.logger
-    });
-  }
-
-  initializeShaderSelector(): void {
-    const elements = this.uiController.dom?.streaming;
-    this.uiController.initShaderSelector(
-      {
-        settingsService: this.settingsService,
-        appState: this.appState,
-        eventBus: this.eventBus,
-        logger: this.logger
-      },
-      {
-        shaderBtn: elements?.shaderBtn,
-        shaderDropdown: elements?.shaderDropdown,
-        shaderOptions: elements?.shaderOptions,
-        shaderUnavailableMessage: elements?.shaderUnavailableMessage,
-        cinematicToggle: elements?.cinematicToggle,
-        cinematicPillText: elements?.cinematicPillText,
-        brightnessSlider: elements?.brightnessSlider,
-        brightnessPercentage: elements?.brightnessPercentage,
-        brightnessControl: elements?.brightnessControl,
-        volumeSlider: elements?.volumeSliderVertical,
-        volumePercentage: elements?.volumePercentageVertical,
-        streamVideo: elements?.streamVideo
-      }
-    );
-  }
-
-  initializeNotesPanel(): void {
-    const notesElements = {
-      ...this.uiController.dom?.notes,
-      streamContainer: this.uiController.dom?.streaming?.streamContainer,
-      streamToolbar: this.uiController.dom?.streaming?.streamToolbar
-    };
-    this.uiController.initNotesPanel(
-      {
-        notesService: this.notesService,
-        eventBus: this.eventBus,
-        logger: this.logger
-      },
-      notesElements
-    );
   }
 
   setupUIEventListeners(): void {
     if (this._uiActionsBound) {
       return;
     }
-    UIActionDescriptors.forEach((descriptor) => this._bindUiAction(descriptor));
+    const actionRoot = this._getUiActionRoot();
+    const listenerDisposers = UIActionEvents.map((eventName) =>
+      this.listen(actionRoot, eventName, (event) =>
+        this._executeDelegatedUiAction(eventName, event, actionRoot)
+      )
+    );
+    this.replaceManaged(UI_ACTION_LISTENERS_LIFECYCLE, () => {
+      listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
+    });
+    this._warnMissingDeclaredActionTargets(actionRoot);
     this._uiActionsBound = true;
 
     this.logger.info('UI event listeners set up');
   }
 
-  private _bindUiAction(descriptor: UIActionDescriptor): void {
-    const element = this.uiController.elements[descriptor.element];
-    const declaredAction = getTemplateAction(element);
+  private _getUiActionRoot(): (ParentNode & EventTarget) {
+    return document.body || document;
+  }
 
-    if (element && declaredAction !== descriptor.action) {
-      this.logger.warn(
-        `UI action metadata drift for ${descriptor.element}: expected ${descriptor.action}, found ${declaredAction || 'none'}`
-      );
+  private _warnMissingDeclaredActionTargets(root: ParentNode): void {
+    for (const target of UIActionTargets) {
+      const element = root.querySelector(createTemplateRefSelector(target.ref)) as HTMLElement | null;
+      const declaredAction = getTemplateAction(element);
+      if (declaredAction !== target.action) {
+        this.logger.warn(
+          `UI action metadata drift for ${target.ref}: expected ${target.action}, found ${declaredAction || 'none'}`
+        );
+      }
     }
+  }
 
-    if (!element) {
-      this.logger.warn(`Element not found: ${descriptor.element}`);
+  private _executeDelegatedUiAction(eventName: UIActionEvent, event: Event, root: ParentNode): void {
+    const actionTarget = getTemplateActionTarget(event, root);
+    if (!actionTarget) {
       return;
     }
 
-    this._domListeners.add(element, descriptor.event, (event) =>
-      this._executeUiAction(descriptor, event)
+    const action = getTemplateAction(actionTarget);
+    if (!isUIActionId(action)) {
+      if (eventName === 'click' && action) {
+        this.logger.warn(`Unknown UI action: ${action}`);
+      }
+      return;
+    }
+
+    const descriptors = UIActionDescriptors.filter(
+      (descriptor) => descriptor.event === eventName && descriptor.action === action
     );
+    for (const descriptor of descriptors) {
+      this._executeUiAction(descriptor, event, actionTarget);
+    }
   }
 
-  private _executeUiAction(descriptor: UIActionDescriptor, event: Event): void {
-    if (!this._isUiActionEnabled(descriptor, event)) {
+  private _executeUiAction(descriptor: UIActionDescriptor, event: Event, actionTarget: HTMLElement): void {
+    if (!this._isUiActionEnabled(descriptor, actionTarget)) {
       return;
     }
 
@@ -213,8 +150,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       event.stopPropagation();
     }
 
-    if (descriptor.blurCurrentTarget) {
-      (event.currentTarget as HTMLElement | null)?.blur();
+    if (descriptor.blurActionTarget) {
+      actionTarget.blur();
     }
 
     if (descriptor.logMessage) {
@@ -229,15 +166,18 @@ export class UISetupOrchestrator extends BaseOrchestrator {
         this._executeUiControllerAction(descriptor.command.method);
         break;
       case 'clear-title':
-        this._clearCurrentTargetTitle(event);
+        this._clearActionTargetTitle(actionTarget);
+        break;
+      case 'external':
+        this._openExternalUrl(event, descriptor.command.url);
         break;
     }
   }
 
-  private _isUiActionEnabled(descriptor: UIActionDescriptor, event: Event): boolean {
+  private _isUiActionEnabled(descriptor: UIActionDescriptor, actionTarget: HTMLElement): boolean {
     switch (descriptor.condition) {
       case 'overlay-visible':
-        return !(event.currentTarget as HTMLElement | null)?.classList.contains(CSSClasses.HIDDEN);
+        return !actionTarget.classList.contains(CSSClasses.HIDDEN);
       case 'streaming':
         return this.appState.isStreaming;
       default:
@@ -253,19 +193,28 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       case 'toggleShaderSelector':
         this.uiController.toggleShaderSelector();
         break;
+      case 'toggleNotesPanel':
+        this.uiController.toggleNotesPanel();
+        break;
     }
   }
 
-  private _clearCurrentTargetTitle(event: Event): void {
-    const target = event.currentTarget as HTMLElement | null;
-    if (target) {
-      target.title = '';
+  private _clearActionTargetTitle(actionTarget: HTMLElement): void {
+    actionTarget.title = '';
+  }
+
+  private _openExternalUrl(event: Event, url: string): void {
+    event.preventDefault();
+    if (window.shellAPI?.openExternal) {
+      void window.shellAPI.openExternal(url);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   }
 
   async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up UISetupOrchestrator...');
-    this._domListeners.removeAll();
+    await this.cancelManaged(UI_ACTION_LISTENERS_LIFECYCLE);
     this._uiActionsBound = false;
     this.logger.info('UISetupOrchestrator cleanup complete');
   }
