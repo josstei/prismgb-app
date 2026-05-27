@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type {
@@ -46,6 +47,10 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
+@Service({
+  "token": "uiEventBridge",
+  "disposal": "dispose"
+})
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.UI.STATUS_MESSAGE, (bridge, data) => bridge._handleStatusMessage(data)],

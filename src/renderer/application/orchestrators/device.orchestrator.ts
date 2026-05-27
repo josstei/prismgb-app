@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -31,6 +32,16 @@ type DeviceOrchestratorDependencies = {
 
 const DEVICE_IPC_EVENTS_LIFECYCLE = Symbol('deviceIpcEventsLifecycle');
 
+@Service({
+  "token": "deviceOrchestrator",
+  "dependencies": [
+    "deviceService",
+    "deviceIpcAdapter",
+    "deviceOperationSequencer",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class DeviceOrchestrator extends BaseOrchestrator {
   private readonly deviceService: DeviceServiceLike;
   private readonly deviceIpcAdapter: DeviceIpcAdapterLike;

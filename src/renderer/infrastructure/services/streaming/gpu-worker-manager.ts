@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import {
   WorkerMessageType,
   WorkerResponseType,
@@ -37,6 +38,10 @@ type AnyWorkerResponseHandler = (
 
 const READY_TIMEOUT_LIFECYCLE = Symbol('gpuWorkerReadyTimeout');
 
+@Service({
+  "token": "gpuWorkerManager",
+  "disposal": "dispose"
+})
 export class GpuWorkerManager {
   _logger: LoggerLike;
   _eventBus: EventBusLike;

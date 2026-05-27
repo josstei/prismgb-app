@@ -328,7 +328,7 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 |---------|-------------|
 | **Orchestrator** | Coordinates services and manages state machines |
 | **Service** | Single-responsibility business logic with event emission |
-| **DI Container** | Awilix-based dependency injection (main process) |
+| **DI Container** | Compile-time static dependency injection (both processes) |
 | **Event Bus** | EventEmitter3 for cross-service communication |
 | **IPC Bridges** | Translate between main/renderer process boundaries |
 
@@ -353,7 +353,7 @@ The 4-pass shader pipeline processes each frame:
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
 | **USB** | node-usb, libusb |
-| **DI** | Awilix |
+| **DI** | Compile-time static container |
 | **Logging** | Winston |
 | **Testing** | Vitest, Playwright |
 

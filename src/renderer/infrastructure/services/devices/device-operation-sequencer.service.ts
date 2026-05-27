@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
@@ -18,6 +19,10 @@ type DeviceOperationSequencerDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "deviceOperationSequencer",
+  "disposal": "dispose"
+})
 export class DeviceOperationSequencerService extends BaseService {
   private readonly deviceService: DeviceOperationTargetService;
   private readonly eventBus: EventBusLike;

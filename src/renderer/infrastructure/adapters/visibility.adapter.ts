@@ -1,5 +1,10 @@
+import { Service } from '@shared/di/decorators.js';
 type Cleanup = () => void;
 
+@Service({
+  "token": "visibilityAdapter",
+  "disposal": "dispose"
+})
 export class VisibilityAdapter {
   private _handleVisibilityChange: (() => void) | null = null;
 

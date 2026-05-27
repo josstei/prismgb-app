@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Animation Performance Orchestrator
  *
@@ -14,6 +15,15 @@ import type {
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
 
+@Service({
+  "token": "animationPerformanceOrchestrator",
+  "dependencies": [
+    "eventBus",
+    "animationPerformanceService",
+    "bodyClassManager",
+    "loggerFactory"
+  ]
+})
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   private readonly animationPerformanceService: PerformanceAnimationService;
   private readonly bodyClassManager: BodyClassManager;

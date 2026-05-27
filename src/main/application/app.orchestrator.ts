@@ -10,10 +10,9 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import type { AwilixContainer } from 'awilix';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
-import { createAppContainer, type ContainerDependencies } from './container.js';
+import { createAppContainer, MainServiceContainer } from './container.js';
 import { MainLogger } from '@main/infrastructure/logging/index.js';
 import type { WindowService } from '@main/infrastructure/window/index.js';
 import type { DeviceService } from '@main/infrastructure/devices/index.js';
@@ -45,7 +44,7 @@ function resolveDevDockIconPath(appPath: string): string | null {
 class AppOrchestrator extends BaseOrchestrator {
 
   private readonly loggerFactory: MainLogger;
-  private container: AwilixContainer<ContainerDependencies> | null = null;
+  private container: MainServiceContainer | null = null;
   private _windowService: WindowService | null = null;
   private _deviceService: DeviceService | null = null;
   private _deviceLifecycleService: DeviceLifecycleService | null = null;
@@ -89,22 +88,22 @@ class AppOrchestrator extends BaseOrchestrator {
     this._loginItemService = this.container.resolve('loginItemService');
 
     // Initialize device lifecycle service (handles auto-launch)
-    this._deviceLifecycleService.initialize();
+    this._deviceLifecycleService!.initialize();
 
     // Initialize update bridge and start auto-check (1 hour interval)
-    this._updateBridgeService.initialize();
+    this._updateBridgeService!.initialize();
 
     // Initialize transcode service (validates ffmpeg binaries)
-    this._transcodeService.initialize();
+    this._transcodeService!.initialize();
 
     // Start USB monitoring for hot-plug detection
-    this._deviceService.startUSBMonitoring();
+    this._deviceService!.startUSBMonitoring();
 
     // Subscribe to device events via bridge
-    this._deviceBridgeService.initialize();
+    this._deviceBridgeService!.initialize();
 
     // Create system tray
-    this._trayService.createTray();
+    this._trayService!.createTray();
 
     // Set dock icon in dev mode (macOS only)
     // In production, macOS uses icon.icns from app bundle automatically
@@ -119,22 +118,22 @@ class AppOrchestrator extends BaseOrchestrator {
     }
 
     // Register IPC handlers
-    this._ipcHandlerRegistry.registerHandlers();
+    this._ipcHandlerRegistry!.registerHandlers();
 
     // Wait for USB monitoring to initialize and enumerate devices.
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Detect hidden launch (login item / auto-start)
-    const isHiddenLaunch = this._loginItemService.wasLaunchedAsHidden();
+    const isHiddenLaunch = this._loginItemService!.wasLaunchedAsHidden();
     if (isHiddenLaunch) {
       this.logger.info('Hidden launch detected - starting in system tray');
     }
 
     // Create main window (hidden if launched as login item)
-    this._windowService.createWindow({ hidden: isHiddenLaunch });
+    this._windowService!.createWindow({ hidden: isHiddenLaunch });
 
     // Check for already connected devices
-    const deviceFound = await this._deviceService.refreshDeviceStatus();
+    const deviceFound = await this._deviceService!.refreshDeviceStatus();
     if (deviceFound) {
       this.logger.info('Device already connected');
     }
@@ -201,7 +200,7 @@ class AppOrchestrator extends BaseOrchestrator {
    * Get the DI container
    * @returns The DI container
    */
-  getContainer(): AwilixContainer<ContainerDependencies> | null {
+  getContainer(): MainServiceContainer | null {
     return this.container;
   }
 }

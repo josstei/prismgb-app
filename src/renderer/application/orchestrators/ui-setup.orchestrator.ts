@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
@@ -42,6 +43,18 @@ type DeferredComponentDependencies = {
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
+@Service({
+  "token": "uiSetupOrchestrator",
+  "dependencies": [
+    "appState",
+    "updateOrchestrator",
+    "settingsService",
+    "notesService",
+    "uiController",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class UISetupOrchestrator extends BaseOrchestrator {
   protected readonly eventBus: TypedEventBusLike;
   private readonly appState: AppStateLike;

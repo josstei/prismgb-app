@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Performance Metrics Service
  *
@@ -40,6 +41,14 @@ function isMemorySnapshotRequestPayload(value: unknown): value is MemorySnapshot
   return typeof value === 'object' && value !== null;
 }
 
+@Service({
+  "token": "performanceMetricsService",
+  "dependencies": [
+    "loggerFactory",
+    "metricsAdapter"
+  ],
+  "disposal": "dispose"
+})
 export class PerformanceMetricsService extends BaseService {
   protected readonly metricsAdapter: MetricsAdapterLike;
 

@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 type MediaDevicesListener = EventListenerOrEventListenerObject;
 
 /**
@@ -7,6 +8,10 @@ type MediaDevicesListener = EventListenerOrEventListenerObject;
  * Allows mocking in tests without polluting the global navigator object.
  * Tracks added listeners for cleanup.
  */
+@Service({
+  "token": "browserMediaService",
+  "disposal": "dispose"
+})
 export class BrowserMediaAdapter {
   _listeners: Map<string, Set<MediaDevicesListener>>;
 

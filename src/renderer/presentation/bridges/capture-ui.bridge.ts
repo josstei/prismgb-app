@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { UiButtonFeedbackPayload } from '@shared/events/event-payloads.js';
@@ -14,6 +15,10 @@ type CaptureUIBridgeDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "captureUiBridge",
+  "disposal": "dispose"
+})
 class CaptureUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, (bridge) => bridge._handleScreenshotTriggered()],

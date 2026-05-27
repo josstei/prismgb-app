@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
 
@@ -17,6 +18,10 @@ type AppStateDependencies = {
   eventBus?: EventBusLike;
 };
 
+@Service({
+  "token": "appState",
+  "disposal": "dispose"
+})
 class AppState {
   streamingService: StreamingServiceLike | undefined;
   deviceService: DeviceServiceLike | undefined;

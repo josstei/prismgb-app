@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { generateEntityId } from '@shared/utils/string.utils.js';
@@ -21,6 +22,10 @@ type NotesServiceDependencies = {
   storageService: StorageServiceLike;
 };
 
+@Service({
+  "token": "notesService",
+  "disposal": "dispose"
+})
 class NotesService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly storageService: StorageServiceLike;

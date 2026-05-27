@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import type { StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
@@ -32,6 +33,10 @@ function getAllowedValues(definition: SettingDefinition): string[] {
   return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
 }
 
+@Service({
+  "token": "settingsService",
+  "disposal": "dispose"
+})
 class SettingsService extends BaseService {
   private readonly eventBus: SettingsEventBus;
   private readonly storageService: StorageServiceLike;

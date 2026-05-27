@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import type {
   LoggerFactoryLike
@@ -34,6 +35,10 @@ const HEALTH_TIMEUPDATE_LIFECYCLE = Symbol('streamHealthTimeupdate');
  * Follows the same lightweight, focused, callback-based pattern as other render helpers.
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
+@Service({
+  "token": "streamHealthService",
+  "disposal": "dispose"
+})
 export class StreamingHealthService extends BaseService {
   private _timeoutMs: number;
   private _isMonitoring: boolean;

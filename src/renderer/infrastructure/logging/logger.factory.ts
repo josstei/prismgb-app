@@ -1,9 +1,13 @@
+import { Service } from '@shared/di/decorators.js';
 import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
 
 /**
  * Renderer Logger
  * Lightweight console-backed logger for renderer process and tests.
  */
+@Service({
+  "token": "loggerFactory"
+})
 class RendererLogger implements LoggerFactoryLike {
   create(name = 'Log'): LoggerLike {
     const prefix = `[${name}]`;

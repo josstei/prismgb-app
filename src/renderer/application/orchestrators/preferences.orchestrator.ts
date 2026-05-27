@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { getStartupPreferenceEventDefinitions } from '@shared/features/settings/settings.definitions.js';
@@ -15,6 +16,14 @@ type SettingsPreferencesOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "preferencesOrchestrator",
+  "dependencies": [
+    "settingsService",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
   private readonly settingsService: SettingsServiceLike;
 

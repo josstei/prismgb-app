@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Performance State Service
  *
@@ -63,6 +64,16 @@ interface PerformanceStateInitOptions {
   onStateChange?: (state: PerformanceState) => void;
 }
 
+@Service({
+  "token": "performanceStateService",
+  "dependencies": [
+    "loggerFactory",
+    "visibilityAdapter",
+    "userActivityAdapter",
+    "reducedMotionAdapter"
+  ],
+  "disposal": "dispose"
+})
 class PerformanceStateService extends BaseService {
   private readonly _visibilityAdapter: VisibilityAdapterLike;
   private readonly _userActivityAdapter: UserActivityAdapterLike;

@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { LoggerLike } from '@shared/base/service.base.js';
@@ -78,6 +79,21 @@ type CaptureOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "captureOrchestrator",
+  "dependencies": [
+    "captureService",
+    "appState",
+    "streamViewService",
+    "gpuRendererService",
+    "gpuRecordingService",
+    "canvasRenderLoopService",
+    "transcodeService",
+    "captureSaveService",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class CaptureOrchestrator extends BaseOrchestrator {
   private readonly captureService: CaptureServiceLike;
   private readonly appState: AppStateLike;

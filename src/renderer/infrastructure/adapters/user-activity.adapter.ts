@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 type Cleanup = () => void;
 
 const DEFAULT_ACTIVITY_EVENTS = ['pointermove', 'keydown', 'wheel', 'touchstart'] as const;
@@ -5,6 +6,10 @@ const ACTIVITY_ADD_LISTENER_OPTIONS: AddEventListenerOptions = { passive: true }
 const ACTIVITY_REMOVE_LISTENER_OPTIONS: EventListenerOptions = { capture: false };
 const THROTTLE_INTERVAL_MS = 100;
 
+@Service({
+  "token": "userActivityAdapter",
+  "disposal": "dispose"
+})
 export class UserActivityAdapter {
   private _handleUserActivity: (() => void) | null = null;
   private readonly _activityEvents = DEFAULT_ACTIVITY_EVENTS;

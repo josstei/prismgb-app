@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -7,6 +8,10 @@ type UpdateUiServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "updateUiService",
+  "disposal": "dispose"
+})
 class UpdateUiService extends BaseService {
   private readonly eventBus: EventBusLike;
 

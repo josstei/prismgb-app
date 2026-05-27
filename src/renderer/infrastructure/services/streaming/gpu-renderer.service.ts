@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
@@ -70,6 +71,10 @@ function isWorkerRenderAPI(value: RenderAPI): value is WorkerRendererConfig['api
   return value === 'webgpu' || value === 'webgl2';
 }
 
+@Service({
+  "token": "gpuRendererService",
+  "disposal": "dispose"
+})
 export class StreamingGpuRendererService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly settingsService: SettingsServiceLike;

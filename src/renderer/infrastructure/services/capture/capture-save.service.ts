@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { downloadFile } from '@shared/lib/file-download.utils';
@@ -39,6 +40,10 @@ type CaptureSaveServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "captureSaveService",
+  "disposal": "dispose"
+})
 class CaptureSaveService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly settingsService: CaptureSettingsServiceLike;

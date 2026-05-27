@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -22,6 +23,10 @@ type TranscodeUIBridgeDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "transcodeUiBridge",
+  "disposal": "dispose"
+})
 class TranscodeUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.TRANSCODE.STARTED, (bridge, data) => bridge._handleStarted(data)],

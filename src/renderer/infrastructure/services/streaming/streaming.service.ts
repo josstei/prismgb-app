@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Streaming Service
  *
@@ -96,6 +97,10 @@ function toSettingsPayload(
   );
 }
 
+@Service({
+  "token": "streamingService",
+  "disposal": "dispose"
+})
 export class StreamingService extends BaseService {
   private readonly deviceService: DeviceServiceLike;
   protected readonly eventBus: TypedEventBusLike;

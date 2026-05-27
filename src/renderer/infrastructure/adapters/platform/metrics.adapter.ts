@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Metrics Adapter
  *
@@ -11,6 +12,9 @@ type MetricsApiLike = {
   getProcessMetrics: () => Promise<ProcessMetricsResponse>;
 };
 
+@Service({
+  "token": "metricsAdapter"
+})
 export class MetricsAdapter {
   _metricsAPI?: MetricsApiLike;
 

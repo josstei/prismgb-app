@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
@@ -13,6 +14,10 @@ type SettingsFullscreenServiceDependencies = {
 
 const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
 
+@Service({
+  "token": "fullscreenService",
+  "disposal": "dispose"
+})
 class SettingsFullscreenService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly _boundHandleFullscreenChange: () => void;

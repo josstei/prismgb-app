@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Performance State Orchestrator
  *
@@ -14,6 +15,14 @@ import type {
   PerformanceStateService
 } from '@renderer/infrastructure/services/performance/performance-state.service';
 
+@Service({
+  "token": "performanceStateOrchestrator",
+  "dependencies": [
+    "eventBus",
+    "performanceStateService",
+    "loggerFactory"
+  ]
+})
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
   private readonly performanceStateService: PerformanceStateService;
   private _lastUiMode: PerformanceUiModePayload | null;

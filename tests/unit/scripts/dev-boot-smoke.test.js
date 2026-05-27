@@ -30,14 +30,14 @@ describe('dev-boot smoke log evaluator', () => {
     });
   });
 
-  it('fails when an Awilix resolution error appears', () => {
+  it('fails when a DI container resolution error appears', () => {
     const result = evaluateStartupChunk(
       'Error: Could not resolve "missingToken" for service "appOrchestrator".'
     );
     expect(result).toMatchObject({
       status: 'failure',
-      reason: 'Awilix token resolution failure',
-      matchedPattern: 'awilix-resolution'
+      reason: 'DI container token resolution failure',
+      matchedPattern: 'di-resolution'
     });
   });
 

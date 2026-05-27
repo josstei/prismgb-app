@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Presentation Mode Service
  *
@@ -28,6 +29,10 @@ type PresentationModeServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "presentationModeService",
+  "disposal": "dispose"
+})
 export class PresentationModeService extends BaseService {
   private readonly uiController: PresentationModeUiControllerLike;
   private readonly appState: PresentationModeAppStateLike;

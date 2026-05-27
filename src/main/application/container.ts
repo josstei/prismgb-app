@@ -1,11 +1,8 @@
 /**
  * Dependency Injection Container
- * Central container for all main process dependencies using Awilix
+ * Central static container for all main process dependencies
  */
 
-import * as awilix from 'awilix';
-import type { AwilixContainer } from 'awilix';
-const { createContainer, asClass, asValue, InjectionMode } = awilix;
 import pkg from '../../../package.json' assert { type: 'json' };
 import { EventBus } from '@main/infrastructure/events/index.js';
 import { WindowService } from '@main/infrastructure/window/index.js';
@@ -55,84 +52,152 @@ export interface ContainerDependencies {
 }
 
 /**
- * Create and configure the DI container
- * @param loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
- * @returns Configured container
+ * Static zero-overhead Dependency Injection Container for the Main process
  */
-async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixContainer<ContainerDependencies>> {
-  const container = createContainer<ContainerDependencies>({
-    injectionMode: InjectionMode.PROXY
-  });
+export class MainServiceContainer {
+  private instances = new Map<string, any>();
+  private cache = new Map<string, { value: any }>();
+  public registrations: Record<string, any> = {};
 
-  // Use provided logger factory (shared with MainAppOrchestrator)
-  const containerLogger = loggerFactory.create('Container');
-  containerLogger.info('Initializing dependency injection container');
+  constructor(loggerFactory: MainLogger, overrides: Record<string, any> = {}) {
+    const keys = [
+      'config', 'loggerFactory', 'eventBus', 'windowService', 'trayService',
+      'ipcHandlerRegistry', 'profileRegistry', 'deviceService', 'deviceLifecycleService',
+      'updateService', 'deviceBridgeService', 'updateBridgeService', 'transcodeService',
+      'loginItemService'
+    ];
+    for (const key of keys) {
+      this.registrations[key] = {};
+    }
 
-  // Register configuration and utilities
-  container.register({
-    // Config - simple value
-    config: asValue<AppConfig>({
+    // Register config value
+    this.instances.set('config', {
       isDevelopment: process.env.NODE_ENV === 'development',
       appName: 'PrismGB',
       version: pkg.version
-    }),
+    });
 
-    // Logger factory - singleton instance
-    loggerFactory: asValue(loggerFactory),
+    // Register logger factory
+    this.instances.set('loggerFactory', loggerFactory);
 
-    // EventBus - singleton for cross-service communication
-    eventBus: asClass(EventBus).singleton()
-  });
+    // Apply overrides
+    for (const [key, val] of Object.entries(overrides)) {
+      const unwrapped = val && typeof val === 'object' && 'value' in val ? val.value : val;
+      this.instances.set(key, unwrapped);
+      this.cache.set(key, { value: unwrapped });
+    }
+  }
 
-  // Register core services
-  container.register({
-    windowService: asClass(WindowService).singleton(),
-    trayService: asClass(TrayService).singleton(),
-    ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton(),
-    loginItemService: asClass(LoginItemService).singleton()
-  });
+  public get cradle(): any {
+    return new Proxy(this, {
+      get: (target: any, prop: string | symbol) => {
+        if (typeof prop === 'string') {
+          return target.resolve(prop);
+        }
+        return undefined;
+      }
+    }) as any;
+  }
 
-  // Register device components
-  container.register({
-    profileRegistry: asClass(DeviceProfileRegistry).singleton()
-  });
+  public resolve<T = any>(token: string): T {
+    if (this.instances.has(token)) {
+      return this.instances.get(token) as T;
+    }
 
-  // Profile classes injected via DI (same pattern as adapterClasses in renderer)
-  const profileClasses = new Map<string, ProfileClass>([
-    [chromaticConfig.id, DeviceChromaticProfile]
-  ]);
+    let instance: any;
+    switch (token) {
+      case 'eventBus':
+        instance = new EventBus({ loggerFactory: this.resolve('loggerFactory') });
+        break;
+      case 'windowService':
+        instance = new WindowService(this.cradle);
+        break;
+      case 'trayService':
+        instance = new TrayService(this.cradle);
+        break;
+      case 'ipcHandlerRegistry':
+        instance = new IpcHandlerRegistry(this.cradle);
+        break;
+      case 'profileRegistry':
+        instance = new DeviceProfileRegistry({ loggerFactory: this.resolve('loggerFactory') });
+        break;
+      case 'deviceService': {
+        const profileClasses = new Map<string, ProfileClass>([
+          [chromaticConfig.id, DeviceChromaticProfile]
+        ]);
+        instance = new DeviceService({
+          profileRegistry: this.resolve('profileRegistry'),
+          eventBus: this.resolve('eventBus'),
+          loggerFactory: this.resolve('loggerFactory')
+        }, profileClasses);
+        break;
+      }
+      case 'deviceLifecycleService':
+        instance = new DeviceLifecycleService(this.cradle);
+        break;
+      case 'updateService':
+        instance = new UpdateService(this.cradle);
+        break;
+      case 'deviceBridgeService':
+        instance = new DeviceBridgeService(this.cradle);
+        break;
+      case 'updateBridgeService':
+        instance = new UpdateBridge(this.cradle);
+        break;
+      case 'transcodeService':
+        instance = new TranscodeService(this.cradle);
+        break;
+      case 'loginItemService':
+        instance = new LoginItemService(this.cradle);
+        break;
+      default:
+        throw new Error(`[MainServiceContainer] Could not resolve token: ${token}`);
+    }
 
-  // Manual instantiation required because DeviceService.initialize() is async
-  // and must be awaited during container bootstrap (Awilix doesn't support async factories)
-  const deviceService = new DeviceService({
-    profileRegistry: container.resolve('profileRegistry'),
-    eventBus: container.resolve('eventBus'),
-    loggerFactory: container.resolve('loggerFactory')
-  }, profileClasses);
+    this.instances.set(token, instance);
+    this.cache.set(token, { value: instance });
+    return instance as T;
+  }
+
+  public async dispose(): Promise<void> {
+    for (const [token, instance] of this.instances.entries()) {
+      if (!instance) continue;
+      if (typeof instance.dispose === 'function') {
+        try {
+          await instance.dispose();
+        } catch (err) {
+          console.error(`Error disposing ${token}:`, err);
+        }
+      } else if (typeof instance.cleanup === 'function') {
+        try {
+          await instance.cleanup();
+        } catch (err) {
+          console.error(`Error cleaning up ${token}:`, err);
+        }
+      }
+    }
+    this.instances.clear();
+    this.cache.clear();
+  }
+}
+
+/**
+ * Create and configure the static DI container
+ * @param loggerFactory - Pre-configured MainLogger instance
+ * @returns Configured static container instance
+ */
+export async function createAppContainer(loggerFactory: MainLogger): Promise<MainServiceContainer> {
+  const containerLogger = loggerFactory.create('Container');
+  containerLogger.info('Initializing dependency injection container');
+
+  const container = new MainServiceContainer(loggerFactory);
+
+  // Eagerly resolve and initialize DeviceService during container bootstrap
+  const deviceService = container.resolve<DeviceService>('deviceService');
   await deviceService.initialize();
 
-  container.register({
-    deviceService: asValue(deviceService),
-    deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
-  });
-
-  // Register update components
-  container.register({
-    updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
-    updateBridgeService: asClass(UpdateBridge).singleton()
-  });
-
-  // Register transcode components
-  container.register({
-    transcodeService: asClass(TranscodeService).singleton()
-  });
-
-  // Log registration count
   const count = Object.keys(container.registrations).length;
   containerLogger.info(`Registered ${count} dependencies`);
 
   return container;
 }
-
-export { createAppContainer };

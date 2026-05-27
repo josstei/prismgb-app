@@ -1,9 +1,13 @@
+import { Service } from '@shared/di/decorators.js';
 import { SharedEventBus } from '@shared/events/event-bus.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 
 type EventBusLoggerFactory = { create(name: string): { error(message: string, error: Error): void } };
 type EventBusDependencies = { loggerFactory?: EventBusLoggerFactory };
 
+@Service({
+  "token": "eventBus"
+})
 class EventBus extends SharedEventBus {
   constructor({ loggerFactory }: EventBusDependencies = {}) {
     super({

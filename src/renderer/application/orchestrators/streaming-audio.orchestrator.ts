@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -38,6 +39,16 @@ function resolveStreamFromPayload(data: unknown): MediaStream | null {
     : null;
 }
 
+@Service({
+  "token": "streamingAudioOrchestrator",
+  "dependencies": [
+    "streamingAudioPipelineService",
+    "streamViewService",
+    "appState",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
   private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
   private readonly streamViewService: StreamViewServiceLike;

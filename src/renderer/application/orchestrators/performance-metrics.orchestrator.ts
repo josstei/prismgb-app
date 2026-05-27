@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Performance Metrics Orchestrator
  *
@@ -9,6 +10,14 @@ import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 
+@Service({
+  "token": "performanceMetricsOrchestrator",
+  "dependencies": [
+    "eventBus",
+    "loggerFactory",
+    "performanceMetricsService"
+  ]
+})
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
   private readonly performanceMetricsService: PerformanceMetricsService;
 

@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
 import type { LoggerFactoryLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
@@ -11,6 +12,10 @@ function getDeviceStorageKey(deviceType: string | null | undefined): string {
   return `${deviceType || 'device'}_id`;
 }
 
+@Service({
+  "token": "deviceStorageService",
+  "disposal": "dispose"
+})
 class DeviceStorageService extends BaseService {
   private readonly storageService: StorageServiceLike;
 

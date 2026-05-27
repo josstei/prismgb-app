@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -28,6 +29,16 @@ type SettingsDisplayModeOrchestratorDependencies = {
 
 const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
 
+@Service({
+  "token": "displayModeOrchestrator",
+  "dependencies": [
+    "fullscreenService",
+    "cinematicModeService",
+    "settingsService",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   private readonly fullscreenService: FullscreenServiceLike;
   private readonly cinematicModeService: CinematicModeServiceLike;

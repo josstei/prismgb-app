@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
@@ -28,6 +29,24 @@ type AppOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "appOrchestrator",
+  "dependencies": [
+    "deviceOrchestrator",
+    "streamingOrchestrator",
+    "streamingAudioOrchestrator",
+    "captureOrchestrator",
+    "preferencesOrchestrator",
+    "displayModeOrchestrator",
+    "updateOrchestrator",
+    "uiSetupOrchestrator",
+    "animationPerformanceOrchestrator",
+    "performanceMetricsOrchestrator",
+    "performanceStateOrchestrator",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class AppOrchestrator extends BaseOrchestrator {
   private readonly deviceOrchestrator: LifecycleOrchestrator;
   private readonly streamingOrchestrator: LifecycleOrchestrator;

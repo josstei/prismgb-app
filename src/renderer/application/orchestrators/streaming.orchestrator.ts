@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import type { LoggerLike } from '@shared/base/service.base.js';
@@ -80,6 +81,19 @@ function getStreamErrorMessage(payload: unknown): string {
   return getErrorMessage(payload, 'Stream error');
 }
 
+@Service({
+  "token": "streamingOrchestrator",
+  "dependencies": [
+    "streamingService",
+    "appState",
+    "streamViewService",
+    "renderPipelineService",
+    "gpuRecordingService",
+    "settingsService",
+    "eventBus",
+    "loggerFactory"
+  ]
+})
 export class StreamingOrchestrator extends BaseOrchestrator {
   private readonly streamingService: StreamingServiceLike;
   private readonly appState: AppStateLike;

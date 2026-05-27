@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Stream View Service
  *
@@ -23,6 +24,10 @@ type StreamingViewDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "streamViewService",
+  "disposal": "dispose"
+})
 class StreamingViewService extends BaseService {
   private readonly uiController: UiControllerLike;
 

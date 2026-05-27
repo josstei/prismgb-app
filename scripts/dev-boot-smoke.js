@@ -5,7 +5,7 @@
  * Starts `npm run dev` and validates renderer startup output:
  * - waits for `Renderer application started successfully`
  * - fails immediately on renderer error messages
- * - fails on Awilix missing-token resolution errors
+ * - fails on DI container missing-token resolution errors
  * - fails on Vite JSON import-attribute warnings
  *
  * Intended for local preflight and CI release checks.
@@ -24,9 +24,9 @@ const FAILURE_PATTERNS = [
     reason: 'Renderer error log output'
   },
   {
-    name: 'awilix-resolution',
-    pattern: /\b(?:Awilix|Missing dependency|Could not resolve|Cannot resolve|ResolutionError|Missing token)\b/i,
-    reason: 'Awilix token resolution failure'
+    name: 'di-resolution',
+    pattern: /\b(?:Missing dependency|Could not resolve|Cannot resolve|ResolutionError|Missing token)\b/i,
+    reason: 'DI container token resolution failure'
   },
   {
     name: 'vite-json-import-attribute',

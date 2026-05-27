@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
@@ -46,6 +47,10 @@ type CanvasLifecycleDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "canvasLifecycleService",
+  "disposal": "dispose"
+})
 class StreamingCanvasLifecycleService extends BaseService {
   private readonly streamViewService: StreamViewServiceLike;
   private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;

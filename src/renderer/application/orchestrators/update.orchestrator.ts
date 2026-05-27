@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { UpdateState } from '@shared/config/update-state.config';
 import type { UpdateStateValue } from '@shared/config/update-state.config.js';
@@ -36,6 +37,14 @@ type UpdateOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+@Service({
+  "token": "updateOrchestrator",
+  "dependencies": [
+    "updateService",
+    "updateUiService",
+    "loggerFactory"
+  ]
+})
 class UpdateOrchestrator extends BaseOrchestrator {
   private readonly updateService: UpdateServiceLike;
   private readonly updateUiService: UpdateUiServiceLike;

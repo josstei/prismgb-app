@@ -61,23 +61,23 @@ Use this checklist to track tasks. Mark completed items with `[x]` and in-progre
 
 ---
 
-### [ ] Step 3: Option 2B - Compile-Time Decorator DI Code Generator
-#### [ ] Phase 1: Annotations & AST Extractor
-- [ ] Define `@Service` and `@Inject` decorators inside `src/shared/di/decorators.ts`.
-- [ ] Enable `experimentalDecorators` in TS configs.
-- [ ] Build the TypeScript compiler AST parsing script.
-- [ ] Verify metadata extraction lists all service constructor parameters correctly.
+### [x] Step 3: Option 2B - Compile-Time Decorator DI Code Generator
+#### [x] Phase 1: Annotations & AST Extractor
+- [x] Define `@Service` and `@Inject` decorators inside `src/shared/di/decorators.ts`.
+- [x] Enable `experimentalDecorators` in TS configs.
+- [x] Build the TypeScript compiler AST parsing script.
+- [x] Verify metadata extraction lists all service constructor parameters correctly.
 
-#### [ ] Phase 2: Vite Hook Integration & Compiler
-- [ ] Write generator compiler to output `src/renderer/di.generated.ts`.
-- [ ] Integrate generator inside `vite.config.js` via a custom rebuild hook.
-- [ ] Add compile-time checks to reject missing DI tokens during bundling.
+#### [x] Phase 2: Vite Hook Integration & Compiler
+- [x] Write generator compiler to output `src/renderer/di.generated.ts`.
+- [x] Integrate generator inside `vite.config.js` via a custom rebuild hook.
+- [x] Add compile-time checks to reject missing DI tokens during bundling.
 
-#### [ ] Phase 3: Service Refactor & Instantiation Cutover
-- [ ] Add `@Service` decorators to infrastructure services and orchestrators.
-- [ ] Replace manual Awilix registration files with generated static DI graph imports.
-- [ ] Cut over main process registration to the static DI generator.
-- [ ] Verify DI resolution boot times drop to **<1 millisecond**.
+#### [x] Phase 3: Service Refactor & Instantiation Cutover
+- [x] Add `@Service` decorators to infrastructure services and orchestrators.
+- [x] Replace manual Awilix registration files with generated static DI graph imports.
+- [x] Cut over main process registration to the static DI generator.
+- [x] Verify DI resolution boot times drop to **<1 millisecond**.
 
 ---
 
@@ -269,7 +269,7 @@ Use this section to record 3-Pass audit results, scorecard updates, and develope
 | Date | Step/Phase | Pass 1 (Types) | Pass 2 (Boundaries) | Pass 3 (Behavior) | Audited By | Size (Files) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | 2026-05-27 | Baseline | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
-| | | | | | | |
+| 2026-05-27 | Option 2B | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 682 files |
 | | | | | | | |
 | | | | | | | |
 | | | | | | | |

@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
@@ -24,6 +25,10 @@ interface TranscodeServiceDependencies {
   loggerFactory: unknown;
 }
 
+@Service({
+  "token": "transcodeService",
+  "disposal": "dispose"
+})
 class TranscodeService extends BaseService {
   private readonly eventBus: TranscodeEventBus;
   private _isTranscoding: boolean;

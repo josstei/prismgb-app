@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * Device Media Service
  *
@@ -62,6 +63,10 @@ function stopStreamTracks(stream: MediaStream | null): void {
   }
 }
 
+@Service({
+  "token": "deviceMediaService",
+  "disposal": "dispose"
+})
 class DeviceMediaService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly browserMediaService: BrowserMediaServiceLike;

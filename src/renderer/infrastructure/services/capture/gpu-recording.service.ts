@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 /**
  * GPU Recording Service
  *
@@ -30,6 +31,10 @@ const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
 
 type CaptureDrainResult = 'completed' | 'failed' | 'timed-out';
 
+@Service({
+  "token": "gpuRecordingService",
+  "disposal": "dispose"
+})
 class CaptureGpuRecordingService extends BaseService {
   private readonly gpuRendererService: GpuRendererServiceLike;
   protected readonly eventBus: TypedEventBusLike;

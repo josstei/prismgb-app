@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import type { EventBusLike, LoggerLike } from '@shared/base/service.base.js';
 import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
@@ -41,6 +42,10 @@ function getRecorderError(event: MediaRecorderErrorEvent): Error {
   return new Error('Recording failed');
 }
 
+@Service({
+  "token": "captureService",
+  "disposal": "dispose"
+})
 class CaptureService extends BaseService {
   protected readonly eventBus: EventBusLike;
   isRecording: boolean;

@@ -1,3 +1,4 @@
+import { Service } from '@shared/di/decorators.js';
 import { BaseService } from '@shared/base/service.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
 import {
@@ -38,6 +39,10 @@ type UpdateStatusSnapshot = UpdateStatusPayload & {
   state: UpdateStateValue;
 };
 
+@Service({
+  "token": "updateService",
+  "disposal": "dispose"
+})
 class UpdateService extends BaseService {
   private readonly eventBus: UpdateEventBus;
   private _state: UpdateStateValue;
