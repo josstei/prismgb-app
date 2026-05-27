@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPipeline } from '@prismgb/gpu';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service.ts';
-import { createLogger } from '../../../../factories/index.js';
+import {
+  createAnimationCacheMock,
+  createCanvasRenderPipelineMock,
+  createLogger,
+  createMockCanvas,
+} from '../../../../factories/index.js';
 import { installDevicePixelRatioMock } from '../../../../support/mocks/browser-api.installers.js';
 
 vi.mock('@prismgb/gpu', async (importOriginal) => {
@@ -27,25 +32,12 @@ describe('StreamingCanvasRenderLoopService', () => {
 
     mockLogger = createLogger();
 
-    mockAnimationCache = {
-      cancelAnimation: vi.fn(),
-      cancelAllAnimations: vi.fn()
-    };
-
-    mockPipeline = {
-      renderFrame: vi.fn(),
-      resize: vi.fn(),
-      clearFrame: vi.fn(),
-      dispose: vi.fn(async () => undefined)
-    };
+    mockAnimationCache = createAnimationCacheMock();
+    mockPipeline = createCanvasRenderPipelineMock();
 
     createPipeline.mockResolvedValue(mockPipeline);
 
-    mockCanvas = {
-      width: 0,
-      height: 0,
-      style: {}
-    };
+    mockCanvas = createMockCanvas({ width: 0, height: 0 });
 
     mockVideo = {
       readyState: 4,

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory, createPreventDefaultEventMock } from '../../../../factories/index.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
@@ -275,7 +275,7 @@ describe('WindowService', () => {
         call => call[0] === 'close'
       )[1];
 
-      const mockEvent = { preventDefault: vi.fn() };
+      const mockEvent = createPreventDefaultEventMock();
       app.isQuitting = false;
 
       closeHandler(mockEvent);
@@ -292,7 +292,7 @@ describe('WindowService', () => {
         call => call[0] === 'close'
       )[1];
 
-      const mockEvent = { preventDefault: vi.fn() };
+      const mockEvent = createPreventDefaultEventMock();
       app.isQuitting = true;
 
       closeHandler(mockEvent);
@@ -308,7 +308,7 @@ describe('WindowService', () => {
         call => call[0] === 'close'
       )[1];
 
-      const mockEvent = { preventDefault: vi.fn() };
+      const mockEvent = createPreventDefaultEventMock();
       app.isQuitting = true;
 
       closeHandler(mockEvent);

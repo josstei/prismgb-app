@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service.ts';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createLoggerFactory,
+  createMockVideo,
+  createStreamingViewControllerMock,
+} from '../../../../factories/index.js';
 
 describe('StreamingViewService', () => {
   let service;
@@ -18,12 +23,9 @@ describe('StreamingViewService', () => {
   let mockSectionElement;
 
   beforeEach(() => {
-    mockVideoElement = {
-      muted: false,
-      srcObject: null,
-      pause: vi.fn(),
-      load: vi.fn()
-    };
+    mockVideoElement = createMockVideo();
+    mockVideoElement.muted = false;
+    mockVideoElement.srcObject = null;
 
     mockSectionElement = document.createElement('section');
     mockContainerElement = document.createElement('div');
@@ -32,15 +34,10 @@ describe('StreamingViewService', () => {
     mockContainerElement.appendChild(mockCanvasElement);
     mockSectionElement.appendChild(mockContainerElement);
 
-    mockUIController = {
-      elements: {
-        streamVideo: mockVideoElement,
-        streamCanvas: mockCanvasElement
-      },
-      setStreamCanvas: vi.fn((canvas) => {
-        mockUIController.elements.streamCanvas = canvas;
-      })
-    };
+    mockUIController = createStreamingViewControllerMock({
+      streamVideo: mockVideoElement,
+      streamCanvas: mockCanvasElement
+    });
 
     mockLoggerFactory = createLoggerFactory();
 
@@ -64,7 +61,7 @@ describe('StreamingViewService', () => {
 
   describe('attachMutedStream', () => {
     it('should attach stream to video element', () => {
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       service.attachMutedStream(mockStream);
 
@@ -72,7 +69,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should mute video element (audio handled by Web Audio)', () => {
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
       mockVideoElement.muted = false;
 
       service.attachMutedStream(mockStream);
@@ -81,7 +78,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should log info when stream attached', () => {
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       service.attachMutedStream(mockStream);
 
@@ -90,7 +87,7 @@ describe('StreamingViewService', () => {
 
     it('should warn if video element not found', () => {
       mockUIController.elements.streamVideo = null;
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       service.attachMutedStream(mockStream);
 
@@ -99,14 +96,14 @@ describe('StreamingViewService', () => {
 
     it('should not throw if video element is null', () => {
       mockUIController.elements.streamVideo = null;
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       expect(() => service.attachMutedStream(mockStream)).not.toThrow();
     });
 
     it('should not throw if video element is undefined', () => {
       mockUIController.elements.streamVideo = undefined;
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       expect(() => service.attachMutedStream(mockStream)).not.toThrow();
     });
@@ -114,7 +111,7 @@ describe('StreamingViewService', () => {
 
   describe('clearStream', () => {
     it('should clear video srcObject', () => {
-      mockVideoElement.srcObject = { id: 'test-stream' };
+      mockVideoElement.srcObject = createCaptureStreamMock({ id: 'test-stream' });
 
       service.clearStream();
 
@@ -122,7 +119,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should pause video before clearing', () => {
-      mockVideoElement.srcObject = { id: 'test-stream' };
+      mockVideoElement.srcObject = createCaptureStreamMock({ id: 'test-stream' });
 
       service.clearStream();
 
@@ -130,7 +127,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should call load() after clearing srcObject', () => {
-      mockVideoElement.srcObject = { id: 'test-stream' };
+      mockVideoElement.srcObject = createCaptureStreamMock({ id: 'test-stream' });
 
       service.clearStream();
 
@@ -138,7 +135,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should log info when stream cleared', () => {
-      mockVideoElement.srcObject = { id: 'test-stream' };
+      mockVideoElement.srcObject = createCaptureStreamMock({ id: 'test-stream' });
 
       service.clearStream();
 
@@ -237,7 +234,7 @@ describe('StreamingViewService', () => {
 
   describe('Integration Scenarios', () => {
     it('should handle full stream lifecycle', () => {
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       // Attach stream
       service.attachMutedStream(mockStream);
@@ -256,8 +253,8 @@ describe('StreamingViewService', () => {
     });
 
     it('should handle multiple stream attachments', () => {
-      const stream1 = { id: 'stream-1' };
-      const stream2 = { id: 'stream-2' };
+      const stream1 = createCaptureStreamMock({ id: 'stream-1' });
+      const stream2 = createCaptureStreamMock({ id: 'stream-2' });
 
       service.attachMutedStream(stream1);
       expect(mockVideoElement.srcObject).toBe(stream1);

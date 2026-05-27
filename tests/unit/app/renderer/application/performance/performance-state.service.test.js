@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service.ts';
-import { createLoggerFactory } from '../../../../../factories/index.js';
+import {
+  createLoggerFactory,
+  createReducedMotionAdapterMock,
+  createUserActivityAdapterMock,
+  createVisibilityAdapterMock,
+} from '../../../../../factories/index.js';
 
 describe('PerformanceStateService', () => {
   let service;
@@ -23,35 +28,30 @@ describe('PerformanceStateService', () => {
 
     // Mock VisibilityAdapter
     visibilityCallback = null;
-    mockVisibilityAdapter = {
-      isHidden: vi.fn(() => false),
+    mockVisibilityAdapter = createVisibilityAdapterMock({
       onVisibilityChange: vi.fn((callback) => {
         visibilityCallback = callback;
         return vi.fn();
-      }),
-      dispose: vi.fn()
-    };
+      })
+    });
 
     // Mock UserActivityAdapter
     activityCallback = null;
-    mockUserActivityAdapter = {
+    mockUserActivityAdapter = createUserActivityAdapterMock({
       onActivity: vi.fn((callback) => {
         activityCallback = callback;
         return vi.fn();
-      }),
-      dispose: vi.fn()
-    };
+      })
+    });
 
     // Mock ReducedMotionAdapter
     motionCallback = null;
-    mockReducedMotionAdapter = {
-      prefersReducedMotion: vi.fn(() => false),
+    mockReducedMotionAdapter = createReducedMotionAdapterMock({
       onChange: vi.fn((callback) => {
         motionCallback = callback;
         return vi.fn();
-      }),
-      dispose: vi.fn()
-    };
+      })
+    });
 
     service = new PerformanceStateService({
       loggerFactory: mockLoggerFactory,

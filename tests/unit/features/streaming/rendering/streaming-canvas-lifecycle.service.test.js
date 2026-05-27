@@ -10,6 +10,8 @@ import {
   createEventBus,
   createGpuRendererServiceMock,
   createLoggerFactory,
+  createMockCanvas,
+  createMockElement,
   createStreamingViewServiceMock,
   createCanvasRenderLoopServiceMock,
   createViewportServiceMock
@@ -36,22 +38,21 @@ describe('StreamingCanvasLifecycleService', () => {
 
   beforeEach(() => {
     // Create mock canvas and container
-    mockCanvas = {
-      id: 'canvas-id',
-      className: 'canvas-class',
-      style: {
-        width: '',
-        height: '',
-        position: 'absolute',
-        top: '0px',
-        left: '0px',
-        transform: 'none'
-      },
-      parentElement: null
+    mockCanvas = createMockCanvas();
+    mockCanvas.id = 'canvas-id';
+    mockCanvas.className = 'canvas-class';
+    mockCanvas.style = {
+      width: '',
+      height: '',
+      position: 'absolute',
+      top: '0px',
+      left: '0px',
+      transform: 'none'
     };
+    mockCanvas.parentElement = null;
 
-    mockContainer = {};
-    mockSection = {};
+    mockContainer = createMockElement('div');
+    mockSection = createMockElement('div');
 
     // Create mock StreamViewService
     mockStreamViewService = createStreamingViewServiceMock({
@@ -329,16 +330,13 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should create new canvas with same id and class', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
-      const newCanvas = {
-        id: '',
-        className: '',
-        style: {}
-      };
+      const newCanvas = createMockElement('canvas');
+      newCanvas.id = '';
+      newCanvas.className = '';
+      newCanvas.style = {};
       createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
@@ -349,16 +347,13 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should copy computed styles to new canvas', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
-      const newCanvas = {
-        id: '',
-        className: '',
-        style: {}
-      };
+      const newCanvas = createMockElement('canvas');
+      newCanvas.id = '';
+      newCanvas.className = '';
+      newCanvas.style = {};
       createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
@@ -371,16 +366,13 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should replace old canvas with new one', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
-      const newCanvas = {
-        id: '',
-        className: '',
-        style: {}
-      };
+      const newCanvas = createMockElement('canvas');
+      newCanvas.id = '';
+      newCanvas.className = '';
+      newCanvas.style = {};
       createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
@@ -389,16 +381,13 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should update streamViewService with new canvas', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
-      const newCanvas = {
-        id: '',
-        className: '',
-        style: {}
-      };
+      const newCanvas = createMockElement('canvas');
+      newCanvas.id = '';
+      newCanvas.className = '';
+      newCanvas.style = {};
       createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
@@ -407,9 +396,7 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should reset canvas state and dimensions', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
       await service.recreateCanvas();
@@ -419,16 +406,13 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should publish CANVAS_RECREATED event', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
-      const newCanvas = {
-        id: '',
-        className: '',
-        style: {}
-      };
+      const newCanvas = createMockElement('canvas');
+      newCanvas.id = '';
+      newCanvas.className = '';
+      newCanvas.style = {};
       createElementMock.createElement.mockReturnValue(newCanvas);
 
       await service.recreateCanvas();
@@ -440,9 +424,7 @@ describe('StreamingCanvasLifecycleService', () => {
     });
 
     it('should log recreation', async () => {
-      const mockParent = {
-        replaceChild: vi.fn()
-      };
+      const mockParent = createMockElement('div');
       mockCanvas.parentElement = mockParent;
 
       await service.recreateCanvas();

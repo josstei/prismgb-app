@@ -12,8 +12,11 @@ import {
   createCaptureSaveServiceMock,
   createCaptureServiceMock,
   createCanvasRenderLoopServiceMock,
+  createBitmapMock,
+  createMockElement,
   createGpuRendererServiceMock,
   createStreamingViewServiceMock,
+  createStreamPayloadMock,
   createTranscodeServiceMock
 } from '../../../../factories/index.js';
 
@@ -39,8 +42,8 @@ describe('CaptureOrchestrator', () => {
     mockAppState.currentCapabilities = null;
 
     // Mock stream view elements
-    const mockStreamVideo = { id: 'streamVideo' };
-    const mockStreamCanvas = { id: 'streamCanvas' };
+    const mockStreamVideo = createMockElement('video', { id: 'streamVideo' });
+    const mockStreamCanvas = createMockElement('canvas', { id: 'streamCanvas' });
 
     mockStreamingViewService = createStreamingViewServiceMock({
       getCanvas: vi.fn(() => mockStreamCanvas),
@@ -131,7 +134,7 @@ describe('CaptureOrchestrator', () => {
     it('should capture from GPU renderer when GPU is active', async () => {
       mockAppState.setStreaming(true);
       mockGpuRendererService.isActive.mockReturnValue(true);
-      const mockBitmap = { width: 160, height: 144 };
+      const mockBitmap = createBitmapMock();
       mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
 
       await orchestrator.takeScreenshot();
@@ -180,7 +183,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('toggleRecording', () => {
     it('should start recording with raw stream when GPU renderer inactive', async () => {
-      const mockStream = { id: 'stream-1' };
+      const mockStream = createStreamPayloadMock({ id: 'stream-1', getAudioTracks: vi.fn(() => []) });
       mockAppState.currentStream = mockStream;
 
       await orchestrator.toggleRecording();
@@ -190,7 +193,10 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should start GPU recording when GPU renderer is active', async () => {
-      const mockStream = { id: 'stream-1', getAudioTracks: vi.fn(() => []) };
+      const mockStream = createStreamPayloadMock({
+        id: 'stream-1',
+        getAudioTracks: vi.fn(() => [])
+      });
       mockAppState.currentStream = mockStream;
       mockAppState.currentCapabilities = { frameRate: 75 };
       mockGpuRendererService.isActive.mockReturnValue(true);
@@ -205,7 +211,10 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should use default frame rate when capabilities not available', async () => {
-      const mockStream = { id: 'stream-1', getAudioTracks: vi.fn(() => []) };
+      const mockStream = createStreamPayloadMock({
+        id: 'stream-1',
+        getAudioTracks: vi.fn(() => [])
+      });
       mockAppState.currentStream = mockStream;
       mockAppState.currentCapabilities = null;
       mockGpuRendererService.isActive.mockReturnValue(true);
@@ -238,7 +247,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should show error on failure', async () => {
-      mockAppState.currentStream = { id: 'stream-1' };
+      mockAppState.currentStream = createStreamPayloadMock({ id: 'stream-1' });
       mockCaptureService.startRecording.mockRejectedValue(new Error('Recording failed'));
 
       await orchestrator.toggleRecording();
@@ -328,7 +337,7 @@ describe('CaptureOrchestrator', () => {
   describe('_getCaptureSource', () => {
     it('should return GPU frame when GPU renderer is active', async () => {
       mockGpuRendererService.isActive.mockReturnValue(true);
-      const mockBitmap = { width: 160, height: 144 };
+      const mockBitmap = createBitmapMock();
       mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
 
       const source = await orchestrator._getCaptureSource();

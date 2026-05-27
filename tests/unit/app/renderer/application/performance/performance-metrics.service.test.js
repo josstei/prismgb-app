@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service.ts';
-import { createLoggerFactory } from '../../../../../factories/index.js';
+import { createLoggerFactory, createPerformanceMetricsAdapterMock } from '../../../../../factories/index.js';
 
 describe('PerformanceMetricsService', () => {
   let service;
@@ -17,10 +17,7 @@ describe('PerformanceMetricsService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockMetricsAdapter = {
-      isAvailable: vi.fn(() => false),
-      getProcessMetrics: vi.fn()
-    };
+    mockMetricsAdapter = createPerformanceMetricsAdapterMock();
 
     service = new PerformanceMetricsService({
       loggerFactory: mockLoggerFactory,

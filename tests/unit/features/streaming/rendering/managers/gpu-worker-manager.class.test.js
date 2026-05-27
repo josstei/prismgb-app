@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GpuWorkerManager } from '@renderer/infrastructure/services/streaming/gpu-worker-manager.ts';
 import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import {
+  createBitmapMock,
+  createEventBus,
+  createLoggerFactory,
+  createMockCanvas,
+  createWorkerInstanceMock
+} from '../../../../../factories/index.js';
 import { installWorkerMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock worker protocol
@@ -37,16 +43,22 @@ describe('GpuWorkerManager', () => {
   let mockWorker;
   let workerMock;
 
+  function createMockWorkerCanvas() {
+    const canvas = createMockCanvas({
+      width: 640,
+      height: 576
+    });
+    canvas.clientWidth = 640;
+    canvas.clientHeight = 576;
+    canvas.transferControlToOffscreen = vi.fn(() => ({ id: 'offscreen' }));
+    return canvas;
+  }
+
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
 
-    mockWorker = {
-      postMessage: vi.fn(),
-      terminate: vi.fn(),
-      onmessage: null,
-      onerror: null
-    };
+    mockWorker = createWorkerInstanceMock();
     workerMock = installWorkerMock({ createWorker: () => mockWorker });
   });
 
@@ -76,11 +88,7 @@ describe('GpuWorkerManager', () => {
     });
 
     it('should create worker and transfer canvas', async () => {
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
-        clientWidth: 640,
-        clientHeight: 576
-      };
+      const mockCanvas = createMockWorkerCanvas();
       const config = {
         nativeWidth: 160,
         nativeHeight: 144,
@@ -106,11 +114,7 @@ describe('GpuWorkerManager', () => {
     it('should reject if worker fails to initialize', async () => {
       vi.useFakeTimers();
 
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
-        clientWidth: 640,
-        clientHeight: 576
-      };
+      const mockCanvas = createMockWorkerCanvas();
       const config = {
         nativeWidth: 160,
         nativeHeight: 144,
@@ -129,11 +133,7 @@ describe('GpuWorkerManager', () => {
     });
 
     it('should reuse existing worker if canvas already transferred', async () => {
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
-        clientWidth: 640,
-        clientHeight: 576
-      };
+      const mockCanvas = createMockWorkerCanvas();
       const config = {
         nativeWidth: 160,
         nativeHeight: 144,
@@ -170,11 +170,7 @@ describe('GpuWorkerManager', () => {
     });
 
     it('should return true after canvas transfer', async () => {
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' }),
-        clientWidth: 640,
-        clientHeight: 576
-      };
+      const mockCanvas = createMockWorkerCanvas();
 
       setTimeout(() => {
         mockWorker.onmessage({
@@ -195,9 +191,7 @@ describe('GpuWorkerManager', () => {
         eventBus: mockEventBus
       });
 
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
-      };
+      const mockCanvas = createMockWorkerCanvas();
 
       setTimeout(() => {
         mockWorker.onmessage({
@@ -220,7 +214,7 @@ describe('GpuWorkerManager', () => {
     });
 
     it('should send message with transferables', () => {
-      const bitmap = { id: 'bitmap' };
+      const bitmap = createBitmapMock({ id: 'bitmap' });
 
       manager.sendCommand(WorkerMessageType.FRAME, { imageBitmap: bitmap }, [bitmap]);
 
@@ -248,9 +242,7 @@ describe('GpuWorkerManager', () => {
         eventBus: mockEventBus
       });
 
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
-      };
+      const mockCanvas = createMockWorkerCanvas();
 
       setTimeout(() => {
         mockWorker.onmessage({
@@ -296,9 +288,7 @@ describe('GpuWorkerManager', () => {
         eventBus: mockEventBus
       });
 
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
-      };
+      const mockCanvas = createMockWorkerCanvas();
 
       setTimeout(() => {
         mockWorker.onmessage({
@@ -332,9 +322,7 @@ describe('GpuWorkerManager', () => {
         eventBus: mockEventBus
       });
 
-      const mockCanvas = {
-        transferControlToOffscreen: vi.fn().mockReturnValue({ id: 'offscreen' })
-      };
+      const mockCanvas = createMockWorkerCanvas();
 
       setTimeout(() => {
         mockWorker.onmessage({

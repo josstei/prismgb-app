@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { installWorkerScopeMock } from '../../../../../support/mocks/browser-api.installers.js';
+import { createWorkerPipelineMock } from '../../../../../factories/index.js';
 
 const defaultPreset = {
   id: 'vibrant',
@@ -62,20 +63,7 @@ const validUniforms = {
   }
 };
 
-const mockPipeline = {
-  render: vi.fn(),
-  resize: vi.fn(),
-  captureFrame: vi.fn(async () => ({ id: 'captured-frame', close: vi.fn() })),
-  getStats: vi.fn(() => ({
-    fps: 60,
-    frameTime: 16.0,
-    framesRendered: 10,
-    framesDropped: 0
-  })),
-  dispose: vi.fn(async () => {}),
-  setPreset: vi.fn(),
-  setBrightness: vi.fn()
-};
+const mockPipeline = createWorkerPipelineMock();
 
 const mockCreateWorkerPipeline = vi.fn(async () => mockPipeline);
 const mockPresetGet = vi.fn(() => defaultPreset);

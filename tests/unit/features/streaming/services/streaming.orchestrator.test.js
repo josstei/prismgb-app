@@ -6,6 +6,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
 import {
   createAppState,
+  createCaptureStreamMock,
+  createStreamStartedPayloadMock,
+  createSupportedDevicePayloadMock,
   createEventBus,
   createLoggerFactory,
   createCaptureGpuRecordingServiceMock,
@@ -140,7 +143,7 @@ describe('StreamingOrchestrator', () => {
 
   describe('getStream', () => {
     it('should return stream from service', () => {
-      const mockStream = { id: 'stream-1' };
+      const mockStream = createCaptureStreamMock({ id: 'stream-1' });
       mockStreamingService.getStream.mockReturnValue(mockStream);
 
       expect(orchestrator.getStream()).toBe(mockStream);
@@ -158,12 +161,9 @@ describe('StreamingOrchestrator', () => {
   });
 
   describe('_handleStreamStarted', () => {
-    const mockData = {
-      stream: { id: 'stream-1' },
-      device: { deviceId: 'test-device-id', label: 'Test Device', kind: 'videoinput' },
-      settings: { video: { width: 160, height: 144, frameRate: 60 } },
-      capabilities: { canvasScale: 4, nativeResolution: { width: 160, height: 144 } }
-    };
+    const mockData = createStreamStartedPayloadMock({
+      stream: createCaptureStreamMock({ id: 'stream-1' })
+    });
 
     it('should assign stream to video element', async () => {
       await orchestrator._handleStreamStarted(mockData);
@@ -246,9 +246,7 @@ describe('StreamingOrchestrator', () => {
   });
 
   describe('_handleSupportedDeviceAvailable', () => {
-    const mockDeviceData = {
-      device: { deviceId: 'test-device-id', label: 'Test Device', kind: 'videoinput' }
-    };
+    const mockDeviceData = createSupportedDevicePayloadMock();
 
     it('should auto-start stream when device becomes available and setting enabled', async () => {
       mockStreamingService.isActive.mockReturnValue(false);

@@ -6,10 +6,14 @@
  */
 
 import { createAppState } from './app-state.factory.js';
-import { createDeviceService, createAdapterFactory } from './device.factory.js';
+import {
+  createDeviceInfo,
+  createDeviceService,
+  createAdapterFactory
+} from './device.factory.js';
 import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
-import { createStreamingService } from './stream.factory.js';
+import { createMockCanvas, createMockVideo, createStreamingService } from './stream.factory.js';
 import { createStorageService } from './storage.factory.js';
 import { createMockButton, createMockElement, createUIController } from './ui.factory.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
@@ -111,9 +115,264 @@ export function createDeviceServiceMock(overrides = {}) {
   };
 }
 
+export function createProfileRegistryMock(overrides = {}) {
+  return {
+    registerProfile: vi.fn(),
+    setDefaultProfile: vi.fn(),
+    detectDevice: vi.fn(() => ({ matched: false, profile: null })),
+    ...overrides
+  };
+}
+
 export function createDeviceStatusProviderMock(overrides = {}) {
   return {
     getDeviceStatus: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createStreamPayloadMock(overrides = {}) {
+  const {
+    id = `stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    getAudioTracks = vi.fn(() => []),
+    ...streamOverrides
+  } = overrides;
+
+  return {
+    id,
+    getAudioTracks,
+    ...streamOverrides
+  };
+}
+
+export function createAcquisitionContextMock(overrides = {}) {
+  const {
+    profile = {
+      video: {
+        width: 160,
+        height: 144
+      }
+    },
+    ...contextOverrides
+  } = overrides;
+
+  return {
+    deviceId: 'test-device-123',
+    profile: {
+      ...profile,
+      video: {
+        width: 160,
+        height: 144,
+        ...(profile?.video ?? {})
+      }
+    },
+    ...contextOverrides
+  };
+}
+
+export function createStreamConstraintsMock(overrides = {}) {
+  const {
+    deviceId = 'test-device-123',
+    audio = {},
+    video = {},
+    ...constraintOverrides
+  } = overrides;
+  const normalizedAudio = typeof audio === 'object' && audio !== null
+    ? {
+      ...audio,
+      ...(!('deviceId' in audio) ? { deviceId: { exact: deviceId } } : {})
+    }
+    : audio;
+  const normalizedVideo = typeof video === 'object' && video !== null
+    ? {
+      width: 160,
+      ...video,
+      ...(!('deviceId' in video) ? { deviceId: { exact: deviceId } } : {})
+    }
+    : video;
+
+  return {
+    audio: normalizedAudio,
+    video: normalizedVideo,
+    ...constraintOverrides
+  };
+}
+
+export function createStreamStartedPayloadMock(overrides = {}) {
+  const {
+    stream = createCaptureStreamMock(),
+    device = createDeviceInfo({
+      deviceId: 'test-device-id',
+      label: 'Test Device',
+      kind: 'videoinput'
+    }),
+    settings = {
+      video: {
+        width: 160,
+        height: 144,
+        frameRate: 60
+      }
+    },
+    capabilities = createStreamCapabilitiesMock({ canvasScale: 4, nativeResolution: { width: 160, height: 144 } }),
+    ...payloadOverrides
+  } = overrides;
+
+  return {
+    stream,
+    device,
+    settings,
+    capabilities,
+    ...payloadOverrides
+  };
+}
+
+export function createSupportedDevicePayloadMock(overrides = {}) {
+  const {
+    device = createDeviceInfo({
+      deviceId: 'test-device-id',
+      label: 'Test Device',
+      kind: 'videoinput'
+    }),
+    ...payloadOverrides
+  } = overrides;
+
+  return {
+    device,
+    ...payloadOverrides
+  };
+}
+
+export function createMediaTrackMock(overrides = {}) {
+  return {
+    id: overrides.id ?? `track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    stop: vi.fn(),
+    clone: vi.fn(() => ({ ...createMediaTrackMock(), id: 'cloned-track' })),
+    ...overrides
+  };
+}
+
+export function createRecordingFrameMock(overrides = {}) {
+  return {
+    width: 640,
+    height: 576,
+    close: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createMediaStreamMock(overrides = {}) {
+  const tracks = Array.isArray(overrides.tracks) ? [...overrides.tracks] : [];
+  const { tracks: _tracks, ...streamOverrides } = overrides;
+
+  return {
+    addTrack: vi.fn((track) => tracks.push(track)),
+    getTracks: vi.fn(() => [...tracks]),
+    ...streamOverrides,
+    _tracks: tracks,
+    _setTracks: (nextTracks) => {
+      tracks.splice(0, tracks.length, ...nextTracks);
+    },
+  };
+}
+
+export function createCaptureStreamMock(overrides = {}) {
+  const {
+    tracks = [],
+    videoTracks = [],
+    audioTracks = [],
+    getVideoTracks = vi.fn(() => [...videoTracks]),
+    getAudioTracks = vi.fn(() => [...audioTracks]),
+    ...streamOverrides
+  } = overrides;
+
+  const baseTracks = tracks.length > 0 ? [...tracks] : [...videoTracks, ...audioTracks];
+
+  return {
+    ...createMediaStreamMock({ ...streamOverrides, tracks: baseTracks }),
+    getVideoTracks,
+    getAudioTracks,
+  };
+}
+
+export function createMediaBlobEventMock(overrides = {}) {
+  return {
+    data: { size: 0, ...overrides.data },
+    ...overrides,
+  };
+}
+
+export function createMediaRecorderErrorEventMock(overrides = {}) {
+  return {
+    error: {
+      message: 'Recording failed',
+      name: 'RecordingError',
+      ...overrides.error,
+    },
+    ...overrides,
+  };
+}
+
+export function createCanvasRenderingContextMock(overrides = {}) {
+  const {
+    drawImage = vi.fn(),
+    fillRect = vi.fn(),
+    ...contextOverrides
+  } = overrides;
+
+  return {
+    drawImage,
+    fillRect,
+    clearRect: vi.fn(),
+    drawImageCount: 0,
+    fillRectCount: 0,
+    getImageData: vi.fn(),
+    putImageData: vi.fn(),
+    imageSmoothingEnabled: true,
+    fillStyle: '',
+    ...contextOverrides
+  };
+}
+
+export function createBitmapMock(overrides = {}) {
+  return {
+    width: 160,
+    height: 144,
+    ...overrides
+  };
+}
+
+export function createStreamCapabilitiesMock(overrides = {}) {
+  const {
+    frameRate = 60,
+    nativeResolution = { width: 160, height: 144 },
+    ...capabilityOverrides
+  } = overrides;
+
+  return {
+    frameRate,
+    nativeResolution,
+    ...capabilityOverrides
+  };
+}
+
+export function createPreventDefaultEventMock(overrides = {}) {
+  return {
+    preventDefault: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createDomEventMock(overrides = {}) {
+  return {
+    stopPropagation: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createDeviceStatusMock(overrides = {}) {
+  return {
+    connected: false,
+    deviceId: null,
     ...overrides
   };
 }
@@ -186,6 +445,304 @@ export function createTranscodeServiceMock(overrides = {}) {
     transcode: vi.fn(),
     cancel: vi.fn(),
     getStatus: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createConstraintBuilderMock(overrides = {}) {
+  return {
+    build: vi.fn(() => ({ video: { width: 160, height: 144 } })),
+    buildWithStrategy: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createStreamLifecycleMock(overrides = {}) {
+  return {
+    acquireStream: vi.fn(() => Promise.resolve({ id: 'mock-stream' })),
+    releaseStream: vi.fn(() => Promise.resolve()),
+    getStreamInfo: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createWorkerInstanceMock(overrides = {}) {
+  return {
+    postMessage: vi.fn(),
+    terminate: vi.fn(),
+    onmessage: null,
+    onerror: null,
+    ...overrides
+  };
+}
+
+export function createAcquisitionCoordinatorMock(overrides = {}) {
+  return {
+    acquire: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createFallbackStrategyMock(overrides = {}) {
+  return {
+    initialize: vi.fn(),
+    hasMore: vi.fn(),
+    getNext: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createPerformanceMetricsAdapterMock(overrides = {}) {
+  return {
+    isAvailable: vi.fn(() => false),
+    getProcessMetrics: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createVisibilityAdapterMock(overrides = {}) {
+  let callbackRef = null;
+  const adapter = {
+    isHidden: vi.fn(() => false),
+    onVisibilityChange: vi.fn((callback) => {
+      callbackRef = callback;
+      return vi.fn();
+    }),
+    dispose: vi.fn(),
+    get callbackRef() {
+      return callbackRef;
+    },
+    ...overrides
+  };
+  return adapter;
+}
+
+export function createUserActivityAdapterMock(overrides = {}) {
+  let callbackRef = null;
+  const adapter = {
+    onActivity: vi.fn((callback) => {
+      callbackRef = callback;
+      return vi.fn();
+    }),
+    dispose: vi.fn(),
+    get callbackRef() {
+      return callbackRef;
+    },
+    ...overrides
+  };
+  return adapter;
+}
+
+export function createReducedMotionAdapterMock(overrides = {}) {
+  let callbackRef = null;
+  const adapter = {
+    prefersReducedMotion: vi.fn(() => false),
+    onChange: vi.fn((callback) => {
+      callbackRef = callback;
+      return vi.fn();
+    }),
+    get callbackRef() {
+      return callbackRef;
+    },
+    ...overrides
+  };
+  return adapter;
+}
+
+export function createTranscodeUIControllerMock(overrides = {}) {
+  const {
+    transcodeToast,
+    registry,
+    ...componentOverrides
+  } = overrides;
+
+  const toast = transcodeToast ?? createCaptureToastMock();
+
+  return {
+    registry: registry ?? {
+      get: vi.fn((name) => (name === 'transcodeToastComponent' ? toast : null)),
+    },
+    ...componentOverrides
+  };
+}
+
+export function createStreamingViewControllerMock(overrides = {}) {
+  const {
+    streamVideo,
+    streamCanvas,
+    elements,
+    setStreamCanvas,
+    ...componentOverrides
+  } = overrides;
+
+  const mergedElements = {
+    streamVideo: streamVideo ?? createMockVideo(),
+    streamCanvas: streamCanvas ?? createMockCanvas(),
+    ...elements,
+  };
+
+  return {
+    elements: mergedElements,
+    setStreamCanvas: setStreamCanvas ?? vi.fn((canvas) => {
+      mergedElements.streamCanvas = canvas;
+    }),
+    ...componentOverrides
+  };
+}
+
+export function createUISetupControllerMock(overrides = {}) {
+  const {
+    on,
+    elements = {},
+    dom = {},
+    streamOverlay,
+    streamVideo,
+    streamCanvas,
+    shaderBtn,
+    shaderDropdown,
+    shaderOptions,
+    shaderUnavailableMessage,
+    cinematicToggle,
+    cinematicPillText,
+    streamToolbar,
+    brightnessSlider,
+    brightnessPercentage,
+    brightnessControl,
+    volumeSliderVertical,
+    volumePercentageVertical,
+    streamContainer,
+    notesBtn,
+    initSettingsMenu,
+    initShaderSelector,
+    initNotesPanel,
+    toggleSettingsMenu,
+    toggleShaderSelector,
+    ...componentOverrides
+  } = overrides;
+
+  const resolvedElements = {
+    streamOverlay: streamOverlay ?? createMockElement('div'),
+    streamVideo: streamVideo ?? createMockElement('video'),
+    streamCanvas: streamCanvas ?? createMockElement('canvas'),
+    shaderBtn: shaderBtn ?? createMockElement('button'),
+    shaderDropdown: shaderDropdown ?? createMockElement('select'),
+    streamToolbar: streamToolbar ?? createMockElement('div'),
+    ...elements
+  };
+
+  const resolvedDom = {
+    streaming: {
+      shaderBtn: resolvedElements.shaderBtn,
+      shaderDropdown: shaderDropdown ?? resolvedElements.shaderDropdown,
+      shaderOptions: shaderOptions ?? createMockElement('div'),
+      shaderUnavailableMessage: shaderUnavailableMessage ?? createMockElement('div'),
+      cinematicToggle: cinematicToggle ?? createMockElement('input'),
+      cinematicPillText: cinematicPillText ?? createMockElement('span'),
+      streamToolbar: resolvedElements.streamToolbar,
+      brightnessSlider: brightnessSlider ?? createMockElement('input'),
+      brightnessPercentage: brightnessPercentage ?? createMockElement('span'),
+      brightnessControl: brightnessControl ?? createMockElement('div'),
+      volumeSliderVertical: volumeSliderVertical ?? createMockElement('input'),
+      volumePercentageVertical: volumePercentageVertical ?? createMockElement('span'),
+      streamVideo: resolvedElements.streamVideo,
+      streamContainer: streamContainer ?? createMockElement('div'),
+      ...dom.streaming
+    },
+    notes: {
+      notesBtn: notesBtn ?? createMockElement('button'),
+      ...dom.notes
+    },
+    ...dom
+  };
+
+  return {
+    on: on ?? vi.fn(),
+    elements: {
+      ...resolvedElements,
+      ...elements
+    },
+    dom: resolvedDom,
+    initSettingsMenu: initSettingsMenu ?? vi.fn(),
+    initShaderSelector: initShaderSelector ?? vi.fn(),
+    initNotesPanel: initNotesPanel ?? vi.fn(),
+    toggleSettingsMenu: toggleSettingsMenu ?? vi.fn(),
+    toggleShaderSelector: toggleShaderSelector ?? vi.fn(),
+    ...componentOverrides
+  };
+}
+
+export function createPresentationModeControllerMock(overrides = {}) {
+  return {
+    setStreamingMode: vi.fn(),
+    updateCinematicMode: vi.fn(),
+    updateMinimalistFullscreen: vi.fn(),
+    updateFullscreenButton: vi.fn(),
+    updateFullscreenMode: vi.fn(),
+    enableControlsAutoHide: vi.fn(),
+    disableControlsAutoHide: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createCaptureToastMock(overrides = {}) {
+  return {
+    show: vi.fn(),
+    updateProgress: vi.fn(),
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createCaptureUIControllerMock(overrides = {}) {
+  return {
+    triggerDownload: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createWinstonLoggerMock(overrides = {}) {
+  return {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createWinstonRootLoggerMock(overrides = {}) {
+  const { childLogger, ...methodOverrides } = overrides;
+  const resolvedChildLogger = childLogger ?? createWinstonLoggerMock();
+
+  return {
+    child: vi.fn(() => resolvedChildLogger),
+    level: 'debug',
+    ...methodOverrides
+  };
+}
+
+export function createShellServiceMock(overrides = {}) {
+  return {
+    openExternal: vi.fn().mockResolvedValue(undefined),
+    ...overrides
+  };
+}
+
+export function createAppMetricsServiceMock(overrides = {}) {
+  return {
+    getAppMetrics: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createProcessMetricsMock(overrides = {}) {
+  return {
+    success: false,
+    totalMB: '0.0',
+    processes: [{ type: 'Renderer', memoryMB: '0.0' }],
     ...overrides
   };
 }
@@ -365,6 +922,20 @@ export function createGpuRenderLoopServiceMock(overrides = {}) {
   };
 }
 
+export function createGpuWorkerManagerMock(overrides = {}) {
+  return {
+    isReady: vi.fn(() => false),
+    isCanvasTransferred: vi.fn(() => false),
+    getCapabilities: vi.fn(() => null),
+    initialize: vi.fn().mockResolvedValue(true),
+    sendCommand: vi.fn(),
+    onMessage: vi.fn(() => vi.fn()),
+    releaseResources: vi.fn(),
+    terminate: vi.fn(),
+    ...overrides
+  };
+}
+
 export function createStreamingRendererFactoryMock(overrides = {}) {
   return {
     selectRendererType: vi.fn(() => 'canvas2d'),
@@ -426,6 +997,34 @@ export function createStreamViewServiceMock(overrides = {}) {
     attachMutedStream: vi.fn(),
     clearStream: vi.fn(),
     setMuted: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createWorkerPipelineMock(overrides = {}) {
+  return {
+    render: vi.fn(),
+    resize: vi.fn(),
+    captureFrame: vi.fn(async () => ({ id: 'captured-frame', close: vi.fn() })),
+    getStats: vi.fn(() => ({
+      fps: 60,
+      frameTime: 16.0,
+      framesRendered: 10,
+      framesDropped: 0
+    })),
+    dispose: vi.fn(async () => {}),
+    setPreset: vi.fn(),
+    setBrightness: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createCanvasRenderPipelineMock(overrides = {}) {
+  return {
+    renderFrame: vi.fn(),
+    resize: vi.fn(),
+    clearFrame: vi.fn(),
+    dispose: vi.fn(async () => undefined),
     ...overrides
   };
 }
@@ -540,6 +1139,52 @@ export function createIpcClientMock(overrides = {}) {
   return {
     getDeviceStatus: vi.fn(),
     ...overrides
+  };
+}
+
+export function createDeviceIpcAdapterMock(overrides = {}) {
+  return {
+    subscribe: vi.fn(() => vi.fn()),
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createDeviceOperationSequencerMock(overrides = {}) {
+  return {
+    queueConnected: vi.fn().mockResolvedValue(undefined),
+    queueDisconnected: vi.fn().mockImplementation((callback) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return Promise.resolve();
+    }),
+    queueRefresh: vi.fn().mockResolvedValue(undefined),
+    flush: vi.fn().mockResolvedValue(undefined),
+    getQueueDepth: vi.fn().mockReturnValue(0),
+    ...overrides
+  };
+}
+
+export function createUIEventBridgeControllerMock(overrides = {}) {
+  const { deviceStatus, ...componentOverrides } = overrides;
+
+  return {
+    updateStatusMessage: vi.fn(),
+    updateDeviceStatus: vi.fn(),
+    updateOverlayMessage: vi.fn(),
+    showErrorOverlay: vi.fn(),
+    updateStreamInfo: vi.fn(),
+    triggerShutterFlash: vi.fn(),
+    triggerRecordButtonPop: vi.fn(),
+    triggerRecordButtonPress: vi.fn(),
+    triggerButtonFeedback: vi.fn(),
+    updateRecordingButtonState: vi.fn(),
+    setRecordButtonDisabled: vi.fn(),
+    deviceStatus: deviceStatus ?? {
+      setOverlayVisible: vi.fn()
+    },
+    ...componentOverrides
   };
 }
 
@@ -666,6 +1311,45 @@ export function createUIBodyClassManagerMock(overrides = {}) {
     setFullscreenMode: vi.fn(),
     areAnimationsOff: vi.fn(),
     ...overrides
+  };
+}
+
+export function createAnimationCacheMock(overrides = {}) {
+  return {
+    cancelAnimation: vi.fn(),
+    cancelAllAnimations: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createUIEffectsElementsMock(overrides = {}) {
+  const recordBtn = createMockElement('button', { className: 'record-btn' });
+  recordBtn.offsetWidth = 100;
+
+  return {
+    recordBtn,
+    ...overrides
+  };
+}
+
+export function createStreamingControlsElementsMock(overrides = {}) {
+  const streamOverlay = createMockElement('div', { className: 'stream-overlay' });
+  const screenshotBtn = createMockButton({ className: 'screenshot-btn' });
+  screenshotBtn.disabled = true;
+  const recordBtn = createMockButton({ className: 'record-btn' });
+  recordBtn.disabled = true;
+  const shaderControls = createMockElement('div', { className: 'shader-controls' });
+  const currentResolution = createMockElement('span', { className: 'current-resolution' });
+  const currentFPS = createMockElement('span', { className: 'current-fps' });
+
+  return {
+    streamOverlay,
+    screenshotBtn,
+    recordBtn,
+    shaderControls,
+    currentResolution,
+    currentFPS,
+    ...overrides,
   };
 }
 

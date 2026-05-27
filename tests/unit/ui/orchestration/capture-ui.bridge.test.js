@@ -6,7 +6,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+import {
+  createCaptureUIControllerMock,
+  createEventBus,
+  createLoggerFactory,
+} from '../../../factories/index.js';
 
 describe('CaptureUIBridge', () => {
   let bridge;
@@ -26,10 +30,7 @@ describe('CaptureUIBridge', () => {
       },
     });
 
-    // Create mock UIController
-    mockUIController = {
-      triggerDownload: vi.fn()
-    };
+    mockUIController = createCaptureUIControllerMock();
 
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('CaptureUIBridge');

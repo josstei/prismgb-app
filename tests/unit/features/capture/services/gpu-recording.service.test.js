@@ -4,7 +4,17 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/capture/gpu-recording.service.ts';
-import { createEventBus, createGpuRendererServiceMock, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createCanvasRenderingContextMock,
+  createEventBus,
+  createGpuRendererServiceMock,
+  createLoggerFactory,
+  createMediaStreamMock,
+  createMediaTrackMock,
+  createMockCanvas,
+  createRecordingFrameMock,
+  createStreamPayloadMock
+} from '../../../../factories/index.js';
 import {
   createCleanupStack,
   installAnimationFrameMock,
@@ -22,6 +32,19 @@ describe('CaptureGpuRecordingService', () => {
   function trackMock(handle) {
     cleanupStack.add(() => handle.cleanup());
     return handle;
+  }
+
+  function createRecordingCanvasFixture({
+    context = createCanvasRenderingContextMock({ imageSmoothingEnabled: true }),
+    recordingStream = createMediaStreamMock(),
+    width = 0,
+    height = 0,
+  } = {}) {
+    const mockCanvas = createMockCanvas({ width, height });
+    mockCanvas.getContext = vi.fn(() => context);
+    mockCanvas.captureStream = vi.fn(() => recordingStream);
+
+    return { mockCanvas, context, recordingStream };
   }
 
   function installCanvasAndAnimationFrameMocks(mockCanvas, animationFrameOptions = {}) {
@@ -64,22 +87,16 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should start GPU recording with provided frame rate', async () => {
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const {
+      mockCanvas,
+      recordingStream: mockRecordingStream
+    } = createRecordingCanvasFixture();
 
     installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await service.start({ stream: mockStream, frameRate: 50 });
 
@@ -88,17 +105,18 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should throw a clear error when canvas context creation fails', async () => {
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => null)
-    };
+    const { mockCanvas } = createRecordingCanvasFixture({
+      context: null,
+      recordingStream: createMediaStreamMock({
+        tracks: []
+      })
+    });
 
     trackMock(installDocumentCreateElementMock({
       createElement: vi.fn(() => mockCanvas)
     }));
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await expect(service.start({ stream: mockStream, frameRate: 60 }))
       .rejects.toThrow('Unable to create GPU recording canvas context');
@@ -128,26 +146,16 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should capture and draw frames during GPU recording', async () => {
-    const mockFrame = { width: 640, height: 576, close: vi.fn() };
+    const mockFrame = createRecordingFrameMock();
     mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
 
-    const mockDrawImage = vi.fn();
-    const mockCtx = {
-      drawImage: mockDrawImage,
-      fillRect: vi.fn(),
+    const mockCtx = createCanvasRenderingContextMock({
       fillStyle: '',
       imageSmoothingEnabled: true
-    };
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => mockCtx),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    });
+    const { mockCanvas } = createRecordingCanvasFixture({
+      context: mockCtx
+    });
 
     let rafCallback;
     installCanvasAndAnimationFrameMocks(mockCanvas, {
@@ -157,13 +165,14 @@ describe('CaptureGpuRecordingService', () => {
       })
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await service.start({ stream: mockStream, frameRate: 60 });
 
     await rafCallback();
 
     expect(mockGpuRendererService.captureFrame).toHaveBeenCalled();
+    const mockDrawImage = mockCtx.drawImage;
     expect(mockDrawImage).toHaveBeenCalledWith(
       mockFrame,
       0, 0, 640, 576,
@@ -175,13 +184,10 @@ describe('CaptureGpuRecordingService', () => {
   it('should warn after 30 dropped frames', async () => {
     mockGpuRendererService.captureFrame.mockRejectedValue(new Error('Capture failed'));
 
-    const mockCtx = { drawImage: vi.fn(), fillRect: vi.fn(), fillStyle: '' };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => mockCtx),
-      captureStream: vi.fn(() => ({ addTrack: vi.fn(), getTracks: vi.fn(() => []) }))
-    };
+    const mockCtx = createCanvasRenderingContextMock({ fillStyle: '' });
+    const { mockCanvas } = createRecordingCanvasFixture({
+      context: mockCtx
+    });
 
     let rafCallback;
     installCanvasAndAnimationFrameMocks(mockCanvas, {
@@ -191,7 +197,7 @@ describe('CaptureGpuRecordingService', () => {
       })
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await service.start({ stream: mockStream, frameRate: 60 });
 
@@ -206,7 +212,7 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should expose captureFrame method that delegates to gpuRendererService', async () => {
-    const mockFrame = { width: 640, height: 576, close: vi.fn() };
+    const mockFrame = createRecordingFrameMock();
     mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
 
     const result = await service.captureFrame();
@@ -216,24 +222,17 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should stop recording and clean up resources', async () => {
-    const mockTrack = { stop: vi.fn() };
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [mockTrack])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const mockTrack = createMediaTrackMock();
+    const { mockCanvas } = createRecordingCanvasFixture({
+      recordingStream: createMediaStreamMock({ tracks: [mockTrack] })
+    });
 
     const browserMocks = installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn(() => 123),
       cancelAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await service.start({ stream: mockStream, frameRate: 60 });
 
@@ -250,22 +249,13 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should throw error when starting while already recording', async () => {
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const { mockCanvas } = createRecordingCanvasFixture();
 
     installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn(() => 123)
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
     await service.start({ stream: mockStream, frameRate: 60 });
 
     await expect(service.start({ stream: mockStream, frameRate: 60 })).rejects.toThrow('GPU recording already active');
@@ -273,22 +263,13 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should use default frame rate when not provided', async () => {
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const { mockCanvas } = createRecordingCanvasFixture();
 
     installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
 
     await service.start({ stream: mockStream });
 
@@ -296,23 +277,22 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should add audio tracks from source stream', async () => {
-    const mockAudioTrack = { clone: vi.fn(() => ({ id: 'cloned-track' })) };
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const mockAudioTrack = createMediaTrackMock({
+      id: 'audio-track',
+      clone: vi.fn(() => ({ id: 'cloned-track' }))
+    });
+    const { mockCanvas, recordingStream: mockRecordingStream } = createRecordingCanvasFixture({
+      context: createCanvasRenderingContextMock({ imageSmoothingEnabled: true }),
+      recordingStream: createMediaStreamMock()
+    });
 
     installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => [mockAudioTrack]) };
+    const mockStream = createStreamPayloadMock({
+      getAudioTracks: vi.fn(() => [mockAudioTrack])
+    });
 
     await service.start({ stream: mockStream, frameRate: 60 });
 
@@ -384,50 +364,32 @@ describe('CaptureGpuRecordingService', () => {
   });
 
   it('should return recording stream via getter', async () => {
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => ({ imageSmoothingEnabled: true })),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    const { mockCanvas } = createRecordingCanvasFixture();
 
     installCanvasAndAnimationFrameMocks(mockCanvas, {
       requestAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
     await service.start({ stream: mockStream, frameRate: 60 });
 
     expect(service.getRecordingStream()).toBe(mockRecordingStream);
   });
 
   it('should clear canvas only once when offsets are needed', async () => {
-    const mockFrame = { width: 320, height: 200, close: vi.fn() };
+    const mockFrame = createRecordingFrameMock({ width: 320, height: 200 });
     mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
     mockGpuRendererService.getTargetDimensions.mockReturnValue({ width: 640, height: 576 });
 
     const mockFillRect = vi.fn();
-    const mockDrawImage = vi.fn();
-    const mockCtx = {
-      drawImage: mockDrawImage,
-      fillRect: mockFillRect,
+    const mockCtx = createCanvasRenderingContextMock({
       fillStyle: '',
-      imageSmoothingEnabled: true
-    };
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => mockCtx),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+      imageSmoothingEnabled: true,
+      fillRect: mockFillRect
+    });
+    const { mockCanvas } = createRecordingCanvasFixture({
+      context: mockCtx
+    });
 
     let rafCallback;
     installCanvasAndAnimationFrameMocks(mockCanvas, {
@@ -437,7 +399,7 @@ describe('CaptureGpuRecordingService', () => {
       })
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
     await service.start({ stream: mockStream, frameRate: 60 });
 
     // First frame - should clear canvas
@@ -445,7 +407,7 @@ describe('CaptureGpuRecordingService', () => {
     expect(mockFillRect).toHaveBeenCalledTimes(1);
 
     // Reset pending flag and call again
-    mockGpuRendererService.captureFrame.mockResolvedValue({ width: 320, height: 200, close: vi.fn() });
+    mockGpuRendererService.captureFrame.mockResolvedValue(createRecordingFrameMock({ width: 320, height: 200 }));
     await rafCallback();
     // Should not clear again
     expect(mockFillRect).toHaveBeenCalledTimes(1);
@@ -458,22 +420,16 @@ describe('CaptureGpuRecordingService', () => {
     });
     mockGpuRendererService.captureFrame.mockReturnValue(capturePromise);
 
-    const mockCtx = {
-      drawImage: vi.fn(),
-      fillRect: vi.fn(),
+    const mockCtx = createCanvasRenderingContextMock({
       fillStyle: '',
       imageSmoothingEnabled: true
-    };
-    const mockRecordingStream = {
-      addTrack: vi.fn(),
-      getTracks: vi.fn(() => [{ stop: vi.fn() }])
-    };
-    const mockCanvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn(() => mockCtx),
-      captureStream: vi.fn(() => mockRecordingStream)
-    };
+    });
+    const { mockCanvas } = createRecordingCanvasFixture({
+      context: mockCtx,
+      recordingStream: createMediaStreamMock({
+        tracks: [createMediaTrackMock()]
+      })
+    });
 
     let rafCallback;
     installCanvasAndAnimationFrameMocks(mockCanvas, {
@@ -484,7 +440,7 @@ describe('CaptureGpuRecordingService', () => {
       cancelAnimationFrame: vi.fn()
     });
 
-    const mockStream = { getAudioTracks: vi.fn(() => []) };
+    const mockStream = createStreamPayloadMock();
     await service.start({ stream: mockStream, frameRate: 60 });
 
     // Start a capture

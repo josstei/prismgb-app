@@ -8,11 +8,14 @@ import { DeviceConnectionService } from '@renderer/infrastructure/services/devic
 import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service.ts';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service.ts';
 import {
+  createDeviceInfo,
   createBrowserMediaServiceMock,
   createDeviceChangeDebounceAdapterMock,
   createDeviceStatusProviderMock,
   createEventBus,
   createLoggerFactory,
+  createMediaStreamMock,
+  createMediaTrackMock,
   createStorageService
 } from '../../../../factories/index.js';
 
@@ -122,8 +125,8 @@ describe('DeviceService', () => {
   describe('getSelectedDeviceId', () => {
     it('should auto-select Chromatic when no device selected', () => {
       service.deviceMediaService.videoDevices = [
-        { deviceId: 'webcam-1', label: 'Integrated Camera (04f2:b7e0)' },
-        { deviceId: 'chromatic-1', label: 'Chromatic (374e:0101)' }
+        createDeviceInfo({ deviceId: 'webcam-1', label: 'Integrated Camera (04f2:b7e0)', kind: 'videoinput' }),
+        createDeviceInfo({ deviceId: 'chromatic-1', label: 'Chromatic (374e:0101)', kind: 'videoinput' })
       ];
 
       const result = service.getSelectedDeviceId();
@@ -133,7 +136,7 @@ describe('DeviceService', () => {
 
     it('should return null when no Chromatic found', () => {
       service.deviceMediaService.videoDevices = [
-        { deviceId: 'webcam-1', label: 'Regular Webcam' }
+        createDeviceInfo({ deviceId: 'webcam-1', label: 'Regular Webcam', kind: 'videoinput' })
       ];
 
       const result = service.getSelectedDeviceId();
@@ -186,19 +189,18 @@ describe('DeviceService', () => {
   });
 
   describe('enumerateDevices', () => {
-    const mockChromaticDevice = {
+    const mockTrack = createMediaTrackMock({ stop: vi.fn() });
+    const mockChromaticDevice = createDeviceInfo({
       deviceId: 'chromatic-1',
       kind: 'videoinput',
       label: 'Chromatic (374e:0101)'
-    };
-    const mockWebcam = {
+    });
+    const mockWebcam = createDeviceInfo({
       deviceId: 'webcam-1',
       kind: 'videoinput',
       label: 'Integrated Camera (04f2:b7e0)'
-    };
-    const mockStream = {
-      getTracks: vi.fn(() => [{ stop: vi.fn() }])
-    };
+    });
+    const mockStream = createMediaStreamMock({ tracks: [mockTrack] });
 
     beforeEach(() => {
       mockDeviceStatusProvider.getDeviceStatus.mockResolvedValue({ connected: true });
@@ -236,8 +238,8 @@ describe('DeviceService', () => {
     it('should not set hasMediaPermission when devices have no labels', async () => {
       // Devices without labels means permission not yet granted
       mockBrowserMediaService.enumerateDevices.mockResolvedValue([
-        { deviceId: 'dev-1', kind: 'videoinput', label: '' },
-        { deviceId: 'dev-2', kind: 'videoinput', label: '' }
+        createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' }),
+        createDeviceInfo({ deviceId: 'dev-2', kind: 'videoinput', label: '' })
       ]);
 
       await service.enumerateDevices();
@@ -340,27 +342,25 @@ describe('DeviceService', () => {
   });
 
   describe('discoverSupportedDevice', () => {
-    const mockStream = {
-      getTracks: vi.fn(() => [{ stop: vi.fn() }])
-    };
-
     beforeEach(() => {
       mockDeviceStatusProvider.getDeviceStatus.mockResolvedValue({ connected: true });
     });
 
     it('should not probe random devices when no stored ID', async () => {
+      const stop = vi.fn();
       mockBrowserMediaService.enumerateDevices
         .mockResolvedValueOnce([
-          { deviceId: 'dev-1', kind: 'videoinput', label: '' },
-          { deviceId: 'dev-2', kind: 'videoinput', label: '' }
+          createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' }),
+          createDeviceInfo({ deviceId: 'dev-2', kind: 'videoinput', label: '' })
         ])
         .mockResolvedValueOnce([
-          { deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' },
-          { deviceId: 'dev-2', kind: 'videoinput', label: 'Another Camera' }
+          createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' }),
+          createDeviceInfo({ deviceId: 'dev-2', kind: 'videoinput', label: 'Another Camera' })
         ]);
 
-      const stop = vi.fn();
-      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      const stream = createMediaStreamMock({
+        tracks: [createMediaTrackMock({ stop })]
+      });
       mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
 
       const result = await service.discoverSupportedDevice();
@@ -376,15 +376,17 @@ describe('DeviceService', () => {
       // First enumerate (before permission) - labels hidden
       mockBrowserMediaService.enumerateDevices
         .mockResolvedValueOnce([
-          { deviceId: 'stored-dev', kind: 'videoinput', label: '' }
+          createDeviceInfo({ deviceId: 'stored-dev', kind: 'videoinput', label: '' })
         ])
         // Second enumerate (after warm-up permission) - labels revealed with matching device
         .mockResolvedValueOnce([
-          { deviceId: 'stored-dev', kind: 'videoinput', label: 'Chromatic (374e:0101)' }
+          createDeviceInfo({ deviceId: 'stored-dev', kind: 'videoinput', label: 'Chromatic (374e:0101)' })
         ]);
 
       const stop = vi.fn();
-      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      const stream = createMediaStreamMock({
+        tracks: [createMediaTrackMock({ stop })]
+      });
       mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
 
       const result = await service.discoverSupportedDevice();
@@ -399,14 +401,16 @@ describe('DeviceService', () => {
 
       mockBrowserMediaService.enumerateDevices
         .mockResolvedValueOnce([
-          { deviceId: 'new-dev-1', kind: 'videoinput', label: '' }
+          createDeviceInfo({ deviceId: 'new-dev-1', kind: 'videoinput', label: '' })
         ])
         .mockResolvedValueOnce([
-          { deviceId: 'new-dev-1', kind: 'videoinput', label: 'Random Webcam' }
+          createDeviceInfo({ deviceId: 'new-dev-1', kind: 'videoinput', label: 'Random Webcam' })
         ]);
 
       const stop = vi.fn();
-      const warmUpStream = { getTracks: vi.fn(() => [{ stop }]) };
+      const warmUpStream = createMediaStreamMock({
+        tracks: [createMediaTrackMock({ stop })]
+      });
       mockBrowserMediaService.getUserMedia
         .mockResolvedValueOnce(warmUpStream)
         .mockRejectedValueOnce(new Error('Device not found'));
@@ -422,7 +426,7 @@ describe('DeviceService', () => {
     });
 
     it('should register supported device after successful start', () => {
-      const device = { deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' };
+      const device = createDeviceInfo({ deviceId: 'chromatic-1', kind: 'videoinput', label: 'Chromatic (374e:0101)' });
 
       const result = service.registerSupportedDevice(device);
 
@@ -437,14 +441,16 @@ describe('DeviceService', () => {
     it('should deduplicate concurrent warm-up calls', async () => {
       mockBrowserMediaService.enumerateDevices
         .mockResolvedValueOnce([
-          { deviceId: 'dev-1', kind: 'videoinput', label: '' }
+          createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' })
         ])
         .mockResolvedValueOnce([
-          { deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' }
+          createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: 'Random Webcam' })
         ]);
 
       const stop = vi.fn();
-      const stream = { getTracks: vi.fn(() => [{ stop }]) };
+      const stream = createMediaStreamMock({
+        tracks: [createMediaTrackMock({ stop })]
+      });
       mockBrowserMediaService.getUserMedia.mockResolvedValue(stream);
 
       const promise1 = deviceMediaService._warmUpPermissions();

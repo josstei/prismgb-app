@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createEventBus, createLoggerFactory, createProfileRegistryMock } from '../../../../factories/index.js';
 
 // Mock DeviceRegistry
 vi.mock('@shared/features/devices/device.registry.js', () => ({
@@ -79,11 +79,7 @@ describe('DeviceService (Main Process)', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockProfileRegistry = {
-      registerProfile: vi.fn(),
-      setDefaultProfile: vi.fn(),
-      detectDevice: vi.fn(() => ({ matched: false, profile: null }))
-    };
+    mockProfileRegistry = createProfileRegistryMock();
 
     mockEventBus = createEventBus();
 

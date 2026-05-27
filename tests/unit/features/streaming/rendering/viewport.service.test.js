@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/streaming/viewport.service.ts';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory, createMockCanvas, createMockElement } from '../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installResizeObserverMock
@@ -47,28 +47,25 @@ describe('StreamingViewportService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    mockContainer = {};
+    mockContainer = createMockElement('div');
 
     // mainContent is the stable parent used for measurement
-    mockMainContent = {
-      clientWidth: 800,
-      clientHeight: 600
-    };
+    mockMainContent = createMockElement('div');
+    mockMainContent.clientWidth = 800;
+    mockMainContent.clientHeight = 600;
 
-    mockSection = {
-      clientWidth: 800,
-      clientHeight: 600,
-      children: [mockContainer], // Only the container, no siblings
-      parentElement: mockMainContent
-    };
+    mockSection = createMockElement('section');
+    mockSection.clientWidth = 800;
+    mockSection.clientHeight = 600;
+    mockSection.children = [mockContainer]; // Only the container, no siblings
+    mockSection.parentElement = mockMainContent;
 
     mockContainer.parentElement = mockSection;
 
-    mockCanvas = {
-      width: 0,
-      height: 0,
-      parentElement: mockContainer
-    };
+    mockCanvas = createMockCanvas();
+    mockCanvas.width = 0;
+    mockCanvas.height = 0;
+    mockCanvas.parentElement = mockContainer;
 
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
     resizeObserverMock = installResizeObserverMock();
@@ -197,7 +194,8 @@ describe('StreamingViewportService', () => {
       const nativeResolution = { width: 160, height: 144 };
 
       // Add a sibling element (e.g., controls)
-      const mockControls = { offsetHeight: 50 };
+      const mockControls = createMockElement('div');
+      mockControls.offsetHeight = 50;
       mockSection.children = [mockContainer, mockControls];
 
       getComputedStyleMock.cleanup();
@@ -329,10 +327,9 @@ describe('StreamingViewportService', () => {
 
   describe('cleanup', () => {
     it('should disconnect ResizeObserver', () => {
-      const mockObserver = {
-        observe: vi.fn(),
-        disconnect: vi.fn()
-      };
+      const mockObserver = createMockElement('div');
+      mockObserver.observe = vi.fn();
+      mockObserver.disconnect = vi.fn();
       service._resizeObserver = mockObserver;
 
       service.cleanup();
@@ -358,10 +355,9 @@ describe('StreamingViewportService', () => {
     });
 
     it('should log debug message', () => {
-      const mockObserver = {
-        observe: vi.fn(),
-        disconnect: vi.fn()
-      };
+      const mockObserver = createMockElement('div');
+      mockObserver.observe = vi.fn();
+      mockObserver.disconnect = vi.fn();
       service._resizeObserver = mockObserver;
 
       service.cleanup();

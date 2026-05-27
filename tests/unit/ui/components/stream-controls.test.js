@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
+import { createStreamingControlsElementsMock, createUIBodyClassManagerMock } from '../../../factories/index.js';
 
 describe('StreamingControlsComponent', () => {
   let component;
@@ -11,41 +12,8 @@ describe('StreamingControlsComponent', () => {
   let mockBodyClassManager;
 
   beforeEach(() => {
-    mockBodyClassManager = {
-      setStreamingMode: vi.fn(),
-      areAnimationsOff: vi.fn(() => false)
-    };
-
-    mockElements = {
-      streamOverlay: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      screenshotBtn: {
-        disabled: true,
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      recordBtn: {
-        disabled: true,
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      shaderControls: {
-        classList: {
-          add: vi.fn(),
-          remove: vi.fn()
-        }
-      },
-      currentResolution: { textContent: '' },
-      currentFPS: { textContent: '' }
-    };
+    mockBodyClassManager = createUIBodyClassManagerMock({ areAnimationsOff: vi.fn(() => false) });
+    mockElements = createStreamingControlsElementsMock();
 
     component = new StreamingControlsComponent({
       elements: mockElements,

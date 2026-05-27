@@ -7,6 +7,8 @@ import { AppState } from '@renderer/application/state/app-state.ts';
 import {
   createDeviceServiceMock,
   createEventBus,
+  createStreamCapabilitiesMock,
+  createStreamPayloadMock,
   createStreamingServiceFacadeMock
 } from '../../factories/index.js';
 
@@ -136,21 +138,21 @@ describe('AppState', () => {
     });
 
     it('should cache stream on stream:started', () => {
-      const mockStream = { id: 'test-stream' };
+      const mockStream = createStreamPayloadMock({ id: 'test-stream' });
       subscribedHandlers['stream:started']({ stream: mockStream });
 
       expect(state.currentStream).toBe(mockStream);
     });
 
     it('should cache capabilities on stream:started', () => {
-      const mockCapabilities = { frameRate: 60, nativeResolution: { width: 160, height: 144 } };
+      const mockCapabilities = createStreamCapabilitiesMock();
       subscribedHandlers['stream:started']({ stream: {}, capabilities: mockCapabilities });
 
       expect(state.currentCapabilities).toBe(mockCapabilities);
     });
 
     it('should clear stream cache on stream:stopped', () => {
-      state._streamCache = { id: 'test-stream' };
+      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
 
       subscribedHandlers['stream:stopped']();
 
@@ -158,7 +160,7 @@ describe('AppState', () => {
     });
 
     it('should clear capabilities cache on stream:stopped', () => {
-      state._capabilitiesCache = { frameRate: 60 };
+      state._capabilitiesCache = createStreamCapabilitiesMock();
 
       subscribedHandlers['stream:stopped']();
 
@@ -179,7 +181,7 @@ describe('AppState', () => {
 
   describe('currentStream getter', () => {
     it('should return cached stream when cache is populated', () => {
-      const mockStream = { id: 'cached-stream' };
+      const mockStream = createStreamPayloadMock({ id: 'cached-stream' });
       state._streamCache = mockStream;
 
       expect(state.currentStream).toBe(mockStream);
@@ -187,7 +189,7 @@ describe('AppState', () => {
 
     it('should fallback to streamingService.getStream when cache is null', () => {
       state._streamCache = null;
-      const mockStream = { id: 'service-stream' };
+      const mockStream = createStreamPayloadMock({ id: 'service-stream' });
       mockStreamingService.getStream = vi.fn(() => mockStream);
 
       expect(state.currentStream).toBe(mockStream);
@@ -209,8 +211,8 @@ describe('AppState', () => {
     });
 
     it('should prefer cache over service getStream', () => {
-      const cachedStream = { id: 'cached-stream' };
-      const serviceStream = { id: 'service-stream' };
+      const cachedStream = createStreamPayloadMock({ id: 'cached-stream' });
+      const serviceStream = createStreamPayloadMock({ id: 'service-stream' });
       state._streamCache = cachedStream;
       mockStreamingService.getStream = vi.fn(() => serviceStream);
 
@@ -221,7 +223,7 @@ describe('AppState', () => {
 
   describe('currentCapabilities getter', () => {
     it('should return cached capabilities when cache is populated', () => {
-      const mockCapabilities = { frameRate: 60, nativeResolution: { width: 160, height: 144 } };
+      const mockCapabilities = createStreamCapabilitiesMock();
       state._capabilitiesCache = mockCapabilities;
 
       expect(state.currentCapabilities).toBe(mockCapabilities);
@@ -229,7 +231,7 @@ describe('AppState', () => {
 
     it('should fallback to streamingService.currentCapabilities when cache is null', () => {
       state._capabilitiesCache = null;
-      const mockCapabilities = { frameRate: 60, nativeResolution: { width: 160, height: 144 } };
+      const mockCapabilities = createStreamCapabilitiesMock();
       mockStreamingService.currentCapabilities = mockCapabilities;
 
       expect(state.currentCapabilities).toBe(mockCapabilities);
@@ -250,8 +252,8 @@ describe('AppState', () => {
     });
 
     it('should prefer cache over service currentCapabilities', () => {
-      const cachedCapabilities = { frameRate: 60 };
-      const serviceCapabilities = { frameRate: 30 };
+      const cachedCapabilities = createStreamCapabilitiesMock();
+      const serviceCapabilities = createStreamCapabilitiesMock({ frameRate: 30 });
       state._capabilitiesCache = cachedCapabilities;
       mockStreamingService.currentCapabilities = serviceCapabilities;
 
@@ -280,7 +282,7 @@ describe('AppState', () => {
     });
 
     it('should clear stream cache', () => {
-      state._streamCache = { id: 'test-stream' };
+      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
 
       state.dispose();
 
@@ -288,7 +290,7 @@ describe('AppState', () => {
     });
 
     it('should clear capabilities cache', () => {
-      state._capabilitiesCache = { frameRate: 60 };
+      state._capabilitiesCache = createStreamCapabilitiesMock();
 
       state.dispose();
 
@@ -368,8 +370,8 @@ describe('AppState', () => {
 
   describe('Cache and Service Interaction', () => {
     it('should update cache when stream:started event fires', () => {
-      const mockStream = { id: 'event-stream' };
-      const mockCapabilities = { frameRate: 60 };
+      const mockStream = createStreamPayloadMock({ id: 'event-stream' });
+      const mockCapabilities = createStreamCapabilitiesMock({ frameRate: 60 });
 
       expect(state._streamCache).toBeNull();
       expect(state._capabilitiesCache).toBeNull();
@@ -381,8 +383,8 @@ describe('AppState', () => {
     });
 
     it('should clear cache when stream:stopped event fires', () => {
-      state._streamCache = { id: 'test-stream' };
-      state._capabilitiesCache = { frameRate: 60 };
+      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
+      state._capabilitiesCache = createStreamCapabilitiesMock({ frameRate: 60 });
 
       subscribedHandlers['stream:stopped']();
 
@@ -402,7 +404,7 @@ describe('AppState', () => {
     });
 
     it('should handle stream:started event without capabilities', () => {
-      const mockStream = { id: 'stream-only' };
+      const mockStream = createStreamPayloadMock({ id: 'stream-only' });
 
       subscribedHandlers['stream:started']({ stream: mockStream });
 
@@ -411,7 +413,7 @@ describe('AppState', () => {
     });
 
     it('should handle stream:started event without stream', () => {
-      const mockCapabilities = { frameRate: 60 };
+      const mockCapabilities = createStreamCapabilitiesMock();
 
       subscribedHandlers['stream:started']({ capabilities: mockCapabilities });
 

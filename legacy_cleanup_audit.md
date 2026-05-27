@@ -201,6 +201,161 @@ The bulk of Step 6 / Area I remains. Each remaining failure requires:
     - `tests/unit/features/devices/services/device.service.test.js` (`mockDeviceStatusProvider`, `mockDeviceChangeDebounceAdapter`)
     - `tests/unit/features/streaming/services/streaming.service.test.js` (`mockAdapter`, `mockAdapterRegistry`, `mockIpcClient`, `mockDependencies`)
     - `tests/unit/ui/ui.controller.test.js` (`mockElements`, component mocks, registry/effects/bodyClassManager, element teardown mock)
+  - added shared mocks to `tests/factories/index.js` for device orchestrator/status collaborators: `createDeviceIpcAdapterMock`, `createDeviceOperationSequencerMock`.
+  - migrated remaining inline collaborator object mocks in `tests/unit/features/devices/services/device.orchestrator.test.js` (`mockDeviceIpcAdapter`, `mockDeviceOperationSequencer`) and `tests/unit/features/devices/services/device-status.adapter.test.js` (`mockIpcClient`).
+  - added shared mocks to `tests/factories/index.js` for main/IPC legacy collaborators: `createWinstonLoggerMock`, `createWinstonRootLoggerMock`, `createShellServiceMock`, `createAppMetricsServiceMock`.
+  - migrated inline collaborator object mocks in:
+    - `tests/unit/main/infrastructure/logging/main-logger.test.js` (`mockChildLogger`, `mockRootLogger`) into shared factory helpers
+    - `tests/unit/main/ipc/handlers/ipc-handler.descriptors.test.js` (`mockShell`, `windowService` object usage, `app` object in `PERFORMANCE` path, `updateService`/`transcodeService`/`loginItemService` constructor-time overrides) into shared factory helpers.
+  - added shared mocks to `tests/factories/index.js` for additional collaborators: `createConstraintBuilderMock`, `createStreamLifecycleMock`, `createAcquisitionCoordinatorMock`, `createUIEventBridgeControllerMock`.
+  - migrated inline collaborator object mocks in:
+    - `tests/unit/features/devices/adapters/base.adapter.test.js` (`mockConstraintBuilder`, `mockStreamLifecycle`) into shared factory helpers
+    - `tests/unit/features/devices/adapters/chromatic/chromatic.adapter.test.js` (`mockIpcClient`, `mockConstraintBuilder`, `mockStreamLifecycle`, `acquisitionCoordinator` constructor-time assignment)
+    - `tests/unit/ui/ui-event-bridge.test.js` (`mockUiController`) into shared factory helpers
+- Additional continuation (2026-05-27, this turn):
+  - added shared helpers in `tests/factories/index.js` for missing adapter/controller patterns:
+    - `createTranscodeUIControllerMock`
+    - `createStreamingViewControllerMock`
+    - fixed callback-capture safety in `createVisibilityAdapterMock`, `createUserActivityAdapterMock`, `createReducedMotionAdapterMock` by localizing callback refs and exposing `callbackRef` accessors.
+    - added `createUISetupControllerMock` for the complex UI setup orchestrator controller fixture.
+  - migrated inline collaborator object mocks in:
+    - `tests/unit/app/renderer/application/performance/performance-metrics.service.test.js` (`mockMetricsAdapter` -> `createPerformanceMetricsAdapterMock`)
+    - `tests/unit/app/renderer/application/performance/performance-state.service.test.js` (`mockVisibilityAdapter`, `mockUserActivityAdapter`, `mockReducedMotionAdapter` -> adapter helpers)
+    - `tests/unit/ui/orchestration/capture-ui.bridge.test.js` (`mockUIController` -> `createCaptureUIControllerMock`)
+    - `tests/unit/ui/orchestration/transcode-ui.bridge.test.js` (`mockTranscodeToast`, `mockUIController` -> toast + transcode UI controller helpers)
+    - `tests/unit/features/settings/services/presentation-mode.service.test.js` (`mockUiController` -> `createPresentationModeControllerMock`)
+    - `tests/unit/features/streaming/services/stream-view.service.test.js` (`mockUIController` + `mockVideoElement` -> `createStreamingViewControllerMock` + `createMockVideo`)
+    - `tests/unit/features/streaming/acquisition/acquisition.orchestrator.test.js` (`mockConstraintBuilder`, `mockStreamLifecycle`, `mockFallbackStrategy` -> shared helper mocks)
+    - `tests/unit/ui/ui-setup.orchestrator.test.js` (`mockUiController` -> `createUISetupControllerMock`)
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createGpuWorkerManagerMock`
+      - `createUIEffectsElementsMock`
+      - `createStreamingControlsElementsMock`
+      - `createProfileRegistryMock`
+    - migrated inline collaborator object mocks in:
+      - `tests/unit/features/streaming/rendering/gpu/gpu-renderer.service.test.js` (`mockGpuWorkerManager` -> `createGpuWorkerManagerMock`)
+      - `tests/unit/ui/ui-effects.test.js` (`mockElements.recordBtn`, `mockBodyClassManager` -> `createUIEffectsElementsMock` + `createUIBodyClassManagerMock`)
+      - `tests/unit/ui/components/stream-controls.test.js` (`mockBodyClassManager`, stream-control `mockElements` -> `createUIBodyClassManagerMock` + `createStreamingControlsElementsMock`)
+      - `tests/unit/features/devices/main/device.service.test.js` (`mockProfileRegistry` -> `createProfileRegistryMock`)
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createWorkerInstanceMock`
+      - `createWorkerPipelineMock`
+      - `createAnimationCacheMock`
+      - `createCanvasRenderPipelineMock`
+    - migrated inline collaborator object mocks in:
+      - `tests/unit/renderer/infrastructure/rendering/workers/render.worker.test.js` (`mockPipeline` -> `createWorkerPipelineMock`)
+      - `tests/unit/features/streaming/rendering/canvas-render-loop.service.test.js` (`mockPipeline`, `mockAnimationCache`, `mockCanvas` -> `createCanvasRenderPipelineMock`, `createAnimationCacheMock`, `createMockCanvas`)
+      - `tests/unit/features/streaming/rendering/managers/gpu-worker-manager.class.test.js` (`mockWorker` -> `createWorkerInstanceMock`)
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createProcessMetricsMock`
+      - `createDeviceStatusMock`
+    - migrated inline collaborator payload objects in:
+      - `tests/unit/app/renderer/application/adapters/metrics.adapter.test.js` (metrics response payloads via `createProcessMetricsMock`)
+      - `tests/unit/features/devices/services/device-status.adapter.test.js` (status payloads via `createDeviceStatusMock`)
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createStreamPayloadMock`
+      - `createBitmapMock`
+      - `createStreamCapabilitiesMock`
+    - migrated inline payload objects in:
+      - `tests/unit/features/capture/services/capture.orchestrator.test.js` (stream/video/canvas/bmp payloads via shared mocks)
+      - `tests/unit/ui/app.state.test.js` (stream and capability payloads via shared mocks)
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helper in `tests/factories/index.js`:
+      - `createPreventDefaultEventMock`
+    - migrated inline event payloads in:
+      - `tests/unit/app/main/window/window.service.test.js` (`mockEvent` literals -> `createPreventDefaultEventMock`)
+  - additional migration in this continuation pass (2026-05-27):
+  - added shared helper in `tests/factories/index.js`:
+    - `createDomEventMock`
+  - migrated inline event payloads in:
+    - `tests/unit/ui/ui-setup.orchestrator.test.js` (`mockEvent` literals in event-handler tests -> `createDomEventMock`)
+- additional migration in this continuation pass (2026-05-27):
+  - migrated inline object-literal capture collaborators in:
+    - `tests/unit/features/capture/services/gpu-recording.service.test.js`
+      - `mockStream` payloads via `createStreamPayloadMock`
+      - recording stream fixtures via `createMediaStreamMock`
+      - recording-frame fixtures via `createRecordingFrameMock`
+      - media track fixtures via `createMediaTrackMock`
+      - canvas context fixtures via `createCanvasRenderingContextMock`
+  - additional migration in this continuation pass (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createCaptureStreamMock`
+      - `createMediaBlobEventMock`
+      - `createMediaRecorderErrorEventMock`
+    - migrated inline object-literal collaborators in:
+      - `tests/unit/features/capture/services/capture.service.test.js`
+        - `mockCanvas`/`mockCtx` setup via `createMockCanvas` + `createCanvasRenderingContextMock`
+        - stream fixtures via `createCaptureStreamMock` + `createMediaTrackMock`
+        - media recorder data/error events via `createMediaBlobEventMock` + `createMediaRecorderErrorEventMock`
+  - additional migration in this continuation pass (2026-05-27):
+    - migrated audio-stream object literals in:
+      - `tests/unit/features/streaming/services/streaming-audio.orchestrator.test.js`
+        - stream fixtures in `_handleStreamStarted`, `_handleStreamStopped`, `_initializeAudioPipeline`
+          via `createCaptureStreamMock` + `createMediaTrackMock`
+  - additional migration in this continuation pass (2026-05-27):
+    - migrated stream lifecycle inline stream/track objects in:
+      - `tests/unit/features/streaming/acquisition/stream.lifecycle.test.js`
+        - stream fixtures via local `createLifecycleStream` helper backed by `createMediaStreamMock` + `createMediaTrackMock`
+- additional migration in this continuation turn (2026-05-27):
+  - migrated remaining inline stream/device payloads in:
+    - `tests/unit/features/streaming/services/streaming.service.test.js`
+      - device payloads -> `createDeviceInfo`
+      - stream fixtures -> `createCaptureStreamMock` and `createMediaTrackMock`
+      - removed duplicate inline `discoveredDevice` declaration and normalized `_getStreamSettings` setup to shared stream factories
+- Additional continuation in this continuation turn (2026-05-27):
+  - migrated device/service-local payload literals in
+    - `tests/unit/features/devices/services/device.service.test.js`
+      - device fixtures -> `createDeviceInfo`
+      - stream/track fixtures -> `createMediaStreamMock` and `createMediaTrackMock`
+      - normalized selected-device/enumeration/discovery test payloads to shared factories
+- additional continuation in this continuation turn (2026-05-27):
+  - migrated additional inline test objects in:
+    - `tests/unit/features/devices/adapters/base.adapter.test.js`
+      - `mockConstraintBuilder` -> `createConstraintBuilderMock`
+      - `mockStreamLifecycle` -> `createStreamLifecycleMock`
+      - device/stream fixture literals -> `createDeviceInfo` and `createCaptureStreamMock`
+    - `tests/unit/features/streaming/services/streaming.orchestrator.test.js`
+      - stream payload -> `createCaptureStreamMock`
+      - device payload -> `createDeviceInfo`
+    - `tests/unit/features/streaming/services/stream-view.service.test.js`
+      - stream fixture literals -> `createCaptureStreamMock` for attach/clear/integration scenarios
+- additional continuation in this continuation turn (2026-05-27):
+  - migrated inline stream fixture in:
+    - `tests/unit/features/streaming/acquisition/acquisition.orchestrator.test.js`
+      - `const mockStream = { id: 'stream-1' }` -> `createCaptureStreamMock({ id: 'stream-1' })`
+- additional continuation in this continuation turn (2026-05-27):
+  - migrated additional inline collaborator/payload objects in:
+    - `tests/unit/features/devices/adapters/chromatic/chromatic.adapter.test.js`
+      - device payloads via `createDeviceInfo`
+      - stream payload via `createCaptureStreamMock`
+      - acquisition coordinator via `createAcquisitionCoordinatorMock`
+    - `tests/unit/features/streaming/rendering/gpu/gpu-renderer.service.test.js`
+      - `mockGpuWorkerManager` -> `createGpuWorkerManagerMock`
+      - `mockBitmap` payloads -> `createBitmapMock`
+    - `tests/unit/features/streaming/rendering/streaming-canvas-lifecycle.service.test.js`
+      - `mockCanvas`/`mockContainer`/`mockSection`/parent/newCanvas fixtures -> `createMockCanvas` + `createMockElement`
+    - `tests/unit/features/streaming/rendering/viewport.service.test.js`
+      - section/container/canvas/observer fixtures -> `createMockCanvas` + `createMockElement`
+    - `tests/unit/ui/ui-setup.orchestrator.test.js`
+      - fullscreen button stub via `createMockButton` and `createDomEventMock` for event shape consistency
+- additional continuation in this continuation turn (2026-05-27):
+  - completed further migration in `tests/unit/features/streaming/rendering/managers/gpu-worker-manager.class.test.js`:
+    - `mockCanvas` objects -> local helper using `createMockCanvas`
+    - inline bitmap fixture -> `createBitmapMock`
+- additional continuation in this continuation turn (2026-05-27):
+  - added shared payload/context helpers in `tests/factories/index.js`:
+    - `createAcquisitionContextMock`
+    - `createStreamConstraintsMock`
+    - `createStreamStartedPayloadMock`
+    - `createSupportedDevicePayloadMock`
+  - migrated remaining inline payload object-literals in:
+    - `tests/unit/shared/interfaces/interfaces.test.js` (`mockContext` via `createAcquisitionContextMock`)
+    - `tests/unit/features/streaming/acquisition/acquisition.orchestrator.test.js` (`mockConstraints` via `createStreamConstraintsMock`)
+    - `tests/unit/features/streaming/services/streaming.orchestrator.test.js` (`mockData`/`mockDeviceData` via payload helpers)
 
 The audit document itself routes this work to `FUTURE_FIRST_TRACKING.md:154` with the explicit 3-Pass Review protocol because of exactly this risk. Executing it inline without that protocol would ship untracked contract decisions into the test suite. **Run the dedicated `/goal` separately.**
 

@@ -4,7 +4,16 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service.ts';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createCanvasRenderingContextMock,
+  createEventBus,
+  createLoggerFactory,
+  createMediaBlobEventMock,
+  createMediaRecorderErrorEventMock,
+  createMediaTrackMock,
+  createMockCanvas
+} from '../../../../factories/index.js';
 import {
   installBlobMock,
   installDocumentCreateElementMock,
@@ -70,16 +79,10 @@ describe('CaptureService', () => {
       // Save real document reference before any mocking
       realDocument = global.document;
 
-      mockCtx = {
-        drawImage: vi.fn()
-      };
-
-      mockCanvas = {
-        width: 0,
-        height: 0,
-        getContext: vi.fn(() => mockCtx),
-        toBlob: vi.fn((callback) => callback(new Blob(['test'], { type: 'image/png' })))
-      };
+      mockCtx = createCanvasRenderingContextMock();
+      mockCanvas = createMockCanvas({ width: 0, height: 0 });
+      mockCanvas.getContext = vi.fn(() => mockCtx);
+      mockCanvas.toBlob = vi.fn((callback) => callback(new Blob(['test'], { type: 'image/png' })));
 
       // Create video elements using real document
       mockVideo = realDocument.createElement('video');
@@ -154,10 +157,10 @@ describe('CaptureService', () => {
     let mockStream;
 
     beforeEach(() => {
-      mockStream = {
-        getVideoTracks: vi.fn(() => [{ stop: vi.fn() }]),
+      mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => [createMediaTrackMock()]),
         getAudioTracks: vi.fn(() => [])
-      };
+      });
     });
 
     it('should start recording with stream', async () => {
@@ -197,7 +200,7 @@ describe('CaptureService', () => {
       await service.startRecording(mockStream);
 
       // Simulate data available
-      const mockEvent = { data: { size: 100 } };
+      const mockEvent = createMediaBlobEventMock({ data: { size: 100 } });
       service.mediaRecorder.ondataavailable(mockEvent);
 
       expect(service.recordedChunks).toContain(mockEvent.data);
@@ -207,7 +210,7 @@ describe('CaptureService', () => {
       await service.startRecording(mockStream);
 
       // Simulate empty data
-      service.mediaRecorder.ondataavailable({ data: { size: 0 } });
+      service.mediaRecorder.ondataavailable(createMediaBlobEventMock({ data: { size: 0 } }));
 
       expect(service.recordedChunks).toHaveLength(0);
     });
@@ -217,10 +220,10 @@ describe('CaptureService', () => {
     let mockStream;
 
     beforeEach(async () => {
-      mockStream = {
-        getVideoTracks: vi.fn(() => [{ stop: vi.fn() }]),
+      mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => [createMediaTrackMock()]),
         getAudioTracks: vi.fn(() => [])
-      };
+      });
       await service.startRecording(mockStream);
     });
 
@@ -249,10 +252,10 @@ describe('CaptureService', () => {
     let mockStream;
 
     beforeEach(() => {
-      mockStream = {
-        getVideoTracks: vi.fn(() => [{ stop: vi.fn() }]),
+      mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => [createMediaTrackMock()]),
         getAudioTracks: vi.fn(() => [])
-      };
+      });
     });
 
     it('should start recording when not recording', async () => {
@@ -275,7 +278,10 @@ describe('CaptureService', () => {
     });
 
     it('should return true when recording', async () => {
-      const mockStream = { getVideoTracks: vi.fn(() => []), getAudioTracks: vi.fn(() => []) };
+      const mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => []),
+        getAudioTracks: vi.fn(() => [])
+      });
       await service.startRecording(mockStream);
 
       expect(service.getRecordingState()).toBe(true);
@@ -326,9 +332,9 @@ describe('CaptureService', () => {
       service.isRecording = true;
       service.recordedChunks = [{ size: 100 }];
 
-      const mockEvent = {
+      const mockEvent = createMediaRecorderErrorEventMock({
         error: { message: 'Disk full', name: 'QuotaExceededError' }
-      };
+      });
 
       service._handleRecordingError(mockEvent);
 
@@ -361,7 +367,10 @@ describe('CaptureService', () => {
     });
 
     it('should stop recording if active', async () => {
-      const mockStream = { getVideoTracks: vi.fn(() => []), getAudioTracks: vi.fn(() => []) };
+      const mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => []),
+        getAudioTracks: vi.fn(() => [])
+      });
       await service.startRecording(mockStream);
       const stopSpy = vi.spyOn(service.mediaRecorder, 'stop');
 
@@ -385,7 +394,10 @@ describe('CaptureService', () => {
 
   describe('onerror handler', () => {
     it('should set up onerror handler on MediaRecorder', async () => {
-      const mockStream = { getVideoTracks: vi.fn(() => []), getAudioTracks: vi.fn(() => []) };
+      const mockStream = createCaptureStreamMock({
+        getVideoTracks: vi.fn(() => []),
+        getAudioTracks: vi.fn(() => [])
+      });
       await service.startRecording(mockStream);
 
       expect(service.mediaRecorder.onerror).toBeDefined();

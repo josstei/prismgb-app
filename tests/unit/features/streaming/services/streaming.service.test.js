@@ -5,10 +5,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service.ts';
 import {
+  createCaptureStreamMock,
+  createDeviceInfo,
   createDeviceServiceMock,
   createEventBus,
   createIpcClientMock,
   createLoggerFactory,
+  createMediaTrackMock,
   createStreamingAdapterMock,
   createStreamingAdapterRegistryMock,
   createStreamingServiceDependencies,
@@ -72,17 +75,19 @@ describe('StreamingService', () => {
   });
 
   describe('start', () => {
-    const mockDevice = { deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' };
-    const mockVideoTrack = {
+    const mockDevice = createDeviceInfo({ deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' });
+    const mockVideoTrack = createMediaTrackMock({
+      kind: 'video',
+      label: 'Video',
       getSettings: vi.fn(() => ({ width: 160 })),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
-    };
-    const mockStream = {
+    });
+    const mockStream = createCaptureStreamMock({
       id: 'stream-1',
-      getVideoTracks: vi.fn(() => [mockVideoTrack]),
-      getAudioTracks: vi.fn(() => [])
-    };
+      audioTracks: [],
+      videoTracks: [mockVideoTrack]
+    });
 
     beforeEach(() => {
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
@@ -140,11 +145,11 @@ describe('StreamingService', () => {
 
     it('should preserve null video settings in stream:started event payload', async () => {
       const audioSettings = { sampleRate: 48000 };
-      const noVideoStream = {
+      const noVideoStream = createCaptureStreamMock({
         id: 'stream-audio-only',
-        getVideoTracks: vi.fn(() => []),
-        getAudioTracks: vi.fn(() => [{ getSettings: vi.fn(() => audioSettings) }])
-      };
+        videoTracks: [],
+        audioTracks: [createMediaTrackMock({ getSettings: vi.fn(() => audioSettings) })]
+      });
       mockAdapter.getStream.mockResolvedValue(noVideoStream);
 
       await service.start('device-1');
@@ -167,7 +172,7 @@ describe('StreamingService', () => {
     it('should throw when no device available for auto-select', async () => {
       mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceService.enumerateDevices.mockResolvedValue({
-        devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
+        devices: [createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' })],
         connected: true
       });
       mockDeviceService.discoverSupportedDevice.mockResolvedValue(null);
@@ -205,14 +210,14 @@ describe('StreamingService', () => {
   });
 
   describe('stop', () => {
-    const mockStream = { id: 'stream-1' };
+    const mockStream = createCaptureStreamMock({ id: 'stream-1' });
 
     beforeEach(() => {
       // Set state machine to streaming state
       service._state = 'streaming';
       service.currentStream = mockStream;
       service.currentAdapter = mockAdapter;
-      service.currentDevice = { deviceId: 'device-1' };
+      service.currentDevice = createDeviceInfo({ deviceId: 'device-1' });
     });
 
     it('should release stream via adapter', async () => {
@@ -249,7 +254,7 @@ describe('StreamingService', () => {
 
   describe('getStream', () => {
     it('should return current stream', () => {
-      const mockStream = { id: 'stream-1' };
+      const mockStream = createCaptureStreamMock({ id: 'stream-1' });
       service.currentStream = mockStream;
 
       expect(service.getStream()).toBe(mockStream);
@@ -275,8 +280,8 @@ describe('StreamingService', () => {
   describe('_getDeviceById', () => {
     it('should find device by ID', async () => {
       const devices = [
-        { deviceId: 'dev-1', kind: 'videoinput' },
-        { deviceId: 'dev-2', kind: 'videoinput' }
+        createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput' }),
+        createDeviceInfo({ deviceId: 'dev-2', kind: 'videoinput' })
       ];
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
 
@@ -293,8 +298,8 @@ describe('StreamingService', () => {
 
     it('should filter by videoinput kind', async () => {
       const devices = [
-        { deviceId: 'dev-1', kind: 'audioinput' },
-        { deviceId: 'dev-1', kind: 'videoinput' }
+        createDeviceInfo({ deviceId: 'dev-1', kind: 'audioinput' }),
+        createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput' })
       ];
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
 
@@ -306,7 +311,7 @@ describe('StreamingService', () => {
 
   describe('_autoSelectDevice', () => {
     it('should use device from DeviceService first', async () => {
-      const mockDevice = { deviceId: 'selected-dev', kind: 'videoinput', label: 'Chromatic' };
+      const mockDevice = createDeviceInfo({ deviceId: 'selected-dev', kind: 'videoinput', label: 'Chromatic' });
       mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['selected-dev']);
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
 
@@ -318,7 +323,7 @@ describe('StreamingService', () => {
     it('should fallback to label matching when stored IDs missing', async () => {
       mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceService.enumerateDevices.mockResolvedValue({
-        devices: [{ deviceId: 'chromatic-dev', kind: 'videoinput', label: 'ModRetro Chromatic' }],
+        devices: [createDeviceInfo({ deviceId: 'chromatic-dev', kind: 'videoinput', label: 'ModRetro Chromatic' })],
         connected: true
       });
 
@@ -330,7 +335,7 @@ describe('StreamingService', () => {
     it('should throw when labels are hidden', async () => {
       mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue([]);
       mockDeviceService.enumerateDevices.mockResolvedValue({
-        devices: [{ deviceId: 'dev-1', kind: 'videoinput', label: '' }],
+        devices: [createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' })],
         connected: true
       });
       mockDeviceService.discoverSupportedDevice.mockResolvedValue(null);
@@ -339,10 +344,10 @@ describe('StreamingService', () => {
     });
 
     it('should use discoverSupportedDevice when stored IDs not in enumerated devices', async () => {
-      const discoveredDevice = { deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' };
+      const discoveredDevice = createDeviceInfo({ deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' });
       mockDeviceService.getRegisteredStoredDeviceIds.mockReturnValue(['old-stale-id']);
       mockDeviceService.enumerateDevices.mockResolvedValue({
-        devices: [{ deviceId: 'other-dev', kind: 'videoinput', label: '' }],
+        devices: [createDeviceInfo({ deviceId: 'other-dev', kind: 'videoinput', label: '' })],
         connected: true
       });
       mockDeviceService.discoverSupportedDevice.mockResolvedValue(discoveredDevice);
@@ -356,17 +361,19 @@ describe('StreamingService', () => {
   });
 
   describe('ERROR state recovery', () => {
-    const mockDevice = { deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' };
-    const mockVideoTrack = {
+    const mockDevice = createDeviceInfo({ deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' });
+    const mockVideoTrack = createMediaTrackMock({
+      kind: 'video',
+      label: 'Video',
       getSettings: vi.fn(() => ({ width: 160 })),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
-    };
-    const mockStream = {
+    });
+    const mockStream = createCaptureStreamMock({
       id: 'stream-1',
-      getVideoTracks: vi.fn(() => [mockVideoTrack]),
-      getAudioTracks: vi.fn(() => [])
-    };
+      audioTracks: [],
+      videoTracks: [mockVideoTrack]
+    });
 
     beforeEach(() => {
       mockDeviceService.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
@@ -417,7 +424,11 @@ describe('StreamingService', () => {
       mockAdapter.releaseStream.mockRejectedValueOnce(new Error('Release failed'));
 
       // But new start should still work
-      const newStream = { id: 'stream-2', getVideoTracks: vi.fn(() => [mockVideoTrack]), getAudioTracks: vi.fn(() => []) };
+      const newStream = createCaptureStreamMock({
+        id: 'stream-2',
+        audioTracks: [],
+        videoTracks: [mockVideoTrack]
+      });
       mockAdapter.getStream.mockResolvedValue(newStream);
 
       const result = await service.start('device-1');
@@ -439,10 +450,10 @@ describe('StreamingService', () => {
       const videoSettings = { width: 160, height: 144 };
       const audioSettings = { sampleRate: 48000 };
 
-      service.currentStream = {
-        getVideoTracks: vi.fn(() => [{ getSettings: vi.fn(() => videoSettings) }]),
-        getAudioTracks: vi.fn(() => [{ getSettings: vi.fn(() => audioSettings) }])
-      };
+      service.currentStream = createCaptureStreamMock({
+        videoTracks: [createMediaTrackMock({ getSettings: vi.fn(() => videoSettings) })],
+        audioTracks: [createMediaTrackMock({ getSettings: vi.fn(() => audioSettings) })]
+      });
 
       const result = service._getStreamSettings();
 
@@ -452,10 +463,10 @@ describe('StreamingService', () => {
     });
 
     it('should handle stream with no audio', () => {
-      service.currentStream = {
-        getVideoTracks: vi.fn(() => [{ getSettings: vi.fn(() => ({})) }]),
-        getAudioTracks: vi.fn(() => [])
-      };
+      service.currentStream = createCaptureStreamMock({
+        videoTracks: [createMediaTrackMock({ getSettings: vi.fn(() => ({})) })],
+        audioTracks: []
+      });
 
       const result = service._getStreamSettings();
 
@@ -464,10 +475,10 @@ describe('StreamingService', () => {
     });
 
     it('should handle stream with no video', () => {
-      service.currentStream = {
-        getVideoTracks: vi.fn(() => []),
-        getAudioTracks: vi.fn(() => [{ getSettings: vi.fn(() => ({})) }])
-      };
+      service.currentStream = createCaptureStreamMock({
+        videoTracks: [],
+        audioTracks: [createMediaTrackMock({ getSettings: vi.fn(() => ({})) })]
+      });
 
       const result = service._getStreamSettings();
 

@@ -4,7 +4,13 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DeviceOrchestrator } from '@renderer/application/orchestrators/device.orchestrator.ts';
-import { createDeviceServiceMock, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createDeviceIpcAdapterMock,
+  createDeviceOperationSequencerMock,
+  createDeviceServiceMock,
+  createEventBus,
+  createLoggerFactory
+} from '../../../../factories/index.js';
 
 describe('DeviceOrchestrator', () => {
   let orchestrator;
@@ -23,23 +29,8 @@ describe('DeviceOrchestrator', () => {
       dispose: vi.fn()
     });
 
-    mockDeviceIpcAdapter = {
-      subscribe: vi.fn(() => vi.fn()),  // Returns unsubscribe function
-      dispose: vi.fn()
-    };
-
-    mockDeviceOperationSequencer = {
-      queueConnected: vi.fn().mockResolvedValue(undefined),
-      queueDisconnected: vi.fn().mockImplementation((callback) => {
-        if (typeof callback === 'function') {
-          callback();
-        }
-        return Promise.resolve();
-      }),
-      queueRefresh: vi.fn().mockResolvedValue(undefined),
-      flush: vi.fn().mockResolvedValue(undefined),
-      getQueueDepth: vi.fn().mockReturnValue(0)
-    };
+    mockDeviceIpcAdapter = createDeviceIpcAdapterMock();
+    mockDeviceOperationSequencer = createDeviceOperationSequencerMock();
 
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();

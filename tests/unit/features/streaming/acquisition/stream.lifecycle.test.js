@@ -4,13 +4,25 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base.ts';
-import { createLogger, createMediaServiceMock } from '../../../../factories/index.js';
+import { createMediaServiceMock, createMediaStreamMock, createMediaTrackMock, createLogger } from '../../../../factories/index.js';
 import { installMediaMocks } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('BaseStreamLifecycle', () => {
   let lifecycle;
   let mockLogger;
   let mediaMock;
+
+  function createLifecycleStream({
+    id = 'stream-id',
+    active = true,
+    tracks = []
+  } = {}) {
+    return {
+      id,
+      active,
+      ...createMediaStreamMock({ tracks })
+    };
+  }
 
   beforeEach(() => {
     mockLogger = createLogger();
@@ -52,11 +64,10 @@ describe('BaseStreamLifecycle', () => {
 
   describe('acquireStream', () => {
     it('should acquire stream and add to active streams', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'stream-1',
-        active: true,
-        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
-      };
+        tracks: [createMediaTrackMock({ kind: 'video', label: 'Test' })]
+      });
       mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       const constraints = { video: true };
@@ -68,11 +79,10 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should log stream acquisition', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'test',
-        active: true,
-        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
-      };
+        tracks: [createMediaTrackMock({ kind: 'video', label: 'Test' })]
+      });
       mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await lifecycle.acquireStream({ video: true });
@@ -82,22 +92,21 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should reject stream with no tracks', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'empty-stream',
-        active: true,
-        getTracks: vi.fn(() => [])
-      };
+        tracks: []
+      });
       mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await expect(lifecycle.acquireStream({ video: true })).rejects.toThrow('Invalid stream: no tracks available');
     });
 
     it('should warn if stream is not active', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'inactive-stream',
         active: false,
-        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
-      };
+        tracks: [createMediaTrackMock({ kind: 'video', label: 'Test' })]
+      });
       mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       await lifecycle.acquireStream({ video: true });
@@ -124,11 +133,10 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should use injected mediaService when provided', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'injected-stream',
-        active: true,
-        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
-      };
+        tracks: [createMediaTrackMock({ kind: 'video', label: 'Test' })]
+      });
       const mockMediaService = createMediaServiceMock({ getUserMedia: vi.fn().mockResolvedValue(mockStream) });
 
       const lifecycleWithService = new BaseStreamLifecycle(mockLogger, mockMediaService);
@@ -141,11 +149,10 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should fall back to navigator.mediaDevices when mediaService not provided', async () => {
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'navigator-stream',
-        active: true,
-        getTracks: vi.fn(() => [{ kind: 'video', label: 'Test' }])
-      };
+        tracks: [createMediaTrackMock({ kind: 'video', label: 'Test' })]
+      });
       mediaMock.mediaDevices.getUserMedia.mockResolvedValue(mockStream);
 
       const lifecycleWithoutService = new BaseStreamLifecycle(mockLogger, null);
@@ -159,14 +166,14 @@ describe('BaseStreamLifecycle', () => {
 
   describe('releaseStream', () => {
     it('should stop all tracks and remove from active streams', async () => {
-      const mockTrack = {
-        stop: vi.fn(),
+      const mockTrack = createMediaTrackMock({
         kind: 'video',
-        label: 'Test Camera'
-      };
-      const mockStream = {
-        getTracks: vi.fn(() => [mockTrack])
-      };
+        label: 'Test Camera',
+        stop: vi.fn()
+      });
+      const mockStream = createMediaStreamMock({
+        tracks: [mockTrack]
+      });
 
       lifecycle.activeStreams.add(mockStream);
 
@@ -185,12 +192,18 @@ describe('BaseStreamLifecycle', () => {
 
     it('should handle release errors per track', async () => {
       const mockTracks = [
-        { stop: vi.fn(() => { throw new Error('Track 1 error'); }), kind: 'video', label: 'Video' },
-        { stop: vi.fn(), kind: 'audio', label: 'Audio' }
+        createMediaTrackMock({
+          kind: 'video',
+          label: 'Video',
+          stop: vi.fn(() => {
+            throw new Error('Track 1 error');
+          })
+        }),
+        createMediaTrackMock({ kind: 'audio', label: 'Audio' })
       ];
-      const mockStream = {
-        getTracks: vi.fn(() => mockTracks)
-      };
+      const mockStream = createMediaStreamMock({
+        tracks: mockTracks
+      });
 
       // Should not throw - continues with other tracks
       await lifecycle.releaseStream(mockStream);
@@ -204,12 +217,12 @@ describe('BaseStreamLifecycle', () => {
 
     it('should release multiple tracks', async () => {
       const mockTracks = [
-        { stop: vi.fn(), kind: 'video', label: 'Video' },
-        { stop: vi.fn(), kind: 'audio', label: 'Audio' }
+        createMediaTrackMock({ kind: 'video', label: 'Video' }),
+        createMediaTrackMock({ kind: 'audio', label: 'Audio' })
       ];
-      const mockStream = {
-        getTracks: vi.fn(() => mockTracks)
-      };
+      const mockStream = createMediaStreamMock({
+        tracks: mockTracks
+      });
 
       await lifecycle.releaseStream(mockStream);
 
@@ -224,19 +237,17 @@ describe('BaseStreamLifecycle', () => {
     });
 
     it('should return stream info with tracks', () => {
-      const mockTrack = {
-        kind: 'video',
-        label: 'Test Camera',
-        enabled: true,
-        muted: false,
-        readyState: 'live',
-        getSettings: vi.fn(() => ({ width: 640, height: 480 }))
-      };
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'stream-123',
-        active: true,
-        getTracks: vi.fn(() => [mockTrack])
-      };
+        tracks: [createMediaTrackMock({
+          kind: 'video',
+          label: 'Test Camera',
+          enabled: true,
+          muted: false,
+          readyState: 'live',
+          getSettings: vi.fn(() => ({ width: 640, height: 480 }))
+        })]
+      });
 
       const info = lifecycle.getStreamInfo(mockStream);
 
@@ -249,28 +260,27 @@ describe('BaseStreamLifecycle', () => {
 
     it('should handle stream with multiple tracks', () => {
       const mockTracks = [
-        {
+        createMediaTrackMock({
           kind: 'video',
           label: 'Video',
           enabled: true,
           muted: false,
           readyState: 'live',
           getSettings: vi.fn(() => ({}))
-        },
-        {
+        }),
+        createMediaTrackMock({
           kind: 'audio',
           label: 'Audio',
           enabled: true,
           muted: true,
           readyState: 'live',
           getSettings: vi.fn(() => ({}))
-        }
+        })
       ];
-      const mockStream = {
+      const mockStream = createLifecycleStream({
         id: 'multi-track',
-        active: true,
-        getTracks: vi.fn(() => mockTracks)
-      };
+        tracks: mockTracks
+      });
 
       const info = lifecycle.getStreamInfo(mockStream);
 

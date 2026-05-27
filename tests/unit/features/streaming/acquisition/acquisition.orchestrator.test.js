@@ -5,7 +5,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator.ts';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
-import { createLogger } from '../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createConstraintBuilderMock,
+  createStreamConstraintsMock,
+  createFallbackStrategyMock,
+  createLogger,
+  createStreamLifecycleMock,
+} from '../../../../factories/index.js';
 
 describe('StreamAcquisitionOrchestrator', () => {
   let coordinator;
@@ -16,21 +23,12 @@ describe('StreamAcquisitionOrchestrator', () => {
   let mockContext;
 
   beforeEach(() => {
-    mockConstraintBuilder = {
-      build: vi.fn()
-    };
-
-    mockStreamLifecycle = {
-      acquireStream: vi.fn()
-    };
+    mockConstraintBuilder = createConstraintBuilderMock();
+    mockStreamLifecycle = createStreamLifecycleMock();
 
     mockLogger = createLogger();
 
-    mockFallbackStrategy = {
-      initialize: vi.fn(),
-      hasMore: vi.fn(),
-      getNext: vi.fn()
-    };
+    mockFallbackStrategy = createFallbackStrategyMock();
 
     coordinator = new StreamAcquisitionOrchestrator({
       constraintBuilder: mockConstraintBuilder,
@@ -62,8 +60,11 @@ describe('StreamAcquisitionOrchestrator', () => {
   });
 
   describe('acquire', () => {
-    const mockStream = { id: 'stream-1' };
-    const mockConstraints = { audio: { deviceId: { exact: 'test-device-123' } }, video: { deviceId: { exact: 'test-device-123' }, width: 160 } };
+    const mockStream = createCaptureStreamMock({ id: 'stream-1' });
+    const mockConstraints = createStreamConstraintsMock({
+      audio: { deviceId: { exact: 'test-device-123' } },
+      video: { deviceId: { exact: 'test-device-123' }, width: 160 }
+    });
 
     beforeEach(() => {
       mockConstraintBuilder.build.mockReturnValue(mockConstraints);

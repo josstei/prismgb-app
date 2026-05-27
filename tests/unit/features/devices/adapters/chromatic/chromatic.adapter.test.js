@@ -4,7 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter.ts';
-import { createLogger } from '../../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createAcquisitionCoordinatorMock,
+  createConstraintBuilderMock,
+  createDeviceInfo,
+  createIpcClientMock,
+  createLogger,
+  createStreamLifecycleMock
+} from '../../../../../factories/index.js';
 
 describe('DeviceChromaticAdapter', () => {
   let adapter;
@@ -14,19 +22,17 @@ describe('DeviceChromaticAdapter', () => {
   let mockLogger;
 
   beforeEach(() => {
-    mockIpcClient = {
+    mockIpcClient = createIpcClientMock({
       getDeviceProfile: vi.fn()
-    };
-
-    mockConstraintBuilder = {
+    });
+    mockConstraintBuilder = createConstraintBuilderMock({
       buildWithStrategy: vi.fn()
-    };
-
-    mockStreamLifecycle = {
+    });
+    mockStreamLifecycle = createStreamLifecycleMock({
       acquireStream: vi.fn(),
       releaseStream: vi.fn(),
       getStreamInfo: vi.fn()
-    };
+    });
 
     mockLogger = createLogger({ name: 'DeviceChromaticAdapter' });
 
@@ -133,7 +139,7 @@ describe('DeviceChromaticAdapter', () => {
   });
 
   describe('initialize', () => {
-    const mockDeviceInfo = { deviceId: 'dev-1', label: 'Chromatic' };
+    const mockDeviceInfo = createDeviceInfo({ deviceId: 'dev-1', label: 'Chromatic' });
 
     it('should load device profile from static config', async () => {
       await adapter.initialize(mockDeviceInfo);
@@ -152,17 +158,17 @@ describe('DeviceChromaticAdapter', () => {
   });
 
   describe('getStream', () => {
-    const mockDevice = { deviceId: 'dev-1', label: 'Chromatic' };
-    const mockStream = { id: 'stream-1' };
+    const mockDevice = createDeviceInfo({ deviceId: 'dev-1', label: 'Chromatic' });
+    const mockStream = createCaptureStreamMock({ id: 'stream-1' });
 
     beforeEach(() => {
       // Mock the acquisitionCoordinator with new acquire API
-      adapter.acquisitionCoordinator = {
+      adapter.acquisitionCoordinator = createAcquisitionCoordinatorMock({
         acquire: vi.fn().mockResolvedValue({
           stream: mockStream,
           strategy: 'full'
         })
-      };
+      });
 
       mockStreamLifecycle.getStreamInfo.mockReturnValue({ id: 'stream-1' });
     });

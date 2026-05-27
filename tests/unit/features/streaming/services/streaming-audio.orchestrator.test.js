@@ -8,6 +8,8 @@ import {
   createAppState,
   createEventBus,
   createLoggerFactory,
+  createCaptureStreamMock,
+  createMediaTrackMock,
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock
 } from '../../../../factories/index.js';
@@ -55,7 +57,9 @@ describe('StreamingAudioOrchestrator', () => {
 
   describe('_handleStreamStarted', () => {
     it('should initialize audio pipeline with stream', () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
 
       orchestrator._handleStreamStarted({ stream: mockStream });
 
@@ -63,7 +67,9 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should skip re-init when same stream already attached', () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
 
       orchestrator._handleStreamStarted({ stream: mockStream });
       orchestrator._handleStreamStarted({ stream: mockStream });
@@ -88,7 +94,9 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should clear active stream', () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
       orchestrator._handleStreamStarted({ stream: mockStream });
 
       orchestrator._handleStreamStopped();
@@ -100,7 +108,9 @@ describe('StreamingAudioOrchestrator', () => {
 
   describe('_initializeAudioPipeline', () => {
     it('should start audio warmup with stream', () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
 
       orchestrator._initializeAudioPipeline(mockStream);
 
@@ -108,7 +118,9 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should fallback to video audio when warmup fails', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
       mockStreamingAudioPipelineService.start.mockResolvedValue(false);
       mockAppState._forceSet('isStreaming', true);
       orchestrator._activeStream = mockStream;
@@ -122,7 +134,9 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should fallback to video audio when warmup throws', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
       mockStreamingAudioPipelineService.start.mockRejectedValue(new Error('Warmup error'));
       mockAppState._forceSet('isStreaming', true);
       orchestrator._activeStream = mockStream;
@@ -139,7 +153,7 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should not fallback when stream has no audio', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => []) };
+      const mockStream = createCaptureStreamMock();
       mockStreamingAudioPipelineService.start.mockResolvedValue(false);
       mockAppState._forceSet('isStreaming', true);
       orchestrator._activeStream = mockStream;
@@ -153,7 +167,9 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should not fallback when no longer streaming', async () => {
-      const mockStream = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
+      const mockStream = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
       mockStreamingAudioPipelineService.start.mockResolvedValue(false);
       mockAppState._forceSet('isStreaming', false);
       orchestrator._activeStream = mockStream;
@@ -167,8 +183,12 @@ describe('StreamingAudioOrchestrator', () => {
     });
 
     it('should not fallback when stream changed during warmup', async () => {
-      const mockStream1 = { getAudioTracks: vi.fn(() => [{ id: 'audio-1' }]) };
-      const mockStream2 = { getAudioTracks: vi.fn(() => [{ id: 'audio-2' }]) };
+      const mockStream1 = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
+      });
+      const mockStream2 = createCaptureStreamMock({
+        audioTracks: [createMediaTrackMock({ id: 'audio-2' })]
+      });
       mockStreamingAudioPipelineService.start.mockResolvedValue(false);
       mockAppState._forceSet('isStreaming', true);
       orchestrator._activeStream = mockStream2;

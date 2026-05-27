@@ -15,10 +15,12 @@ import {
 import {
   createDeviceServiceMock,
   createLoginItemServiceMock,
+  createShellServiceMock,
   createLogger,
+  createWindowServiceMock,
+  createAppMetricsServiceMock,
   createTranscodeServiceMock,
-  createUpdateServiceMock,
-  createWindowServiceMock
+  createUpdateServiceMock
 } from '../../../../factories/index.js';
 
 function captureHandlers(descriptors, deps) {
@@ -36,10 +38,11 @@ function captureHandlers(descriptors, deps) {
 const mockLogger = createLogger({ name: 'IpcHandlerDescriptors' });
 
 const mockDeviceService = createDeviceServiceMock();
-const mockUpdateService = createUpdateServiceMock();
-const mockWindowService = createWindowServiceMock();
+const mockWindowService = createWindowServiceMock({
+  isFullScreen: vi.fn(() => true)
+});
 const mockTranscodeService = createTranscodeServiceMock();
-const mockLoginItemService = createLoginItemServiceMock();
+const mockShellService = createShellServiceMock();
 
 const descriptorGroups = [
   ['DEVICE', deviceHandlerDescriptors], ['SHELL', shellHandlerDescriptors], ['UPDATE', updateHandlerDescriptors], ['WINDOW', windowHandlerDescriptors],
@@ -93,12 +96,8 @@ describe('Main IPC handler descriptors', () => {
   });
 
   it('maps shell responses with explicit success/error envelopes', async () => {
-    const mockShell = {
-      openExternal: vi.fn().mockResolvedValue(undefined)
-    };
-
     const handlers = captureHandlers(shellHandlerDescriptors, {
-      shell: mockShell,
+      shell: mockShellService,
       logger: mockLogger
     });
 
@@ -112,21 +111,20 @@ describe('Main IPC handler descriptors', () => {
 
   it('preserves update, transcode, and GPU response envelopes on failure', async () => {
     const updateHandlers = captureHandlers(updateHandlerDescriptors, {
-      updateService: {
-        ...mockUpdateService,
+      updateService: createUpdateServiceMock({
         checkForUpdates: vi.fn(() => Promise.reject(new Error('update failure')))
-      },
+      }),
       logger: mockLogger
     });
 
     const updateError = await updateHandlers[IPC_CHANNELS.UPDATE.CHECK]();
     expect(updateError).toEqual({ success: false, error: 'update failure' });
 
-    const transcodeService = {
+    const transcodeService = createTranscodeServiceMock({
       transcode: vi.fn(() => Promise.reject(new Error('transcode failure'))),
       cancel: vi.fn(),
       getStatus: vi.fn()
-    };
+    });
     const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, { transcodeService, logger: mockLogger });
 
     const transcodeError = await transcodeHandlers[IPC_CHANNELS.TRANSCODE.START]({}, {
@@ -148,11 +146,7 @@ describe('Main IPC handler descriptors', () => {
   });
 
   it('uses window and login item boolean/bare response modes', async () => {
-    const windowService = {
-      setFullScreen: vi.fn(),
-      isFullScreen: vi.fn(() => true)
-    };
-    const windowHandlers = captureHandlers(windowHandlerDescriptors, { windowService, logger: mockLogger });
+    const windowHandlers = captureHandlers(windowHandlerDescriptors, { windowService: mockWindowService, logger: mockLogger });
 
     const isFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]();
     expect(isFullscreen).toBe(true);
@@ -161,14 +155,13 @@ describe('Main IPC handler descriptors', () => {
     expect(setFullscreen).toEqual({ success: true });
     expect(await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, 'yes')).toEqual({ success: false, error: 'argument enabled must be boolean' });
     expect(await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]({}, true)).toBe(false);
-    expect(windowService.setFullScreen).toHaveBeenCalledTimes(1);
-    expect(windowService.isFullScreen).toHaveBeenCalledTimes(1);
+    expect(mockWindowService.setFullScreen).toHaveBeenCalledTimes(1);
+    expect(mockWindowService.isFullScreen).toHaveBeenCalledTimes(1);
 
     const loginItemHandlers = captureHandlers(loginItemHandlerDescriptors, {
-      loginItemService: {
-        ...mockLoginItemService,
+      loginItemService: createLoginItemServiceMock({
         isEnabled: vi.fn(() => false)
-      },
+      }),
       logger: mockLogger
     });
 
@@ -178,11 +171,11 @@ describe('Main IPC handler descriptors', () => {
 
   it('uses explicit performance and transcode error envelopes', async () => {
     const performanceHandlers = captureHandlers(performanceHandlerDescriptors, {
-      app: {
+      app: createAppMetricsServiceMock({
         getAppMetrics: vi.fn(() => {
           throw new Error('metrics failure');
         })
-      },
+      }),
       logger: mockLogger
     });
 
@@ -190,12 +183,12 @@ describe('Main IPC handler descriptors', () => {
     expect(metricsError).toEqual({ success: false, error: 'metrics failure' });
 
     const transcodeHandlers = captureHandlers(transcodeHandlerDescriptors, {
-      transcodeService: {
+      transcodeService: createTranscodeServiceMock({
         ...mockTranscodeService,
         cancel: vi.fn(() => {
           throw new Error('cancel failure');
         })
-      },
+      }),
       logger: mockLogger
     });
 

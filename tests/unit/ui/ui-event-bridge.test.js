@@ -9,6 +9,7 @@ import { EventChannels } from '@shared/events/event-channels.js';
 import {
   createEventBus,
   createLoggerFactory,
+  createUIEventBridgeControllerMock,
   createPresentationModeServiceMock
 } from '../../factories/index.js';
 
@@ -30,22 +31,7 @@ describe('UIEventBridge', () => {
       },
     });
 
-    mockUiController = {
-      updateStatusMessage: vi.fn(),
-      updateDeviceStatus: vi.fn(),
-      updateOverlayMessage: vi.fn(),
-      showErrorOverlay: vi.fn(),
-      updateStreamInfo: vi.fn(),
-      triggerShutterFlash: vi.fn(),
-      triggerRecordButtonPop: vi.fn(),
-      triggerRecordButtonPress: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
-      updateRecordingButtonState: vi.fn(),
-      setRecordButtonDisabled: vi.fn(),
-      deviceStatus: {
-        setOverlayVisible: vi.fn()
-      }
-    };
+    mockUiController = createUIEventBridgeControllerMock();
 
     mockPresentationModeService = createPresentationModeServiceMock();
 

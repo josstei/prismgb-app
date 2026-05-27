@@ -68,6 +68,7 @@ vi.mock('@renderer/presentation/primitives/activity-auto-hide.controller', () =>
 }));
 
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
+import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../factories/index.js';
 
 describe('UIEffects', () => {
   let effects;
@@ -75,18 +76,8 @@ describe('UIEffects', () => {
   let mockBodyClassManager;
 
   beforeEach(() => {
-    mockElements = {
-      recordBtn: {
-        classList: { add: vi.fn(), remove: vi.fn() },
-        offsetWidth: 100
-      }
-    };
-
-    mockBodyClassManager = {
-      setCinematicMode: vi.fn(),
-      setMinimalistFullscreen: vi.fn(),
-      setFullscreenMode: vi.fn()
-    };
+    mockElements = createUIEffectsElementsMock();
+    mockBodyClassManager = createUIBodyClassManagerMock();
 
     effects = new UIEffects({ elements: mockElements, bodyClassManager: mockBodyClassManager });
   });

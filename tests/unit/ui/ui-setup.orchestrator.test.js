@@ -8,10 +8,12 @@ import {
   createAppState,
   createEventBus,
   createLoggerFactory,
-  createMockElement,
   createNotesServiceMock,
+  createDomEventMock,
+  createMockButton,
   createOrchestratorMock,
-  createSettingsServiceMock
+  createSettingsServiceMock,
+  createUISetupControllerMock
 } from '../../factories/index.js';
 
 describe('UISetupOrchestrator', () => {
@@ -40,63 +42,10 @@ describe('UISetupOrchestrator', () => {
 
     mockNotesService = createNotesServiceMock();
 
-    mockStreamOverlay = createMockElement('div');
-    mockStreamVideo = createMockElement('video');
-    mockStreamCanvas = createMockElement('canvas');
-
-    const mockShaderBtn = createMockElement('button');
-    const mockShaderDropdown = createMockElement('select');
-    const mockShaderOptions = createMockElement('div');
-    const mockShaderUnavailableMessage = createMockElement('div');
-    const mockCinematicToggle = createMockElement('input');
-    const mockCinematicPillText = createMockElement('span');
-    const mockStreamToolbar = createMockElement('div');
-    const mockBrightnessSlider = createMockElement('input');
-    const mockBrightnessPercentage = createMockElement('span');
-    const mockBrightnessControl = createMockElement('div');
-    const mockVolumeSliderVertical = createMockElement('input');
-    const mockVolumePercentageVertical = createMockElement('span');
-    const mockStreamContainer = createMockElement('div');
-    const mockNotesBtn = createMockElement('button');
-
-    mockUiController = {
-      on: vi.fn(),
-      elements: {
-        streamOverlay: mockStreamOverlay,
-        streamVideo: mockStreamVideo,
-        streamCanvas: mockStreamCanvas,
-        shaderBtn: mockShaderBtn,
-        shaderDropdown: mockShaderDropdown,
-        cinematicToggle: mockCinematicToggle,
-        streamToolbar: mockStreamToolbar
-      },
-      dom: {
-        streaming: {
-          shaderBtn: mockShaderBtn,
-          shaderDropdown: mockShaderDropdown,
-          shaderOptions: mockShaderOptions,
-          shaderUnavailableMessage: mockShaderUnavailableMessage,
-          cinematicToggle: mockCinematicToggle,
-          cinematicPillText: mockCinematicPillText,
-          streamToolbar: mockStreamToolbar,
-          brightnessSlider: mockBrightnessSlider,
-          brightnessPercentage: mockBrightnessPercentage,
-          brightnessControl: mockBrightnessControl,
-          volumeSliderVertical: mockVolumeSliderVertical,
-          volumePercentageVertical: mockVolumePercentageVertical,
-          streamVideo: mockStreamVideo,
-          streamContainer: mockStreamContainer
-        },
-        notes: {
-          notesBtn: mockNotesBtn
-        }
-      },
-      initSettingsMenu: vi.fn(),
-      initShaderSelector: vi.fn(),
-      initNotesPanel: vi.fn(),
-      toggleSettingsMenu: vi.fn(),
-      toggleShaderSelector: vi.fn()
-    };
+    mockUiController = createUISetupControllerMock();
+    mockStreamOverlay = mockUiController.elements.streamOverlay;
+    mockStreamVideo = mockUiController.elements.streamVideo;
+    mockStreamCanvas = mockUiController.elements.streamCanvas;
 
     orchestrator = new UISetupOrchestrator({
       appState: mockAppState,
@@ -274,12 +223,12 @@ describe('UISetupOrchestrator', () => {
       const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
       const handler = call[2];
 
-      const mockEvent = {
+      const mockEvent = createDomEventMock({
         currentTarget: {
           blur: vi.fn(),
           style: {}
         }
-      };
+      });
       handler(mockEvent);
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:fullscreen-toggle-requested');
@@ -291,8 +240,8 @@ describe('UISetupOrchestrator', () => {
       const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
       const handler = call[2];
 
-      const mockButton = { blur: vi.fn() };
-      const mockEvent = { currentTarget: mockButton };
+      const mockButton = createMockButton();
+      const mockEvent = createDomEventMock({ currentTarget: mockButton });
       handler(mockEvent);
 
       expect(mockButton.blur).toHaveBeenCalled();
@@ -370,7 +319,7 @@ describe('UISetupOrchestrator', () => {
 
   describe('_toggleSettingsMenu', () => {
     it('should stop event propagation', () => {
-      const mockEvent = { stopPropagation: vi.fn() };
+      const mockEvent = createDomEventMock();
 
       orchestrator._toggleSettingsMenu(mockEvent);
 
@@ -378,7 +327,7 @@ describe('UISetupOrchestrator', () => {
     });
 
     it('should call uiController.toggleSettingsMenu', () => {
-      const mockEvent = { stopPropagation: vi.fn() };
+      const mockEvent = createDomEventMock();
 
       orchestrator._toggleSettingsMenu(mockEvent);
 
@@ -388,7 +337,7 @@ describe('UISetupOrchestrator', () => {
 
   describe('_toggleShaderSelector', () => {
     it('should stop event propagation', () => {
-      const mockEvent = { stopPropagation: vi.fn() };
+      const mockEvent = createDomEventMock();
 
       orchestrator._toggleShaderSelector(mockEvent);
 
@@ -396,7 +345,7 @@ describe('UISetupOrchestrator', () => {
     });
 
     it('should call uiController.toggleShaderSelector', () => {
-      const mockEvent = { stopPropagation: vi.fn() };
+      const mockEvent = createDomEventMock();
 
       orchestrator._toggleShaderSelector(mockEvent);
 

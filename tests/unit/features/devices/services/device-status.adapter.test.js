@@ -5,15 +5,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/devices/device-ipc-status.adapter.ts';
 import { IDeviceStatusProvider } from '@shared/interfaces/device-status-provider.interface.js';
+import { createDeviceStatusMock, createIpcClientMock } from '../../../../factories/index.js';
 
 describe('DeviceIpcStatusAdapter', () => {
   let adapter;
   let mockIpcClient;
 
   beforeEach(() => {
-    mockIpcClient = {
-      getDeviceStatus: vi.fn()
-    };
+    mockIpcClient = createIpcClientMock();
 
     adapter = new DeviceIpcStatusAdapter(mockIpcClient);
   });
@@ -30,7 +29,10 @@ describe('DeviceIpcStatusAdapter', () => {
 
   describe('getDeviceStatus', () => {
     it('should delegate to ipcClient.getDeviceStatus', async () => {
-      const mockStatus = { connected: true, deviceId: 'chromatic-123' };
+      const mockStatus = createDeviceStatusMock({
+        connected: true,
+        deviceId: 'chromatic-123'
+      });
       mockIpcClient.getDeviceStatus.mockResolvedValue(mockStatus);
 
       await adapter.getDeviceStatus();
@@ -40,7 +42,10 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should return the result from ipcClient', async () => {
-      const mockStatus = { connected: true, deviceId: 'chromatic-123' };
+      const mockStatus = createDeviceStatusMock({
+        connected: true,
+        deviceId: 'chromatic-123'
+      });
       mockIpcClient.getDeviceStatus.mockResolvedValue(mockStatus);
 
       const result = await adapter.getDeviceStatus();
@@ -50,7 +55,10 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should return disconnected status from ipcClient', async () => {
-      const mockStatus = { connected: false, deviceId: null };
+      const mockStatus = createDeviceStatusMock({
+        connected: false,
+        deviceId: null
+      });
       mockIpcClient.getDeviceStatus.mockResolvedValue(mockStatus);
 
       const result = await adapter.getDeviceStatus();
@@ -81,9 +89,15 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should handle multiple sequential calls', async () => {
-      const status1 = { connected: false, deviceId: null };
-      const status2 = { connected: true, deviceId: 'chromatic-123' };
-      const status3 = { connected: true, deviceId: 'chromatic-456' };
+      const status1 = createDeviceStatusMock({ connected: false, deviceId: null });
+      const status2 = createDeviceStatusMock({
+        connected: true,
+        deviceId: 'chromatic-123'
+      });
+      const status3 = createDeviceStatusMock({
+        connected: true,
+        deviceId: 'chromatic-456'
+      });
 
       mockIpcClient.getDeviceStatus
         .mockResolvedValueOnce(status1)
@@ -101,7 +115,10 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should handle concurrent calls', async () => {
-      const mockStatus = { connected: true, deviceId: 'chromatic-123' };
+      const mockStatus = createDeviceStatusMock({
+        connected: true,
+        deviceId: 'chromatic-123'
+      });
       mockIpcClient.getDeviceStatus.mockResolvedValue(mockStatus);
 
       const [result1, result2, result3] = await Promise.all([
@@ -117,7 +134,7 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should return complex device status objects', async () => {
-      const complexStatus = {
+      const complexStatus = createDeviceStatusMock({
         connected: true,
         deviceId: 'chromatic-123',
         firmwareVersion: '1.2.3',
@@ -127,7 +144,7 @@ describe('DeviceIpcStatusAdapter', () => {
           hasAudio: true,
           resolution: { width: 160, height: 144 }
         }
-      };
+      });
       mockIpcClient.getDeviceStatus.mockResolvedValue(complexStatus);
 
       const result = await adapter.getDeviceStatus();
@@ -159,7 +176,7 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should not throw "Not implemented" error', async () => {
-      const mockStatus = { connected: true };
+      const mockStatus = createDeviceStatusMock({ connected: true });
       mockIpcClient.getDeviceStatus.mockResolvedValue(mockStatus);
 
       await expect(adapter.getDeviceStatus()).resolves.toEqual(mockStatus);

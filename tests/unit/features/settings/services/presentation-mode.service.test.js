@@ -4,7 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/presentation-mode.service.ts';
-import { createAppState, createLoggerFactory } from '../../../../factories/index.js';
+import {
+  createAppState,
+  createLoggerFactory,
+  createPresentationModeControllerMock,
+} from '../../../../factories/index.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('PresentationModeService', () => {
@@ -15,15 +19,7 @@ describe('PresentationModeService', () => {
   let fullscreenElementMock;
 
   beforeEach(() => {
-    mockUiController = {
-      setStreamingMode: vi.fn(),
-      updateCinematicMode: vi.fn(),
-      updateMinimalistFullscreen: vi.fn(),
-      updateFullscreenButton: vi.fn(),
-      updateFullscreenMode: vi.fn(),
-      enableControlsAutoHide: vi.fn(),
-      disableControlsAutoHide: vi.fn()
-    };
+    mockUiController = createPresentationModeControllerMock();
 
     mockAppState = createAppState({
       initialState: {

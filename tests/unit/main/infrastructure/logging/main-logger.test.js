@@ -4,6 +4,10 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
+import {
+  createWinstonLoggerMock,
+  createWinstonRootLoggerMock
+} from '../../../../factories/index.js';
 
 // Mock electron before importing MainLogger
 vi.mock('electron', () => ({
@@ -33,17 +37,8 @@ import { MainLogger } from '@main/infrastructure/logging/index.js';
 
 // Mock winston
 vi.mock('winston', () => {
-  const mockChildLogger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  };
-
-  const mockRootLogger = {
-    child: vi.fn(() => mockChildLogger),
-    level: 'debug'
-  };
+  const mockChildLogger = createWinstonLoggerMock();
+  const mockRootLogger = createWinstonRootLoggerMock({ childLogger: mockChildLogger });
 
   return {
     default: {

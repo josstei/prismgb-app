@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingGpuRendererService } from '@renderer/infrastructure/services/streaming/gpu-renderer.service.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { buildUniforms } from '@prismgb/gpu';
-import { createEventBus, createLoggerFactory, createSettingsServiceMock } from '../../../../../factories/index.js';
+import { createBitmapMock, createEventBus, createGpuWorkerManagerMock, createLoggerFactory, createSettingsServiceMock } from '../../../../../factories/index.js';
 import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 // Mock the capability detector
@@ -101,16 +101,7 @@ describe('StreamingGpuRendererService', () => {
       getSize: vi.fn(() => 0)
     };
 
-    mockGpuWorkerManager = {
-      isReady: vi.fn(() => false),
-      isCanvasTransferred: vi.fn(() => false),
-      getCapabilities: vi.fn(() => null),
-      initialize: vi.fn().mockResolvedValue(true),
-      sendCommand: vi.fn(),
-      onMessage: vi.fn(() => vi.fn()),
-      releaseResources: vi.fn(),
-      terminate: vi.fn()
-    };
+    mockGpuWorkerManager = createGpuWorkerManagerMock();
 
     service = new StreamingGpuRendererService({
       eventBus: mockEventBus,
@@ -270,7 +261,7 @@ describe('StreamingGpuRendererService', () => {
 
     it('should send frame via worker manager', async () => {
       mockGpuWorkerManager.isReady.mockReturnValue(true);
-      const mockBitmap = { close: vi.fn() };
+      const mockBitmap = createBitmapMock({ close: vi.fn() });
       createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       service._currentPreset = { id: 'default' };
@@ -288,7 +279,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should create frame bitmaps at the active native resolution', async () => {
-      const mockBitmap = { close: vi.fn() };
+      const mockBitmap = createBitmapMock({ close: vi.fn() });
       createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       await service.initialize(

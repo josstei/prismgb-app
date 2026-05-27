@@ -6,7 +6,12 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge.ts';
 import { EventChannels } from '@shared/events/event-channels.js';
-import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+import {
+  createCaptureToastMock,
+  createEventBus,
+  createLoggerFactory,
+  createTranscodeUIControllerMock,
+} from '../../../factories/index.js';
 
 describe('TranscodeUIBridge', () => {
   let bridge;
@@ -27,27 +32,10 @@ describe('TranscodeUIBridge', () => {
       },
     });
 
-    // Create mock TranscodeToast
-    mockTranscodeToast = {
-      show: vi.fn(),
-      updateProgress: vi.fn(),
-      showSuccess: vi.fn(),
-      showError: vi.fn(),
-      hide: vi.fn(),
-      dispose: vi.fn()
-    };
-
-    // Create mock UIController with registry
-    mockUIController = {
-      registry: {
-        get: vi.fn((name) => {
-          if (name === 'transcodeToastComponent') {
-            return mockTranscodeToast;
-          }
-          return null;
-        })
-      }
-    };
+    mockTranscodeToast = createCaptureToastMock();
+    mockUIController = createTranscodeUIControllerMock({
+      transcodeToast: mockTranscodeToast,
+    });
 
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('TranscodeUIBridge');

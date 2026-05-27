@@ -5,7 +5,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseDeviceAdapter } from '@renderer/infrastructure/adapters/devices/device-base.adapter.ts';
 import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context.ts';
-import { createEventBus, createLogger } from '../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createConstraintBuilderMock,
+  createDeviceInfo,
+  createEventBus,
+  createLogger,
+  createStreamLifecycleMock
+} from '../../../../factories/index.js';
 
 describe('BaseDeviceAdapter', () => {
   let adapter;
@@ -18,14 +25,10 @@ describe('BaseDeviceAdapter', () => {
     mockEventBus = createEventBus();
     mockLogger = createLogger({ name: 'BaseDeviceAdapter' });
 
-    mockConstraintBuilder = {
+    mockConstraintBuilder = createConstraintBuilderMock({
       build: vi.fn(() => ({ video: { width: 160 } }))
-    };
-
-    mockStreamLifecycle = {
-      acquireStream: vi.fn(() => Promise.resolve({ id: 'mock-stream' })),
-      releaseStream: vi.fn(() => Promise.resolve())
-    };
+    });
+    mockStreamLifecycle = createStreamLifecycleMock();
 
     adapter = new BaseDeviceAdapter({
       eventBus: mockEventBus,
@@ -58,14 +61,14 @@ describe('BaseDeviceAdapter', () => {
 
   describe('initialize', () => {
     it('should set device info', async () => {
-      const deviceInfo = { deviceId: '123', label: 'Test Device' };
+      const deviceInfo = createDeviceInfo({ deviceId: '123', label: 'Test Device' });
       await adapter.initialize(deviceInfo);
 
       expect(adapter.deviceInfo).toBe(deviceInfo);
     });
 
     it('should log initialization', async () => {
-      const deviceInfo = { deviceId: '123' };
+      const deviceInfo = createDeviceInfo({ deviceId: '123' });
       await adapter.initialize(deviceInfo);
 
       expect(mockLogger.info).toHaveBeenCalledWith('Adapter initialized for device:', deviceInfo);
@@ -74,7 +77,7 @@ describe('BaseDeviceAdapter', () => {
 
   describe('getStream', () => {
     beforeEach(() => {
-      adapter.deviceInfo = { deviceId: 'test-device-123', label: 'Test Device' };
+      adapter.deviceInfo = createDeviceInfo({ deviceId: 'test-device-123', label: 'Test Device' });
       adapter.profile = { video: { width: 160, height: 144 } };
     });
 
@@ -125,24 +128,24 @@ describe('BaseDeviceAdapter', () => {
 
   describe('releaseStream', () => {
     it('should release stream via lifecycle', async () => {
-      const stream = { id: 'test-stream' };
+      const stream = createCaptureStreamMock({ id: 'test-stream' });
       await adapter.releaseStream(stream);
 
       expect(mockStreamLifecycle.releaseStream).toHaveBeenCalledWith(stream);
     });
 
     it('should clear currentStream if matches', async () => {
-      adapter.currentStream = { id: 'current' };
+      adapter.currentStream = createCaptureStreamMock({ id: 'current' });
       await adapter.releaseStream(adapter.currentStream);
 
       expect(adapter.currentStream).toBeNull();
     });
 
     it('should not clear currentStream if different', async () => {
-      adapter.currentStream = { id: 'current' };
-      await adapter.releaseStream({ id: 'other' });
+      adapter.currentStream = createCaptureStreamMock({ id: 'current' });
+      await adapter.releaseStream(createCaptureStreamMock({ id: 'other' }));
 
-      expect(adapter.currentStream).toEqual({ id: 'current' });
+      expect(adapter.currentStream).toEqual(expect.objectContaining({ id: 'current' }));
     });
 
     it('should handle null stream', async () => {
@@ -190,16 +193,16 @@ describe('BaseDeviceAdapter', () => {
 
   describe('cleanup', () => {
     it('should release current stream', async () => {
-      adapter.currentStream = { id: 'test' };
+      adapter.currentStream = createCaptureStreamMock({ id: 'test' });
       await adapter.cleanup();
 
-      expect(mockStreamLifecycle.releaseStream).toHaveBeenCalledWith({ id: 'test' });
+      expect(mockStreamLifecycle.releaseStream).toHaveBeenCalledWith(expect.objectContaining({ id: 'test' }));
     });
 
     it('should clear state', async () => {
-      adapter.deviceInfo = { id: '123' };
+      adapter.deviceInfo = createDeviceInfo({ deviceId: '123' });
       adapter.profile = { video: {} };
-      adapter.currentStream = { id: 'test' };
+      adapter.currentStream = createCaptureStreamMock({ id: 'test' });
 
       await adapter.cleanup();
 

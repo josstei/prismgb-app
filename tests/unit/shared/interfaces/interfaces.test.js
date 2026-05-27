@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { IConstraintBuilder, IStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/acquisition.interface.ts';
 import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
+import { createAcquisitionContextMock } from '../../factories/index.js';
 
 describe('IConstraintBuilder', () => {
   let builder;
@@ -39,10 +40,10 @@ describe('IConstraintBuilder', () => {
       }
 
       const testBuilder = new TestConstraintBuilder();
-      const mockContext = {
+      const mockContext = createAcquisitionContextMock({
         deviceId: 'test-123',
         profile: { video: { width: 640 } }
-      };
+      });
 
       expect(testBuilder.build(mockContext, 'full')).toEqual({
         video: { deviceId: { exact: 'test-123' }, width: 640 }

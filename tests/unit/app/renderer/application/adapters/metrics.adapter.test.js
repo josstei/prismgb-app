@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform/metrics.adapter.ts';
+import { createProcessMetricsMock } from '../../../../../factories/index.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../../support/mocks/preload-api-globals.js';
 
 describe('MetricsAdapter', () => {
@@ -70,13 +71,11 @@ describe('MetricsAdapter', () => {
     });
 
     it('should call metricsAPI.getProcessMetrics when available', async () => {
-      const mockMetrics = {
+      const mockMetrics = createProcessMetricsMock({
         success: true,
         totalMB: '150.0',
-        processes: [
-          { type: 'Renderer', memoryMB: '80.0' }
-        ]
-      };
+        processes: [{ type: 'Renderer', memoryMB: '80.0' }]
+      });
 
       setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
@@ -114,7 +113,7 @@ describe('MetricsAdapter', () => {
     });
 
     it('should return successful metrics data', async () => {
-      const mockMetrics = {
+      const mockMetrics = createProcessMetricsMock({
         success: true,
         totalMB: '200.5',
         processes: [
@@ -122,7 +121,7 @@ describe('MetricsAdapter', () => {
           { type: 'GPU', memoryMB: '80.0' },
           { type: 'Browser', memoryMB: '20.5' }
         ]
-      };
+      });
 
       setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
         getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
