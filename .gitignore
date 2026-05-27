@@ -70,3 +70,4 @@ scripts/*.log
 # Docs subdirectories
 docs/superpowers/
 docs/maestro/
+.gemini/

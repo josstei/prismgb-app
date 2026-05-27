@@ -7,9 +7,11 @@ export function createStorageService(initialValues = {}) {
     getItem: vi.fn((key) => store.get(key) ?? null),
     setItem: vi.fn((key, value) => {
       store.set(key, String(value));
+      return true;
     }),
     removeItem: vi.fn((key) => {
       store.delete(key);
+      return true;
     }),
     clear: vi.fn(() => {
       store.clear();
