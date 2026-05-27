@@ -118,7 +118,7 @@ describe('StreamingViewportService', () => {
 
     it('should not create observer if already exists', () => {
       const onResize = vi.fn();
-      const existingObserver = { observe: vi.fn() };
+      const existingObserver = new resizeObserverMock.ResizeObserver(() => {});
       service._resizeObserver = existingObserver;
 
       service.initialize(mockSection, onResize);

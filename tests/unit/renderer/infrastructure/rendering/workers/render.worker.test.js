@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { installWorkerScopeMock } from '../../../../../support/mocks/browser-api.installers.js';
-import { createWorkerPipelineMock } from '../../../../../factories/index.js';
+import { createMockCanvas, createRecordingFrameMock, createWorkerPipelineMock } from '../../../../../factories/index.js';
 
 const defaultPreset = {
   id: 'vibrant',
@@ -117,10 +117,14 @@ function configPayload() {
 }
 
 function createBitmap(id = 'frame') {
-  return {
-    id,
-    close: vi.fn()
-  };
+  return createRecordingFrameMock({ id });
+}
+
+function createOnePixelCanvasFixture() {
+  return createMockCanvas({
+    width: 1,
+    height: 1
+  });
 }
 
 describe('render worker', () => {
@@ -138,10 +142,7 @@ describe('render worker', () => {
 
   it('initializes through createWorkerPipeline and keeps protocol READY payload stable', async () => {
     const harness = await loadWorkerHarness();
-    const offscreenCanvas = {
-      width: 1,
-      height: 1
-    };
+    const offscreenCanvas = createOnePixelCanvasFixture();
 
     mockPresetGet.mockReturnValue(defaultPreset);
 
@@ -173,7 +174,7 @@ describe('render worker', () => {
     await sendWorkerMessage(
       harness.scope,
       createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: { width: 1, height: 1 },
+        canvas: createOnePixelCanvasFixture(),
         config: configPayload()
       })
     );
@@ -209,7 +210,7 @@ describe('render worker', () => {
     await sendWorkerMessage(
       harness.scope,
       createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: { width: 1, height: 1 },
+        canvas: createOnePixelCanvasFixture(),
         config: configPayload()
       })
     );
@@ -256,7 +257,7 @@ describe('render worker', () => {
     await sendWorkerMessage(
       harness.scope,
       createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: { width: 1, height: 1 },
+        canvas: createOnePixelCanvasFixture(),
         config: configPayload()
       })
     );
@@ -273,13 +274,13 @@ describe('render worker', () => {
 
   it('routes capture requests through pipeline captureFrame', async () => {
     const harness = await loadWorkerHarness();
-    const queuedFrame = { id: 'queued', close: vi.fn() };
+    const queuedFrame = createRecordingFrameMock({ id: 'queued' });
     mockPipeline.captureFrame.mockResolvedValueOnce(queuedFrame);
 
     await sendWorkerMessage(
       harness.scope,
       createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: { width: 1, height: 1 },
+        canvas: createOnePixelCanvasFixture(),
         config: configPayload()
       })
     );
@@ -316,7 +317,7 @@ describe('render worker', () => {
     await sendWorkerMessage(
       harness.scope,
       createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: { width: 1, height: 1 },
+        canvas: createOnePixelCanvasFixture(),
         config: configPayload()
       })
     );

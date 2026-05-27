@@ -9,6 +9,7 @@ import {
   createAcquisitionCoordinatorMock,
   createConstraintBuilderMock,
   createDeviceInfo,
+  createCallbackMap,
   createIpcClientMock,
   createLogger,
   createStreamLifecycleMock
@@ -122,9 +123,8 @@ describe('DeviceChromaticAdapter', () => {
     });
 
     it('should accept custom helpers via dependency injection', () => {
-      const customHelpers = {
-        getResolutionByScale: vi.fn().mockReturnValue({ width: 100, height: 100 })
-      };
+      const customHelpers = createCallbackMap(['getResolutionByScale']);
+      customHelpers.getResolutionByScale.mockReturnValue({ width: 100, height: 100 });
 
       const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,
@@ -242,9 +242,8 @@ describe('DeviceChromaticAdapter', () => {
         rendering: { canvasScale: 2 }
       };
 
-      const customHelpers = {
-        getResolutionByScale: vi.fn().mockReturnValue({ width: 640, height: 480 })
-      };
+      const customHelpers = createCallbackMap(['getResolutionByScale']);
+      customHelpers.getResolutionByScale.mockReturnValue({ width: 640, height: 480 });
 
       const customAdapter = new DeviceChromaticAdapter({
         ipcClient: mockIpcClient,

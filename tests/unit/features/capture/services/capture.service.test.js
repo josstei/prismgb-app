@@ -10,6 +10,7 @@ import {
   createEventBus,
   createLoggerFactory,
   createMediaBlobEventMock,
+  createMediaRecorderMock,
   createMediaRecorderErrorEventMock,
   createMediaTrackMock,
   createMockCanvas
@@ -382,7 +383,7 @@ describe('CaptureService', () => {
     it('should clear all state', () => {
       service.isRecording = true;
       service.recordedChunks = [{ size: 100 }];
-      service.mediaRecorder = { stop: vi.fn() };
+      service.mediaRecorder = createMediaRecorderMock();
 
       service.dispose();
 

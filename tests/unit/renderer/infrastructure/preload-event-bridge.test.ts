@@ -46,7 +46,7 @@ describe('createManifestPreloadEventBridge', () => {
   });
 
   it('fails closed when a manifest subscription handler is missing', () => {
-    const incompleteHandlers = { onMappedAvailable: vi.fn() } as Record<string, (...args: never[]) => void>;
+    const incompleteHandlers = createCallbackMap(['onMappedAvailable']);
     const api = createPreloadEventApiMock({ onMappedAvailable: vi.fn(), onMappedError: vi.fn() });
     expect(() => createManifestPreloadEventBridge({ api, descriptor: testDescriptor, bridgeName: 'TestBridge', handlers: incompleteHandlers, manifest: testManifest })).toThrow('TestBridge: preload event handler missing for "testAPI.onMappedError"');
   });
@@ -57,5 +57,10 @@ describe('createManifestPreloadEventBridge', () => {
     expect(() => createManifestPreloadEventBridge({ api, descriptor: testDescriptor, bridgeName: 'TestBridge', handlers, manifest: testManifest })).toThrow('TestBridge: preload API method "testAPI.onMappedError" is not available');
   });
 
-  it('fails closed when bridge descriptors drift from manifest subscriptions', () => { expect(() => createManifestPreloadEventBridge({ api: { onMappedAvailable: vi.fn(() => vi.fn()) }, descriptor: { apiName: 'testAPI', methods: ['onMappedAvailable'] } as const, bridgeName: 'TestBridge', handlers: { onMappedAvailable: vi.fn() }, manifest: testManifest })).toThrow('TestBridge: IPC manifest subscriptions missing from descriptor for "testAPI": onMappedError'); });
+  it('fails closed when bridge descriptors drift from manifest subscriptions', () => {
+    const api = createPreloadEventApiMock({ onMappedAvailable: vi.fn() });
+    const handlers = createCallbackMap(['onMappedAvailable']);
+
+    expect(() => createManifestPreloadEventBridge({ api, descriptor: { apiName: 'testAPI', methods: ['onMappedAvailable'] } as const, bridgeName: 'TestBridge', handlers, manifest: testManifest })).toThrow('TestBridge: IPC manifest subscriptions missing from descriptor for "testAPI": onMappedError');
+  });
 });

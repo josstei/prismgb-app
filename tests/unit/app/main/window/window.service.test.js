@@ -3,45 +3,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createLoggerFactory, createPreventDefaultEventMock } from '../../../../factories/index.js';
+import {
+  createLoggerFactory,
+  createPreventDefaultEventMock,
+  createWindowServiceElectronMock
+} from '../../../../factories/index.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
-  return {
-    BrowserWindow: class MockBrowserWindow {
-      constructor() {
-        this.loadURL = vi.fn();
-        this.loadFile = vi.fn();
-        this.show = vi.fn();
-        this.hide = vi.fn();
-        this.focus = vi.fn();
-        this.restore = vi.fn();
-        this.isMinimized = vi.fn().mockReturnValue(false);
-        this.isDestroyed = vi.fn().mockReturnValue(false);
-        this.setSkipTaskbar = vi.fn();
-        this.removeAllListeners = vi.fn();
-        this.on = vi.fn();
-        this.off = vi.fn();
-        this.once = vi.fn();
-        this.webContents = {
-          send: vi.fn(),
-          on: vi.fn(),
-          off: vi.fn(),
-          session: {
-            on: vi.fn(),
-            off: vi.fn()
-          }
-        };
-      }
-    },
-    app: {
-      isPackaged: false,
-      getAppPath: vi.fn(() => '/app/path'),
-      getPath: vi.fn(() => '/downloads'),
-      isQuitting: false,
-      focus: vi.fn()
-    }
-  };
+  return createWindowServiceElectronMock();
 });
 
 // Mock ConfigLoader

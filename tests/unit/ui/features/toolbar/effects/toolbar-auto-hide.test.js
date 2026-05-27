@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect.ts';
 import { installMissingMutationObserverMock } from '../../../../../support/mocks/browser-api.installers.js';
+import { createCallbackMap } from '../../../../../factories/index.js';
 
 describe('ToolbarAutoHide', () => {
   let autoHide;
@@ -12,12 +13,7 @@ describe('ToolbarAutoHide', () => {
   let callbacks;
 
   beforeEach(() => {
-    callbacks = {
-      onActivity: vi.fn(),
-      onHide: vi.fn(),
-      onHoverStart: vi.fn(),
-      onHoverEnd: vi.fn()
-    };
+    callbacks = createCallbackMap(['onActivity', 'onHide', 'onHoverStart', 'onHoverEnd']);
 
     toolbarElement = document.createElement('div');
     toolbarElement.className = 'toolbar';

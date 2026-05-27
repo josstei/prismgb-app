@@ -387,6 +387,53 @@ The bulk of Step 6 / Area I remains. Each remaining failure requires:
   - completed inline container-mock migration in `tests/unit/app/renderer/RendererAppOrchestrator.test.js`:
     - added `createRendererAppContainerMock` to `tests/factories/index.js` with shared dependency defaults for `appOrchestrator`, `adapterFactory`, `uiComponentRegistry`, `uiEffects`, and preload bridges
     - replaced verbose inline `initializeContainer` resolve switch with `createRendererAppContainerMock()`
+  - additional continuation in this continuation turn (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createDisposableMock`
+      - `createCallbackMap`
+      - `createPreloadEventApiMock`
+    - migrated remaining inline event/bridge collaborator objects in:
+      - `tests/unit/features/updates/services/update.service.test.js` (`service._eventBridge` -> `createDisposableMock`)
+      - `tests/unit/renderer/infrastructure/preload-event-bridge.test.ts` (`api`/`handlers` in final descriptor-mismatch assertion -> `createPreloadEventApiMock` + `createCallbackMap`)
+  - additional continuation in this continuation turn (2026-05-27):
+    - added shared helpers in `tests/factories/index.js`:
+      - `createContextBridgeMock`
+      - `createProcessMetricsApiMock`
+      - `createOffscreenCanvasElementMock`
+    - migrated inline object/closure collaborators in:
+      - `tests/unit/preload/preload-api.contract.test.js` (`contextBridge`, `existingMetricsAPI`, `existingGlobalAPI` -> `createContextBridgeMock`/`createProcessMetricsApiMock`)
+      - `tests/unit/renderer/infrastructure/preload-event-bridge.test.ts` (`incompleteHandlers` assertion path -> `createCallbackMap`)
+      - `tests/unit/features/devices/adapters/chromatic/chromatic.adapter.test.js` (`customHelpers` fixtures -> `createCallbackMap`)
+      - `tests/unit/features/streaming/rendering/gpu/gpu-renderer.service.test.js` (`canvasElement` fixtures -> `createOffscreenCanvasElementMock`)
+      - `tests/unit/features/streaming/rendering/viewport.service.test.js` (`existingObserver` fixture -> `resizeObserverMock.ResizeObserver`)
+  - additional continuation in this continuation turn (2026-05-27):
+    - migrated inline frame fixture construction in
+      - `tests/unit/renderer/infrastructure/rendering/workers/render.worker.test.js` (`queuedFrame` and `createBitmap` mock frame objects -> `createRecordingFrameMock`)
+  - additional continuation in this continuation turn (2026-05-27):
+    - migrated additional inline canvas payload objects in
+      - `tests/unit/renderer/infrastructure/rendering/workers/render.worker.test.js` (`offscreenCanvas` literals -> `createMockCanvas` via `createOnePixelCanvasFixture`)
+- additional continuation in this continuation turn (2026-05-27):
+  - completed one further inline collaborator migration in
+    - `tests/unit/features/streaming/rendering/gpu/gpu-renderer.service.test.js`
+      - remaining inline `canvasElement` payloads -> `createOffscreenCanvasElementMock`
+      - `videoElement` readiness stubs -> `createMockVideo` with explicit readiness overrides where needed
+  - additional continuation in this continuation turn (2026-05-27):
+  - migrated additional inline callback payloads and collaborators in:
+    - `tests/unit/features/capture/services/capture.service.test.js` (`mediaRecorder` stop collaborator -> `createMediaRecorderMock`)
+    - `tests/unit/renderer/presentation/primitives/activity-auto-hide.controller.test.ts` (`callbacks` object -> `createCallbackMap`)
+    - `tests/unit/ui/features/fullscreen/effects/controls-auto-hide.test.js` (`callbacks` object -> `createCallbackMap`)
+    - `tests/unit/ui/features/streaming/effects/cursor-auto-hide.test.js` (`callbacks` object -> `createCallbackMap`)
+    - `tests/unit/ui/primitives/listbox-dropdown.test.js` (`callbacks` object -> `createCallbackMap`)
+    - `tests/unit/ui/features/toolbar/effects/toolbar-auto-hide.test.js` (`callbacks` object -> `createCallbackMap`)
+  - additional continuation in this continuation turn (2026-05-27):
+  - migrated direct `_elements` inline collaborator assignment in
+    - `tests/unit/features/capture/services/capture.orchestrator.test.js` (`mockStreamingViewService._elements` -> `createStreamingViewElementsMock`)
+  - additional continuation in this continuation turn (2026-05-27):
+    - added shared Electron module mock helper in `tests/factories/index.js`:
+      - `createBrowserWindowMock` (reusable BrowserWindow instance scaffold)
+      - `createWindowServiceElectronMock` (electron module shim for `electron` import)
+    - migrated inline `electron` module mock in
+      - `tests/unit/app/main/window/window.service.test.js` (`vi.mock('electron')` now uses `createWindowServiceElectronMock`)
 
 The audit document itself routes this work to `FUTURE_FIRST_TRACKING.md:154` with the explicit 3-Pass Review protocol because of exactly this risk. Executing it inline without that protocol would ship untracked contract decisions into the test suite. **Run the dedicated `/goal` separately.**
 

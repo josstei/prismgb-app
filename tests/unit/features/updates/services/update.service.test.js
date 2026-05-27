@@ -3,7 +3,7 @@ import { UpdateService } from '@renderer/infrastructure/services/updates/update.
 import { UpdateState } from '@shared/config/update-state.config';
 import { EventChannels } from '@shared/events/event-channels.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createDisposableMock, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('UpdateService', () => {
   let service, mockEventBus, mockLogger, mockLoggerFactory, mockUpdateAPI;
@@ -324,12 +324,12 @@ describe('UpdateService', () => {
     it('should dispose preload event bridge unsubscribe functions', () => {
       const cleanup1 = vi.fn();
       const cleanup2 = vi.fn();
-      service._eventBridge = {
+      service._eventBridge = createDisposableMock({
         dispose: vi.fn(() => {
           cleanup1();
           cleanup2();
         })
-      };
+      });
 
       service.dispose();
 

@@ -4,6 +4,7 @@ import { createPreloadExposureMap, exposePreloadApis } from '@preload/exposure.f
 import { clearPreloadApi, createMockIpcRenderer, createPreloadApiMock, createPreloadApiMocks, resetPreloadApis, setPreloadApi } from '../../support/mocks/preload-api-globals.js';
 import { installMissingWindowMock, installWindowPropertyMock } from '../../support/mocks/browser-api.installers.js';
 import { installTargetProperty } from '../../support/mocks/runtime-property.installers.js';
+import { createContextBridgeMock, createProcessMetricsApiMock } from '../../factories/index.js';
 
 function createApiImplementations(overrides = {}) {
   return Object.fromEntries(
@@ -63,7 +64,7 @@ describe('Preload API contract', () => {
   });
 
   it('exposes every manifest-owned preload API through contextBridge', () => {
-    const contextBridge = { exposeInMainWorld: vi.fn() };
+    const contextBridge = createContextBridgeMock();
     const apiImplementations = createApiImplementations();
 
     exposePreloadApis(contextBridge, apiImplementations);
@@ -161,8 +162,8 @@ describe('preload-api-globals test helper', () => {
   });
 
   it('restores descriptor-backed preload globals on clear', () => {
-    const existingMetricsAPI = { getProcessMetrics: vi.fn() };
-    const existingGlobalAPI = { getProcessMetrics: vi.fn() };
+    const existingMetricsAPI = createProcessMetricsApiMock();
+    const existingGlobalAPI = createProcessMetricsApiMock();
     const windowHandle = installTargetProperty(globalThis, 'window', {});
     const globalAPIHandle = installTargetProperty(globalThis, 'metricsAPI', existingGlobalAPI);
     const existingWindowAPI = installWindowPropertyMock('metricsAPI', existingMetricsAPI);

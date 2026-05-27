@@ -13,9 +13,9 @@ import {
   createCaptureServiceMock,
   createCanvasRenderLoopServiceMock,
   createBitmapMock,
-  createMockElement,
   createGpuRendererServiceMock,
   createStreamingViewServiceMock,
+  createStreamingViewElementsMock,
   createStreamPayloadMock,
   createTranscodeServiceMock
 } from '../../../../factories/index.js';
@@ -42,22 +42,21 @@ describe('CaptureOrchestrator', () => {
     mockAppState.currentCapabilities = null;
 
     // Mock stream view elements
-    const mockStreamVideo = createMockElement('video', { id: 'streamVideo' });
-    const mockStreamCanvas = createMockElement('canvas', { id: 'streamCanvas' });
+    const mockStreamingViewElements = createStreamingViewElementsMock({
+      streamVideo: { id: 'streamVideo' },
+      streamCanvas: { id: 'streamCanvas' },
+    });
 
     mockStreamingViewService = createStreamingViewServiceMock({
-      getCanvas: vi.fn(() => mockStreamCanvas),
-      getVideo: vi.fn(() => mockStreamVideo),
+      getCanvas: vi.fn(() => mockStreamingViewElements.streamCanvas),
+      getVideo: vi.fn(() => mockStreamingViewElements.streamVideo),
       attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
     });
 
     // Store element references for test assertions
-    mockStreamingViewService._elements = {
-      streamVideo: mockStreamVideo,
-      streamCanvas: mockStreamCanvas
-    };
+    mockStreamingViewService._elements = mockStreamingViewElements;
 
     mockGpuRendererService = createGpuRendererServiceMock({
       isActive: vi.fn(() => false),

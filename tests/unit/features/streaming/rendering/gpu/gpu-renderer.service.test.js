@@ -15,6 +15,8 @@ import {
   createGpuFrameBufferMock,
   createGpuWorkerManagerMock,
   createLoggerFactory,
+  createMockVideo,
+  createOffscreenCanvasElementMock,
   createSettingsServiceMock
 } from '../../../../../factories/index.js';
 import { installCreateImageBitmapMock } from '../../../../../support/mocks/browser-api.installers.js';
@@ -132,7 +134,7 @@ describe('StreamingGpuRendererService', () => {
 
   describe('initialize', () => {
     it('should delegate worker creation to GpuWorkerManager', async () => {
-      const canvasElement = { clientWidth: 640, clientHeight: 576, transferControlToOffscreen: vi.fn() };
+      const canvasElement = createOffscreenCanvasElementMock();
 
       const result = await service.initialize(canvasElement);
 
@@ -149,7 +151,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should derive worker sizing from provided native resolution', async () => {
-      const canvasElement = { clientWidth: 960, clientHeight: 720, transferControlToOffscreen: vi.fn() };
+      const canvasElement = createOffscreenCanvasElementMock({ clientWidth: 960, clientHeight: 720 });
 
       const result = await service.initialize(canvasElement, { width: 320, height: 240 });
 
@@ -168,7 +170,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should register message handlers before initializing worker', async () => {
-      const canvasElement = { clientWidth: 640, clientHeight: 576, transferControlToOffscreen: vi.fn() };
+      const canvasElement = createOffscreenCanvasElementMock();
 
       await service.initialize(canvasElement);
 
@@ -179,7 +181,7 @@ describe('StreamingGpuRendererService', () => {
       const { CapabilityDetector } = await import('@renderer/infrastructure/rendering/capability-detector.utils.ts');
       CapabilityDetector.isGPURenderingAvailable.mockReturnValueOnce(false);
 
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       const result = await service.initialize(canvasElement);
 
       expect(result).toBe(false);
@@ -189,7 +191,7 @@ describe('StreamingGpuRendererService', () => {
     it('should return false when worker manager initialization fails', async () => {
       mockGpuWorkerManager.initialize.mockResolvedValueOnce(false);
 
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       const result = await service.initialize(canvasElement);
 
       expect(result).toBe(false);
@@ -199,7 +201,7 @@ describe('StreamingGpuRendererService', () => {
     it('should handle initialization error gracefully', async () => {
       mockGpuWorkerManager.initialize.mockRejectedValueOnce(new Error('Worker timeout'));
 
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       const result = await service.initialize(canvasElement);
 
       expect(result).toBe(false);
@@ -208,7 +210,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should subscribe to brightness changes', async () => {
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       await service.initialize(canvasElement);
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(
@@ -218,7 +220,7 @@ describe('StreamingGpuRendererService', () => {
     });
 
     it('should publish capability detection event', async () => {
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       await service.initialize(canvasElement);
 
       expect(mockEventBus.publish).toHaveBeenCalledWith(
@@ -232,7 +234,7 @@ describe('StreamingGpuRendererService', () => {
     it('should skip when worker not ready', async () => {
       mockGpuWorkerManager.isReady.mockReturnValue(false);
 
-      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo();
       await service.renderFrame(videoElement);
 
       expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
@@ -242,7 +244,7 @@ describe('StreamingGpuRendererService', () => {
       mockGpuWorkerManager.isReady.mockReturnValue(true);
       service._pendingFrames = 2;
 
-      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo();
       await service.renderFrame(videoElement);
 
       expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
@@ -251,7 +253,7 @@ describe('StreamingGpuRendererService', () => {
     it('should skip when video not ready', async () => {
       mockGpuWorkerManager.isReady.mockReturnValue(true);
 
-      const videoElement = { readyState: 1, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo({ readyState: 1 });
       await service.renderFrame(videoElement);
 
       expect(mockGpuWorkerManager.sendCommand).not.toHaveBeenCalled();
@@ -265,7 +267,7 @@ describe('StreamingGpuRendererService', () => {
       service._currentPreset = { id: 'default' };
       service._currentPresetId = 'default';
 
-      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo();
       await service.renderFrame(videoElement);
 
       expect(mockGpuWorkerManager.sendCommand).toHaveBeenCalledWith(
@@ -281,7 +283,7 @@ describe('StreamingGpuRendererService', () => {
       createImageBitmapMock = installCreateImageBitmapMock({ imageBitmap: mockBitmap });
 
       await service.initialize(
-        { clientWidth: 960, clientHeight: 720, transferControlToOffscreen: vi.fn() },
+        createOffscreenCanvasElementMock({ clientWidth: 960, clientHeight: 720 }),
         { width: 320, height: 240 }
       );
 
@@ -289,7 +291,7 @@ describe('StreamingGpuRendererService', () => {
       service._currentPreset = { id: 'default' };
       service._currentPresetId = 'default';
 
-      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo();
       await service.renderFrame(videoElement);
 
       expect(createImageBitmapMock.createImageBitmap).toHaveBeenCalledWith(
@@ -309,7 +311,7 @@ describe('StreamingGpuRendererService', () => {
 
       vi.spyOn(performance, 'now').mockReturnValue(6000);
 
-      const videoElement = { readyState: 4, HAVE_CURRENT_DATA: 2 };
+      const videoElement = createMockVideo();
       await service.renderFrame(videoElement);
 
       expect(service._skippedFrames).toBe(0);
@@ -687,7 +689,7 @@ describe('StreamingGpuRendererService', () => {
 
   describe('_registerMessageHandlers', () => {
     it('should register handlers for all response types', async () => {
-      const canvasElement = { clientWidth: 640, clientHeight: 576 };
+      const canvasElement = createOffscreenCanvasElementMock();
       await service.initialize(canvasElement);
 
       expect(mockGpuWorkerManager.onMessage).toHaveBeenCalledWith('READY', expect.any(Function));

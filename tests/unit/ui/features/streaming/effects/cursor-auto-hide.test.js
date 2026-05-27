@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect.ts';
+import { createCallbackMap } from '../../../../factories/index.js';
 
 describe('CursorAutoHide', () => {
   let autoHide;
@@ -12,10 +13,7 @@ describe('CursorAutoHide', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    callbacks = {
-      onActivity: vi.fn(),
-      onHide: vi.fn()
-    };
+    callbacks = createCallbackMap(['onActivity', 'onHide']);
 
     document.body.className = '';
   });

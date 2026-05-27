@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ComboboxListboxController, ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
-import { createLogger } from '../../../factories/index.js';
+import { createCallbackMap, createLogger } from '../../../factories/index.js';
 
 describe('ListboxDropdownController', () => {
   let fixture;
@@ -216,14 +216,7 @@ describe('ComboboxListboxController', () => {
     listboxElement = document.createElement('div');
     listboxElement.id = 'test-listbox';
     document.body.append(inputElement, listboxElement);
-    callbacks = {
-      onInput: vi.fn(),
-      onSelect: vi.fn(),
-      onEnter: vi.fn(),
-      onEscape: vi.fn(),
-      onBlur: vi.fn(),
-      onFocus: vi.fn()
-    };
+    callbacks = createCallbackMap(['onInput', 'onSelect', 'onEnter', 'onEscape', 'onBlur', 'onFocus']);
     controller = new ComboboxListboxController({
       logger: createLogger(),
       optionSelector: '.test-option',

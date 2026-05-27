@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { createCallbackMap } from '../../../../factories/index.js';
 class TestComponent extends PresentationComponent {
   listenTo(target: EventTarget | null, type: string, handler: EventListener) {
     return this.listen(target, type, handler);
@@ -24,12 +25,7 @@ describe('ActivityAutoHideController', () => {
   let element;
   beforeEach(() => {
     vi.useFakeTimers();
-    callbacks = {
-      onActivity: vi.fn(),
-      onTimeout: vi.fn(),
-      onEnable: vi.fn(),
-      onDisable: vi.fn()
-    };
+    callbacks = createCallbackMap(['onActivity', 'onTimeout', 'onEnable', 'onDisable']);
     element = document.createElement('div');
   });
   afterEach(() => {

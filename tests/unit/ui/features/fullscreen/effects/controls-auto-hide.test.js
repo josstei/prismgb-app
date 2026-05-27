@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect.ts';
+import { createCallbackMap } from '../../../../factories/index.js';
 
 describe('ControlsAutoHide', () => {
   let autoHide;
@@ -13,12 +14,7 @@ describe('ControlsAutoHide', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    callbacks = {
-      onShowAll: vi.fn(),
-      onHideAll: vi.fn(),
-      onEnable: vi.fn(),
-      onDisable: vi.fn()
-    };
+    callbacks = createCallbackMap(['onShowAll', 'onHideAll', 'onEnable', 'onDisable']);
 
     controlsElement = document.createElement('div');
     controlsElement.className = 'fullscreen-controls';
