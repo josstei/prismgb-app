@@ -33,7 +33,7 @@ import {
 import type { RegistrableContainer } from './registrable-container.type';
 import type { RendererContainerMap } from './renderer-container-map.type';
 
-type DeviceIpcDependencies = Pick<RendererContainerMap, 'loggerFactory'>;
+type DeviceIpcDependencies = Pick<RendererContainerMap, 'eventBus' | 'loggerFactory'>;
 type DeviceChangeDebounceDependencies = Pick<RendererContainerMap, 'browserMediaService' | 'loggerFactory'>;
 type CanvasRenderLoopDependencies = Pick<RendererContainerMap, 'loggerFactory' | 'animationCache'>;
 type StreamingRendererFactoryDependencies = Pick<RendererContainerMap, 'eventBus' | 'loggerFactory'>;
@@ -90,9 +90,10 @@ const rendererInfrastructureDescriptors = defineRendererDescriptors<RendererCont
   {
     token: 'deviceIpcAdapter',
     kind: 'function',
-    dependencies: ['loggerFactory'],
+    dependencies: ['eventBus', 'loggerFactory'],
     disposal: 'dispose',
     resolver: (dependencies: DeviceIpcDependencies) => new DeviceIpcAdapter({
+      eventBus: dependencies.eventBus,
       logger: dependencies.loggerFactory.create('DeviceIpcAdapter')
     })
   },

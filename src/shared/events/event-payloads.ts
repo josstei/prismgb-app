@@ -1,5 +1,23 @@
 import { EventChannels } from './event-channels.js';
 import { getEventManifestScopeValues } from './event.manifest.js';
+import type {
+  DeviceInfoPayload,
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeProgressPayload,
+  UpdateErrorPayload,
+  UpdateInfoPayload,
+  UpdateProgressPayload
+} from '@shared/ipc/preload-api.contract.js';
+
+export type {
+  TranscodeCancelledPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeProgressPayload,
+  UpdateProgressPayload
+} from '@shared/ipc/preload-api.contract.js';
 
 type LeafValues<T> = T extends string
   ? T
@@ -174,45 +192,17 @@ export type UiRecordingStatePayload = { active: boolean };
 
 export type UiFullscreenStatePayload = { active: boolean };
 
-export type UpdateProgressPayload = {
-  percent?: number;
-  bytesPerSecond?: number;
-  transferred?: number;
-  total?: number;
-  [key: string]: unknown;
-};
-
 export type NotesDeletedPayload = { id: string };
 
 export type TranscodeStartedPayload = { jobId: string; format: string };
-
-export type TranscodeProgressPayload = {
-  jobId?: string;
-  progress?: number;
-  percent?: number;
-  [key: string]: unknown;
-};
-
-export type TranscodeCompletedPayload = {
-  jobId?: string;
-  outputPath?: string;
-  [key: string]: unknown;
-};
-
-export type TranscodeErrorPayload = {
-  jobId?: string;
-  message?: string;
-  error?: unknown;
-  [key: string]: unknown;
-};
-
-export type TranscodeCancelledPayload = { jobId?: string; [key: string]: unknown };
 
 // CODEBASE_EVENT_PAYLOAD_MAP:START
 type VoidEventChannel = typeof EventChannels.DEVICE.DISCONNECTED_DURING_SESSION | typeof EventChannels.STREAM.STOPPED | typeof EventChannels.CAPTURE.SCREENSHOT_TRIGGERED | typeof EventChannels.CAPTURE.RECORDING_STARTED | typeof EventChannels.CAPTURE.RECORDING_STOPPED | typeof EventChannels.RENDER.CANVAS_EXPIRED | typeof EventChannels.UI.SHUTTER_FLASH | typeof EventChannels.UI.RECORD_BUTTON_POP | typeof EventChannels.UI.RECORD_BUTTON_PRESS | typeof EventChannels.UI.RECORD_BUTTON_DISABLED | typeof EventChannels.UI.RECORD_BUTTON_ENABLED | typeof EventChannels.UI.WINDOW_RESIZED | typeof EventChannels.UI.SCREENSHOT_REQUESTED | typeof EventChannels.UI.RECORDING_TOGGLE_REQUESTED | typeof EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED | typeof EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED | typeof EventChannels.UI.STREAM_START_REQUESTED | typeof EventChannels.UI.STREAM_STOP_REQUESTED | typeof EventChannels.UPDATE.BADGE_SHOW | typeof EventChannels.UPDATE.BADGE_HIDE;
 
 type EventPayloadOverrides = {
   [EventChannels.SYSTEM.HANDLER_ERROR]: HandlerErrorPayload;
+  [EventChannels.DEVICE.CONNECTED]: DeviceInfoPayload;
+  [EventChannels.DEVICE.DISCONNECTED]: DeviceInfoPayload | null | undefined;
   [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: SupportedDeviceAvailablePayload;
   [EventChannels.DEVICE.ENUMERATION_FAILED]: DeviceEnumerationFailedPayload;
   [EventChannels.STREAM.STARTED]: StreamStartedPayload;
@@ -250,7 +240,11 @@ type EventPayloadOverrides = {
   [EventChannels.UI.BUTTON_FEEDBACK]: UiButtonFeedbackPayload;
   [EventChannels.UI.RECORDING_STATE]: UiRecordingStatePayload;
   [EventChannels.UI.FULLSCREEN_STATE]: UiFullscreenStatePayload;
+  [EventChannels.UPDATE.AVAILABLE]: UpdateInfoPayload;
+  [EventChannels.UPDATE.NOT_AVAILABLE]: UpdateInfoPayload;
   [EventChannels.UPDATE.PROGRESS]: UpdateProgressPayload;
+  [EventChannels.UPDATE.DOWNLOADED]: UpdateInfoPayload;
+  [EventChannels.UPDATE.ERROR]: UpdateErrorPayload;
   [EventChannels.NOTES.NOTE_DELETED]: NotesDeletedPayload;
   [EventChannels.TRANSCODE.STARTED]: TranscodeStartedPayload;
   [EventChannels.TRANSCODE.PROGRESS]: TranscodeProgressPayload;

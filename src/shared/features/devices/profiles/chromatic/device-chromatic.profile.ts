@@ -24,18 +24,7 @@ export class DeviceChromaticProfile extends DeviceProfile {
       name: chromaticConfig.name,
       manufacturer: chromaticConfig.manufacturer,
       version: chromaticConfig.version,
-      usbIdentifiers: [
-        {
-          vendorId: chromaticConfig.usb.vendorId,
-          productId: chromaticConfig.usb.productId,
-          deviceClass: chromaticConfig.usb.deviceClass
-        },
-        {
-          vendorId: chromaticConfig.usb.vendorId,
-          productId: chromaticConfig.usb.productId,
-          deviceClass: chromaticConfig.usb.alternateDeviceClass
-        }
-      ],
+      usbIdentifiers: chromaticConfig.usb.identifiers,
       display: {
         nativeResolution: {
           width: chromaticConfig.display.nativeWidth,

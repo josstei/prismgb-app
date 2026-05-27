@@ -41,6 +41,8 @@ export const EventChannels = {
   // Device events
   DEVICE: {
     STATUS_CHANGED: getRendererChannel('device', 'status-changed'),
+    CONNECTED: getRendererChannel('device', 'connected'),
+    DISCONNECTED: getRendererChannel('device', 'disconnected'),
     SUPPORTED_DEVICE_AVAILABLE: getRendererChannel('device', 'supported-device-available'),
     ENUMERATION_FAILED: getRendererChannel('device', 'enumeration-failed'),
     DISCONNECTED_DURING_SESSION: getRendererChannel('device', 'disconnected-during-session')

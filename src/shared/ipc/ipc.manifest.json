@@ -9,7 +9,11 @@
       "rendererBridge": {
         "consumerFile": "src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts",
         "bridgeName": "DeviceIpcAdapter",
-        "lifecycle": "add"
+        "lifecycle": "add",
+        "eventChannels": {
+          "onDeviceConnected": { "scope": "renderer", "domain": "device", "name": "connected", "payload": "passthrough" },
+          "onDeviceDisconnected": { "scope": "renderer", "domain": "device", "name": "disconnected", "payload": "passthrough" }
+        }
       },
       "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected"],
       "invoke": [

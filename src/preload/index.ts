@@ -3,7 +3,7 @@ import { IPC_CHANNELS, type IpcChannels } from '@shared/ipc/ipc.manifest.js';
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 import type { PreloadApiName } from '@preload/subscription.factory.js';
 import { MAX_LISTENERS_PER_CHANNEL, createListenerRegistry } from '@preload/listener-registry.js';
-import { isValidCallback } from '@preload/validators.js';
+import { isValidCallback } from '@preload/validators.generated.js';
 import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';

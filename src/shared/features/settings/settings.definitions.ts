@@ -1,4 +1,5 @@
 import definitions from './settings.definitions.json';
+import { getEventManifestScopeEvents } from '@shared/events/event.manifest.js';
 import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
 
@@ -8,6 +9,10 @@ type ResolvedSettingsDefinition = Omit<RawSettingsDefinition, 'default'> & {
   default: string | number | boolean;
   allowedValues?: string[];
 };
+type ResolvedStartupPreferenceDefinition = ResolvedSettingsDefinition & { startupPreference: true };
+type ResolvedStartupPreferenceEventDefinition = ResolvedStartupPreferenceDefinition & { event: string };
+const SETTINGS_EVENT_PAYLOAD_BY_TYPE = { boolean: 'boolean', enum: 'string', number: 'number', string: 'string' } as const;
+const rendererEventPayloadByValue = new Map(getEventManifestScopeEvents('renderer').map((event) => [event.value, event.payload] as const));
 const ALLOWED_VALUE_SOURCES = {
   'TRANSCODE_CONFIG.formats': () => Object.keys(TRANSCODE_CONFIG.formats)
 } as const;
@@ -46,13 +51,38 @@ function shouldLoadAtStartup(definition: ResolvedSettingsDefinition): boolean {
   return true;
 }
 
-const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
-const loadAllPreferencesShape = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup).map((definition) => definition.name));
+function assertSettingEventMatchesManifest(definition: ResolvedSettingsDefinition): void {
+  if (!('event' in definition) || typeof definition.event !== 'string' || definition.event.length === 0) return;
+  const actualPayload = rendererEventPayloadByValue.get(definition.event);
+  const expectedPayload = SETTINGS_EVENT_PAYLOAD_BY_TYPE[definition.type as keyof typeof SETTINGS_EVENT_PAYLOAD_BY_TYPE];
+  if (!actualPayload) throw new Error(`Settings event is missing from renderer event manifest: ${definition.name} -> ${definition.event}`);
+  if (actualPayload !== expectedPayload) throw new Error(`Settings event payload mismatch for ${definition.name}: expected ${expectedPayload}, got ${actualPayload}`);
+}
 
-export const SettingsDefinitions = Object.freeze({ ...definitions, definitions: resolvedDefinitions, loadAllPreferencesShape });
+function hasStartupPreferenceEvent(definition: ResolvedSettingsDefinition): definition is ResolvedStartupPreferenceEventDefinition {
+  return shouldLoadAtStartup(definition)
+    && 'event' in definition
+    && typeof definition.event === 'string'
+    && definition.event.length > 0;
+}
+
+const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
+resolvedDefinitions.forEach(assertSettingEventMatchesManifest);
+const startupPreferenceDefinitions = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup) as ResolvedStartupPreferenceDefinition[]);
+const startupPreferenceEventDefinitions = Object.freeze(resolvedDefinitions.filter(hasStartupPreferenceEvent));
+const loadAllPreferencesShape = Object.freeze(startupPreferenceDefinitions.map((definition) => definition.name));
+
+export const SettingsDefinitions = Object.freeze({
+  ...definitions,
+  definitions: resolvedDefinitions,
+  startupPreferenceDefinitions,
+  startupPreferenceEventDefinitions,
+  loadAllPreferencesShape
+});
 
 export type SettingsDefinitionsManifest = typeof SettingsDefinitions;
 export type SettingsDefinition = SettingsDefinitionsManifest['definitions'][number];
+type StartupPreferenceEventDefinition = SettingsDefinition & { startupPreference: true; event: string };
 export type SettingsControlUi = NonNullable<SettingsDefinition['ui']> & { controlId: string; controlType: string; labelId?: string; menuId?: string; optionLabelFormat?: string };
 export type SettingsControlDefinition = SettingsDefinition & { ui: SettingsControlUi };
 export type SettingsListboxDefinition = SettingsControlDefinition & {
@@ -101,4 +131,8 @@ export function getSettingsListboxOptions(definition: SettingsListboxDefinition)
     label: formatter?.(value) ?? value,
     active: value === definition.default
   }));
+}
+
+export function getStartupPreferenceEventDefinitions(): readonly StartupPreferenceEventDefinition[] {
+  return SettingsDefinitions.startupPreferenceEventDefinitions;
 }

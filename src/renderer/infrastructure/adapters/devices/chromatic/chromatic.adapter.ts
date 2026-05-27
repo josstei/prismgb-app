@@ -14,7 +14,8 @@ interface IpcClientLike {
 }
 
 interface ChromaticConfigLike {
-  rendering: { canvasScale: number; [key: string]: unknown };
+  name?: string;
+  rendering: { canvasScale: number; recommendedScales?: readonly number[]; [key: string]: unknown };
   display: { nativeWidth: number; nativeHeight: number; pixelPerfect: boolean; resolutions: ReadonlyArray<unknown> };
   media?: ChromaticMediaConfig;
 }
@@ -196,7 +197,7 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
 
     // Use static config - profile is defined in chromatic.config.js
     this.deviceProfile = {
-      name: 'Chromatic',
+      name: this.config.name || defaultConfig.name,
       rendering: this.config.rendering,
       media: this.config.media || this.mediaConfig,
       display: this.config.display
@@ -215,8 +216,9 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
    * Set canvas scale
    */
   setCanvasScale(scale: number) {
-    if (typeof scale !== 'number' || scale < 1 || scale > 8) {
-      throw new Error('DeviceChromaticAdapter.setCanvasScale: Scale must be a number between 1 and 8');
+    const { min, max } = this._getScaleBounds();
+    if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < min || scale > max) {
+      throw new Error(`DeviceChromaticAdapter.setCanvasScale: Scale must be a number between ${min} and ${max}`);
     }
 
     this.canvasScale = scale;
@@ -228,6 +230,12 @@ export class DeviceChromaticAdapter extends BaseDeviceAdapter {
    */
   getConfig() {
     return this.config;
+  }
+
+  private _getScaleBounds(): { min: number; max: number } {
+    const configuredScales = this.config.rendering.recommendedScales?.filter((scale) => Number.isFinite(scale)) || [];
+    const scales = configuredScales.length > 0 ? configuredScales : defaultConfig.rendering.recommendedScales;
+    return { min: Math.min(...scales), max: Math.max(...scales) };
   }
 
   async _resolveAudioDeviceId() {

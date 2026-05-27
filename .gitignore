@@ -39,6 +39,7 @@ Thumbs.db
 .env
 .env.local
 .claude/
+.antigravitycli/
 CLAUDE.md
 GEMINI.md
 AGENT.md

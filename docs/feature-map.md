@@ -15,7 +15,7 @@ This section is generated from architecture, device, and settings manifests. Kee
 | --- | ---: |
 | IPC namespaces | 8 |
 | IPC channels | 29 |
-| Renderer events | 73 |
+| Renderer events | 75 |
 | Main events | 3 |
 | Device profiles | 1 |
 | Settings definitions | 10 |
@@ -56,6 +56,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 | Recording format | Settings format dropdown -> `SettingsService.setSetting('recordingFormat', value)` -> `settings:recording-format-changed` persists and drives later saves |
 | Shader/brightness/volume | shader panel settings -> `settings:render-preset-changed`, `settings:brightness-changed`, and `settings:volume-changed` -> render pipeline and slider UI sync |
 | Performance mode | Settings toggle -> `settings:performance-mode-changed` -> `performance:render-mode-changed` -> `StreamingOrchestrator` switches to Canvas2D when enabled |
+| Device connect/disconnect | `window.deviceAPI` preload subscriptions -> manifest-backed `device:connected` / `device:disconnected` EventBus events -> `DeviceOrchestrator` queues sequenced connect/disconnect handling |
 | Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
 | Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
 | Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `window.updateAPI` IPC -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |

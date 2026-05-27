@@ -1,13 +1,9 @@
 import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
 import { EventChannels } from '@shared/events/event-channels.js';
+import { getStartupPreferenceEventDefinitions } from '@shared/features/settings/settings.definitions.js';
 import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
 
-type PreferencesPayload = {
-  gameVolume: number;
-  performanceMode: boolean;
-  minimalistFullscreen: boolean;
-  [key: string]: unknown;
-};
+type PreferencesPayload = Record<string, unknown>;
 
 type SettingsServiceLike = {
   loadAllPreferences(): PreferencesPayload;
@@ -46,12 +42,9 @@ export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
     try {
       const preferences = this.settingsService.loadAllPreferences();
 
-      // Apply volume via event (ShaderSelector listens for this)
-      this.eventBus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, preferences.gameVolume);
-      this.eventBus.publish(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED, preferences.performanceMode);
-      this.eventBus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, preferences.minimalistFullscreen);
-
-      // Status strip visibility is applied by SettingsMenuComponent on initialize
+      for (const { name, event } of getStartupPreferenceEventDefinitions()) {
+        this.eventBus.publish(event, preferences[name]);
+      }
 
       // Signal that all preferences are loaded (for startup behaviors)
       this.eventBus.publish(EventChannels.SETTINGS.PREFERENCES_LOADED, preferences);

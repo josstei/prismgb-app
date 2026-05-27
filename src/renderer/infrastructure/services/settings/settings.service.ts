@@ -263,9 +263,10 @@ class SettingsService extends BaseService {
       SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this._getSynchronousSetting(name)])
     );
 
-    this.logger.info(
-      `Loaded preferences - GameVolume: ${preferences.gameVolume}%, StatusStrip: ${preferences.statusStripVisible}, PerformanceMode: ${preferences.performanceMode}, MinimalistFullscreen: ${preferences.minimalistFullscreen}`
-    );
+    const summary = SettingsDefinitions.loadAllPreferencesShape
+      .map((name) => `${name}: ${String(preferences[name])}`)
+      .join(', ');
+    this.logger.info(`Loaded preferences - ${summary}`);
 
     return preferences;
   }

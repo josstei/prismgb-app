@@ -11,7 +11,7 @@ type DeviceServiceLike = {
 };
 
 type DeviceIpcAdapterLike = {
-  subscribe(handleConnected: () => void, handleDisconnected: () => void): Unsubscribe;
+  subscribe(): Unsubscribe;
 };
 
 type DeviceOperationSequencerLike = {
@@ -29,11 +29,12 @@ type DeviceOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
+const DEVICE_IPC_EVENTS_LIFECYCLE = Symbol('deviceIpcEventsLifecycle');
+
 export class DeviceOrchestrator extends BaseOrchestrator {
   private readonly deviceService: DeviceServiceLike;
   private readonly deviceIpcAdapter: DeviceIpcAdapterLike;
   private readonly deviceOperationSequencer: DeviceOperationSequencerLike;
-  private _unsubscribeIPC: Unsubscribe | null;
 
   constructor(dependencies: DeviceOrchestratorDependencies) {
     super(
@@ -45,8 +46,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     this.deviceIpcAdapter = dependencies.deviceIpcAdapter;
     this.deviceOperationSequencer = dependencies.deviceOperationSequencer;
     this.eventBus = dependencies.eventBus;
-    // Store unsubscribe function for IPC adapter
-    this._unsubscribeIPC = null;
   }
 
   /**
@@ -56,14 +55,15 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     // Set up device change listener
     this.deviceService.setupDeviceChangeListener();
 
-    // Set up IPC event listeners for USB events via adapter
-    this._unsubscribeIPC = this.deviceIpcAdapter.subscribe(
-      () => this._handleDeviceConnectedIPC(),
-      () => this._handleDeviceDisconnectedIPC()
-    );
+    this._subscribeDeviceIpcEvents();
 
     // Queue initial status check through sequencer
-    await this.deviceOperationSequencer.queueRefresh();
+    try {
+      await this.deviceOperationSequencer.queueRefresh();
+    } catch (error) {
+      await this.cancelManaged(DEVICE_IPC_EVENTS_LIFECYCLE);
+      throw error;
+    }
   }
 
   /**
@@ -83,11 +83,33 @@ export class DeviceOrchestrator extends BaseOrchestrator {
     });
   }
 
-  async onCleanup(): Promise<void> {
-    if (typeof this._unsubscribeIPC === 'function') {
-      this._unsubscribeIPC();
-      this._unsubscribeIPC = null;
+  _subscribeDeviceIpcEvents(): void {
+    const disposers: Unsubscribe[] = [];
+    const releaseLifecycle = this.replaceManaged(DEVICE_IPC_EVENTS_LIFECYCLE, () => {
+      for (const dispose of [...disposers].reverse()) {
+        dispose();
+      }
+      disposers.length = 0;
+    });
+
+    try {
+      disposers.push(this.eventBus.subscribe(
+        EventChannels.DEVICE.CONNECTED,
+        () => this._handleDeviceConnectedIPC()
+      ));
+      disposers.push(this.eventBus.subscribe(
+        EventChannels.DEVICE.DISCONNECTED,
+        () => this._handleDeviceDisconnectedIPC()
+      ));
+      disposers.push(this.deviceIpcAdapter.subscribe());
+    } catch (error) {
+      releaseLifecycle();
+      throw error;
     }
+  }
+
+  async onCleanup(): Promise<void> {
+    await this.cancelManaged(DEVICE_IPC_EVENTS_LIFECYCLE);
     this.logger.info('IPC device listeners removed');
 
     await this.deviceOperationSequencer.flush();

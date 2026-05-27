@@ -1,7 +1,7 @@
 import type { IpcRenderer } from 'electron';
 import IpcManifest from '@shared/ipc/ipc.manifest.json';
 import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
-import type { PreloadInvokeMetadata } from './validators.js';
+import { requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeMetadata } from './validators.generated.js';
 
 type Unsubscribe = () => void;
 type RegisteredListener = (...args: unknown[]) => void;
@@ -118,9 +118,15 @@ function createManifestInvokeSet(apiName: string, channels: IpcChannels, manifes
   return { byMethod, metadataByMethod, requireMethod: (methodName: string) => requireInvokeMethod(apiName, byMethod, methodName) };
 }
 
-function createDefaultInvokeMethod({ ipcRenderer, channel, manifestEntry }: InvokeFactoryContext): GeneratedMethod {
+function createDefaultInvokeMethod({ apiName, methodName, ipcRenderer, channel, manifestEntry }: InvokeFactoryContext): GeneratedMethod {
   const argumentCount = Array.isArray(manifestEntry?.request) ? manifestEntry.request.length : 0;
-  return ((...args: unknown[]) => ipcRenderer.invoke(channel, ...args.slice(0, argumentCount))) as GeneratedMethod;
+  const metadata = manifestEntry.preload ? requirePreloadInvokeMetadata(apiName, methodName, manifestEntry) : null;
+  return ((...args: unknown[]) => {
+    const forwardedArgs = args.slice(0, argumentCount);
+    const failure = metadata ? validatePreloadInvokeArguments(metadata, forwardedArgs) : null;
+    if (failure) { console.warn(failure.invalidMessage); return Promise.resolve(failure.fallback); }
+    return ipcRenderer.invoke(channel, ...forwardedArgs);
+  }) as GeneratedMethod;
 }
 
 function createManifestInvokeMethods<TApiName extends InvokeApiName>({ apiName, ipcRenderer, channels, manifest = IpcManifest, methodFactories = {} as InvokeMethodFactories<TApiName> }: { apiName: TApiName; ipcRenderer: InvokeIpcRenderer; channels: IpcChannels; manifest?: ManifestShape; methodFactories?: InvokeMethodFactories<TApiName> }): InvokeMethods<TApiName> {

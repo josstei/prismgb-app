@@ -75,6 +75,23 @@ export interface PreloadEventBridge {
   dispose(): void;
 }
 
+function disposePreloadEventSubscriptions(
+  bridgeName: string,
+  unsubscribers: Array<() => void>,
+  logger?: PreloadEventBridgeLogger
+): void {
+  const cleanup = [...unsubscribers].reverse();
+  unsubscribers.length = 0;
+
+  for (const unsubscribe of cleanup) {
+    try {
+      unsubscribe();
+    } catch (error) {
+      logger?.error?.(`${bridgeName}: failed to unsubscribe preload event`, error);
+    }
+  }
+}
+
 const normalizeTrimmedString = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : '';
 
@@ -107,7 +124,7 @@ const rendererPreloadBridgeMethodNames = {
   transcodeAPI: ['onProgress', 'onCompleted', 'onError', 'onCancelled']
 } as const satisfies { readonly [TApiName in keyof RendererPreloadBridgeMethodMap]: readonly RendererPreloadBridgeMethodMap[TApiName][] };
 const rendererPreloadBridgeEventChannels = {
-  deviceAPI: {},
+  deviceAPI: { onDeviceConnected: EventChannels.DEVICE.CONNECTED, onDeviceDisconnected: EventChannels.DEVICE.DISCONNECTED },
   windowAPI: { onResized: EventChannels.UI.WINDOW_RESIZED },
   updateAPI: { onAvailable: EventChannels.UPDATE.AVAILABLE, onNotAvailable: EventChannels.UPDATE.NOT_AVAILABLE, onProgress: EventChannels.UPDATE.PROGRESS, onDownloaded: EventChannels.UPDATE.DOWNLOADED, onError: EventChannels.UPDATE.ERROR },
   transcodeAPI: { onProgress: EventChannels.TRANSCODE.PROGRESS, onCompleted: EventChannels.TRANSCODE.COMPLETED, onError: EventChannels.TRANSCODE.ERROR, onCancelled: EventChannels.TRANSCODE.CANCELLED }
@@ -267,13 +284,18 @@ export function createPreloadEventBridge<TApi>({
   const unsubscribers: Array<() => void> = [];
   let disposed = false;
 
-  for (const subscription of subscriptions) {
-    const unsubscribe = subscription.subscribe(api);
-    if (typeof unsubscribe !== 'function') {
-      logger?.warn?.(`${bridgeName}: subscription "${subscription.id}" did not return an unsubscribe function`);
-      continue;
+  try {
+    for (const subscription of subscriptions) {
+      const unsubscribe = subscription.subscribe(api);
+      if (typeof unsubscribe !== 'function') {
+        logger?.warn?.(`${bridgeName}: subscription "${subscription.id}" did not return an unsubscribe function`);
+        continue;
+      }
+      unsubscribers.push(unsubscribe);
     }
-    unsubscribers.push(unsubscribe);
+  } catch (error) {
+    disposePreloadEventSubscriptions(bridgeName, unsubscribers, logger);
+    throw error;
   }
 
   return {
@@ -286,16 +308,7 @@ export function createPreloadEventBridge<TApi>({
       }
       disposed = true;
 
-      const cleanup = [...unsubscribers].reverse();
-      unsubscribers.length = 0;
-
-      for (const unsubscribe of cleanup) {
-        try {
-          unsubscribe();
-        } catch (error) {
-          logger?.error?.(`${bridgeName}: failed to unsubscribe preload event`, error);
-        }
-      }
+      disposePreloadEventSubscriptions(bridgeName, unsubscribers, logger);
     }
   };
 }

@@ -28,7 +28,19 @@ const CHROMATIC_USB = Object.freeze({
   vendorId: CHROMATIC_MANIFEST_ENTRY.usb.vendorId,
   productId: CHROMATIC_MANIFEST_ENTRY.usb.productId,
   deviceClass: CHROMATIC_MANIFEST_ENTRY.usb.deviceClass,
-  alternateDeviceClass: CHROMATIC_MANIFEST_ENTRY.usb.alternateDeviceClass
+  alternateDeviceClass: CHROMATIC_MANIFEST_ENTRY.usb.alternateDeviceClass,
+  identifiers: Object.freeze([
+    Object.freeze({
+      vendorId: CHROMATIC_MANIFEST_ENTRY.usb.vendorId,
+      productId: CHROMATIC_MANIFEST_ENTRY.usb.productId,
+      deviceClass: CHROMATIC_MANIFEST_ENTRY.usb.deviceClass
+    }),
+    Object.freeze({
+      vendorId: CHROMATIC_MANIFEST_ENTRY.usb.vendorId,
+      productId: CHROMATIC_MANIFEST_ENTRY.usb.productId,
+      deviceClass: CHROMATIC_MANIFEST_ENTRY.usb.alternateDeviceClass
+    })
+  ])
 });
 
 const CHROMATIC_NATIVE = Object.freeze({
@@ -95,7 +107,9 @@ const RENDERING_CONFIG = Object.freeze({
     desynchronized: false,
     willReadFrequently: false
   }),
-  recommendedScales: Object.freeze([1, 2, 4, 8])
+  recommendedScales: Object.freeze(CHROMATIC_MANIFEST_ENTRY.display.resolutions
+    .map((resolution) => resolution.scale)
+    .filter((scale): scale is number => typeof scale === 'number'))
 });
 
 export const chromaticConfig = Object.freeze({
@@ -125,7 +139,7 @@ export const chromaticConfig = Object.freeze({
   }),
 
   metadata: Object.freeze({
-    description: 'Mod Retro Chromatic - Game Boy Color compatible handheld with 160x144 display',
+    description: `${CHROMATIC_MANIFEST_ENTRY.name} - Game Boy Color compatible handheld with ${CHROMATIC_NATIVE.width}x${CHROMATIC_NATIVE.height} display`,
     website: 'https://modretro.com',
     documentation: 'https://modretro.com/chromatic',
     supportContact: 'support@modretro.com',

@@ -1,5 +1,6 @@
 import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory';
 import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/devices/chromatic/chromatic.adapter';
+import { chromaticConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
 import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service';
 import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service';
 import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
@@ -21,7 +22,7 @@ const rendererDeviceDescriptors = defineRendererDescriptors<RendererContainerMap
     dependencies: ['eventBus', 'loggerFactory', 'browserMediaService'],
     resolver: ({ eventBus, loggerFactory, browserMediaService }: AdapterFactoryDependencies) => {
       const adapterClasses = new Map([
-        ['chromatic-mod-retro', DeviceChromaticAdapter]
+        [chromaticConfig.id, DeviceChromaticAdapter]
       ]);
       const adapterFactory = new StreamingAdapterFactory(eventBus, loggerFactory, browserMediaService, adapterClasses);
       adapterFactory.initialize();

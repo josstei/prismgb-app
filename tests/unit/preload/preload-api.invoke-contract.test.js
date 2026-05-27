@@ -27,7 +27,7 @@ import {
   isValidTranscodeResult,
   isValidFfmpegArgs,
   isValidUpdateInfo
-} from '@preload/validators.js';
+} from '@preload/validators.generated.js';
 import { createMockIpcRenderer } from '../../support/mocks/preload-api-globals.js';
 function createAPIWithRegistry(factory, ipcRenderer, options = {}) {
   return factory({

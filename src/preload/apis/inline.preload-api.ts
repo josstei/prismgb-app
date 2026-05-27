@@ -1,36 +1,22 @@
 import type { IpcRenderer } from 'electron';
 import type { IpcChannels, IpcManifest } from '@shared/ipc/ipc.manifest.js';
-import type { GpuPolicyPayload, LoginItemSetResponse, ShellOpenExternalResponse } from '@shared/ipc/preload-api.contract.js';
+import type { GpuPolicyPayload } from '@shared/ipc/preload-api.contract.js';
 import { createManifestInvokeMethods } from '../subscription.factory.js';
 import {
   getPreloadResponsePolicyFailure,
   mapPreloadResponsePolicyResult,
   requirePreloadInvokeMetadata,
   requirePreloadResponsePolicy,
-  validatePreloadInvokeArguments,
-  type PreloadInvokeManifestEntry,
   type PreloadInvokeMetadata
-} from '../validators.js';
+} from '../validators.generated.js';
 
 type InvokeOnlyIpcRenderer = Pick<IpcRenderer, 'invoke'>;
-type InvokeManifestEntry = PreloadInvokeManifestEntry & { request?: readonly string[] };
 type BaseInvokeFactoryContext = { ipcRenderer: InvokeOnlyIpcRenderer; channels: IpcChannels; manifest?: IpcManifest };
 type ShellPreloadAPI = NonNullable<Window['shellAPI']>;
 type MetricsPreloadAPI = NonNullable<Window['metricsAPI']>;
 type GpuPreloadAPI = NonNullable<Window['gpuAPI']>;
 type LoginItemPreloadAPI = NonNullable<Window['loginItemAPI']>;
-type InvokeMethodOptions = { channel: string; ipcRenderer: InvokeOnlyIpcRenderer; metadata: PreloadInvokeMetadata; manifestEntry?: InvokeManifestEntry };
 type ResponseFallbackOptions = { apiName: string; methodName: string; channel: string; ipcRenderer: InvokeOnlyIpcRenderer; metadata: PreloadInvokeMetadata };
-
-function createInvokeMethod<TArgs extends unknown[], TResult>({ channel, ipcRenderer, metadata, manifestEntry }: InvokeMethodOptions): (...args: TArgs) => Promise<TResult> {
-  const argumentCount = Array.isArray(manifestEntry?.request) ? manifestEntry.request.length : null;
-  return (...args) => {
-    const forwardedArgs = (argumentCount === null ? args : args.slice(0, argumentCount)) as TArgs;
-    const failure = validatePreloadInvokeArguments<TResult>(metadata, forwardedArgs);
-    if (failure) { console.warn(failure.invalidMessage); return Promise.resolve(failure.fallback); }
-    return ipcRenderer.invoke(channel, ...forwardedArgs) as Promise<TResult>;
-  };
-}
 
 function createResponseFallbackInvoker<TResult>({ apiName, methodName, channel, ipcRenderer, metadata }: ResponseFallbackOptions): () => Promise<TResult> {
   const policy = requirePreloadResponsePolicy<TResult>(metadata);
@@ -47,21 +33,7 @@ function createResponseFallbackInvoker<TResult>({ apiName, methodName, channel, 
   };
 }
 
-function createLoginItemInvoker({ apiName, methodName, ipcRenderer, channel, manifestEntry }: { apiName: 'loginItemAPI'; methodName: 'set'; ipcRenderer: InvokeOnlyIpcRenderer; channel: string; manifestEntry: InvokeManifestEntry }): LoginItemPreloadAPI['set'] {
-  return createInvokeMethod<[boolean], LoginItemSetResponse>({ channel, ipcRenderer, metadata: requirePreloadInvokeMetadata(apiName, methodName, manifestEntry), manifestEntry });
-}
-
-function createShellPreloadAPI({ ipcRenderer, channels, manifest }: BaseInvokeFactoryContext): ShellPreloadAPI {
-  return createManifestInvokeMethods({
-    apiName: 'shellAPI',
-    ipcRenderer,
-    channels,
-    manifest,
-    methodFactories: {
-      openExternal: ({ channel, manifestEntry }) => createInvokeMethod<[string], ShellOpenExternalResponse>({ channel, ipcRenderer, metadata: requirePreloadInvokeMetadata('shellAPI', 'openExternal', manifestEntry), manifestEntry })
-    }
-  });
-}
+const createShellPreloadAPI = ({ ipcRenderer, channels, manifest }: BaseInvokeFactoryContext): ShellPreloadAPI => createManifestInvokeMethods({ apiName: 'shellAPI', ipcRenderer, channels, manifest });
 
 const createMetricsPreloadAPI = ({ ipcRenderer, channels, manifest }: BaseInvokeFactoryContext): MetricsPreloadAPI => createManifestInvokeMethods({ apiName: 'metricsAPI', ipcRenderer, channels, manifest });
 
@@ -84,8 +56,7 @@ function createLoginItemPreloadAPI({ ipcRenderer, channels, manifest }: BaseInvo
     channels,
     manifest,
     methodFactories: {
-      get: ({ channel, manifestEntry }) => createResponseFallbackInvoker({ apiName: 'loginItemAPI', methodName: 'get', channel, ipcRenderer, metadata: requirePreloadInvokeMetadata('loginItemAPI', 'get', manifestEntry) }),
-      set: ({ channel, manifestEntry }) => createLoginItemInvoker({ apiName: 'loginItemAPI', methodName: 'set', ipcRenderer, channel, manifestEntry })
+      get: ({ channel, manifestEntry }) => createResponseFallbackInvoker({ apiName: 'loginItemAPI', methodName: 'get', channel, ipcRenderer, metadata: requirePreloadInvokeMetadata('loginItemAPI', 'get', manifestEntry) })
     }
   });
 }

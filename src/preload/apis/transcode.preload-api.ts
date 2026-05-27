@@ -2,7 +2,7 @@ import type { IpcRenderer } from 'electron';
 import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
 import type { TranscodeCancelResponse, TranscodeStartResponse } from '@shared/ipc/preload-api.contract.js';
 import { createManifestInvokeMethods, createManifestSubscriptionMethods } from '../subscription.factory.js';
-import { createPayloadValidatorMetadata, requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeManifestEntry } from '../validators.js';
+import { createPayloadValidatorMetadata, requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeManifestEntry } from '../validators.generated.js';
 
 type TranscodePreloadAPI = NonNullable<Window['transcodeAPI']> & { dispose(): void };
 type TranscodePreloadApiFactoryContext = { ipcRenderer: Pick<IpcRenderer, 'invoke' | 'on' | 'removeListener'>; channels: IpcChannels; listenerRegistry: Map<string, Set<(...args: unknown[]) => void>>; maxListeners: number; isValidCallback: (callback: unknown) => boolean };

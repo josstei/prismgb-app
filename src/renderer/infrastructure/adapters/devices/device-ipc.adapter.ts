@@ -3,24 +3,27 @@ import {
   RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
 import { DisposableBag } from '@shared/base/disposable-bag.js';
+import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { DeviceInfoPayload } from '@shared/ipc/preload-api.contract.js';
 
-type DeviceEventHandler = (...args: unknown[]) => void;
+type DeviceIpcLogger = { warn?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
+type DeviceIpcAdapterDependencies = {
+  eventBus: EventBusLike;
+  logger?: DeviceIpcLogger;
+};
 
 export class DeviceIpcAdapter {
-  _logger?: { warn?: (...args: unknown[]) => void };
+  private readonly eventBus: EventBusLike;
+  _logger?: DeviceIpcLogger;
   private readonly disposables = new DisposableBag();
 
-  constructor({ logger }: { logger?: { warn?: (...args: unknown[]) => void } } = {}) {
+  constructor({ eventBus, logger }: DeviceIpcAdapterDependencies) {
+    this.eventBus = eventBus;
     this._logger = logger;
   }
 
-  subscribe(handleConnected: DeviceEventHandler, handleDisconnected: DeviceEventHandler) {
+  subscribe() {
     if (typeof window === 'undefined' || !window.deviceAPI) {
-      return () => {};
-    }
-
-    if (typeof handleConnected !== 'function' || typeof handleDisconnected !== 'function') {
-      this._logger?.warn?.('DeviceIpcAdapter.subscribe: Invalid callbacks provided');
       return () => {};
     }
 
@@ -29,8 +32,12 @@ export class DeviceIpcAdapter {
       descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
       logger: this._logger,
       handlers: {
-        onDeviceConnected: handleConnected,
-        onDeviceDisconnected: handleDisconnected
+        onDeviceConnected: (device: DeviceInfoPayload) => {
+          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceConnected, device);
+        },
+        onDeviceDisconnected: (device: DeviceInfoPayload | null | undefined) => {
+          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceDisconnected, device);
+        }
       }
     }));
 

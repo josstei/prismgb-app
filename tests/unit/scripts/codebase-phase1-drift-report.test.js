@@ -575,8 +575,8 @@ describe('codebase phase 1 drift report', () => {
     });
   });
   it('fails when preload payload validator metadata drifts from manifest subscriptions', () => {
-    const source = replaceOnce(fs.readFileSync('src/preload/validators.ts', 'utf8'), "UpdateProgressPayload: { validatePayload: isValidProgress, invalidPayloadLabel: 'progress' },", "UpdateProgressPayload: { validatePayload: isValidProgress, invalidPayloadLabel: 'download' },");
-    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { preloadValidatorsSource: source }).report, 'preload payload validator metadata matches ipc manifest subscriptions')).toMatchObject({ status: 'fail', extra: ['generated block drift'] });
+    const source = replaceOnce(fs.readFileSync('src/preload/validators.generated.ts', 'utf8'), "  'update-progress': isValidProgress,", "  'update-progress': isValidCallback,");
+    expect(checkNamed(buildPhase1DriftReport(loadManifests(), { preloadValidatorsSource: source }).report, 'preload payload validator registry matches ipc manifest subscriptions')).toMatchObject({ status: 'fail', extra: ['generated block drift'] });
   });
   it('generates declaration and docs fragments from manifests', () => {
     const manifests = loadManifests();

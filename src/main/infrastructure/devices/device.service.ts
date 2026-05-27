@@ -194,7 +194,7 @@ class DeviceService extends BaseService {
         this.logger.warn(`Failed to initialize ${failedProfiles.length} device profile(s): ${failedIds}`);
       }
 
-      const requiredProfileIds = new Set(['chromatic-mod-retro']);
+      const requiredProfileIds = new Set(devices.filter(device => device.enabled !== false).map(device => device.id));
       const failedRequiredProfiles = failedProfiles.filter(profile => requiredProfileIds.has(profile.id));
 
       if (registeredCount === 0) {

@@ -58,7 +58,7 @@ Current repetition:
 - Payload types live separately in `src/shared/ipc/preload-api.contract.ts`.
 - Window globals are hand-maintained in `src/types/preload-api.d.ts`.
 - Preload exposes APIs by hand in `src/preload/index.js`.
-- Preload runtime validator functions remain hand-maintained in `src/preload/validators.ts`, while custom invoke validation/fallback metadata for shell/login/transcode/GPU and subscription payload-validator names/labels for device/update/transcode now live in the IPC manifest and are runtime-checked for shape, fallbacks, messages, duplicate-payload consistency, and marker-generated coverage derived from the IPC manifest.
+- Preload runtime validator functions remain hand-maintained in `src/preload/validators.ts`, while custom invoke validation/fallback metadata for shell/login/transcode/GPU and subscription payload-validator names/labels for device/update/transcode now live in the IPC manifest and are runtime-checked for shape, fallbacks, messages, duplicate-payload consistency, marker-generated coverage, and default generated invoke validation before IPC dispatch.
 - Preload invoke/subscription factory API and method descriptors are marker-generated from the IPC manifest, compile against generated `Window.*API` declaration methods with exhaustiveness assertions, and validate the runtime IPC manifest against that closed contract.
 - Preload bootstrap factory coverage is closed against the generated API-name union, so every manifest API must have exactly one factory entry.
 - Main IPC handlers are manually registered in `src/main/ipc/ipc-handler.registry.ts`.
@@ -380,7 +380,7 @@ Current state:
 - `BaseService` now validates dependencies, creates a logger, owns `DisposableBag` helpers, and no longer assigns required dependency fields dynamically.
 - `BaseOrchestrator` now has shared subscription, listener, and managed-disposable cleanup, including display-mode startup visibility.
 - Renderer update/transcode/fullscreen/performance/device-media/streaming/capture services, main update/device/device-lifecycle/transcode/window services, and `TranscodeProcess` now route owned listeners, timers, RAF/RVFC handles, observers, bridge subscriptions, delayed cleanup, and recorder-stop waits through `DisposableBag` or abortable/async lifecycles.
-- Renderer DI descriptors now require explicit `dispose`/`cleanup` policy for container-owned lifecycles, factories/value tokens opt out by omission, GPU shutdown cleanup suppresses canvas-expired re-entry during disposal, update/transcode/fullscreen/device preload bridge owner metadata now lives in IPC manifest `rendererBridge` entries and generated descriptors, update/transcode/window forwarded EventBus channel mapping now comes from manifest-owned `rendererBridge.eventChannels`, DeviceIpcAdapter bridge cleanup is unkeyed `DisposableBag.add`-owned without a drift-visibility runtime field, and presentation component/registry/controller teardown now returns and awaits async `DisposableBag` cleanup. The async presentation lifecycle follow-up audit found duplicate notes autosave flushing, registry-owned transcode toast disposal, and stale game-filter open-state risks; all three were remediated and re-audited clean. Remaining lifecycle work is broader bridge automation beyond the current descriptor channel mappings and lower-priority sync-only local contracts whose implementations become async; stale lifecycle/drift unit expectations are deferred until test cleanup.
+- Renderer DI descriptors now require explicit `dispose`/`cleanup` policy for container-owned lifecycles, factories/value tokens opt out by omission, GPU shutdown cleanup suppresses canvas-expired re-entry during disposal, update/transcode/fullscreen/device preload bridge owner metadata now lives in IPC manifest `rendererBridge` entries and generated descriptors, update/transcode/window/device forwarded EventBus channel mapping now comes from manifest-owned `rendererBridge.eventChannels`, DeviceIpcAdapter bridge cleanup is unkeyed `DisposableBag.add`-owned without a drift-visibility runtime field, failed device orchestrator startup releases already-attached bridge/EventBus subscriptions, partial preload bridge construction drains already-subscribed listeners before rethrowing, and presentation component/registry/controller teardown now returns and awaits async `DisposableBag` cleanup. The async presentation lifecycle follow-up audit found duplicate notes autosave flushing, registry-owned transcode toast disposal, and stale game-filter open-state risks; all three were remediated and re-audited clean. Remaining lifecycle work is broader bridge automation beyond the current descriptor channel mappings and lower-priority sync-only local contracts whose implementations become async; stale lifecycle/drift unit expectations are deferred until test cleanup.
 
 Recommended abstraction:
 
@@ -412,12 +412,12 @@ This is low-risk and should be foundational before larger codegen refactors.
 
 Current repetition:
 
-- Built-in device identity lives in `src/shared/features/devices/device.registry.js`.
-- Chromatic constants live in `src/shared/features/devices/profiles/chromatic/device-chromatic.config.js`.
-- `DeviceChromaticProfile` reconstructs config into a profile shape.
-- `DeviceChromaticAdapter` reconstructs a reduced renderer-side `deviceProfile` and separately recomposes capabilities instead of consuming the full shared profile directly.
-- Renderer GPU services also consume device metadata indirectly, including hard-coded native `160x144` render dimensions that should come from the device manifest.
-- Presentation CSS also consumes device shape indirectly: the stream canvas hard-codes `aspect-ratio: 160 / 144`.
+- Built-in device identity is manifest-owned and projected through `src/shared/features/devices/device.registry.ts`.
+- Chromatic runtime config derives USB IDs, display geometry, media constraints, USB identifier variants, label patterns, and supported scale bounds from the device manifest.
+- `DeviceChromaticProfile` still reconstructs config into a profile shape, but USB identifier variants now come from manifest-derived config.
+- `DeviceChromaticAdapter` still reconstructs a reduced renderer-side `deviceProfile`, but profile naming and canvas-scale bounds now derive from shared Chromatic config.
+- Renderer GPU services consume device metadata indirectly, including native render dimensions that should continue to come from the active device profile/manifest path.
+- Presentation CSS consumes device shape through manifest-populated CSS variables instead of hard-coded `aspect-ratio: 160 / 144`.
 - Tests and E2E mocks repeat VID/PID, native resolution, labels, and device capabilities.
 
 Recommended end state:
@@ -453,11 +453,11 @@ This is the correct long-term path for adding more devices without multiplying f
 
 Current repetition:
 
-- `src/shared/features/settings/settings.definitions.ts` now resolves settings storage/default/validation/event policy, external-source metadata, UI refs, and listbox options from one definition surface.
+- `src/shared/features/settings/settings.definitions.ts` now resolves settings storage/default/validation/event policy, validates setting events against the renderer event manifest payloads, and owns external-source metadata, UI refs, and listbox options from one definition surface.
 - Recording-format allowed values now derive from `TRANSCODE_CONFIG.formats`; `src/shared/features/transcode/transcode.config.ts` still owns transcode implementation metadata.
 - Storage keys and protected-key policy originally repeated settings in shared config; Phase 2 now derives settings storage keys from the settings manifest.
 - Recording-format UI options are generated from the resolved settings definition with definition-owned label formatting.
-- `loadAllPreferences()` returns only a subset of defaults, so aggregate settings reads can drift from setting definitions.
+- `loadAllPreferences()` derives its startup subset from `startupPreference` definitions and publishes startup setting events from manifest metadata; whether that remains an intentionally small subset or expands to all definitions is still a policy decision.
 
 Recommended end state:
 
@@ -562,10 +562,10 @@ Current repetition:
 - `src/renderer/presentation/config/dom-selectors.config.ts` has been retired from production source; stale tests that imported it are intentionally deferred until the test cleanup phase.
 - `createDomBindings()` consumes generated template ref groups, derives settings-control refs from `SettingsDefinitions`, and binds `data-ref` first with legacy ID fallback.
 - `template-dom.generated.ts` now defines core/deferred component IDs, element slices, and the generated core component registry element aggregate, so components keep initialize shapes while the catalog/controller no longer duplicate the DOM field assembly.
-- `src/renderer/presentation/controller/ui-component.catalog.ts` now owns component stages, constructors, and dependency guards through a generated-ID keyed definition map; `register-ui.ts` only registers `UIComponentRegistry` from that catalog.
+- Generated template metadata now owns renderer component IDs and core/deferred stages; `src/renderer/presentation/controller/ui-component.catalog.ts` owns only constructor/dependency behavior in a generated-ID keyed input map and stamps generated `id`/`stage` during definition creation. `register-ui.ts` only registers `UIComponentRegistry` from that catalog.
 - `UIController` initializes core components through the generated registry aggregate and deferred components through one generated-ID path, so `UISetupOrchestrator` supplies behavior dependencies without rebuilding presentation DOM shapes or hand-calling each deferred component.
 - `template-ref.utils.ts` owns static action descriptors while `UISetupOrchestrator` owns binding/execution against app state, EventBus, controller methods, and shell/window APIs; `UIController` no longer exposes unused generic DOM listener/getter escape hatches.
-- Phase1 drift checks now enforce `data-ref` parity, generated `data-action` target cardinality, executable generated `action event` descriptor parity, and component ID/element-factory/catalog definition parity against DOM bindings, settings definitions, `TemplateActionTargets`, `UIActionDescriptors`, generated component slices, and the UI component catalog; remaining manual UI surfaces are full generated template/component outputs, generated dependency/component parity slices, and async-safe reinitialization cleanup for future async children.
+- Phase1 drift checks now enforce `data-ref` parity, generated `data-action` target cardinality, executable generated `action event` descriptor parity, component ID/element-factory/catalog definition parity, generated core/deferred stage derivation, and AST-level rejection of catalog-owned `id`/`stage` metadata including quoted, computed, and resolvable spread forms; remaining manual UI surfaces are full generated template/component outputs, generated dependency/component parity slices, and async-safe reinitialization cleanup for future async children.
 
 Recommended end state:
 
@@ -681,9 +681,9 @@ Current repetition:
 Current source state:
 
 - IPC manifest `rendererBridge` metadata now owns the tracked consumer file, bridge name, lifecycle mode, and lifecycle key for update/transcode/window/device subscription consumers.
-- `RendererPreloadBridgeDescriptors` generates method lists, owner metadata, lifecycle keys, and manifest-owned EventBus channel descriptors for the update, transcode, and window resize subscriptions that are direct preload-forwarding events; preload subscription payload-validator names and warning labels now live beside the subscription entries in the IPC manifest.
-- Consumers publish forwarded update/transcode/window resize events through `RendererPreloadBridgeDescriptors.<api>.events.<method>`, while service-owned state transitions still publish their local state events directly.
-- Remaining source work is broader bridge automation: optional device event mapping after sequencer semantics are made explicit, payload mapper descriptors where needed, and any future generated bridge runtime that proves it can reduce code without hiding service state machines.
+- `RendererPreloadBridgeDescriptors` generates method lists, owner metadata, lifecycle keys, and manifest-owned EventBus channel descriptors for update, transcode, window resize, and device connected/disconnected subscriptions that are direct preload-forwarding events; preload subscription payload-validator names and warning labels now live beside the subscription entries in the IPC manifest.
+- Consumers publish forwarded update/transcode/window/device events through `RendererPreloadBridgeDescriptors.<api>.events.<method>`, while service-owned state transitions still publish their local state events directly. `DeviceIpcAdapter` now only forwards manifest-declared device preload events to EventBus, `DeviceOrchestrator` owns the connected/disconnected sequencer reactions, and renderer passthrough payload aliases for bridged IPC events reuse the IPC contract types instead of redeclaring lookalike shapes.
+- Remaining source work is broader bridge automation: payload mapper descriptors where needed and any future generated bridge runtime that proves it can reduce code without hiding service state machines.
 
 Recommended abstraction:
 
