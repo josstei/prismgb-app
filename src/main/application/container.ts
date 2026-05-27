@@ -56,7 +56,7 @@ export interface ContainerDependencies {
  */
 export class MainServiceContainer {
   private instances = new Map<string, any>();
-  private cache = new Map<string, { value: any }>();
+  private cache = new Map<string, { value: unknown }>();
   public registrations: Record<string, any> = {};
 
   constructor(loggerFactory: MainLogger, overrides: Record<string, any> = {}) {
@@ -89,13 +89,17 @@ export class MainServiceContainer {
   }
 
   public get cradle(): any {
-    return new Proxy(this, {
-      get: (target: any, prop: string | symbol) => {
-        if (typeof prop === 'string') {
-          return target.resolve(prop);
+    return new Proxy({}, {
+      get: (_target: object, prop: string | symbol) => {
+        if (typeof prop === 'string' && prop in this.registrations) {
+          return this.resolve(prop);
         }
         return undefined;
-      }
+      },
+      has: (_target: object, prop: string | symbol) => {
+        return typeof prop === 'string' && prop in this.registrations;
+      },
+      ownKeys: () => []
     }) as any;
   }
 
@@ -104,7 +108,7 @@ export class MainServiceContainer {
       return this.instances.get(token) as T;
     }
 
-    let instance: any;
+    let instance: unknown;
     switch (token) {
       case 'eventBus':
         instance = new EventBus({ loggerFactory: this.resolve('loggerFactory') });

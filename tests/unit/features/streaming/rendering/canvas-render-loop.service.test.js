@@ -39,6 +39,7 @@ describe('StreamingCanvasRenderLoopService', () => {
     createPipeline.mockResolvedValue(mockPipeline);
 
     mockCanvas = createMockCanvas({ width: 0, height: 0 });
+    mockCanvas.style = {};
 
     mockVideo = createMockVideo();
     mockVideo.requestVideoFrameCallback = vi.fn(() => 1);
@@ -152,9 +153,10 @@ describe('StreamingCanvasRenderLoopService', () => {
     expect(mockLogger.debug).toHaveBeenCalledWith('Canvas cleared by package pipeline');
   });
 
-  it('stops the render loop and cancels RVFC handles', () => {
-    service._isRenderLoopActive = true;
-    service._rvfcHandle = 123;
+  it('stops the render loop and cancels RVFC handles', async () => {
+    mockVideo.requestVideoFrameCallback.mockReturnValue(123);
+    await service.initialize(mockCanvas, { width: 160, height: 144 });
+    service.startRendering(mockVideo, mockCanvas, () => true, () => false);
 
     service.stopRendering(mockVideo);
 
@@ -164,29 +166,27 @@ describe('StreamingCanvasRenderLoopService', () => {
   });
 
   it('cleans loadeddata listeners before starting a new loop', async () => {
-    const oldHandler = vi.fn();
-    service._loadedDataHandler = oldHandler;
-    service._currentVideoElement = mockVideo;
-
     await service.initialize(mockCanvas, { width: 160, height: 144 });
-    service.startRendering(mockVideo, mockCanvas, () => true, () => false);
 
-    expect(mockVideo.removeEventListener).toHaveBeenCalledWith('loadeddata', oldHandler);
+    // Start once
+    service.startRendering(mockVideo, mockCanvas, () => true, () => false);
     expect(mockVideo.addEventListener).toHaveBeenCalledWith('loadeddata', expect.any(Function), { once: true });
+
+    // Start again (should unsubscribe the previous listener first)
+    service.startRendering(mockVideo, mockCanvas, () => true, () => false);
+    expect(mockVideo.removeEventListener).toHaveBeenCalledWith('loadeddata', expect.any(Function));
   });
 
   it('disposes the package pipeline on reset and cleanup', async () => {
     await service.initialize(mockCanvas, { width: 160, height: 144 });
 
-    service.resetCanvasState();
-    await Promise.resolve();
+    await service.resetCanvasState();
 
     expect(mockPipeline.dispose).toHaveBeenCalledTimes(1);
     expect(service.hasContextFor(mockCanvas)).toBe(false);
 
     await service.initialize(mockCanvas, { width: 160, height: 144 });
-    service.cleanup();
-    await Promise.resolve();
+    await service.cleanup();
 
     expect(mockPipeline.dispose).toHaveBeenCalledTimes(2);
     expect(mockAnimationCache.cancelAllAnimations).toHaveBeenCalled();

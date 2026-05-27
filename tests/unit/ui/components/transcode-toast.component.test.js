@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
-import { createTranscodeToastElementsMock } from '../../../../factories/index.js';
+import { createTranscodeToastElementsMock } from '../../../factories/index.js';
 
 describe('TranscodeToastComponent', () => {
   let component;
@@ -28,8 +28,8 @@ describe('TranscodeToastComponent', () => {
       expect(component.elements).toBe(mockElements);
     });
 
-    it('should initialize hideTimeout as null', () => {
-      expect(component._hideTimeout).toBeNull();
+    it('should initialize hideTimeout as empty', () => {
+      expect(component._disposables.managed.size).toBe(0);
     });
 
     it('should initialize isVisible as false', () => {
@@ -50,7 +50,7 @@ describe('TranscodeToastComponent', () => {
 
     it('should reset progress ring to 0', () => {
       component.show('MP4');
-      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', 0);
+      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', '0');
     });
 
     it('should clear percentage label', () => {
@@ -65,9 +65,10 @@ describe('TranscodeToastComponent', () => {
     });
 
     it('should clear pending hide timeout', () => {
-      component._hideTimeout = setTimeout(() => {}, 1000);
+      component.showSuccess();
+      expect(component._disposables.managed.size).toBe(1);
       component.show('MP4');
-      expect(component._hideTimeout).toBeNull();
+      expect(component._disposables.managed.size).toBe(0);
     });
 
     it('should not throw when recordBtn is missing', () => {
@@ -98,7 +99,7 @@ describe('TranscodeToastComponent', () => {
 
     it('should update progress ring CSS property', () => {
       component.updateProgress(50);
-      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', 50);
+      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', '50');
     });
 
     it('should update percentage label', () => {
@@ -117,13 +118,13 @@ describe('TranscodeToastComponent', () => {
 
     it('should clamp progress to 100 maximum', () => {
       component.updateProgress(150);
-      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', 100);
+      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', '100');
       expect(mockElements.transcodePercentLabel.textContent).toBe('100%');
     });
 
     it('should round progress to integer', () => {
       component.updateProgress(33.7);
-      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', 34);
+      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', '34');
       expect(mockElements.transcodePercentLabel.textContent).toBe('34%');
     });
 
@@ -254,7 +255,7 @@ describe('TranscodeToastComponent', () => {
 
     it('should reset progress ring to 0', () => {
       component.hide();
-      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', 0);
+      expect(mockElements.transcodeRing.style.setProperty).toHaveBeenCalledWith('--progress', '0');
     });
 
     it('should clear percentage label', () => {
@@ -269,9 +270,10 @@ describe('TranscodeToastComponent', () => {
     });
 
     it('should clear pending hide timeout', () => {
-      component._hideTimeout = setTimeout(() => {}, 1000);
+      component.showSuccess();
+      expect(component._disposables.managed.size).toBe(1);
       component.hide();
-      expect(component._hideTimeout).toBeNull();
+      expect(component._disposables.managed.size).toBe(0);
     });
 
     it('should not throw when recordBtn is missing', () => {
@@ -309,9 +311,10 @@ describe('TranscodeToastComponent', () => {
 
   describe('dispose', () => {
     it('should clear pending timeout', () => {
-      component._hideTimeout = setTimeout(() => {}, 5000);
+      component.showSuccess();
+      expect(component._disposables.managed.size).toBe(1);
       component.dispose();
-      expect(component._hideTimeout).toBeNull();
+      expect(component._disposables.managed.size).toBe(0);
     });
 
     it('should call hide', () => {
@@ -384,10 +387,11 @@ describe('TranscodeToastComponent', () => {
     it('should handle rapid show/hide cycles', () => {
       component.show('MP4');
       component.showSuccess();
+      expect(component._disposables.managed.size).toBe(1);
       component.show('MOV'); // Immediately start new transcode
 
       // Should clear the pending hide timeout from success
-      expect(component._hideTimeout).toBeNull();
+      expect(component._disposables.managed.size).toBe(0);
       expect(component.isVisible).toBe(true);
     });
   });

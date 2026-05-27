@@ -234,6 +234,37 @@ function collectRuntimeFiles(projectRoot, includeFiles = []) {
   return matches;
 }
 
+export function collectBareIpcViolations(projectRoot) {
+  const manifestPath = path.join(projectRoot, 'src/shared/ipc/ipc.manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    return { bareIpcViolationCount: 0, violations: [] };
+  }
+
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const violations = [];
+
+    for (const ns of manifest.namespaces || []) {
+      for (const entry of ns.invoke || []) {
+        if (entry.handler && entry.handler.responseMode === 'bare') {
+          violations.push({
+            apiName: ns.apiName,
+            method: entry.method,
+            channel: entry.channel
+          });
+        }
+      }
+    }
+
+    return {
+      bareIpcViolationCount: violations.length,
+      violations
+    };
+  } catch (err) {
+    return { bareIpcViolationCount: 0, violations: [] };
+  }
+}
+
 export function collectContractMetrics(projectRoot) {
   const allowlist = collectContractAllowlist();
   const contractLikeFiles = collectContractLikeFiles(projectRoot);
@@ -1118,6 +1149,7 @@ function printSummary(scorecard) {
   console.log(`- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`);
   console.log(`- alias manifest drift: ${metrics.aliasManifestDriftCount}`);
   console.log(`- platform manifest drift: ${metrics.platformManifestDriftCount}`);
+  console.log(`- bare IPC violations: ${metrics.bareIpcViolationCount}`);
   console.log('- top runtime files:');
   for (const entry of metrics.topRuntimeFiles) {
     console.log(`  - ${entry.file}: ${entry.loc}`);
@@ -1300,6 +1332,12 @@ export function evaluateThresholds(metrics, limits) {
     metrics.platformManifestDriftCount,
     'max'
   );
+  addCheck(
+    'bareIpcViolationCountMax',
+    'bareIpcViolationCount',
+    metrics.bareIpcViolationCount,
+    'max'
+  );
 
   const failures = checks.filter((check) => !check.passed);
   return {
@@ -1349,6 +1387,7 @@ function renderScorecardSummary(scorecard, thresholdConfig, thresholdEvaluation)
   `- render-pass manifest ownership violations: ${metrics.renderPassManifestOwnershipViolationCount}`,
   `- alias manifest drift: ${metrics.aliasManifestDriftCount}`,
   `- platform manifest drift: ${metrics.platformManifestDriftCount}`,
+  `- bare IPC violations: ${metrics.bareIpcViolationCount}`,
   '',
   '## Top Runtime Files',
     '| File | LOC |',
@@ -1396,6 +1435,7 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
   const platformDriftMetrics = collectPlatformDriftMetrics(projectRoot);
   const rendererBackendMetrics = collectRendererBackendImplementationMetrics(projectRoot);
   const renderPassOwnershipMetrics = collectRenderPassManifestOwnershipMetrics(projectRoot);
+  const bareIpcMetrics = collectBareIpcViolations(projectRoot);
   return {
     generatedAt: new Date().toISOString(),
     metrics: {
@@ -1434,7 +1474,9 @@ export function generateScorecard({ projectRoot = process.cwd(), top = DEFAULT_T
       platformManifestDrift: {
         missing: platformDriftMetrics.manifestMissing,
         extras: platformDriftMetrics.matrixExtras
-      }
+      },
+      bareIpcViolationCount: bareIpcMetrics.bareIpcViolationCount,
+      bareIpcViolations: bareIpcMetrics.violations
     }
   };
 }

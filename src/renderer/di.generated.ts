@@ -73,7 +73,7 @@ import { rendererUiComponentDefinitions } from './presentation/controller/ui-com
 import { AnimationCache } from '../shared/utils/performance-cache.utils';
 
 export class GeneratedContainer {
-  public cache: Map<string, { value: any }> = new Map();
+  public cache: Map<string, { value: unknown }> = new Map();
   public registrations: Record<string, any> = {};
   private instances: Map<string, any> = new Map();
 
@@ -160,17 +160,18 @@ export class GeneratedContainer {
   }
 
   public get cradle(): any {
-    return new Proxy(this, {
-      get: (target: any, prop: string | symbol) => {
-        if (typeof prop === 'string') {
-          if (prop in target.registrations) {
-            return target.resolve(prop);
-          }
-          return undefined;
+    return new Proxy({}, {
+      get: (_target: object, prop: string | symbol) => {
+        if (typeof prop === 'string' && prop in this.registrations) {
+          return this.resolve(prop);
         }
         return undefined;
-      }
-    });
+      },
+      has: (_target: object, prop: string | symbol) => {
+        return typeof prop === 'string' && prop in this.registrations;
+      },
+      ownKeys: () => []
+    }) as any;
   }
 
   public register(registrations: Record<string, any>) {
@@ -182,7 +183,7 @@ export class GeneratedContainer {
     }
   }
 
-  public resolve<T = any>(token: string): T {
+  public resolve<T = unknown>(token: string): T {
     if (this.instances.has(token)) {
       return this.instances.get(token) as T;
     }

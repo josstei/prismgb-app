@@ -33,31 +33,31 @@ npm run release:preflight
 
 Use this checklist to track tasks. Mark completed items with `[x]` and in-progress items with `[/]`.
 
-### [ ] Step 1: Baseline Stabilization & Worktree Merge
-- [ ] Commit and merge the active staged worktree (26 files).
-- [ ] Run `npm run release:preflight` on the merged master/main branch.
-- [ ] Verify `npm run codebase:size` compiles a stable threshold baseline.
+### [x] Step 1: Baseline Stabilization & Worktree Merge
+- [x] Commit and merge the active staged worktree (26 files).
+- [x] Run `npm run release:preflight` on the merged master/main branch.
+- [x] Verify `npm run codebase:size` compiles a stable threshold baseline.
 
 ---
 
-### [ ] Step 2: Option 1A - Manifest-First IPC Contract Generation
-#### [ ] Phase 1: Generator Bootstrap
-- [ ] Parse `ipc.manifest.json` in `scripts/generate-contracts.js`.
-- [ ] Write code emitter to generate typescript generic endpoints.
-- [ ] Output `src/types/preload-api.generated.d.ts` without compiler errors.
-- [ ] Run verification tests.
+### [x] Step 2: Option 1A - Manifest-First IPC Contract Generation
+#### [x] Phase 1: Generator Bootstrap
+- [x] Parse `ipc.manifest.json` in `scripts/generate-contracts.js`.
+- [x] Write code emitter to generate typescript generic endpoints.
+- [x] Output `src/types/preload-api.generated.d.ts` without compiler errors.
+- [x] Run verification tests.
 
-#### [ ] Phase 2: Exposure and Preload Type Cutover
-- [ ] Delete manual `src/types/preload-api.d.ts`.
-- [ ] Replace with generated types reference inside compiler scope.
-- [ ] Refactor `src/preload/index.js` to delegate exposure to the manifest-factory.
-- [ ] Harden `codebase-phase1-drift-report.js` to assert exact contract alignment.
+#### [x] Phase 2: Exposure and Preload Type Cutover
+- [x] Delete manual `src/types/preload-api.d.ts`.
+- [x] Replace with generated types reference inside compiler scope.
+- [x] Refactor `src/preload/index.js` to delegate exposure to the manifest-factory.
+- [x] Harden `codebase-phase1-drift-report.js` to assert exact contract alignment.
 
-#### [ ] Phase 3: Manifest-Owned Validation & Argument Sanitization
-- [ ] Integrate validator metadata arrays in `ipc.manifest.json`.
-- [ ] Generate `src/preload/validators.generated.ts` from schemas.
-- [ ] Wire generated validators into default preload invoke methods.
-- [ ] Delete manual validators in `src/preload/validators.ts`.
+#### [x] Phase 3: Manifest-Owned Validation & Argument Sanitization
+- [x] Integrate validator metadata arrays in `ipc.manifest.json`.
+- [x] Generate `src/preload/validators.generated.ts` from schemas.
+- [x] Wire generated validators into default preload invoke methods.
+- [x] Delete manual validators in `src/preload/validators.ts`.
 
 ---
 
@@ -81,47 +81,47 @@ Use this checklist to track tasks. Mark completed items with `[x]` and in-progre
 
 ---
 
-### [ ] Step 4: Option 3A - Enforced Monadic IPC Result Envelopes
-#### [ ] Phase 1: Monadic Types & Preload Integration
-- [ ] Establish generic `Result<T, E>` unions inside `ipc.contract.ts`.
-- [ ] Update preload validations to return `{ success: false, error }` on sanitization fails.
-- [ ] Verify compiler type-narrowing prevents reading `.data` before checking `.success`.
+### [x] Step 4: Option 3A - Enforced Monadic IPC Result Envelopes
+#### [x] Phase 1: Monadic Types & Preload Integration
+- [x] Establish generic `Result<T, E>` unions inside `ipc.contract.ts`.
+- [x] Update preload validations to return `{ success: false, error }` on sanitization fails.
+- [x] Verify compiler type-narrowing prevents reading `.data` before checking `.success`.
 
-#### [ ] Phase 2: Registry Error Mapping & Sanitization
-- [ ] Implement global exception catches inside `IpcHandlerRegistry`.
-- [ ] Convert main process throws into serialized monadic error structures.
-- [ ] Filter out system-level stack traces, returning structured error codes to the client.
+#### [x] Phase 2: Registry Error Mapping & Sanitization
+- [x] Implement global exception catches inside `IpcHandlerRegistry`.
+- [x] Convert main process throws into serialized monadic error structures.
+- [x] Filter out system-level stack traces, returning structured error codes to the client.
 
-#### [ ] Phase 3: Legacy API Cutover
-- [ ] Refactor "bare" endpoints (`isFullScreen()`, `getDeviceStatus()`) to return `Result` envelopes.
-- [ ] Align renderer views and subcomponents to consume envelope return types.
-- [ ] Update architecture scorecard to strictly reject any future `responseMode: 'bare'` endpoints.
-
----
-
-### [ ] Step 5: Option 4B - Pure Headless Controllers + Template-Dom Ref Generation
-#### [ ] Phase 1: Headless Primitives Integration
-- [ ] Implement and test `FocusController` and focus traps.
-- [ ] Refactor primitive controls to leverage generic headless controllers.
-- [ ] Verify complete ARIA and accessibility compliant inputs.
-
-#### [ ] Phase 2: Template Ref Contract Generation
-- [ ] Scan HTML string templates during pre-build compilation.
-- [ ] Auto-generate `template-dom.generated.ts` containing elements ref maps.
-- [ ] Bind generated maps inside `createDomBindings()`, rejecting manual drift in CI.
-
-#### [ ] Phase 3: Async Presentation Component Modernization
-- [ ] Refactor `SettingsMenuComponent`, `UpdateSectionComponent`, and `NotesPanelComponent` to inherit from `PresentationComponent`.
-- [ ] Route all timers, frames, and event listeners through the async-aware `DisposableBag`.
-- [ ] Verify zero memory leaks or un-cleared listeners during rapid view toggles.
+#### [x] Phase 3: Legacy API Cutover
+- [x] Refactor "bare" endpoints (`isFullScreen()`, `getDeviceStatus()`) to return `Result` envelopes.
+- [x] Align renderer views and subcomponents to consume envelope return types.
+- [x] Update architecture scorecard to strictly reject any future `responseMode: 'bare'` endpoints.
 
 ---
 
-### [ ] Step 6: Area I - Deferred Test Suite Cleanup
-- [ ] Replace custom unit-test mock setups with canonical `createMockDependencies()` factories.
-- [ ] Standardize settings, notes, and toolbar UI tests using Testing Library accessible role-based queries.
-- [ ] Replace global test mocks (`MediaRecorder`, `ResizeObserver`, `localStorage`) with clean test-level installers.
-- [ ] Replace regex-based text scans in tests with generated contract validations.
+### [x] Step 5: Option 4B - Pure Headless Controllers + Template-Dom Ref Generation
+#### [x] Phase 1: Headless Primitives Integration
+- [x] Implement and test `FocusController` and focus traps.
+- [x] Refactor primitive controls to leverage generic headless controllers.
+- [x] Verify complete ARIA and accessibility compliant inputs.
+
+#### [x] Phase 2: Template Ref Contract Generation
+- [x] Scan HTML string templates during pre-build compilation.
+- [x] Auto-generate `template-dom.generated.ts` containing elements ref maps.
+- [x] Bind generated maps inside `createDomBindings()`, rejecting manual drift in CI.
+
+#### [x] Phase 3: Async Presentation Component Modernization
+- [x] Refactor `SettingsMenuComponent`, `UpdateSectionComponent`, and `NotesPanelComponent` to inherit from `PresentationComponent`.
+- [x] Route all timers, frames, and event listeners through the async-aware `DisposableBag`.
+- [x] Verify zero memory leaks or un-cleared listeners during rapid view toggles.
+
+---
+
+### [x] Step 6: Area I - Deferred Test Suite Cleanup
+- [x] Replace custom unit-test mock setups with canonical `createMockDependencies()` factories.
+- [x] Standardize settings, notes, and toolbar UI tests using Testing Library accessible role-based queries.
+- [x] Replace global test mocks (`MediaRecorder`, `ResizeObserver`, `localStorage`) with clean test-level installers.
+- [x] Replace regex-based text scans in tests with generated contract validations.
 
 ---
 
@@ -270,7 +270,8 @@ Use this section to record 3-Pass audit results, scorecard updates, and develope
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | 2026-05-27 | Baseline | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
 | 2026-05-27 | Option 2B | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 682 files |
-| | | | | | | |
-| | | | | | | |
-| | | | | | | |
+| 2026-05-27 | Option 1A | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
+| 2026-05-27 | Option 4B | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
+| 2026-05-27 | Option 3A | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
+| 2026-05-27 | Area I    | 🟢 Pass | 🟢 Pass | 🟢 Pass | Antigravity | 687 files |
 

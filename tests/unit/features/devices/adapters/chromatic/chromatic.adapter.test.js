@@ -145,7 +145,7 @@ describe('DeviceChromaticAdapter', () => {
       await adapter.initialize(mockDeviceInfo);
 
       expect(adapter.deviceProfile).toBeDefined();
-      expect(adapter.deviceProfile.name).toBe('Chromatic');
+      expect(adapter.deviceProfile.name).toBe('Mod Retro Chromatic');
     });
 
     it('should set profile for constraint building', async () => {
@@ -278,7 +278,7 @@ describe('DeviceChromaticAdapter', () => {
       await adapter.ensureDeviceProfile();
 
       expect(adapter.deviceProfile).toBeDefined();
-      expect(adapter.deviceProfile.name).toBe('Chromatic');
+      expect(adapter.deviceProfile.name).toBe('Mod Retro Chromatic');
       expect(adapter.deviceProfile.rendering).toBeDefined();
     });
 

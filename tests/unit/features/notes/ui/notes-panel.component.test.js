@@ -29,8 +29,8 @@ describe('NotesPanelComponent', () => {
       logger: mockLogger
     });
   });
-  afterEach(() => {
-    component.dispose();
+  afterEach(async () => {
+    await component.dispose();
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -93,6 +93,7 @@ describe('NotesPanelComponent', () => {
       component.initialize(mockElements);
       component._selectNote('note_1');
       component.initialize(replacementElements);
+      replacementElements.notesTitleInput.dispatchEvent(new Event('input'));
       component.hide();
       expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenLastCalledWith('note_1', {
         title: 'Persisted Title',
@@ -116,6 +117,7 @@ describe('NotesPanelComponent', () => {
       component.gameFilter.setCurrentFilter('Old Game');
       component._selectNote('note_1');
       mockElements.notesGameInput.value = 'New Game';
+      mockElements.notesGameInput.dispatchEvent(new Event('input'));
       component.initialize(replacementElements);
       expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', {
         title: 'Title',
@@ -206,6 +208,9 @@ describe('NotesPanelComponent', () => {
       mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'Test Title';
       mockElements.notesContentArea.value = 'Test Content';
+      mockElements.notesGameInput.dispatchEvent(new Event('input'));
+      mockElements.notesTitleInput.dispatchEvent(new Event('input'));
+      mockElements.notesContentArea.dispatchEvent(new Event('input'));
       mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: { id: 'note_1' }, gameChanged: false });
       component.hide();
       expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', {
@@ -436,10 +441,10 @@ describe('NotesPanelComponent', () => {
       component.gameFilter.updateOptions();
       mockElements.notesGameFilter.click();
       expect(component.isVisible).toBe(true);
-      document.body.append(mockElements.notesGameFilterMenu); mockElements.notesGameFilterMenu.querySelector('.notes-game-filter-option').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       expect(component.isVisible).toBe(true);
       expect(component.gameFilter.isGameFilterOpen).toBe(false);
-      expect(mockElements.notesGameFilterMenu.classList.contains(CSSClasses.VISIBLE)).toBe(false); mockElements.notesGameFilterMenu.remove();
+      expect(mockElements.notesGameFilterMenu.classList.contains(CSSClasses.VISIBLE)).toBe(false);
     });
   });
   describe('dispose', () => {
@@ -447,32 +452,32 @@ describe('NotesPanelComponent', () => {
       vi.useFakeTimers();
       component.initialize(mockElements);
     });
-    it('should nullify references', () => {
+    it('should nullify references', async () => {
       const layoutDisposeSpy = vi.spyOn(component.layout, 'dispose');
-      component.dispose();
+      await component.dispose();
       expect(component.elements).toBeNull();
       expect(component.notesService).toBeNull();
       expect(component.eventBus).toBeNull();
       expect(component.logger).toBeNull();
       expect(layoutDisposeSpy).toHaveBeenCalled();
     });
-    it('should reset state', () => {
+    it('should reset state', async () => {
       component.currentNoteId = 'note_1';
       component.isVisible = true;
-      component.dispose();
+      await component.dispose();
       expect(component.currentNoteId).toBeNull();
       expect(component.isVisible).toBe(false);
     });
-    it('should unsubscribe from events', () => {
+    it('should unsubscribe from events', async () => {
       const unsubscribeMocks = mockEventBus.subscribe.mock.results
         .map(result => result.value)
         .filter(unsubscribe => typeof unsubscribe === 'function');
-      component.dispose();
+      await component.dispose();
       unsubscribeMocks.forEach(unsubscribe => {
         expect(unsubscribe).toHaveBeenCalled();
       });
     });
-    it('should handle unsubscribe errors gracefully', () => {
+    it('should handle unsubscribe errors gracefully', async () => {
       const errorEventBus = createEventBus();
       errorEventBus.subscribe = vi.fn(() => () => {
         throw new Error('Unsubscribe error');
@@ -484,7 +489,7 @@ describe('NotesPanelComponent', () => {
         logger: mockLogger
       });
       errorComponent.initialize(mockElements);
-      expect(() => errorComponent.dispose()).not.toThrow();
+      await expect(errorComponent.dispose()).resolves.not.toThrow();
       expect(mockLogger.warn).toHaveBeenCalledWith('Error unsubscribing from event', expect.any(Error));
     });
   });
@@ -555,13 +560,16 @@ describe('NotesPanelComponent', () => {
         </div>
       `;
       const listItem = mockElements.notesList.querySelector('.note-list-item');
-      listItem.click();
+      mockElements.notesList._triggerEvent('click', { target: listItem });
       expect(component.currentNoteId).toBe('note_1');
 
       component.currentNoteId = 'old_note';
       mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'Old Title';
       mockElements.notesContentArea.value = 'Old Content';
+      mockElements.notesGameInput.dispatchEvent(new Event('input'));
+      mockElements.notesTitleInput.dispatchEvent(new Event('input'));
+      mockElements.notesContentArea.dispatchEvent(new Event('input'));
       mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: { id: 'old_note' }, gameChanged: false });
       const newNote = { id: 'new_note', title: 'New', content: '', gameName: '' };
       mockNotesService.getNote.mockReturnValueOnce(newNote);
@@ -571,7 +579,7 @@ describe('NotesPanelComponent', () => {
         </div>
       `;
       const nextListItem = mockElements.notesList.querySelector('.note-list-item');
-      nextListItem.click();
+      mockElements.notesList._triggerEvent('click', { target: nextListItem });
       expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('old_note', {
         title: 'Old Title',
         content: 'Old Content',
@@ -757,6 +765,7 @@ describe('NotesPanelComponent', () => {
       component.currentNoteId = 'note_1';
       mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: { id: 'note_1' }, gameChanged: false });
       mockElements.notesGameInput.value = 'Custom Game';
+      mockElements.notesGameInput.dispatchEvent(new Event('input'));
       mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       expect(mockElements.notesGameTagRow.classList.contains('editing')).toBe(false);
       vi.advanceTimersByTime(500);

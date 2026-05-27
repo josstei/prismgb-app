@@ -322,20 +322,22 @@ describe('UpdateService', () => {
     });
 
     it('should dispose preload event bridge unsubscribe functions', () => {
-      const cleanup1 = vi.fn();
-      const cleanup2 = vi.fn();
-      service._eventBridge = createDisposableMock({
-        dispose: vi.fn(() => {
-          cleanup1();
-          cleanup2();
-        })
-      });
+      const onAvailableUnsubscribers = mockUpdateAPI.onAvailable.getUnsubscribers();
+      const onErrorUnsubscribers = mockUpdateAPI.onError.getUnsubscribers();
+
+      expect(onAvailableUnsubscribers.length).toBeGreaterThan(0);
+      expect(onErrorUnsubscribers.length).toBeGreaterThan(0);
+
+      const unsubAvailable = onAvailableUnsubscribers[0];
+      const unsubError = onErrorUnsubscribers[0];
+
+      expect(unsubAvailable).not.toHaveBeenCalled();
+      expect(unsubError).not.toHaveBeenCalled();
 
       service.dispose();
 
-      expect(cleanup1).toHaveBeenCalled();
-      expect(cleanup2).toHaveBeenCalled();
-      expect(service._eventBridge).toBeNull();
+      expect(unsubAvailable).toHaveBeenCalled();
+      expect(unsubError).toHaveBeenCalled();
     });
 
     it('should reset state', () => {

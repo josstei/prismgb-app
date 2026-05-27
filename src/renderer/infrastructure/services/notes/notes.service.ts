@@ -262,6 +262,11 @@ class NotesService extends BaseService {
   }
 
   _saveNotes(notes: UserNote[]): boolean {
+    if (!this.storageService) {
+      this._notesCache = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      this._cacheValid = true;
+      return true;
+    }
     try {
       if (!this.storageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes))) {
         this.logger.error('Storage rejected notes save');

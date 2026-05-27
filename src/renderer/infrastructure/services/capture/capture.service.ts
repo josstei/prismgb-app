@@ -211,6 +211,10 @@ class CaptureService extends BaseService {
   }
 
   async _handleRecordingStop(): Promise<void> {
+    if (this._isDisposing) {
+      this.logger.debug('Skipping recording stop handler during dispose');
+      return;
+    }
     if (this.recordedChunks.length === 0) {
       this.logger.warn('No recorded data to save');
       return;

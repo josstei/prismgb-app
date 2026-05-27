@@ -290,38 +290,47 @@ describe('CaptureService', () => {
   });
 
   describe('_handleRecordingStop', () => {
-    it('should emit capture:recording-ready with blob and filename', () => {
-      service.recordedChunks = [{ size: 100 }, { size: 200 }];
+    beforeEach(() => {
+      vi.spyOn(mockEventBus, 'publish');
+    });
 
-      service._handleRecordingStop();
+    it('should generate a formatted filename and emit capture:recording-ready event', async () => {
+      service.recordedChunks = [{ size: 100 }];
+
+      // Mock date to ensure consistent filename
+      const mockDate = new Date('2024-01-01T12:00:00Z');
+      vi.useFakeTimers();
+      vi.setSystemTime(mockDate);
+
+      await service._handleRecordingStop();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-ready', expect.objectContaining({
         filename: 'recording_2024-01-01_12-00-00.webm'
       }));
     });
 
-    it('should clear recorded chunks after handling', () => {
+    it('should clear recorded chunks after handling', async () => {
       service.recordedChunks = [{ size: 100 }];
 
-      service._handleRecordingStop();
+      await service._handleRecordingStop();
 
       expect(service.recordedChunks).toEqual([]);
     });
 
-    it('should warn and return if no recorded data', () => {
+    it('should warn and return if no recorded data', async () => {
       service.recordedChunks = [];
 
-      service._handleRecordingStop();
+      await service._handleRecordingStop();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('No recorded data to save');
       expect(mockEventBus.publish).not.toHaveBeenCalledWith('capture:recording-ready', expect.anything());
     });
 
-    it('should skip processing when disposing', () => {
+    it('should skip processing when disposing', async () => {
       service.recordedChunks = [{ size: 100 }];
       service._isDisposing = true;
 
-      service._handleRecordingStop();
+      await service._handleRecordingStop();
 
       expect(mockLogger.debug).toHaveBeenCalledWith('Skipping recording stop handler during dispose');
       expect(mockEventBus.publish).not.toHaveBeenCalledWith('capture:recording-ready', expect.anything());
@@ -375,17 +384,19 @@ describe('CaptureService', () => {
       await service.startRecording(mockStream);
       const stopSpy = vi.spyOn(service.mediaRecorder, 'stop');
 
-      service.dispose();
+      await service.dispose();
 
       expect(stopSpy).toHaveBeenCalled();
     });
 
-    it('should clear all state', () => {
+    it('should clear all state', async () => {
       service.isRecording = true;
       service.recordedChunks = [{ size: 100 }];
-      service.mediaRecorder = createMediaRecorderMock();
+      const mockRecorder = createMediaRecorderMock();
+      mockRecorder.state = 'inactive';
+      service.mediaRecorder = mockRecorder;
 
-      service.dispose();
+      await service.dispose();
 
       expect(service.mediaRecorder).toBeNull();
       expect(service.recordedChunks).toEqual([]);

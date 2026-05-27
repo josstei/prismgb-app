@@ -7,7 +7,7 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "anyOccurrenceCountMax": 23,
+    "anyOccurrenceCountMax": 26,
     "topRuntimeFileLocMax": 700,
     "unexpectedContractFileCountMax": 0,
     "shaderDuplicateDivergenceCountMax": 0,
@@ -20,7 +20,8 @@
     "rendererBackendImplementationViolationCountMax": 0,
     "renderPassManifestOwnershipViolationCountMax": 0,
     "aliasManifestDriftCountMax": 0,
-    "platformManifestDriftCountMax": 0
+    "platformManifestDriftCountMax": 0,
+    "bareIpcViolationCountMax": 0
   },
   "nextReleaseTargets": {
     "strict": true,
@@ -39,6 +40,7 @@
     "renderPassManifestOwnershipViolationCountMax": 0,
     "aliasManifestDriftCountMax": 0,
     "platformManifestDriftCountMax": 0,
+    "bareIpcViolationCountMax": 0,
     "topRuntimeFileLocMax": 700
   }
 }

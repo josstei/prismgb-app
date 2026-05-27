@@ -22,6 +22,7 @@ describe('StreamingGpuRenderLoopService', () => {
     mockVideoElement = createMockVideo();
     mockVideoElement.readyState = 4;
     mockVideoElement.HAVE_CURRENT_DATA = 2;
+    mockVideoElement.requestVideoFrameCallback.mockReturnValue(1);
 
     service = new StreamingGpuRenderLoopService({
       loggerFactory: mockLoggerFactory
@@ -35,7 +36,6 @@ describe('StreamingGpuRenderLoopService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(service._rvfcHandle).toBeNull();
       expect(service._active).toBe(false);
     });
 
@@ -94,7 +94,7 @@ describe('StreamingGpuRenderLoopService', () => {
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should store RVFC handle', () => {
+    it('should schedule frame cancellation with the returned handle', () => {
       const mockHandle = 42;
       mockVideoElement.requestVideoFrameCallback.mockReturnValue(mockHandle);
 
@@ -104,7 +104,8 @@ describe('StreamingGpuRenderLoopService', () => {
         shouldContinue: mockShouldContinue
       });
 
-      expect(service._rvfcHandle).toBe(mockHandle);
+      service.stop(mockVideoElement);
+      expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(mockHandle);
     });
   });
 
@@ -271,14 +272,15 @@ describe('StreamingGpuRenderLoopService', () => {
         shouldContinue: mockShouldContinue
       });
 
-      expect(service._rvfcHandle).toBe(handle1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
 
       capturedRenderLoop(1000, { mediaTime: 16.67 });
 
       expect(mockShouldContinue).toHaveBeenCalledTimes(1);
       expect(mockVideoElement.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
-      expect(service._rvfcHandle).toBe(handle2);
+
+      service.stop(mockVideoElement);
+      expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(handle2);
     });
 
     it('should stop loop when shouldContinue returns false', () => {
@@ -354,61 +356,64 @@ describe('StreamingGpuRenderLoopService', () => {
     });
 
     it('should cancel RVFC handle when present', () => {
-      service._rvfcHandle = 42;
+      mockVideoElement.requestVideoFrameCallback.mockReturnValue(42);
+      service.start({
+        videoElement: mockVideoElement,
+        renderFrame: mockRenderFrame,
+        shouldContinue: mockShouldContinue
+      });
 
       service.stop(mockVideoElement);
 
       expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(42);
-      expect(service._rvfcHandle).toBeNull();
     });
 
-    it('should not cancel when handle is null', () => {
-      service._rvfcHandle = null;
-
+    it('should not cancel when not started', () => {
       service.stop(mockVideoElement);
 
       expect(mockVideoElement.cancelVideoFrameCallback).not.toHaveBeenCalled();
     });
 
     it('should handle missing cancelVideoFrameCallback gracefully', () => {
-      service._rvfcHandle = 42;
       const videoWithoutCancel = {
-        cancelVideoFrameCallback: undefined
+        requestVideoFrameCallback: vi.fn(() => 42),
+        cancelVideoFrameCallback: undefined,
+        readyState: 4,
+        HAVE_CURRENT_DATA: 2
       };
 
-      service.stop(videoWithoutCancel);
+      service.start({
+        videoElement: videoWithoutCancel,
+        renderFrame: mockRenderFrame,
+        shouldContinue: mockShouldContinue
+      });
 
+      expect(() => service.stop(videoWithoutCancel)).not.toThrow();
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should handle null videoElement gracefully', () => {
-      service._rvfcHandle = 42;
-
-      service.stop(null);
-
+      expect(() => service.stop(null)).not.toThrow();
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should handle undefined videoElement gracefully', () => {
-      service._rvfcHandle = 42;
-
-      service.stop(undefined);
-
+      expect(() => service.stop(undefined)).not.toThrow();
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull(); // Always cleared for consistent state
     });
 
     it('should be safe to call multiple times', () => {
-      service._rvfcHandle = 42;
-      service._active = true;
+      mockVideoElement.requestVideoFrameCallback.mockReturnValue(42);
+      service.start({
+        videoElement: mockVideoElement,
+        renderFrame: mockRenderFrame,
+        shouldContinue: mockShouldContinue
+      });
 
       service.stop(mockVideoElement);
       service.stop(mockVideoElement);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull();
       expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledTimes(1);
     });
   });
@@ -422,33 +427,32 @@ describe('StreamingGpuRenderLoopService', () => {
       expect(service._active).toBe(false);
     });
 
-    it('should clear RVFC handle', () => {
-      service._rvfcHandle = 42;
+    it('should cancel active handle', () => {
+      mockVideoElement.requestVideoFrameCallback.mockReturnValue(42);
+      service.start({
+        videoElement: mockVideoElement,
+        renderFrame: mockRenderFrame,
+        shouldContinue: mockShouldContinue
+      });
 
-      service.cleanup();
+      service.cleanup(mockVideoElement);
 
-      expect(service._rvfcHandle).toBeNull();
-    });
-
-    it('should reset all state', () => {
-      service._active = true;
-      service._rvfcHandle = 42;
-
-      service.cleanup();
-
-      expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull();
+      expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(42);
     });
 
     it('should be safe to call multiple times', () => {
-      service._active = true;
-      service._rvfcHandle = 42;
+      mockVideoElement.requestVideoFrameCallback.mockReturnValue(42);
+      service.start({
+        videoElement: mockVideoElement,
+        renderFrame: mockRenderFrame,
+        shouldContinue: mockShouldContinue
+      });
 
-      service.cleanup();
-      service.cleanup();
+      service.cleanup(mockVideoElement);
+      service.cleanup(mockVideoElement);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull();
+      expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledTimes(1);
     });
 
     it('should not throw when called with no active state', () => {
@@ -472,7 +476,6 @@ describe('StreamingGpuRenderLoopService', () => {
       });
 
       expect(service._active).toBe(true);
-      expect(service._rvfcHandle).toBe(1);
 
       // Render a few frames
       capturedRenderLoop(1000, { mediaTime: 16.67 });
@@ -485,7 +488,7 @@ describe('StreamingGpuRenderLoopService', () => {
       service.stop(mockVideoElement);
 
       expect(service._active).toBe(false);
-      expect(service._rvfcHandle).toBeNull();
+      expect(mockVideoElement.cancelVideoFrameCallback).toHaveBeenCalledWith(1);
 
       // Attempting to render after stop should be ignored
       capturedRenderLoop(4000, { mediaTime: 66.68 });

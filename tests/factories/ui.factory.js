@@ -5,8 +5,71 @@
  * Includes UIController, DOM elements, and UI effects mocks.
  */
 
-import { vi } from 'vitest';
-import { createMockCanvas, createMockVideo } from './stream.factory.js';
+import { vi } from "vitest";
+import { createMockCanvas, createMockVideo } from "./stream.factory.js";
+
+// Helper to check if a mock element matches a basic CSS selector
+function matchesSelector(el, sel) {
+  if (!el || !sel) return false;
+  let isMatch = true;
+
+  // 1. Attribute selectors like [data-value="val"] or [data-value]
+  const attrRegex = /\[([a-zA-Z0-9_-]+)(?:=([\"']?)(.*?)\2)?\]/g;
+  let attrMatch;
+  let cleanSel = sel;
+  while ((attrMatch = attrRegex.exec(sel)) !== null) {
+    const name = attrMatch[1];
+    const val = attrMatch[3];
+    cleanSel = cleanSel.replace(attrMatch[0], "");
+    if (val !== undefined) {
+      if (el.getAttribute(name) !== val && el.dataset?.[name.replace(/^data-/, "")] !== val) {
+        isMatch = false;
+      }
+    } else {
+      if (!el.hasAttribute(name)) {
+        isMatch = false;
+      }
+    }
+  }
+
+  // 2. Class and Tag name selectors
+  const parts = cleanSel.split(/(?=\.)/);
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith(".")) {
+      const cls = part.slice(1);
+      if (!el.classList?.contains(cls)) {
+        isMatch = false;
+      }
+    } else {
+      if (el.tagName && el.tagName.toLowerCase() !== part.toLowerCase()) {
+        isMatch = false;
+      }
+    }
+  }
+
+  return isMatch;
+}
+
+// Helper to query all elements matching a selector inside a parent
+function queryAllMockElements(el, sel) {
+  const result = [];
+  function search(node) {
+    if (matchesSelector(node, sel)) {
+      result.push(node);
+    }
+    const children = node.children || node.childNodes || [];
+    for (const child of children) {
+      search(child);
+    }
+  }
+
+  const children = el.children || el.childNodes || [];
+  for (const child of children) {
+    search(child);
+  }
+  return result;
+}
 
 /**
  * Creates a mock DOM element with common properties
@@ -14,46 +77,81 @@ import { createMockCanvas, createMockVideo } from './stream.factory.js';
  * @param {Object} options - Element options
  * @returns {Object} Mock element
  */
-export function createMockElement(tagName = 'div', options = {}) {
+export function createMockElement(tagName = "div", options = {}) {
   const {
-    id = '',
-    className = '',
-    textContent = '',
-    innerHTML = '',
+    id = "",
+    className = "",
+    textContent = "",
+    innerHTML = "",
     attributes = {},
   } = options;
 
-  const classList = new Set(className.split(' ').filter(Boolean));
+  const classList = new Set(className.split(" ").filter(Boolean));
   const eventBuckets = {};
   const eventListeners = new Map();
   const attrs = new Map(Object.entries(attributes));
-  const style = {};
+  
+  const style = {
+    setProperty: vi.fn((name, value) => {
+      style[name] = value;
+    }),
+    removeProperty: vi.fn((name) => {
+      delete style[name];
+    }),
+  };
+
+  const children = [];
   let hidden = false;
+  let customInnerHTML = innerHTML;
 
   const element = {
     tagName: tagName.toUpperCase(),
     id,
-    get className() { return Array.from(classList).join(' '); },
+    get className() { return Array.from(classList).join(" "); },
     set className(v) {
       classList.clear();
-      v.split(' ').filter(Boolean).forEach(c => classList.add(c));
+      v.split(" ").filter(Boolean).forEach(c => classList.add(c));
     },
     textContent,
-    innerHTML,
+    get innerHTML() { return customInnerHTML; },
+    set innerHTML(v) {
+      customInnerHTML = v;
+      children.forEach(c => {
+        Object.defineProperty(c, 'parentNode', { value: null, configurable: true, writable: true });
+      });
+      children.length = 0;
+
+      if (v !== "" && typeof document !== 'undefined') {
+        const temp = document.createElement('div');
+        temp.innerHTML = v;
+        const tempChildren = Array.from(temp.children);
+        tempChildren.forEach(child => {
+          element.appendChild(child);
+        });
+      }
+    },
     get hidden() { return hidden; },
     set hidden(v) { hidden = v; },
     style,
 
+    // Children hierarchy
+    children,
+    get childNodes() { return children; },
+    get firstChild() { return children[0] || null; },
+    get lastChild() { return children[children.length - 1] || null; },
+
     classList: {
       add: vi.fn((...classes) => classes.forEach(c => classList.add(c))),
       remove: vi.fn((...classes) => classes.forEach(c => classList.delete(c))),
-      toggle: vi.fn((c) => {
-        if (classList.has(c)) {
-          classList.delete(c);
-          return false;
-        } else {
+      toggle: vi.fn((c, force) => {
+        const has = classList.has(c);
+        const shouldHave = force !== undefined ? Boolean(force) : !has;
+        if (shouldHave) {
           classList.add(c);
           return true;
+        } else {
+          classList.delete(c);
+          return false;
         }
       }),
       contains: vi.fn((c) => classList.has(c)),
@@ -73,8 +171,15 @@ export function createMockElement(tagName = 'div', options = {}) {
     hasAttribute: vi.fn((name) => attrs.has(name)),
 
     dataset: new Proxy({}, {
-      get: (_, prop) => attrs.get(`data-${prop}`),
-      set: (_, prop, value) => { attrs.set(`data-${prop}`, value); return true; },
+      get: (_, prop) => {
+        if (typeof prop === 'symbol') return undefined;
+        return attrs.get(`data-${prop}`);
+      },
+      set: (_, prop, value) => {
+        if (typeof prop === 'symbol') return false;
+        attrs.set(`data-${prop}`, value);
+        return true;
+      },
     }),
 
     addEventListener: vi.fn((event, handler, options) => {
@@ -114,17 +219,84 @@ export function createMockElement(tagName = 'div', options = {}) {
       return true;
     }),
 
-    focus: vi.fn(),
-    blur: vi.fn(),
-    click: vi.fn(),
+    focus: vi.fn(function() { this.dispatchEvent({ type: 'focus' }); }),
+    blur: vi.fn(function() { this.dispatchEvent({ type: 'blur' }); }),
+    click: vi.fn(function() { this.dispatchEvent({ type: 'click' }); }),
 
-    appendChild: vi.fn(),
-    removeChild: vi.fn(),
-    insertBefore: vi.fn(),
-    replaceChild: vi.fn(),
+    appendChild: vi.fn((child) => {
+      if (child) {
+        if (child.parentNode) {
+          child.parentNode.removeChild(child);
+        }
+        Object.defineProperty(child, 'parentNode', { value: element, configurable: true, writable: true });
+        children.push(child);
+      }
+      return child;
+    }),
+    removeChild: vi.fn((child) => {
+      const idx = children.indexOf(child);
+      if (idx > -1) {
+        children.splice(idx, 1);
+        Object.defineProperty(child, 'parentNode', { value: null, configurable: true, writable: true });
+      }
+      return child;
+    }),
+    insertBefore: vi.fn((newChild, refChild) => {
+      if (newChild) {
+        if (newChild.parentNode) {
+          newChild.parentNode.removeChild(newChild);
+        }
+        Object.defineProperty(newChild, 'parentNode', { value: element, configurable: true, writable: true });
+        const idx = children.indexOf(refChild);
+        if (idx > -1) {
+          children.splice(idx, 0, newChild);
+        } else {
+          children.push(newChild);
+        }
+      }
+      return newChild;
+    }),
+    replaceChild: vi.fn((newChild, oldChild) => {
+      if (newChild && oldChild) {
+        if (newChild.parentNode) {
+          newChild.parentNode.removeChild(newChild);
+        }
+        const idx = children.indexOf(oldChild);
+        if (idx > -1) {
+          children[idx] = newChild;
+          Object.defineProperty(newChild, 'parentNode', { value: element, configurable: true, writable: true });
+          Object.defineProperty(oldChild, 'parentNode', { value: null, configurable: true, writable: true });
+        }
+      }
+      return oldChild;
+    }),
 
-    querySelector: vi.fn(),
-    querySelectorAll: vi.fn(() => []),
+    querySelector: vi.fn((sel) => queryAllMockElements(element, sel)[0] || null),
+    querySelectorAll: vi.fn((sel) => queryAllMockElements(element, sel)),
+    contains: vi.fn((child) => {
+      if (!child) return false;
+      if (child === element) return true;
+      const search = (node) => {
+        const children = node.children || node.childNodes || [];
+        for (const c of children) {
+          if (c === child || search(c)) return true;
+        }
+        return false;
+      };
+      return search(element);
+    }),
+
+    getBoundingClientRect: vi.fn(() => ({
+      width: 0,
+      height: 0,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    })),
 
     // Test helpers
     _triggerEvent(eventType, eventData = {}) {
@@ -173,6 +345,7 @@ export function createMockInput(options = {}) {
   input.type = type;
   input.value = value;
   input.checked = false;
+  input.select = vi.fn();
   return input;
 }
 

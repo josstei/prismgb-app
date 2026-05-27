@@ -82,14 +82,15 @@ describe('CaptureUIBridge', () => {
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
-    it('should initialize subscriptions array', () => {
+    it('should initialize disposables bag', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(bridge._subscriptions).toEqual([]);
+      expect(bridge.disposables).toBeDefined();
+      expect(bridge.disposables.size).toBe(0);
     });
   });
 
@@ -125,13 +126,10 @@ describe('CaptureUIBridge', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(6);
     });
 
-    it('should store unsubscribe functions', () => {
+    it('should store unsubscribe functions in disposables bag', () => {
       bridge.initialize();
 
-      expect(bridge._subscriptions.length).toBe(6);
-      bridge._subscriptions.forEach(unsub => {
-        expect(typeof unsub).toBe('function');
-      });
+      expect(bridge.disposables.size).toBe(6);
     });
 
     it('should log initialization', () => {
@@ -150,22 +148,28 @@ describe('CaptureUIBridge', () => {
       });
     });
 
-    it('should call all unsubscribe functions', () => {
-      bridge.initialize();
+    it('should call all unsubscribe functions on dispose', () => {
+      const unsubscribers = [];
+      mockEventBus.subscribe.mockImplementation(() => {
+        const unsub = vi.fn();
+        unsubscribers.push(unsub);
+        return unsub;
+      });
 
-      const unsubscribeFns = bridge._subscriptions;
+      bridge.initialize();
       bridge.dispose();
 
-      unsubscribeFns.forEach(fn => {
-        expect(fn).toHaveBeenCalled();
+      expect(unsubscribers.length).toBe(6);
+      unsubscribers.forEach(unsub => {
+        expect(unsub).toHaveBeenCalled();
       });
     });
 
-    it('should clear subscriptions array', () => {
+    it('should clear disposables bag on dispose', () => {
       bridge.initialize();
       bridge.dispose();
 
-      expect(bridge._subscriptions).toEqual([]);
+      expect(bridge.disposables.size).toBe(0);
     });
 
     it('should log disposal', () => {
@@ -175,19 +179,12 @@ describe('CaptureUIBridge', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('CaptureUIBridge disposed');
     });
 
-    it('should handle non-function items in subscriptions array gracefully', () => {
-      bridge.initialize();
-      bridge._subscriptions.push(null, undefined, 'not-a-function');
-
-      expect(() => bridge.dispose()).not.toThrow();
-    });
-
     it('should work when called multiple times', () => {
       bridge.initialize();
       bridge.dispose();
-      bridge.dispose();
 
-      expect(bridge._subscriptions).toEqual([]);
+      expect(() => bridge.dispose()).not.toThrow();
+      expect(bridge.disposables.size).toBe(0);
     });
   });
 
@@ -579,7 +576,7 @@ describe('CaptureUIBridge', () => {
 
     it('should not throw when disposing before initialization', () => {
       expect(() => bridge.dispose()).not.toThrow();
-      expect(bridge._subscriptions).toEqual([]);
+      expect(bridge.disposables.size).toBe(0);
     });
 
     it('should handle missing blob in screenshot ready', () => {

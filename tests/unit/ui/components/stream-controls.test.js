@@ -79,10 +79,10 @@ describe('StreamingControlsComponent', () => {
       component.setStreamingMode(true);
       vi.advanceTimersByTime(100); // Partial animation
 
-      // Clear mocks to verify no further calls after dispose
-      mockElements.streamOverlay.classList.add.mockClear();
-
       component.dispose();
+
+      // Clear mocks after dispose to verify no further calls are made by any timer
+      mockElements.streamOverlay.classList.add.mockClear();
 
       // Timeout should be cleared, no further calls
       vi.advanceTimersByTime(500);
@@ -133,7 +133,7 @@ describe('StreamingControlsComponent', () => {
       // Advance timers to trigger delayed effects
       vi.advanceTimersByTime(150);
 
-      expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden');
+      expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden', 'transitioning-to-stream');
       expect(mockBodyClassManager.setStreamingMode).toHaveBeenCalledWith(false);
       expect(mockElements.screenshotBtn.disabled).toBe(true);
       expect(mockElements.recordBtn.disabled).toBe(true);

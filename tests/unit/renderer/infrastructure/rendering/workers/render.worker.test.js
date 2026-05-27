@@ -63,11 +63,19 @@ const validUniforms = {
   }
 };
 
-const mockPipeline = createWorkerPipelineMock();
+const { mockCreateWorkerPipeline, mockPresetGet, mockPresetGetDefault } = vi.hoisted(() => {
+  return {
+    mockCreateWorkerPipeline: vi.fn(),
+    mockPresetGet: vi.fn(),
+    mockPresetGetDefault: vi.fn()
+  };
+});
 
-const mockCreateWorkerPipeline = vi.fn(async () => mockPipeline);
-const mockPresetGet = vi.fn(() => defaultPreset);
-const mockPresetGetDefault = vi.fn(() => defaultPreset);
+const mockPipeline = createWorkerPipelineMock();
+mockCreateWorkerPipeline.mockImplementation(async () => mockPipeline);
+mockPresetGet.mockImplementation(() => defaultPreset);
+mockPresetGetDefault.mockImplementation(() => defaultPreset);
+
 const workerScopeMocks = [];
 
 vi.mock('@prismgb/gpu', async () => {

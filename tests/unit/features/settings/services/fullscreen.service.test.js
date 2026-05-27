@@ -57,7 +57,6 @@ describe('SettingsFullscreenService', () => {
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
       expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
-      expect(service._eventBridge).toBeNull();
     });
 
     it('should throw if missing required dependencies', () => {
@@ -83,7 +82,6 @@ describe('SettingsFullscreenService', () => {
       expect(mockWindowAPI.onEnterFullscreen).toHaveBeenCalled();
       expect(mockWindowAPI.onLeaveFullscreen).toHaveBeenCalled();
       expect(mockWindowAPI.onResized).toHaveBeenCalled();
-      expect(service._eventBridge.size).toBe(3);
     });
 
     it('should handle missing windowAPI gracefully', () => {
@@ -94,7 +92,6 @@ describe('SettingsFullscreenService', () => {
       });
 
       expect(() => serviceWithoutAPI.initialize()).not.toThrow();
-      expect(serviceWithoutAPI._eventBridge).toBeNull();
     });
   });
 
@@ -121,7 +118,6 @@ describe('SettingsFullscreenService', () => {
       expect(unsubscribeEnterFullscreen).toHaveBeenCalled();
       expect(unsubscribeLeaveFullscreen).toHaveBeenCalled();
       expect(unsubscribeResized).toHaveBeenCalled();
-      expect(service._eventBridge).toBeNull();
     });
 
     it('should handle dispose when not initialized', () => {
@@ -422,7 +418,7 @@ describe('SettingsFullscreenService', () => {
 
   describe('_syncFullscreenState', () => {
     it('should use windowAPI.isFullScreen when available', async () => {
-      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue(true);
+      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue({ success: true, isFullscreen: true });
 
       const result = await service._syncFullscreenState();
 
@@ -535,7 +531,7 @@ describe('SettingsFullscreenService', () => {
 
   describe('onResized callback', () => {
     beforeEach(() => {
-      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue(false);
+      mockWindowAPI.isFullScreen = vi.fn().mockResolvedValue({ success: true, isFullscreen: false });
 
       service = new SettingsFullscreenService({
         eventBus: mockEventBus,

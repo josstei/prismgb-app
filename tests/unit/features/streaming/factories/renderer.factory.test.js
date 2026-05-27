@@ -7,14 +7,14 @@ import { StreamingRendererFactory } from '@renderer/infrastructure/factories/str
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 class MockGpuRenderer {
-  constructor() {
-    this._deps = arguments[0] || {};
+  constructor(deps) {
+    this._deps = deps || {};
   }
 }
 
 class MockCanvasRenderer {
-  constructor() {
-    this._deps = arguments[0] || {};
+  constructor(deps) {
+    this._deps = deps || {};
   }
 }
 
@@ -23,7 +23,9 @@ describe('StreamingRendererFactory', () => {
   let mockEventBus;
   let mockLoggerFactory;
   let mockLogger;
-  let rendererClasses;
+  let gpuProvider;
+  let canvas2dProvider;
+  let rendererProviders;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -31,12 +33,15 @@ describe('StreamingRendererFactory', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    rendererClasses = new Map([
-      ['gpu', MockGpuRenderer],
-      ['canvas2d', MockCanvasRenderer]
-    ]);
+    gpuProvider = vi.fn((deps) => new MockGpuRenderer(deps));
+    canvas2dProvider = vi.fn((deps) => new MockCanvasRenderer(deps));
 
-    factory = new StreamingRendererFactory(mockEventBus, mockLoggerFactory, rendererClasses);
+    rendererProviders = {
+      gpu: gpuProvider,
+      canvas2d: canvas2dProvider
+    };
+
+    factory = new StreamingRendererFactory(mockEventBus, mockLoggerFactory, rendererProviders);
     mockLogger = mockLoggerFactory._getLogger('StreamingRendererFactory');
   });
 
@@ -56,11 +61,15 @@ describe('StreamingRendererFactory', () => {
   it('should create configured renderer instances with merged dependencies', () => {
     factory.initialize();
 
-    const renderer = factory.createRenderer('gpu', { loggerFactory: 'override' });
+    const renderer = factory.createRenderer({
+      type: 'gpu',
+      dependencies: { appState: 'state' }
+    });
 
     expect(renderer).toBeInstanceOf(MockGpuRenderer);
     expect(renderer._deps).toEqual({
-      loggerFactory: 'override'
+      loggerFactory: mockLoggerFactory,
+      appState: 'state'
     });
   });
 
@@ -80,7 +89,7 @@ describe('StreamingRendererFactory', () => {
   it('should throw for unknown renderer creation', () => {
     factory.initialize();
 
-    expect(() => factory.createRenderer('invalid', {})).toThrow(
+    expect(() => factory.createRenderer({ type: 'invalid', dependencies: {} })).toThrow(
       'No renderer registered for type: invalid'
     );
   });
@@ -93,30 +102,28 @@ describe('StreamingRendererFactory', () => {
   });
 
   it('should report error when creating before initialization', () => {
-    expect(() => factory.createRenderer('gpu')).toThrow(
+    expect(() => factory.createRenderer({ type: 'gpu', dependencies: {} })).toThrow(
       'StreamingRendererFactory not initialized. Call initialize() first.'
     );
   });
 
   it('should support manual renderer registration and unregistration', () => {
-    const unregisterType = 'custom';
-    const CustomRenderer = class {};
+    const CustomRenderer = class {
+      constructor(deps) { this._deps = deps; }
+    };
+    const customProvider = vi.fn((deps) => new CustomRenderer(deps));
 
-    factory.registerRenderer(unregisterType, CustomRenderer, { supportsPresets: false });
-    expect(factory.hasRenderer(unregisterType)).toBe(true);
+    factory.registerRenderer('gpu', customProvider, { supportsPresets: false });
+    expect(factory.hasRenderer('gpu')).toBe(true);
 
     factory.initialize();
-    expect(factory.hasRenderer(unregisterType)).toBe(true);
+    expect(factory.hasRenderer('gpu')).toBe(true);
 
-    factory.registerRenderer(unregisterType, CustomRenderer, { supportsPresets: false });
-    expect(factory.hasRenderer(unregisterType)).toBe(true);
-    expect(factory.getMetadata(unregisterType)).toEqual({
-      typeId: unregisterType,
-      supportsPresets: false
-    });
+    const renderer = factory.createRenderer({ type: 'gpu', dependencies: { customDep: true } });
+    expect(renderer).toBeInstanceOf(CustomRenderer);
 
-    factory.unregister(unregisterType);
-    expect(factory.hasRenderer(unregisterType)).toBe(false);
+    factory.unregister('gpu');
+    expect(factory.hasRenderer('gpu')).toBe(false);
   });
 
   it('should clear registrations and reset initialization state', () => {

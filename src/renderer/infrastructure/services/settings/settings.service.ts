@@ -208,7 +208,8 @@ class SettingsService extends BaseService {
   async _readLoginItemSetting(definition: SettingDefinition): Promise<boolean> {
     try {
       if (window.loginItemAPI?.get) {
-        const enabled = await window.loginItemAPI.get();
+        const result = await window.loginItemAPI.get();
+        const enabled = result.success ? result.enabled : false;
         this.storageService.setItem(definition.storageKey, enabled.toString());
         return enabled;
       }

@@ -135,16 +135,21 @@ describe('SettingsDisplayModeOrchestrator', () => {
     });
 
     it('should remove deferred startup fullscreen listener during cleanup', async () => {
-      mockSettingsService.setSetting('fullscreenOnStartup', true);
-      hiddenMock.setValue(true);
-      const addListenerSpy = vi.spyOn(document, 'addEventListener');
-      const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
-
-      orchestrator._applyStartupBehaviors();
-      await orchestrator.onCleanup();
-
-      expect(addListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
-      expect(removeListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+       mockSettingsService.setSetting('fullscreenOnStartup', true);
+       hiddenMock.setValue(true);
+       const addListenerSpy = vi.spyOn(document, 'addEventListener');
+       const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
+ 
+       orchestrator._applyStartupBehaviors();
+       await orchestrator.onCleanup();
+ 
+       expect(addListenerSpy).toHaveBeenCalled();
+       expect(addListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
+       expect(typeof addListenerSpy.mock.calls[0][1]).toBe('function');
+ 
+       expect(removeListenerSpy).toHaveBeenCalled();
+       expect(removeListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
+       expect(typeof removeListenerSpy.mock.calls[0][1]).toBe('function');
     });
   });
 });

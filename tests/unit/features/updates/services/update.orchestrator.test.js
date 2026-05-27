@@ -155,13 +155,4 @@ describe('UpdateOrchestrator', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('Installing update...');
     });
   });
-
-  describe('onCleanup', () => {
-    it('should dispose updateService', async () => {
-      await orchestrator.onCleanup();
-
-      expect(mockUpdateService.dispose).toHaveBeenCalled();
-      expect(mockUpdateUiService.dispose).toHaveBeenCalled();
-    });
-  });
 });

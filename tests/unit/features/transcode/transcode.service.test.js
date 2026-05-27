@@ -59,7 +59,7 @@ describe('TranscodeService', () => {
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._eventBridge).toBeNull();
+      expect(service.disposables.managed.has('transcodeAPI-bridge')).toBe(false);
       expect(service._initialized).toBe(false);
     });
   });
@@ -94,7 +94,7 @@ describe('TranscodeService', () => {
 
     it('should store a preload event bridge', () => {
       service.initialize();
-      expect(service._eventBridge.size).toBe(4);
+      expect(service.disposables.size).toBe(1);
     });
 
     it('should warn and skip if already initialized', () => {
@@ -442,7 +442,7 @@ describe('TranscodeService', () => {
       service.initialize();
       service.dispose();
 
-      expect(service._eventBridge).toBeNull();
+      expect(service.disposables.managed.has('transcodeAPI-bridge')).toBe(false);
     });
 
     it('should reset state', () => {

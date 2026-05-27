@@ -169,9 +169,6 @@ describe('CinematicToggleComponent', () => {
 
       expect(component.toggleElement).toBeNull();
       expect(component.textElement).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.appState).toBeNull();
-      expect(component.logger).toBeNull();
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

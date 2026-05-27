@@ -96,7 +96,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('Constructor', () => {
     it('should initialize with empty subscriptions', () => {
-      expect(orchestrator._subscriptions).toEqual([]);
+      expect(orchestrator._disposables.size).toBe(0);
     });
   });
 
@@ -115,7 +115,7 @@ describe('CaptureOrchestrator', () => {
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.onInitialize();
 
-      expect(orchestrator._subscriptions).toHaveLength(5);
+      expect(orchestrator._disposables.size).toBe(5);
     });
   });
 
@@ -381,7 +381,7 @@ describe('CaptureOrchestrator', () => {
 
       await orchestrator.onCleanup();
 
-      expect(mockLogger.error).toHaveBeenCalledWith('Error stopping recording during cleanup:', 'Stop failed');
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to stop recording:', 'Stop failed');
     });
 
     it('should stop GPU recording on cleanup', async () => {

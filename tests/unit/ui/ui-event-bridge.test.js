@@ -62,8 +62,9 @@ describe('UIEventBridge', () => {
       expect(handler.logger).toBe(mockLogger);
     });
 
-    it('should initialize subscriptions array', () => {
-      expect(handler._subscriptions).toEqual([]);
+    it('should initialize disposables bag', () => {
+      expect(handler.disposables).toBeDefined();
+      expect(handler.disposables.size).toBe(0);
     });
   });
 
@@ -241,7 +242,7 @@ describe('UIEventBridge', () => {
     it('should call all unsubscribe functions', () => {
       handler.initialize();
 
-      const unsubscribeFns = handler._subscriptions;
+      const unsubscribeFns = mockEventBus.subscribe.mock.results.map(r => r.value);
       handler.dispose();
 
       unsubscribeFns.forEach(fn => {
@@ -253,7 +254,7 @@ describe('UIEventBridge', () => {
       handler.initialize();
       handler.dispose();
 
-      expect(handler._subscriptions).toEqual([]);
+      expect(handler.disposables.size).toBe(0);
     });
 
     it('should log disposal', () => {

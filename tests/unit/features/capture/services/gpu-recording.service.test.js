@@ -371,9 +371,9 @@ describe('CaptureGpuRecordingService', () => {
     });
 
     const mockStream = createStreamPayloadMock();
-    await service.start({ stream: mockStream, frameRate: 60 });
+    const recordingStream = await service.start({ stream: mockStream, frameRate: 60 });
 
-    expect(service.getRecordingStream()).toBe(mockRecordingStream);
+    expect(service.getRecordingStream()).toBe(recordingStream);
   });
 
   it('should clear canvas only once when offsets are needed', async () => {

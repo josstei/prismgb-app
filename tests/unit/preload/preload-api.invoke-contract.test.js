@@ -41,7 +41,7 @@ function createAPIWithRegistry(factory, ipcRenderer, options = {}) {
 const cloneManifest = () => JSON.parse(JSON.stringify(IpcContractManifest));
 describe('Preload API invoke contract baselines', () => {
   it('forwards device status invoke call to device:get-status with no args', async () => {
-    const expectedResponse = { connected: true, device: { deviceName: 'Chromatic USB' } };
+    const expectedResponse = { success: true, connected: true, device: { deviceName: 'Chromatic USB' } };
     const ipcRenderer = createMockIpcRenderer({
       [channels.DEVICE.GET_STATUS]: expectedResponse
     });
@@ -61,7 +61,7 @@ describe('Preload API invoke contract baselines', () => {
   it('forwards window invoke calls to the expected channels', async () => {
     const expectedPolicyResponse = { success: true };
     const expectedFullscreenResponse = { success: true };
-    const expectedFullscreenState = true;
+    const expectedFullscreenState = { success: true, isFullscreen: true };
     const ipcRenderer = createMockIpcRenderer({
       [channels.WINDOW.SET_FULLSCREEN]: expectedPolicyResponse,
       [channels.WINDOW.IS_FULLSCREEN]: expectedFullscreenState
@@ -73,7 +73,7 @@ describe('Preload API invoke contract baselines', () => {
     expect(ipcRenderer.invoke).toHaveBeenNthCalledWith(2, channels.WINDOW.IS_FULLSCREEN);
     expect(setFullscreenResult).toEqual(expectedPolicyResponse);
     expect(setFullscreenResult.success).toBe(true);
-    expect(isFullScreenResult).toBe(expectedFullscreenState);
+    expect(isFullScreenResult).toEqual(expectedFullscreenState);
   });
   it('forwards update invoke calls and preserves update contract-shaped responses', async () => {
     const expectedGetStatus = {
@@ -222,7 +222,7 @@ describe('Preload inline API contract baselines', () => {
       [channels.SHELL.OPEN_EXTERNAL]: { success: true },
       [channels.PERFORMANCE.GET_METRICS]: metricsResponse,
       [channels.GPU.GET_POLICY]: { success: true, skipWebGPU: true, reason: 'compat-test' },
-      [channels.LOGIN_ITEM.GET]: true,
+      [channels.LOGIN_ITEM.GET]: { success: true, enabled: true },
       [channels.LOGIN_ITEM.SET]: { success: true }
     });
     const shellAPI = createShellPreloadAPI({
@@ -240,7 +240,7 @@ describe('Preload inline API contract baselines', () => {
       skipWebGPU: true,
       reason: 'compat-test'
     });
-    await expect(loginItemAPI.get()).resolves.toBe(true);
+    await expect(loginItemAPI.get()).resolves.toEqual({ success: true, enabled: true });
     await expect(loginItemAPI.set(true, 'ignored-extra')).resolves.toEqual({ success: true });
     expect(ipcRenderer.invoke.mock.calls).toEqual([[channels.SHELL.OPEN_EXTERNAL, 'https://example.com'], [channels.PERFORMANCE.GET_METRICS], [channels.GPU.GET_POLICY], [channels.LOGIN_ITEM.GET], [channels.LOGIN_ITEM.SET, true]]);
   });

@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import type { LoginItemSetResponse } from '@shared/ipc/preload-api.contract.js';
+import type { LoginItemSetResponse, LoginItemGetResponse } from '@shared/ipc/preload-api.contract.js';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface LoginItemService {
@@ -17,10 +17,18 @@ export const loginItemHandlerDescriptors = defineManifestIpcHandlers<LoginItemHa
   {
     method: 'get',
     async invoke({ loginItemService }: LoginItemHandlerDependencies) {
-      return loginItemService.isEnabled();
+      return {
+        success: true,
+        enabled: loginItemService.isEnabled()
+      } as LoginItemGetResponse;
     },
-    mapError: () => {
-      return false;
+    mapError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        enabled: false,
+        error: errorMessage
+      } as LoginItemGetResponse;
     }
   },
   {

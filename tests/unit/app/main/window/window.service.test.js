@@ -28,22 +28,41 @@ vi.mock('@shared/config/config-loader.utils.js', () => ({
   }
 }));
 
-// Mock url - need default export
-vi.mock('url', () => ({
-  default: {
-    fileURLToPath: vi.fn(() => '/app/src/main/window/window.service.js')
-  },
-  fileURLToPath: vi.fn(() => '/app/src/main/window/window.service.js')
-}));
+vi.mock('url', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      fileURLToPath: vi.fn((urlArg) => {
+        if (typeof urlArg === 'string' && urlArg.includes('window.service')) {
+          return '/app/src/main/window/window.service.js';
+        }
+        return actual.fileURLToPath(urlArg);
+      })
+    },
+    fileURLToPath: vi.fn((urlArg) => {
+      if (typeof urlArg === 'string' && urlArg.includes('window.service')) {
+        return '/app/src/main/window/window.service.js';
+      }
+      return actual.fileURLToPath(urlArg);
+    })
+  };
+});
 
-vi.mock('path', () => ({
-  default: {
+vi.mock('path', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      join: vi.fn((...args) => args.join('/')),
+      dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
+    },
     join: vi.fn((...args) => args.join('/')),
     dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
-  },
-  join: vi.fn((...args) => args.join('/')),
-  dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
-}));
+  };
+});
 
 import { WindowService } from '@main/infrastructure/window/index.js';
 import { BrowserWindow, app } from 'electron';
@@ -285,7 +304,6 @@ describe('WindowService', () => {
 
       // Verify webContents listener was removed during close (before destroy)
       expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
-      expect(windowService._consoleMessageListener).toBeNull();
     });
 
     it('should null window reference on closed event', () => {

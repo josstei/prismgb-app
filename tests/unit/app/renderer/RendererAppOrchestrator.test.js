@@ -116,16 +116,18 @@ describe('RendererAppOrchestrator', () => {
   describe('cleanup', () => {
     it('should cleanup orchestrator', async () => {
       await app.initialize();
+      const orchestrator = app.orchestrator;
       await app.cleanup();
 
-      expect(app.orchestrator.cleanup).toHaveBeenCalled();
+      expect(orchestrator.cleanup).toHaveBeenCalled();
     });
 
     it('should dispose container', async () => {
       await app.initialize();
+      const container = app.container;
       await app.cleanup();
 
-      expect(app.container.dispose).toHaveBeenCalled();
+      expect(container.dispose).toHaveBeenCalled();
     });
 
     it('should set isInitialized to false', async () => {

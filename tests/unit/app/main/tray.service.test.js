@@ -30,11 +30,17 @@ vi.mock('electron', () => {
   };
 });
 
-vi.mock('path', () => ({
-  default: {
+vi.mock('path', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      join: vi.fn((...args) => args.join('/'))
+    },
     join: vi.fn((...args) => args.join('/'))
-  }
-}));
+  };
+});
 
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { Tray, Menu, app } from 'electron';

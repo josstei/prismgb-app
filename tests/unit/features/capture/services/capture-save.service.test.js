@@ -287,7 +287,7 @@ describe('CaptureSaveService', () => {
   });
 
   describe('dispose', () => {
-    it('should log disposal', () => {
+    it('should log disposal', async () => {
       service = new CaptureSaveService({
         eventBus: mockEventBus,
         settingsService: mockSettingsService,
@@ -295,7 +295,7 @@ describe('CaptureSaveService', () => {
         loggerFactory: mockLoggerFactory
       });
 
-      service.dispose();
+      await service.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('CaptureSaveService disposed');
     });

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import { createDeviceStatusElementsMock } from '../../../../factories/index.js';
+import { createDeviceStatusElementsMock } from '../../../factories/index.js';
 
 describe('DeviceStatusComponent', () => {
   let component;

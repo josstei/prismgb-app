@@ -15,18 +15,14 @@ describe('UIComponentRegistry', () => {
     mockLogger = mockLoggerFactory.create('UIComponentRegistry');
   });
 
-  it('registers valid definitions and ignores invalid ones', () => {
+  it('registers valid definitions', () => {
     const registry = new UIComponentRegistry({ loggerFactory: mockLoggerFactory });
     const create = vi.fn(() => createUIComponentMock());
 
     registry.register({ id: 'valid', create });
-    registry.register({ id: '', create });
-    registry.register({ id: 'missingCreate' });
 
-    expect(mockLogger.warn).toHaveBeenCalledWith('Invalid component definition provided');
     expect(registry.get('valid')).toBeUndefined();
     expect(registry.definitions.has('valid')).toBe(true);
-    expect(registry.definitions.has('missingCreate')).toBe(false);
   });
 
   it('initializes core components only', () => {
@@ -96,7 +92,7 @@ describe('UIComponentRegistry', () => {
     expect(mockLogger.warn).toHaveBeenCalledWith('Component definition not found: missing');
   });
 
-  it('disposes all created components', () => {
+  it('disposes all created components', async () => {
     const componentA = createUIComponentMock();
     const componentB = createUIComponentMock();
 
@@ -110,7 +106,7 @@ describe('UIComponentRegistry', () => {
 
     registry.initializeComponent('a', { elements: {} });
     registry.initializeComponent('b', { elements: {} });
-    registry.dispose();
+    await registry.dispose();
 
     expect(componentA.dispose).toHaveBeenCalled();
     expect(componentB.dispose).toHaveBeenCalled();

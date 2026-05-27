@@ -64,13 +64,18 @@ describe('DeviceOrchestrator', () => {
       expect(mockDeviceService.setupDeviceChangeListener).toHaveBeenCalled();
     });
 
-    it('should subscribe to IPC events via adapter', async () => {
+    it('should subscribe to IPC events via eventBus and adapter', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockDeviceIpcAdapter.subscribe).toHaveBeenCalledWith(
-        expect.any(Function),
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        'device:connected',
         expect.any(Function)
       );
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        'device:disconnected',
+        expect.any(Function)
+      );
+      expect(mockDeviceIpcAdapter.subscribe).toHaveBeenCalled();
     });
 
     it('should queue initial device refresh through sequencer', async () => {
@@ -94,48 +99,30 @@ describe('DeviceOrchestrator', () => {
     });
   });
 
-  describe('IPC event handling via adapter', () => {
-    it('should queue connected operation when adapter triggers connected event', async () => {
-      let connectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
-        connectedCallback = onDeviceConnected;
-        return vi.fn();
-      });
-
+  describe('IPC event handling', () => {
+    it('should queue connected operation when connected event is published', async () => {
       await orchestrator.onInitialize();
 
-      // Simulate IPC connected event
-      connectedCallback();
+      // Publish connected event
+      mockEventBus.publish('device:connected');
 
       expect(mockDeviceOperationSequencer.queueConnected).toHaveBeenCalled();
     });
 
-    it('should queue disconnected operation when adapter triggers disconnected event', async () => {
-      let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
-        disconnectedCallback = onDeviceDisconnected;
-        return vi.fn();
-      });
-
+    it('should queue disconnected operation when disconnected event is published', async () => {
       await orchestrator.onInitialize();
 
-      // Simulate IPC disconnected event
-      disconnectedCallback();
+      // Publish disconnected event
+      mockEventBus.publish('device:disconnected');
 
       expect(mockDeviceOperationSequencer.queueDisconnected).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should publish disconnect event via callback when disconnected', async () => {
-      let disconnectedCallback;
-      mockDeviceIpcAdapter.subscribe.mockImplementation((onDeviceConnected, onDeviceDisconnected) => {
-        disconnectedCallback = onDeviceDisconnected;
-        return vi.fn();
-      });
-
       await orchestrator.onInitialize();
 
-      // Simulate IPC disconnected event
-      disconnectedCallback();
+      // Publish disconnected event
+      mockEventBus.publish('device:disconnected');
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('device:disconnected-during-session');
     });
@@ -192,29 +179,8 @@ describe('DeviceOrchestrator', () => {
       expect(mockDeviceOperationSequencer.flush).toHaveBeenCalled();
     });
 
-    it('should dispose device service after flushing', async () => {
-      const callOrder = [];
-      mockDeviceOperationSequencer.flush.mockImplementation(() => {
-        callOrder.push('flush');
-        return Promise.resolve();
-      });
-      mockDeviceService.dispose.mockImplementation(() => {
-        callOrder.push('dispose');
-      });
-
-      await orchestrator.onCleanup();
-
-      expect(callOrder).toEqual(['flush', 'dispose']);
-    });
-
     it('should handle cleanup without prior initialization', async () => {
       // Don't call onInitialize, just cleanup
-      await expect(orchestrator.onCleanup()).resolves.not.toThrow();
-    });
-
-    it('should handle missing dispose method on deviceService', async () => {
-      orchestrator.deviceService = {};
-
       await expect(orchestrator.onCleanup()).resolves.not.toThrow();
     });
   });

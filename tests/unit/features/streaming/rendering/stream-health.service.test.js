@@ -32,8 +32,7 @@ describe('StreamingHealthService', () => {
     it('should initialize with default values', () => {
       expect(service._isMonitoring).toBe(false);
       expect(service._timeoutMs).toBe(4000);
-      expect(service._timeoutHandle).toBeNull();
-      expect(service._rvfcHandle).toBeNull();
+      expect(service.disposables.size).toBe(0);
       expect(service._firstFrameReceived).toBe(false);
       expect(service._onHealthy).toBeNull();
       expect(service._onUnhealthy).toBeNull();
@@ -164,11 +163,11 @@ describe('StreamingHealthService', () => {
 
       service.checkStreamHealth(mockVideoElement, onHealthy, vi.fn());
 
-      expect(service._timeoutHandle).not.toBeNull();
+      expect(service.disposables.size).toBeGreaterThan(0);
 
       service._handleFrameCallback(100, {});
 
-      expect(service._timeoutHandle).toBeNull();
+      expect(service.disposables.size).toBe(0);
     });
   });
 
@@ -248,11 +247,11 @@ describe('StreamingHealthService', () => {
 
       service.checkStreamHealth(mockVideoElement, vi.fn(), vi.fn());
 
-      expect(service._timeoutHandle).not.toBeNull();
+      expect(service.disposables.size).toBeGreaterThan(0);
 
       service.stopMonitoring();
 
-      expect(service._timeoutHandle).toBeNull();
+      expect(service.disposables.size).toBe(0);
     });
   });
 

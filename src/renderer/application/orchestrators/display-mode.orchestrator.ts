@@ -96,6 +96,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
 
   async onCleanup(): Promise<void> {
     this._clearStartupVisibilityListener();
+    await this.fullscreenService.dispose();
   }
 
   /**

@@ -219,6 +219,13 @@ export class UIEffects extends PresentationComponent {
 
   override dispose(): void | Promise<void> {
     const disposed = super.dispose();
+    if (this._bodyClassManager && 'dispose' in this._bodyClassManager && typeof this._bodyClassManager.dispose === 'function') {
+      try {
+        void this._bodyClassManager.dispose();
+      } catch (error) {
+        console.error('Error disposing bodyClassManager', error);
+      }
+    }
     this.setElements(null);
     return disposed;
   }

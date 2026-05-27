@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import type { WindowSetFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
+import type { WindowSetFullscreenResponse, WindowIsFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface WindowService {
@@ -34,11 +34,19 @@ export const windowHandlerDescriptors = defineManifestIpcHandlers<WindowHandlerD
   {
     method: 'isFullScreen',
     invoke({ windowService }: WindowHandlerDependencies) {
-      return windowService.isFullScreen();
+      return {
+        success: true,
+        isFullscreen: windowService.isFullScreen()
+      } as WindowIsFullscreenResponse;
     },
     mapError: (error, { logger }) => {
       logger.error('Failed to get fullscreen state:', error);
-      return false;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        isFullscreen: false,
+        error: errorMessage
+      } as WindowIsFullscreenResponse;
     }
   }
 ]);

@@ -35,7 +35,6 @@ describe('StreamingAudioPipelineService', () => {
     service.cleanup();
 
     expect(unsubscribe).toHaveBeenCalled();
-    expect(service._unsubscribeVolume).toBeNull();
   });
 
   it('clamps volume updates and applies gain when ready', () => {

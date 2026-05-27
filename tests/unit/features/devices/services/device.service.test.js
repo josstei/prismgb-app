@@ -322,7 +322,7 @@ describe('DeviceService', () => {
     it('should store unsubscribe reference for cleanup', () => {
       service.setupDeviceChangeListener();
 
-      expect(service.deviceMediaService._unsubscribeDeviceChange).toBeInstanceOf(Function);
+      expect(service.deviceMediaService.disposables.size).toBeGreaterThan(0);
     });
 
     it('should update status and enumerate on devicechange callback', async () => {
@@ -473,25 +473,22 @@ describe('DeviceService', () => {
 
   describe('dispose', () => {
     it('should call unsubscribe function', () => {
-      const mockUnsubscribe = vi.fn();
-      service.deviceMediaService._unsubscribeDeviceChange = mockUnsubscribe;
+      service.setupDeviceChangeListener();
+      const returnedUnsubscribe = mockDeviceChangeDebounceAdapter.subscribe.mock.results[0].value;
 
-      service.dispose();
+      service.deviceMediaService.dispose();
 
-      expect(mockUnsubscribe).toHaveBeenCalled();
+      expect(returnedUnsubscribe).toHaveBeenCalled();
     });
 
     it('should clear unsubscribe reference', () => {
-      service.deviceMediaService._unsubscribeDeviceChange = vi.fn();
+      service.setupDeviceChangeListener();
+      service.deviceMediaService.dispose();
 
-      service.dispose();
-
-      expect(service.deviceMediaService._unsubscribeDeviceChange).toBeNull();
+      expect(service.deviceMediaService.disposables.size).toBe(0);
     });
 
     it('should handle no unsubscribe set', () => {
-      service.deviceMediaService._unsubscribeDeviceChange = null;
-
       expect(() => service.dispose()).not.toThrow();
     });
   });

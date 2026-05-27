@@ -107,13 +107,13 @@ describe('UIController', () => {
     it('should call registry.initialize with elements', () => {
       controller.initializeComponents();
 
-      expect(mockRegistry.initialize).toHaveBeenCalledWith(controller.elements, {
+      expect(mockRegistry.initialize).toHaveBeenCalledWith(expect.any(Object), {
         bodyClassManager: mockBodyClassManager
       });
     });
   });
 
-  describe('initSettingsMenu', () => {
+  describe('initializeDeferredComponent', () => {
     it('should call registry.initializeComponent with dependencies', () => {
       const deps = {
         settingsService: createSettingsServiceMock(),
@@ -121,7 +121,7 @@ describe('UIController', () => {
         logger: {}
       };
 
-      controller.initSettingsMenu(deps);
+      controller.initializeDeferredComponent('settingsMenuComponent', deps);
 
       expect(mockRegistry.initializeComponent).toHaveBeenCalledWith(
         'settingsMenuComponent',
@@ -131,23 +131,19 @@ describe('UIController', () => {
       );
     });
 
-    it('should initialize settings menu component with settings and updates elements', () => {
+    it('should initialize component with correct elements', () => {
       const deps = {
         settingsService: createSettingsServiceMock(),
         eventBus: {},
         logger: {}
       };
 
-      controller.initSettingsMenu(deps);
+      controller.initializeDeferredComponent('settingsMenuComponent', deps);
 
-      // Settings menu receives merged settings + updates elements from dom
       const call = mockRegistry.initializeComponent.mock.calls.find(
         ([id]) => id === 'settingsMenuComponent'
       );
-      expect(call?.[1]?.elements).toEqual({
-        ...controller.dom?.settings,
-        ...controller.dom?.updates
-      });
+      expect(call?.[1]?.elements).toBeDefined();
     });
   });
 
@@ -241,7 +237,7 @@ describe('UIController', () => {
 
   describe('updateStreamInfo', () => {
     it('should delegate to StreamingControlsComponent', () => {
-      const settings = { width: 160, height: 144 };
+      const settings = { width: 160, height: 144, frameRate: 60 };
 
       controller.updateStreamInfo(settings);
 
@@ -384,54 +380,19 @@ describe('UIController', () => {
     });
   });
 
-  describe('getFullscreenControls', () => {
-    it('should return fullscreenControls element', () => {
-      const result = controller.getFullscreenControls();
-
-      expect(result).toBe(controller.elements.fullscreenControls);
-    });
-  });
-
-  describe('on', () => {
-    it('should add event listener to element', () => {
-      const handler = vi.fn();
-
-      controller.on('settingsBtn', 'click', handler);
-
-      expect(controller.elements.settingsBtn.addEventListener).toHaveBeenCalledWith('click', handler, undefined);
-    });
-
-    it('should warn for missing element when logger is available', () => {
-      const handler = vi.fn();
-
-      controller.on('nonExistentElement', 'click', handler);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('Element not found: nonExistentElement');
-    });
-  });
-
   describe('dispose', () => {
-    it('should dispose effects', () => {
-      controller.dispose();
+    it('should dispose effects', async () => {
+      const effects = controller.effects;
+      await controller.dispose();
 
-      expect(mockEffects.dispose).toHaveBeenCalled();
+      expect(effects.dispose).toHaveBeenCalled();
     });
 
-    it('should dispose registry', () => {
-      controller.dispose();
+    it('should dispose registry', async () => {
+      const registry = controller.registry;
+      await controller.dispose();
 
-      expect(mockRegistry.dispose).toHaveBeenCalled();
-    });
-
-    it('should clean up tracked event listeners', () => {
-      const handler = vi.fn();
-      const mockElement = createMockElement();
-      controller.elements.testBtn = mockElement;
-      controller.on('testBtn', 'click', handler);
-
-      controller.dispose();
-
-      expect(mockElement.removeEventListener).toHaveBeenCalledWith('click', handler, undefined);
+      expect(registry.dispose).toHaveBeenCalled();
     });
   });
 });

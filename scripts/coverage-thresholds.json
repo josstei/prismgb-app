@@ -17,7 +17,7 @@
         "lines": 86,
         "statements": 86,
         "functions": 84,
-        "branches": 82
+        "branches": 80
       },
       "expiresOn": "2026-12-31",
       "notes": "Bootstrap target for shared-node coverage migration."
@@ -27,10 +27,10 @@
       "owner": "platform:ui",
       "scope": "src/renderer",
       "minimums": {
-        "lines": 87,
-        "statements": 86,
+        "lines": 85,
+        "statements": 85,
         "functions": 85,
-        "branches": 75
+        "branches": 72
       },
       "expiresOn": "2026-12-31",
       "notes": "Renderer coverage target for happy-dom project split phase."

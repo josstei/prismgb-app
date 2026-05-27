@@ -82,9 +82,9 @@ describe('StreamingRenderPipelineService', () => {
       getPresetId: vi.fn(() => null)
     });
 
-    // Mock the factory
     mockStreamingRendererFactory = createStreamingRendererFactoryMock({
-      createRenderer: vi.fn((type) => {
+      createRenderer: vi.fn((config) => {
+        const type = typeof config === 'string' ? config : config?.type;
         if (type === 'gpu') return mockGpuRendererAdapter;
         return mockCanvas2DRendererAdapter;
       })
@@ -372,7 +372,9 @@ describe('StreamingRenderPipelineService', () => {
 
       await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
 
-      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('canvas2d', expect.any(Object));
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'canvas2d' })
+      );
       expect(service._activeRendererType).toBe('canvas2d');
     });
 
@@ -381,7 +383,9 @@ describe('StreamingRenderPipelineService', () => {
 
       await service._startRendering({ nativeResolution: { width: 160, height: 144 } });
 
-      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('gpu', expect.any(Object));
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'gpu' })
+      );
       expect(service._activeRendererType).toBe('gpu');
     });
 
@@ -446,7 +450,9 @@ describe('StreamingRenderPipelineService', () => {
     it('switches to GPU successfully', async () => {
       await service._switchToGPUMidStream();
 
-      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith('gpu', expect.any(Object));
+      expect(mockStreamingRendererFactory.createRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'gpu' })
+      );
       expect(mockGpuRendererAdapter.resume).toHaveBeenCalled();
     });
 

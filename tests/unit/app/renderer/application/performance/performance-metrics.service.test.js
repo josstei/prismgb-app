@@ -34,9 +34,9 @@ describe('PerformanceMetricsService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(service._pendingTimeouts).toBeInstanceOf(Set);
-      expect(service._intervalId).toBeNull();
-      expect(service._timeoutId).toBeNull();
+      expect(service._pendingSnapshotCancels).toBeInstanceOf(Set);
+      expect(service._periodicIntervalCancel).toBeNull();
+      expect(service._periodicStartCancel).toBeNull();
     });
   });
 
@@ -88,22 +88,22 @@ describe('PerformanceMetricsService', () => {
     it('should track pending timeouts', () => {
       service.requestSnapshot({ label: 'pending', delayMs: 5000 });
 
-      expect(service._pendingTimeouts.size).toBe(1);
+      expect(service._pendingSnapshotCancels.size).toBe(1);
 
       vi.advanceTimersByTime(5000);
 
-      expect(service._pendingTimeouts.size).toBe(0);
+      expect(service._pendingSnapshotCancels.size).toBe(0);
     });
 
     it('should handle multiple delayed requests', () => {
       service.requestSnapshot({ label: 'first', delayMs: 1000 });
       service.requestSnapshot({ label: 'second', delayMs: 2000 });
 
-      expect(service._pendingTimeouts.size).toBe(2);
+      expect(service._pendingSnapshotCancels.size).toBe(2);
 
       vi.advanceTimersByTime(2000);
 
-      expect(service._pendingTimeouts.size).toBe(0);
+      expect(service._pendingSnapshotCancels.size).toBe(0);
       expect(mockLogger.debug).toHaveBeenCalledTimes(2);
     });
   });
@@ -186,8 +186,8 @@ describe('PerformanceMetricsService', () => {
 
       service.stopPeriodicSnapshots();
 
-      expect(service._timeoutId).toBeNull();
-      expect(service._intervalId).toBeNull();
+      expect(service._periodicStartCancel).toBeNull();
+      expect(service._periodicIntervalCancel).toBeNull();
     });
   });
 
@@ -196,11 +196,11 @@ describe('PerformanceMetricsService', () => {
       service.requestSnapshot({ label: 'one', delayMs: 5000 });
       service.requestSnapshot({ label: 'two', delayMs: 10000 });
 
-      expect(service._pendingTimeouts.size).toBe(2);
+      expect(service._pendingSnapshotCancels.size).toBe(2);
 
       service.clearPendingRequests();
 
-      expect(service._pendingTimeouts.size).toBe(0);
+      expect(service._pendingSnapshotCancels.size).toBe(0);
 
       vi.advanceTimersByTime(10000);
       expect(mockLogger.debug).not.toHaveBeenCalled();

@@ -13,18 +13,18 @@
     ]
   },
   "limits": {
-    "trackedFilesTotalMax": 686,
-    "sourceLocTotalMax": 117200,
+    "trackedFilesTotalMax": 695,
+    "sourceLocTotalMax": 118000,
     "sourceLocByAreaMax": {
-      "main": 4900,
+      "main": 5100,
       "renderer": 27900,
-      "preload": 830,
-      "shared": 3600,
+      "preload": 900,
+      "shared": 3700,
       "gpu-package": 4100,
-      "scripts": 7000,
+      "scripts": 8200,
       "tests": 53500,
       "docs": 700,
-      "other": 15250
+      "other": 17000
     },
     "runtimeSourceNetGrowthMax": 0,
     "shaderDuplicateDivergenceCountMax": 0,

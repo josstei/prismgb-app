@@ -16,10 +16,9 @@ export interface DeviceInfoPayload {
   configName?: string;
 }
 
-export interface DeviceStatusPayload {
+export interface DeviceStatusPayload extends IpcActionResult {
   connected: boolean | null;
   device?: DeviceInfoPayload | null;
-  error?: string;
 }
 
 export interface UpdateInfoPayload {
@@ -111,10 +110,14 @@ export interface TranscodeStatusResponse extends IpcActionResult {
 }
 
 export type WindowSetFullscreenResponse = IpcActionResult;
-export type WindowIsFullscreenResponse = boolean;
+export interface WindowIsFullscreenResponse extends IpcActionResult {
+  isFullscreen: boolean;
+}
 export type ShellOpenExternalResponse = IpcActionResult;
 
-export type LoginItemGetResponse = boolean;
+export interface LoginItemGetResponse extends IpcActionResult {
+  enabled: boolean;
+}
 export type LoginItemSetResponse = IpcActionResult;
 
 export interface ProcessMetricPayload {

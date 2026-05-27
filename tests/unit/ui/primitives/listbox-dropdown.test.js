@@ -186,11 +186,11 @@ describe('ListboxDropdownController', () => {
     document.removeEventListener('keydown', bubbleSpy);
   });
 
-  it('cleans up references and tolerates disposing before initialize', () => {
+  it('cleans up references and tolerates disposing before initialize', async () => {
     controller = fixture.createController();
     controller.initialize();
     controller.show();
-    controller.dispose();
+    await controller.dispose();
 
     expect(fixture.menuElement.classList.contains('visible')).toBe(false);
     expect(fixture.triggerElement.getAttribute('aria-expanded')).toBe('false');
@@ -201,7 +201,7 @@ describe('ListboxDropdownController', () => {
     expect(controller.logger).toBeNull();
 
     const uninitializedController = fixture.createController();
-    expect(() => uninitializedController.dispose()).not.toThrow();
+    await expect(uninitializedController.dispose()).resolves.not.toThrow();
   });
 });
 

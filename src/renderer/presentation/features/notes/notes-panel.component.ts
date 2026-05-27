@@ -199,6 +199,7 @@ class NotesPanelComponent extends PresentationComponent {
     const setupDisposers: Array<() => void> = [];
     this.replaceManaged(NOTES_PANEL_SETUP_LIFECYCLE, () => setupDisposers.splice(0).reverse().forEach((dispose) => dispose()));
     this._setupNewButton(setupDisposers);
+    this._setupToggleButton(setupDisposers);
     this._setupEscapeKey(setupDisposers);
     this.layout!.initialize({
       panelElement: this.elements.notesPanel,
@@ -382,6 +383,11 @@ class NotesPanelComponent extends PresentationComponent {
   _setupNewButton(setupDisposers: Array<() => void>): void {
     if (!this.elements?.notesNewBtn) return;
     setupDisposers.push(this.listen(this.elements.notesNewBtn, 'click', () => this._createNewNote()));
+  }
+
+  _setupToggleButton(setupDisposers: Array<() => void>): void {
+    if (!this.elements?.notesBtn) return;
+    setupDisposers.push(this.listen(this.elements.notesBtn, 'click', () => this.toggle()));
   }
 
   _createNewNote(): void {

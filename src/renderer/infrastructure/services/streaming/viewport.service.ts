@@ -47,6 +47,7 @@ const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
 })
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
+  private _resizeTimeout: unknown | null;
   private _onResizeCallback: (() => void) | null;
   private _lastDimensions: ResizeDimensions | null;
   private _forceResizePending: boolean;
@@ -57,6 +58,9 @@ export class StreamingViewportService extends BaseService {
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
+
+    // Timeout handle for resize debouncing
+    this._resizeTimeout = null;
 
     // Callback to invoke when resize occurs
     this._onResizeCallback = null;
@@ -168,12 +172,17 @@ export class StreamingViewportService extends BaseService {
     // Debounce resize events
     this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
     const resizeTimeout = setTimeout(() => {
+      this._resizeTimeout = null;
       this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
     }, TIMING.RESIZE_DEBOUNCE_MS);
-    this.disposables.replace(RESIZE_DEBOUNCE_LIFECYCLE, () => clearTimeout(resizeTimeout));
+    this._resizeTimeout = resizeTimeout;
+    this.disposables.replace(RESIZE_DEBOUNCE_LIFECYCLE, () => {
+      clearTimeout(resizeTimeout);
+      this._resizeTimeout = null;
+    });
   }
 
   /**
@@ -192,6 +201,11 @@ export class StreamingViewportService extends BaseService {
     // Cancel any pending resize (both ResizeObserver debounce and forceResize)
     this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
     this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
+
+    if (this._resizeTimeout) {
+      clearTimeout(this._resizeTimeout as ReturnType<typeof setTimeout>);
+      this._resizeTimeout = null;
+    }
 
     // Suppress ResizeObserver callbacks while forceResize is pending
     this._forceResizePending = true;
@@ -218,6 +232,19 @@ export class StreamingViewportService extends BaseService {
     this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
     this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
     this.disposables.cancel(RESIZE_OBSERVER_LIFECYCLE);
+
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+      this.logger.debug('ResizeObserver disconnected');
+    }
+
+    if (this._resizeTimeout) {
+      if (typeof this._resizeTimeout === 'number' || typeof this._resizeTimeout === 'object') {
+        clearTimeout(this._resizeTimeout as ReturnType<typeof setTimeout>);
+      }
+      this._resizeTimeout = null;
+    }
 
     // Clear callback
     this._onResizeCallback = null;

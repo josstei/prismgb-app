@@ -130,6 +130,7 @@ class CaptureSaveService extends BaseService {
   }
 
   override dispose(): void | Promise<void> {
+    this.logger.info('CaptureSaveService disposed');
     return super.dispose();
   }
 }

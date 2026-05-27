@@ -17,7 +17,7 @@
       },
       "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected"],
       "invoke": [
-        { "method": "getDeviceStatus", "factoryMethod": "getDeviceStatus", "channelKey": "GET_STATUS", "channel": "device:get-status", "request": [], "response": "DeviceStatusPayload", "handler": { "dependencyTokens": ["deviceService", "logger"], "responseMode": "bare" } }
+        { "method": "getDeviceStatus", "factoryMethod": "getDeviceStatus", "channelKey": "GET_STATUS", "channel": "device:get-status", "request": [], "response": "DeviceStatusPayload", "handler": { "dependencyTokens": ["deviceService", "logger"], "responseMode": "result-envelope" } }
       ],
       "subscriptions": [
         {
@@ -75,7 +75,7 @@
           "channel": "window:is-fullscreen",
           "request": [],
           "response": "WindowIsFullscreenResponse",
-          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "bare" }
+          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "result-envelope" }
         }
       ],
       "subscriptions": [
@@ -210,7 +210,7 @@
       "apiName": "loginItemAPI",
       "exposedMethods": ["get", "set"],
       "invoke": [
-        { "method": "get", "channelKey": "GET", "channel": "login-item:get", "request": [], "response": "LoginItemGetResponse", "handler": { "dependencyTokens": ["loginItemService"], "responseMode": "bare" }, "preload": { "responsePolicy": { "name": "catch-fallback", "fallback": false } } },
+        { "method": "get", "channelKey": "GET", "channel": "login-item:get", "request": [], "response": "LoginItemGetResponse", "handler": { "dependencyTokens": ["loginItemService"], "responseMode": "result-envelope" }, "preload": { "responsePolicy": { "name": "catch-fallback", "fallback": false } } },
         { "method": "set", "channelKey": "SET", "channel": "login-item:set", "request": ["enabled:boolean"], "response": "LoginItemSetResponse", "handler": { "dependencyTokens": ["loginItemService", "logger"], "responseMode": "result-envelope" }, "preload": { "argumentValidators": [{ "name": "boolean-argument", "invalidMessage": "loginItemAPI.set: Invalid parameter - expected boolean", "fallback": { "success": false, "error": "Invalid parameter" } }] } }
       ]
     },

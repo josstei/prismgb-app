@@ -450,17 +450,80 @@ export function createMediaBlobEventMock(overrides = {}) {
 }
 
 export function createMediaRecorderMock(overrides = {}) {
-  return {
+  const listeners = {};
+  let ondataavailable = vi.fn();
+  let onerror = vi.fn();
+  let onstop = vi.fn();
+
+  const mock = {
     start: vi.fn(),
-    stop: vi.fn(),
+    stop: vi.fn(() => {
+      mock.dispatchEvent({ type: 'stop' });
+    }),
     pause: vi.fn(),
     resume: vi.fn(),
     requestData: vi.fn(),
-    onerror: vi.fn(),
-    ondataavailable: vi.fn(),
-    onstop: vi.fn(),
+    addEventListener: vi.fn((event, cb) => {
+      if (!listeners[event]) listeners[event] = [];
+      listeners[event].push(cb);
+    }),
+    removeEventListener: vi.fn((event, cb) => {
+      if (listeners[event]) {
+        const index = listeners[event].indexOf(cb);
+        if (index > -1) listeners[event].splice(index, 1);
+      }
+    }),
+    dispatchEvent: vi.fn((eventObj) => {
+      const type = eventObj.type;
+      const list = listeners[type] || [];
+      list.forEach(l => l(eventObj));
+    }),
     ...overrides,
   };
+
+  Object.defineProperty(mock, 'ondataavailable', {
+    get() {
+      return (event) => {
+        const list = listeners['dataavailable'] || [];
+        list.forEach(l => l(event));
+        if (ondataavailable) ondataavailable(event);
+      };
+    },
+    set(cb) {
+      ondataavailable = cb;
+    },
+    configurable: true
+  });
+
+  Object.defineProperty(mock, 'onerror', {
+    get() {
+      return (event) => {
+        const list = listeners['error'] || [];
+        list.forEach(l => l(event));
+        if (onerror) onerror(event);
+      };
+    },
+    set(cb) {
+      onerror = cb;
+    },
+    configurable: true
+  });
+
+  Object.defineProperty(mock, 'onstop', {
+    get() {
+      return (event) => {
+        const list = listeners['stop'] || [];
+        list.forEach(l => l(event));
+        if (onstop) onstop(event);
+      };
+    },
+    set(cb) {
+      onstop = cb;
+    },
+    configurable: true
+  });
+
+  return mock;
 }
 
 export function createMediaRecorderErrorEventMock(overrides = {}) {
@@ -1663,6 +1726,7 @@ export function createUIComponentRegistryMock(overrides = {}) {
 
 export function createUIEffectsMock(overrides = {}) {
   return {
+    setElements: vi.fn(),
     triggerShutterFlash: vi.fn(),
     triggerRecordButtonPop: vi.fn(),
     triggerRecordButtonPress: vi.fn(),

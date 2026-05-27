@@ -51,6 +51,7 @@ describe('AppOrchestrator', () => {
     mockUpdateOrchestrator = createOrchestratorMock();
 
     mockUISetupOrchestrator = createOrchestratorMock({
+      initializeDeferredComponents: vi.fn(),
       initializeSettingsMenu: vi.fn(),
       initializeShaderSelector: vi.fn(),
       initializeNotesPanel: vi.fn(),
@@ -91,8 +92,8 @@ describe('AppOrchestrator', () => {
   });
 
   describe('Constructor', () => {
-    it('should initialize subscriptions array', () => {
-      expect(orchestrator._subscriptions).toEqual([]);
+    it('should initialize disposables bag', () => {
+      expect(orchestrator._disposables).toBeDefined();
     });
 
     it('should not have domListeners manager (delegated to UISetupOrchestrator)', () => {
@@ -131,16 +132,10 @@ describe('AppOrchestrator', () => {
   });
 
   describe('start', () => {
-    it('should delegate settings menu initialization to UISetupOrchestrator', async () => {
+    it('should delegate deferred components initialization to UISetupOrchestrator', async () => {
       await orchestrator.start();
 
-      expect(mockUISetupOrchestrator.initializeSettingsMenu).toHaveBeenCalled();
-    });
-
-    it('should delegate overlay click handlers to UISetupOrchestrator', async () => {
-      await orchestrator.start();
-
-      expect(mockUISetupOrchestrator.setupOverlayClickHandlers).toHaveBeenCalled();
+      expect(mockUISetupOrchestrator.initializeDeferredComponents).toHaveBeenCalled();
     });
 
     it('should delegate UI event listeners to UISetupOrchestrator', async () => {
@@ -195,13 +190,13 @@ describe('AppOrchestrator', () => {
       // Subscription cleanup now happens in BaseOrchestrator.cleanup()
       const unsubscribe1 = vi.fn();
       const unsubscribe2 = vi.fn();
-      orchestrator._subscriptions = [unsubscribe1, unsubscribe2];
+      orchestrator.track({ dispose: unsubscribe1 });
+      orchestrator.track({ dispose: unsubscribe2 });
 
       await orchestrator.cleanup();
 
       expect(unsubscribe1).toHaveBeenCalled();
       expect(unsubscribe2).toHaveBeenCalled();
-      expect(orchestrator._subscriptions).toEqual([]);
     });
 
     it('should cleanup all sub-orchestrators in correct order', async () => {

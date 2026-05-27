@@ -449,9 +449,6 @@ describe('ShaderSliderControlsComponent', () => {
       expect(component.volumeSlider).toBeNull();
       expect(component.volumePercentage).toBeNull();
       expect(component.streamVideo).toBeNull();
-      expect(component.settingsService).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.logger).toBeNull();
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

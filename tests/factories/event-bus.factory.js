@@ -72,6 +72,14 @@ export function createEventBus(options = {}) {
     }),
 
     /**
+     * Publish an event asynchronously
+     */
+    publishAsync: vi.fn((...args) => {
+      eventBus.publish(...args);
+      return Promise.resolve();
+    }),
+
+    /**
      * Subscribe to an event
      */
     subscribe: vi.fn((event, callback, options = {}) => {

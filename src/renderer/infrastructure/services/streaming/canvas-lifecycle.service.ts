@@ -132,7 +132,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     const newCanvas = document.createElement('canvas');
     newCanvas.id = oldCanvas.id;
     newCanvas.className = oldCanvas.className;
-    Array.from(oldCanvas.attributes)
+    Array.from(oldCanvas.attributes || [])
       .filter((attribute) => attribute.name.startsWith('data-'))
       .forEach((attribute) => newCanvas.setAttribute(attribute.name, attribute.value));
 

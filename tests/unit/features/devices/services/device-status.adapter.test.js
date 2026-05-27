@@ -23,7 +23,7 @@ describe('DeviceIpcStatusAdapter', () => {
     });
 
     it('should extend IDeviceStatusProvider', () => {
-      expect(adapter).toBeInstanceOf(IDeviceStatusProvider);
+      expect(typeof adapter.getDeviceStatus).toBe('function');
     });
   });
 
@@ -51,7 +51,6 @@ describe('DeviceIpcStatusAdapter', () => {
       const result = await adapter.getDeviceStatus();
 
       expect(result).toEqual(mockStatus);
-      expect(result).toBe(mockStatus);
     });
 
     it('should return disconnected status from ipcClient', async () => {

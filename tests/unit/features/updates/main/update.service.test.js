@@ -509,7 +509,7 @@ describe('UpdateService', () => {
       service.startAutoCheck(60000);
       await service.dispose();
 
-      expect(service._autoCheckIntervalId).toBeNull();
+      expect(service._autoCheckRunning).toBe(false);
     });
 
     it('should remove only listeners owned by the update service', async () => {

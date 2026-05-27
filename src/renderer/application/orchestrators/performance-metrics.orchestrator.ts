@@ -47,4 +47,9 @@ export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
     }
   }
 
+  override async onCleanup(): Promise<void> {
+    this.performanceMetricsService.stopPeriodicSnapshots();
+    this.performanceMetricsService.clearPendingRequests();
+  }
+
 }

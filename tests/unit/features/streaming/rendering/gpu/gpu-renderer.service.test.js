@@ -63,18 +63,22 @@ vi.mock('@renderer/infrastructure/rendering/workers/worker-protocol.config.ts', 
 }));
 
 // Mock render presets
-vi.mock('@prismgb/gpu', () => ({
-  PresetRegistry: {
-    get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
-    getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
-  },
-  buildUniforms: vi.fn(() => ({
-    upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
-    unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
-    color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
-    crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
-  }))
-}));
+vi.mock('@prismgb/gpu', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    PresetRegistry: {
+      get: vi.fn(() => ({ id: 'default', name: 'Default', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+      getDefault: vi.fn(() => ({ id: 'vibrant', name: 'Vibrant', description: 'Test', color: { enabled: true, brightness: 1.0 }, unsharp: { enabled: true }, crt: { enabled: false } })),
+    },
+    buildUniforms: vi.fn(() => ({
+      upscale: { inputSize: [160, 144], outputSize: [640, 576], scaleFactor: 4 },
+      unsharp: { enabled: true, strength: 0.5, texelSize: [1/640, 1/576], scaleFactor: 4 },
+      color: { enabled: true, gamma: 0.9, saturation: 1.0, greenBias: 0.02, brightness: 1.0, contrast: 1.0 },
+      crt: { enabled: false, resolution: [640, 576], scaleFactor: 4, scanlineStrength: 0, pixelMaskStrength: 0, bloomStrength: 0, curvature: 0, vignetteStrength: 0 }
+    }))
+  };
+});
 
 describe('StreamingGpuRendererService', () => {
   let service;
@@ -581,14 +585,17 @@ describe('StreamingGpuRendererService', () => {
   });
 
   describe('cleanup (public)', () => {
-    it('should unsubscribe from brightness events', () => {
-      const unsubscribeFn = vi.fn();
-      service._brightnessUnsubscribe = unsubscribeFn;
+    it('should unsubscribe from brightness events', async () => {
+      const canvasElement = createOffscreenCanvasElementMock();
+      await service.initialize(canvasElement);
+
+      const returnedUnsubscribe = mockEventBus.subscribe.mock.results.find(
+        (r) => r.value && typeof r.value === 'function'
+      )?.value;
 
       service.cleanup();
 
-      expect(unsubscribeFn).toHaveBeenCalled();
-      expect(service._brightnessUnsubscribe).toBeNull();
+      expect(returnedUnsubscribe).toHaveBeenCalled();
     });
   });
 

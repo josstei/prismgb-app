@@ -613,14 +613,76 @@ function installMediaRecorderMockInternal(options = {}) {
       this.stream = stream;
       this.options = recorderOptions;
       this.state = 'inactive';
-      this.ondataavailable = null;
-      this.onerror = null;
-      this.onstop = null;
+      this._listeners = {};
+      this._ondataavailable = null;
+      this._onerror = null;
+      this._onstop = null;
+
+      this.addEventListener = vi.fn((event, cb) => {
+        if (!this._listeners[event]) this._listeners[event] = [];
+        this._listeners[event].push(cb);
+      });
+
+      this.removeEventListener = vi.fn((event, cb) => {
+        if (this._listeners[event]) {
+          this._listeners[event] = this._listeners[event].filter(l => l !== cb);
+        }
+      });
+
+      this.dispatchEvent = vi.fn((eventObj) => {
+        const type = eventObj.type;
+        const listeners = this._listeners[type] || [];
+        listeners.forEach(l => l(eventObj));
+      });
+
+      Object.defineProperty(this, 'ondataavailable', {
+        get() {
+          return (event) => {
+            const list = this._listeners['dataavailable'] || [];
+            list.forEach(l => l(event));
+            if (this._ondataavailable) this._ondataavailable(event);
+          };
+        },
+        set(cb) {
+          this._ondataavailable = cb;
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(this, 'onerror', {
+        get() {
+          return (event) => {
+            const list = this._listeners['error'] || [];
+            list.forEach(l => l(event));
+            if (this._onerror) this._onerror(event);
+          };
+        },
+        set(cb) {
+          this._onerror = cb;
+        },
+        configurable: true
+      });
+
+      Object.defineProperty(this, 'onstop', {
+        get() {
+          return (event) => {
+            const list = this._listeners['stop'] || [];
+            list.forEach(l => l(event));
+            if (this._onstop) this._onstop(event);
+          };
+        },
+        set(cb) {
+          this._onstop = cb;
+        },
+        configurable: true
+      });
+
       this.start = vi.fn(() => {
         this.state = 'recording';
       });
       this.stop = vi.fn(() => {
         this.state = 'inactive';
+        this.dispatchEvent({ type: 'stop' });
       });
     }
   };

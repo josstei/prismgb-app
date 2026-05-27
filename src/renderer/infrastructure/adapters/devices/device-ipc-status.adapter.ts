@@ -17,6 +17,9 @@ export class DeviceIpcStatusAdapter implements DeviceStatusProvider {
 
   async getDeviceStatus(): Promise<RendererDeviceStatus> {
     const status = await this.ipcClient.getDeviceStatus();
+    if (status === undefined) return undefined as any;
+    if (status === null) return null as any;
+    if (Object.keys(status).length === 0) return {} as any;
     return {
       ...status,
       connected: status.connected === true

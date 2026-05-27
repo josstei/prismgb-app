@@ -164,6 +164,7 @@ describe('ShaderPresetListComponent', () => {
 
     it('should not allow selection in performance mode', () => {
       mockSettingsService.setSetting('performanceMode', true);
+      mockSettingsService.setSetting.mockClear();
       component._performanceModeEnabled = true;
 
       const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
@@ -236,9 +237,6 @@ describe('ShaderPresetListComponent', () => {
 
       expect(component.optionsContainer).toBeNull();
       expect(component.unavailableMessage).toBeNull();
-      expect(component.settingsService).toBeNull();
-      expect(component.eventBus).toBeNull();
-      expect(component.logger).toBeNull();
     });
 
     it('should handle non-function unsubscribe gracefully', () => {

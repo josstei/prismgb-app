@@ -254,10 +254,9 @@ describe('NotesResizeHandlerComponent', () => {
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
       document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
 
-      component._rafId = 123;
       document.dispatchEvent(new MouseEvent('mouseup'));
 
-      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(123);
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalled();
     });
 
     it('should throttle RAF during drag', () => {
@@ -319,8 +318,7 @@ describe('NotesResizeHandlerComponent', () => {
 
       document.dispatchEvent(new TouchEvent('touchend'));
 
-      expect(component._boundDragMove).toBeNull();
-      expect(component._boundDragEnd).toBeNull();
+      expect(component._isDragging).toBe(false);
     });
 
     it('should clean up on touchcancel', () => {
@@ -339,12 +337,21 @@ describe('NotesResizeHandlerComponent', () => {
   describe('dispose', () => {
     it('should cancel pending RAF', () => {
       animationFrameMock = installAnimationFrameMock();
-      component._rafId = 456;
+      const listToggle = document.createElement('button');
+      component.initialize({
+        listToggle,
+        panelElement: document.createElement('div'),
+        panelContent: document.createElement('div'),
+        listWrapper: document.createElement('div'),
+        onToggle: vi.fn()
+      });
+
+      listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 110 }));
 
       component.dispose();
 
-      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(456);
-      expect(component._rafId).toBeNull();
+      expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalled();
     });
 
     it('should handle dispose without active RAF', () => {
@@ -366,8 +373,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       component.dispose();
 
-      expect(component._boundDragMove).toBeNull();
-      expect(component._boundDragEnd).toBeNull();
       expect(component.listToggle).toBeNull();
     });
 

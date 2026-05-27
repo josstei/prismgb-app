@@ -27,17 +27,25 @@ export const deviceHandlerDescriptors = defineManifestIpcHandlers<DeviceHandlerD
       const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
       if (isTestMode() && testGlobal.__testMockDeviceStatus) {
         logger.debug('Using mock device status for testing');
-        return testGlobal.__testMockDeviceStatus;
+        return {
+          ...testGlobal.__testMockDeviceStatus,
+          success: true
+        } as DeviceStatusPayload;
       }
 
-      return deviceService.getStatus();
+      const status = deviceService.getStatus();
+      return {
+        ...status,
+        success: true
+      } as DeviceStatusPayload;
     },
     mapError: (error, { logger }) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to get device status:', error);
       return {
         connected: false,
-        error: errorMessage
+        error: errorMessage,
+        success: false
       } as DeviceStatusPayload;
     }
   }

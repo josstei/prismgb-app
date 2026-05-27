@@ -72,7 +72,8 @@ class SettingsFullscreenService extends BaseService {
   async _syncFullscreenState() {
     if (window.windowAPI?.isFullScreen) {
       try {
-        const isActuallyFullscreen = await window.windowAPI.isFullScreen();
+        const result = await window.windowAPI.isFullScreen();
+        const isActuallyFullscreen = result.success ? result.isFullscreen : false;
         this._applyFullscreenState(isActuallyFullscreen);
         return isActuallyFullscreen;
       } catch (err) {

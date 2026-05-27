@@ -87,14 +87,15 @@ describe('TranscodeUIBridge', () => {
       })).toThrow(/Missing required dependencies.*loggerFactory/);
     });
 
-    it('should initialize subscriptions array', () => {
+    it('should initialize disposables bag', () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,
         uiController: mockUIController,
         loggerFactory: mockLoggerFactory
       });
 
-      expect(bridge._subscriptions).toEqual([]);
+      expect(bridge.disposables).toBeDefined();
+      expect(bridge.disposables.size).toBe(0);
     });
 
   });
@@ -153,13 +154,10 @@ describe('TranscodeUIBridge', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
     });
 
-    it('should store unsubscribe functions', () => {
+    it('should store unsubscribe functions in disposables bag', () => {
       bridge.initialize();
 
-      expect(bridge._subscriptions.length).toBe(5);
-      bridge._subscriptions.forEach(unsub => {
-        expect(typeof unsub).toBe('function');
-      });
+      expect(bridge.disposables.size).toBe(5);
     });
 
     it('should log initialization', () => {
@@ -177,52 +175,48 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should call all unsubscribe functions', () => {
+    it('should call all unsubscribe functions on dispose', async () => {
+      const unsubscribers = [];
+      mockEventBus.subscribe.mockImplementation(() => {
+        const unsub = vi.fn();
+        unsubscribers.push(unsub);
+        return unsub;
+      });
+
       bridge.initialize();
-      const unsubscribeFns = bridge._subscriptions;
+      await bridge.dispose();
 
-      bridge.dispose();
-
-      unsubscribeFns.forEach(fn => {
-        expect(fn).toHaveBeenCalled();
+      expect(unsubscribers.length).toBe(5);
+      unsubscribers.forEach(unsub => {
+        expect(unsub).toHaveBeenCalled();
       });
     });
 
-    it('should clear subscriptions array', () => {
+    it('should clear disposables bag on dispose', async () => {
       bridge.initialize();
-      bridge.dispose();
-      expect(bridge._subscriptions).toEqual([]);
+      await bridge.dispose();
+
+      expect(bridge.disposables.size).toBe(0);
     });
 
-    it('should dispose toast component', () => {
+    it('should log disposal', async () => {
       bridge.initialize();
-      bridge.dispose();
-      expect(mockTranscodeToast.dispose).toHaveBeenCalled();
-    });
-
-    it('should log disposal', () => {
-      bridge.initialize();
-      bridge.dispose();
+      await bridge.dispose();
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeUIBridge disposed');
     });
 
-    it('should handle non-function items in subscriptions array gracefully', () => {
+    it('should work when called multiple times', async () => {
       bridge.initialize();
-      bridge._subscriptions.push(null, undefined, 'not-a-function');
-      expect(() => bridge.dispose()).not.toThrow();
+      await bridge.dispose();
+
+      await expect(bridge.dispose()).resolves.not.toThrow();
+      expect(bridge.disposables.size).toBe(0);
     });
 
-    it('should work when called multiple times', () => {
-      bridge.initialize();
-      bridge.dispose();
-      bridge.dispose();
-      expect(bridge._subscriptions).toEqual([]);
-    });
-
-    it('should not throw when toast is unavailable', () => {
+    it('should not throw when toast is unavailable', async () => {
       mockUIController.registry.get = vi.fn().mockReturnValue(null);
       bridge.initialize();
-      expect(() => bridge.dispose()).not.toThrow();
+      await expect(bridge.dispose()).resolves.not.toThrow();
     });
   });
 
@@ -476,7 +470,7 @@ describe('TranscodeUIBridge', () => {
 
     it('should not throw when disposing before initialization', () => {
       expect(() => bridge.dispose()).not.toThrow();
-      expect(bridge._subscriptions).toEqual([]);
+      expect(bridge.disposables.size).toBe(0);
     });
 
     it('should handle indeterminate progress (-1)', () => {

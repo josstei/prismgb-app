@@ -8,7 +8,7 @@ import {
 } from '../../../factories/index.js';
 
 const testManifest: IpcManifest = { version: 1, mode: 'enforced', namespaces: [{ namespace: 'TEST', apiName: 'testAPI', exposedMethods: ['onMappedAvailable', 'onMappedError'], subscriptions: [{ method: 'onAvailableInternal', factoryMethod: 'onMappedAvailable', channelKey: 'AVAILABLE', channel: 'test:available', payload: 'unknown' }, { method: 'onMappedError', channelKey: 'ERROR', channel: 'test:error', payload: 'unknown' }] }] };
-const testDescriptor = { apiName: 'testAPI', methods: ['onMappedAvailable', 'onMappedError'] } as const;
+const testDescriptor = { apiName: 'testAPI', bridgeName: 'TestBridge', methods: ['onMappedAvailable', 'onMappedError'] } as const;
 
 describe('createPreloadEventBridge', () => {
   it('tracks unsubscribe closures returned by preload subscriptions', () => {
@@ -61,6 +61,6 @@ describe('createManifestPreloadEventBridge', () => {
     const api = createPreloadEventApiMock({ onMappedAvailable: vi.fn() });
     const handlers = createCallbackMap(['onMappedAvailable']);
 
-    expect(() => createManifestPreloadEventBridge({ api, descriptor: { apiName: 'testAPI', methods: ['onMappedAvailable'] } as const, bridgeName: 'TestBridge', handlers, manifest: testManifest })).toThrow('TestBridge: IPC manifest subscriptions missing from descriptor for "testAPI": onMappedError');
+    expect(() => createManifestPreloadEventBridge({ api, descriptor: { apiName: 'testAPI', bridgeName: 'TestBridge', methods: ['onMappedAvailable'] } as const, handlers, manifest: testManifest })).toThrow('TestBridge: IPC manifest subscriptions missing from descriptor for "testAPI": onMappedError');
   });
 });

@@ -123,11 +123,11 @@ describe('SettingsService', () => {
     it('logs loaded preferences', () => {
       service.loadAllPreferences();
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Loaded preferences - GameVolume: 70%, StatusStrip: false, PerformanceMode: false, MinimalistFullscreen: false'
+        'Loaded preferences - gameVolume: 70, statusStripVisible: false, performanceMode: false, minimalistFullscreen: false'
       );
     });
     it('fails fast when synchronous preference loading reaches an async setting', () => {
-      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve(true)) }));
+      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve({ success: true, enabled: true })) }));
       expect(() => service._getSynchronousSetting('launchOnLogin')).toThrow(
         'Setting requires asynchronous access: launchOnLogin'
       );
@@ -135,7 +135,7 @@ describe('SettingsService', () => {
   });
   describe('launchOnLogin', () => {
     it('queries loginItemAPI through getSetting when available', async () => {
-      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve(true)) }));
+      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve({ success: true, enabled: true })) }));
       const result = await service.getSetting('launchOnLogin');
       expect(result).toBe(true);
       expect(window.loginItemAPI.get).toHaveBeenCalled();

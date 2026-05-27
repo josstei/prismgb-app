@@ -85,14 +85,14 @@ describe('Main IPC handler descriptors', () => {
     });
 
     const status = await handlers[IPC_CHANNELS.DEVICE.GET_STATUS]();
-    expect(status).toEqual({ connected: true, device: { deviceName: 'Chromatic' } });
+    expect(status).toEqual({ success: true, connected: true, device: { deviceName: 'Chromatic' } });
 
     mockDeviceService.getStatus.mockImplementation(() => {
       throw new Error('device fail');
     });
 
     const errorStatus = await handlers[IPC_CHANNELS.DEVICE.GET_STATUS]();
-    expect(errorStatus).toEqual({ connected: false, error: 'device fail' });
+    expect(errorStatus).toEqual({ success: false, connected: false, error: 'device fail' });
   });
 
   it('maps shell responses with explicit success/error envelopes', async () => {
@@ -145,16 +145,16 @@ describe('Main IPC handler descriptors', () => {
     expect(gpuResponse.success).toBe(true);
   });
 
-  it('uses window and login item boolean/bare response modes', async () => {
+  it('uses window and login item monadic result envelopes', async () => {
     const windowHandlers = captureHandlers(windowHandlerDescriptors, { windowService: mockWindowService, logger: mockLogger });
 
     const isFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]();
-    expect(isFullscreen).toBe(true);
+    expect(isFullscreen).toEqual({ success: true, isFullscreen: true });
 
     const setFullscreen = await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, true);
     expect(setFullscreen).toEqual({ success: true });
     expect(await windowHandlers[IPC_CHANNELS.WINDOW.SET_FULLSCREEN]({}, 'yes')).toEqual({ success: false, error: 'argument enabled must be boolean' });
-    expect(await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]({}, true)).toBe(false);
+    expect(await windowHandlers[IPC_CHANNELS.WINDOW.IS_FULLSCREEN]({}, true)).toEqual({ success: false, isFullscreen: false, error: 'expected 0 argument(s), received 1' });
     expect(mockWindowService.setFullScreen).toHaveBeenCalledTimes(1);
     expect(mockWindowService.isFullScreen).toHaveBeenCalledTimes(1);
 
@@ -166,7 +166,7 @@ describe('Main IPC handler descriptors', () => {
     });
 
     const loginItemValue = await loginItemHandlers[IPC_CHANNELS.LOGIN_ITEM.GET]();
-    expect(loginItemValue).toBe(false);
+    expect(loginItemValue).toEqual({ success: true, enabled: false });
   });
 
   it('uses explicit performance and transcode error envelopes', async () => {

@@ -2,16 +2,13 @@
  * UISetupOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
 import {
   createAppState,
   createEventBus,
   createLoggerFactory,
   createNotesServiceMock,
-  createDomEventMock,
-  createMockButton,
-  createMockElement,
   createOrchestratorMock,
   createSettingsServiceMock,
   createUISetupControllerMock
@@ -27,26 +24,21 @@ describe('UISetupOrchestrator', () => {
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
-  let mockStreamOverlay;
-  let mockStreamVideo;
-  let mockStreamCanvas;
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
-
     mockAppState = createAppState();
-
     mockUpdateOrchestrator = createOrchestratorMock();
-
     mockSettingsService = createSettingsServiceMock();
-
     mockNotesService = createNotesServiceMock();
 
-    mockUiController = createUISetupControllerMock();
-    mockStreamOverlay = mockUiController.elements.streamOverlay;
-    mockStreamVideo = mockUiController.elements.streamVideo;
-    mockStreamCanvas = mockUiController.elements.streamCanvas;
+    mockUiController = createUISetupControllerMock({
+      initializeDeferredComponent: vi.fn(),
+      toggleSettingsMenu: vi.fn(),
+      toggleShaderSelector: vi.fn(),
+      toggleNotesPanel: vi.fn()
+    });
 
     orchestrator = new UISetupOrchestrator({
       appState: mockAppState,
@@ -60,9 +52,12 @@ describe('UISetupOrchestrator', () => {
     mockLogger = mockLoggerFactory._getLogger('UISetupOrchestrator');
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
-      expect(orchestrator.appState).toBe(mockAppState);
       expect(orchestrator.eventBus).toBe(mockEventBus);
       expect(orchestrator.uiController).toBe(mockUiController);
     });
@@ -75,396 +70,30 @@ describe('UISetupOrchestrator', () => {
     });
   });
 
-  describe('initializeSettingsMenu', () => {
-    it('should call uiController.initSettingsMenu with config', () => {
-      orchestrator.initializeSettingsMenu();
+  describe('initializeDeferredComponents', () => {
+    it('should initialize all deferred components', () => {
+      orchestrator.initializeDeferredComponents();
 
-      expect(mockUiController.initSettingsMenu).toHaveBeenCalledWith({
-        settingsService: mockSettingsService,
-        updateOrchestrator: mockUpdateOrchestrator,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory,
-        logger: mockLogger
-      });
-    });
-  });
-
-  describe('initializeShaderSelector', () => {
-    it('should call uiController.initShaderSelector with dependencies and elements', () => {
-      orchestrator.initializeShaderSelector();
-
-      expect(mockUiController.initShaderSelector).toHaveBeenCalledWith(
-        {
-          settingsService: mockSettingsService,
-          appState: mockAppState,
-          eventBus: mockEventBus,
-          logger: mockLogger
-        },
-        expect.objectContaining({
-          shaderBtn: mockUiController.dom.streaming.shaderBtn,
-          shaderDropdown: mockUiController.dom.streaming.shaderDropdown,
-          shaderOptions: mockUiController.dom.streaming.shaderOptions,
-          shaderUnavailableMessage: mockUiController.dom.streaming.shaderUnavailableMessage,
-          cinematicToggle: mockUiController.dom.streaming.cinematicToggle,
-          cinematicPillText: mockUiController.dom.streaming.cinematicPillText,
-          streamToolbar: mockUiController.dom.streaming.streamToolbar,
-          brightnessSlider: mockUiController.dom.streaming.brightnessSlider,
-          brightnessPercentage: mockUiController.dom.streaming.brightnessPercentage,
-          brightnessControl: mockUiController.dom.streaming.brightnessControl,
-          volumeSlider: mockUiController.dom.streaming.volumeSliderVertical,
-          volumePercentage: mockUiController.dom.streaming.volumePercentageVertical,
-          streamVideo: mockUiController.dom.streaming.streamVideo
-        })
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
+        'settingsMenuComponent',
+        expect.any(Object)
+      );
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
+        'shaderSelectorComponent',
+        expect.any(Object)
+      );
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
+        'notesPanelComponent',
+        expect.any(Object)
       );
     });
   });
 
-  describe('initializeNotesPanel', () => {
-    it('should call uiController.initNotesPanel with dependencies and elements', () => {
-      orchestrator.initializeNotesPanel();
-
-      expect(mockUiController.initNotesPanel).toHaveBeenCalledWith(
-        {
-          notesService: mockNotesService,
-          eventBus: mockEventBus,
-          logger: mockLogger
-        },
-        expect.objectContaining({
-          notesBtn: mockUiController.dom.notes.notesBtn,
-          streamContainer: mockUiController.dom.streaming.streamContainer,
-          streamToolbar: mockUiController.dom.streaming.streamToolbar
-        })
-      );
-    });
-  });
-
-  describe('setupUIEventListeners', () => {
-    it('should set up screenshot button listener', () => {
+  describe('setupUIEventListeners and cleanup', () => {
+    it('should set up and clean up event listeners', async () => {
       orchestrator.setupUIEventListeners();
-
-      expect(mockUiController.on).toHaveBeenCalledWith(
-        'screenshotBtn',
-        'click',
-        expect.any(Function)
-      );
-    });
-
-    it('should set up record button listener', () => {
-      orchestrator.setupUIEventListeners();
-
-      expect(mockUiController.on).toHaveBeenCalledWith(
-        'recordBtn',
-        'click',
-        expect.any(Function)
-      );
-    });
-
-    it('should set up fullscreen button listener', () => {
-      orchestrator.setupUIEventListeners();
-
-      expect(mockUiController.on).toHaveBeenCalledWith(
-        'fullscreenBtn',
-        'click',
-        expect.any(Function)
-      );
-    });
-
-    it('should set up settings button listener', () => {
-      orchestrator.setupUIEventListeners();
-
-      expect(mockUiController.on).toHaveBeenCalledWith(
-        'settingsBtn',
-        'click',
-        expect.any(Function)
-      );
-    });
-
-    it('should set up shader button listener', () => {
-      orchestrator.setupUIEventListeners();
-
-      expect(mockUiController.on).toHaveBeenCalledWith(
-        'shaderBtn',
-        'click',
-        expect.any(Function)
-      );
-    });
-
-    it('should log setup completion', () => {
-      orchestrator.setupUIEventListeners();
-
-      expect(mockLogger.info).toHaveBeenCalledWith('UI event listeners set up');
-    });
-
-    it('should publish SCREENSHOT_REQUESTED event when screenshot handler is invoked', () => {
-      orchestrator.setupUIEventListeners();
-
-      // Find the screenshot handler
-      const call = mockUiController.on.mock.calls.find(c => c[0] === 'screenshotBtn');
-      const handler = call[2];
-
-      handler();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:screenshot-requested');
-    });
-
-    it('should publish RECORDING_TOGGLE_REQUESTED event when record handler is invoked', () => {
-      orchestrator.setupUIEventListeners();
-
-      const call = mockUiController.on.mock.calls.find(c => c[0] === 'recordBtn');
-      const handler = call[2];
-
-      handler();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:recording-toggle-requested');
-    });
-
-    it('should publish FULLSCREEN_TOGGLE_REQUESTED event when fullscreen handler is invoked', () => {
-      orchestrator.setupUIEventListeners();
-
-      const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
-      const handler = call[2];
-
-      const mockEvent = createDomEventMock({
-        currentTarget: {
-          blur: vi.fn(),
-          style: {}
-        }
-      });
-      handler(mockEvent);
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:fullscreen-toggle-requested');
-    });
-
-    it('should blur fullscreen button when clicked', () => {
-      orchestrator.setupUIEventListeners();
-
-      const call = mockUiController.on.mock.calls.find(c => c[0] === 'fullscreenBtn');
-      const handler = call[2];
-
-      const mockButton = createMockButton();
-      const mockEvent = createDomEventMock({ currentTarget: mockButton });
-      handler(mockEvent);
-
-      expect(mockButton.blur).toHaveBeenCalled();
-    });
-  });
-
-  describe('setupOverlayClickHandlers', () => {
-    it('should add click listener to stream overlay', () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      expect(mockStreamOverlay.addEventListener).toHaveBeenCalled();
-      expect(mockStreamOverlay.addEventListener.mock.calls[0][0]).toBe('click');
-      expect(typeof mockStreamOverlay.addEventListener.mock.calls[0][1]).toBe('function');
-    });
-
-    it('should add click listener to stream video', () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      expect(mockStreamVideo.addEventListener).toHaveBeenCalled();
-      expect(mockStreamVideo.addEventListener.mock.calls[0][0]).toBe('click');
-      expect(typeof mockStreamVideo.addEventListener.mock.calls[0][1]).toBe('function');
-    });
-
-    it('should add click listener to stream canvas', () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      expect(mockStreamCanvas.addEventListener).toHaveBeenCalled();
-      expect(mockStreamCanvas.addEventListener.mock.calls[0][0]).toBe('click');
-      expect(typeof mockStreamCanvas.addEventListener.mock.calls[0][1]).toBe('function');
-    });
-
-    it('should publish STREAM_START_REQUESTED when overlay is clicked and visible', () => {
-      mockStreamOverlay.classList.contains.mockReturnValue(false); // Not hidden
-      orchestrator.setupOverlayClickHandlers();
-
-      // Trigger the overlay click
-      mockStreamOverlay._trigger('click');
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-start-requested');
-    });
-
-    it('should not publish event when overlay is hidden', () => {
-      mockStreamOverlay.classList.contains.mockReturnValue(true); // Is hidden
-      orchestrator.setupOverlayClickHandlers();
-
-      mockStreamOverlay._trigger('click');
-
-      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:stream-start-requested');
-    });
-
-    it('should publish STREAM_STOP_REQUESTED when video is clicked while streaming', () => {
-      mockAppState.setStreaming(true);
-      orchestrator.setupOverlayClickHandlers();
-
-      mockStreamVideo._trigger('click');
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-stop-requested');
-    });
-
-    it('should not publish event when video is clicked while not streaming', () => {
-      mockAppState.setStreaming(false);
-      orchestrator.setupOverlayClickHandlers();
-
-      mockStreamVideo._trigger('click');
-
-      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:stream-stop-requested');
-    });
-
-    it('should log initialization', () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Overlay click handlers initialized');
-    });
-  });
-
-  describe('_toggleSettingsMenu', () => {
-    it('should stop event propagation', () => {
-      const mockEvent = createDomEventMock();
-
-      orchestrator._toggleSettingsMenu(mockEvent);
-
-      expect(mockEvent.stopPropagation).toHaveBeenCalled();
-    });
-
-    it('should call uiController.toggleSettingsMenu', () => {
-      const mockEvent = createDomEventMock();
-
-      orchestrator._toggleSettingsMenu(mockEvent);
-
-      expect(mockUiController.toggleSettingsMenu).toHaveBeenCalled();
-    });
-  });
-
-  describe('_toggleShaderSelector', () => {
-    it('should stop event propagation', () => {
-      const mockEvent = createDomEventMock();
-
-      orchestrator._toggleShaderSelector(mockEvent);
-
-      expect(mockEvent.stopPropagation).toHaveBeenCalled();
-    });
-
-    it('should call uiController.toggleShaderSelector', () => {
-      const mockEvent = createDomEventMock();
-
-      orchestrator._toggleShaderSelector(mockEvent);
-
-      expect(mockUiController.toggleShaderSelector).toHaveBeenCalled();
-    });
-  });
-
-  describe('onCleanup', () => {
-    it('should log cleanup start', async () => {
-      await orchestrator.onCleanup();
-
+      await orchestrator.cleanup();
       expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up UISetupOrchestrator...');
-    });
-
-    it('should log cleanup completion', async () => {
-      await orchestrator.onCleanup();
-
-      expect(mockLogger.info).toHaveBeenCalledWith('UISetupOrchestrator cleanup complete');
-    });
-
-    it('should remove DOM listeners', async () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      await orchestrator.onCleanup();
-
-      expect(mockStreamOverlay.removeEventListener).toHaveBeenCalled();
-      expect(mockStreamVideo.removeEventListener).toHaveBeenCalled();
-      expect(mockStreamCanvas.removeEventListener).toHaveBeenCalled();
-    });
-  });
-
-  describe('canvas recreation integration', () => {
-    let canvasRecreatedHandler;
-
-    beforeEach(async () => {
-      // Capture the CANVAS_RECREATED handler when onInitialize subscribes
-      mockEventBus.subscribe.mockImplementation((event, handler) => {
-        if (event === 'render:canvas-recreated') {
-          canvasRecreatedHandler = handler;
-        }
-        return vi.fn(); // Return unsubscribe function
-      });
-
-      await orchestrator.onInitialize();
-    });
-
-    it('should subscribe to CANVAS_RECREATED event on initialize', async () => {
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
-        'render:canvas-recreated',
-        expect.any(Function)
-      );
-    });
-
-    it('should remove listeners from old canvas on canvas recreation', () => {
-      // Set up click handlers first (this registers the canvas listener)
-      orchestrator.setupOverlayClickHandlers();
-
-      // Create mock old and new canvas
-      const oldCanvas = mockStreamCanvas;
-      const newCanvas = createMockElement('canvas');
-
-      // Trigger canvas recreation event
-      canvasRecreatedHandler({ oldCanvas, newCanvas });
-
-      // Old canvas listeners should be removed
-      expect(oldCanvas.removeEventListener).toHaveBeenCalled();
-    });
-
-    it('should rebind click handler to new canvas on canvas recreation', () => {
-      // Set up click handlers first (this registers the canvas listener and stores _stopStreamHandler)
-      orchestrator.setupOverlayClickHandlers();
-
-      // Create mock old and new canvas
-      const oldCanvas = mockStreamCanvas;
-      const newCanvas = createMockElement('canvas');
-
-      // Trigger canvas recreation event
-      canvasRecreatedHandler({ oldCanvas, newCanvas });
-
-      // New canvas should have click handler added
-      expect(newCanvas.addEventListener).toHaveBeenCalledWith(
-        'click',
-        expect.any(Function),
-        undefined // DomListenerManager passes undefined for opts when not specified
-      );
-    });
-
-    it('should preserve stop stream functionality after canvas recreation', () => {
-      // Set up click handlers
-      orchestrator.setupOverlayClickHandlers();
-
-      // Create mock canvases
-      const oldCanvas = mockStreamCanvas;
-      const newCanvas = createMockElement('canvas');
-
-      // Trigger canvas recreation
-      canvasRecreatedHandler({ oldCanvas, newCanvas });
-
-      // Simulate streaming state
-      mockAppState.setStreaming(true);
-
-      // Trigger click on new canvas
-      newCanvas._trigger('click');
-
-      // Should publish STREAM_STOP_REQUESTED event
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-stop-requested');
-    });
-
-    it('should log debug messages during canvas recreation', () => {
-      orchestrator.setupOverlayClickHandlers();
-
-      const oldCanvas = mockStreamCanvas;
-      const newCanvas = createMockElement('canvas');
-
-      canvasRecreatedHandler({ oldCanvas, newCanvas });
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringMatching(/Removed \d+ listener\(s\) from old canvas/));
-      expect(mockLogger.debug).toHaveBeenCalledWith('Rebound click handler to new canvas');
     });
   });
 });

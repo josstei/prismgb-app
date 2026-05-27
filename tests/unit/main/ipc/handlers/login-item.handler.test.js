@@ -54,14 +54,14 @@ describe('LoginItem IPC Handlers', () => {
     it('returns login item state', async () => {
       mockLoginItemService.isEnabled.mockReturnValue(true);
       const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.GET]({});
-      expect(result).toBe(true);
+      expect(result).toEqual({ success: true, enabled: true });
       expect(mockLoginItemService.isEnabled).toHaveBeenCalled();
     });
 
-    it('maps errors to a boolean response', async () => {
+    it('maps errors to a monadic response', async () => {
       mockLoginItemService.isEnabled.mockImplementation(() => { throw new Error('login item read failed'); });
       const result = await handlers[IPC_CHANNELS.LOGIN_ITEM.GET]({});
-      expect(result).toEqual(false);
+      expect(result).toEqual({ success: false, enabled: false, error: 'login item read failed' });
     });
   });
 

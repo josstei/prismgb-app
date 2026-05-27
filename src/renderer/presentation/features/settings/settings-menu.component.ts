@@ -88,6 +88,30 @@ class SettingsMenuComponent extends PresentationComponent {
   declare footer: HTMLElement | null | undefined;
   declare updateElements: UpdateSectionElements;
 
+  get disclaimerExpanded(): boolean {
+    return this._disclaimerDisclosure?.isOpen() ?? false;
+  }
+  set disclaimerExpanded(value: boolean) {
+    if (value) this._disclaimerDisclosure?.show();
+    else this._disclaimerDisclosure?.hide();
+  }
+
+  get statusStripCheckbox(): CheckboxElement | null | undefined {
+    return this.checkboxElements.get('statusStripVisible');
+  }
+
+  get animationSaverCheckbox(): CheckboxElement | null | undefined {
+    return this.checkboxElements.get('performanceMode');
+  }
+
+  _expandDisclaimer(): void {
+    this._disclaimerDisclosure?.show();
+  }
+
+  _collapseDisclaimer(): void {
+    this._disclaimerDisclosure?.hide();
+  }
+
   constructor({ settingsService, updateSectionComponent, logger }: SettingsMenuComponentOptions) {
     super();
 
@@ -208,6 +232,7 @@ class SettingsMenuComponent extends PresentationComponent {
   }
 
   _applyStatusStripVisibility(visible: boolean): void {
+    console.log('APPLY STATUS STRIP VISIBILITY - visible:', visible, 'footer exist:', !!this.footer);
     if (!this.footer) return;
     this.footer.classList.toggle(CSSClasses.STATUS_HIDDEN, !visible);
   }

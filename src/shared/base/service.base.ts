@@ -33,6 +33,7 @@ export class BaseService {
   protected logger!: LoggerLike;
   protected readonly disposables: DisposableBag;
   private readonly _eventBus: EventBusLike | null;
+  private readonly _serviceName: string;
 
   constructor(
     dependencies: object,
@@ -43,6 +44,8 @@ export class BaseService {
     validateDependencies(dependencies, requiredDeps, name);
     const dependencyMap = dependencies as Record<string, unknown>;
 
+    Object.assign(this, dependencyMap);
+
     const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(name);
@@ -50,6 +53,7 @@ export class BaseService {
 
     this.disposables = new DisposableBag();
     this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
+    this._serviceName = name;
   }
 
   listen(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction {

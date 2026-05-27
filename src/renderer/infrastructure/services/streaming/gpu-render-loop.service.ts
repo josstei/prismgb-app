@@ -42,6 +42,10 @@ class StreamingGpuRenderLoopService extends BaseService {
   }
 
   start({ videoElement, renderFrame, shouldContinue }: GpuRenderLoopConfig): void {
+    if (!videoElement) {
+      this.logger.warn('requestVideoFrameCallback not available');
+      return;
+    }
     const frameCallbackTarget = videoElement as VideoFrameCallbackTarget;
     if (typeof frameCallbackTarget.requestVideoFrameCallback !== 'function') {
       this.logger.warn('requestVideoFrameCallback not available');

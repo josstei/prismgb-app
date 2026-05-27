@@ -19,6 +19,8 @@ export class BaseOrchestrator {
     validateDependencies(dependencies, requiredDeps, orchestratorName);
     const dependencyMap = dependencies as Record<string, unknown>;
 
+    Object.assign(this, dependencyMap);
+
     const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(orchestratorName);

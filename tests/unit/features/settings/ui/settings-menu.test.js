@@ -306,7 +306,7 @@ describe('SettingsMenuComponent', () => {
 
     it('should load saved state on initialization', async () => {
       mockSettingsService.setSetting('launchOnLogin', true);
-      await component._loadAsyncSettings();
+      await component._loadAsyncSettings({ isActive: () => true });
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
     });
@@ -405,33 +405,35 @@ describe('SettingsMenuComponent', () => {
   });
 
   describe('dispose', () => {
-    it('should remove click outside handler', () => {
+    it('should remove click outside handler', async () => {
       component.initialize(mockElements);
 
       const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
 
-      component.dispose();
+      await component.dispose();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('click', expect.any(Function), undefined);
+      expect(removeEventListenerSpy).toHaveBeenCalled();
+      expect(removeEventListenerSpy.mock.calls.some(call => call[0] === 'click')).toBe(true);
     });
 
-    it('should remove escape key handler', () => {
+    it('should remove escape key handler', async () => {
       component.initialize(mockElements);
 
       const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
 
-      component.dispose();
+      await component.dispose();
 
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function), undefined);
+      expect(removeEventListenerSpy).toHaveBeenCalled();
+      expect(removeEventListenerSpy.mock.calls.some(call => call[0] === 'keydown')).toBe(true);
     });
 
-    it('should clear all listeners via manager', () => {
+    it('should clear all listeners via manager', async () => {
       component.initialize(mockElements);
-      expect(component._domListeners.count()).toBeGreaterThan(0);
+      expect(component._disposables.size).toBeGreaterThan(0);
 
-      component.dispose();
+      await component.dispose();
 
-      expect(component._domListeners.count()).toBe(0);
+      expect(component._disposables.size).toBe(0);
     });
   });
 });
