@@ -480,122 +480,6 @@ export function createDeviceChangeDebounceAdapterMock(overrides = {}) {
 }
 
 
-export function createWindowServiceMock(overrides = {}) {
-  return {
-    setFullScreen: vi.fn(),
-    isFullScreen: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createBrowserWindowMock(overrides = {}) {
-  const {
-    webContents: webContentsOverrides = {},
-    ...windowOverrides
-  } = overrides;
-
-  const defaultWebContents = {
-    send: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    isDestroyed: vi.fn().mockReturnValue(false),
-    isDevToolsOpened: vi.fn().mockReturnValue(false),
-    closeDevTools: vi.fn(),
-    session: {
-      on: vi.fn(),
-      off: vi.fn()
-    }
-  };
-
-  return {
-    loadURL: vi.fn(),
-    loadFile: vi.fn(),
-    show: vi.fn(),
-    hide: vi.fn(),
-    focus: vi.fn(),
-    restore: vi.fn(),
-    destroy: vi.fn(),
-    isMinimized: vi.fn().mockReturnValue(false),
-    isDestroyed: vi.fn().mockReturnValue(false),
-    setSkipTaskbar: vi.fn(),
-    removeAllListeners: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
-    webContents: {
-      ...defaultWebContents,
-      ...webContentsOverrides,
-      session: {
-        ...defaultWebContents.session,
-        ...(webContentsOverrides.session ?? {})
-      }
-    },
-    ...windowOverrides
-  };
-}
-
-export function createWindowServiceElectronMock(overrides = {}) {
-  const {
-    app: appOverrides = {},
-    browserWindow: browserWindowOverrides = {}
-  } = overrides;
-
-  const BrowserWindow = class MockBrowserWindow {
-    constructor() {
-      Object.assign(this, createBrowserWindowMock(browserWindowOverrides));
-    }
-  };
-
-  return {
-    BrowserWindow,
-    app: {
-      isPackaged: false,
-      getAppPath: vi.fn(() => '/app/path'),
-      getPath: vi.fn(() => '/downloads'),
-      isQuitting: false,
-      focus: vi.fn(),
-      ...appOverrides
-    }
-  };
-}
-
-export function createTrayMock(overrides = {}) {
-  return {
-    setToolTip: vi.fn(),
-    setContextMenu: vi.fn(),
-    on: vi.fn(),
-    destroy: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createTrayServiceElectronMock(overrides = {}) {
-  const {
-    app: appOverrides = {},
-    menu: menuOverrides = {},
-    tray: trayOverrides = {}
-  } = overrides;
-
-  const Tray = class MockTray {
-    constructor() {
-      Object.assign(this, createTrayMock(trayOverrides));
-    }
-  };
-
-  return {
-    Tray,
-    Menu: {
-      buildFromTemplate: vi.fn(() => ({})),
-      ...menuOverrides
-    },
-    app: {
-      getAppPath: vi.fn(() => '/app/path'),
-      quit: vi.fn(),
-      isQuitting: false,
-      ...appOverrides
-    }
-  };
-}
 
 export function createTranscodeServiceMock(overrides = {}) {
   return {
@@ -1674,6 +1558,15 @@ export {
   createUpdateServiceMock,
   createUpdateUiServiceMock,
 } from './update.factory.js';
+
+// Window factories
+export {
+  createWindowServiceMock,
+  createBrowserWindowMock,
+  createWindowServiceElectronMock,
+  createTrayMock,
+  createTrayServiceElectronMock,
+} from './window.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services

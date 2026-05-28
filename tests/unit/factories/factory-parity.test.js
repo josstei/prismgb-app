@@ -123,3 +123,23 @@ describe('update.factory.js', () => {
     expect(Barrel[name]).toBe(UpdateFactory[name]);
   });
 });
+
+import * as WindowFactory from '../../factories/window.factory.js';
+
+describe('window.factory.js', () => {
+  const expected = [
+    'createWindowServiceMock',
+    'createBrowserWindowMock',
+    'createWindowServiceElectronMock',
+    'createTrayMock',
+    'createTrayServiceElectronMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(WindowFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(WindowFactory[name]);
+  });
+});
