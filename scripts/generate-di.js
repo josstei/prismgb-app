@@ -5,6 +5,18 @@ import * as ts from 'typescript';
 const srcDir = path.resolve('src/renderer');
 const outputPath = path.resolve('src/renderer/di.generated.ts');
 
+const scanDirs = [srcDir];
+const packagesDir = path.resolve('packages');
+if (fs.existsSync(packagesDir)) {
+  const pkgs = fs.readdirSync(packagesDir);
+  for (const pkg of pkgs) {
+    const pkgSrc = path.join(packagesDir, pkg, 'src');
+    if (fs.existsSync(pkgSrc) && fs.statSync(pkgSrc).isDirectory()) {
+      scanDirs.push(pkgSrc);
+    }
+  }
+}
+
 function walkDir(dir, callback) {
   const files = fs.readdirSync(dir);
   for (const file of files) {
@@ -190,16 +202,19 @@ function topologicalSort(services) {
 }
 
 function generateDI() {
-  console.log('[DI CodeGen] Scanning src/renderer for @Service annotated classes...');
+  console.log('[DI CodeGen] Scanning src/renderer and packages/prismgb-*/src for @Service annotated classes...');
   const services = [];
-  walkDir(srcDir, (filePath) => {
-    // Skip generated files
-    if (filePath.endsWith('di.generated.ts') || filePath.endsWith('di.generated.js')) {
-      return;
-    }
-    const fileServices = scanFile(filePath);
-    services.push(...fileServices);
-  });
+  
+  for (const scanDir of scanDirs) {
+    walkDir(scanDir, (filePath) => {
+      // Skip generated files
+      if (filePath.endsWith('di.generated.ts') || filePath.endsWith('di.generated.js')) {
+        return;
+      }
+      const fileServices = scanFile(filePath);
+      services.push(...fileServices);
+    });
+  }
 
   console.log('[DI CodeGen] Found ' + services.length + ' services. Topologically sorting...');
   let sortedServices;

@@ -29,7 +29,7 @@ import { SettingsDisplayModeOrchestrator } from './application/orchestrators/dis
 import { UpdateService } from './infrastructure/services/updates/update.service';
 import { UpdateUiService } from './infrastructure/services/updates/update-ui.service';
 import { UpdateOrchestrator } from './application/orchestrators/update.orchestrator';
-import { NotesService } from './infrastructure/services/notes/notes.service';
+import { NotesService } from '../../packages/prismgb-notes/src/notes.service';
 import { UISetupOrchestrator } from './application/orchestrators/ui-setup.orchestrator';
 import { PerformanceAnimationService } from './infrastructure/services/performance/performance-animation.service';
 import { BodyClassManager } from './presentation/effects/body-class.class';
