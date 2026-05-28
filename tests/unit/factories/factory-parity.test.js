@@ -105,3 +105,21 @@ describe('settings.factory.js', () => {
     expect(Barrel[name]).toBe(SettingsFactory[name]);
   });
 });
+
+import * as UpdateFactory from '../../factories/update.factory.js';
+
+describe('update.factory.js', () => {
+  const expected = [
+    'createUpdateConfigMock',
+    'createUpdateServiceMock',
+    'createUpdateUiServiceMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(UpdateFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(UpdateFactory[name]);
+  });
+});

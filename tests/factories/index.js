@@ -180,13 +180,6 @@ export function createConstraintBuilderContextMock(overrides = {}) {
 }
 
 
-export function createUpdateConfigMock(overrides = {}) {
-  return {
-    isDevelopment: false,
-    version: '1.0.0',
-    ...overrides
-  };
-}
 
 export function createStreamConstraintsMock(overrides = {}) {
   const {
@@ -486,23 +479,6 @@ export function createDeviceChangeDebounceAdapterMock(overrides = {}) {
   return adapter;
 }
 
-export function createUpdateServiceMock(overrides = {}) {
-  return {
-    checkForUpdates: vi.fn(),
-    downloadUpdate: vi.fn(),
-    installUpdate: vi.fn(),
-    getStatus: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createUpdateUiServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createWindowServiceMock(overrides = {}) {
   return {
@@ -1691,6 +1667,13 @@ export {
   createSettingsCinematicModeServiceMock,
   createPresentationModeServiceMock,
 } from './settings.factory.js';
+
+// Update factories
+export {
+  createUpdateConfigMock,
+  createUpdateServiceMock,
+  createUpdateUiServiceMock,
+} from './update.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services
