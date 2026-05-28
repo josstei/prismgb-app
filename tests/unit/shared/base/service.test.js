@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import { createEventBus, createLoggerFactory, createMockElement } from '../../../factories/index.js';
 import { installAnimationFrameMock } from '../../../support/mocks/browser-api.installers.js';
 

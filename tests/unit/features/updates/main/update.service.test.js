@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService, UpdateState } from '@main/infrastructure/updates/update.service.js';
+import { UpdateService, UpdateState } from '@prismgb/updates';
 import { createEventBus, createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
@@ -12,8 +12,8 @@ vi.mock('electron', () => ({
   }
 }));
 
-vi.mock('electron-updater', () => ({
-  autoUpdater: {
+vi.mock('electron-updater', () => {
+  const autoUpdater = {
     logger: null,
     autoDownload: true,
     autoInstallOnAppQuit: false,
@@ -24,8 +24,12 @@ vi.mock('electron-updater', () => ({
     checkForUpdates: vi.fn(),
     downloadUpdate: vi.fn(),
     quitAndInstall: vi.fn()
-  }
-}));
+  };
+  return {
+    autoUpdater,
+    default: { autoUpdater }
+  };
+});
 
 vi.mock('@shared/ipc/ipc.manifest.js', async (importActual) => ({
   ...(await importActual()),

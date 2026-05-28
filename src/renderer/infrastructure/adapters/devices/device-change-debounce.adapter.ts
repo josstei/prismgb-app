@@ -1,4 +1,4 @@
-import { TIMING } from '@shared/config/timing.config';
+import { TIMING } from '@prismgb/config';
 
 const DEFAULT_DEBOUNCE_MS = TIMING?.DEVICE_CHANGE_DEBOUNCE_MS ?? 150;
 

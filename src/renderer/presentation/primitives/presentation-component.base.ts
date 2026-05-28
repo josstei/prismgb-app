@@ -3,7 +3,7 @@ import {
   type Disposable,
   type DisposableFunction,
   type DisposableKey
-} from '@shared/base/disposable-bag.js';
+} from '@prismgb/core';
 
 type EventTargetLike = {
   addEventListener(

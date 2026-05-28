@@ -1,5 +1,5 @@
 import type { IpcRenderer } from 'electron';
-import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
+import type { IpcChannels } from '@prismgb/ipc';
 import { createManifestInvokeMethods, createManifestSubscriptionMethods } from '../subscription.factory.js';
 
 type WindowPreloadAPI = NonNullable<Window['windowAPI']> & { dispose(): void };

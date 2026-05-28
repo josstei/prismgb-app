@@ -5,18 +5,19 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service.ts';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { downloadFile } from '@shared/lib/file-download.utils.ts';
+import { EventChannels } from '@prismgb/events';
+import { downloadFile } from '@renderer/lib/file-download.utils.ts';
+
+vi.mock('@renderer/lib/file-download.utils.ts', () => ({
+  downloadFile: vi.fn()
+}));
+
 import {
   createEventBus,
   createLoggerFactory,
   createTranscodeServiceMock,
   createSettingsServiceMock
 } from '../../../../factories/index.js';
-
-vi.mock('@shared/lib/file-download.utils.ts', () => ({
-  downloadFile: vi.fn()
-}));
 
 describe('CaptureSaveService', () => {
   let service;

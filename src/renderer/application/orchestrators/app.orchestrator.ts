@@ -1,7 +1,7 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import { BaseOrchestrator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type LifecycleOrchestrator = {
   initialize(): Promise<void> | void;

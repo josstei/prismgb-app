@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Streaming Audio Pipeline Service
  *
@@ -9,11 +9,11 @@ import { Service } from '@shared/di/decorators.js';
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import { getErrorMessage } from '@prismgb/core';
+import type { TypedEventBusLike } from '@prismgb/events';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
 type AudioWarmupResult = {
   ready: boolean;

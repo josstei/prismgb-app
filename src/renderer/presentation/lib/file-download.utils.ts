@@ -1,1 +1,1 @@
-export { downloadFile } from '@shared/lib/file-download.utils';
+export { downloadFile } from '@renderer/lib/file-download.utils.js';

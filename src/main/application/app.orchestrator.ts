@@ -10,8 +10,8 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
+import { BaseOrchestrator } from '@prismgb/core';
+import { safeDisposeAll } from '@prismgb/core';
 import { createAppContainer, MainServiceContainer } from './container.js';
 import { MainLogger } from '@main/infrastructure/logging/index.js';
 import type { WindowService } from '@main/infrastructure/window/index.js';
@@ -19,9 +19,9 @@ import type { DeviceService } from '@main/infrastructure/devices/index.js';
 import type { DeviceLifecycleService } from '@main/infrastructure/devices/index.js';
 import type { TrayService } from '@main/infrastructure/tray/index.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import type { UpdateService } from '@main/infrastructure/updates/index.js';
+import type { UpdateService } from '@prismgb/updates';
 import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
-import type { UpdateBridge } from '@main/infrastructure/updates/index.js';
+import type { UpdateBridge } from '@prismgb/updates';
 import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
 import type { LoginItemService } from '@main/infrastructure/platform/index.js';
 

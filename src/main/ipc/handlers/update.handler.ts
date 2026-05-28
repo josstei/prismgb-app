@@ -10,7 +10,7 @@ import type {
   UpdateGetStatusResponse,
   UpdateInstallResponse,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface UpdateService {

@@ -1,4 +1,4 @@
-import type { LoggerLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, StorageServiceLike } from '@prismgb/core';
 
 export interface BrowserStorageAdapterOptions {
   logger?: LoggerLike;

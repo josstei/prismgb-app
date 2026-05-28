@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IPC_CHANNELS as channelsJson } from '@shared/ipc/ipc.manifest.js';
+import { IPC_CHANNELS as channelsJson } from '@prismgb/ipc';
 
 function flattenChannelValues(node) {
   const values = [];

@@ -1,6 +1,6 @@
 import type { IpcRenderer } from 'electron';
-import type { IpcChannels, IpcManifest } from '@shared/ipc/ipc.manifest.js';
-import type { GpuPolicyPayload } from '@shared/ipc/preload-api.contract.js';
+import type { IpcChannels, IpcManifest } from '@prismgb/ipc';
+import type { GpuPolicyPayload } from '@prismgb/ipc';
 import { createManifestInvokeMethods } from '../subscription.factory.js';
 import {
   getPreloadResponsePolicyFailure,

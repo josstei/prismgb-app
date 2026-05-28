@@ -1,8 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { EventChannels as SharedEventChannels } from '@shared/events/event-channels.js';
+import { EventChannels as SharedEventChannels, getEventManifestScopeValues } from '@prismgb/events';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { MainEventChannel } from '@main/infrastructure/events/event-channels.config.js';
-import eventManifest from '@shared/events/event.manifest.json';
 
 function flattenEventValues(node: unknown): string[] {
   const values: string[] = [];
@@ -31,10 +30,7 @@ describe('Shared event channel contract', () => {
 
   it('keeps main event channels derived from manifest scope', () => {
     const mainValues = Object.values(MainEventChannels).flatMap((group) => Object.values(group));
-    const manifestMain = eventManifest.scopes
-      .find((scope) => scope.scope === 'main')
-      ?.events
-      .map((entry) => entry.value) || [];
+    const manifestMain = getEventManifestScopeValues('main');
 
     expect(mainValues).toEqual(expect.arrayContaining(manifestMain));
     expect(mainValues).toHaveLength(manifestMain.length);

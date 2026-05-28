@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Stream View Service
  *
@@ -6,10 +6,10 @@ import { Service } from '@shared/di/decorators.js';
  * Keeps streaming orchestration free of direct DOM manipulation.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import type {
   LoggerFactoryLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 type UiControllerLike = {
   elements: {

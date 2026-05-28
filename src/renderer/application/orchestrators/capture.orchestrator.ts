@@ -1,9 +1,9 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import { Service } from '@prismgb/core';
+import { BaseOrchestrator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { LoggerLike } from '@prismgb/core';
+import type { TypedEventBusLike } from '@prismgb/events';
+import { getErrorMessage } from '@prismgb/core';
 import {
   isRecordingErrorPayload,
   isRecordingReadyPayload,

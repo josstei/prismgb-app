@@ -1,5 +1,5 @@
-import { Service } from '@shared/di/decorators.js';
-import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
 
 /**
  * Renderer Logger

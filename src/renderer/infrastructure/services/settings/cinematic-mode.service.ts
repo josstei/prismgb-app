@@ -1,13 +1,13 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Cinematic Mode Service
  *
  * Owns cinematic mode state and settings-level event emission.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type CinematicModeAppStateLike = {
   readonly isCinematicModeEnabled: boolean;

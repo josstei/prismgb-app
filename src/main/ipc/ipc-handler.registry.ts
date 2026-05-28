@@ -1,15 +1,15 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import { app, ipcMain, shell } from 'electron';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import type {
   DeviceStatusPayload,
   TranscodeCancelResponse,
   TranscodeStartResponse,
   TranscodeStatusResponse,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
-import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+} from '@prismgb/ipc';
+import { IpcContractManifest } from '@prismgb/ipc';
 import { defineIpcHandlerRegistrationGroup, type IpcHandlerRegistrationGroup, type IpcHandlerDescriptor, registerIpcHandlerRegistrationGroups } from './ipc-handler.descriptor.js';
 import {
   deviceHandlerDescriptors,

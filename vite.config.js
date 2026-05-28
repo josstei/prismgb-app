@@ -65,14 +65,17 @@ export default defineConfig({
               output: {
                 format: 'es' // Force ESM output
               },
-              external: [
-                'electron',
-                'usb',
-                'winston',
-                'joi',
-                'dotenv',
-                'eventemitter3'
-              ]
+              external: (id) => {
+                const externals = [
+                  'electron',
+                  'usb',
+                  'winston',
+                  'joi',
+                  'dotenv',
+                  'eventemitter3'
+                ];
+                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext));
+              }
             }
           }
         }

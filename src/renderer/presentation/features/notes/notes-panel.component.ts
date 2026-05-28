@@ -1,6 +1,6 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import { NotesListViewComponent } from './components/notes-list-view.component.js';
 import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
 import { NotesSearchComponent } from './components/notes-search.component.js';
@@ -8,7 +8,7 @@ import { GameFilterComponent } from './components/game-filter.component.js';
 import { GameAutocompleteComponent } from './components/game-autocomplete.component.js';
 import { NotesResizeHandlerComponent } from './components/notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './components/notes-panel-layout.component.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
 const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');

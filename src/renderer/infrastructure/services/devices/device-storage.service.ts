@@ -1,7 +1,7 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
-import type { LoggerFactoryLike, StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
+import { DeviceRegistry } from '@prismgb/devices';
+import type { LoggerFactoryLike, StorageServiceLike } from '@prismgb/core';
 
 type DeviceStorageServiceDependencies = {
   storageService: StorageServiceLike;

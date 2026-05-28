@@ -19,7 +19,7 @@ import {
 } from '../factories/index.js';
 import { CHROMATIC_DEVICE, CHROMATIC_CAPABILITIES } from '../fixtures/devices.fixture.js';
 import { STREAM_EVENTS } from '../fixtures/streams.fixture.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 
 describe('Streaming Workflow Integration', () => {
   let eventBus;

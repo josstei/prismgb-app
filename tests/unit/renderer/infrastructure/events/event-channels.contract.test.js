@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventChannels } from '@shared/events/event-channels.js';
-import eventManifest from '@shared/events/event.manifest.json';
+import { EventChannels, getEventManifestScopeValues } from '@prismgb/events';
 
 function flattenEventValues(node) {
   const values = [];
@@ -34,10 +33,7 @@ describe('Renderer event channel contract', () => {
 
   it('derives renderer channels from event manifest scope', () => {
     const values = flattenEventValues(EventChannels);
-    const manifestValues = eventManifest.scopes
-      .find((scope) => scope.scope === 'renderer')
-      .events
-      .map((entry) => entry.value);
+    const manifestValues = getEventManifestScopeValues('renderer');
 
     expect(new Set(values)).toEqual(new Set(manifestValues));
     expect(values).toHaveLength(manifestValues.length);

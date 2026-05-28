@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { IConstraintBuilder, IStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/acquisition.interface.ts';
-import { IFallbackStrategy } from '@shared/interfaces/fallback-strategy.interface.js';
+import { IFallbackStrategy } from '@renderer/infrastructure/streaming/acquisition/fallback-strategy.ts';
 import { createAcquisitionContextMock } from '../../../factories/index.js';
 
 describe('IConstraintBuilder', () => {

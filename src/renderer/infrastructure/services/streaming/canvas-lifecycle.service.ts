@@ -1,12 +1,12 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import { getDefaultNativeResolution } from '@prismgb/devices';
+import type { TypedEventBusLike } from '@prismgb/events';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 import type {
   LoggerFactoryLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;

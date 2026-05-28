@@ -15,7 +15,7 @@ import type {
 } from './worker-protocol.config.js';
 import { createWorkerPipeline, PresetRegistry, type IPreset, type WorkerPipeline } from '@prismgb/gpu';
 
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import { getErrorMessage } from '@prismgb/core';
 
 type WorkerScopeLike = {
   onmessage: ((event: MessageEvent<unknown>) => void | Promise<void>) | null;

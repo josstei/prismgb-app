@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator.ts';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import {
   createBodyClassManagerMock,
   createEventBus,

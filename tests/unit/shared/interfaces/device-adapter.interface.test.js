@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { IDeviceAdapter } from '@shared/interfaces/device-adapter.interface.js';
+import { IDeviceAdapter } from '@prismgb/devices';
 
 describe('IDeviceAdapter', () => {
   let adapter;

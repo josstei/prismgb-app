@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Viewport Service
  *
@@ -14,11 +14,11 @@ import { Service } from '@shared/di/decorators.js';
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { TIMING } from '@shared/config/timing.config';
+import { BaseService } from '@prismgb/core';
+import { TIMING } from '@prismgb/config';
 import type {
   LoggerFactoryLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
 
 type StreamingViewportDependencies = {

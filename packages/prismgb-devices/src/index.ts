@@ -10,9 +10,12 @@ export { DeviceProfileRegistry } from './device-profile.registry.js';
 export { DeviceLifecycleService } from './device-lifecycle.service.js';
 export { DeviceBridgeService } from './device-bridge.service.js';
 
-export type { IDeviceAdapter } from './device-adapter.interface.js';
-export type { DeviceStatusProvider } from './device-status-provider.interface.js';
-export { chromaticConfig } from './profiles/chromatic/device-chromatic.config.js';
+export { IDeviceAdapter } from './device-adapter.interface.js';
+export type { DeviceStatusProvider, RendererDeviceStatus } from './device-status-provider.interface.js';
+export { chromaticConfig, chromaticHelpers, mediaConfig } from './profiles/chromatic/device-chromatic.config.js';
 export { DeviceChromaticProfile } from './profiles/chromatic/device-chromatic.profile.js';
 export { createNodeUsbDeviceMonitor, createNoopUsbDeviceMonitor } from './usb-device-monitor.js';
 export type { UsbDeviceEvent, UsbDeviceInfo, UsbDeviceMonitor } from './usb-device-monitor.js';
+export { DeviceDetectionHelper } from './device-detection.utils.js';
+export { forEachDeviceWithModule } from './device-iterator.utils.js';
+export type { DeviceRegistryEntry } from './device.registry.js';

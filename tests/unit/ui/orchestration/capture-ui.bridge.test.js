@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge.ts';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import {
   createCaptureUIControllerMock,
   createEventBus,

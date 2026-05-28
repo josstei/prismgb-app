@@ -1,6 +1,6 @@
-import { Service } from '@shared/di/decorators.js';
-import { SharedEventBus } from '@shared/events/event-bus.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { Service } from '@prismgb/core';
+import { SharedEventBus } from '@prismgb/events';
+import { EventChannels } from '@prismgb/events';
 
 type EventBusLoggerFactory = { create(name: string): { error(message: string, error: Error): void } };
 type EventBusDependencies = { loggerFactory?: EventBusLoggerFactory };

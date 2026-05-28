@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { BaseOrchestrator } from '@prismgb/core';
 import { createLoggerFactory } from '../../../factories/index.js';
 
 describe('BaseOrchestrator', () => {

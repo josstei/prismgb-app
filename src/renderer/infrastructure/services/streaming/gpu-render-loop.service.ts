@@ -1,14 +1,14 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * GPU Render Loop Service
  *
  * Owns requestVideoFrameCallback loop lifecycle.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 import type {
   LoggerFactoryLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 type GpuRenderLoopDependencies = {
   loggerFactory: LoggerFactoryLike;

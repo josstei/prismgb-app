@@ -15,11 +15,11 @@ import {
   DeviceBridgeService,
   type ProfileClass
 } from '@main/infrastructure/devices/index.js';
-import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
+import { UpdateService, UpdateBridge } from '@prismgb/updates';
 import { TranscodeService } from '@main/infrastructure/transcode/index.js';
 import { LoginItemService } from '@main/infrastructure/platform/index.js';
-import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
-import { chromaticConfig } from '@shared/features/devices/profiles/chromatic/device-chromatic.config.js';
+import { DeviceChromaticProfile } from '@prismgb/devices';
+import { chromaticConfig } from '@prismgb/devices';
 import type { MainLogger } from '@main/infrastructure/logging/index.js';
 
 /**

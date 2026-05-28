@@ -1,5 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
-import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { IpcContractManifest } from '@prismgb/ipc';
 
 export interface RegisterHandler {
   (channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void;

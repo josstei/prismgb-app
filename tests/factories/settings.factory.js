@@ -54,7 +54,7 @@ export function createSettingsServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/notes/notes.service').NotesService} NotesService
+ * @typedef {import('@prismgb/notes').NotesService} NotesService
  */
 
 /**

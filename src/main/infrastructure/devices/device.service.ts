@@ -4,11 +4,11 @@
  * Integrates with ProfileRegistry for profile-based device matching
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { appConfig } from '@shared/config/config-loader.utils.js';
-import { formatDeviceInfo } from '@shared/utils/formatters.utils.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
-import { DeviceRegistry, type DeviceRegistryEntry } from '@shared/features/devices/device.registry.js';
+import { BaseService } from '@prismgb/core';
+import { appConfig } from '@prismgb/config';
+import { formatDeviceInfo } from '@prismgb/core';
+import { forEachDeviceWithModule } from '@prismgb/devices';
+import { DeviceRegistry, type DeviceRegistryEntry } from '@prismgb/devices';
 import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import {
   createNodeUsbDeviceMonitor,
@@ -19,7 +19,7 @@ import {
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
-import type { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
+import type { DeviceProfile } from '@prismgb/devices';
 
 const { USB_SCAN_DELAY } = appConfig;
 const USB_ADD_LISTENER_LIFECYCLE = Symbol('usbAddListener');

@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
 
 import { IStreamingRenderer } from './streaming-renderer.interface';
 import type { StreamingRendererCleanupOptions } from './streaming-renderer.interface';

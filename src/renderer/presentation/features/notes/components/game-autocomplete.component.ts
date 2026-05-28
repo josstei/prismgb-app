@@ -1,7 +1,7 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { ComboboxListboxController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 

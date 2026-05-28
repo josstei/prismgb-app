@@ -9,7 +9,7 @@ import type {
   StreamStartedPayload,
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
-} from '@shared/events/event-payloads.js';
+} from '@prismgb/events';
 
 export type {
   Dimensions,
@@ -23,7 +23,7 @@ export type {
   StreamStartedPayload,
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
-} from '@shared/events/event-payloads.js';
+} from '@prismgb/events';
 
 export type GpuRendererServiceLike = {
   isActive(): boolean;

@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import type { WindowSetFullscreenResponse, WindowIsFullscreenResponse } from '@shared/ipc/preload-api.contract.js';
+import type { WindowSetFullscreenResponse, WindowIsFullscreenResponse } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface WindowService {

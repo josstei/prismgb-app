@@ -1,18 +1,18 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Device Media Service
  *
  * Owns media device enumeration, caching, and permission probing.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { TIMING } from '@shared/config/timing.config';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
-import type { RendererDeviceStatus } from '@shared/interfaces/device-status-provider.interface.js';
+import { BaseService } from '@prismgb/core';
+import { DeviceDetectionHelper } from '@prismgb/devices';
+import { TIMING } from '@prismgb/config';
+import { EventChannels } from '@prismgb/events';
+import type { TypedEventBusLike } from '@prismgb/events';
+import { getErrorMessage } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@prismgb/core';
+import type { RendererDeviceStatus } from '@prismgb/devices';
 
 type DeviceConnectionUpdate = {
   status: RendererDeviceStatus;

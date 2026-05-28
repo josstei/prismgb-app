@@ -2,9 +2,9 @@ import {
   createRendererPreloadEventBridge,
   RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
-import { DisposableBag } from '@shared/base/disposable-bag.js';
-import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
-import type { DeviceInfoPayload } from '@shared/ipc/preload-api.contract.js';
+import { DisposableBag } from '@prismgb/core';
+import type { EventBusLike } from '@prismgb/core';
+import type { DeviceInfoPayload } from '@prismgb/ipc';
 
 type DeviceIpcLogger = { warn?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
 type DeviceIpcAdapterDependencies = {

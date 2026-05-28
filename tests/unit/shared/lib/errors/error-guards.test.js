@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getErrorMessage, isErrorLike } from '@shared/lib/errors/error-guards.ts';
+import { getErrorMessage, isErrorLike } from '@prismgb/core';
 
 describe('error-guards', () => {
   it('detects values with string messages', () => {

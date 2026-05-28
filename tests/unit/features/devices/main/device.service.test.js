@@ -6,17 +6,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { createEventBus, createLoggerFactory, createProfileRegistryMock } from '../../../../factories/index.js';
 
-// Mock DeviceRegistry
-vi.mock('@shared/features/devices/device.registry.js', () => ({
+// Mock @prismgb/devices
+vi.mock('@prismgb/devices', () => ({
   DeviceRegistry: {
     registerProfileClass: vi.fn(),
     getProfileClass: vi.fn(),
     getAll: vi.fn(() => [])
-  }
-}));
-
-// Mock device iterator
-vi.mock('@shared/features/devices/device-iterator.utils.js', () => ({
+  },
   forEachDeviceWithModule: vi.fn((moduleKey, callback, options) => {
     // Simulate iterating over a test device
     if (moduleKey === 'profileModule') {
@@ -25,10 +21,6 @@ vi.mock('@shared/features/devices/device-iterator.utils.js', () => ({
   })
 }));
 
-// Mock formatters
-vi.mock('@shared/utils/formatters.utils.js', () => ({
-  formatDeviceInfo: vi.fn((device) => ({ formatted: true, ...device }))
-}));
 
 // Mock config loader
 vi.mock('@shared/config/config-loader.utils.js', () => ({
@@ -48,8 +40,8 @@ vi.mock('@main/infrastructure/events/event-channels.config.js', () => ({
 }));
 
 import { DeviceService } from '@main/infrastructure/devices/device.service.js';
-import { DeviceRegistry } from '@shared/features/devices/device.registry.js';
-import { forEachDeviceWithModule } from '@shared/features/devices/device-iterator.utils.js';
+import { DeviceRegistry } from '@prismgb/devices';
+import { forEachDeviceWithModule } from '@prismgb/devices';
 
 describe('DeviceService (Main Process)', () => {
   let deviceService;

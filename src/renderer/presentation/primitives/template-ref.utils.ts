@@ -1,4 +1,4 @@
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import { TemplateActionTargets } from '@renderer/presentation/generated/template-dom.generated.js';
 
 export const TEMPLATE_REF_ATTRIBUTE = 'data-ref';

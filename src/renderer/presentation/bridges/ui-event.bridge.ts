@@ -1,11 +1,11 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { Service } from '@prismgb/core';
+import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
 import type {
   TypedEventBusLike,
   UiButtonFeedbackPayload
-} from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/events';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
 type UiControllerLike = {
   updateStatusMessage(message: string, type?: string): void;

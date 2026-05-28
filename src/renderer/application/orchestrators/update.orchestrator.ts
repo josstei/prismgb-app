@@ -1,15 +1,15 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { UpdateState } from '@shared/config/update-state.config';
-import type { UpdateStateValue } from '@shared/config/update-state.config.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import { BaseOrchestrator } from '@prismgb/core';
+import { UpdateState } from '@prismgb/config';
+import type { UpdateStateValue } from '@prismgb/config';
+import type { LoggerFactoryLike } from '@prismgb/core';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateInstallResponse,
   UpdateInfoPayload,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 
 export type RendererUpdateStatus = UpdateStatusPayload & {
   state: UpdateStateValue;

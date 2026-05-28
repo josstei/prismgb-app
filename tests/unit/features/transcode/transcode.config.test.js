@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { TranscodeState, TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { TranscodeState, TRANSCODE_CONFIG } from '@prismgb/transcode';
 
 describe('TranscodeState', () => {
   it('should define IDLE state', () => {

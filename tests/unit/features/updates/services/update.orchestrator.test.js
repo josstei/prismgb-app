@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator.ts';
-import { UpdateState } from '@shared/config/update-state.config';
+import { UpdateState } from '@prismgb/config';
 import {
   createLoggerFactory,
   createUpdateServiceMock,

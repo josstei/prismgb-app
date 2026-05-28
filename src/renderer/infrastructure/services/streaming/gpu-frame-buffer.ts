@@ -1,7 +1,7 @@
 import type {
   LoggerFactoryLike,
   LoggerLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 type BufferedFrame = {
   frame: unknown;

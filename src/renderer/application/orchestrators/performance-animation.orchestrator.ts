@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Animation Performance Orchestrator
  *
@@ -6,9 +6,9 @@ import { Service } from '@shared/di/decorators.js';
  * Routes computed state from service to BodyClassManager for DOM updates.
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseOrchestrator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type {
   AnimationPerformanceState,
   PerformanceAnimationService

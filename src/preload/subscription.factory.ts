@@ -1,6 +1,6 @@
 import type { IpcRenderer } from 'electron';
-import IpcManifest from '@shared/ipc/ipc.manifest.json';
-import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
+import { IpcContractManifest } from '@prismgb/ipc';
+import type { IpcChannels } from '@prismgb/ipc';
 import { requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeMetadata } from './validators.generated.js';
 
 type Unsubscribe = () => void;
@@ -86,7 +86,7 @@ function createSubscriptionDisposer({ ipcRenderer, registry, subscriptions }: { 
 
 const normalizeTrimmedString = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
 function isPreloadApiName(apiName: string): apiName is PreloadApiName { return (preloadApiNames as readonly string[]).includes(apiName); }
-function requireManifestNamespace(apiName: string, manifest: ManifestShape = IpcManifest): ManifestNamespace { if (!isPreloadApiName(apiName)) throw new Error(`Preload API "${apiName}" is not in the generated preload contract`); const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName); if (!namespace) throw new Error(`IPC manifest namespace not found for preload API "${apiName}"`); return namespace; }
+function requireManifestNamespace(apiName: string, manifest: ManifestShape = IpcContractManifest): ManifestNamespace { if (!isPreloadApiName(apiName)) throw new Error(`Preload API "${apiName}" is not in the generated preload contract`); const namespace = manifest.namespaces.find((entry) => entry.apiName === apiName); if (!namespace) throw new Error(`IPC manifest namespace not found for preload API "${apiName}"`); return namespace; }
 function deriveManifestSubscriptions(manifest: ManifestShape): DerivedManifestSubscription[] {
   const subscriptions = (manifest.namespaces || []).flatMap((namespace) => (namespace.subscriptions || []).map((entry) => {
     const registryNamespace = normalizeTrimmedString(namespace.registryNamespace), methodName = normalizeTrimmedString(entry.factoryMethod || entry.method);
@@ -104,7 +104,7 @@ function deriveManifestSubscriptions(manifest: ManifestShape): DerivedManifestSu
 }
 
 function requireInvokeMethod(apiName: string, byMethod: Record<string, string>, methodName: string): string { const channel = byMethod[methodName]; if (!channel) throw new Error(`IPC manifest invoke channel not found for ${apiName}.${methodName}`); return channel; }
-function createManifestInvokeSet(apiName: string, channels: IpcChannels, manifest: ManifestShape = IpcManifest) {
+function createManifestInvokeSet(apiName: string, channels: IpcChannels, manifest: ManifestShape = IpcContractManifest) {
   const namespace = requireManifestNamespace(apiName, manifest), channelNamespace = channels?.[namespace.namespace as keyof IpcChannels] as Record<string, string> | undefined;
   if (!channelNamespace || typeof channelNamespace !== 'object') throw new Error(`IPC channel namespace not found for preload API "${apiName}"`);
   const byMethod: Record<string, string> = {}, metadataByMethod: Record<string, ManifestInvokeEntry> = {};
@@ -129,14 +129,14 @@ function createDefaultInvokeMethod({ apiName, methodName, ipcRenderer, channel, 
   }) as GeneratedMethod;
 }
 
-function createManifestInvokeMethods<TApiName extends InvokeApiName>({ apiName, ipcRenderer, channels, manifest = IpcManifest, methodFactories = {} as InvokeMethodFactories<TApiName> }: { apiName: TApiName; ipcRenderer: InvokeIpcRenderer; channels: IpcChannels; manifest?: ManifestShape; methodFactories?: InvokeMethodFactories<TApiName> }): InvokeMethods<TApiName> {
+function createManifestInvokeMethods<TApiName extends InvokeApiName>({ apiName, ipcRenderer, channels, manifest = IpcContractManifest, methodFactories = {} as InvokeMethodFactories<TApiName> }: { apiName: TApiName; ipcRenderer: InvokeIpcRenderer; channels: IpcChannels; manifest?: ManifestShape; methodFactories?: InvokeMethodFactories<TApiName> }): InvokeMethods<TApiName> {
   const { byMethod, metadataByMethod } = createManifestInvokeSet(apiName, channels, manifest), factories = methodFactories as Record<string, InvokeMethodFactory | undefined>;
   assertManifestMethodSet(apiName, 'invoke', byMethod, invokeMethodNamesByApi[apiName]);
   for (const methodName of Object.keys(factories)) if (!Object.prototype.hasOwnProperty.call(byMethod, methodName)) throw new Error(`IPC manifest invoke method not found for ${apiName}.${methodName}`);
   return Object.fromEntries(Object.entries(byMethod).map(([methodName, channel]) => [methodName, (factories[methodName] || createDefaultInvokeMethod)({ apiName, methodName, channel, ipcRenderer, manifestEntry: metadataByMethod[methodName] })])) as InvokeMethods<TApiName>;
 }
 
-function createManifestSubscriptionSet(apiName: string, manifest: ManifestShape = IpcManifest) {
+function createManifestSubscriptionSet(apiName: string, manifest: ManifestShape = IpcContractManifest) {
   requireManifestNamespace(apiName, manifest);
   const subscriptions = deriveManifestSubscriptions(manifest).filter((subscription) => subscription.apiName === apiName).map(({ registryNamespace: _registryNamespace, ...subscription }) => subscription);
   const byMethod = Object.fromEntries(subscriptions.map((subscription) => [subscription.methodName, subscription])) as Record<string, ManifestSubscription>;
@@ -154,7 +154,7 @@ function applyPayloadSubscriptionMetadata(apiName: string, subscriptions: readon
   });
 }
 
-function createManifestSubscriptionMethods<TApiName extends SubscriptionApiName>({ apiName, ipcRenderer, registry, maxListeners, validateCallback, metadataByMethod = {}, metadataByPayload = {}, manifest = IpcManifest }: { apiName: TApiName; ipcRenderer: PreloadIpcRenderer; registry: Map<string, Set<RegisteredListener>>; maxListeners: number; validateCallback: (callback: unknown) => boolean; metadataByMethod?: Record<string, PayloadValidatorMetadata>; metadataByPayload?: Record<string, PayloadValidatorMetadata>; manifest?: ManifestShape }): { methods: SubscriptionMethods<TApiName>; dispose: Unsubscribe } {
+function createManifestSubscriptionMethods<TApiName extends SubscriptionApiName>({ apiName, ipcRenderer, registry, maxListeners, validateCallback, metadataByMethod = {}, metadataByPayload = {}, manifest = IpcContractManifest }: { apiName: TApiName; ipcRenderer: PreloadIpcRenderer; registry: Map<string, Set<RegisteredListener>>; maxListeners: number; validateCallback: (callback: unknown) => boolean; metadataByMethod?: Record<string, PayloadValidatorMetadata>; metadataByPayload?: Record<string, PayloadValidatorMetadata>; manifest?: ManifestShape }): { methods: SubscriptionMethods<TApiName>; dispose: Unsubscribe } {
   const { subscriptions: manifestSubscriptions } = createManifestSubscriptionSet(apiName, manifest);
   assertManifestMethodSet(apiName, 'subscription', Object.fromEntries(manifestSubscriptions.map((subscription) => [subscription.methodName, subscription])), subscriptionMethodNamesByApi[apiName]);
   const payloadSubscriptions = Object.keys(metadataByPayload).length ? applyPayloadSubscriptionMetadata(apiName, manifestSubscriptions, metadataByPayload) : manifestSubscriptions;

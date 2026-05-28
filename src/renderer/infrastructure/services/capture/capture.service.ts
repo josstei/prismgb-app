@@ -1,8 +1,8 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
-import type { EventBusLike, LoggerLike } from '@shared/base/service.base.js';
-import { FilenameGenerator } from '@shared/lib/filename-generator.utils';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
+import type { EventBusLike, LoggerLike } from '@prismgb/core';
+import { FilenameGenerator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };

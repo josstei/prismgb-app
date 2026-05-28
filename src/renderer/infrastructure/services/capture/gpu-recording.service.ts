@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * GPU Recording Service
  *
@@ -6,11 +6,11 @@ import { Service } from '@shared/di/decorators.js';
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import { BaseService } from '@prismgb/core';
+import type { LoggerLike } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { TypedEventBusLike } from '@prismgb/events';
+import { getErrorMessage } from '@prismgb/core';
 import type {
   GpuRecordingStartOptions,
   GpuRendererServiceLike,

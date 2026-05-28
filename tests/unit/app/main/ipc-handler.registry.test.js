@@ -26,7 +26,7 @@ vi.mock('electron', () => ({
 }));
 
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { IpcContractManifest } from '@prismgb/ipc';
 import { ipcMain } from 'electron';
 
 const expectedRegisteredChannels = () => IpcContractManifest.namespaces.flatMap(({ invoke = [] }) => invoke.map(({ channel }) => channel));

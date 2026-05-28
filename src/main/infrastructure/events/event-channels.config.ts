@@ -1,14 +1,9 @@
-import eventManifest from '@shared/events/event.manifest.json';
+import { getEventManifestScopeEvents } from '@prismgb/events';
 
 type ManifestEvent = {
   domain: string;
   name: string;
   value: string;
-};
-
-type ManifestScope = {
-  scope: string;
-  events: ManifestEvent[];
 };
 
 type MainEventChannelMap = {
@@ -21,10 +16,7 @@ type MainEventChannelMap = {
   };
 };
 
-const mainScope = (eventManifest.scopes as ManifestScope[]).find((entry) => entry.scope === 'main');
-if (!mainScope) {
-  throw new Error('Main event scope not found in event manifest');
-}
+const mainScopeEvents = getEventManifestScopeEvents('main');
 
 function normalizeDomainKey(domain: string): string {
   return domain.toUpperCase().replace(/-/g, '_');
@@ -34,7 +26,7 @@ function normalizeNameKey(name: string): string {
   return name.toUpperCase().replace(/-/g, '_');
 }
 
-function buildMainEventChannels(scopeEvents: ManifestEvent[]) {
+function buildMainEventChannels(scopeEvents: ReadonlyArray<ManifestEvent>) {
   const channelMap: Record<string, Record<string, string>> = {};
 
   for (const event of scopeEvents) {
@@ -47,7 +39,7 @@ function buildMainEventChannels(scopeEvents: ManifestEvent[]) {
   return channelMap as Record<string, Record<string, string>>;
 }
 
-const mainEvents = buildMainEventChannels(mainScope.events) as MainEventChannelMap;
+const mainEvents = buildMainEventChannels(mainScopeEvents) as MainEventChannelMap;
 
 export const MainEventChannels: MainEventChannelMap = mainEvents;
 

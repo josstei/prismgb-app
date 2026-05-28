@@ -1,5 +1,5 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
+import { Service } from '@prismgb/core';
+import { BaseOrchestrator } from '@prismgb/core';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   UIActionDescriptors,
@@ -13,10 +13,10 @@ import {
   type UIActionDescriptor,
   type UIActionEvent
 } from '@renderer/presentation/primitives/template-ref.utils.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
+import type { LoggerFactoryLike } from '@prismgb/core';
+import type { TypedEventBusLike } from '@prismgb/events';
 import type { SettingsService } from '@renderer/infrastructure/services/settings';
-import type { NotesService } from '@renderer/infrastructure/services/notes';
+import type { NotesService } from '@prismgb/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/generated/template-dom.generated.js';

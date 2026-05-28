@@ -1,11 +1,11 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 import {
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage,
   isValidWorkerResponse
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
-import { DisposableBag } from '@shared/base/disposable-bag.js';
+import { DisposableBag } from '@prismgb/core';
 import type {
   WorkerMessageTypeValue,
   WorkerMessagePayloadMap,
@@ -19,7 +19,7 @@ import type {
   LoggerFactoryLike,
   LoggerLike,
   EventBusLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 export type WorkerCapabilities = Record<string, unknown>;
 

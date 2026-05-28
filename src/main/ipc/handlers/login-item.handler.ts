@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import type { LoginItemSetResponse, LoginItemGetResponse } from '@shared/ipc/preload-api.contract.js';
+import type { LoginItemSetResponse, LoginItemGetResponse } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface LoginItemService {

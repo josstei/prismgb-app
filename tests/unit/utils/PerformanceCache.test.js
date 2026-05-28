@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   PerformanceCache,
   AnimationCache
-} from '@shared/utils/performance-cache.utils.js';
+} from '@prismgb/core';
 
 /**
  * ResolutionCache - Test-only class for resolution calculations

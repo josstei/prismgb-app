@@ -1,6 +1,6 @@
 import type { IpcRenderer } from 'electron';
-import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
-import type { TranscodeCancelResponse, TranscodeStartResponse } from '@shared/ipc/preload-api.contract.js';
+import type { IpcChannels } from '@prismgb/ipc';
+import type { TranscodeCancelResponse, TranscodeStartResponse } from '@prismgb/ipc';
 import { createManifestInvokeMethods, createManifestSubscriptionMethods } from '../subscription.factory.js';
 import { createPayloadValidatorMetadata, requirePreloadInvokeMetadata, validatePreloadInvokeArguments, type PreloadInvokeManifestEntry } from '../validators.generated.js';
 

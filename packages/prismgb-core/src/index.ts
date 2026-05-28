@@ -60,6 +60,84 @@ export class PrismInitializationError extends PrismError {
   }
 }
 
+export class AppError extends Error {
+  public readonly context: Record<string, unknown>;
+  public readonly timestamp: number;
+
+  constructor(message: string, context: Record<string, unknown> = {}) {
+    super(message);
+    this.name = 'AppError';
+    this.context = context;
+    this.timestamp = Date.now();
+    if (typeof (Error as any).captureStackTrace === 'function') {
+      (Error as any).captureStackTrace(this, AppError);
+    }
+  }
+}
+
+export interface ErrorLike {
+  message: string;
+}
+
+export function isErrorLike(value: unknown): value is ErrorLike {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'message' in value &&
+    typeof value.message === 'string'
+  );
+}
+
+export function getErrorMessage(value: unknown, fallback = 'Unknown error'): string {
+  if (isErrorLike(value)) {
+    return value.message || fallback;
+  }
+
+  if (typeof value === 'string' && value.length > 0) {
+    return value;
+  }
+
+  return fallback;
+}
+
+type ErrorLabelSource = { name?: unknown; message?: unknown };
+
+function hasErrorLabelFields(value: unknown): value is ErrorLabelSource {
+  return (typeof value === 'object' && value !== null) || typeof value === 'function';
+}
+
+export function formatErrorLabel(error: unknown): string {
+  const errorLike = hasErrorLabelFields(error) ? error : {};
+  const name = errorLike.name || 'Error';
+  const message = errorLike.message || error;
+  return `${name}: ${message}`;
+}
+
+/**
+ * Filename generation helpers for capture outputs.
+ */
+export class FilenameGenerator {
+  static timestamp(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const millis = String(now.getMilliseconds()).padStart(3, '0');
+    return `${year}${month}${day}-${hours}${minutes}${seconds}-${millis}`;
+  }
+
+  static forScreenshot(): string {
+    return `prismgb-screenshot-${this.timestamp()}.png`;
+  }
+
+  static forRecording(): string {
+    return `prismgb-recording-${this.timestamp()}.webm`;
+  }
+}
+
 /**
  * standard disposable interface for cleaning up resources.
  */
@@ -82,7 +160,7 @@ export function isDisposable(obj: unknown): obj is IDisposable {
 /**
  * Safe disposal helper that catches and swallows errors to ensure cleanup lists proceed.
  */
-export async function safeDispose(
+export async function safeDisposeItem(
   resource: unknown,
   logger?: { error(...args: unknown[]): void }
 ): Promise<boolean> {
@@ -107,11 +185,11 @@ export async function safeDispose(
 /**
  * Dispose all resources in the collection in parallel or sequence safely.
  */
-export async function safeDisposeAll(
+export async function safeDisposeItemAll(
   resources: unknown[],
   logger?: { error(...args: unknown[]): void }
 ): Promise<void> {
-  await Promise.all(resources.map(res => safeDispose(res, logger)));
+  await Promise.all(resources.map(res => safeDisposeItem(res, logger)));
 }
 
 /**
@@ -163,11 +241,13 @@ export { Registry } from './primitives/registry.js';
 export { Store } from './primitives/store.js';
 export { Validator } from './primitives/validator.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
-export { BaseService } from './primitives/service.base.js';
+export type { Disposable, DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
+export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
+export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { formatDeviceInfo } from './primitives/formatters.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
-export { PerformanceCache } from './primitives/performance-cache.utils.js';
+export { PerformanceCache, AnimationCache } from './primitives/performance-cache.utils.js';
 
 // -----------------------------------------------------------------------------
 // Dependency Injection Decorators

@@ -1,1 +1,1 @@
-export { TIMING } from '@shared/config/timing.config';
+export { TIMING } from '@prismgb/config';

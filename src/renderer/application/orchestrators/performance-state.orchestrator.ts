@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Performance State Orchestrator
  *
@@ -6,10 +6,10 @@ import { Service } from '@shared/di/decorators.js';
  * and publishes performance state events.
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { PerformanceUiModePayload } from '@shared/events/event-payloads.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseOrchestrator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { PerformanceUiModePayload } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type {
   PerformanceState,
   PerformanceStateService

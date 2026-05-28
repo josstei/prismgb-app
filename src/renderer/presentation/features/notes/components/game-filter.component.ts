@@ -1,7 +1,7 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import { renderListboxOptions } from '@renderer/presentation/primitives/listbox.utils.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const FILTER_SETUP_LIFECYCLE = Symbol('notesGameFilterSetupLifecycle');
 

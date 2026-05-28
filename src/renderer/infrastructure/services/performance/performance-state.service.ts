@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Performance State Service
  *
@@ -6,9 +6,9 @@ import { Service } from '@shared/di/decorators.js';
  * Emits state updates through provided callbacks.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import type { StreamingCapabilities } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import type { StreamingCapabilities } from '@prismgb/events';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;

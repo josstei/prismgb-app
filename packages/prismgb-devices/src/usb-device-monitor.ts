@@ -1,5 +1,4 @@
 import type { Device as NodeUsbDevice } from 'usb';
-import * as nodeModule from 'module';
 
 let nodeUsbLib: any = null;
 function getUsbLib() {
@@ -11,18 +10,19 @@ function getUsbLib() {
     return nodeUsbLib;
   }
 
-  // 1. Try global require (e.g. in CJS or test environments where require is globally mocked)
+  // 1. Try dynamic native require using Function constructor
   try {
-    if (typeof require === 'function') {
-      nodeUsbLib = require('usb');
-      if (nodeUsbLib) return nodeUsbLib;
-    }
+    const requireFn = new Function('name', 'return require(name)');
+    nodeUsbLib = requireFn('usb');
+    if (nodeUsbLib) return nodeUsbLib;
   } catch (e) {
     // proceed
   }
 
-  // 2. Try Node.js standard createRequire
+  // 2. Try Node.js standard createRequire dynamically
   try {
+    const requireFn = new Function('name', 'return require(name)');
+    const nodeModule = requireFn('module');
     if (nodeModule && typeof nodeModule.createRequire === 'function') {
       const req = nodeModule.createRequire(import.meta.url);
       nodeUsbLib = req('usb');

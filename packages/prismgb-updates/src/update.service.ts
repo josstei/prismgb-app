@@ -1,5 +1,7 @@
 import { createRequire } from 'module';
-import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-updater';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
+import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BaseService } from '@prismgb/core';
 import type { ILoggerFactory as LoggerFactory } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';

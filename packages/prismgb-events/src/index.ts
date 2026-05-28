@@ -14,5 +14,22 @@ export type {
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
   TranscodeCancelledPayload,
-  TranscodeErrorPayload
+  TranscodeErrorPayload,
+  UiButtonFeedbackPayload,
+  PerformanceUiModePayload,
+  PerformanceStatePayload,
+  MemorySnapshotRequestPayload,
+  StreamingCapabilities,
+  RecordingDegradedPayload,
+  RecordingErrorPayload,
+  RecordingReadyPayload,
+  StreamHealthOkPayload,
+  StreamHealthTimeoutPayload,
+  StreamStartedPayload,
+  SupportedDeviceAvailablePayload,
+  NativeResolution
 } from './event-payloads.js';
+
+export { EventManifest, getEventManifestScopeEvents, getEventManifestScopeValues, toManifestEventKey } from './event.manifest.js';
+export { EVENT_PAYLOAD_CHANNELS } from './event-payloads.js';
+

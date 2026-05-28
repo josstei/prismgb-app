@@ -3,7 +3,7 @@ import {
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
 } from '@renderer/presentation/primitives/disclosure.class.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const RESIZE_DEBOUNCE_MS = 100;
 const RESIZE_DEBOUNCE_TIMEOUT = Symbol('notesPanelLayoutResizeDebounceTimeout');

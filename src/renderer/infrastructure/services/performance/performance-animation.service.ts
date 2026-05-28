@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Animation Performance Service
  *
@@ -6,9 +6,9 @@ import { Service } from '@shared/di/decorators.js';
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import type { PerformanceStatePayload } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import type { PerformanceStatePayload } from '@prismgb/events';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
 type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
 type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;

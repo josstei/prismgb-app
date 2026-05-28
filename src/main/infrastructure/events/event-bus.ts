@@ -1,5 +1,5 @@
-import { SharedEventBus } from '@shared/events/event-bus.js';
-import type { EventHandler, IEventBus, UnsubscribeFn } from '@shared/events/event-bus.js';
+import { SharedEventBus } from '@prismgb/events';
+import type { EventHandler, IEventBus, UnsubscribeFn } from '@prismgb/events';
 
 type EventBusDependencies = ConstructorParameters<typeof SharedEventBus>[0];
 

@@ -1,6 +1,6 @@
 import type { IpcRenderer } from 'electron';
-import type { DeviceInfoPayload, DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
-import type { IpcChannels } from '@shared/ipc/ipc.manifest.js';
+import type { DeviceInfoPayload, DeviceStatusPayload } from '@prismgb/ipc';
+import type { IpcChannels } from '@prismgb/ipc';
 import { createManifestInvokeMethods, createManifestSubscriptionMethods } from '../subscription.factory.js';
 import { createPayloadValidatorMetadata } from '../validators.generated.js';
 

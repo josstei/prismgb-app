@@ -1,5 +1,5 @@
 import definitions from './settings.definitions.json';
-import { getEventManifestScopeEvents } from '@shared/events/event.manifest.js';
+import { getEventManifestScopeEvents } from '@prismgb/events';
 
 type RawSettingsDefinitionsManifest = typeof definitions;
 type RawSettingsDefinition = RawSettingsDefinitionsManifest['definitions'][number];

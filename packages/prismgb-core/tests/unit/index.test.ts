@@ -4,8 +4,8 @@ import {
   PrismValidationError,
   PrismInitializationError,
   isDisposable,
-  safeDispose,
-  safeDisposeAll,
+  safeDisposeItem,
+  safeDisposeItemAll,
   createSubscription,
   Bus,
   Cache,
@@ -65,7 +65,7 @@ describe('Disposable utilities', () => {
     const mockDispose = vi.fn();
     const disposable = { dispose: mockDispose };
 
-    const result = await safeDispose(disposable);
+    const result = await safeDisposeItem(disposable);
     expect(result).toBe(true);
     expect(mockDispose).toHaveBeenCalledTimes(1);
   });
@@ -78,7 +78,7 @@ describe('Disposable utilities', () => {
     };
     const mockLogger = { error: vi.fn() };
 
-    const result = await safeDispose(disposable, mockLogger);
+    const result = await safeDisposeItem(disposable, mockLogger);
     expect(result).toBe(false);
     expect(mockLogger.error).toHaveBeenCalledTimes(1);
   });
@@ -92,7 +92,7 @@ describe('Disposable utilities', () => {
       }
     };
 
-    const result = await safeDispose(disposable);
+    const result = await safeDisposeItem(disposable);
     expect(result).toBe(true);
     expect(resolved).toBe(true);
   });
@@ -101,7 +101,7 @@ describe('Disposable utilities', () => {
     const d1 = { dispose: vi.fn() };
     const d2 = { dispose: vi.fn() };
 
-    await safeDisposeAll([d1, d2]);
+    await safeDisposeItemAll([d1, d2]);
     expect(d1.dispose).toHaveBeenCalledTimes(1);
     expect(d2.dispose).toHaveBeenCalledTimes(1);
   });

@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/components/shader-preset-list.component.js';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../factories/index.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
 
 const uiPresets = PresetRegistry.getForUI();

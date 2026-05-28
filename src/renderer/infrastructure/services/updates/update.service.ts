@@ -1,12 +1,12 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
 import {
   createRendererPreloadEventBridge,
   RendererPreloadBridgeDescriptors
 } from '@renderer/infrastructure/services/preload-event-bridge.factory';
-import { UpdateState } from '@shared/config/update-state.config';
-import type { UpdateStateValue } from '@shared/config/update-state.config.js';
+import { UpdateState } from '@prismgb/config';
+import type { UpdateStateValue } from '@prismgb/config';
 import type {
   IpcActionResult,
   UpdateCheckResponse,
@@ -17,7 +17,7 @@ import type {
   UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 
 function getFailureMessage(result: IpcActionResult, fallback: string): string | null {
   if (result.success !== false) {

@@ -230,10 +230,20 @@ function generateDI() {
   
   // Scanned service imports
   for (const service of sortedServices) {
-    let relPath = path.relative(path.dirname(outputPath), service.filePath);
-    relPath = relPath.replace(/\.tsx?$/, '');
-    if (!relPath.startsWith('.')) {
-      relPath = './' + relPath;
+    let relPath;
+    if (service.filePath.includes('packages/')) {
+      const match = service.filePath.replace(/\\/g, '/').match(/packages\/prismgb-([^\/]+)\/src\/(.+)$/);
+      if (match) {
+        const pkgName = match[1];
+        relPath = '@prismgb/' + pkgName;
+      }
+    }
+    if (!relPath) {
+      relPath = path.relative(path.dirname(outputPath), service.filePath);
+      relPath = relPath.replace(/\.tsx?$/, '');
+      if (!relPath.startsWith('.')) {
+        relPath = './' + relPath;
+      }
     }
     importsCode += "import { " + service.className + " } from '" + relPath + "';\n";
   }
@@ -241,7 +251,7 @@ function generateDI() {
   // Add standard infrastructure imports
   importsCode += `
 import { BrowserStorageAdapter } from './infrastructure/browser/browser-storage.adapter';
-import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config';
+import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config.js';
 import { DeviceIpcAdapter } from './infrastructure/adapters/devices/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from './infrastructure/adapters/devices/device-change-debounce.adapter';
 import { StreamingCanvasRenderLoopService } from './infrastructure/services/streaming/canvas-render-loop.service';
@@ -252,10 +262,10 @@ import { StreamingCanvas2DRendererAdapter } from './infrastructure/adapters/stre
 import { DeviceIpcStatusAdapter } from './infrastructure/adapters/devices/device-ipc-status.adapter';
 import { StreamingAdapterFactory } from './infrastructure/factories/streaming-adapter.factory';
 import { DeviceChromaticAdapter } from './infrastructure/adapters/devices/chromatic/chromatic.adapter';
-import { chromaticConfig } from '../shared/features/devices/profiles/chromatic/device-chromatic.config';
+import { chromaticConfig } from '@prismgb/devices';
 import { UIComponentRegistry } from './presentation/controller/component.registry';
 import { rendererUiComponentDefinitions } from './presentation/controller/ui-component.catalog';
-import { AnimationCache } from '../shared/utils/performance-cache.utils';
+import { AnimationCache } from '@prismgb/core';
 `;
 
   // Build resolve cases

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { IPC_CHANNELS as channels, IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
-import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { IPC_CHANNELS as channels, IpcContractManifest } from '@prismgb/ipc';
+import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
 import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
 import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';

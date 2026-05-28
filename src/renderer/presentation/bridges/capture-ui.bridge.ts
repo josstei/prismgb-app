@@ -1,9 +1,9 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService, type ServiceEventDescriptor } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { UiButtonFeedbackPayload } from '@shared/events/event-payloads.js';
+import { Service } from '@prismgb/core';
+import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { UiButtonFeedbackPayload } from '@prismgb/events';
 import { TIMING } from '@renderer/presentation/config/constants.config';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type CaptureUiControllerLike = {
   triggerDownload(blob: Blob, filename: string): void;

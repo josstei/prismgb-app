@@ -1,7 +1,7 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
-import type { StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
+import type { StorageServiceLike } from '@prismgb/core';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
 type SettingDefaultValue = string | number | boolean;

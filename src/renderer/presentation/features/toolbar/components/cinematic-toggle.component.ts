@@ -1,8 +1,8 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import { EventChannels } from '@prismgb/events';
+import type { TypedEventBusLike } from '@prismgb/events';
+import type { LoggerLike } from '@prismgb/core';
 
 export interface CinematicToggleAppState {
   isCinematicModeEnabled?: boolean;

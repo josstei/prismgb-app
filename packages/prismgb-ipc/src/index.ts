@@ -1,11 +1,15 @@
 export { IPC_CHANNELS, IpcContractManifest } from './ipc.manifest.js';
-export type { IpcChannels } from './ipc.manifest.js';
+export type { IpcChannels, IpcManifest, IpcNamespaceManifest } from './ipc.manifest.js';
 export type {
   IpcActionResult,
+  DeviceInfoPayload,
   DeviceInfoPayload as IpcDeviceInfoPayload,
   DeviceStatusPayload,
+  UpdateInfoPayload,
   UpdateInfoPayload as IpcUpdateInfoPayload,
+  UpdateProgressPayload,
   UpdateProgressPayload as IpcUpdateProgressPayload,
+  UpdateErrorPayload,
   UpdateErrorPayload as IpcUpdateErrorPayload,
   UpdateStatusPayload,
   UpdateCheckResponse,
@@ -15,13 +19,26 @@ export type {
   TranscodeFormat,
   TranscodeStartOptions,
   TranscodeJobPayload,
+  TranscodeProgressPayload,
   TranscodeProgressPayload as IpcTranscodeProgressPayload,
+  TranscodeCompletedPayload,
   TranscodeCompletedPayload as IpcTranscodeCompletedPayload,
+  TranscodeCancelledPayload,
   TranscodeCancelledPayload as IpcTranscodeCancelledPayload,
+  TranscodeErrorPayload,
   TranscodeErrorPayload as IpcTranscodeErrorPayload,
   TranscodeStartResponse,
   TranscodeCancelResponse,
-  TranscodeStatusResponse
+  TranscodeStatusResponse,
+  WindowSetFullscreenResponse,
+  WindowIsFullscreenResponse,
+  ShellOpenExternalResponse,
+  LoginItemGetResponse,
+  LoginItemSetResponse,
+  ProcessMetricPayload,
+  ProcessMetricsResponse,
+  GpuPolicyPayload,
+  GpuPolicyResponse
 } from './preload-api.contract.js';
 
 export {

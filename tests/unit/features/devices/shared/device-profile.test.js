@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceProfile } from '@shared/features/devices/device-profile.base.js';
+import { DeviceProfile } from '@prismgb/devices';
 import { createLogger } from '../../../../factories/index.js';
 
 describe('DeviceProfile', () => {

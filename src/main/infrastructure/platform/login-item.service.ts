@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 interface LoginItemServiceDependencies {
   loggerFactory: {

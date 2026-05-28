@@ -21,13 +21,7 @@ import {
   installMediaRecorderMock
 } from '../../../../support/mocks/browser-api.installers.js';
 
-// Mock FilenameGenerator
-vi.mock('@shared/lib/filename-generator.utils.ts', () => ({
-  FilenameGenerator: {
-    forScreenshot: vi.fn(() => 'screenshot_2024-01-01_12-00-00.png'),
-    forRecording: vi.fn(() => 'recording_2024-01-01_12-00-00.webm')
-  }
-}));
+import { FilenameGenerator } from '@prismgb/core';
 
 describe('CaptureService', () => {
   let service;
@@ -41,6 +35,9 @@ describe('CaptureService', () => {
   beforeEach(() => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
+
+    vi.spyOn(FilenameGenerator, 'forScreenshot').mockReturnValue('screenshot_2024-01-01_12-00-00.png');
+    vi.spyOn(FilenameGenerator, 'forRecording').mockReturnValue('recording_2024-01-01_12-00-00.webm');
 
     service = new CaptureService({
       eventBus: mockEventBus,

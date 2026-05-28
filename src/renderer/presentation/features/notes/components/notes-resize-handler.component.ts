@@ -1,7 +1,7 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const DRAG_THRESHOLD = NotesPanelConfig.DRAG_THRESHOLD;
 const LIST_WIDTH_MIN = NotesPanelConfig.LIST_WIDTH.MIN;

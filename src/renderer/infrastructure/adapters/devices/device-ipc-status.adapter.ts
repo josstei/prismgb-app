@@ -1,8 +1,8 @@
-import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import type { DeviceStatusPayload } from '@prismgb/ipc';
 import type {
   DeviceStatusProvider,
   RendererDeviceStatus
-} from '@shared/interfaces/device-status-provider.interface.js';
+} from '@prismgb/devices';
 
 type DeviceStatusIpcClient = {
   getDeviceStatus(): Promise<DeviceStatusPayload>;

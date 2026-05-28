@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Device Service
  *
@@ -6,9 +6,9 @@ import { Service } from '@shared/di/decorators.js';
  * to focused services behind the application device contract.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
-import type { RendererDeviceStatus } from '@shared/interfaces/device-status-provider.interface.js';
+import { BaseService } from '@prismgb/core';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import type { RendererDeviceStatus } from '@prismgb/devices';
 
 type DeviceConnectionUpdate = {
   status: RendererDeviceStatus;

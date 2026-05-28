@@ -1,4 +1,4 @@
-import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 import type { IStreamingRenderer } from '@renderer/infrastructure/adapters/streaming/streaming-renderer.interface';
 import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter';

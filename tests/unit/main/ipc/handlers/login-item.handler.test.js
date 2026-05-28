@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { IPC_CHANNELS, IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { IPC_CHANNELS, IpcContractManifest } from '@prismgb/ipc';
 import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
 import { loginItemHandlerDescriptors } from '@main/ipc/handlers/login-item.handler.js';
 

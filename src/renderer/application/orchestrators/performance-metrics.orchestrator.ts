@@ -1,13 +1,13 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Performance Metrics Orchestrator
  *
  * Centralizes process memory snapshot logging for performance analysis.
  */
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseOrchestrator } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 
 @Service({

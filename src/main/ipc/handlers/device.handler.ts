@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
-import type { DeviceStatusPayload } from '@shared/ipc/preload-api.contract.js';
+import type { DeviceStatusPayload } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface DeviceService {

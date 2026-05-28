@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
-const deviceManifestPath = path.join(projectRoot, 'src/shared/features/devices/device.manifest.json');
+const deviceManifestPath = path.join(projectRoot, 'packages/prismgb-devices/src/device.manifest.json');
 const deviceManifest = JSON.parse(fs.readFileSync(deviceManifestPath, 'utf8'));
 
 const chromaticDeviceManifestEntry = deviceManifest.devices.find((device) => device.id === 'chromatic-mod-retro');

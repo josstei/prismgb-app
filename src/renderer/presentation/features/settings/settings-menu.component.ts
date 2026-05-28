@@ -12,7 +12,7 @@ import {
   type SettingsControlDefinition,
   type SettingsListboxDefinition
 } from '@shared/features/settings/settings.definitions.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 import type { UpdateSectionElements } from '@renderer/presentation/features/updates/update-section.component.js';
 
 declare const __APP_VERSION__: string | undefined;

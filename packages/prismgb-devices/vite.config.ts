@@ -18,8 +18,10 @@ export default defineConfig({
         'node:path',
         'node:fs',
         '@prismgb/core',
+        '@prismgb/config',
         '@prismgb/events',
-        '@prismgb/ipc'
+        '@prismgb/ipc',
+        'joi'
       ],
       output: {
         preserveModules: false

@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
 import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
 import {
   createDomBindings,

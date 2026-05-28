@@ -1,4 +1,4 @@
-import IpcManifest from '@shared/ipc/ipc.manifest.json';
+import { IpcContractManifest as IpcManifest } from '@prismgb/ipc';
 import { createManifestSubscriptionSet } from '@preload/subscription.factory.js';
 import { installTargetProperty } from './runtime-property.installers.js';
 const normalizeTrimmedString = (value) => typeof value === 'string' ? value.trim() : '';

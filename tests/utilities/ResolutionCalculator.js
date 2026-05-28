@@ -7,7 +7,7 @@
  * Includes built-in caching for expensive calculations to reduce CPU overhead.
  */
 
-import { PerformanceCache } from '@shared/utils/performance-cache.utils.ts';
+import { PerformanceCache } from '@prismgb/core';
 
 /**
  * ResolutionCache - Specialized cache for resolution calculations (test-only)

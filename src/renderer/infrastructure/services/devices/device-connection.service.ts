@@ -1,17 +1,17 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Device Connection Service
  *
  * Owns main-process USB connection status and status events.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike, LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type {
   DeviceStatusProvider,
   RendererDeviceStatus
-} from '@shared/interfaces/device-status-provider.interface.js';
+} from '@prismgb/devices';
 
 interface DeviceConnectionServiceDependencies {
   eventBus: EventBusLike;

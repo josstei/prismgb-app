@@ -1,4 +1,4 @@
-import { IPC_CHANNELS as manifestChannels } from '@shared/ipc/ipc.manifest.js';
+import { IPC_CHANNELS as manifestChannels } from '@prismgb/ipc';
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object') {

@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Streaming Service
  *
@@ -13,17 +13,17 @@ import { Service } from '@shared/di/decorators.js';
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
+import { BaseService } from '@prismgb/core';
+import { DeviceDetectionHelper } from '@prismgb/devices';
+import { EventChannels } from '@prismgb/events';
+import { getErrorMessage } from '@prismgb/core';
 import type {
   StreamingCapabilities,
   TypedEventBusLike
-} from '@shared/events/event-payloads.js';
+} from '@prismgb/events';
 import type {
   LoggerFactoryLike
-} from '@shared/interfaces/infrastructure.types.js';
+} from '@prismgb/core';
 
 const StreamState = {
   IDLE: 'idle',

@@ -1,6 +1,5 @@
 import type { IpcRenderer } from 'electron';
-import { IPC_CHANNELS, type IpcChannels } from '@shared/ipc/ipc.manifest.js';
-import IpcManifest from '@shared/ipc/ipc.manifest.json';
+import { IPC_CHANNELS, IpcContractManifest, type IpcChannels } from '@prismgb/ipc';
 import type { PreloadApiName } from '@preload/subscription.factory.js';
 import { MAX_LISTENERS_PER_CHANNEL, createListenerRegistry } from '@preload/listener-registry.js';
 import { isValidCallback } from '@preload/validators.generated.js';
@@ -68,7 +67,7 @@ function createApiImplementationEntry({ apiName }: { apiName: string }): [string
 }
 
 const apiImplementations = Object.fromEntries(
-  IpcManifest.namespaces.map(createApiImplementationEntry)
+  IpcContractManifest.namespaces.map(createApiImplementationEntry)
 ) as PreloadApiImplementations;
 
 window.addEventListener('beforeunload', () => {

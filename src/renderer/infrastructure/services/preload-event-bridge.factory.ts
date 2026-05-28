@@ -2,9 +2,9 @@ import {
   IpcContractManifest,
   type IpcManifest,
   type IpcNamespaceManifest
-} from '@shared/ipc/ipc.manifest.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventChannelValue } from '@shared/events/event-payloads.js';
+} from '@prismgb/ipc';
+import { EventChannels } from '@prismgb/events';
+import type { EventChannelValue } from '@prismgb/events';
 
 type MaybeUnsubscribe = (() => void) | null | undefined;
 

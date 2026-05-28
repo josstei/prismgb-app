@@ -1,10 +1,10 @@
-import { Service } from '@shared/di/decorators.js';
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import { BaseService } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import { getDefaultNativeResolution } from '@prismgb/devices';
+import { getErrorMessage } from '@prismgb/core';
+import type { TypedEventBusLike } from '@prismgb/events';
+import type { LoggerFactoryLike } from '@prismgb/core';
 import type {
   Dimensions,
   StreamingCapabilities

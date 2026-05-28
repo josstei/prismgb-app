@@ -1,6 +1,6 @@
-import { Service } from '@shared/di/decorators.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { EventBusLike } from '@shared/interfaces/infrastructure.types.js';
+import { Service } from '@prismgb/core';
+import { EventChannels } from '@prismgb/events';
+import type { EventBusLike } from '@prismgb/core';
 
 interface StreamingServiceLike {
   readonly isStreaming: boolean;

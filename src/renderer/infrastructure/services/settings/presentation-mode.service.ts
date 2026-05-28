@@ -1,12 +1,12 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Presentation Mode Service
  *
  * Coordinates fullscreen, cinematic, and minimalist visual state.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import type { LoggerFactoryLike } from '@shared/interfaces/infrastructure.types.js';
+import { BaseService } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
 type PresentationModeUiControllerLike = {
   setStreamingMode(enabled: boolean): void;

@@ -16,7 +16,7 @@ import {
 import { createEventBus, createAppState } from '../factories/index.js';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@prismgb/core';
 
 describe('Streaming Pipeline Integration', () => {
   let mockDeviceManager;

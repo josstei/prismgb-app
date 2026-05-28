@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/components/cinematic-toggle.component.js';
 import { createEventBus, createAppState, createLogger } from '../../../../factories/index.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 
 describe('CinematicToggleComponent', () => {
   let component;

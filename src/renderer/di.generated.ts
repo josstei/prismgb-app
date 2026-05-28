@@ -29,7 +29,7 @@ import { SettingsDisplayModeOrchestrator } from './application/orchestrators/dis
 import { UpdateService } from './infrastructure/services/updates/update.service';
 import { UpdateUiService } from './infrastructure/services/updates/update-ui.service';
 import { UpdateOrchestrator } from './application/orchestrators/update.orchestrator';
-import { NotesService } from '../../packages/prismgb-notes/src/notes.service';
+import { NotesService } from '@prismgb/notes';
 import { UISetupOrchestrator } from './application/orchestrators/ui-setup.orchestrator';
 import { PerformanceAnimationService } from './infrastructure/services/performance/performance-animation.service';
 import { BodyClassManager } from './presentation/effects/body-class.class';
@@ -56,7 +56,7 @@ import { UIEventBridge } from './presentation/bridges/ui-event.bridge';
 import { UIEffects } from './presentation/effects/ui-effects.class';
 
 import { BrowserStorageAdapter } from './infrastructure/browser/browser-storage.adapter';
-import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config';
+import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config.js';
 import { DeviceIpcAdapter } from './infrastructure/adapters/devices/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from './infrastructure/adapters/devices/device-change-debounce.adapter';
 import { StreamingCanvasRenderLoopService } from './infrastructure/services/streaming/canvas-render-loop.service';
@@ -67,10 +67,10 @@ import { StreamingCanvas2DRendererAdapter } from './infrastructure/adapters/stre
 import { DeviceIpcStatusAdapter } from './infrastructure/adapters/devices/device-ipc-status.adapter';
 import { StreamingAdapterFactory } from './infrastructure/factories/streaming-adapter.factory';
 import { DeviceChromaticAdapter } from './infrastructure/adapters/devices/chromatic/chromatic.adapter';
-import { chromaticConfig } from '../shared/features/devices/profiles/chromatic/device-chromatic.config';
+import { chromaticConfig } from '@prismgb/devices';
 import { UIComponentRegistry } from './presentation/controller/component.registry';
 import { rendererUiComponentDefinitions } from './presentation/controller/ui-component.catalog';
-import { AnimationCache } from '../shared/utils/performance-cache.utils';
+import { AnimationCache } from '@prismgb/core';
 
 export class GeneratedContainer {
   public cache: Map<string, { value: unknown }> = new Map();

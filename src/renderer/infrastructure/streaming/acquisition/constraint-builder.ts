@@ -1,4 +1,4 @@
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { LoggerLike } from '@prismgb/core';
 import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
 
 import { IConstraintBuilder } from './acquisition.interface';

@@ -1,11 +1,11 @@
 import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose } from '@shared/utils/safe-disposer.utils.js';
+import { safeDispose } from '@prismgb/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike } from '@shared/base/service.base.js';
+import type { LoggerLike } from '@prismgb/core';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@shared/features/settings/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { TRANSCODE_CONFIG } from '../../packages/prismgb-transcode/src/transcode.config.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 

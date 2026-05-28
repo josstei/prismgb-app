@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { GameFilterComponent } from '@renderer/presentation/features/notes/components/game-filter.component.js';
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/components/game-autocomplete.component.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+import { EventChannels } from '@prismgb/events';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
 import {
   createEventBus,

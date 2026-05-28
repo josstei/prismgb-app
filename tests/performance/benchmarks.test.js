@@ -10,7 +10,7 @@ import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import {
   PerformanceCache,
   AnimationCache
-} from '@shared/utils/performance-cache.utils.js';
+} from '@prismgb/core';
 import {
   CHROMATIC_SPECS,
   MockDevice,

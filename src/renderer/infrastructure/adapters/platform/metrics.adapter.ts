@@ -1,4 +1,4 @@
-import { Service } from '@shared/di/decorators.js';
+import { Service } from '@prismgb/core';
 /**
  * Metrics Adapter
  *
@@ -6,7 +6,7 @@ import { Service } from '@shared/di/decorators.js';
  * This adapter isolates the PerformanceMetricsService from direct global access.
  */
 
-import type { ProcessMetricsResponse } from '@shared/ipc/preload-api.contract.js';
+import type { ProcessMetricsResponse } from '@prismgb/ipc';
 
 type MetricsApiLike = {
   getProcessMetrics: () => Promise<ProcessMetricsResponse>;

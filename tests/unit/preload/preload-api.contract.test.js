@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { IpcContractManifest } from '@shared/ipc/ipc.manifest.js';
+import { IpcContractManifest } from '@prismgb/ipc';
 import { createPreloadExposureMap, exposePreloadApis } from '@preload/exposure.factory.js';
 import { clearPreloadApi, createMockIpcRenderer, createPreloadApiMock, createPreloadApiMocks, resetPreloadApis, setPreloadApi } from '../../support/mocks/preload-api-globals.js';
 import { installMissingWindowMock, installWindowPropertyMock } from '../../support/mocks/browser-api.installers.js';

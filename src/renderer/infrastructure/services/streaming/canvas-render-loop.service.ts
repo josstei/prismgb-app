@@ -3,9 +3,9 @@ import {
   type IPipeline,
   type IPipelineCapabilities
 } from '@prismgb/gpu';
-import { DisposableBag } from '@shared/base/disposable-bag.js';
-import { getDefaultNativeResolution } from '@shared/features/devices/device-defaults.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import { DisposableBag } from '@prismgb/core';
+import { getDefaultNativeResolution } from '@prismgb/devices';
+import type { LoggerLike } from '@prismgb/core';
 
 type AnimationCacheLike = {
   cancelAnimation: (name: string) => void;

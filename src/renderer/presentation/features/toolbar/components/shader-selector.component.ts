@@ -10,8 +10,8 @@ import {
   ShaderSliderControlsComponent,
   type ShaderSliderSettingsService
 } from './shader-slider-controls.component.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import type { LoggerLike } from '@shared/interfaces/infrastructure.types.js';
+import type { TypedEventBusLike } from '@prismgb/events';
+import type { LoggerLike } from '@prismgb/core';
 
 export interface ShaderSelectorElements {
   shaderBtn?: HTMLElement | null;

@@ -24,7 +24,7 @@ import {
   createChromaticWithFSM,
 } from '../factories/index.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '@shared/utils/performance-cache.utils.js';
+import { AnimationCache } from '@prismgb/core';
 
 /**
  * Measure execution time of a function

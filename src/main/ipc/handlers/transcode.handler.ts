@@ -5,7 +5,7 @@ import type {
   TranscodeFormat,
   TranscodeStartResponse,
   TranscodeStatusResponse
-} from '@shared/ipc/preload-api.contract.js';
+} from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
 
 interface TranscodeService {

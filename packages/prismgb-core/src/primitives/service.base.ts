@@ -19,6 +19,12 @@ export interface LoggerFactoryLike {
   create(name: string): LoggerLike;
 }
 
+export interface StorageServiceLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): boolean;
+  removeItem(key: string): void;
+}
+
 export type ServiceEventDescriptor<TOwner> = readonly [string, (owner: TOwner, payload?: unknown) => void | Promise<void>];
 
 function isEventBusLike(value: unknown): value is EventBusLike {
