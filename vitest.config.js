@@ -103,7 +103,8 @@ export default defineConfig({
             'tests/unit/config/**/*.{test,spec}.{js,ts}',
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/shared/**/*.{test,spec}.{js,ts}',
-            'tests/unit/utils/**/*.{test,spec}.{js,ts}'
+            'tests/unit/utils/**/*.{test,spec}.{js,ts}',
+            'tests/unit/factories/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),
