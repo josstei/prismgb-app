@@ -72,55 +72,6 @@ export {
   createStorageService,
 } from './storage.factory.js';
 
-export function createSettingsServiceHarness(overrides = {}) {
-  const eventBus = overrides.eventBus ?? createEventBus();
-  const loggerFactory = overrides.loggerFactory ?? createLoggerFactory();
-  const storageService = overrides.storageService ?? createStorageService(overrides.initialValues);
-  const service = new SettingsService({ eventBus, loggerFactory, storageService });
-  return { service, eventBus, loggerFactory, storageService, storage: storageService, logger: loggerFactory._getLogger('SettingsService') };
-}
-
-export function createSettingsServiceMock(overrides = {}) {
-  const { values: overrideValues = {}, ...methodOverrides } = overrides;
-  const values = {
-    ...Object.fromEntries(SettingsDefinitions.definitions.map((definition) => [definition.name, definition.default])),
-    ...overrideValues
-  };
-  const read = (name) => values[name];
-  const definitionByName = new Map(SettingsDefinitions.definitions.map((definition) => [definition.name, definition]));
-  return {
-    getSetting: vi.fn((name) => {
-      const definition = definitionByName.get(name);
-      if (definition?.externalSource === 'window.loginItemAPI') {
-        return Promise.resolve(read(name));
-      }
-      return read(name);
-    }),
-    getNumberSetting: vi.fn((name) => Number(read(name))),
-    getBooleanSetting: vi.fn((name) => read(name) === true || read(name) === 'true'),
-    getStringSetting: vi.fn((name) => String(read(name))),
-    setSetting: vi.fn((name, value) => {
-      values[name] = value;
-      return true;
-    }),
-    ...methodOverrides
-  };
-}
-
-export function createNotesServiceMock(overrides = {}) {
-  return {
-    getAllNotes: vi.fn(() => []),
-    getNote: vi.fn(() => null),
-    createNote: vi.fn(() => null),
-    updateNote: vi.fn(() => null),
-    updateNoteWithChangeDetection: vi.fn(() => null),
-    deleteNote: vi.fn(() => false),
-    searchNotes: vi.fn(() => []),
-    getUniqueGames: vi.fn(() => []),
-    getNotesGroupedByGame: vi.fn(() => ({})),
-    ...overrides
-  };
-}
 
 export function createDeviceServiceMock(overrides = {}) {
   return {
@@ -995,33 +946,6 @@ export function createStreamingViewElementsMock(overrides = {}) {
   };
 }
 
-export function createSettingsFullscreenServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    dispose: vi.fn(),
-    toggleFullscreen: vi.fn(),
-    enterFullscreen: vi.fn(),
-    exitFullscreen: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createSettingsCinematicModeServiceMock(overrides = {}) {
-  return {
-    toggleCinematicMode: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createPresentationModeServiceMock(overrides = {}) {
-  return {
-    handleStreamingMode: vi.fn(),
-    handleCinematicModeChanged: vi.fn(),
-    handleMinimalistFullscreenChanged: vi.fn(),
-    handleFullscreenState: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createPerformanceStateServiceMock(overrides = {}) {
   return {
@@ -1757,6 +1681,16 @@ export {
   createShellServiceMock,
   createLoginItemServiceMock,
 } from './system.factory.js';
+
+// Settings factories
+export {
+  createSettingsServiceHarness,
+  createSettingsServiceMock,
+  createNotesServiceMock,
+  createSettingsFullscreenServiceMock,
+  createSettingsCinematicModeServiceMock,
+  createPresentationModeServiceMock,
+} from './settings.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services

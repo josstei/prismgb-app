@@ -84,3 +84,24 @@ describe('system.factory.js', () => {
     expect(Barrel[name]).toBe(SystemFactory[name]);
   });
 });
+
+import * as SettingsFactory from '../../factories/settings.factory.js';
+
+describe('settings.factory.js', () => {
+  const expected = [
+    'createSettingsServiceHarness',
+    'createSettingsServiceMock',
+    'createNotesServiceMock',
+    'createSettingsFullscreenServiceMock',
+    'createSettingsCinematicModeServiceMock',
+    'createPresentationModeServiceMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(SettingsFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(SettingsFactory[name]);
+  });
+});
