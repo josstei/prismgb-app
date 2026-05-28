@@ -17,12 +17,7 @@ import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import { createMockCanvas, createMockVideo, createStreamingService } from './stream.factory.js';
 import { createStorageService } from './storage.factory.js';
-import {
-  createMockButton,
-  createMockElement,
-  createUIController,
-  createUIEffectsMock
-} from './ui.factory.js';
+import { createUIController } from './ui.factory.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import { vi } from 'vitest';
@@ -122,99 +117,11 @@ export {
 
 
 
-
-
-
-
-
-export function createOrchestratorMock(overrides = {}) {
-  return {
-    initialize: vi.fn().mockResolvedValue(),
-    onInitialize: vi.fn().mockResolvedValue(),
-    onCleanup: vi.fn().mockResolvedValue(),
-    cleanup: vi.fn().mockResolvedValue(),
-    start: vi.fn(),
-    stop: vi.fn(),
-    loadPreferences: vi.fn(),
-    toggleFullscreen: vi.fn(),
-    toggleCinematicMode: vi.fn(),
-    initializeSettingsMenu: vi.fn(),
-    initializeShaderSelector: vi.fn(),
-    initializeNotesPanel: vi.fn(),
-    setupOverlayClickHandlers: vi.fn(),
-    setupUIEventListeners: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createRendererAppContainerMock(overrides = {}) {
-  const {
-    appOrchestrator = createOrchestratorMock({
-      initialize: vi.fn().mockResolvedValue(),
-      start: vi.fn().mockResolvedValue(),
-      cleanup: vi.fn().mockResolvedValue()
-    }),
-    adapterFactory = {
-      initialize: vi.fn().mockResolvedValue()
-    },
-    uiComponentRegistry = {
-      initialize: vi.fn(),
-      initializeComponent: vi.fn(),
-      get: vi.fn(),
-      dispose: vi.fn()
-    },
-    uiEffects = {
-      elements: null,
-      triggerShutterFlash: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
-      ...createUIEffectsMock(),
-    },
-    uiEventBridge = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    captureUiBridge = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    transcodeUiBridge = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    transcodeService = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    loggerFactory = createLoggerFactory(),
-    services = {},
-    register = vi.fn(),
-    dispose = vi.fn(),
-    resolve,
-    ...containerOverrides
-  } = overrides;
-
-  const dependencyMap = {
-    appOrchestrator,
-    adapterFactory,
-    uiComponentRegistry,
-    uiEffects,
-    uiEventBridge,
-    captureUiBridge,
-    transcodeUiBridge,
-    transcodeService,
-    loggerFactory,
-    ...services,
-  };
-
-  return {
-    resolve: resolve
-      ? vi.fn((name) => resolve(name, dependencyMap))
-      : vi.fn((name) => dependencyMap[name] || {}),
-    register,
-    dispose,
-    ...containerOverrides
-  };
-}
+// Orchestrator factories
+export {
+  createOrchestratorMock,
+  createRendererAppContainerMock,
+} from './orchestrator.factory.js';
 
 
 

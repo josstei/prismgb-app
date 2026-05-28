@@ -316,3 +316,20 @@ describe('ui.factory.js extensions', () => {
     expect(Barrel[name]).toBe(UIFactory[name]);
   });
 });
+
+import * as OrchestratorFactory from '../../factories/orchestrator.factory.js';
+
+describe('orchestrator.factory.js', () => {
+  const expected = [
+    'createOrchestratorMock',
+    'createRendererAppContainerMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(OrchestratorFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(OrchestratorFactory[name]);
+  });
+});
