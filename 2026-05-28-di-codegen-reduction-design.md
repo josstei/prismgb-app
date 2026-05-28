@@ -40,7 +40,8 @@ architectural boundary and all behavior.
 
 **Success criteria:**
 
-- Same file count (no boundaries collapsed); net-negative line count.
+- No architectural boundaries collapsed; net-negative line count overall (A2
+  adds exactly one file, the typed `manual-providers.ts` registry).
 - One source of truth for each service's dependency list.
 - `scripts/generate-di.js` contains zero hardcoded application class names or
   tokens — it becomes a fully generic codegen tool.
@@ -116,29 +117,71 @@ rewritten to emit only:
 After this, `generate-di.js` carries no application class names, tokens, or
 import paths — it is a generic tool.
 
-**Disposition of the 11 hand-wired tokens:**
+#### Governing invariant: construction shape, not location
 
-- **Promote to `@Service` (leave the registry entirely):**
+The choice between the two registration mechanisms is a **strict contract**,
+never a per-class judgment call:
+
+> Registration mechanism is determined **solely by construction shape, never by
+> package location.**
+>
+> - **Standard construction** — `new X(cradle)` (dependencies read from the
+>   cradle) or `new X()` (no arguments) → the **`@Service` annotation**,
+>   discovered by the scanner. Applies uniformly to application *and* package
+>   classes.
+> - **Non-standard construction** — requires custom logic: global / `window`
+>   access, building provider or adapter maps, calling `initialize()`, injecting
+>   a derived named logger (`loggerFactory.create(...)`), or config / positional
+>   constructor arguments → a typed entry in `manual-providers.ts`.
+
+This invariant is consistent with the **existing precedent**: `NotesService`
+(`packages/prismgb-notes/src/notes.service.ts`) is already a package class
+carrying `@Service` and is scanned into the container today. Routing other
+standard-constructible package classes through the provider registry would fork
+from that precedent and reintroduce the inconsistency this increment exists to
+remove.
+
+The "library purity" concern (an app DI token living in a reusable package) is
+resolved by Phase A1: once `@Service` is a pure no-op marker with zero runtime
+effect, decorating a `@prismgb/core` primitive couples nothing at runtime — a
+consumer using a different DI system, or none, is unaffected. The annotation is
+build-time-only metadata read by the scanner.
+
+**Disposition of the 11 hand-wired tokens (by the invariant above):**
+
+- **Promote to `@Service` (standard construction; leave the registry entirely):**
   - `gpuFrameBuffer` — `GpuFrameBuffer` reads `{ loggerFactory }` from the
-    cradle, so a plain `@Service` class with `new GpuFrameBuffer(this.cradle)`
-    works.
-  - `animationCache` — `AnimationCache` is a no-arg constructor; mark the class
-    `@Service` (or, if decorating a `@prismgb/core` class is undesirable, keep it
-    as a trivial provider entry — implementation decides, but promotion is
-    preferred).
-- **Keep as typed providers in `manual-providers.ts`:** `ipcClient` (reads
-  `window.deviceAPI`, not a class), `streamingRendererFactory` and
-  `adapterFactory` (build provider maps and call `initialize()`),
-  `storageService` (constructor config arg), `deviceIpcAdapter`,
+    cradle: `new GpuFrameBuffer(this.cradle)`.
+  - `animationCache` — `AnimationCache` is a no-arg constructor: the scanner
+    emits `new AnimationCache()`, behavior-identical to the current hand-wiring.
+    It is decorated `@Service` exactly like `NotesService` and `gpuFrameBuffer`;
+    the fact that it lives in `@prismgb/core` does not change its treatment.
+- **Keep as typed providers in `manual-providers.ts` (non-standard
+  construction):** `ipcClient` (reads `window.deviceAPI`, not a class),
+  `streamingRendererFactory` and `adapterFactory` (build provider maps and call
+  `initialize()`), `storageService` (constructor config arg), `deviceIpcAdapter`,
   `deviceChangeDebounceAdapter`, `canvasRenderLoopService` (inject a derived,
   named logger via `loggerFactory.create(...)`), `deviceStatusProvider`
   (positional dependency), `uiComponentRegistry` (app component catalog).
 
-**Honest framing of A2's payoff:** for the 9 retained providers this
-*relocates* construction code rather than deleting it. The win is structural,
-not primarily LOC: untyped emitter strings become type-checked TypeScript, the
-codegen gains a single generic shape, and there is one source of truth for each
-construction. Net LOC reduction in A2 is modest.
+**Honest framing of A2's payoff:** for the retained providers this *relocates*
+construction code rather than deleting it. The win is structural, not primarily
+LOC: untyped emitter strings become type-checked TypeScript, the codegen gains a
+single generic shape, and there is one source of truth for each construction.
+Net LOC reduction in A2 is modest; the consistency and separation win is the
+point.
+
+#### Named future extension (out of scope here, on the roadmap)
+
+The most uniform possible end-state is a **single** registration mechanism:
+extend `@Service` with a `factory` / `useFactory` option so even non-standard
+constructions become annotation-driven, collapsing `manual-providers.ts` into
+the decorator. This is deliberately deferred — it is a meaningful codegen
+feature that overlaps A3-deep and risks over-engineering the scanner now. The
+typed provider registry is the loosely-coupled seam in the meantime. It is
+recorded here so the contract is explicitly *extensible*, not accidentally
+closed: when adopted, the construction-shape invariant migrates from "shape
+selects one of two mechanisms" to "shape selects one of two `@Service` forms."
 
 ### Phase A3-safe — Single Source of Truth for Dependencies (MED risk)
 
@@ -199,8 +242,9 @@ losing its duplicated required-deps array).
 
 ### Verification
 
-- The full test suite (baseline 2527 tests / 120 files) and `npm run lint` must
-  pass before each phase's commit and before starting the next phase.
+- The full test suite (baseline 3061 tests / 155 files, verified 2026-05-28) and
+  `npm run lint` must pass before each phase's commit and before starting the
+  next phase.
 - After A2 and A3, diff the regenerated `di.generated.ts` and confirm that the
   `resolve()` behavior for every pre-existing token is byte-for-byte equivalent
   except for the intended structural change.
