@@ -192,3 +192,33 @@ describe('device.factory.js extensions', () => {
     expect(Barrel[name]).toBe(DeviceFactory[name]);
   });
 });
+
+import * as StreamFactory from '../../factories/stream.factory.js';
+
+describe('stream.factory.js extensions', () => {
+  const expected = [
+    'createStreamPayloadMock',
+    'createMediaTrackMock',
+    'createMediaStreamMock',
+    'createCaptureStreamMock',
+    'createStreamCapabilitiesMock',
+    'createStreamConstraintsMock',
+    'createAcquisitionContextMock',
+    'createConstraintBuilderContextMock',
+    'createConstraintBuilderMock',
+    'createSupportedDevicePayloadMock',
+    'createStreamStartedPayloadMock',
+    'createBrowserMediaServiceMock',
+    'createMediaServiceMock',
+    'createStreamingAdapterMock',
+    'createStreamingAdapterRegistryMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(StreamFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(StreamFactory[name]);
+  });
+});
