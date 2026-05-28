@@ -10,30 +10,14 @@ export interface ServiceOptions {
 }
 
 /**
- * Service decorator to annotate classes for DI registration.
+ * Build-time marker annotating a class for DI registration. The options are
+ * read from the TypeScript AST by `scripts/generate-di.js`; this decorator has
+ * no runtime effect and returns the class unchanged.
  *
  * Usage:
  * @Service({ token: 'customToken', lifecycle: 'singleton', disposal: 'dispose' })
  * export class MyService {}
  */
-export function Service(options?: ServiceOptions): ClassDecorator {
-  return function (target: any) {
-    target.serviceMetadata = options || {};
-    return target;
-  };
-}
-
-/**
- * Inject decorator to annotate constructor parameters for specific tokens.
- *
- * Usage:
- * constructor(@Inject('eventBus') eventBus: EventBusLike) {}
- */
-export function Inject(token: string): ParameterDecorator {
-  return function (target: any, propertyKey: string | symbol | undefined, parameterIndex: number) {
-    if (!target.injectMetadata) {
-      target.injectMetadata = {};
-    }
-    target.injectMetadata[parameterIndex] = token;
-  };
+export function Service(_options?: ServiceOptions): ClassDecorator {
+  return (target) => target;
 }

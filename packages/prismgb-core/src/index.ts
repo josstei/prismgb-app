@@ -252,5 +252,5 @@ export { PerformanceCache, AnimationCache } from './primitives/performance-cache
 // -----------------------------------------------------------------------------
 // Dependency Injection Decorators
 // -----------------------------------------------------------------------------
-export { Service, Inject } from './di/decorators.js';
+export { Service } from './di/decorators.js';
 export type { ServiceOptions } from './di/decorators.js';

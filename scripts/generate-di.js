@@ -66,20 +66,6 @@ function getServiceDecorator(node) {
   return null;
 }
 
-function getInjectDecorator(param) {
-  const decorators = getDecorators(param);
-  for (const decorator of decorators) {
-    const expr = decorator.expression;
-    if (ts.isCallExpression(expr)) {
-      const identifier = expr.expression;
-      if (ts.isIdentifier(identifier) && identifier.text === 'Inject') {
-        return expr;
-      }
-    }
-  }
-  return null;
-}
-
 function parseDecoratorOptions(expr) {
   const options = {};
   if (expr.arguments && expr.arguments.length > 0) {

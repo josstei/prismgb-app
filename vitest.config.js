@@ -118,6 +118,7 @@ export default defineConfig({
           environment: 'node',
           include: [
             'tests/unit/config/**/*.{test,spec}.{js,ts}',
+            'tests/unit/packages/**/*.{test,spec}.{js,ts}',
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/shared/**/*.{test,spec}.{js,ts}',
             'tests/unit/utils/**/*.{test,spec}.{js,ts}',
