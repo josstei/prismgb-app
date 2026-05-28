@@ -197,18 +197,18 @@ export class GeneratedContainer {
       case 'deviceIpcAdapter':
         instance = new DeviceIpcAdapter({
           eventBus: this.resolve('eventBus'),
-          logger: this.resolve('loggerFactory').create('DeviceIpcAdapter')
+          logger: this.resolve<any>('loggerFactory').create('DeviceIpcAdapter')
         });
         break;
       case 'deviceChangeDebounceAdapter':
         instance = new DeviceChangeDebounceAdapter({
           browserMediaService: this.resolve('browserMediaService'),
-          logger: this.resolve('loggerFactory').create('DeviceChangeDebounceAdapter')
+          logger: this.resolve<any>('loggerFactory').create('DeviceChangeDebounceAdapter')
         });
         break;
       case 'canvasRenderLoopService':
         instance = new StreamingCanvasRenderLoopService(
-          this.resolve('loggerFactory').create('StreamingCanvasRenderLoopService'),
+          this.resolve<any>('loggerFactory').create('StreamingCanvasRenderLoopService'),
           this.resolve('animationCache')
         );
         break;

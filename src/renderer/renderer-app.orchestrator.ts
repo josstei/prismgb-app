@@ -58,7 +58,7 @@ class RendererAppOrchestrator {
       await this._registerUIComponents();
       await this._initializeUIEventBridge();
 
-      const orchestrator = container.resolve('appOrchestrator');
+      const orchestrator = container.resolve<AppOrchestrator>('appOrchestrator');
       this.orchestrator = orchestrator;
       await orchestrator.initialize();
 
@@ -117,10 +117,10 @@ class RendererAppOrchestrator {
   async _initializeUI() {
     const container = this._requireContainer();
 
-    const uiComponentRegistry = container.resolve('uiComponentRegistry');
-    const uiEffects = container.resolve('uiEffects');
-    const bodyClassManager = container.resolve('bodyClassManager');
-    const loggerFactory = container.resolve('loggerFactory');
+    const uiComponentRegistry = container.resolve<any>('uiComponentRegistry');
+    const uiEffects = container.resolve<any>('uiEffects');
+    const bodyClassManager = container.resolve<any>('bodyClassManager');
+    const loggerFactory = container.resolve<any>('loggerFactory');
 
     const uiController = new UIController({
       uiComponentRegistry,
@@ -146,16 +146,16 @@ class RendererAppOrchestrator {
   async _initializeUIEventBridge() {
     try {
       const container = this._requireContainer();
-      const uiEventBridge = container.resolve('uiEventBridge');
+      const uiEventBridge = container.resolve<any>('uiEventBridge');
       uiEventBridge.initialize();
 
-      const captureUiBridge = container.resolve('captureUiBridge');
+      const captureUiBridge = container.resolve<any>('captureUiBridge');
       captureUiBridge.initialize();
 
-      const transcodeUiBridge = container.resolve('transcodeUiBridge');
+      const transcodeUiBridge = container.resolve<any>('transcodeUiBridge');
       transcodeUiBridge.initialize();
 
-      const transcodeService = container.resolve('transcodeService');
+      const transcodeService = container.resolve<any>('transcodeService');
       transcodeService.initialize();
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);

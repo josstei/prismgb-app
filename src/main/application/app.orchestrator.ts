@@ -153,19 +153,11 @@ class AppOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    // Window cleanup requires special handling (isDestroyed check, devtools)
+    // Window cleanup is safely handled by the window service
     try {
-      const win = this._windowService?.getMainWindow();
-      if (win && !win.isDestroyed()) {
-        if (win.webContents?.isDevToolsOpened()) {
-          win.webContents.closeDevTools();
-          this.logger.debug('Closed DevTools');
-        }
-        win.destroy();
-        this.logger.debug('Destroyed main window');
-      }
+      this._windowService?.destroyWindow();
     } catch (error) {
-      this.logger.error('Error destroying window:', error);
+      this.logger.error('Error destroying window during cleanup:', error);
     }
 
     // Dispose services using safe utility (eliminates repetitive try-catch)

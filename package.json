@@ -45,6 +45,7 @@
     "test:e2e:debug": "npm run build:vite && playwright test --debug",
     "prepare": "husky",
     "generate-icons": "node scripts/generate-icons.js",
+    "generate:contracts": "node scripts/generate-contracts.js",
     "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
   },
   "keywords": [

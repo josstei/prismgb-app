@@ -134,6 +134,7 @@ class WindowService extends BaseService {
     };
     mainWindow.webContents.session.on('will-download', downloadHandler);
     this.disposables.replace(WINDOW_DOWNLOAD_LIFECYCLE, () => {
+      if (mainWindow.isDestroyed()) return;
       mainWindow.webContents.session.off('will-download', downloadHandler);
     });
 
@@ -158,6 +159,7 @@ class WindowService extends BaseService {
       };
       mainWindow.webContents.on('console-message', consoleMessageListener);
       this.disposables.replace(WINDOW_CONSOLE_LIFECYCLE, () => {
+        if (mainWindow.isDestroyed()) return;
         mainWindow.webContents.off('console-message', consoleMessageListener);
       });
     }
@@ -256,6 +258,41 @@ class WindowService extends BaseService {
     }
   }
 
+  destroyWindow(): void {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
+      this.mainWindow = null;
+      return;
+    }
+
+    this.logger.info('Destroying main window safely');
+
+    // 1. Clean up listeners while the window is still alive
+    this._cleanupWindowListeners({
+      includeCloseListener: true,
+      includeClosedListener: true
+    });
+
+    // 2. Close DevTools if open
+    try {
+      if (this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed() && this.mainWindow.webContents.isDevToolsOpened()) {
+        this.mainWindow.webContents.closeDevTools();
+        this.logger.debug('Closed DevTools');
+      }
+    } catch (error) {
+      this.logger.error('Error closing DevTools during window destroy:', error);
+    }
+
+    // 3. Destroy window
+    try {
+      this.mainWindow.destroy();
+      this.logger.debug('Destroyed main window');
+    } catch (error) {
+      this.logger.error('Error destroying window:', error);
+    }
+
+    this.mainWindow = null;
+  }
+
   hasWindow(): boolean {
     return this.mainWindow !== null;
   }
@@ -287,18 +324,28 @@ class WindowService extends BaseService {
     includeCloseListener = true,
     includeClosedListener = false
   }: CleanupWindowListenersOptions = {}): void {
-    this.disposables.cancel(WINDOW_READY_TO_SHOW_LIFECYCLE);
-    this.disposables.cancel(WINDOW_CONSOLE_LIFECYCLE);
-    this.disposables.cancel(WINDOW_DOWNLOAD_LIFECYCLE);
-    this.disposables.cancel(WINDOW_ENTER_FULLSCREEN_LIFECYCLE);
-    this.disposables.cancel(WINDOW_LEAVE_FULLSCREEN_LIFECYCLE);
-    this.disposables.cancel(WINDOW_RESIZED_LIFECYCLE);
+    const lifecycles = [
+      WINDOW_READY_TO_SHOW_LIFECYCLE,
+      WINDOW_CONSOLE_LIFECYCLE,
+      WINDOW_DOWNLOAD_LIFECYCLE,
+      WINDOW_ENTER_FULLSCREEN_LIFECYCLE,
+      WINDOW_LEAVE_FULLSCREEN_LIFECYCLE,
+      WINDOW_RESIZED_LIFECYCLE
+    ];
 
     if (includeCloseListener) {
-      this.disposables.cancel(WINDOW_CLOSE_LIFECYCLE);
+      lifecycles.push(WINDOW_CLOSE_LIFECYCLE);
     }
     if (includeClosedListener) {
-      this.disposables.cancel(WINDOW_CLOSED_LIFECYCLE);
+      lifecycles.push(WINDOW_CLOSED_LIFECYCLE);
+    }
+
+    for (const key of lifecycles) {
+      try {
+        this.disposables.cancel(key);
+      } catch (error) {
+        this.logger.error(`Error cancelling window lifecycle listener for key ${String(key)}:`, error);
+      }
     }
   }
 

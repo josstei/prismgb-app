@@ -334,4 +334,42 @@ describe('WindowService', () => {
       consoleLogSpy.mockRestore();
     });
   });
+
+  describe('destroyWindow', () => {
+    it('should destroy BrowserWindow and null reference', () => {
+      windowService.createWindow();
+      const win = windowService.mainWindow;
+      
+      windowService.destroyWindow();
+
+      expect(win.destroy).toHaveBeenCalled();
+      expect(windowService.mainWindow).toBeNull();
+    });
+
+    it('should not throw if window does not exist', () => {
+      expect(() => windowService.destroyWindow()).not.toThrow();
+    });
+
+    it('should close devTools if open', () => {
+      windowService.createWindow();
+      const win = windowService.mainWindow;
+      win.webContents.isDevToolsOpened.mockReturnValue(true);
+
+      windowService.destroyWindow();
+
+      expect(win.webContents.closeDevTools).toHaveBeenCalled();
+    });
+  });
+
+  describe('dispose', () => {
+    it('should clean up all listeners and dispose service', () => {
+      windowService.createWindow();
+      const win = windowService.mainWindow;
+
+      windowService.dispose();
+
+      // Verify a listener removal, e.g. console-message
+      expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
+    });
+  });
 });

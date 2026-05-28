@@ -675,6 +675,9 @@ export function createBrowserWindowMock(overrides = {}) {
     send: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
+    isDestroyed: vi.fn().mockReturnValue(false),
+    isDevToolsOpened: vi.fn().mockReturnValue(false),
+    closeDevTools: vi.fn(),
     session: {
       on: vi.fn(),
       off: vi.fn()
@@ -688,6 +691,7 @@ export function createBrowserWindowMock(overrides = {}) {
     hide: vi.fn(),
     focus: vi.fn(),
     restore: vi.fn(),
+    destroy: vi.fn(),
     isMinimized: vi.fn().mockReturnValue(false),
     isDestroyed: vi.fn().mockReturnValue(false),
     setSkipTaskbar: vi.fn(),
