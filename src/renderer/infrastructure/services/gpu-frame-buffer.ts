@@ -2,6 +2,7 @@ import type {
   LoggerFactoryLike,
   LoggerLike
 } from '@prismgb/core';
+import { Service } from '@prismgb/core';
 
 type BufferedFrame = {
   frame: unknown;
@@ -13,6 +14,7 @@ type GpuFrameBufferDependencies = {
   bufferSize?: number;
 };
 
+@Service({ token: 'gpuFrameBuffer' })
 export class GpuFrameBuffer {
   _logger: LoggerLike | undefined;
   _capacity: number;

@@ -1,3 +1,5 @@
+import { Service } from '../di/decorators.js';
+
 export interface PerformanceCacheOptions {
   maxSize?: number;
   defaultTTL?: number;
@@ -140,6 +142,7 @@ export class PerformanceCache<T = unknown> {
   }
 }
 
+@Service({ token: 'animationCache' })
 export class AnimationCache extends PerformanceCache {
   #activeAnimations: Map<string, AnimationEntry>;
   #cancelAnimationFrame: (handle: number) => void;
