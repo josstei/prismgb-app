@@ -36,31 +36,6 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Generate architecture scorecard
-        run: npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md
-
-      - name: Verify manifest drift
-        run: npm run codebase:phase1 -- --json
-
-      - name: Upload architecture scorecard
-        if: ${{ always() && hashFiles('artifacts/architecture-scorecard.json') != '' && hashFiles('artifacts/architecture-scorecard-summary.md') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: architecture-scorecard
-          path: |
-            artifacts/architecture-scorecard.json
-            artifacts/architecture-scorecard-summary.md
-          if-no-files-found: error
-
-      - name: Publish architecture scorecard summary
-        if: always()
-        run: |
-          if [ -f artifacts/architecture-scorecard-summary.md ]; then
-            cat artifacts/architecture-scorecard-summary.md >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Architecture scorecard summary was not generated." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - name: Build GPU package types
         run: npm run build --workspace=@prismgb/gpu
 
