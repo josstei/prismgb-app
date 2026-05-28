@@ -222,3 +222,29 @@ describe('stream.factory.js extensions', () => {
     expect(Barrel[name]).toBe(StreamFactory[name]);
   });
 });
+
+import * as CaptureFactory from '../../factories/capture.factory.js';
+
+describe('capture.factory.js', () => {
+  const expected = [
+    'createRecordingFrameMock',
+    'createMediaBlobEventMock',
+    'createMediaRecorderMock',
+    'createMediaRecorderErrorEventMock',
+    'createCaptureToastMock',
+    'createCaptureUIControllerMock',
+    'createTranscodeServiceMock',
+    'createCaptureServiceMock',
+    'createCaptureGpuRecordingServiceMock',
+    'createCaptureSaveServiceMock',
+    'createTranscodeUIControllerMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(CaptureFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(CaptureFactory[name]);
+  });
+});

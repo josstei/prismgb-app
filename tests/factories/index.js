@@ -101,111 +101,6 @@ export {
 
 
 
-export function createRecordingFrameMock(overrides = {}) {
-  return {
-    width: 640,
-    height: 576,
-    close: vi.fn(),
-    ...overrides
-  };
-}
-
-
-
-export function createMediaBlobEventMock(overrides = {}) {
-  return {
-    data: { size: 0, ...overrides.data },
-    ...overrides,
-  };
-}
-
-export function createMediaRecorderMock(overrides = {}) {
-  const listeners = {};
-  let ondataavailable = vi.fn();
-  let onerror = vi.fn();
-  let onstop = vi.fn();
-
-  const mock = {
-    start: vi.fn(),
-    stop: vi.fn(() => {
-      mock.dispatchEvent({ type: 'stop' });
-    }),
-    pause: vi.fn(),
-    resume: vi.fn(),
-    requestData: vi.fn(),
-    addEventListener: vi.fn((event, cb) => {
-      if (!listeners[event]) listeners[event] = [];
-      listeners[event].push(cb);
-    }),
-    removeEventListener: vi.fn((event, cb) => {
-      if (listeners[event]) {
-        const index = listeners[event].indexOf(cb);
-        if (index > -1) listeners[event].splice(index, 1);
-      }
-    }),
-    dispatchEvent: vi.fn((eventObj) => {
-      const type = eventObj.type;
-      const list = listeners[type] || [];
-      list.forEach(l => l(eventObj));
-    }),
-    ...overrides,
-  };
-
-  Object.defineProperty(mock, 'ondataavailable', {
-    get() {
-      return (event) => {
-        const list = listeners['dataavailable'] || [];
-        list.forEach(l => l(event));
-        if (ondataavailable) ondataavailable(event);
-      };
-    },
-    set(cb) {
-      ondataavailable = cb;
-    },
-    configurable: true
-  });
-
-  Object.defineProperty(mock, 'onerror', {
-    get() {
-      return (event) => {
-        const list = listeners['error'] || [];
-        list.forEach(l => l(event));
-        if (onerror) onerror(event);
-      };
-    },
-    set(cb) {
-      onerror = cb;
-    },
-    configurable: true
-  });
-
-  Object.defineProperty(mock, 'onstop', {
-    get() {
-      return (event) => {
-        const list = listeners['stop'] || [];
-        list.forEach(l => l(event));
-        if (onstop) onstop(event);
-      };
-    },
-    set(cb) {
-      onstop = cb;
-    },
-    configurable: true
-  });
-
-  return mock;
-}
-
-export function createMediaRecorderErrorEventMock(overrides = {}) {
-  return {
-    error: {
-      message: 'Recording failed',
-      name: 'RecordingError',
-      ...overrides.error,
-    },
-    ...overrides,
-  };
-}
 
 
 
@@ -214,14 +109,8 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
 
 
 
-export function createTranscodeServiceMock(overrides = {}) {
-  return {
-    transcode: vi.fn(),
-    cancel: vi.fn(),
-    getStatus: vi.fn(),
-    ...overrides
-  };
-}
+
+
 
 
 
@@ -261,22 +150,7 @@ export function createFallbackStrategyMock(overrides = {}) {
 }
 
 
-export function createTranscodeUIControllerMock(overrides = {}) {
-  const {
-    transcodeToast,
-    registry,
-    ...componentOverrides
-  } = overrides;
 
-  const toast = transcodeToast ?? createCaptureToastMock();
-
-  return {
-    registry: registry ?? {
-      get: vi.fn((name) => (name === 'transcodeToastComponent' ? toast : null)),
-    },
-    ...componentOverrides
-  };
-}
 
 export function createStreamingViewControllerMock(overrides = {}) {
   const {
@@ -396,24 +270,7 @@ export function createPresentationModeControllerMock(overrides = {}) {
   };
 }
 
-export function createCaptureToastMock(overrides = {}) {
-  return {
-    show: vi.fn(),
-    updateProgress: vi.fn(),
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-    hide: vi.fn(),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
 
-export function createCaptureUIControllerMock(overrides = {}) {
-  return {
-    triggerDownload: vi.fn(),
-    ...overrides
-  };
-}
 
 
 
@@ -466,33 +323,7 @@ export function createStreamingViewElementsMock(overrides = {}) {
 
 
 
-export function createCaptureServiceMock(overrides = {}) {
-  return {
-    takeScreenshot: vi.fn(),
-    toggleRecording: vi.fn(),
-    startRecording: vi.fn(),
-    getRecordingState: vi.fn(),
-    stopRecording: vi.fn(),
-    isRecording: false,
-    ...overrides
-  };
-}
 
-export function createCaptureGpuRecordingServiceMock(overrides = {}) {
-  return {
-    start: vi.fn(async () => ({ id: 'gpu-stream' })),
-    stop: vi.fn(),
-    isActive: vi.fn().mockReturnValue(false),
-    ...overrides
-  };
-}
-
-export function createCaptureSaveServiceMock(overrides = {}) {
-  return {
-    saveRecording: vi.fn().mockResolvedValue({ success: true, transcoded: false }),
-    ...overrides
-  };
-}
 
 export function createCanvasRenderLoopServiceMock(overrides = {}) {
   return {
@@ -1111,6 +942,21 @@ export {
   createProcessMetricsMock,
   createAppMetricsServiceMock,
 } from './performance.factory.js';
+
+// Capture factories
+export {
+  createRecordingFrameMock,
+  createMediaBlobEventMock,
+  createMediaRecorderMock,
+  createMediaRecorderErrorEventMock,
+  createCaptureToastMock,
+  createCaptureUIControllerMock,
+  createTranscodeServiceMock,
+  createCaptureServiceMock,
+  createCaptureGpuRecordingServiceMock,
+  createCaptureSaveServiceMock,
+  createTranscodeUIControllerMock,
+} from './capture.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services
