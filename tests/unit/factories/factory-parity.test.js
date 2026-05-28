@@ -286,3 +286,33 @@ describe('streaming-pipeline.factory.js', () => {
     expect(Barrel[name]).toBe(StreamingPipelineFactory[name]);
   });
 });
+
+import * as UIFactory from '../../factories/ui.factory.js';
+
+describe('ui.factory.js extensions', () => {
+  const expected = [
+    'createUISetupControllerMock',
+    'createPresentationModeControllerMock',
+    'createUIEventBridgeControllerMock',
+    'createStatusNotificationComponentMock',
+    'createStreamControlsComponentMock',
+    'createSettingsMenuComponentMock',
+    'createUIComponentMock',
+    'createShaderSelectorComponentMock',
+    'createUIComponentRegistryMock',
+    'createUIEffectsMock',
+    'createUIBodyClassManagerMock',
+    'createAnimationCacheMock',
+    'createUIEffectsElementsMock',
+    'createStreamingControlsElementsMock',
+    'createUIControllerElementsMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(UIFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(UIFactory[name]);
+  });
+});
