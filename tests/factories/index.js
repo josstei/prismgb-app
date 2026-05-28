@@ -533,62 +533,6 @@ export function createFallbackStrategyMock(overrides = {}) {
   };
 }
 
-export function createPerformanceMetricsAdapterMock(overrides = {}) {
-  return {
-    isAvailable: vi.fn(() => false),
-    getProcessMetrics: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createVisibilityAdapterMock(overrides = {}) {
-  let callbackRef = null;
-  const adapter = {
-    isHidden: vi.fn(() => false),
-    onVisibilityChange: vi.fn((callback) => {
-      callbackRef = callback;
-      return vi.fn();
-    }),
-    dispose: vi.fn(),
-    get callbackRef() {
-      return callbackRef;
-    },
-    ...overrides
-  };
-  return adapter;
-}
-
-export function createUserActivityAdapterMock(overrides = {}) {
-  let callbackRef = null;
-  const adapter = {
-    onActivity: vi.fn((callback) => {
-      callbackRef = callback;
-      return vi.fn();
-    }),
-    dispose: vi.fn(),
-    get callbackRef() {
-      return callbackRef;
-    },
-    ...overrides
-  };
-  return adapter;
-}
-
-export function createReducedMotionAdapterMock(overrides = {}) {
-  let callbackRef = null;
-  const adapter = {
-    prefersReducedMotion: vi.fn(() => false),
-    onChange: vi.fn((callback) => {
-      callbackRef = callback;
-      return vi.fn();
-    }),
-    get callbackRef() {
-      return callbackRef;
-    },
-    ...overrides
-  };
-  return adapter;
-}
 
 export function createTranscodeUIControllerMock(overrides = {}) {
   const {
@@ -745,21 +689,6 @@ export function createCaptureUIControllerMock(overrides = {}) {
 }
 
 
-export function createAppMetricsServiceMock(overrides = {}) {
-  return {
-    getAppMetrics: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createProcessMetricsMock(overrides = {}) {
-  return {
-    success: false,
-    totalMB: '0.0',
-    processes: [{ type: 'Renderer', memoryMB: '0.0' }],
-    ...overrides
-  };
-}
 
 export function createStreamingAudioPipelineServiceMock(overrides = {}) {
   return {
@@ -807,46 +736,6 @@ export function createStreamingViewElementsMock(overrides = {}) {
 }
 
 
-export function createPerformanceStateServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    setPerformanceModeEnabled: vi.fn(() => true),
-    setCapabilities: vi.fn(),
-    setStreaming: vi.fn(),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createPerformanceMetricsServiceMock(overrides = {}) {
-  return {
-    requestSnapshot: vi.fn(),
-    startPeriodicSnapshots: vi.fn(),
-    stopPeriodicSnapshots: vi.fn(),
-    clearPendingRequests: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createPerformanceAnimationServiceMock(overrides = {}) {
-  return {
-    setPerformanceState: vi.fn(() => ({
-      idle: false,
-      hidden: false,
-      animationsOff: false
-    })),
-    ...overrides
-  };
-}
-
-export function createBodyClassManagerMock(overrides = {}) {
-  return {
-    setIdle: vi.fn(),
-    setHidden: vi.fn(),
-    setAnimationsOff: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createBrowserMediaServiceMock(overrides = {}) {
   return {
@@ -1567,6 +1456,20 @@ export {
   createTrayMock,
   createTrayServiceElectronMock,
 } from './window.factory.js';
+
+// Performance factories
+export {
+  createPerformanceMetricsAdapterMock,
+  createVisibilityAdapterMock,
+  createUserActivityAdapterMock,
+  createReducedMotionAdapterMock,
+  createPerformanceStateServiceMock,
+  createPerformanceMetricsServiceMock,
+  createPerformanceAnimationServiceMock,
+  createBodyClassManagerMock,
+  createProcessMetricsMock,
+  createAppMetricsServiceMock,
+} from './performance.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services

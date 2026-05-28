@@ -143,3 +143,28 @@ describe('window.factory.js', () => {
     expect(Barrel[name]).toBe(WindowFactory[name]);
   });
 });
+
+import * as PerformanceFactory from '../../factories/performance.factory.js';
+
+describe('performance.factory.js', () => {
+  const expected = [
+    'createPerformanceMetricsAdapterMock',
+    'createVisibilityAdapterMock',
+    'createUserActivityAdapterMock',
+    'createReducedMotionAdapterMock',
+    'createPerformanceStateServiceMock',
+    'createPerformanceMetricsServiceMock',
+    'createPerformanceAnimationServiceMock',
+    'createBodyClassManagerMock',
+    'createProcessMetricsMock',
+    'createAppMetricsServiceMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(PerformanceFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(PerformanceFactory[name]);
+  });
+});
