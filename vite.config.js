@@ -157,6 +157,13 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, 'src/shared'),
       '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
       '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
+      '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
+      '@prismgb/config': path.resolve(__dirname, 'packages/prismgb-config/src/index.ts'),
+      '@prismgb/ipc': path.resolve(__dirname, 'packages/prismgb-ipc/src/index.ts'),
+      '@prismgb/devices': path.resolve(__dirname, 'packages/prismgb-devices/src/index.ts'),
+      '@prismgb/transcode': path.resolve(__dirname, 'packages/prismgb-transcode/src/index.ts'),
+      '@prismgb/updates': path.resolve(__dirname, 'packages/prismgb-updates/src/index.ts'),
+      '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts'),
       // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
       url: 'url/'
     }

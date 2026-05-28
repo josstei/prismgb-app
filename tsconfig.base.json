@@ -47,6 +47,48 @@
       ],
       "@prismgb/core/*": [
         "./packages/prismgb-core/src/*"
+      ],
+      "@prismgb/events": [
+        "./packages/prismgb-events/src"
+      ],
+      "@prismgb/events/*": [
+        "./packages/prismgb-events/src/*"
+      ],
+      "@prismgb/config": [
+        "./packages/prismgb-config/src"
+      ],
+      "@prismgb/config/*": [
+        "./packages/prismgb-config/src/*"
+      ],
+      "@prismgb/ipc": [
+        "./packages/prismgb-ipc/src"
+      ],
+      "@prismgb/ipc/*": [
+        "./packages/prismgb-ipc/src/*"
+      ],
+      "@prismgb/devices": [
+        "./packages/prismgb-devices/src"
+      ],
+      "@prismgb/devices/*": [
+        "./packages/prismgb-devices/src/*"
+      ],
+      "@prismgb/transcode": [
+        "./packages/prismgb-transcode/src"
+      ],
+      "@prismgb/transcode/*": [
+        "./packages/prismgb-transcode/src/*"
+      ],
+      "@prismgb/updates": [
+        "./packages/prismgb-updates/src"
+      ],
+      "@prismgb/updates/*": [
+        "./packages/prismgb-updates/src/*"
+      ],
+      "@prismgb/notes": [
+        "./packages/prismgb-notes/src"
+      ],
+      "@prismgb/notes/*": [
+        "./packages/prismgb-notes/src/*"
       ]
     },
     "types": [

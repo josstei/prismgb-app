@@ -66,6 +66,13 @@
   "dependencies": {
     "@prismgb/core": "*",
     "@prismgb/gpu": "*",
+    "@prismgb/events": "*",
+    "@prismgb/config": "*",
+    "@prismgb/ipc": "*",
+    "@prismgb/devices": "*",
+    "@prismgb/transcode": "*",
+    "@prismgb/updates": "*",
+    "@prismgb/notes": "*",
     "electron-updater": "^6.8.3",
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
