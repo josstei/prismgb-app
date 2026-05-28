@@ -8,8 +8,6 @@
 
 import './presentation/styles/styles.css';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
-
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
@@ -18,15 +16,6 @@ window.addEventListener('unhandledrejection', (event) => {
 window.addEventListener('error', (event) => {
   console.error('Uncaught error:', event.error);
 });
-
-// Render templates into app container
-const appContainer = document.getElementById('appContainer');
-if (appContainer) {
-  renderAppShell(appContainer);
-}
-
-// Mark body ready after CSS and templates are loaded (prevents FOUC)
-document.body.classList.add(CSSClasses.BODY_READY);
 
 // Import application bootstrap
 import { createApplication } from './renderer-app.orchestrator';
@@ -43,6 +32,8 @@ async function init() {
     // Create and start application
     app = await createApplication();
 
+    // Mark body ready after CSS and templates are loaded (prevents FOUC)
+    document.body.classList.add(CSSClasses.BODY_READY);
   } catch (error) {
     const normalizedError = error instanceof Error ? error : new Error(String(error));
 

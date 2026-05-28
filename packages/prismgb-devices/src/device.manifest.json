@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "mode": "enforced",
+  "devices": [
+    {
+      "id": "chromatic-mod-retro",
+      "name": "Mod Retro Chromatic",
+      "manufacturer": "ModRetro",
+      "enabled": true,
+      "version": "1.0.0",
+      "usb": {
+        "vendorId": 14158,
+        "productId": 257,
+        "deviceClass": 14,
+        "alternateDeviceClass": 239,
+        "hexVendorId": "0x374e",
+        "hexProductId": "0x0101"
+      },
+      "display": {
+        "nativeWidth": 160,
+        "nativeHeight": 144,
+        "aspectRatio": 1.1111111111111112,
+        "aspectRatioLabel": "10:9",
+        "pixelPerfect": true,
+        "resolutions": [
+          { "label": "160x144 (Chromatic Native)", "width": 160, "height": 144, "scale": 1 },
+          { "label": "320x288 (2x)", "width": 320, "height": 288, "scale": 2 },
+          { "label": "640x576 (4x)", "width": 640, "height": 576, "scale": 4 },
+          { "label": "1280x1152 (8x)", "width": 1280, "height": 1152, "scale": 8 },
+          { "label": "1280x720 (HD)", "width": 1280, "height": 720, "scale": null }
+        ]
+      },
+      "media": {
+        "video": {
+          "width": { "ideal": 160 },
+          "height": { "ideal": 144 },
+          "frameRate": { "ideal": 60 }
+        },
+        "fallbackStrategy": "audio-simple"
+      },
+      "capabilities": [
+        "video-capture",
+        "audio-capture",
+        "screenshot",
+        "recording",
+        "pixel-perfect",
+        "low-latency",
+        "discord-integration"
+      ],
+      "labelPatterns": ["chromatic", "modretro", "mod retro", "374e:0101"],
+      "modules": {
+        "profile": "device-chromatic.profile",
+        "adapter": "device-chromatic.adapter"
+      },
+      "fixture": {
+        "defaultFrameRate": 60,
+        "supportedFrameRates": [30, 60],
+        "label": "Chromatic",
+        "videoDeviceId": "mock-chromatic-video-device",
+        "audioDeviceId": "mock-chromatic-audio-device",
+        "groupId": "mock-chromatic-group",
+        "audio": {
+          "sampleRate": 48000,
+          "channels": 2
+        },
+        "e2eHelper": "tests/e2e/helpers/mock-chromatic.helper.js"
+      }
+    }
+  ]
+}

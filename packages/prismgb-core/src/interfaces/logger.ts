@@ -1,0 +1,12 @@
+import type { Factory } from './factory.js';
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface Logger {
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+}
+
+export type LoggerFactory = Factory<Logger, [name?: string]>;

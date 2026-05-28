@@ -24,6 +24,12 @@
       ],
       "@prismgb/gpu/*": [
         "./packages/prismgb-gpu/dist/*"
+      ],
+      "@prismgb/core": [
+        "./packages/prismgb-core/dist/index.d.ts"
+      ],
+      "@prismgb/core/*": [
+        "./packages/prismgb-core/dist/*"
       ]
     },
     "strict": true,

@@ -1,6 +1,7 @@
 {
   "name": "prismgb",
   "version": "1.2.1",
+  "packageManager": "npm@11.9.0",
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
@@ -29,7 +30,8 @@
     "typecheck:app": "node scripts/typecheck-app.js",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "typecheck:gpu": "npm run typecheck --workspace=@prismgb/gpu",
-    "typecheck": "npm run typecheck:app && npm run typecheck:tests && npm run typecheck:gpu",
+    "typecheck:core": "npm run typecheck --workspace=@prismgb/core",
+    "typecheck": "npm run typecheck:app && npm run typecheck:tests && npm run typecheck:gpu && npm run typecheck:core",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -62,6 +64,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@prismgb/core": "*",
     "@prismgb/gpu": "*",
     "electron-updater": "^6.8.3",
     "eventemitter3": "^5.0.4",
@@ -92,6 +95,7 @@
     "husky": "^9.1.7",
     "png2icons": "^2.0.1",
     "sharp": "^0.34.5",
+    "turbo": "^2.9.16",
     "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vite-plugin-electron": "^0.29.1",

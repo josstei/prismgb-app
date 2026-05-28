@@ -71,3 +71,7 @@ scripts/*.log
 docs/superpowers/
 docs/maestro/
 .gemini/
+
+# Turborepo
+.turbo/
+

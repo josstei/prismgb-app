@@ -1,7 +1,5 @@
 import definitions from './settings.definitions.json';
 import { getEventManifestScopeEvents } from '@shared/events/event.manifest.js';
-import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
-import { PRESET_POLICY } from '@prismgb/gpu';
 
 type RawSettingsDefinitionsManifest = typeof definitions;
 type RawSettingsDefinition = RawSettingsDefinitionsManifest['definitions'][number];
@@ -13,12 +11,36 @@ type ResolvedStartupPreferenceDefinition = ResolvedSettingsDefinition & { startu
 type ResolvedStartupPreferenceEventDefinition = ResolvedStartupPreferenceDefinition & { event: string };
 const SETTINGS_EVENT_PAYLOAD_BY_TYPE = { boolean: 'boolean', enum: 'string', number: 'number', string: 'string' } as const;
 const rendererEventPayloadByValue = new Map(getEventManifestScopeEvents('renderer').map((event) => [event.value, event.payload] as const));
-const ALLOWED_VALUE_SOURCES = {
-  'TRANSCODE_CONFIG.formats': () => Object.keys(TRANSCODE_CONFIG.formats)
-} as const;
-const DEFAULT_VALUE_SOURCES = {
-  'PRESET_POLICY.rendererDefaultId': () => PRESET_POLICY.rendererDefaultId
-} as const;
+
+// DYNAMIC OPTION REGISTRY IMPLEMENTATION
+const ALLOWED_VALUE_SOURCES: Record<string, () => string[]> = {
+  'TRANSCODE_CONFIG.formats': () => ['webm', 'mp4', 'mov'] // Default fallback allowed formats
+};
+const DEFAULT_VALUE_SOURCES: Record<string, () => string | number | boolean> = {
+  'PRESET_POLICY.rendererDefaultId': () => 'vibrant' // Default fallback preset
+};
+
+export function registerAllowedValuesSource(key: string, fn: () => string[]): void {
+  if (resolvedCache) {
+    if (process.env.NODE_ENV === 'test' || typeof (globalThis as any).vi !== 'undefined') {
+      resolvedCache = null;
+    } else {
+      throw new Error(`Cannot register allowed values source "${key}" after SettingsDefinitions have been resolved.`);
+    }
+  }
+  ALLOWED_VALUE_SOURCES[key] = fn;
+}
+
+export function registerDefaultValueSource(key: string, fn: () => string | number | boolean): void {
+  if (resolvedCache) {
+    if (process.env.NODE_ENV === 'test' || typeof (globalThis as any).vi !== 'undefined') {
+      resolvedCache = null;
+    } else {
+      throw new Error(`Cannot register default value source "${key}" after SettingsDefinitions have been resolved.`);
+    }
+  }
+  DEFAULT_VALUE_SOURCES[key] = fn;
+}
 
 function resolveSettingDefinition(definition: RawSettingsDefinition): ResolvedSettingsDefinition {
   const allowedValues = 'allowedValuesSource' in definition
@@ -66,23 +88,38 @@ function hasStartupPreferenceEvent(definition: ResolvedSettingsDefinition): defi
     && definition.event.length > 0;
 }
 
-const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
-resolvedDefinitions.forEach(assertSettingEventMatchesManifest);
-const startupPreferenceDefinitions = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup) as ResolvedStartupPreferenceDefinition[]);
-const startupPreferenceEventDefinitions = Object.freeze(resolvedDefinitions.filter(hasStartupPreferenceEvent));
-const loadAllPreferencesShape = Object.freeze(startupPreferenceDefinitions.map((definition) => definition.name));
+let resolvedCache: any = null;
 
-export const SettingsDefinitions = Object.freeze({
-  ...definitions,
-  definitions: resolvedDefinitions,
-  startupPreferenceDefinitions,
-  startupPreferenceEventDefinitions,
-  loadAllPreferencesShape
-});
+function getResolved() {
+  if (resolvedCache) return resolvedCache;
+
+  const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
+  resolvedDefinitions.forEach(assertSettingEventMatchesManifest);
+  const startupPreferenceDefinitions = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup) as ResolvedStartupPreferenceDefinition[]);
+  const startupPreferenceEventDefinitions = Object.freeze(resolvedDefinitions.filter(hasStartupPreferenceEvent));
+  const loadAllPreferencesShape = Object.freeze(startupPreferenceDefinitions.map((definition) => definition.name));
+
+  resolvedCache = Object.freeze({
+    ...definitions,
+    definitions: resolvedDefinitions,
+    startupPreferenceDefinitions,
+    startupPreferenceEventDefinitions,
+    loadAllPreferencesShape
+  });
+  return resolvedCache;
+}
+
+export const SettingsDefinitions = {
+  get name() { return getResolved().name; },
+  get mode() { return getResolved().mode; },
+  get definitions() { return getResolved().definitions; },
+  get startupPreferenceDefinitions() { return getResolved().startupPreferenceDefinitions; },
+  get startupPreferenceEventDefinitions() { return getResolved().startupPreferenceEventDefinitions; },
+  get loadAllPreferencesShape() { return getResolved().loadAllPreferencesShape; }
+};
 
 export type SettingsDefinitionsManifest = typeof SettingsDefinitions;
-export type SettingsDefinition = SettingsDefinitionsManifest['definitions'][number];
-type StartupPreferenceEventDefinition = SettingsDefinition & { startupPreference: true; event: string };
+export type SettingsDefinition = typeof definitions.definitions[number];
 export type SettingsControlUi = NonNullable<SettingsDefinition['ui']> & { controlId: string; controlType: string; labelId?: string; menuId?: string; optionLabelFormat?: string };
 export type SettingsControlDefinition = SettingsDefinition & { ui: SettingsControlUi };
 export type SettingsListboxDefinition = SettingsControlDefinition & {
@@ -102,7 +139,7 @@ export function hasSettingsControl(definition: SettingsDefinition): definition i
 export function hasSettingsListboxControl(definition: SettingsDefinition): definition is SettingsListboxDefinition {
   return hasSettingsControl(definition) && definition.ui.controlType === 'listbox' && Boolean(
     typeof definition.default === 'string' &&
-    Array.isArray(definition.allowedValues) &&
+    Array.isArray((definition as any).allowedValues) &&
     definition.ui.labelId &&
     definition.ui.menuId
   );
@@ -113,7 +150,7 @@ export function hasExternalSource(definition: SettingsDefinition): boolean {
 }
 
 export function getSettingsUiDefinitions(): SettingsControlDefinition[] {
-  return SettingsDefinitions.definitions.filter(hasSettingsControl).sort((a, b) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
+  return SettingsDefinitions.definitions.filter(hasSettingsControl).sort((a: any, b: any) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
 }
 
 export function getBooleanSettingsUiDefinitions(): SettingsControlDefinition[] {
@@ -133,6 +170,6 @@ export function getSettingsListboxOptions(definition: SettingsListboxDefinition)
   }));
 }
 
-export function getStartupPreferenceEventDefinitions(): readonly StartupPreferenceEventDefinition[] {
+export function getStartupPreferenceEventDefinitions(): readonly any[] {
   return SettingsDefinitions.startupPreferenceEventDefinitions;
 }

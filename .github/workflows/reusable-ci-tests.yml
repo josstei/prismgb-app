@@ -39,6 +39,9 @@ jobs:
       - name: Build GPU package types
         run: npm run build --workspace=@prismgb/gpu
 
+      - name: Build Core package types
+        run: npm run build --workspace=@prismgb/core
+
       - name: Run typecheck
         run: npm run typecheck
 
@@ -75,6 +78,9 @@ jobs:
 
       - name: Build GPU package types
         run: npm run build --workspace=@prismgb/gpu
+
+      - name: Build Core package types
+        run: npm run build --workspace=@prismgb/core
 
       - name: Run typecheck
         run: npm run typecheck

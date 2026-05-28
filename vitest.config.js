@@ -14,7 +14,8 @@ const sharedAlias = {
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
   '@shared': path.resolve(__dirname, 'src/shared'),
-  '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+  '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
+  '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts')
 };
 
 const baseCoverageConfig = {

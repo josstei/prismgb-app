@@ -4,6 +4,10 @@ import { safeDispose } from '@shared/utils/safe-disposer.utils.js';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
 import type { LoggerLike } from '@shared/base/service.base.js';
+import { registerAllowedValuesSource, registerDefaultValueSource } from '@shared/features/settings/settings.definitions.js';
+import { TRANSCODE_CONFIG } from '@shared/features/transcode/transcode.config.js';
+import { PRESET_POLICY } from '@prismgb/gpu';
+import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 
 async function importWithRetry<T>(importFn: () => Promise<T>, maxRetries = 3, baseDelayMs = 300): Promise<T> {
   let lastError;
@@ -48,6 +52,16 @@ class RendererAppOrchestrator {
     this.logger.info('Initializing renderer application...');
 
     try {
+      // Register settings options dynamically before resolving definitions
+      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => Object.keys(TRANSCODE_CONFIG.formats));
+      registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
+
+      // Render templates into app container
+      const appContainer = document.getElementById('appContainer');
+      if (appContainer) {
+        renderAppShell(appContainer);
+      }
+
       const { initializeContainer } = await importWithRetry(
         () => import('./application/container')
       );

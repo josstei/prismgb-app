@@ -5,7 +5,6 @@
  * Manages transcode sessions, progress tracking, and cleanup.
  */
 
-import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { BaseService } from '@shared/base/service.base.js';
@@ -171,7 +170,15 @@ class TranscodeService extends BaseService {
       }
 
       // Determine output path (save directly to Downloads)
-      const downloadsDir = app.getPath('downloads');
+      const require = (await import('node:module')).createRequire(import.meta.url);
+      let downloadsDir: string;
+      try {
+        const { app } = require('electron');
+        downloadsDir = app.getPath('downloads');
+      } catch {
+        const os = require('node:os');
+        downloadsDir = path.join(os.homedir(), 'Downloads');
+      }
       const outputPath = path.join(downloadsDir, `${outputFilename}.${formatConfig.extension}`);
 
       // Create job record

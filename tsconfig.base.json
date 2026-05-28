@@ -41,6 +41,12 @@
       ],
       "@prismgb/gpu/*": [
         "./packages/prismgb-gpu/src/*"
+      ],
+      "@prismgb/core": [
+        "./packages/prismgb-core/src"
+      ],
+      "@prismgb/core/*": [
+        "./packages/prismgb-core/src/*"
       ]
     },
     "types": [

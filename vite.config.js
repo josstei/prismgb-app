@@ -156,6 +156,7 @@ export default defineConfig({
       '@preload': path.resolve(__dirname, 'src/preload'),
       '@shared': path.resolve(__dirname, 'src/shared'),
       '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
+      '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
       // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
       url: 'url/'
     }

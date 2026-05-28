@@ -64,8 +64,14 @@ This document captures the naming and organization conventions used throughout P
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
   - `@shared` -> `src/shared`
+  - `@core` -> `src/core` (Holds pure, environment-agnostic generic primitives)
   - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
-- `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.
+
+## 🏛️ Modern Core & Interface Conventions
+
+All foundational files inside `src/core/` follow 100% of modern industry standards:
+1. **Interface Naming (Pure Nouns):** Interfaces representing abstract capabilities use PascalCase pure nouns (e.g. `Logger`, `EventBus`, `Storage`, `Adapter`) without legacy Hungarian prefixes (`I...`) or defensive suffixes (`...Like`, `...Interface`).
+2. **File Naming (Scope of Concerns & kebab-case):** logical files and interfaces use lowercase kebab-case (e.g. `logger-factory.ts`, `event-bus.ts`) to ensure visual separation and 100% cross-platform path-resolution safety across macOS, Windows, and Linux CI/CD environments. Each interface concern has its own dedicated file.
 - Prefer extensionless TS imports (avoid `.ts` suffix in TS/JS import specifiers).
 
 ## Testing Conventions

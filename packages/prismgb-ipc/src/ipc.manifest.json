@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "mode": "enforced",
+  "namespaces": [
+    {
+      "namespace": "DEVICE",
+      "apiName": "deviceAPI",
+      "registryNamespace": "device",
+      "rendererBridge": {
+        "consumerFile": "src/renderer/infrastructure/adapters/devices/device-ipc.adapter.ts",
+        "bridgeName": "DeviceIpcAdapter",
+        "lifecycle": "add",
+        "eventChannels": {
+          "onDeviceConnected": { "scope": "renderer", "domain": "device", "name": "connected", "payload": "passthrough" },
+          "onDeviceDisconnected": { "scope": "renderer", "domain": "device", "name": "disconnected", "payload": "passthrough" }
+        }
+      },
+      "exposedMethods": ["getDeviceStatus", "onDeviceConnected", "onDeviceDisconnected"],
+      "invoke": [
+        { "method": "getDeviceStatus", "factoryMethod": "getDeviceStatus", "channelKey": "GET_STATUS", "channel": "device:get-status", "request": [], "response": "DeviceStatusPayload", "handler": { "dependencyTokens": ["deviceService", "logger"], "responseMode": "result-envelope" } }
+      ],
+      "subscriptions": [
+        {
+          "method": "onDeviceConnected",
+          "factoryMethod": "onDeviceConnected",
+          "channelKey": "CONNECTED",
+          "channel": "device:connected",
+          "payload": "DeviceInfoPayload",
+          "preload": { "payloadValidator": { "name": "device-info", "invalidPayloadLabel": "device info" } }
+        },
+        {
+          "method": "onDeviceDisconnected",
+          "factoryMethod": "onDeviceDisconnected",
+          "channelKey": "DISCONNECTED",
+          "channel": "device:disconnected",
+          "payload": "DeviceInfoPayload | null | undefined",
+          "preload": { "payloadValidator": { "name": "nullable-device-info", "invalidPayloadLabel": "device info" } }
+        }
+      ]
+    },
+    {
+      "namespace": "SHELL",
+      "apiName": "shellAPI",
+      "exposedMethods": ["openExternal"],
+      "invoke": [
+        { "method": "openExternal", "channelKey": "OPEN_EXTERNAL", "channel": "shell:open-external", "request": ["url:string"], "response": "ShellOpenExternalResponse", "handler": { "dependencyTokens": ["shell", "logger"], "responseMode": "result-envelope" }, "securityPolicy": "validated-external-url", "preload": { "argumentValidators": [{ "name": "external-url", "invalidMessage": "shellAPI.openExternal: Invalid URL provided", "fallback": { "success": false, "error": "Invalid URL" } }] } }
+      ]
+    },
+    {
+      "namespace": "WINDOW",
+      "apiName": "windowAPI",
+      "registryNamespace": "window",
+      "rendererBridge": {
+        "consumerFile": "src/renderer/infrastructure/services/settings/fullscreen.service.ts",
+        "bridgeName": "SettingsFullscreenService",
+        "lifecycle": "replace",
+        "lifecycleKey": "settingsFullscreenPreloadBridgeLifecycle",
+        "eventChannels": {
+          "onResized": { "scope": "renderer", "domain": "ui", "name": "window-resized", "payload": "none" }
+        }
+      },
+      "exposedMethods": ["onEnterFullscreen", "onLeaveFullscreen", "onResized", "setFullScreen", "isFullScreen"],
+      "invoke": [
+        {
+          "method": "setFullScreen",
+          "channelKey": "SET_FULLSCREEN",
+          "channel": "window:set-fullscreen",
+          "request": ["enabled:boolean"],
+          "response": "WindowSetFullscreenResponse",
+          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "result-envelope" }
+        },
+        {
+          "method": "isFullScreen",
+          "channelKey": "IS_FULLSCREEN",
+          "channel": "window:is-fullscreen",
+          "request": [],
+          "response": "WindowIsFullscreenResponse",
+          "handler": { "dependencyTokens": ["windowService", "logger"], "responseMode": "result-envelope" }
+        }
+      ],
+      "subscriptions": [
+        {
+          "method": "onEnterFullscreen",
+          "channelKey": "ENTER_FULLSCREEN",
+          "channel": "window:enter-fullscreen",
+          "payload": "void"
+        },
+        {
+          "method": "onLeaveFullscreen",
+          "channelKey": "LEAVE_FULLSCREEN",
+          "channel": "window:leave-fullscreen",
+          "payload": "void"
+        },
+        {
+          "method": "onResized",
+          "channelKey": "RESIZED",
+          "channel": "window:resized",
+          "payload": "void"
+        }
+      ]
+    },
+    {
+      "namespace": "UPDATE",
+      "apiName": "updateAPI",
+      "registryNamespace": "update",
+      "rendererBridge": {
+        "consumerFile": "src/renderer/infrastructure/services/updates/update.service.ts",
+        "bridgeName": "UpdateService",
+        "lifecycle": "replace",
+        "lifecycleKey": "updatePreloadBridgeLifecycle",
+        "eventChannels": {
+          "onAvailable": { "scope": "renderer", "domain": "update", "name": "available", "payload": "passthrough" },
+          "onNotAvailable": { "scope": "renderer", "domain": "update", "name": "not-available", "payload": "passthrough" },
+          "onProgress": { "scope": "renderer", "domain": "update", "name": "progress", "payload": "passthrough" },
+          "onDownloaded": { "scope": "renderer", "domain": "update", "name": "downloaded", "payload": "passthrough" },
+          "onError": { "scope": "renderer", "domain": "update", "name": "error", "payload": "passthrough" }
+        }
+      },
+      "exposedMethods": ["getStatus", "checkForUpdates", "downloadUpdate", "installUpdate", "onAvailable", "onNotAvailable", "onProgress", "onDownloaded", "onError"],
+      "invoke": [
+        {
+          "method": "getStatus",
+          "channelKey": "GET_STATUS",
+          "channel": "update:get-status",
+          "request": [],
+          "response": "UpdateGetStatusResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
+        },
+        {
+          "method": "checkForUpdates",
+          "channelKey": "CHECK",
+          "channel": "update:check",
+          "request": [],
+          "response": "UpdateCheckResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
+        },
+        {
+          "method": "downloadUpdate",
+          "channelKey": "DOWNLOAD",
+          "channel": "update:download",
+          "request": [],
+          "response": "UpdateDownloadResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
+        },
+        {
+          "method": "installUpdate",
+          "channelKey": "INSTALL",
+          "channel": "update:install",
+          "request": [],
+          "response": "UpdateInstallResponse",
+          "handler": { "dependencyTokens": ["updateService", "logger"], "responseMode": "result-envelope" }
+        }
+      ],
+      "subscriptions": [
+        {
+          "method": "onAvailable",
+          "channelKey": "AVAILABLE",
+          "channel": "update:available",
+          "payload": "UpdateInfoPayload",
+          "preload": { "payloadValidator": { "name": "update-info", "invalidPayloadLabel": "update info" } }
+        },
+        {
+          "method": "onNotAvailable",
+          "channelKey": "NOT_AVAILABLE",
+          "channel": "update:not-available",
+          "payload": "UpdateInfoPayload",
+          "preload": { "payloadValidator": { "name": "update-info", "invalidPayloadLabel": "update info" } }
+        },
+        {
+          "method": "onProgress",
+          "channelKey": "PROGRESS",
+          "channel": "update:progress",
+          "payload": "UpdateProgressPayload",
+          "preload": { "payloadValidator": { "name": "update-progress", "invalidPayloadLabel": "progress" } }
+        },
+        {
+          "method": "onDownloaded",
+          "channelKey": "DOWNLOADED",
+          "channel": "update:downloaded",
+          "payload": "UpdateInfoPayload",
+          "preload": { "payloadValidator": { "name": "update-info", "invalidPayloadLabel": "update info" } }
+        },
+        {
+          "method": "onError",
+          "channelKey": "ERROR",
+          "channel": "update:error",
+          "payload": "UpdateErrorPayload",
+          "preload": { "payloadValidator": { "name": "update-error", "invalidPayloadLabel": "error" } }
+        }
+      ]
+    },
+    {
+      "namespace": "PERFORMANCE",
+      "apiName": "metricsAPI",
+      "exposedMethods": ["getProcessMetrics"],
+      "invoke": [
+        { "method": "getProcessMetrics", "channelKey": "GET_METRICS", "channel": "performance:get-metrics", "request": [], "response": "ProcessMetricsResponse", "handler": { "dependencyTokens": ["app", "logger"], "responseMode": "result-envelope" } }
+      ]
+    },
+    {
+      "namespace": "GPU",
+      "apiName": "gpuAPI",
+      "exposedMethods": ["getPolicy"],
+      "invoke": [
+        { "method": "getPolicy", "channelKey": "GET_POLICY", "channel": "gpu:get-policy", "request": [], "response": "GpuPolicyPayload", "handler": { "dependencyTokens": ["logger"], "responseMode": "result-envelope" }, "preload": { "responsePolicy": { "name": "gpu-policy", "failureMessage": "gpuAPI.getPolicy: Failed to get policy:", "invalidMessage": "gpuAPI.getPolicy: Invalid policy received", "fallback": { "skipWebGPU": false, "reason": null } } } }
+      ]
+    },
+    {
+      "namespace": "LOGIN_ITEM",
+      "apiName": "loginItemAPI",
+      "exposedMethods": ["get", "set"],
+      "invoke": [
+        { "method": "get", "channelKey": "GET", "channel": "login-item:get", "request": [], "response": "LoginItemGetResponse", "handler": { "dependencyTokens": ["loginItemService"], "responseMode": "result-envelope" }, "preload": { "responsePolicy": { "name": "catch-fallback", "fallback": false } } },
+        { "method": "set", "channelKey": "SET", "channel": "login-item:set", "request": ["enabled:boolean"], "response": "LoginItemSetResponse", "handler": { "dependencyTokens": ["loginItemService", "logger"], "responseMode": "result-envelope" }, "preload": { "argumentValidators": [{ "name": "boolean-argument", "invalidMessage": "loginItemAPI.set: Invalid parameter - expected boolean", "fallback": { "success": false, "error": "Invalid parameter" } }] } }
+      ]
+    },
+    {
+      "namespace": "TRANSCODE",
+      "apiName": "transcodeAPI",
+      "registryNamespace": "transcode",
+      "rendererBridge": {
+        "consumerFile": "src/renderer/infrastructure/services/transcode/transcode.service.ts",
+        "bridgeName": "TranscodeService",
+        "lifecycle": "replace",
+        "lifecycleKey": "transcodePreloadBridgeLifecycle",
+        "eventChannels": {
+          "onProgress": { "scope": "renderer", "domain": "transcode", "name": "progress", "payload": "passthrough" },
+          "onCompleted": { "scope": "renderer", "domain": "transcode", "name": "completed", "payload": "passthrough" },
+          "onError": { "scope": "renderer", "domain": "transcode", "name": "error", "payload": "passthrough" },
+          "onCancelled": { "scope": "renderer", "domain": "transcode", "name": "cancelled", "payload": "passthrough" }
+        }
+      },
+      "exposedMethods": ["start", "cancel", "getStatus", "onProgress", "onCompleted", "onError", "onCancelled"],
+      "invoke": [
+        {
+          "method": "start",
+          "channelKey": "START",
+          "channel": "transcode:start",
+          "request": ["options:object"],
+          "parameters": [
+            "inputBuffer:ArrayBuffer",
+            "format:TranscodeFormat",
+            "outputFilename?:string",
+            "options?:TranscodeStartOptions"
+          ],
+          "response": "TranscodeStartResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" },
+          "preload": { "argumentValidators": [{ "name": "transcode-start-params", "invalidMessage": "transcodeAPI.start: Invalid parameters provided", "fallback": { "success": false, "error": "Invalid parameters" } }, { "name": "ffmpeg-input-args", "invalidMessage": "transcodeAPI.start: Invalid input arguments provided", "fallback": { "success": false, "error": "Invalid input arguments" } }] }
+        },
+        {
+          "method": "cancel",
+          "channelKey": "CANCEL",
+          "channel": "transcode:cancel",
+          "request": ["options:object"],
+          "parameters": ["jobId:string"],
+          "response": "TranscodeCancelResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" },
+          "preload": { "argumentValidators": [{ "name": "transcode-job-id", "invalidMessage": "transcodeAPI.cancel: Invalid jobId provided", "fallback": { "success": false, "error": "Invalid jobId" } }] }
+        },
+        {
+          "method": "getStatus",
+          "channelKey": "GET_STATUS",
+          "channel": "transcode:get-status",
+          "request": [],
+          "response": "TranscodeStatusResponse",
+          "handler": { "dependencyTokens": ["transcodeService", "logger"], "responseMode": "result-envelope" }
+        }
+      ],
+      "subscriptions": [
+        {
+          "method": "onProgress",
+          "channelKey": "PROGRESS",
+          "channel": "transcode:progress",
+          "payload": "TranscodeProgressPayload",
+          "preload": { "payloadValidator": { "name": "transcode-progress", "invalidPayloadLabel": "progress" } }
+        },
+        {
+          "method": "onCompleted",
+          "channelKey": "COMPLETED",
+          "channel": "transcode:completed",
+          "payload": "TranscodeCompletedPayload",
+          "preload": { "payloadValidator": { "name": "transcode-completed", "invalidPayloadLabel": "result" } }
+        },
+        {
+          "method": "onError",
+          "channelKey": "ERROR",
+          "channel": "transcode:error",
+          "payload": "TranscodeErrorPayload",
+          "preload": { "payloadValidator": { "name": "transcode-error", "invalidPayloadLabel": "error" } }
+        },
+        {
+          "method": "onCancelled",
+          "channelKey": "CANCELLED",
+          "channel": "transcode:cancelled",
+          "payload": "TranscodeCancelledPayload",
+          "preload": { "payloadValidator": { "name": "transcode-cancelled", "invalidPayloadLabel": "data" } }
+        }
+      ]
+    }
+  ]
+}

@@ -3,9 +3,7 @@ import { BaseService } from '@shared/base/service.base.js';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 import type { StorageServiceLike } from '@shared/interfaces/infrastructure.types.js';
 
-const SETTING_DEFINITIONS = SettingsDefinitions.definitions;
-
-type SettingDefinition = (typeof SETTING_DEFINITIONS)[number];
+type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
 type SettingDefaultValue = string | number | boolean;
 type SettingValue = SettingDefaultValue;
 type SettingResult = SettingValue | Promise<SettingValue>;
@@ -25,8 +23,8 @@ interface SettingsServiceDependencies {
   storageService: StorageServiceLike;
 }
 
-function createDefinitionMap(): Map<string, SettingDefinition> {
-  return new Map(SETTING_DEFINITIONS.map((definition) => [definition.name, definition]));
+function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<string, SettingDefinition> {
+  return new Map(definitions.map((definition: any) => [definition.name, definition]));
 }
 
 function getAllowedValues(definition: SettingDefinition): string[] {
@@ -48,8 +46,8 @@ class SettingsService extends BaseService {
 
     this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;
-    this.settingDefinitions = SETTING_DEFINITIONS;
-    this.settingDefinitionMap = createDefinitionMap();
+    this.settingDefinitions = SettingsDefinitions.definitions;
+    this.settingDefinitionMap = createDefinitionMap(this.settingDefinitions);
   }
 
   listSettings(): string[] {
@@ -266,11 +264,11 @@ class SettingsService extends BaseService {
    */
   loadAllPreferences() {
     const preferences = Object.fromEntries(
-      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this._getSynchronousSetting(name)])
+      SettingsDefinitions.loadAllPreferencesShape.map((name: string) => [name, this._getSynchronousSetting(name)])
     );
 
     const summary = SettingsDefinitions.loadAllPreferencesShape
-      .map((name) => `${name}: ${String(preferences[name])}`)
+      .map((name: string) => `${name}: ${String(preferences[name])}`)
       .join(', ');
     this.logger.info(`Loaded preferences - ${summary}`);
 

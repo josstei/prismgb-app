@@ -25,6 +25,10 @@ vi.mock('@renderer/application/container.ts', async () => {
   };
 });
 
+vi.mock('@renderer/presentation/shell/app-shell.renderer.js', () => ({
+  renderAppShell: vi.fn()
+}));
+
 const { RendererAppOrchestrator } = await import('@renderer/renderer-app.orchestrator.js');
 
 describe('RendererAppOrchestrator', () => {

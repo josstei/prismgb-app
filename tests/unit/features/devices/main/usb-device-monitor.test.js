@@ -26,6 +26,8 @@ vi.mock('usb', () => {
 });
 
 import { getDeviceList, usb } from 'usb';
+globalThis.__usbMock = { getDeviceList, usb };
+
 import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,

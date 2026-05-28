@@ -1,4 +1,41 @@
-import { getDeviceList, usb, type Device as NodeUsbDevice } from 'usb';
+import type { Device as NodeUsbDevice } from 'usb';
+import * as nodeModule from 'module';
+
+let nodeUsbLib: any = null;
+function getUsbLib() {
+  if (nodeUsbLib !== null) return nodeUsbLib;
+
+  // 0. Try global mock hook (used for test environments like Vitest/Happy DOM)
+  if ((globalThis as any).__usbMock) {
+    nodeUsbLib = (globalThis as any).__usbMock;
+    return nodeUsbLib;
+  }
+
+  // 1. Try global require (e.g. in CJS or test environments where require is globally mocked)
+  try {
+    if (typeof require === 'function') {
+      nodeUsbLib = require('usb');
+      if (nodeUsbLib) return nodeUsbLib;
+    }
+  } catch {
+    // proceed
+  }
+
+  // 2. Try Node.js standard createRequire
+  try {
+    if (nodeModule && typeof nodeModule.createRequire === 'function') {
+      const req = nodeModule.createRequire(import.meta.url);
+      nodeUsbLib = req('usb');
+      if (nodeUsbLib) return nodeUsbLib;
+    }
+  } catch {
+    // proceed
+  }
+
+  console.warn('[usb-device-monitor] Failed to load native C++ "usb" module. Falling back to mock monitor.');
+  nodeUsbLib = false;
+  return nodeUsbLib;
+}
 
 type UsbDeviceEvent = 'add' | 'remove';
 
@@ -57,9 +94,10 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
   }
 
   startMonitoring(): void {
-    // Hotplug listeners are registered lazily by node-usb. Unref keeps monitoring
-    // from pinning the Electron process open after the app requests shutdown.
-    usb.unrefHotplugEvents?.();
+    const usb = getUsbLib();
+    if (usb && usb.usb) {
+      usb.usb.unrefHotplugEvents?.();
+    }
   }
 
   stopMonitoring(): void {
@@ -71,6 +109,9 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
   }
 
   on(event: UsbDeviceEvent, callback: (device: UsbDeviceInfo) => void): void {
+    const usb = getUsbLib();
+    if (!usb || !usb.usb) return;
+
     const callbacks = this.listeners.get(event);
     if (!callbacks || callbacks.has(callback)) {
       return;
@@ -78,23 +119,28 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
 
     const listener = (device: NodeUsbDevice) => callback(toUsbDeviceInfo(device));
     callbacks.set(callback, listener);
-    usb.on(EVENT_MAP[event], listener);
-    usb.unrefHotplugEvents?.();
+    usb.usb.on(EVENT_MAP[event], listener);
+    usb.usb.unrefHotplugEvents?.();
   }
 
   off(event: UsbDeviceEvent, callback: (device: UsbDeviceInfo) => void): void {
+    const usb = getUsbLib();
+    if (!usb || !usb.usb) return;
+
     const callbacks = this.listeners.get(event);
     const listener = callbacks?.get(callback);
     if (!callbacks || !listener) {
       return;
     }
 
-    usb.off(EVENT_MAP[event], listener);
+    usb.usb.off(EVENT_MAP[event], listener);
     callbacks.delete(callback);
   }
 
   find(): UsbDeviceInfo[] {
-    return getDeviceList().map(toUsbDeviceInfo);
+    const usb = getUsbLib();
+    if (!usb) return [];
+    return usb.getDeviceList().map(toUsbDeviceInfo);
   }
 }
 
@@ -113,6 +159,10 @@ class NoopUsbDeviceMonitor implements UsbDeviceMonitor {
 }
 
 function createNodeUsbDeviceMonitor(): UsbDeviceMonitor {
+  const usb = getUsbLib();
+  if (!usb) {
+    return new NoopUsbDeviceMonitor();
+  }
   return new NodeUsbDeviceMonitor();
 }
 

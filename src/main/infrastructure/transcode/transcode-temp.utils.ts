@@ -5,7 +5,6 @@
  * Handles creation, writing, and cleanup of temp sessions.
  */
 
-import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
@@ -42,8 +41,19 @@ function generateSessionId(): string {
  * Get the base temp directory for transcode operations
  * @returns Path to temp directory
  */
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+
 function getTempBaseDir(): string {
-  return path.join(app.getPath('temp'), 'prismgb-transcode');
+  let tempDir: string;
+  try {
+    const { app } = require('electron');
+    tempDir = app.getPath('temp');
+  } catch {
+    const os = require('node:os');
+    tempDir = os.tmpdir();
+  }
+  return path.join(tempDir, 'prismgb-transcode');
 }
 
 /**
