@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MockDevice State Machine
  *

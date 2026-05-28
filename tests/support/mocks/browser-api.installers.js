@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { vi } from 'vitest';
 import { createCleanupStack, installTargetProperty } from './runtime-property.installers.js';
 

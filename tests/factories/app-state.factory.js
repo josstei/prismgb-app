@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AppState Factory
  *
