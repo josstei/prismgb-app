@@ -168,3 +168,27 @@ describe('performance.factory.js', () => {
     expect(Barrel[name]).toBe(PerformanceFactory[name]);
   });
 });
+
+import * as DeviceFactory from '../../factories/device.factory.js';
+
+describe('device.factory.js extensions', () => {
+  const expected = [
+    'createDeviceServiceMock',
+    'createProfileRegistryMock',
+    'createDeviceStatusProviderMock',
+    'createDeviceStatusMock',
+    'createDeviceChangeDebounceAdapterMock',
+    'createDeviceStatusComponentMock',
+    'createIpcClientMock',
+    'createDeviceIpcAdapterMock',
+    'createDeviceOperationSequencerMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(DeviceFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(DeviceFactory[name]);
+  });
+});

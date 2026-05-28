@@ -355,6 +355,135 @@ export function createAdapterFactory(options = {}) {
   return factory;
 }
 
+/**
+ * @typedef {import('@renderer/infrastructure/services/devices/device.service').DeviceService} DeviceService
+ */
+
+/**
+ * Creates a mock DeviceService.
+ *
+ * @param {Partial<import('vitest').Mocked<DeviceService>>} [overrides={}] - Mock overrides.
+ * @returns {import('vitest').Mocked<DeviceService>} A strongly-typed mock DeviceService.
+ */
+export function createDeviceServiceMock(overrides = {}) {
+  return /** @type {any} */ ({
+    getStatus: vi.fn(() => ({ connected: false })),
+    ...overrides
+  });
+}
+
+export function createProfileRegistryMock(overrides = {}) {
+  return {
+    registerProfile: vi.fn(),
+    setDefaultProfile: vi.fn(),
+    detectDevice: vi.fn(() => ({ matched: false, profile: null })),
+    ...overrides
+  };
+}
+
+export function createDeviceStatusProviderMock(overrides = {}) {
+  return {
+    getDeviceStatus: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createDeviceStatusMock(overrides = {}) {
+  return {
+    connected: false,
+    deviceId: null,
+    ...overrides
+  };
+}
+
+export function createDeviceChangeDebounceAdapterMock(overrides = {}) {
+  let callback;
+  let suppressedCount = 0;
+  let subscribed = false;
+
+  const adapter = {
+    subscribe: vi.fn((nextCallback) => {
+      callback = nextCallback;
+      subscribed = true;
+      return vi.fn(() => {
+        callback = undefined;
+        subscribed = false;
+      });
+    }),
+    unsubscribe: vi.fn(() => {
+      callback = undefined;
+      subscribed = false;
+    }),
+    isSubscribed: vi.fn(() => subscribed),
+    getSuppressedCount: vi.fn(() => suppressedCount),
+    _setSuppressedCount: vi.fn((value) => {
+      suppressedCount = value;
+    }),
+    ...overrides
+  };
+
+  Object.defineProperty(adapter, '_callback', {
+    enumerable: true,
+    get: () => callback,
+    set: (value) => {
+      callback = value;
+    },
+  });
+
+  return adapter;
+}
+
+export function createDeviceStatusComponentMock(overrides = {}) {
+  return {
+    updateStatus: vi.fn(),
+    updateOverlayMessage: vi.fn(),
+    showError: vi.fn(),
+    setOverlayVisible: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createIpcClientMock(overrides = {}) {
+  return {
+    getDeviceStatus: vi.fn(),
+    ...overrides
+  };
+}
+
+export function createDeviceIpcAdapterMock(overrides = {}) {
+  return {
+    subscribe: vi.fn(() => vi.fn()),
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
+/**
+ * @typedef {import('@renderer/infrastructure/services/devices/device-operation-sequencer.service').DeviceOperationSequencerService} DeviceOperationSequencerService
+ */
+
+/**
+ * Creates a mock DeviceOperationSequencer.
+ *
+ * @param {Partial<import('vitest').Mocked<DeviceOperationSequencerService>>} [overrides={}] - Mock overrides.
+ * @returns {import('vitest').Mocked<DeviceOperationSequencerService>} A strongly-typed mock DeviceOperationSequencer.
+ */
+export function createDeviceOperationSequencerMock(overrides = {}) {
+  return /** @type {any} */ ({
+    queueConnected: vi.fn().mockResolvedValue(undefined),
+    queueDisconnected: vi.fn().mockImplementation((callback) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+      return Promise.resolve();
+    }),
+    queueRefresh: vi.fn().mockResolvedValue(undefined),
+    flush: vi.fn().mockResolvedValue(undefined),
+    getQueueDepth: vi.fn().mockReturnValue(0),
+    ...overrides
+  });
+}
+
 export default {
   createDeviceInfo,
   createVideoTrack,
@@ -363,4 +492,13 @@ export default {
   createDeviceService,
   createAdapterFactory,
   AdapterState,
+  createDeviceServiceMock,
+  createProfileRegistryMock,
+  createDeviceStatusProviderMock,
+  createDeviceStatusMock,
+  createDeviceChangeDebounceAdapterMock,
+  createDeviceStatusComponentMock,
+  createIpcClientMock,
+  createDeviceIpcAdapterMock,
+  createDeviceOperationSequencerMock,
 };

@@ -10,7 +10,8 @@ import { createAppState } from './app-state.factory.js';
 import {
   createDeviceInfo,
   createDeviceService,
-  createAdapterFactory
+  createAdapterFactory,
+  createDeviceServiceMock
 } from './device.factory.js';
 import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
@@ -56,6 +57,15 @@ export {
   createDeviceService,
   createAdapterFactory,
   AdapterState,
+  createDeviceServiceMock,
+  createProfileRegistryMock,
+  createDeviceStatusProviderMock,
+  createDeviceStatusMock,
+  createDeviceChangeDebounceAdapterMock,
+  createDeviceStatusComponentMock,
+  createIpcClientMock,
+  createDeviceIpcAdapterMock,
+  createDeviceOperationSequencerMock,
 } from './device.factory.js';
 
 // Stream factories
@@ -73,28 +83,6 @@ export {
 } from './storage.factory.js';
 
 
-export function createDeviceServiceMock(overrides = {}) {
-  return {
-    getStatus: vi.fn(() => ({ connected: false })),
-    ...overrides
-  };
-}
-
-export function createProfileRegistryMock(overrides = {}) {
-  return {
-    registerProfile: vi.fn(),
-    setDefaultProfile: vi.fn(),
-    detectDevice: vi.fn(() => ({ matched: false, profile: null })),
-    ...overrides
-  };
-}
-
-export function createDeviceStatusProviderMock(overrides = {}) {
-  return {
-    getDeviceStatus: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createStreamPayloadMock(overrides = {}) {
   const {
@@ -434,50 +422,6 @@ export function createStreamCapabilitiesMock(overrides = {}) {
 }
 
 
-export function createDeviceStatusMock(overrides = {}) {
-  return {
-    connected: false,
-    deviceId: null,
-    ...overrides
-  };
-}
-
-export function createDeviceChangeDebounceAdapterMock(overrides = {}) {
-  let callback;
-  let suppressedCount = 0;
-  let subscribed = false;
-
-  const adapter = {
-    subscribe: vi.fn((nextCallback) => {
-      callback = nextCallback;
-      subscribed = true;
-      return vi.fn(() => {
-        callback = undefined;
-        subscribed = false;
-      });
-    }),
-    unsubscribe: vi.fn(() => {
-      callback = undefined;
-      subscribed = false;
-    }),
-    isSubscribed: vi.fn(() => subscribed),
-    getSuppressedCount: vi.fn(() => suppressedCount),
-    _setSuppressedCount: vi.fn((value) => {
-      suppressedCount = value;
-    }),
-    ...overrides
-  };
-
-  Object.defineProperty(adapter, '_callback', {
-    enumerable: true,
-    get: () => callback,
-    set: (value) => {
-      callback = value;
-    },
-  });
-
-  return adapter;
-}
 
 
 
@@ -1109,36 +1053,6 @@ export function createStreamingAdapterRegistryMock(overrides = {}) {
   return registry;
 }
 
-export function createIpcClientMock(overrides = {}) {
-  return {
-    getDeviceStatus: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createDeviceIpcAdapterMock(overrides = {}) {
-  return {
-    subscribe: vi.fn(() => vi.fn()),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createDeviceOperationSequencerMock(overrides = {}) {
-  return {
-    queueConnected: vi.fn().mockResolvedValue(undefined),
-    queueDisconnected: vi.fn().mockImplementation((callback) => {
-      if (typeof callback === 'function') {
-        callback();
-      }
-      return Promise.resolve();
-    }),
-    queueRefresh: vi.fn().mockResolvedValue(undefined),
-    flush: vi.fn().mockResolvedValue(undefined),
-    getQueueDepth: vi.fn().mockReturnValue(0),
-    ...overrides
-  };
-}
 
 export function createUIEventBridgeControllerMock(overrides = {}) {
   const { deviceStatus, ...componentOverrides } = overrides;
@@ -1180,15 +1094,6 @@ export function createStatusNotificationComponentMock(overrides = {}) {
   };
 }
 
-export function createDeviceStatusComponentMock(overrides = {}) {
-  return {
-    updateStatus: vi.fn(),
-    updateOverlayMessage: vi.fn(),
-    showError: vi.fn(),
-    setOverlayVisible: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createStreamControlsComponentMock(overrides = {}) {
   return {
