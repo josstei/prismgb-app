@@ -333,3 +333,22 @@ describe('orchestrator.factory.js', () => {
     expect(Barrel[name]).toBe(OrchestratorFactory[name]);
   });
 });
+
+import * as DependenciesFactory from '../../factories/dependencies.factory.js';
+
+describe('dependencies.factory.js', () => {
+  const expected = [
+    'createStreamingServiceDependencies',
+    'createMockDependencies',
+    'createStreamingDependencies',
+    'createCaptureDependencies',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(DependenciesFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(DependenciesFactory[name]);
+  });
+});

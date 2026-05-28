@@ -6,35 +6,41 @@
  * Use these factories instead of inline mocks for consistency.
  */
 
-import { createAppState } from './app-state.factory.js';
-import {
-  createDeviceInfo,
-  createDeviceService,
-  createAdapterFactory,
-  createDeviceServiceMock
-} from './device.factory.js';
-import { createEventBus } from './event-bus.factory.js';
-import { createLoggerFactory } from './logger.factory.js';
-import { createMockCanvas, createMockVideo, createStreamingService } from './stream.factory.js';
-import { createStorageService } from './storage.factory.js';
-import { createUIController } from './ui.factory.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service.ts';
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
-import { vi } from 'vitest';
-
 // EventBus factories
 export {
   createEventBus,
   createContractValidatingEventBus,
 } from './event-bus.factory.js';
 
+// UI factories
 export {
   createDeviceStatusElementsMock,
   createNotesPanelElementsMock,
   createShaderSelectorElementsMock,
   createSettingsMenuElementsMock,
   createStatusNotificationElementsMock,
-  createTranscodeToastElementsMock
+  createTranscodeToastElementsMock,
+  createMockElement,
+  createMockButton,
+  createMockInput,
+  createUIController,
+  createCaptureEffects,
+  createButtonFeedback,
+  createUISetupControllerMock,
+  createPresentationModeControllerMock,
+  createUIEventBridgeControllerMock,
+  createStatusNotificationComponentMock,
+  createStreamControlsComponentMock,
+  createSettingsMenuComponentMock,
+  createUIComponentMock,
+  createShaderSelectorComponentMock,
+  createUIComponentRegistryMock,
+  createUIEffectsMock,
+  createUIBodyClassManagerMock,
+  createAnimationCacheMock,
+  createUIEffectsElementsMock,
+  createStreamingControlsElementsMock,
+  createUIControllerElementsMock,
 } from './ui.factory.js';
 
 // Logger factories
@@ -93,56 +99,11 @@ export {
   createStorageService,
 } from './storage.factory.js';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Orchestrator factories
 export {
   createOrchestratorMock,
   createRendererAppContainerMock,
 } from './orchestrator.factory.js';
-
-
-
-
-
-
-
-
-
-export function createStreamingServiceDependencies(overrides = {}) {
-  return {
-    deviceService: createDeviceServiceMock(),
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
-    adapterFactory: createAdapterFactory(),
-    ipcClient: {},
-    ...overrides
-  };
-}
-
-
 
 // AppState factories
 export {
@@ -151,31 +112,6 @@ export {
   createRecordingAppState,
   DEFAULT_STATE,
 } from './app-state.factory.js';
-
-// UI factories
-export {
-  createMockElement,
-  createMockButton,
-  createMockInput,
-  createUIController,
-  createCaptureEffects,
-  createButtonFeedback,
-  createUISetupControllerMock,
-  createPresentationModeControllerMock,
-  createUIEventBridgeControllerMock,
-  createStatusNotificationComponentMock,
-  createStreamControlsComponentMock,
-  createSettingsMenuComponentMock,
-  createUIComponentMock,
-  createShaderSelectorComponentMock,
-  createUIComponentRegistryMock,
-  createUIEffectsMock,
-  createUIBodyClassManagerMock,
-  createAnimationCacheMock,
-  createUIEffectsElementsMock,
-  createStreamingControlsElementsMock,
-  createUIControllerElementsMock,
-} from './ui.factory.js';
 
 export {
   CHROMATIC_SPECS,
@@ -292,40 +228,10 @@ export {
   createCanvasLifecycleServiceMock,
 } from './streaming-pipeline.factory.js';
 
-/**
- * Creates all standard dependencies for testing orchestrators/services
- * @param {Object} overrides - Override specific dependencies
- * @returns {Object} All mock dependencies
- */
-export function createMockDependencies(overrides = {}) {
-  return {
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
-    appState: createAppState(),
-    uiController: createUIController(),
-    streamingService: createStreamingService(),
-    deviceService: createDeviceService(),
-    adapterFactory: createAdapterFactory(),
-    ...overrides,
-  };
-}
-
-/**
- * Creates dependencies suitable for streaming tests
- */
-export function createStreamingDependencies(overrides = {}) {
-  const deps = createMockDependencies();
-  deps.appState._forceSet('deviceConnected', true);
-  deps.appState._forceSet('selectedDeviceId', 'mock-chromatic-device');
-  return { ...deps, ...overrides };
-}
-
-/**
- * Creates dependencies suitable for capture tests
- */
-export function createCaptureDependencies(overrides = {}) {
-  const deps = createMockDependencies();
-  deps.appState._forceSet('isStreaming', true);
-  deps.appState._forceSet('deviceConnected', true);
-  return { ...deps, ...overrides };
-}
+// Dependency factories
+export {
+  createStreamingServiceDependencies,
+  createMockDependencies,
+  createStreamingDependencies,
+  createCaptureDependencies,
+} from './dependencies.factory.js';
