@@ -54,3 +54,33 @@ describe('factory barrel parity', () => {
     expect(Barrel[name]).toBeDefined();
   });
 });
+
+import * as SystemFactory from '../../factories/system.factory.js';
+
+describe('system.factory.js', () => {
+  const expected = [
+    'createDisposableMock',
+    'createContextBridgeMock',
+    'createProcessMetricsApiMock',
+    'createOffscreenCanvasElementMock',
+    'createCallbackMap',
+    'createPreloadEventApiMock',
+    'createMediaQueryListMock',
+    'createCanvasRenderingContextMock',
+    'createBitmapMock',
+    'createPreventDefaultEventMock',
+    'createDomEventMock',
+    'createWinstonLoggerMock',
+    'createWinstonRootLoggerMock',
+    'createShellServiceMock',
+    'createLoginItemServiceMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(SystemFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(SystemFactory[name]);
+  });
+});
