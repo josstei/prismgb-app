@@ -1,13 +1,13 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@prismgb/events';
-import { NotesListViewComponent } from './components/notes-list-view.component.js';
-import { NotesEditorViewComponent } from './components/notes-editor-view.component.js';
-import { NotesSearchComponent } from './components/notes-search.component.js';
-import { GameFilterComponent } from './components/game-filter.component.js';
-import { GameAutocompleteComponent } from './components/game-autocomplete.component.js';
-import { NotesResizeHandlerComponent } from './components/notes-resize-handler.component.js';
-import { NotesPanelLayoutComponent } from './components/notes-panel-layout.component.js';
+import { NotesListViewComponent } from './notes-list-view.component.js';
+import { NotesEditorViewComponent } from './notes-editor-view.component.js';
+import { NotesSearchComponent } from './notes-search.component.js';
+import { GameFilterComponent } from './game-filter.component.js';
+import { GameAutocompleteComponent } from './game-autocomplete.component.js';
+import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
+import { NotesPanelLayoutComponent } from './notes-panel-layout.component.js';
 import type { LoggerLike } from '@prismgb/core';
 
 const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
@@ -215,17 +215,17 @@ class NotesPanelComponent extends PresentationComponent {
     const elements = this.elements!;
     this.searchComponent!.initialize({
       searchInput: elements.notesSearchInput,
-      onSearch: (query) => this._handleSearch(query)
+      onSearch: (query: string) => this._handleSearch(query)
     });
     this.gameFilter!.initialize({
       filterButton: elements.notesGameFilter,
       filterLabel: elements.notesGameFilterLabel,
       filterMenu: elements.notesGameFilterMenu,
-      onFilterChange: (value) => this._handleGameFilterChange(value)
+      onFilterChange: (value: string) => this._handleGameFilterChange(value)
     });
     this.listView!.initialize({
       listElement: elements.notesList,
-      onNoteSelect: (noteId) => this._handleNoteSelect(noteId)
+      onNoteSelect: (noteId: string) => this._handleNoteSelect(noteId)
     });
     this.editorView!.initialize({
       editorElement: elements.notesEditor,
@@ -245,7 +245,7 @@ class NotesPanelComponent extends PresentationComponent {
       gameInput: elements.notesGameInput,
       autocompleteDropdown: elements.notesGameAutocomplete,
       onInput: () => this._handleGameInputChange(),
-      onSelect: (value) => this._handleAutocompleteSelect(value),
+      onSelect: (value: string) => this._handleAutocompleteSelect(value),
       onEnter: () => this._handleAutocompleteEnter(),
       onEscape: () => this._handleAutocompleteEscape(),
       onBlur: () => this.editorView!.hideGameInput(),

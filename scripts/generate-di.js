@@ -252,20 +252,20 @@ function generateDI() {
   importsCode += `
 import { BrowserStorageAdapter } from './infrastructure/browser/browser-storage.adapter';
 import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config.js';
-import { DeviceIpcAdapter } from './infrastructure/adapters/devices/device-ipc.adapter';
-import { DeviceChangeDebounceAdapter } from './infrastructure/adapters/devices/device-change-debounce.adapter';
-import { StreamingCanvasRenderLoopService } from './infrastructure/services/streaming/canvas-render-loop.service';
-import { GpuFrameBuffer } from './infrastructure/services/streaming/gpu-frame-buffer';
+import { DeviceIpcAdapter } from './infrastructure/adapters/device-ipc.adapter';
+import { DeviceChangeDebounceAdapter } from './infrastructure/adapters/device-change-debounce.adapter';
+import { StreamingCanvasRenderLoopService } from './infrastructure/services/canvas-render-loop.service';
+import { GpuFrameBuffer } from './infrastructure/services/gpu-frame-buffer';
 import { StreamingRendererFactory } from './infrastructure/factories/streaming-renderer.factory';
-import { StreamingGpuRendererAdapter } from './infrastructure/adapters/streaming/gpu-renderer.adapter';
-import { StreamingCanvas2DRendererAdapter } from './infrastructure/adapters/streaming/canvas2d-renderer.adapter';
-import { DeviceIpcStatusAdapter } from './infrastructure/adapters/devices/device-ipc-status.adapter';
+import { StreamingGpuRendererAdapter } from './infrastructure/adapters/streaming-gpu-renderer.adapter';
+import { StreamingCanvas2DRendererAdapter } from './infrastructure/adapters/streaming-canvas2d-renderer.adapter';
+import { DeviceIpcStatusAdapter } from './infrastructure/adapters/device-ipc-status.adapter';
 import { StreamingAdapterFactory } from './infrastructure/factories/streaming-adapter.factory';
-import { DeviceChromaticAdapter } from './infrastructure/adapters/devices/chromatic/chromatic.adapter';
+import { DeviceChromaticAdapter } from './infrastructure/adapters/device-chromatic.adapter';
 import { chromaticConfig } from '@prismgb/devices';
 import { UIComponentRegistry } from './presentation/controller/component.registry';
 import { rendererUiComponentDefinitions } from './presentation/controller/ui-component.catalog';
-import { AnimationCache } from '@prismgb/core';
+import { AnimationCache, safeDispose } from '@prismgb/core';
 `;
 
   // Build resolve cases
@@ -434,20 +434,12 @@ export class GeneratedContainer {
   }
 
   public async dispose(): Promise<void> {
+    const logger = this.resolve<any>('loggerFactory').create('Container');
     for (const [token, instance] of this.instances.entries()) {
       if (!instance) continue;
-      if (typeof instance.dispose === 'function') {
-        try {
-          await instance.dispose();
-        } catch (err) {
-          console.error("Error disposing " + token + ":", err);
-        }
-      } else if (typeof instance.cleanup === 'function') {
-        try {
-          await instance.cleanup();
-        } catch (err) {
-          console.error("Error cleaning up " + token + ":", err);
-        }
+      const method = typeof instance.dispose === 'function' ? 'dispose' : (typeof instance.cleanup === 'function' ? 'cleanup' : undefined);
+      if (method) {
+        await safeDispose(logger, token, instance, method);
       }
     }
     this.instances.clear();

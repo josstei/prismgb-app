@@ -100,7 +100,7 @@ export function createStreamingViewControllerMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/audio-pipeline.service').StreamingAudioPipelineService} StreamingAudioPipelineService
+ * @typedef {import('@renderer/infrastructure/services/audio-pipeline.service').StreamingAudioPipelineService} StreamingAudioPipelineService
  */
 
 /**
@@ -118,7 +118,7 @@ export function createStreamingAudioPipelineServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/streaming-view.service').StreamingViewService} StreamingViewService
+ * @typedef {import('@renderer/infrastructure/services/streaming-view.service').StreamingViewService} StreamingViewService
  */
 
 /**
@@ -171,7 +171,7 @@ export function createStreamingViewElementsMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/canvas-render-loop.service').StreamingCanvasRenderLoopService} StreamingCanvasRenderLoopService
+ * @typedef {import('@renderer/infrastructure/services/canvas-render-loop.service').StreamingCanvasRenderLoopService} StreamingCanvasRenderLoopService
  */
 
 /**
@@ -195,7 +195,7 @@ export function createCanvasRenderLoopServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/viewport.service').StreamingViewportService} StreamingViewportService
+ * @typedef {import('@renderer/infrastructure/services/viewport.service').StreamingViewportService} StreamingViewportService
  */
 
 /**
@@ -218,7 +218,7 @@ export function createViewportServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/health.service').StreamingHealthService} StreamingHealthService
+ * @typedef {import('@renderer/infrastructure/services/health.service').StreamingHealthService} StreamingHealthService
  */
 
 /**
@@ -238,7 +238,7 @@ export function createStreamHealthServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/gpu-render-loop.service').StreamingGpuRenderLoopService} StreamingGpuRenderLoopService
+ * @typedef {import('@renderer/infrastructure/services/gpu-render-loop.service').StreamingGpuRenderLoopService} StreamingGpuRenderLoopService
  */
 
 /**
@@ -341,7 +341,7 @@ export function createRendererAdapterMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/gpu-renderer.service').StreamingGpuRendererService} StreamingGpuRendererService
+ * @typedef {import('@renderer/infrastructure/services/gpu-renderer.service').StreamingGpuRendererService} StreamingGpuRendererService
  */
 
 /**
@@ -429,7 +429,7 @@ export function createCanvasRenderPipelineMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/streaming.service').StreamingService} StreamingService
+ * @typedef {import('@renderer/infrastructure/services/streaming.service').StreamingService} StreamingService
  */
 
 /**
@@ -449,7 +449,7 @@ export function createStreamingServiceFacadeMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/render-pipeline.service').StreamingRenderPipelineService} StreamingRenderPipelineService
+ * @typedef {import('@renderer/infrastructure/services/render-pipeline.service').StreamingRenderPipelineService} StreamingRenderPipelineService
  */
 
 /**
@@ -474,7 +474,7 @@ export function createStreamingRenderPipelineServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/canvas-lifecycle.service').StreamingCanvasLifecycleService} StreamingCanvasLifecycleService
+ * @typedef {import('@renderer/infrastructure/services/canvas-lifecycle.service').StreamingCanvasLifecycleService} StreamingCanvasLifecycleService
  */
 
 /**

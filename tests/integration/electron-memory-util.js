@@ -5,7 +5,7 @@
  * Run with: npm run electron:test (or manually in dev console)
  *
  * Usage from Electron main process:
- *   const { runMemoryBenchmark } = require('./tests/integration/electron-memory.test.js');
+ *   const { runMemoryBenchmark } = require('./tests/integration/electron-memory.test.ts');
  *   runMemoryBenchmark();
  *
  * Usage from renderer devtools console:

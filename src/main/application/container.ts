@@ -4,23 +4,22 @@
  */
 
 import pkg from '../../../package.json' assert { type: 'json' };
-import { EventBus } from '@main/infrastructure/events/index.js';
-import { WindowService } from '@main/infrastructure/window/index.js';
-import { TrayService } from '@main/infrastructure/tray/index.js';
+import { EventBus } from '@main/infrastructure/event-bus.js';
+import { WindowService } from '@main/infrastructure/window.service.js';
+import { TrayService } from '@main/infrastructure/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import {
-  DeviceService,
-  DeviceProfileRegistry,
-  DeviceLifecycleService,
-  DeviceBridgeService,
-  type ProfileClass
-} from '@main/infrastructure/devices/index.js';
+import { DeviceService } from '@main/infrastructure/device.service.js';
+import { DeviceProfileRegistry } from '@main/infrastructure/device-profile.registry.js';
+import { DeviceLifecycleService } from '@main/infrastructure/device-lifecycle.service.js';
+import { DeviceBridgeService } from '@main/infrastructure/device-bridge.service.js';
+import type { ProfileClass } from '@main/infrastructure/device.service.js';
 import { UpdateService, UpdateBridge } from '@prismgb/updates';
-import { TranscodeService } from '@main/infrastructure/transcode/index.js';
-import { LoginItemService } from '@main/infrastructure/platform/index.js';
+import { TranscodeService } from '@main/infrastructure/transcode.service.js';
+import { LoginItemService } from '@main/infrastructure/login-item.service.js';
 import { DeviceChromaticProfile } from '@prismgb/devices';
 import { chromaticConfig } from '@prismgb/devices';
-import type { MainLogger } from '@main/infrastructure/logging/index.js';
+import type { MainLogger } from '@main/infrastructure/logger.factory.js';
+import { safeDispose } from '@prismgb/core';
 
 /**
  * Application configuration interface
@@ -164,20 +163,12 @@ export class MainServiceContainer {
   }
 
   public async dispose(): Promise<void> {
+    const logger = this.resolve<MainLogger>('loggerFactory').create('Container');
     for (const [token, instance] of this.instances.entries()) {
       if (!instance) continue;
-      if (typeof instance.dispose === 'function') {
-        try {
-          await instance.dispose();
-        } catch (err) {
-          console.error(`Error disposing ${token}:`, err);
-        }
-      } else if (typeof instance.cleanup === 'function') {
-        try {
-          await instance.cleanup();
-        } catch (err) {
-          console.error(`Error cleaning up ${token}:`, err);
-        }
+      const method = typeof instance.dispose === 'function' ? 'dispose' : (typeof instance.cleanup === 'function' ? 'cleanup' : undefined);
+      if (method) {
+        await safeDispose(logger, token, instance, method);
       }
     }
     this.instances.clear();

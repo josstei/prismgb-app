@@ -146,7 +146,7 @@ export function createShellServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@main/infrastructure/platform/login-item.service').LoginItemService} LoginItemService
+ * @typedef {import('@main/infrastructure/login-item.service').LoginItemService} LoginItemService
  */
 
 /**

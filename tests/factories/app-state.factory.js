@@ -28,9 +28,9 @@ export const DEFAULT_STATE = {
 
 /**
  * Creates a mock AppState
- * @param {Object} options - Factory options
- * @param {Object} options.initialState - Initial state values
- * @param {boolean} options.trackChanges - Whether to track state changes
+ * @param {Object} [options] - Factory options
+ * @param {Object} [options.initialState] - Initial state values
+ * @param {boolean} [options.trackChanges] - Whether to track state changes
  * @returns {Object} Mock AppState instance
  */
 export function createAppState(options = {}) {

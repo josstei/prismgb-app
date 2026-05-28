@@ -10,13 +10,13 @@ import { vi } from 'vitest';
 
 /**
  * Creates a mock EventBus with full testing support
- * @param {Object} options - Factory options
- * @param {boolean} options.recordEvents - Whether to record all events (default: true)
- * @param {Function} options.onPublish - Callback for each publish
- * @param {Function} options.onSubscribe - Callback for each subscribe
- * @param {Function} options.onHandlerError - Callback when a subscriber throws
- * @param {string} options.handlerErrorEvent - Optional event to publish instead of rethrowing
- * @param {Function} options.createHandlerErrorPayload - Optional handler-error payload mapper
+ * @param {Object} [options] - Factory options
+ * @param {boolean} [options.recordEvents] - Whether to record all events (default: true)
+ * @param {Function} [options.onPublish] - Callback for each publish
+ * @param {Function} [options.onSubscribe] - Callback for each subscribe
+ * @param {Function} [options.onHandlerError] - Callback when a subscriber throws
+ * @param {string} [options.handlerErrorEvent] - Optional event to publish instead of rethrowing
+ * @param {Function} [options.createHandlerErrorPayload] - Optional handler-error payload mapper
  * @returns {Object} Mock EventBus instance
  */
 export function createEventBus(options = {}) {

@@ -8,7 +8,7 @@
 import { vi } from 'vitest';
 
 /**
- * @typedef {import('@main/infrastructure/window/window.service').WindowService} WindowService
+ * @typedef {import('@main/infrastructure/window.service').WindowService} WindowService
  */
 
 /**
@@ -107,7 +107,7 @@ export function createTrayMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@main/infrastructure/tray/tray.service').TrayService} TrayService
+ * @typedef {import('@main/infrastructure/tray.service').TrayService} TrayService
  */
 
 /**

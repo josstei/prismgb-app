@@ -15,7 +15,7 @@ import {
 } from '@renderer/presentation/primitives/template-ref.utils.js';
 import type { LoggerFactoryLike } from '@prismgb/core';
 import type { TypedEventBusLike } from '@prismgb/events';
-import type { SettingsService } from '@renderer/infrastructure/services/settings';
+import type { SettingsService } from '@renderer/infrastructure/services/settings.service';
 import type { NotesService } from '@prismgb/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';

@@ -8,7 +8,7 @@ import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
-import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
+import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance-metrics.service';
 
 @Service({
   "token": "performanceMetricsOrchestrator",

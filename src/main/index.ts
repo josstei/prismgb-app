@@ -5,7 +5,7 @@
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import { AppOrchestrator } from './application/index.js';
-import { getGpuPolicy, applyChromiumFlags } from './infrastructure/platform/index.js';
+import { getGpuPolicy, applyChromiumFlags } from './infrastructure/gpu-policy.js';
 
 const APP_NAME = 'PrismGB';
 

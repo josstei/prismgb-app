@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { LoginItemService } from '@main/infrastructure/platform/login-item.service.js';
+import { LoginItemService } from '@main/infrastructure/login-item.service.js';
 
 describe('process runtime mock installers', () => {
   it('should normalize and restore process runtime descriptors after cleanup', () => {

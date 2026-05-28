@@ -5,7 +5,7 @@ import {
 import {
   ShaderSelectorComponent,
   type ShaderSelectorComponentOptions
-} from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
+} from '@renderer/presentation/features/toolbar/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';

@@ -16,7 +16,7 @@ export function createUpdateConfigMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/updates/update.service').UpdateService} UpdateService
+ * @typedef {import('@renderer/infrastructure/services/update.service').UpdateService} UpdateService
  */
 
 /**
@@ -36,7 +36,7 @@ export function createUpdateServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/updates/update-ui.service').UpdateUiService} UpdateUiService
+ * @typedef {import('@renderer/infrastructure/services/update-ui.service').UpdateUiService} UpdateUiService
  */
 
 /**

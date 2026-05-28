@@ -2,13 +2,13 @@
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "allowJs": true,
-    "checkJs": true,
+    "checkJs": false,
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    "useDefineForClassFields": false,
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
-    "useDefineForClassFields": false,
     "types": [
       "node",
       "@webgpu/types",
@@ -22,7 +22,11 @@
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",
     "src/types/**/*.d.ts",
-    "tests/factories/**/*.js"
+    "tests/unit/**/*.ts",
+    "tests/unit/**/*.js",
+    "tests/factories/**/*.js",
+    "tests/support/**/*.js",
+    "tests/utilities/**/*.js"
   ],
   "exclude": [
     "node_modules",

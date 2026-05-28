@@ -1,7 +1,7 @@
 import type { UIActionEvent, UIActionId } from '@renderer/presentation/primitives/template-ref.utils.js';
 import type { DomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 import type { SettingsMenuElements } from '@renderer/presentation/features/settings/settings-menu.component.js';
-import type { ShaderSelectorElements } from '@renderer/presentation/features/toolbar/components/shader-selector.component.js';
+import type { ShaderSelectorElements } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
 import type { NotesPanelElements } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import type { StreamingControlsElements } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
 import type { StatusNotificationElements } from '@renderer/presentation/shared/status-notification.component.js';

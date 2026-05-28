@@ -49,7 +49,8 @@
     "prepare": "husky",
     "generate-icons": "node scripts/generate-icons.js",
     "generate:contracts": "node scripts/generate-contracts.js",
-    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
+    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json",
+    "pretest": "node scripts/generate-di.js && node scripts/generate-contracts.js"
   },
   "keywords": [
     "electron",

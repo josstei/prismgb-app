@@ -581,7 +581,7 @@ export function createBrowserMediaServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/devices/device-media.service').DeviceMediaService} DeviceMediaService
+ * @typedef {import('@renderer/infrastructure/services/device-media.service').DeviceMediaService} DeviceMediaService
  */
 
 /**

@@ -1,8 +1,8 @@
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
-import type { IStreamingRenderer } from '@renderer/infrastructure/adapters/streaming/streaming-renderer.interface';
-import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter';
-import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming/gpu-renderer.adapter';
+import type { IStreamingRenderer } from '@renderer/infrastructure/adapters/streaming-renderer.interface';
+import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming-canvas2d-renderer.adapter';
+import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming-gpu-renderer.adapter';
 
 export type RendererType = 'gpu' | 'canvas2d';
 

@@ -4,5 +4,5 @@
  * Exports workflow test utilities and helpers.
  */
 
-export * from './capture.workflow.test.js';
-export * from './streaming.workflow.test.js';
+export * from './capture.workflow.test.ts';
+export * from './streaming.workflow.test.ts';
