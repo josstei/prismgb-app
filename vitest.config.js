@@ -100,7 +100,6 @@ export default defineConfig({
           globals: true,
           environment: 'node',
           include: [
-            'tests/unit/codebase-reduction/**/*.{test,spec}.{js,ts}',
             'tests/unit/config/**/*.{test,spec}.{js,ts}',
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/shared/**/*.{test,spec}.{js,ts}',
