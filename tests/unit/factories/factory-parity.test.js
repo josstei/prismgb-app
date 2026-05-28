@@ -248,3 +248,41 @@ describe('capture.factory.js', () => {
     expect(Barrel[name]).toBe(CaptureFactory[name]);
   });
 });
+
+import * as StreamingPipelineFactory from '../../factories/streaming-pipeline.factory.js';
+
+describe('streaming-pipeline.factory.js', () => {
+  const expected = [
+    'createStreamLifecycleMock',
+    'createWorkerInstanceMock',
+    'createAcquisitionCoordinatorMock',
+    'createFallbackStrategyMock',
+    'createStreamingViewControllerMock',
+    'createStreamingAudioPipelineServiceMock',
+    'createStreamingViewServiceMock',
+    'createStreamingViewElementsMock',
+    'createCanvasRenderLoopServiceMock',
+    'createViewportServiceMock',
+    'createStreamHealthServiceMock',
+    'createGpuRenderLoopServiceMock',
+    'createGpuWorkerManagerMock',
+    'createGpuFrameBufferMock',
+    'createStreamingRendererFactoryMock',
+    'createRendererAdapterMock',
+    'createGpuRendererServiceMock',
+    'createStreamViewServiceMock',
+    'createWorkerPipelineMock',
+    'createCanvasRenderPipelineMock',
+    'createStreamingServiceFacadeMock',
+    'createStreamingRenderPipelineServiceMock',
+    'createCanvasLifecycleServiceMock',
+  ];
+
+  it.each(expected)('module exports %s', (name) => {
+    expect(StreamingPipelineFactory[name]).toBeTypeOf('function');
+  });
+
+  it.each(expected)('barrel re-exports %s', (name) => {
+    expect(Barrel[name]).toBe(StreamingPipelineFactory[name]);
+  });
+});

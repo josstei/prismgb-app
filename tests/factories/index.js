@@ -114,67 +114,7 @@ export {
 
 
 
-export function createStreamLifecycleMock(overrides = {}) {
-  return {
-    acquireStream: vi.fn(() => Promise.resolve({ id: 'mock-stream' })),
-    releaseStream: vi.fn(() => Promise.resolve()),
-    getStreamInfo: vi.fn(),
-    ...overrides
-  };
-}
 
-export function createWorkerInstanceMock(overrides = {}) {
-  return {
-    postMessage: vi.fn(),
-    terminate: vi.fn(),
-    onmessage: null,
-    onerror: null,
-    ...overrides
-  };
-}
-
-export function createAcquisitionCoordinatorMock(overrides = {}) {
-  return {
-    acquire: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createFallbackStrategyMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    hasMore: vi.fn(),
-    getNext: vi.fn(),
-    ...overrides
-  };
-}
-
-
-
-
-export function createStreamingViewControllerMock(overrides = {}) {
-  const {
-    streamVideo,
-    streamCanvas,
-    elements,
-    setStreamCanvas,
-    ...componentOverrides
-  } = overrides;
-
-  const mergedElements = {
-    streamVideo: streamVideo ?? createMockVideo(),
-    streamCanvas: streamCanvas ?? createMockCanvas(),
-    ...elements,
-  };
-
-  return {
-    elements: mergedElements,
-    setStreamCanvas: setStreamCanvas ?? vi.fn((canvas) => {
-      mergedElements.streamCanvas = canvas;
-    }),
-    ...componentOverrides
-  };
-}
 
 export function createUISetupControllerMock(overrides = {}) {
   const {
@@ -274,247 +214,9 @@ export function createPresentationModeControllerMock(overrides = {}) {
 
 
 
-export function createStreamingAudioPipelineServiceMock(overrides = {}) {
-  return {
-    start: vi.fn().mockResolvedValue(true),
-    stop: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createStreamingViewServiceMock(overrides = {}) {
-  return {
-    setMuted: vi.fn(),
-    attachMutedStream: vi.fn(),
-    clearStream: vi.fn(),
-    getCanvas: vi.fn(),
-    getVideo: vi.fn(),
-    getCanvasContainer: vi.fn(),
-    getCanvasSection: vi.fn(),
-    setCanvas: vi.fn(),
-    updateOverlayMessage: vi.fn(),
-    ...overrides,
-  };
-}
-
-export function createStreamingViewElementsMock(overrides = {}) {
-  const {
-    streamVideo = {},
-    streamCanvas = {},
-    ...rest
-  } = overrides;
-  const baseStreamVideo = createMockElement('video');
-  const baseStreamCanvas = createMockElement('canvas');
-
-  return {
-    streamVideo: {
-      ...baseStreamVideo,
-      ...streamVideo
-    },
-    streamCanvas: {
-      ...baseStreamCanvas,
-      ...streamCanvas
-    },
-    ...rest,
-  };
-}
 
 
 
-
-
-
-
-export function createCanvasRenderLoopServiceMock(overrides = {}) {
-  return {
-    isActive: vi.fn(() => false),
-    startRendering: vi.fn(),
-    stopRendering: vi.fn(),
-    clearCanvas: vi.fn(),
-    resize: vi.fn(),
-    resetCanvasState: vi.fn(),
-    cleanup: vi.fn(),
-    hasContextFor: vi.fn().mockReturnValue(false),
-    ...overrides
-  };
-}
-
-export function createViewportServiceMock(overrides = {}) {
-  return {
-    calculateDimensions: vi.fn(() => ({ width: 640, height: 576 })),
-    initialize: vi.fn(),
-    isInitialized: vi.fn().mockReturnValue(false),
-    forceResize: vi.fn(),
-    resetDimensions: vi.fn(),
-    cleanup: vi.fn(),
-    _resizeObserver: null,
-    ...overrides
-  };
-}
-
-export function createStreamHealthServiceMock(overrides = {}) {
-  return {
-    checkStreamHealth: vi.fn((videoEl, onHealthy) => {
-      onHealthy({ frameTime: 100 });
-    }),
-    cleanup: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createGpuRenderLoopServiceMock(overrides = {}) {
-  return {
-    start: vi.fn(),
-    stop: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createGpuWorkerManagerMock(overrides = {}) {
-  return {
-    isReady: vi.fn(() => false),
-    isCanvasTransferred: vi.fn(() => false),
-    getCapabilities: vi.fn(() => null),
-    initialize: vi.fn().mockResolvedValue(true),
-    sendCommand: vi.fn(),
-    onMessage: vi.fn(() => vi.fn()),
-    releaseResources: vi.fn(),
-    terminate: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createGpuFrameBufferMock(overrides = {}) {
-  return {
-    enqueue: vi.fn(() => true),
-    dequeue: vi.fn(() => null),
-    isFull: vi.fn(() => false),
-    flush: vi.fn(),
-    getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
-    resetMetrics: vi.fn(),
-    getCapacity: vi.fn(() => 3),
-    getSize: vi.fn(() => 0),
-    ...overrides
-  };
-}
-
-export function createStreamingRendererFactoryMock(overrides = {}) {
-  return {
-    selectRendererType: vi.fn(() => 'canvas2d'),
-    createRenderer: vi.fn(),
-    hasRenderer: vi.fn().mockReturnValue(true),
-    getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d']),
-    ...overrides
-  };
-}
-
-export function createRendererAdapterMock(overrides = {}) {
-  return {
-    initialize: vi.fn().mockResolvedValue(true),
-    renderFrame: vi.fn().mockResolvedValue(undefined),
-    resize: vi.fn(),
-    isActive: vi.fn().mockReturnValue(true),
-    pause: vi.fn(),
-    resume: vi.fn(),
-    cleanup: vi.fn(),
-    supportsPresets: vi.fn().mockReturnValue(false),
-    getPresetId: vi.fn(() => null),
-    setPreset: vi.fn(),
-    setHiddenStateFn: vi.fn(),
-    isCanvasTransferred: vi.fn().mockReturnValue(false),
-    terminateAndReset: vi.fn(),
-    releaseGpuResources: vi.fn(),
-    clearCanvas: vi.fn(),
-    resetCanvasState: vi.fn(),
-    handlePipelineStop: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createGpuRendererServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn().mockResolvedValue(false),
-    renderFrame: vi.fn().mockResolvedValue(undefined),
-    setPreset: vi.fn(),
-    getPresetId: vi.fn(() => 'vibrant'),
-    isActive: vi.fn().mockReturnValue(false),
-    isCanvasTransferred: vi.fn().mockReturnValue(false),
-    terminateAndReset: vi.fn(),
-    releaseGpuResources: vi.fn(),
-    resize: vi.fn(),
-    cleanup: vi.fn(),
-    captureFrame: vi.fn(),
-    getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
-    ...overrides
-  };
-}
-
-export function createStreamViewServiceMock(overrides = {}) {
-  return {
-    getCanvas: vi.fn(),
-    getVideo: vi.fn(),
-    getCanvasContainer: vi.fn(),
-    getCanvasSection: vi.fn(),
-    setCanvas: vi.fn(),
-    attachMutedStream: vi.fn(),
-    clearStream: vi.fn(),
-    setMuted: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createWorkerPipelineMock(overrides = {}) {
-  return {
-    render: vi.fn(),
-    resize: vi.fn(),
-    captureFrame: vi.fn(async () => ({ id: 'captured-frame', close: vi.fn() })),
-    getStats: vi.fn(() => ({
-      fps: 60,
-      frameTime: 16.0,
-      framesRendered: 10,
-      framesDropped: 0
-    })),
-    dispose: vi.fn(async () => {}),
-    setPreset: vi.fn(),
-    setBrightness: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createCanvasRenderPipelineMock(overrides = {}) {
-  return {
-    renderFrame: vi.fn(),
-    resize: vi.fn(),
-    clearFrame: vi.fn(),
-    dispose: vi.fn(async () => undefined),
-    ...overrides
-  };
-}
-
-export function createStreamingServiceFacadeMock(overrides = {}) {
-  return {
-    start: vi.fn().mockResolvedValue({}),
-    stop: vi.fn().mockResolvedValue(),
-    getStream: vi.fn(),
-    isActive: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createStreamingRenderPipelineServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    handleCanvasExpired: vi.fn(),
-    handlePerformanceStateChanged: vi.fn(),
-    handleRenderPresetChanged: vi.fn(),
-    handlePerformanceModeChanged: vi.fn(),
-    handleFullscreenChange: vi.fn(),
-    startPipeline: vi.fn().mockResolvedValue(undefined),
-    stopPipeline: vi.fn(),
-    cleanup: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createOrchestratorMock(overrides = {}) {
   return {
@@ -605,17 +307,7 @@ export function createRendererAppContainerMock(overrides = {}) {
   };
 }
 
-export function createCanvasLifecycleServiceMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    handleCanvasExpired: vi.fn(),
-    handleFullscreenChange: vi.fn(),
-    setupCanvasSize: vi.fn(),
-    recreateCanvas: vi.fn(),
-    cleanup: vi.fn(),
-    ...overrides
-  };
-}
+
 
 
 
@@ -957,6 +649,33 @@ export {
   createCaptureSaveServiceMock,
   createTranscodeUIControllerMock,
 } from './capture.factory.js';
+
+// Streaming pipeline factories
+export {
+  createStreamLifecycleMock,
+  createWorkerInstanceMock,
+  createAcquisitionCoordinatorMock,
+  createFallbackStrategyMock,
+  createStreamingViewControllerMock,
+  createStreamingAudioPipelineServiceMock,
+  createStreamingViewServiceMock,
+  createStreamingViewElementsMock,
+  createCanvasRenderLoopServiceMock,
+  createViewportServiceMock,
+  createStreamHealthServiceMock,
+  createGpuRenderLoopServiceMock,
+  createGpuWorkerManagerMock,
+  createGpuFrameBufferMock,
+  createStreamingRendererFactoryMock,
+  createRendererAdapterMock,
+  createGpuRendererServiceMock,
+  createStreamViewServiceMock,
+  createWorkerPipelineMock,
+  createCanvasRenderPipelineMock,
+  createStreamingServiceFacadeMock,
+  createStreamingRenderPipelineServiceMock,
+  createCanvasLifecycleServiceMock,
+} from './streaming-pipeline.factory.js';
 
 /**
  * Creates all standard dependencies for testing orchestrators/services
