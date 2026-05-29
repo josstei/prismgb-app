@@ -33,7 +33,7 @@ class CaptureUIBridge extends BaseService {
   private readonly uiController: CaptureUiControllerLike;
 
   constructor(dependencies: CaptureUIBridgeDependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'CaptureUIBridge');
+    super(dependencies, 'CaptureUIBridge');
     this.eventBus = dependencies.eventBus;
     this.uiController = dependencies.uiController;
   }

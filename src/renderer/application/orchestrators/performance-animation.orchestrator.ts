@@ -36,7 +36,6 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   }) {
     super(
       dependencies,
-      ['eventBus', 'animationPerformanceService', 'bodyClassManager', 'loggerFactory'],
       'PerformanceAnimationOrchestrator'
     );
     this.eventBus = dependencies.eventBus;

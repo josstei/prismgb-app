@@ -36,7 +36,7 @@ class TranscodeService extends BaseService {
   private _initialized: boolean;
 
   constructor(dependencies: TranscodeServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
+    super(dependencies, 'TranscodeService');
 
     this.eventBus = dependencies.eventBus;
     this._isTranscoding = false;

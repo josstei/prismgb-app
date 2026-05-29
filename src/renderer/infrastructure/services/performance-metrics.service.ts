@@ -59,7 +59,7 @@ export class PerformanceMetricsService extends BaseService {
   private readonly _initialDelayMs: number;
 
   constructor(dependencies: PerformanceMetricsDependencies) {
-    super(dependencies, ['loggerFactory', 'metricsAdapter'], 'PerformanceMetricsService');
+    super(dependencies, 'PerformanceMetricsService');
 
     this.metricsAdapter = dependencies.metricsAdapter;
     this._pendingSnapshotCancels = new Set();

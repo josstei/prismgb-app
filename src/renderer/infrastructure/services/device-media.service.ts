@@ -84,14 +84,7 @@ class DeviceMediaService extends BaseService {
   private _permissionProbeInFlight: Promise<void> | null;
 
   constructor(dependencies: DeviceMediaServiceDependencies) {
-    super(dependencies, [
-      'eventBus',
-      'loggerFactory',
-      'browserMediaService',
-      'deviceConnectionService',
-      'deviceStorageService',
-      'deviceChangeDebounceAdapter'
-    ], 'DeviceMediaService');
+    super(dependencies, 'DeviceMediaService');
 
     this.eventBus = dependencies.eventBus;
     this.browserMediaService = dependencies.browserMediaService;

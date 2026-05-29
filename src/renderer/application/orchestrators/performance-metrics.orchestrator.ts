@@ -28,7 +28,6 @@ export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
   }) {
     super(
       dependencies,
-      ['eventBus', 'loggerFactory', 'performanceMetricsService'],
       'PerformanceMetricsOrchestrator'
     );
     this.eventBus = dependencies.eventBus;

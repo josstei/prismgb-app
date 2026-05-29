@@ -19,7 +19,6 @@ describe('BaseOrchestrator', () => {
     it('should create orchestrator with valid dependencies', () => {
       const orchestrator = new BaseOrchestrator(
         { loggerFactory: mockLoggerFactory, eventBus: {} },
-        ['loggerFactory', 'eventBus'],
         'TestOrchestrator'
       );
 
@@ -28,28 +27,21 @@ describe('BaseOrchestrator', () => {
       expect(orchestrator.isInitialized).toBe(false);
     });
 
-    it('should throw for missing required dependencies', () => {
-      expect(() => new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory },
-        ['loggerFactory', 'eventBus'],
-        'TestOrchestrator'
-      )).toThrow('TestOrchestrator: Missing required dependencies: eventBus');
-    });
-
     it('should use constructor name if name not provided', () => {
       class MyOrchestrator extends BaseOrchestrator {
         constructor(deps) {
-          super(deps, ['eventBus'], null);
+          super(deps);
         }
       }
 
-      expect(() => new MyOrchestrator({})).toThrow('MyOrchestrator: Missing required dependencies: eventBus');
+      const orchestrator = new MyOrchestrator({ loggerFactory: mockLoggerFactory });
+
+      expect(orchestrator._orchestratorName).toBe('MyOrchestrator');
     });
 
     it('should work without loggerFactory', () => {
       const orchestrator = new BaseOrchestrator(
         { eventBus: {} },
-        ['eventBus'],
         'TestOrchestrator'
       );
 
@@ -61,7 +53,6 @@ describe('BaseOrchestrator', () => {
     it('should initialize and set isInitialized to true', async () => {
       const orchestrator = new BaseOrchestrator(
         { loggerFactory: mockLoggerFactory },
-        [],
         'TestOrchestrator'
       );
 
@@ -75,7 +66,6 @@ describe('BaseOrchestrator', () => {
     it('should warn and return early if already initialized', async () => {
       const orchestrator = new BaseOrchestrator(
         { loggerFactory: mockLoggerFactory },
-        [],
         'TestOrchestrator'
       );
 
@@ -88,7 +78,7 @@ describe('BaseOrchestrator', () => {
     it('should call onInitialize', async () => {
       class TestOrchestrator extends BaseOrchestrator {
         constructor(deps) {
-          super(deps, [], 'TestOrchestrator');
+          super(deps, 'TestOrchestrator');
           this.onInitializeCalled = false;
         }
 
@@ -104,7 +94,7 @@ describe('BaseOrchestrator', () => {
     });
 
     it('should work without logger', async () => {
-      const orchestrator = new BaseOrchestrator({}, [], 'TestOrchestrator');
+      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
       await orchestrator.initialize();
 
       expect(orchestrator.isInitialized).toBe(true);
@@ -115,7 +105,6 @@ describe('BaseOrchestrator', () => {
     it('should cleanup and set isInitialized to false', async () => {
       const orchestrator = new BaseOrchestrator(
         { loggerFactory: mockLoggerFactory },
-        [],
         'TestOrchestrator'
       );
 
@@ -129,7 +118,7 @@ describe('BaseOrchestrator', () => {
     it('should call onCleanup', async () => {
       class TestOrchestrator extends BaseOrchestrator {
         constructor(deps) {
-          super(deps, [], 'TestOrchestrator');
+          super(deps, 'TestOrchestrator');
           this.onCleanupCalled = false;
         }
 
@@ -148,12 +137,12 @@ describe('BaseOrchestrator', () => {
 
   describe('onInitialize / onCleanup defaults', () => {
     it('should have default onInitialize that does nothing', async () => {
-      const orchestrator = new BaseOrchestrator({}, [], 'TestOrchestrator');
+      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
       await expect(orchestrator.onInitialize()).resolves.toBeUndefined();
     });
 
     it('should have default onCleanup that does nothing', async () => {
-      const orchestrator = new BaseOrchestrator({}, [], 'TestOrchestrator');
+      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
       await expect(orchestrator.onCleanup()).resolves.toBeUndefined();
     });
   });

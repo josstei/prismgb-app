@@ -105,7 +105,7 @@ class TranscodeService extends BaseService {
   private _isDisposing = false;
 
   constructor(dependencies: TranscodeServiceDependencies) {
-    super(dependencies, ['windowService', 'eventBus', 'loggerFactory'], 'TranscodeService');
+    super(dependencies, 'TranscodeService');
     this.windowService = dependencies.windowService;
   }
 

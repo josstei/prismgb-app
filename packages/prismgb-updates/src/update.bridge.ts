@@ -34,7 +34,6 @@ class UpdateBridge extends BaseService {
   constructor(dependencies: UpdateBridgeDependencies) {
     super(
       dependencies,
-      ['updateService', 'loggerFactory'],
       'UpdateBridge'
     );
     this.updateService = dependencies.updateService;

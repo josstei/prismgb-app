@@ -52,7 +52,6 @@ class CaptureSaveService extends BaseService {
   constructor(dependencies: CaptureSaveServiceDependencies) {
     super(
       dependencies,
-      ['eventBus', 'settingsService', 'transcodeService', 'loggerFactory'],
       'CaptureSaveService'
     );
 

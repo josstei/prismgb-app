@@ -59,13 +59,7 @@ class DeviceService extends BaseService {
   private readonly deviceMediaService: DeviceMediaServiceLike;
 
   constructor(dependencies: DeviceServiceDependencies) {
-    super(dependencies, [
-      'eventBus',
-      'loggerFactory',
-      'deviceConnectionService',
-      'deviceStorageService',
-      'deviceMediaService'
-    ], 'DeviceService');
+    super(dependencies, 'DeviceService');
 
     this.eventBus = dependencies.eventBus;
     this.deviceConnectionService = dependencies.deviceConnectionService;

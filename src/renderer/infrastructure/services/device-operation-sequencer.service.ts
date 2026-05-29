@@ -31,7 +31,7 @@ export class DeviceOperationSequencerService extends BaseService {
   private _queueDepth: number;
 
   constructor(dependencies: DeviceOperationSequencerDependencies) {
-    super(dependencies, ['deviceService', 'eventBus', 'loggerFactory'], 'DeviceOperationSequencerService');
+    super(dependencies, 'DeviceOperationSequencerService');
 
     this.deviceService = dependencies.deviceService;
     this.eventBus = dependencies.eventBus;

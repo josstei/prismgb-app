@@ -52,7 +52,7 @@ class UpdateService extends BaseService {
   private _initialized: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
+    super(dependencies, 'UpdateService');
 
     this.eventBus = dependencies.eventBus;
     this._state = UpdateState.IDLE;

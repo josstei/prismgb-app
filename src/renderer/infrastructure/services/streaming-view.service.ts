@@ -32,7 +32,7 @@ class StreamingViewService extends BaseService {
   private readonly uiController: UiControllerLike;
 
   constructor(dependencies: StreamingViewDependencies) {
-    super(dependencies, ['uiController', 'loggerFactory'], 'StreamingViewService');
+    super(dependencies, 'StreamingViewService');
     this.uiController = dependencies.uiController;
   }
 

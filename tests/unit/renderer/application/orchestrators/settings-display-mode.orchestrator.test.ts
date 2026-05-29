@@ -59,14 +59,6 @@ describe('SettingsDisplayModeOrchestrator', () => {
       expect(orchestrator.settingsService).toBe(mockSettingsService);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
-
-    it('should throw if missing required dependencies', () => {
-      expect(() => new SettingsDisplayModeOrchestrator({
-        fullscreenService: mockSettingsFullscreenService,
-        cinematicModeService: mockSettingsCinematicModeService,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
   });
 
   describe('onInitialize', () => {

@@ -120,7 +120,6 @@ export class StreamingGpuRendererService extends BaseService {
   constructor(dependencies: StreamingGpuRendererDependencies) {
     super(
       dependencies,
-      ['eventBus', 'loggerFactory', 'settingsService', 'gpuFrameBuffer', 'gpuWorkerManager'],
       'StreamingGpuRendererService'
     );
 

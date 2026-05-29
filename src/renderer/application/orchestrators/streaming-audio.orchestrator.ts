@@ -59,7 +59,6 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
   constructor(dependencies: StreamingAudioOrchestratorDependencies) {
     super(
       dependencies,
-      ['streamingAudioPipelineService', 'streamViewService', 'appState', 'eventBus', 'loggerFactory'],
       'StreamingAudioOrchestrator'
     );
 

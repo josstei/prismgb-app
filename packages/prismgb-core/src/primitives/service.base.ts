@@ -1,4 +1,3 @@
-import { validateDependencies } from './validate-deps.utils.js';
 import { DisposableBag, type DisposableFunction, type EventTargetLike } from './disposable-bag.js';
 
 export interface LoggerLike {
@@ -41,13 +40,8 @@ export class BaseService {
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
 
-  constructor(
-    dependencies: object,
-    requiredDeps: string[] = [],
-    serviceName: string | null = null
-  ) {
+  constructor(dependencies: object, serviceName: string | null = null) {
     const name = serviceName || this.constructor.name;
-    validateDependencies(dependencies, requiredDeps, name);
     const dependencyMap = dependencies as Record<string, unknown>;
 
     Object.assign(this, dependencyMap);

@@ -37,27 +37,6 @@ describe('SettingsCinematicModeService', () => {
       expect(service.logger).toBe(mockLogger);
     });
 
-    it('should throw if missing appState dependency', () => {
-      expect(() => new SettingsCinematicModeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
-
-    it('should throw if missing eventBus dependency', () => {
-      expect(() => new SettingsCinematicModeService({
-        appState: mockAppState,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
-
-    it('should throw if missing loggerFactory dependency', () => {
-      expect(() => new SettingsCinematicModeService({
-        appState: mockAppState,
-        eventBus: mockEventBus
-      })).toThrow(/Missing required dependencies/);
-    });
-
     it('should create logger with correct service name', () => {
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('SettingsCinematicModeService');
     });

@@ -115,7 +115,7 @@ export class StreamingService extends BaseService {
   currentCapabilities: StreamingCapabilities | null;
 
   constructor(dependencies: StreamingServiceDependencies) {
-    super(dependencies, ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'], 'StreamingService');
+    super(dependencies, 'StreamingService');
 
     this.deviceService = dependencies.deviceService;
     this.eventBus = dependencies.eventBus;

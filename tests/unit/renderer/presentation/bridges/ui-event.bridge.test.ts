@@ -280,13 +280,5 @@ describe('UIEventBridge', () => {
         subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
       }).not.toThrow();
     });
-
-    it('should throw when loggerFactory is missing (undefined)', () => {
-      expect(() => new UIEventBridge({
-        eventBus: mockEventBus,
-        uiController: mockUiController,
-        presentationModeService: mockPresentationModeService
-      })).toThrow(/Missing required dependencies.*loggerFactory/);
-    });
   });
 });

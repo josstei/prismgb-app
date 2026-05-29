@@ -55,7 +55,7 @@ class CaptureService extends BaseService {
   private _stopWaiter: StopWaiter | null;
 
   constructor(dependencies: CaptureDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'CaptureService');
+    super(dependencies, 'CaptureService');
 
     this.eventBus = dependencies.eventBus;
     this.isRecording = false;

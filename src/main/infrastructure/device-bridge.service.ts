@@ -37,7 +37,6 @@ class DeviceBridgeService extends BaseService {
   constructor(dependencies: DeviceBridgeServiceDependencies) {
     super(
       dependencies,
-      ['deviceService', 'trayService', 'windowService', 'eventBus', 'loggerFactory'],
       'DeviceBridgeService'
     );
 

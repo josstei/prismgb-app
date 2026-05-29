@@ -89,7 +89,7 @@ class UpdateService extends BaseService {
   private _autoCheckRunning: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
-    super(dependencies, ['windowService', 'eventBus', 'loggerFactory', 'config'], 'UpdateService');
+    super(dependencies, 'UpdateService');
 
     this.windowService = dependencies.windowService;
     this.eventBus = dependencies.eventBus;

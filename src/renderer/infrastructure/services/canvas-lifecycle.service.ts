@@ -64,7 +64,6 @@ class StreamingCanvasLifecycleService extends BaseService {
   constructor(dependencies: CanvasLifecycleDependencies) {
     super(
       dependencies,
-      ['streamViewService', 'canvasRenderLoopService', 'viewportService', 'gpuRendererService', 'eventBus', 'loggerFactory'],
       'StreamingCanvasLifecycleService'
     );
 

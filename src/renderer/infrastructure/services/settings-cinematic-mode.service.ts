@@ -29,7 +29,7 @@ class SettingsCinematicModeService extends BaseService {
   private readonly eventBus: EventBusLike;
 
   constructor(dependencies: SettingsCinematicModeServiceDependencies) {
-    super(dependencies, ['appState', 'eventBus', 'loggerFactory'], 'SettingsCinematicModeService');
+    super(dependencies, 'SettingsCinematicModeService');
     this.appState = dependencies.appState;
     this.eventBus = dependencies.eventBus;
   }

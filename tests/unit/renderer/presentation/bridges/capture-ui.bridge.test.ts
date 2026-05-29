@@ -76,13 +76,6 @@ describe('CaptureUIBridge', () => {
       expect(bridge.logger).toBe(mockLogger);
     });
 
-    it('should throw when loggerFactory is missing (undefined)', () => {
-      expect(() => new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController
-      })).toThrow(/Missing required dependencies.*loggerFactory/);
-    });
-
     it('should initialize disposables bag', () => {
       bridge = new CaptureUIBridge({
         eventBus: mockEventBus,

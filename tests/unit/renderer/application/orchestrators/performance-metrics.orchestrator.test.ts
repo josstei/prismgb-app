@@ -46,13 +46,6 @@ describe('PerformanceMetricsOrchestrator', () => {
       expect(orchestrator).toBeDefined();
       expect(orchestrator.performanceMetricsService).toBe(mockPerformanceMetricsService);
     });
-
-    it('should throw if missing performanceMetricsService', () => {
-      expect(() => new PerformanceMetricsOrchestrator({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      })).toThrow();
-    });
   });
 
   describe('onInitialize', () => {

@@ -50,7 +50,6 @@ export class DeviceOrchestrator extends BaseOrchestrator {
   constructor(dependencies: DeviceOrchestratorDependencies) {
     super(
       dependencies,
-      ['deviceService', 'deviceIpcAdapter', 'deviceOperationSequencer', 'eventBus', 'loggerFactory'],
       'DeviceOrchestrator'
     );
     this.deviceService = dependencies.deviceService;

@@ -60,7 +60,7 @@ class WindowService extends BaseService {
   private _isHiddenLaunch: boolean = false;
 
   constructor(dependencies: WindowServiceDependencies) {
-    super(dependencies, ['loggerFactory'], 'WindowService');
+    super(dependencies, 'WindowService');
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {

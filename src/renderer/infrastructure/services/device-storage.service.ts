@@ -20,7 +20,7 @@ class DeviceStorageService extends BaseService {
   private readonly storageService: StorageServiceLike;
 
   constructor(dependencies: DeviceStorageServiceDependencies) {
-    super(dependencies, ['storageService', 'loggerFactory'], 'DeviceStorageService');
+    super(dependencies, 'DeviceStorageService');
     this.storageService = dependencies.storageService;
   }
 

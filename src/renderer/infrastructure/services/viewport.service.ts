@@ -54,7 +54,7 @@ export class StreamingViewportService extends BaseService {
   private _cachedStyles: CachedViewportStyles | null;
 
   constructor(dependencies: StreamingViewportDependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingViewportService');
+    super(dependencies, 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;

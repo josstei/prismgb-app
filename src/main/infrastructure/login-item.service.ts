@@ -15,7 +15,7 @@ interface LoginItemServiceDependencies {
 class LoginItemService extends BaseService {
 
   constructor(dependencies: LoginItemServiceDependencies) {
-    super(dependencies, ['loggerFactory'], 'LoginItemService');
+    super(dependencies, 'LoginItemService');
   }
 
   setEnabled(enabled: boolean): void {

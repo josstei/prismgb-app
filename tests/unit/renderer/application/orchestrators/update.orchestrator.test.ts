@@ -52,13 +52,6 @@ describe('UpdateOrchestrator', () => {
       expect(orchestrator.updateService).toBe(mockUpdateService);
       expect(orchestrator.updateUiService).toBe(mockUpdateUiService);
     });
-
-    it('should throw if missing required dependencies', () => {
-      expect(() => new UpdateOrchestrator({
-        updateUiService: mockUpdateUiService,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
   });
 
   describe('onInitialize', () => {

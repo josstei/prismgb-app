@@ -47,7 +47,6 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   constructor(dependencies: SettingsDisplayModeOrchestratorDependencies) {
     super(
       dependencies,
-      ['fullscreenService', 'cinematicModeService', 'settingsService', 'eventBus', 'loggerFactory'],
       'SettingsDisplayModeOrchestrator'
     );
     this.fullscreenService = dependencies.fullscreenService;

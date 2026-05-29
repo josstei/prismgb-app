@@ -61,7 +61,7 @@ class AppOrchestrator extends BaseOrchestrator {
     const loggerFactory = new MainLogger();
 
     // Call base constructor with pre-created loggerFactory
-    super({ loggerFactory } as AppOrchestratorDependencies, ['loggerFactory'], 'AppOrchestrator');
+    super({ loggerFactory } as AppOrchestratorDependencies, 'AppOrchestrator');
     this.loggerFactory = loggerFactory;
   }
 

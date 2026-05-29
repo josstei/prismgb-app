@@ -68,7 +68,6 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(dependencies: UISetupOrchestratorDependencies) {
     super(
       dependencies,
-      ['appState', 'updateOrchestrator', 'settingsService', 'notesService', 'uiController', 'eventBus', 'loggerFactory'],
       'UISetupOrchestrator'
     );
 

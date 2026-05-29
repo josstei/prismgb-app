@@ -59,12 +59,6 @@ describe('SettingsFullscreenService', () => {
       expect(service._isFullscreenActive).toBe(false);
       expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
     });
-
-    it('should throw if missing required dependencies', () => {
-      expect(() => new SettingsFullscreenService({
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
   });
 
   describe('initialize', () => {

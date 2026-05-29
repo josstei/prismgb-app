@@ -36,7 +36,7 @@ class StreamingGpuRenderLoopService extends BaseService {
   private _active: boolean;
 
   constructor(dependencies: GpuRenderLoopDependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingGpuRenderLoopService');
+    super(dependencies, 'StreamingGpuRenderLoopService');
     this._videoElement = null;
     this._active = false;
   }

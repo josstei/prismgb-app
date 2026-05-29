@@ -63,21 +63,6 @@ export class AppOrchestrator extends BaseOrchestrator {
   constructor(dependencies: AppOrchestratorDependencies) {
     super(
       dependencies,
-      [
-        'deviceOrchestrator',
-        'streamingOrchestrator',
-        'streamingAudioOrchestrator',
-        'captureOrchestrator',
-        'preferencesOrchestrator',
-        'displayModeOrchestrator',
-        'updateOrchestrator',
-        'uiSetupOrchestrator',
-        'animationPerformanceOrchestrator',
-        'performanceMetricsOrchestrator',
-        'performanceStateOrchestrator',
-        'eventBus',
-        'loggerFactory'
-      ],
       'AppOrchestrator'
     );
     this.deviceOrchestrator = dependencies.deviceOrchestrator;

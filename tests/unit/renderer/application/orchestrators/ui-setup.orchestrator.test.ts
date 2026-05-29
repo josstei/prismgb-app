@@ -62,13 +62,6 @@ describe('UISetupOrchestrator', () => {
       expect(orchestrator.eventBus).toBe(mockEventBus);
       expect(orchestrator.uiController).toBe(mockUiController);
     });
-
-    it('should throw if missing required dependencies', () => {
-      expect(() => new UISetupOrchestrator({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
   });
 
   describe('initializeDeferredComponents', () => {

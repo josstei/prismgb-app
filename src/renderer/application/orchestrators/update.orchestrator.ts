@@ -52,7 +52,6 @@ class UpdateOrchestrator extends BaseOrchestrator {
   constructor(dependencies: UpdateOrchestratorDependencies) {
     super(
       dependencies,
-      ['updateService', 'updateUiService', 'loggerFactory'],
       'UpdateOrchestrator'
     );
     this.updateService = dependencies.updateService;

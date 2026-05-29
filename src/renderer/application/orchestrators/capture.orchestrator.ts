@@ -110,18 +110,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   constructor(dependencies: CaptureOrchestratorDependencies) {
     super(
       dependencies,
-      [
-        'captureService',
-        'appState',
-        'streamViewService',
-        'gpuRendererService',
-        'gpuRecordingService',
-        'canvasRenderLoopService',
-        'transcodeService',
-        'captureSaveService',
-        'eventBus',
-        'loggerFactory'
-      ],
       'CaptureOrchestrator'
     );
 

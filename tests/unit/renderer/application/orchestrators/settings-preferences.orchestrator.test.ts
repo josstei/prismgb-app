@@ -51,13 +51,6 @@ describe('SettingsPreferencesOrchestrator', () => {
       expect(orchestrator.appState).toBe(mockAppState);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
-
-    it('should throw if missing required dependencies', () => {
-      expect(() => new SettingsPreferencesOrchestrator({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      })).toThrow(/Missing required dependencies/);
-    });
   });
 
   describe('onInitialize', () => {

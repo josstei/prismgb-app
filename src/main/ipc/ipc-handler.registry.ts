@@ -121,7 +121,7 @@ class IpcHandlerRegistry extends BaseService {
   private readonly _registeredChannelsSet: Set<string>;
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
-    super(dependencies, ['deviceService', 'updateService', 'windowService', 'transcodeService', 'loginItemService', 'loggerFactory'], 'IpcHandlerRegistry');
+    super(dependencies, 'IpcHandlerRegistry');
     this.deviceService = dependencies.deviceService;
     this.updateService = dependencies.updateService;
     this.windowService = dependencies.windowService;

@@ -86,7 +86,7 @@ class PerformanceStateService extends BaseService {
   private _onStateChange: ((state: PerformanceState) => void) | null;
 
   constructor(dependencies: PerformanceStateDependencies) {
-    super(dependencies, ['loggerFactory', 'visibilityAdapter', 'userActivityAdapter', 'reducedMotionAdapter'], 'PerformanceStateService');
+    super(dependencies, 'PerformanceStateService');
 
     this._visibilityAdapter = dependencies.visibilityAdapter;
     this._userActivityAdapter = dependencies.userActivityAdapter;

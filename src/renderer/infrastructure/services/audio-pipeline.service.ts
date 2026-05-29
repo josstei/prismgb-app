@@ -71,7 +71,7 @@ export class StreamingAudioPipelineService extends BaseService {
   private _startPromise: Promise<boolean> | null;
 
   constructor(dependencies: StreamingAudioPipelineDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'settingsService'], 'StreamingAudioPipelineService');
+    super(dependencies, 'StreamingAudioPipelineService');
 
     this.eventBus = dependencies.eventBus;
     this.settingsService = dependencies.settingsService;

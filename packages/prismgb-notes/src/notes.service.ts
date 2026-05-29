@@ -40,7 +40,7 @@ class NotesService extends BaseService {
   _cacheValid: boolean;
 
   constructor(dependencies: NotesServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'NotesService');
+    super(dependencies, 'NotesService');
 
     this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;

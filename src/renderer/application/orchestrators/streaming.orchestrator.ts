@@ -106,7 +106,6 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   constructor(dependencies: StreamingOrchestratorDependencies) {
     super(
       dependencies,
-      ['streamingService', 'appState', 'streamViewService', 'renderPipelineService', 'gpuRecordingService', 'settingsService', 'eventBus', 'loggerFactory'],
       'StreamingOrchestrator'
     );
     this.streamingService = dependencies.streamingService;

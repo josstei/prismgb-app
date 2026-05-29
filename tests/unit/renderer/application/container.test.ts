@@ -138,10 +138,8 @@ describe('Renderer container', () => {
     expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');
   });
 
-  it('requires uiController registration for UI-bound services', () => {
+  it('resolves UI-bound services once uiController is registered', () => {
     const container = createRendererContainer();
-
-    expect(() => container.resolve('uiSetupOrchestrator')).toThrow();
 
     container.register({
       uiController: asValue({

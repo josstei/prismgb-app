@@ -79,7 +79,7 @@ class DeviceService extends BaseService {
   private readonly _usbMonitor: UsbDeviceMonitor;
 
   constructor(dependencies: DeviceServiceDependencies, profileClasses: Map<string, ProfileClass> = new Map()) {
-    super(dependencies, ['profileRegistry', 'eventBus', 'loggerFactory'], 'DeviceService');
+    super(dependencies, 'DeviceService');
     this.profileRegistry = dependencies.profileRegistry;
     this.eventBus = dependencies.eventBus;
     this.isDeviceConnected = false;

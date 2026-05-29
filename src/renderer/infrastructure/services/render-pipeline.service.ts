@@ -103,18 +103,6 @@ export class StreamingRenderPipelineService extends BaseService {
   constructor(dependencies: RenderPipelineDependencies) {
     super(
       dependencies,
-      [
-        'appState',
-        'streamViewService',
-        'canvasLifecycleService',
-        'streamHealthService',
-        'streamingRendererFactory',
-        'gpuRendererService',
-        'gpuRenderLoopService',
-        'canvasRenderLoopService',
-        'eventBus',
-        'loggerFactory'
-      ],
       'StreamingRenderPipelineService'
     );
 

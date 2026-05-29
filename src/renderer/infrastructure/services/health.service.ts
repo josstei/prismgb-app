@@ -48,7 +48,7 @@ export class StreamingHealthService extends BaseService {
   private _videoElement: HTMLVideoElement | null;
 
   constructor(dependencies: HealthServiceDependencies) {
-    super(dependencies, ['loggerFactory'], 'StreamingHealthService');
+    super(dependencies, 'StreamingHealthService');
 
     this._timeoutMs = 4000;
     this._isMonitoring = false;

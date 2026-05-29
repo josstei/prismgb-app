@@ -24,7 +24,7 @@ class SettingsFullscreenService extends BaseService {
   private _isFullscreenActive: boolean;
 
   constructor(dependencies: SettingsFullscreenServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'SettingsFullscreenService');
+    super(dependencies, 'SettingsFullscreenService');
 
     this.eventBus = dependencies.eventBus;
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);

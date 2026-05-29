@@ -29,7 +29,7 @@ class DeviceConnectionService extends BaseService {
   isConnected: boolean | null;
 
   constructor(dependencies: DeviceConnectionServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'deviceStatusProvider'], 'DeviceConnectionService');
+    super(dependencies, 'DeviceConnectionService');
     this.eventBus = dependencies.eventBus;
     this.deviceStatusProvider = dependencies.deviceStatusProvider;
     this.isConnected = null;  // null ensures first status check always publishes event

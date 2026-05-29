@@ -57,7 +57,7 @@ class TrayService extends BaseService {
   private readonly deviceService: TrayServiceDependencies['deviceService'];
 
   constructor(dependencies: TrayServiceDependencies) {
-    super(dependencies, ['windowService', 'deviceService', 'loggerFactory'], 'TrayService');
+    super(dependencies, 'TrayService');
     this.windowService = dependencies.windowService;
     this.deviceService = dependencies.deviceService;
   }

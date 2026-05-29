@@ -42,7 +42,7 @@ export class PresentationModeService extends BaseService {
   private _isStreamingActive: boolean;
 
   constructor(dependencies: PresentationModeServiceDependencies) {
-    super(dependencies, ['uiController', 'appState', 'loggerFactory'], 'PresentationModeService');
+    super(dependencies, 'PresentationModeService');
 
     this.uiController = dependencies.uiController;
     this.appState = dependencies.appState;

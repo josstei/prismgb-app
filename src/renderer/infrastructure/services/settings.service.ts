@@ -42,7 +42,7 @@ class SettingsService extends BaseService {
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
   constructor(dependencies: SettingsServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'storageService'], 'SettingsService');
+    super(dependencies, 'SettingsService');
 
     this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;

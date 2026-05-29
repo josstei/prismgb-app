@@ -40,7 +40,7 @@ class PerformanceAnimationService extends BaseService {
   private _isIdle: boolean;
 
   constructor(dependencies: PerformanceAnimationDependencies) {
-    super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
+    super(dependencies, 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,

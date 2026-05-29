@@ -40,7 +40,7 @@ class TranscodeUIBridge extends BaseService {
   private readonly uiController: TranscodeUiControllerLike;
 
   constructor(dependencies: TranscodeUIBridgeDependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'loggerFactory'], 'TranscodeUIBridge');
+    super(dependencies, 'TranscodeUIBridge');
     this.eventBus = dependencies.eventBus;
     this.uiController = dependencies.uiController;
   }

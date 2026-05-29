@@ -55,7 +55,7 @@ class CaptureGpuRecordingService extends BaseService {
   private _lastCapturePromise: Promise<ImageBitmap> | null;
 
   constructor(dependencies: CaptureGpuRecordingDependencies) {
-    super(dependencies, ['gpuRendererService', 'eventBus', 'loggerFactory'], 'CaptureGpuRecordingService');
+    super(dependencies, 'CaptureGpuRecordingService');
 
     this.gpuRendererService = dependencies.gpuRendererService;
     this.eventBus = dependencies.eventBus;

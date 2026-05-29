@@ -16,7 +16,7 @@ class UpdateUiService extends BaseService {
   private readonly eventBus: EventBusLike;
 
   constructor(dependencies: UpdateUiServiceDependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
+    super(dependencies, 'UpdateUiService');
     this.eventBus = dependencies.eventBus;
   }
 

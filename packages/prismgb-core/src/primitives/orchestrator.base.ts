@@ -1,4 +1,3 @@
-import { validateDependencies } from './validate-deps.utils.js';
 import { DisposableBag, type Disposable, type DisposableFunction, type DisposableKey, type EventTargetLike } from './disposable-bag.js';
 import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
 
@@ -10,13 +9,8 @@ export class BaseOrchestrator {
   protected readonly _orchestratorName: string;
   private readonly _disposables: DisposableBag;
 
-  constructor(
-    dependencies: object,
-    requiredDeps: string[] = [],
-    name: string | null = null
-  ) {
+  constructor(dependencies: object, name: string | null = null) {
     const orchestratorName = name || this.constructor.name;
-    validateDependencies(dependencies, requiredDeps, orchestratorName);
     const dependencyMap = dependencies as Record<string, unknown>;
 
     Object.assign(this, dependencyMap);

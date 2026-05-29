@@ -81,13 +81,6 @@ describe('TranscodeUIBridge', () => {
       expect(bridge.logger).toBe(mockLogger);
     });
 
-    it('should throw when loggerFactory is missing', () => {
-      expect(() => new TranscodeUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController
-      })).toThrow(/Missing required dependencies.*loggerFactory/);
-    });
-
     it('should initialize disposables bag', () => {
       bridge = new TranscodeUIBridge({
         eventBus: mockEventBus,

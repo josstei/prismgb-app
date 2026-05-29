@@ -30,7 +30,6 @@ export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
   constructor(dependencies: SettingsPreferencesOrchestratorDependencies) {
     super(
       dependencies,
-      ['settingsService', 'eventBus', 'loggerFactory'],
       'SettingsPreferencesOrchestrator'
     );
     this.settingsService = dependencies.settingsService;

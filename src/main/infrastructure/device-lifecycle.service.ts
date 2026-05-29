@@ -34,7 +34,7 @@ export class DeviceLifecycleService extends BaseService {
   private readonly eventBus: EventBus;
 
   constructor(dependencies: DeviceLifecycleServiceDependencies) {
-    super(dependencies, ['deviceService', 'windowService', 'eventBus', 'loggerFactory'], 'DeviceLifecycleService');
+    super(dependencies, 'DeviceLifecycleService');
     this.deviceService = dependencies.deviceService;
     this.windowService = dependencies.windowService;
     this.eventBus = dependencies.eventBus;

@@ -78,7 +78,7 @@ export class UIEventBridge extends BaseService {
   private readonly presentationModeService: PresentationModeServiceLike;
 
   constructor(dependencies: UIEventBridgeDependencies) {
-    super(dependencies, ['eventBus', 'uiController', 'presentationModeService', 'loggerFactory'], 'UIEventBridge');
+    super(dependencies, 'UIEventBridge');
 
     this.eventBus = dependencies.eventBus;
     this.uiController = dependencies.uiController;
