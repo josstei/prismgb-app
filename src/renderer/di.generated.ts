@@ -45,6 +45,7 @@ import { PerformanceStateOrchestrator } from './application/orchestrators/perfor
 import { AppOrchestrator } from './application/orchestrators/app.orchestrator';
 import { BrowserMediaAdapter } from './infrastructure/browser/browser-media.adapter';
 import { StreamingCanvasLifecycleService } from './infrastructure/services/canvas-lifecycle.service';
+import { GpuFrameBuffer } from './infrastructure/services/gpu-frame-buffer';
 import { StreamingGpuRenderLoopService } from './infrastructure/services/gpu-render-loop.service';
 import { GpuWorkerManager } from './infrastructure/services/gpu-worker-manager';
 import { StreamingHealthService } from './infrastructure/services/health.service';
@@ -54,23 +55,8 @@ import { CaptureUIBridge } from './presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from './presentation/bridges/transcode-ui.bridge';
 import { UIEventBridge } from './presentation/bridges/ui-event.bridge';
 import { UIEffects } from './presentation/effects/ui-effects.class';
-
-import { BrowserStorageAdapter } from './infrastructure/browser/browser-storage.adapter';
-import { PROTECTED_STORAGE_KEYS } from '../shared/config/storage-keys.config.js';
-import { DeviceIpcAdapter } from './infrastructure/adapters/device-ipc.adapter';
-import { DeviceChangeDebounceAdapter } from './infrastructure/adapters/device-change-debounce.adapter';
-import { StreamingCanvasRenderLoopService } from './infrastructure/services/canvas-render-loop.service';
-import { GpuFrameBuffer } from './infrastructure/services/gpu-frame-buffer';
-import { StreamingRendererFactory } from './infrastructure/factories/streaming-renderer.factory';
-import { StreamingGpuRendererAdapter } from './infrastructure/adapters/streaming-gpu-renderer.adapter';
-import { StreamingCanvas2DRendererAdapter } from './infrastructure/adapters/streaming-canvas2d-renderer.adapter';
-import { DeviceIpcStatusAdapter } from './infrastructure/adapters/device-ipc-status.adapter';
-import { StreamingAdapterFactory } from './infrastructure/factories/streaming-adapter.factory';
-import { DeviceChromaticAdapter } from './infrastructure/adapters/device-chromatic.adapter';
-import { chromaticConfig } from '@prismgb/devices';
-import { UIComponentRegistry } from './presentation/controller/component.registry';
-import { rendererUiComponentDefinitions } from './presentation/controller/ui-component.catalog';
 import { AnimationCache, safeDispose } from '@prismgb/core';
+import { manualProviders } from './application/di/manual-providers';
 
 export class GeneratedContainer {
   public cache: Map<string, { value: unknown }> = new Map();
@@ -79,18 +65,7 @@ export class GeneratedContainer {
 
   constructor(overrides: Record<string, any> = {}) {
     // Pre-seed all static tokens
-    const staticTokens = [
-  "storageService",
-  "deviceIpcAdapter",
-  "deviceChangeDebounceAdapter",
-  "canvasRenderLoopService",
-  "gpuFrameBuffer",
-  "streamingRendererFactory",
-  "ipcClient",
-  "deviceStatusProvider",
-  "adapterFactory",
-  "uiComponentRegistry",
-  "animationCache",
+    const staticTokens = [...Object.keys(manualProviders), ...[
   "eventBus",
   "loggerFactory",
   "deviceConnectionService",
@@ -136,6 +111,7 @@ export class GeneratedContainer {
   "appOrchestrator",
   "browserMediaService",
   "canvasLifecycleService",
+  "gpuFrameBuffer",
   "gpuRenderLoopService",
   "gpuWorkerManager",
   "streamHealthService",
@@ -144,8 +120,9 @@ export class GeneratedContainer {
   "captureUiBridge",
   "transcodeUiBridge",
   "uiEventBridge",
-  "uiEffects"
-];
+  "uiEffects",
+  "animationCache"
+]];
     for (const token of staticTokens) {
       this.registrations[token] = {};
     }
@@ -190,78 +167,6 @@ export class GeneratedContainer {
 
     let instance: any;
     switch (token) {
-      // Standard Infrastructure & Factories
-      case 'storageService':
-        instance = new BrowserStorageAdapter({ protectedKeys: PROTECTED_STORAGE_KEYS });
-        break;
-      case 'deviceIpcAdapter':
-        instance = new DeviceIpcAdapter({
-          eventBus: this.resolve('eventBus'),
-          logger: this.resolve<any>('loggerFactory').create('DeviceIpcAdapter')
-        });
-        break;
-      case 'deviceChangeDebounceAdapter':
-        instance = new DeviceChangeDebounceAdapter({
-          browserMediaService: this.resolve('browserMediaService'),
-          logger: this.resolve<any>('loggerFactory').create('DeviceChangeDebounceAdapter')
-        });
-        break;
-      case 'canvasRenderLoopService':
-        instance = new StreamingCanvasRenderLoopService(
-          this.resolve<any>('loggerFactory').create('StreamingCanvasRenderLoopService'),
-          this.resolve('animationCache')
-        );
-        break;
-      case 'gpuFrameBuffer':
-        instance = new GpuFrameBuffer({ loggerFactory: this.resolve('loggerFactory') });
-        break;
-      case 'streamingRendererFactory': {
-        const rendererProviders = {
-          gpu: (deps: any) => new StreamingGpuRendererAdapter(deps),
-          canvas2d: (deps: any) => new StreamingCanvas2DRendererAdapter(deps)
-        };
-        const rendererFactory = new StreamingRendererFactory(
-          this.resolve('eventBus'),
-          this.resolve('loggerFactory'),
-          rendererProviders
-        );
-        rendererFactory.initialize();
-        instance = rendererFactory;
-        break;
-      }
-      case 'ipcClient': {
-        const globalWindow = window as any;
-        if (!globalWindow.deviceAPI) {
-          throw new Error('deviceAPI is not available in the renderer. The preload script may have failed to load.');
-        }
-        instance = globalWindow.deviceAPI;
-        break;
-      }
-      case 'deviceStatusProvider':
-        instance = new DeviceIpcStatusAdapter(this.resolve('ipcClient'));
-        break;
-      case 'adapterFactory': {
-        const adapterClasses = new Map([[chromaticConfig.id, DeviceChromaticAdapter]]);
-        const adapterFactory = new StreamingAdapterFactory(
-          this.resolve('eventBus'),
-          this.resolve('loggerFactory'),
-          this.resolve('browserMediaService'),
-          adapterClasses
-        );
-        adapterFactory.initialize();
-        instance = adapterFactory;
-        break;
-      }
-      case 'uiComponentRegistry':
-        instance = new UIComponentRegistry({
-          componentDefinitions: rendererUiComponentDefinitions,
-          loggerFactory: this.resolve('loggerFactory')
-        });
-        break;
-      case 'animationCache':
-        instance = new AnimationCache();
-        break;
-
       // Scanned @Service class instantiations
       case 'eventBus':
         instance = new EventBus(this.cradle);
@@ -398,6 +303,9 @@ export class GeneratedContainer {
       case 'canvasLifecycleService':
         instance = new StreamingCanvasLifecycleService(this.cradle);
         break;
+      case 'gpuFrameBuffer':
+        instance = new GpuFrameBuffer(this.cradle);
+        break;
       case 'gpuRenderLoopService':
         instance = new StreamingGpuRenderLoopService(this.cradle);
         break;
@@ -425,9 +333,17 @@ export class GeneratedContainer {
       case 'uiEffects':
         instance = new UIEffects(this.cradle);
         break;
+      case 'animationCache':
+        instance = new AnimationCache();
+        break;
 
-      default:
-        throw new Error("[GeneratedContainer] Could not resolve token: " + token);
+      default: {
+        const provider = manualProviders[token];
+        if (!provider) {
+          throw new Error("[GeneratedContainer] Could not resolve token: " + token);
+        }
+        instance = provider((dependencyToken) => this.resolve(dependencyToken));
+      }
     }
 
     this.instances.set(token, instance);
