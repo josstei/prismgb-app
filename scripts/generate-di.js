@@ -213,7 +213,11 @@ function topologicalSort(services, nonScannedTokens) {
           if (serviceMap.has(dep)) {
             visit(dep);
           } else if (!nonScannedTokenSet.has(dep)) {
-            console.warn("[DI Emitter Warning] Dependency " + dep + " of " + token + " is not a scanned service.");
+            throw new Error(
+              "[DI CodeGen] Dependency '" + dep + "' of '" + token +
+              "' is neither a scanned @Service, a manual provider, nor an external token. " +
+              "Add it as an @Service class, to manual-providers.ts, or to external-tokens.ts."
+            );
           }
         }
         sorted.push(service);
