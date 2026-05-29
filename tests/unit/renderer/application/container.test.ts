@@ -164,4 +164,20 @@ describe('Renderer container', () => {
 
     expect(() => container.resolve('appOrchestrator')).not.toThrow();
   });
+
+  it('resolves manual-provider and promoted @Service tokens through the generated container', () => {
+    const container = createRendererContainer();
+
+    // Manual providers exercised through the generated container's default branch,
+    // including chained resolution (deviceStatusProvider -> ipcClient,
+    // canvasRenderLoopService -> animationCache).
+    expect(() => container.resolve('storageService')).not.toThrow();
+    expect(() => container.resolve('ipcClient')).not.toThrow();
+    expect(() => container.resolve('deviceStatusProvider')).not.toThrow();
+    expect(() => container.resolve('canvasRenderLoopService')).not.toThrow();
+
+    // Promoted to scanned @Service: cradle construction and no-arg construction.
+    expect(container.resolve('gpuFrameBuffer')).toBeDefined();
+    expect(container.resolve('animationCache')).toBeDefined();
+  });
 });
