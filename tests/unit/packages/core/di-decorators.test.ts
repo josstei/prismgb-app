@@ -12,7 +12,7 @@ describe('@Service decorator (build-time marker)', () => {
   it('writes no runtime metadata onto the class', () => {
     class Example {}
     Service({ token: 'example', disposal: 'dispose' })(Example as never);
-    expect((Example as Record<string, unknown>).serviceMetadata).toBeUndefined();
+    expect((Example as unknown as Record<string, unknown>).serviceMetadata).toBeUndefined();
   });
 
   it('no longer exports an Inject decorator', () => {
