@@ -11,27 +11,13 @@ import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.brid
 import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
+import { initializeContainer, asValue } from './application/container.js';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@shared/features/settings/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '../../packages/prismgb-transcode/src/transcode.config.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 
-async function importWithRetry<T>(importFn: () => Promise<T>, maxRetries = 3, baseDelayMs = 300): Promise<T> {
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await importFn();
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxRetries) {
-        const delay = baseDelayMs * Math.pow(2, attempt);
-        console.debug(`[importWithRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  throw lastError;
-}
+
 
 class RendererBootstrap {
   container: RendererServiceContainer | null;
@@ -69,9 +55,6 @@ class RendererBootstrap {
         renderAppShell(appContainer);
       }
 
-      const { initializeContainer } = await importWithRetry(
-        () => import('./application/container')
-      );
       const container = initializeContainer();
       this.container = container;
 
@@ -156,7 +139,6 @@ class RendererBootstrap {
   }
 
   async _registerUIComponents() {
-    const { asValue } = await importWithRetry(() => import('./application/container'));
     const container = this._requireContainer();
 
     container.register({
