@@ -1,5 +1,5 @@
 /**
- * Renderer App Orchestrator Unit Tests
+ * Renderer Bootstrap Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -29,9 +29,9 @@ vi.mock('@renderer/presentation/shell/app-shell.renderer.js', () => ({
   renderAppShell: vi.fn()
 }));
 
-const { RendererAppOrchestrator } = await import('@renderer/renderer-app.orchestrator.js');
+const { RendererBootstrap } = await import('@renderer/app-bootstrap.js');
 
-describe('RendererAppOrchestrator', () => {
+describe('RendererBootstrap', () => {
   let app;
 
   beforeEach(() => {
@@ -42,7 +42,7 @@ describe('RendererAppOrchestrator', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     delete document.body.dataset.prismgbAppStarted;
 
-    app = new RendererAppOrchestrator();
+    app = new RendererBootstrap();
   });
 
   afterEach(() => {
@@ -93,7 +93,7 @@ describe('RendererAppOrchestrator', () => {
       await app.initialize();
       await app.initialize();
 
-      expect(console.warn).toHaveBeenCalledWith('[RendererAppOrchestrator]', 'Renderer application already initialized');
+      expect(console.warn).toHaveBeenCalledWith('[RendererBootstrap]', 'Renderer application already initialized');
     });
   });
 

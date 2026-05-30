@@ -25,8 +25,8 @@ const SPECIAL_FILE_LAYER_MAP = new Map([
   ['main/index', LayerIds.MAIN_ENTRY],
   ['renderer/index.ts', LayerIds.RENDERER_ENTRY],
   ['renderer/index', LayerIds.RENDERER_ENTRY],
-  ['renderer/renderer-app.orchestrator.ts', LayerIds.RENDERER_BOOTSTRAP],
-  ['renderer/renderer-app.orchestrator', LayerIds.RENDERER_BOOTSTRAP]
+  ['renderer/app-bootstrap.ts', LayerIds.RENDERER_BOOTSTRAP],
+  ['renderer/app-bootstrap', LayerIds.RENDERER_BOOTSTRAP]
 ]);
 
 const LAYER_SEQUENCE = [

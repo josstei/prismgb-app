@@ -26,7 +26,7 @@ async function importWithRetry<T>(importFn: () => Promise<T>, maxRetries = 3, ba
   throw lastError;
 }
 
-class RendererAppOrchestrator {
+class RendererBootstrap {
   container: RendererServiceContainer | null;
   orchestrator: AppOrchestrator | null;
   isInitialized: boolean;
@@ -40,7 +40,7 @@ class RendererAppOrchestrator {
     this._uiController = null;
 
     const loggerFactory = new RendererLogger();
-    this.logger = loggerFactory.create('RendererAppOrchestrator') as LoggerLike;
+    this.logger = loggerFactory.create('RendererBootstrap') as LoggerLike;
   }
 
   async initialize() {
@@ -186,13 +186,13 @@ class RendererAppOrchestrator {
 }
 
 async function createApplication() {
-  const app = new RendererAppOrchestrator();
+  const app = new RendererBootstrap();
   await app.initialize();
   await app.start();
   return app;
 }
 
 export {
-  RendererAppOrchestrator,
+  RendererBootstrap,
   createApplication
 };

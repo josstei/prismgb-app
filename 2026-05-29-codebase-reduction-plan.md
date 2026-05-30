@@ -206,14 +206,17 @@ git commit -m "build: add knip dead-code analysis + baseline triage"
 
 ## Task 1.3: Rename the renderer bootstrap to remove the "app orchestrator" collision (#3)
 
-`renderer-app.orchestrator.ts` (bootstrap) collides conceptually with `application/orchestrators/app.orchestrator.ts` (DI coordinator). Real importers: `src/renderer/index.ts` and `tests/unit/renderer/RendererAppOrchestrator.test.ts`. (The `tests/fixtures/layer-boundaries/...` reference is an intentional fixture — DO NOT touch it.)
+`renderer-app.orchestrator.ts` (bootstrap) collides conceptually with `application/orchestrators/app.orchestrator.ts` (DI coordinator). Real importers: `src/renderer/index.ts` and `tests/unit/renderer/RendererAppOrchestrator.test.ts`.
+
+> **⚠ Critical, easy-to-miss: the layer-boundary checker pins this filename.** `scripts/check-layer-boundaries.js` has a `SPECIAL_FILE_LAYER_MAP` that maps `renderer/renderer-app.orchestrator(.ts)` → the `renderer/bootstrap` layer. **A file that matches no map entry and no layer prefix classifies as `null` (unclassified) and is exempt from all boundary rules.** So if you rename the file without updating that map, the renamed `app-bootstrap.ts` silently loses its layer classification — *and the GATE still passes*, because unclassified means "no violations." Step 5 fixes the map. The `entry-bootstrap-pass` layer-boundary fixture (which has its own copy of the bootstrap filename) must be renamed in lockstep so its test (`tests/unit/scripts/check-layer-boundaries.test.js` → "accepts renderer entry importing renderer bootstrap") keeps exercising real bootstrap classification instead of passing vacuously. The *other* fixture (`infra-imports-presentation-relative/.../violation.ts`) is unrelated — leave it.
 
 **Files:**
 - Rename: `src/renderer/renderer-app.orchestrator.ts` → `src/renderer/app-bootstrap.ts`
 - Rename: `tests/unit/renderer/RendererAppOrchestrator.test.ts` → `tests/unit/renderer/app-bootstrap.test.ts`
-- Modify: `src/renderer/index.ts`
+- Rename (fixture, lockstep): `tests/fixtures/layer-boundaries/entry-bootstrap-pass/src/renderer/renderer-app.orchestrator.ts` → `.../app-bootstrap.ts`
+- Modify: `src/renderer/index.ts`, `scripts/check-layer-boundaries.js`, `tests/fixtures/layer-boundaries/entry-bootstrap-pass/src/renderer/index.ts`
 
-- [ ] **Step 1: Run GATE (test only) to confirm green**, then `git mv` both files:
+- [ ] **Step 1: Run GATE (test only) to confirm green**, then `git mv` both real files:
 
 ```bash
 git mv src/renderer/renderer-app.orchestrator.ts src/renderer/app-bootstrap.ts
@@ -233,16 +236,31 @@ let app: RendererBootstrap | null = null;
 
 - [ ] **Step 4: Update the test file** `tests/unit/renderer/app-bootstrap.test.ts` — fix its import path to `@renderer/app-bootstrap` and rename `RendererAppOrchestrator` references to `RendererBootstrap` (including the `describe(...)` label).
 
-- [ ] **Step 5: Find any stragglers**
+- [ ] **Step 5: Repoint the layer-boundary checker and its fixture.** In `scripts/check-layer-boundaries.js`, update the two `SPECIAL_FILE_LAYER_MAP` entries:
+
+```js
+['renderer/app-bootstrap.ts', LayerIds.RENDERER_BOOTSTRAP],
+['renderer/app-bootstrap', LayerIds.RENDERER_BOOTSTRAP]
+```
+
+Then rename the fixture file in lockstep and fix its import so the bootstrap-classification test stays meaningful:
 
 ```bash
-grep -rn "renderer-app.orchestrator\|RendererAppOrchestrator" src tests | grep -v tests/fixtures
+git mv tests/fixtures/layer-boundaries/entry-bootstrap-pass/src/renderer/renderer-app.orchestrator.ts \
+       tests/fixtures/layer-boundaries/entry-bootstrap-pass/src/renderer/app-bootstrap.ts
+# in that fixture's src/renderer/index.ts, change:  from './renderer-app.orchestrator'  →  from './app-bootstrap'
 ```
-Expected: no matches.
 
-- [ ] **Step 6: Run GATE.** Expected: green.
+- [ ] **Step 6: Find any stragglers**
 
-- [ ] **Step 7: Commit**
+```bash
+grep -rn "renderer-app.orchestrator\|RendererAppOrchestrator" src tests scripts
+```
+Expected: no matches (the fixture was renamed in Step 5, so it no longer appears either).
+
+- [ ] **Step 7: Run GATE.** Expected: green. Spot-confirm the classification survived: `npx vitest run tests/unit/scripts/check-layer-boundaries.test.js` passes, and `app-bootstrap.ts` is treated as `renderer/bootstrap` (not unclassified).
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -276,7 +294,7 @@ grep -rn "presentation/lib/file-download" src tests | grep -v tests/fixtures
 ```
 Expected: no matches.
 
-- [ ] **Step 4: Run GATE.** Expected: green (the layer-boundary check must still pass — `ui.controller.ts` importing from `@renderer/lib` is presentation→lib, which is allowed).
+- [ ] **Step 4: Run GATE.** Expected: green. (`renderer/lib` is not one of the checker's classified layers, so `@renderer/lib/...` resolves to a `null` target layer and the import is simply not boundary-checked — the same reason the existing canonical file is already imported without violation. The layer-boundary check stays green.)
 
 - [ ] **Step 5: Commit**
 
@@ -436,7 +454,9 @@ git commit -m "refactor(renderer): extract fatal-error screen out of entry point
 
 # Phase 2 — Move-Safety Enabler (Finding #7)
 
-The 160 path-coupled test files mean every move in Phase 3 must rewrite import paths in lockstep. This phase establishes a **repeatable, verifiable move procedure** and normalizes the import-extension inconsistency so Phase 3 moves are mechanical and safe.
+The ~160 path-coupled test files (verified: 128 import a `src/` alias directly; ~156 once `@prismgb/*` and `@core` are counted) mean every move in Phase 3 must rewrite import paths in lockstep. This phase establishes a **repeatable, verifiable move procedure** and normalizes the import-extension inconsistency so Phase 3 moves are mechanical and safe.
+
+> **Deviation from analysis finding #7 — intentional, called out for honesty.** Finding #7's recommendation was to *decouple* tests from `src/` paths via per-domain **barrel exports or finer path aliases**, so each move touches one barrel instead of N test files. This plan deliberately takes a different route: a **mechanical, unit-tested import-rewriter** that re-points every coupled file on each move. This *automates* the churn rather than *eliminating* it — after Phase 3 the tests still import deep (now-updated) paths, so #7's literal "decouple" goal is **not** achieved; only its enabling purpose (make the moves safe and repeatable) is. Rationale for the choice: in this DI/codegen codebase, per-domain barrels would add a new structural layer the layer-boundary checker and DI generator must both account for, can mask circular imports, and weaken tree-shaking — a larger, riskier change than the moves they would protect. **Barrels/aliases were considered and deferred**; the rewriter is the lower-risk enabler. If a stable test-facing surface is later desired, introducing barrels can be done as its own follow-up without redoing Phase 3.
 
 ## Task 2.1: Establish the move procedure + normalize test import extensions
 
@@ -512,7 +532,7 @@ MOVE PROCEDURE (per file):
 ```bash
 grep -rln "from '@\(renderer\|main\|shared\|preload\)/[^']*\.ts'" tests | grep -v tests/fixtures
 ```
-For each match, drop the `.ts` suffix on those specifiers (e.g. `@renderer/infrastructure/streaming/acquisition/acquisition-context.ts` → `@renderer/infrastructure/streaming/acquisition/acquisition-context`). Leave `.js` specifiers as-is (those are the convention for runtime-only modules).
+This currently matches roughly **74 test files** — a large batch, so script it with the rewriter rather than editing by hand, and sanity-check the count before and after. For each match, drop the `.ts` suffix on those specifiers (e.g. `@renderer/infrastructure/streaming/acquisition/acquisition-context.ts` → `@renderer/infrastructure/streaming/acquisition/acquisition-context`). Leave `.js` specifiers as-is (those are the convention for runtime-only modules).
 
 - [ ] **Step 7: Run GATE.** Expected: green.
 
@@ -544,7 +564,7 @@ git commit -m "build: add verified import-rewrite helper + normalize test import
 | `updates/` | update.service, update-ui.service |
 | `platform/` | health.service, viewport.service, preload-event-bridge.factory |
 
-`gpu/` and `platform/` extend the documented domain list — add them to `naming-conventions.md` line 42 as part of this phase (ties back to Task 1.1 Step 5).
+`gpu/` and `platform/` extend the documented domain list. They are added to `naming-conventions.md` (line 42) in **Task 1.1 Step 5** (with a temporary "See Phase 3…" status note); **Task 3.1 Step 5** then removes that note once the folders physically exist. Add them once, not twice.
 
 ## Task 3.1: Group renderer `infrastructure/services/` by domain (#8)
 
@@ -572,7 +592,7 @@ git diff --stat src/renderer/di.generated.ts   # expect import paths updated
 
 - [ ] **Step 4: Run GATE.** Expected: green. The layer-boundary check (`infrastructure/services/<domain>/`) passes — the tooling already supports domain subfolders (confirmed by existing fixtures).
 
-- [ ] **Step 5: Update `naming-conventions.md`** to add `gpu` and `platform` to the renderer domain list (and remove the "See Phase 3…" note added in Task 1.1).
+- [ ] **Step 5: Finalize `naming-conventions.md`** — `gpu` and `platform` were already added to the renderer domain list in Task 1.1 Step 5; here just **remove the "See Phase 3…" status note** so the line describes the now-realized structure (do not re-add the domains).
 
 - [ ] **Step 6: Commit**
 
@@ -616,6 +636,8 @@ git commit -m "refactor(main): group infrastructure services into domain folders
 ## Task 3.3: Consolidate streaming infrastructure (#13)
 
 Bring the scattered renderer streaming infra under the `streaming/` domain created in Task 3.1. Move the streaming-specific adapters, factories, and the acquisition tree into `infrastructure/services/streaming/`.
+
+> **Deviation from analysis #13 — intentional.** The analysis proposed a top-level `infrastructure/streaming/` home; this plan instead nests under `infrastructure/services/streaming/` so it reuses the domain folder created in Task 3.1 (one streaming home, not a `services/streaming/` plus a sibling `streaming/`). Both source and targets stay inside the `renderer/infrastructure` layer, and `check-layer-boundaries.js` classifies by layer prefix (not by `adapters/` vs `services/` sub-folder), so this move does not change any file's layer or introduce a boundary violation.
 
 **Files to move into `src/renderer/infrastructure/services/streaming/`:**
 - From `infrastructure/adapters/`: `streaming-canvas2d-renderer.adapter.ts`, `streaming-gpu-renderer.adapter.ts`, `streaming-renderer.interface.ts`
@@ -732,7 +754,7 @@ Main's `application/app.orchestrator.ts` both bootstraps the DI container AND co
 
 **Files:**
 - Create: `src/main/app-bootstrap.ts`
-- Modify: `src/main/application/app.orchestrator.ts`, `src/main/index.ts`, `src/main/application/index.ts`
+- Modify: `src/main/application/app.orchestrator.ts`, `src/main/index.ts`, `src/main/application/index.ts`, `scripts/check-layer-boundaries.js` (+ a new boundary fixture — see Step 6)
 
 > This is the highest-design task in the plan. Do it as a *small, reviewed* refactor: extract only the container-creation + lifecycle wiring (`createAppContainer`, logger pre-creation, start/stop) from the main `AppOrchestrator` into a `MainBootstrap` class in `src/main/app-bootstrap.ts`, leaving service coordination in `AppOrchestrator`. Keep `main/index.ts`'s public entry behavior identical.
 
@@ -753,9 +775,15 @@ Identify which members are *bootstrap* (container creation, pre-created logger, 
 
 - [ ] **Step 5: Update `src/main/index.ts`** to import and use `MainBootstrap` instead of constructing `AppOrchestrator` directly. Keep menu setup and GPU-flag logic untouched.
 
-- [ ] **Step 6: Regenerate DI**, run GATE + `npm run dev:smoke`. Expected: green; the app still boots.
+- [ ] **Step 6: Classify the new bootstrap file in the layer checker.** Same trap as Task 1.3, and *worse* for main: there is no `main/bootstrap` layer at all, so a file at `src/main/app-bootstrap.ts` matches no layer prefix, classifies as `null`, and is silently exempt from every boundary rule — and the GATE will not catch it (unclassified = no violations). Choose one, mirroring how the renderer handles its bootstrap:
+  - **Preferred (symmetric):** add a `MAIN_BOOTSTRAP: 'main/bootstrap'` layer id, a `SPECIAL_FILE_LAYER_MAP` entry `['main/app-bootstrap', LayerIds.MAIN_BOOTSTRAP]` (plus the `.ts` form), insert it into `LAYER_SEQUENCE` right after `MAIN_ENTRY`, give it a `FORBIDDEN_LAYER_MAP` set mirroring `RENDERER_BOOTSTRAP` (forbid `core` + all renderer layers), and add `MAIN_BOOTSTRAP` to the forbidden sets of the main layers that must not depend on it. Add a `tests/fixtures/layer-boundaries/` fixture + a `check-layer-boundaries.test.js` case mirroring `entry-bootstrap-pass`.
+  - **Minimal:** add only a `SPECIAL_FILE_LAYER_MAP` entry mapping `main/app-bootstrap(.ts)` → `MAIN_APPLICATION`, so the file inherits the classification `app.orchestrator.ts` had before the split.
 
-- [ ] **Step 7: Commit**
+  Either way, confirm `npx vitest run tests/unit/scripts/check-layer-boundaries.test.js` passes and `src/main/app-bootstrap.ts` is **not** `null`-classified.
+
+- [ ] **Step 7: Regenerate DI**, run GATE + `npm run dev:smoke`. Expected: green; the app still boots.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -789,7 +817,7 @@ git commit -m "refactor(notes): extract notes-panel initialize wiring into a hel
 
 ## Task 4.4: Split `listbox-dropdown.class.ts` into two files (#12 — easiest seam)
 
-This 544-LOC file contains **two classes**: `ListboxDropdown` (≈ lines 123–319) and `ComboboxListboxController` (≈ lines 361–528). Split one class per file.
+This 544-LOC file contains **two classes**: `ListboxDropdownController` (≈ lines 67–336) and `ComboboxListboxController` (≈ lines 338–543), preceded by shared option/initialize interface exports (lines 16–62). Both classes are re-exported together on the final line: `export { ListboxDropdownController, ComboboxListboxController };`. Split one class per file.
 
 **Files:**
 - Create: `src/renderer/presentation/primitives/combobox-listbox.class.ts`
@@ -801,7 +829,7 @@ This 544-LOC file contains **two classes**: `ListboxDropdown` (≈ lines 123–3
 grep -rln "ComboboxListboxController\|ListboxDropdown" src tests | grep -v tests/fixtures
 ```
 
-- [ ] **Step 2: Move the `ComboboxListboxController` class** (and any helper types it alone uses) into the new `combobox-listbox.class.ts`, importing whatever shared types it needs from `listbox-dropdown.class.ts` or `listbox.utils.ts`. Keep `ListboxDropdown` in the original file.
+- [ ] **Step 2: Move the `ComboboxListboxController` class** (and the combobox-only interface exports `ComboboxListboxControllerOptions` and `ComboboxListboxInitializeOptions`) into the new `combobox-listbox.class.ts`, importing whatever shared types it still needs from `listbox-dropdown.class.ts` or `listbox.utils.ts`. Keep `ListboxDropdownController` (and `ListboxDropdownControllerOptions`/`ListboxDropdownInitializeOptions`) in the original file, and change its trailing barrel export from `export { ListboxDropdownController, ComboboxListboxController };` to `export { ListboxDropdownController };` (the new file exports `ComboboxListboxController`).
 
 - [ ] **Step 3: Update importers** of `ComboboxListboxController` to the new module path (use the Step-1 list).
 
@@ -816,7 +844,7 @@ git commit -m "refactor(primitives): split combobox controller out of listbox-dr
 
 ## Task 4.5: Split `gpu-renderer.service.ts` (663 LOC) (#12)
 
-Largest file; ~225 LOC of private setup between constructor (line 120) and first public method `renderFrame` (line 345). Extract the cohesive setup/capability logic, keeping the public interface (`renderFrame`, `setPreset`, `getPresetId`, `resize`, `isActive`, `isFallback`, `isCanvasTransferred`, `getCapabilities`, `getTargetDimensions`, `cleanup`) intact.
+Largest file; ~225 LOC of private setup between constructor (line 120) and first public method `renderFrame` (line 345). Extract the cohesive setup/capability logic, keeping the public interface intact. The externally-consumed public methods (called by `streaming-gpu-renderer.adapter.ts` and `render-pipeline.service.ts`, and covered directly by `gpu-renderer.service.test.ts`) are: `renderFrame`, `setPreset`, `getPresetId`, `resize`, `isActive`, `isFallback`, `isCanvasTransferred`, `getCapabilities`, `getTargetDimensions`, `releaseGpuResources`, `terminateAndReset`, `cleanup` — none of their signatures change.
 
 **Files:**
 - Create: `src/renderer/infrastructure/services/gpu/gpu-renderer-setup.ts` (post-Phase-3 path)
@@ -994,10 +1022,12 @@ git commit -m "docs: document why bootstrap importWithRetry is retained" --allow
 
 ## Self-Review
 
-**Spec coverage (all 16 findings → tasks):** #1→1.1, #2→1.2, #3→1.3, #4→1.4, #5→1.5, #6→1.6, #7→2.1, #8→3.1, #9→3.2, #13→3.3, #15→3.4, #10→4.1, #11→4.2, #14→4.3, #12→4.4–4.9 (listbox, gpu-renderer, audio-pipeline, render-pipeline, main device.service, streaming.service; notes-panel handled by 4.3), #16→5.1. All covered.
+**Spec coverage (all 16 findings → tasks):** #1→1.1, #2→1.2, #3→1.3, #4→1.4, #5→1.5, #6→1.6, #7→2.1, #8→3.1, #9→3.2, #13→3.3, #15→3.4, #10→4.1, #11→4.2, #14→4.3, #12→4.4–4.9 (listbox, gpu-renderer, audio-pipeline, render-pipeline, main device.service, streaming.service; notes-panel handled by 4.3), #16→5.1. All findings have an owning task. **One caveat (deliberate):** #7 is covered by an *automated import-rewriter*, which automates move-churn rather than *eliminating* it via barrels/aliases as the analysis recommended — so #7's literal "decouple tests from `src/` paths" goal is not achieved, only its enabling purpose. See the **Phase 2 deviation note**. #13's target folder also intentionally differs from the analysis (see the Task 3.3 deviation note).
 
 **Placeholder scan:** No "TBD/TODO/implement later." Two tasks (4.2, 4.5) intentionally instruct the executor to *read then design* the exact seam — these are framed as bounded refactors with explicit stop-if-risky conditions and full verification, not open-ended placeholders, because the precise extraction depends on file internals that should not be guessed blind.
 
 **Type/name consistency:** Bootstrap renamed `RendererAppOrchestrator`→`RendererBootstrap` in 1.3 and referenced by that name in 4.1/5.1. Post-Phase-3 paths (`infrastructure/services/<domain>/…`) are used consistently in Phase 4 task file paths. The GATE is defined once and referenced uniformly. `rewriteImportPath` signature matches its test and its usage in the move procedure.
 
 **Known risk note:** Phase 3's taxonomy is a stated design decision flagged for confirmation; Phase 4.2 (composition-root alignment) is the highest-risk task and carries an explicit "stop and surface" escape hatch.
+
+**Layer-boundary classification trap (verified, easy to miss):** `scripts/check-layer-boundaries.js` classifies a file as a layer only by `SPECIAL_FILE_LAYER_MAP` or a `LAYER_SEQUENCE` prefix; anything else is `null`-classified and **exempt from all boundary rules with no GATE failure**. Renaming/creating a bootstrap file therefore silently drops its guardrail unless the map is updated in the same task. Tasks 1.3 (rename renderer bootstrap → update the map + lockstep-rename the `entry-bootstrap-pass` fixture) and 4.2 (new `main/app-bootstrap.ts` → add a `main/bootstrap` layer or a special-file entry) handle this explicitly. Phase 3's pure within-layer sub-folder moves are unaffected (the checker keys on the layer prefix, not sub-folders — confirmed by the existing `.../services/capture/` fixture).

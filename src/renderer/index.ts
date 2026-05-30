@@ -1,9 +1,9 @@
 /**
  * Renderer Entry Point
  *
- * Simplified entry point using RendererAppOrchestrator bootstrap
+ * Simplified entry point using RendererBootstrap
  * All DI configuration, service instantiation, and event wiring
- * is handled by RendererAppOrchestrator
+ * is handled by RendererBootstrap
  */
 
 import './presentation/styles/styles.css';
@@ -18,11 +18,11 @@ window.addEventListener('error', (event) => {
 });
 
 // Import application bootstrap
-import { createApplication } from './renderer-app.orchestrator';
-import type { RendererAppOrchestrator } from './renderer-app.orchestrator';
+import { createApplication } from './app-bootstrap';
+import type { RendererBootstrap } from './app-bootstrap';
 
 // Global application instance
-let app: RendererAppOrchestrator | null = null;
+let app: RendererBootstrap | null = null;
 
 /**
  * Initialize the application

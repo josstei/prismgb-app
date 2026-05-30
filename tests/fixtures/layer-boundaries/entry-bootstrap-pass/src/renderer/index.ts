@@ -1,4 +1,4 @@
-import { createBootstrap } from './renderer-app.orchestrator';
+import { createBootstrap } from './app-bootstrap';
 
 export function bootRendererEntry() {
   return createBootstrap();
