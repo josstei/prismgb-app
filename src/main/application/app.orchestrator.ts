@@ -154,8 +154,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
       ['system tray', this._trayService, 'destroy'],
       ['update bridge service', this._updateBridgeService],
-      ['transcode service', this._transcodeService],
-      ['DI container', this.container]
+      ['transcode service', this._transcodeService]
     ]);
 
     // Clear service references

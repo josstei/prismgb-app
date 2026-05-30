@@ -133,6 +133,28 @@ describe('BaseOrchestrator', () => {
 
       expect(orchestrator.onCleanupCalled).toBe(true);
     });
+
+    it('should run onCleanup only once when onCleanup re-enters cleanup', async () => {
+      class ReentrantOrchestrator extends BaseOrchestrator {
+        constructor(deps) {
+          super(deps, 'ReentrantOrchestrator');
+          this.onCleanupCount = 0;
+        }
+
+        async onCleanup() {
+          this.onCleanupCount++;
+          if (this.onCleanupCount <= 5) {
+            await this.cleanup();
+          }
+        }
+      }
+
+      const orchestrator = new ReentrantOrchestrator({ loggerFactory: mockLoggerFactory });
+      await orchestrator.initialize();
+      await orchestrator.cleanup();
+
+      expect(orchestrator.onCleanupCount).toBe(1);
+    });
   });
 
   describe('onInitialize / onCleanup defaults', () => {

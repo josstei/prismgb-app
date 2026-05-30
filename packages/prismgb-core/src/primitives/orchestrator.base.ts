@@ -6,6 +6,7 @@ export class BaseOrchestrator {
   protected eventBus!: EventBusLike;
   isInitialized: boolean;
   protected _isCleanedUp: boolean;
+  protected _isCleaningUp: boolean;
   protected readonly _orchestratorName: string;
   private readonly _disposables: DisposableBag;
 
@@ -22,6 +23,7 @@ export class BaseOrchestrator {
 
     this.isInitialized = false;
     this._isCleanedUp = false;
+    this._isCleaningUp = false;
     this._orchestratorName = orchestratorName;
     this._disposables = new DisposableBag();
   }
@@ -49,11 +51,12 @@ export class BaseOrchestrator {
   async onInitialize(): Promise<void> {}
 
   async cleanup(): Promise<void> {
-    if (this._isCleanedUp) {
+    if (this._isCleanedUp || this._isCleaningUp) {
       this.logger?.debug(`${this._orchestratorName} already cleaned up`);
       return;
     }
 
+    this._isCleaningUp = true;
     this.logger?.info(`Cleaning up ${this._orchestratorName}`);
 
     try {
@@ -66,6 +69,7 @@ export class BaseOrchestrator {
 
     this.isInitialized = false;
     this._isCleanedUp = true;
+    this._isCleaningUp = false;
   }
 
   subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void | Promise<void>>): void {

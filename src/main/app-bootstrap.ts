@@ -51,6 +51,9 @@ export class MainBootstrap {
       if (this.orchestrator) {
         await this.orchestrator.cleanup();
       }
+      if (this.container) {
+        await this.container.dispose();
+      }
       this.isInitialized = false;
       this.orchestrator = null;
       this.container = null;
