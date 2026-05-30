@@ -7,15 +7,12 @@ import {
   WorkerResponseType
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import type {
-  WorkerRendererConfig,
   WorkerStatsPayload
 } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
 import type {
-  IPipelineCapabilities,
   IPreset,
-  PipelineUniforms,
-  RenderAPI
+  PipelineUniforms
 } from '@prismgb/gpu';
 import { getErrorMessage } from '@prismgb/core';
 import { getDefaultNativeResolution } from '@prismgb/devices';
@@ -33,7 +30,13 @@ import {
   calculateNativeScaleFactor,
   createNativeBitmapOptions,
   normalizeNativeResolution
-} from '@renderer/infrastructure/services/streaming/native-resolution.utils';
+} from '@renderer/infrastructure/services/streaming/native-resolution.utils.js';
+import {
+  detectCapabilities,
+  computeRendererConfig,
+  isWorkerRenderAPI,
+  type RendererCapabilities
+} from './gpu-renderer-setup.js';
 
 /**
  * Maximum number of frames that can be pending render
@@ -43,10 +46,7 @@ const MAX_PENDING_FRAMES = 2;
 const CAPTURE_TIMEOUT_LIFECYCLE = Symbol('gpuCaptureTimeout');
 const BRIGHTNESS_SUBSCRIPTION_LIFECYCLE = Symbol('gpuBrightnessSubscription');
 
-type RendererCapabilities = IPipelineCapabilities & {
-  gpuPolicyApplied: boolean;
-  gpuPolicyReason: string | null;
-};
+
 
 type SettingsServiceLike = {
   getNumberSetting(name: string): number;
@@ -67,9 +67,7 @@ type StreamingGpuRendererDependencies = {
   gpuWorkerManager: GpuWorkerManager;
 };
 
-function isWorkerRenderAPI(value: RenderAPI): value is WorkerRendererConfig['api'] {
-  return value === 'webgpu' || value === 'webgl2';
-}
+
 
 @Service({
   "token": "gpuRendererService",
@@ -201,7 +199,7 @@ export class StreamingGpuRendererService extends BaseService {
       )
     );
 
-    this._capabilities = await CapabilityDetector.detect();
+    this._capabilities = await detectCapabilities();
     this.logger.info(CapabilityDetector.describeCapabilities(this._capabilities));
 
     this.eventBus.publish(EventChannels.RENDER.CAPABILITY_DETECTED, this._capabilities);
@@ -221,14 +219,6 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     try {
-      this._scaleFactor = calculateNativeScaleFactor(
-        activeNativeResolution,
-        canvasElement.clientWidth,
-        canvasElement.clientHeight
-      );
-      this._targetWidth = activeNativeResolution.width * this._scaleFactor;
-      this._targetHeight = activeNativeResolution.height * this._scaleFactor;
-
       const savedPresetId = this.settingsService.getStringSetting('renderPreset') || PresetRegistry.getDefault().id;
       this._currentPresetId = savedPresetId;
       this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
@@ -239,15 +229,17 @@ export class StreamingGpuRendererService extends BaseService {
         return false;
       }
 
-      const config: WorkerRendererConfig = {
-        nativeWidth: activeNativeResolution.width,
-        nativeHeight: activeNativeResolution.height,
-        targetWidth: this._targetWidth,
-        targetHeight: this._targetHeight,
-        scaleFactor: this._scaleFactor,
-        api: this._capabilities.preferredAPI,
-        presetId: this._currentPresetId
-      };
+      const { scaleFactor, targetWidth, targetHeight, config } = computeRendererConfig(
+        activeNativeResolution,
+        canvasElement.clientWidth,
+        canvasElement.clientHeight,
+        this._capabilities.preferredAPI,
+        savedPresetId
+      );
+
+      this._scaleFactor = scaleFactor;
+      this._targetWidth = targetWidth;
+      this._targetHeight = targetHeight;
 
       this._registerMessageHandlers();
 
