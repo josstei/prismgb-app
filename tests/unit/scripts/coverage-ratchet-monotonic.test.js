@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkMonotonic } from '../../../scripts/coverage-ratchet.js';
+import { checkMonotonic, findExpiredWaivers } from '../../../scripts/coverage-ratchet.js';
 
 const baseTarget = (overrides = {}) => ({
   id: 'shared-node',
@@ -67,5 +67,37 @@ describe('checkMonotonic', () => {
     const violations = checkMonotonic({ previous, current, waivers: [], asOfDate: '2026-06-01' });
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ target: 'main-preload', metric: 'branches', previous: 60, current: 50 });
+  });
+
+  it('flags deleting a whole target as a REMOVED-gate violation (no laxer default rescues it)', () => {
+    const previous = thresholds([baseTarget()], { lines: 50, statements: 50, functions: 50, branches: 40 });
+    const current = thresholds([], { lines: 50, statements: 50, functions: 50, branches: 40 });
+    const violations = checkMonotonic({ previous, current, waivers: [], asOfDate: '2026-06-01' });
+    const lines = violations.find((v) => v.metric === 'lines');
+    expect(lines).toMatchObject({ target: 'shared-node', metric: 'lines', previous: 86, current: 50 });
+    expect(violations.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('treats a waiver missing `to` as non-covering (fail-closed)', () => {
+    const previous = thresholds([baseTarget()]);
+    const current = thresholds([baseTarget({ minimums: { lines: 70, statements: 86, functions: 84, branches: 80 } })]);
+    const waivers = [{ target: 'shared-node', metric: 'lines', from: 86, owner: 'x', reason: 'malformed', expiresOn: '2026-09-30' }];
+    const violations = checkMonotonic({ previous, current, waivers, asOfDate: '2026-06-01' });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].metric).toBe('lines');
+  });
+});
+
+describe('findExpiredWaivers', () => {
+  const waiver = (expiresOn) => ({ target: 'shared-node', metric: 'lines', to: 70, expiresOn });
+
+  it('returns nothing when all waivers are unexpired', () => {
+    expect(findExpiredWaivers([waiver('2026-09-30'), waiver('2026-12-31')], '2026-06-01')).toEqual([]);
+  });
+
+  it('returns waivers whose expiresOn has passed as of the run date', () => {
+    const expired = findExpiredWaivers([waiver('2026-05-01'), waiver('2026-12-31')], '2026-06-01');
+    expect(expired).toHaveLength(1);
+    expect(expired[0].expiresOn).toBe('2026-05-01');
   });
 });

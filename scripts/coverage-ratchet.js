@@ -490,15 +490,23 @@ function effectiveMinimum(thresholdsObject, targetMinimums, metric) {
 }
 
 function waiverCoversReduction(waiver, targetId, metric, currentMinimum, asOfDate) {
+  if (
+    typeof waiver.target !== 'string'
+    || typeof waiver.metric !== 'string'
+    || typeof waiver.to !== 'number'
+    || typeof waiver.expiresOn !== 'string'
+  ) {
+    return false;
+  }
   const targetMatches = waiver.target === '*' || waiver.target === targetId;
   const metricMatches = waiver.metric === '*' || waiver.metric === metric;
   if (!targetMatches || !metricMatches) {
     return false;
   }
-  if (typeof waiver.expiresOn !== 'string' || asOfDate > waiver.expiresOn) {
+  if (asOfDate > waiver.expiresOn) {
     return false;
   }
-  if (typeof waiver.to === 'number' && currentMinimum < waiver.to) {
+  if (currentMinimum < waiver.to) {
     return false;
   }
   return true;
@@ -516,46 +524,71 @@ function waiverCoversReduction(waiver, targetId, metric, currentMinimum, asOfDat
  * @param {{defaultMinimums?: object, targets: Array<{id: string, minimums: object}>}} params.current
  * @param {Array<{target: string, metric: string, from?: number, to?: number, expiresOn: string}>} [params.waivers]
  * @param {string} params.asOfDate ISO date used to evaluate waiver expiry.
- * @returns {Array<{target: string, metric: string, previous: number, current: number, message: string}>}
+ * @returns {Array<{target: string, metric: string, previous: number, current: (number|null), message: string}>}
  */
 function checkMonotonic({ previous, current, waivers = [], asOfDate }) {
   ensureIsoDate(asOfDate, 'asOfDate');
   const violations = [];
-  const previousById = new Map((previous.targets || []).map((target) => [target.id, target]));
+  const currentById = new Map((current.targets || []).map((target) => [target.id, target]));
 
-  for (const currentTarget of current.targets || []) {
-    const previousTarget = previousById.get(currentTarget.id);
-    if (!previousTarget) {
-      continue;
-    }
+  for (const previousTarget of previous.targets || []) {
+    const currentTarget = currentById.get(previousTarget.id);
 
     for (const metric of COVERAGE_METRICS) {
       const previousMinimum = effectiveMinimum(previous, previousTarget.minimums, metric);
-      const currentMinimum = effectiveMinimum(current, currentTarget.minimums, metric);
-      if (previousMinimum === undefined || currentMinimum === undefined) {
+      if (previousMinimum === undefined) {
         continue;
       }
-      if (currentMinimum >= previousMinimum) {
+
+      const currentMinimum = effectiveMinimum(
+        current,
+        currentTarget ? currentTarget.minimums : undefined,
+        metric
+      );
+      const removed = currentMinimum === undefined;
+      const effectiveCurrent = removed ? Number.NEGATIVE_INFINITY : currentMinimum;
+      if (effectiveCurrent >= previousMinimum) {
         continue;
       }
 
       const covered = waivers.some((waiver) =>
-        waiverCoversReduction(waiver, currentTarget.id, metric, currentMinimum, asOfDate)
+        waiverCoversReduction(waiver, previousTarget.id, metric, effectiveCurrent, asOfDate)
       );
       if (!covered) {
         violations.push({
-          target: currentTarget.id,
+          target: previousTarget.id,
           metric,
           previous: previousMinimum,
-          current: currentMinimum,
-          message: `Coverage minimum for ${currentTarget.id}.${metric} dropped `
-            + `${previousMinimum} -> ${currentMinimum} without an unexpired waiver (see ADR-0001).`
+          current: removed ? null : currentMinimum,
+          message: removed
+            ? `Coverage gate for ${previousTarget.id}.${metric} was REMOVED `
+              + `(previously ${previousMinimum}) without an unexpired waiver (see ADR-0001).`
+            : `Coverage minimum for ${previousTarget.id}.${metric} dropped `
+              + `${previousMinimum} -> ${currentMinimum} without an unexpired waiver (see ADR-0001).`
         });
       }
     }
   }
 
   return violations;
+}
+
+/**
+ * Returns every waiver whose `expiresOn` has passed as of the run date. ADR-0001
+ * requires waivers to be time-boxed: a lapsed waiver means a coverage minimum was
+ * lowered for a debt that should now be paid down. This is checked on every
+ * `coverage:ratchet` run (not only PRs) so the paydown deadline is enforced
+ * mechanically rather than aspirationally.
+ *
+ * @param {Array<{target?: string, metric?: string, to?: number, expiresOn?: string}>} waivers
+ * @param {string} asOfDate ISO date.
+ * @returns {Array<object>}
+ */
+function findExpiredWaivers(waivers, asOfDate) {
+  ensureIsoDate(asOfDate, 'asOfDate');
+  return (waivers || []).filter(
+    (waiver) => typeof waiver.expiresOn === 'string' && asOfDate > waiver.expiresOn
+  );
 }
 
 function readCoverageWaivers(waiversPath) {
@@ -607,8 +640,18 @@ function main() {
 
   printRatchetSummary(evaluation);
 
+  const expiredWaivers = findExpiredWaivers(readCoverageWaivers(options.waiversPath), options.asOfDate);
+  if (expiredWaivers.length > 0) {
+    console.error(
+      `Expired coverage waivers: ${expiredWaivers.length} — restore the threshold or re-review (ADR-0001):`
+    );
+    for (const waiver of expiredWaivers) {
+      console.error(`- ${waiver.target}.${waiver.metric} expired ${waiver.expiresOn} (was waived to ${waiver.to}).`);
+    }
+  }
+
   const shouldEnforce = thresholds.mode === 'enforce' && !options.reportOnly;
-  if (shouldEnforce && !evaluation.passed) {
+  if (shouldEnforce && (!evaluation.passed || expiredWaivers.length > 0)) {
     process.exit(1);
   }
 }
@@ -632,5 +675,6 @@ export {
   targetMatchesPath,
   evaluateCoverageRatchet,
   checkMonotonic,
-  readCoverageWaivers
+  readCoverageWaivers,
+  findExpiredWaivers
 };
