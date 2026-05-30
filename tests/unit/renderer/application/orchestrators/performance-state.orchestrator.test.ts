@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance-state.orchestrator';
+import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
 import { EventChannels } from '@prismgb/events';
 import {
   createEventBus,
