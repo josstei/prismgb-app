@@ -75,11 +75,5 @@ docs/maestro/
 # Turborepo
 .turbo/
 
-
-# Generated container & validators
-
-src/renderer/di.generated.ts
-src/preload/validators.generated.ts
-
 # Scratch directories
 scratch/
