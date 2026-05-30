@@ -9,7 +9,7 @@ import type {
   Dimensions,
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-import { isPerformanceStatePayload } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import { RenderPipelineEventHandlers } from './render-pipeline-event-handlers.js';
 import type { IStreamingRenderer } from '@renderer/infrastructure/services/streaming/adapters/streaming-renderer.interface';
 import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
 import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';
@@ -99,6 +99,7 @@ export class StreamingRenderPipelineService extends BaseService {
   private _userPresetId: string | null;
   private _canvas2dContextCreated: boolean;
   private _cleanupPromise: Promise<void> | null;
+  private readonly _eventHandlers: RenderPipelineEventHandlers;
 
   constructor(dependencies: RenderPipelineDependencies) {
     super(
@@ -123,6 +124,7 @@ export class StreamingRenderPipelineService extends BaseService {
     this._userPresetId = null;
     this._canvas2dContextCreated = false;
     this._cleanupPromise = null;
+    this._eventHandlers = new RenderPipelineEventHandlers(this);
   }
 
   initialize(): void {
@@ -130,50 +132,23 @@ export class StreamingRenderPipelineService extends BaseService {
   }
 
   async handleCanvasExpired(): Promise<void> {
-    await this.canvasLifecycleService.handleCanvasExpired();
+    await this._eventHandlers.handleCanvasExpired();
   }
 
   handlePerformanceStateChanged(state: unknown): void {
-    if (!isPerformanceStatePayload(state) || typeof state.hidden !== 'boolean') {
-      return;
-    }
-
-    if (state.hidden === this._isHidden) {
-      return;
-    }
-
-    this._isHidden = state.hidden;
-    if (this._isHidden) {
-      this._handleHidden();
-    } else {
-      this._handleVisible();
-    }
+    this._eventHandlers.handlePerformanceStateChanged(state);
   }
 
   handleRenderPresetChanged(presetId: string): void {
-    if (this._performanceModeEnabled) {
-      this._userPresetId = presetId;
-      this.logger.debug(`User selected ${presetId} preset - cached (performance mode active)`);
-      return;
-    }
-
-    if (this._activeRenderer?.supportsPresets() && this._activeRenderer.isActive()) {
-      this._activeRenderer.setPreset(presetId);
-    }
+    this._eventHandlers.handleRenderPresetChanged(presetId);
   }
 
   handleFullscreenChange(): void {
-    this.canvasLifecycleService.handleFullscreenChange();
+    this._eventHandlers.handleFullscreenChange();
   }
 
   async handlePerformanceModeChanged(enabled: boolean): Promise<void> {
-    this._performanceModeEnabled = enabled;
-
-    if (enabled) {
-      await this._handlePerformanceModeEnabled();
-    } else {
-      await this._handlePerformanceModeDisabled();
-    }
+    await this._eventHandlers.handlePerformanceModeChanged(enabled);
   }
 
   async startPipeline(capabilities: StreamingCapabilities): Promise<void> {
