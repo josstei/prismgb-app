@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, expect, it, vi } from 'vitest';
-import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/audio-pipeline.service';
+import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
 import { createEventBus, createLoggerFactory, createSettingsServiceMock } from '../../../../factories/index.js';
 
 function createService() {

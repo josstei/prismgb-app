@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamingService } from '@renderer/infrastructure/services/streaming.service';
+import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 import {
   createCaptureStreamMock,
   createDeviceInfo,

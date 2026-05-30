@@ -356,7 +356,7 @@ export function createAdapterFactory(options = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/device.service').DeviceService} DeviceService
+ * @typedef {import('@renderer/infrastructure/services/devices/device.service').DeviceService} DeviceService
  */
 
 /**
@@ -459,7 +459,7 @@ export function createDeviceIpcAdapterMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/device-operation-sequencer.service').DeviceOperationSequencerService} DeviceOperationSequencerService
+ * @typedef {import('@renderer/infrastructure/services/devices/device-operation-sequencer.service').DeviceOperationSequencerService} DeviceOperationSequencerService
  */
 
 /**

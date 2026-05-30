@@ -1,7 +1,7 @@
 import {
   createRendererPreloadEventBridge,
   RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/preload-event-bridge.factory';
+} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
 import { DisposableBag } from '@prismgb/core';
 import type { EventBusLike } from '@prismgb/core';
 import type { DeviceInfoPayload } from '@prismgb/ipc';

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingViewportService } from '@renderer/infrastructure/services/viewport.service';
+import { StreamingViewportService } from '@renderer/infrastructure/services/platform/viewport.service';
 import { createLoggerFactory, createMockCanvas, createMockElement } from '../../../../factories/index.js';
 import {
   installGetComputedStyleMock,

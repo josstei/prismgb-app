@@ -168,7 +168,7 @@ export function createCaptureUIControllerMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/transcode.service').TranscodeService} TranscodeService
+ * @typedef {import('@renderer/infrastructure/services/transcode/transcode.service').TranscodeService} TranscodeService
  */
 
 /**
@@ -187,7 +187,7 @@ export function createTranscodeServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/capture.service').CaptureService} CaptureService
+ * @typedef {import('@renderer/infrastructure/services/capture/capture.service').CaptureService} CaptureService
  */
 
 /**
@@ -209,7 +209,7 @@ export function createCaptureServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/gpu-recording.service').CaptureGpuRecordingService} CaptureGpuRecordingService
+ * @typedef {import('@renderer/infrastructure/services/gpu/gpu-recording.service').CaptureGpuRecordingService} CaptureGpuRecordingService
  */
 
 /**
@@ -228,7 +228,7 @@ export function createCaptureGpuRecordingServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/capture-save.service').CaptureSaveService} CaptureSaveService
+ * @typedef {import('@renderer/infrastructure/services/capture/capture-save.service').CaptureSaveService} CaptureSaveService
  */
 
 /**

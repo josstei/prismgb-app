@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings-cinematic-mode.service';
+import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/settings-cinematic-mode.service';
 import { EventChannels } from '@prismgb/events';
 import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GpuWorkerManager } from '@renderer/infrastructure/services/gpu-worker-manager';
+import { GpuWorkerManager } from '@renderer/infrastructure/services/gpu/gpu-worker-manager';
 import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import {
   createBitmapMock,

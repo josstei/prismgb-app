@@ -8,7 +8,7 @@ import {
 } from '../../../../support/mocks/preload-api-globals.js';
 import { createLogger, createEventBus } from '../../../../factories/index.js';
 import { installMissingWindowMock } from '../../../../support/mocks/browser-api.installers.js';
-import { RendererPreloadBridgeDescriptors } from '@renderer/infrastructure/services/preload-event-bridge.factory';
+import { RendererPreloadBridgeDescriptors } from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureSaveService } from '@renderer/infrastructure/services/capture-save.service';
+import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
 import { EventChannels } from '@prismgb/events';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 

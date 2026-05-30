@@ -3,7 +3,7 @@ import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-stor
 import { PROTECTED_STORAGE_KEYS } from '../../../shared/config/storage-keys.config.js';
 import { DeviceIpcAdapter } from '../../infrastructure/adapters/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '../../infrastructure/adapters/device-change-debounce.adapter';
-import { StreamingCanvasRenderLoopService } from '../../infrastructure/services/canvas-render-loop.service';
+import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
 import { StreamingRendererFactory } from '../../infrastructure/factories/streaming-renderer.factory';
 import { StreamingGpuRendererAdapter } from '../../infrastructure/adapters/streaming-gpu-renderer.adapter';
 import { StreamingCanvas2DRendererAdapter } from '../../infrastructure/adapters/streaming-canvas2d-renderer.adapter';

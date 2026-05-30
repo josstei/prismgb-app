@@ -4,7 +4,7 @@ import { EventChannels } from '@prismgb/events';
 import {
   createRendererPreloadEventBridge,
   RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/preload-event-bridge.factory';
+} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
 import type {
   TranscodeCancelResponse,
   TranscodeCancelledPayload,

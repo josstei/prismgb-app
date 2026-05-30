@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, expect, it, vi } from 'vitest';
-import { createManifestPreloadEventBridge, createPreloadEventBridge } from '@renderer/infrastructure/services/preload-event-bridge.factory';
+import { createManifestPreloadEventBridge, createPreloadEventBridge } from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
 import type { IpcManifest } from '@prismgb/ipc';
 import {
   createCallbackMap,

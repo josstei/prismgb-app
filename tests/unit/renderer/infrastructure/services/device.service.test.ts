@@ -4,10 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceService } from '@renderer/infrastructure/services/device.service';
-import { DeviceConnectionService } from '@renderer/infrastructure/services/device-connection.service';
-import { DeviceStorageService } from '@renderer/infrastructure/services/device-storage.service';
-import { DeviceMediaService } from '@renderer/infrastructure/services/device-media.service';
+import { DeviceService } from '@renderer/infrastructure/services/devices/device.service';
+import { DeviceConnectionService } from '@renderer/infrastructure/services/devices/device-connection.service';
+import { DeviceStorageService } from '@renderer/infrastructure/services/devices/device-storage.service';
+import { DeviceMediaService } from '@renderer/infrastructure/services/devices/device-media.service';
 import {
   createDeviceInfo,
   createBrowserMediaServiceMock,

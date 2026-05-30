@@ -9,7 +9,7 @@ import { vi } from 'vitest';
 import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import { createStorageService } from './storage.factory.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings.service';
+import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
 export function createSettingsServiceHarness(overrides = {}) {
@@ -79,7 +79,7 @@ export function createNotesServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/settings-fullscreen.service').SettingsFullscreenService} SettingsFullscreenService
+ * @typedef {import('@renderer/infrastructure/services/settings/settings-fullscreen.service').SettingsFullscreenService} SettingsFullscreenService
  */
 
 /**
@@ -100,7 +100,7 @@ export function createSettingsFullscreenServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/settings-cinematic-mode.service').SettingsCinematicModeService} SettingsCinematicModeService
+ * @typedef {import('@renderer/infrastructure/services/settings/settings-cinematic-mode.service').SettingsCinematicModeService} SettingsCinematicModeService
  */
 
 /**
@@ -117,7 +117,7 @@ export function createSettingsCinematicModeServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/settings-presentation-mode.service').PresentationModeService} PresentationModeService
+ * @typedef {import('@renderer/infrastructure/services/settings/settings-presentation-mode.service').PresentationModeService} PresentationModeService
  */
 
 /**

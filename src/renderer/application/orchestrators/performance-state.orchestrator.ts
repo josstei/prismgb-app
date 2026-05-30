@@ -13,7 +13,7 @@ import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type {
   PerformanceState,
   PerformanceStateService
-} from '@renderer/infrastructure/services/performance-state.service';
+} from '@renderer/infrastructure/services/performance/performance-state.service';
 
 @Service({
   "token": "performanceStateOrchestrator",

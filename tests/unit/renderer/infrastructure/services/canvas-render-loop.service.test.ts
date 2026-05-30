@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPipeline } from '@prismgb/gpu';
-import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/canvas-render-loop.service';
+import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
 import {
   createAnimationCacheMock,
   createCanvasRenderPipelineMock,

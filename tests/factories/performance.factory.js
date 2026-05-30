@@ -65,7 +65,7 @@ export function createReducedMotionAdapterMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/performance-state.service').PerformanceStateService} PerformanceStateService
+ * @typedef {import('@renderer/infrastructure/services/performance/performance-state.service').PerformanceStateService} PerformanceStateService
  */
 
 /**
@@ -86,7 +86,7 @@ export function createPerformanceStateServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/performance-metrics.service').PerformanceMetricsService} PerformanceMetricsService
+ * @typedef {import('@renderer/infrastructure/services/performance/performance-metrics.service').PerformanceMetricsService} PerformanceMetricsService
  */
 
 /**
@@ -106,7 +106,7 @@ export function createPerformanceMetricsServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/performance-animation.service').PerformanceAnimationService} PerformanceAnimationService
+ * @typedef {import('@renderer/infrastructure/services/performance/performance-animation.service').PerformanceAnimationService} PerformanceAnimationService
  */
 
 /**

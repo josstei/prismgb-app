@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance-animation.service';
+import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('PerformanceAnimationService', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GpuFrameBuffer } from '@renderer/infrastructure/services/gpu-frame-buffer';
+import { GpuFrameBuffer } from '@renderer/infrastructure/services/gpu/gpu-frame-buffer';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('GpuFrameBuffer', () => {

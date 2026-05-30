@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance-metrics.service';
+import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 import { createLoggerFactory, createPerformanceMetricsAdapterMock } from '../../../../factories/index.js';
 
 describe('PerformanceMetricsService', () => {

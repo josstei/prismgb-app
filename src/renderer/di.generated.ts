@@ -2,55 +2,55 @@
 
 import { EventBus } from './infrastructure/events/event-bus.class';
 import { RendererLogger } from './infrastructure/logging/logger.factory';
-import { DeviceConnectionService } from './infrastructure/services/device-connection.service';
-import { DeviceStorageService } from './infrastructure/services/device-storage.service';
-import { DeviceMediaService } from './infrastructure/services/device-media.service';
-import { DeviceService } from './infrastructure/services/device.service';
-import { DeviceOperationSequencerService } from './infrastructure/services/device-operation-sequencer.service';
+import { DeviceConnectionService } from './infrastructure/services/devices/device-connection.service';
+import { DeviceStorageService } from './infrastructure/services/devices/device-storage.service';
+import { DeviceMediaService } from './infrastructure/services/devices/device-media.service';
+import { DeviceService } from './infrastructure/services/devices/device.service';
+import { DeviceOperationSequencerService } from './infrastructure/services/devices/device-operation-sequencer.service';
 import { DeviceOrchestrator } from './application/orchestrators/device.orchestrator';
-import { StreamingService } from './infrastructure/services/streaming.service';
+import { StreamingService } from './infrastructure/services/streaming/streaming.service';
 import { AppState } from './application/state/app-state';
-import { StreamingViewService } from './infrastructure/services/streaming-view.service';
-import { StreamingRenderPipelineService } from './infrastructure/services/render-pipeline.service';
-import { CaptureGpuRecordingService } from './infrastructure/services/gpu-recording.service';
-import { SettingsService } from './infrastructure/services/settings.service';
+import { StreamingViewService } from './infrastructure/services/streaming/streaming-view.service';
+import { StreamingRenderPipelineService } from './infrastructure/services/streaming/render-pipeline.service';
+import { CaptureGpuRecordingService } from './infrastructure/services/gpu/gpu-recording.service';
+import { SettingsService } from './infrastructure/services/settings/settings.service';
 import { StreamingOrchestrator } from './application/orchestrators/streaming.orchestrator';
-import { StreamingAudioPipelineService } from './infrastructure/services/audio-pipeline.service';
+import { StreamingAudioPipelineService } from './infrastructure/services/streaming/audio-pipeline.service';
 import { StreamingAudioOrchestrator } from './application/orchestrators/streaming-audio.orchestrator';
-import { CaptureService } from './infrastructure/services/capture.service';
-import { StreamingGpuRendererService } from './infrastructure/services/gpu-renderer.service';
-import { TranscodeService } from './infrastructure/services/transcode.service';
-import { CaptureSaveService } from './infrastructure/services/capture-save.service';
+import { CaptureService } from './infrastructure/services/capture/capture.service';
+import { StreamingGpuRendererService } from './infrastructure/services/gpu/gpu-renderer.service';
+import { TranscodeService } from './infrastructure/services/transcode/transcode.service';
+import { CaptureSaveService } from './infrastructure/services/capture/capture-save.service';
 import { CaptureOrchestrator } from './application/orchestrators/capture.orchestrator';
 import { SettingsPreferencesOrchestrator } from './application/orchestrators/preferences.orchestrator';
-import { SettingsFullscreenService } from './infrastructure/services/settings-fullscreen.service';
-import { SettingsCinematicModeService } from './infrastructure/services/settings-cinematic-mode.service';
+import { SettingsFullscreenService } from './infrastructure/services/settings/settings-fullscreen.service';
+import { SettingsCinematicModeService } from './infrastructure/services/settings/settings-cinematic-mode.service';
 import { SettingsDisplayModeOrchestrator } from './application/orchestrators/display-mode.orchestrator';
-import { UpdateService } from './infrastructure/services/update.service';
-import { UpdateUiService } from './infrastructure/services/update-ui.service';
+import { UpdateService } from './infrastructure/services/updates/update.service';
+import { UpdateUiService } from './infrastructure/services/updates/update-ui.service';
 import { UpdateOrchestrator } from './application/orchestrators/update.orchestrator';
 import { NotesService } from '@prismgb/notes';
 import { UISetupOrchestrator } from './application/orchestrators/ui-setup.orchestrator';
-import { PerformanceAnimationService } from './infrastructure/services/performance-animation.service';
+import { PerformanceAnimationService } from './infrastructure/services/performance/performance-animation.service';
 import { BodyClassManager } from './presentation/effects/body-class.class';
 import { PerformanceAnimationOrchestrator } from './application/orchestrators/performance-animation.orchestrator';
 import { MetricsAdapter } from './infrastructure/adapters/platform-metrics.adapter';
-import { PerformanceMetricsService } from './infrastructure/services/performance-metrics.service';
+import { PerformanceMetricsService } from './infrastructure/services/performance/performance-metrics.service';
 import { PerformanceMetricsOrchestrator } from './application/orchestrators/performance-metrics.orchestrator';
 import { VisibilityAdapter } from './infrastructure/adapters/visibility.adapter';
 import { UserActivityAdapter } from './infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from './infrastructure/adapters/reduced-motion.adapter';
-import { PerformanceStateService } from './infrastructure/services/performance-state.service';
+import { PerformanceStateService } from './infrastructure/services/performance/performance-state.service';
 import { PerformanceStateOrchestrator } from './application/orchestrators/performance-state.orchestrator';
 import { AppOrchestrator } from './application/orchestrators/app.orchestrator';
 import { BrowserMediaAdapter } from './infrastructure/browser/browser-media.adapter';
-import { StreamingCanvasLifecycleService } from './infrastructure/services/canvas-lifecycle.service';
-import { GpuFrameBuffer } from './infrastructure/services/gpu-frame-buffer';
-import { StreamingGpuRenderLoopService } from './infrastructure/services/gpu-render-loop.service';
-import { GpuWorkerManager } from './infrastructure/services/gpu-worker-manager';
-import { StreamingHealthService } from './infrastructure/services/health.service';
-import { PresentationModeService } from './infrastructure/services/settings-presentation-mode.service';
-import { StreamingViewportService } from './infrastructure/services/viewport.service';
+import { GpuFrameBuffer } from './infrastructure/services/gpu/gpu-frame-buffer';
+import { StreamingGpuRenderLoopService } from './infrastructure/services/gpu/gpu-render-loop.service';
+import { GpuWorkerManager } from './infrastructure/services/gpu/gpu-worker-manager';
+import { StreamingHealthService } from './infrastructure/services/platform/health.service';
+import { StreamingViewportService } from './infrastructure/services/platform/viewport.service';
+import { PresentationModeService } from './infrastructure/services/settings/settings-presentation-mode.service';
+import { StreamingCanvasLifecycleService } from './infrastructure/services/streaming/canvas-lifecycle.service';
 import { CaptureUIBridge } from './presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from './presentation/bridges/transcode-ui.bridge';
 import { UIEventBridge } from './presentation/bridges/ui-event.bridge';
@@ -110,13 +110,13 @@ export class GeneratedContainer {
   "performanceStateOrchestrator",
   "appOrchestrator",
   "browserMediaService",
-  "canvasLifecycleService",
   "gpuFrameBuffer",
   "gpuRenderLoopService",
   "gpuWorkerManager",
   "streamHealthService",
-  "presentationModeService",
   "viewportService",
+  "presentationModeService",
+  "canvasLifecycleService",
   "captureUiBridge",
   "transcodeUiBridge",
   "uiEventBridge",
@@ -300,9 +300,6 @@ export class GeneratedContainer {
       case 'browserMediaService':
         instance = new BrowserMediaAdapter();
         break;
-      case 'canvasLifecycleService':
-        instance = new StreamingCanvasLifecycleService(this.cradle);
-        break;
       case 'gpuFrameBuffer':
         instance = new GpuFrameBuffer(this.cradle);
         break;
@@ -315,11 +312,14 @@ export class GeneratedContainer {
       case 'streamHealthService':
         instance = new StreamingHealthService(this.cradle);
         break;
+      case 'viewportService':
+        instance = new StreamingViewportService(this.cradle);
+        break;
       case 'presentationModeService':
         instance = new PresentationModeService(this.cradle);
         break;
-      case 'viewportService':
-        instance = new StreamingViewportService(this.cradle);
+      case 'canvasLifecycleService':
+        instance = new StreamingCanvasLifecycleService(this.cradle);
         break;
       case 'captureUiBridge':
         instance = new CaptureUIBridge(this.cradle);

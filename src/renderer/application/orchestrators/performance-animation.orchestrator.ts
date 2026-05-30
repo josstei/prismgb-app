@@ -12,7 +12,7 @@ import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type {
   AnimationPerformanceState,
   PerformanceAnimationService
-} from '@renderer/infrastructure/services/performance-animation.service';
+} from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
 
 @Service({

@@ -33,7 +33,7 @@ import {
   calculateNativeScaleFactor,
   createNativeBitmapOptions,
   normalizeNativeResolution
-} from './native-resolution.utils';
+} from '@renderer/infrastructure/services/streaming/native-resolution.utils';
 
 /**
  * Maximum number of frames that can be pending render

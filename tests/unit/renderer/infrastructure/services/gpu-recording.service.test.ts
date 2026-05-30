@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu-recording.service';
+import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu/gpu-recording.service';
 import {
   createCanvasRenderingContextMock,
   createEventBus,
