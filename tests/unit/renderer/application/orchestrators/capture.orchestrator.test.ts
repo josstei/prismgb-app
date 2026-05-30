@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator.ts';
+import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
 import {
   createAppState,
   createEventBus,

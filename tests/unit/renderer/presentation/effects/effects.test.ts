@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
-import { TIMING } from '@renderer/presentation/config/constants.config.ts';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
+import { TIMING } from '@renderer/presentation/config/constants.config';
 import { createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 

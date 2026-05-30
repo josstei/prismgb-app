@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DeviceRegistry } from '@prismgb/devices';
 import { DeviceChromaticProfile } from '@prismgb/devices';
-import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/device-chromatic.adapter.ts';
+import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/device-chromatic.adapter';
 
 describe('DeviceRegistry', () => {
   const chromaticDeviceId = 'chromatic-mod-retro';

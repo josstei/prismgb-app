@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { TranscodeService } from '@renderer/infrastructure/services/transcode.service.ts';
+import { TranscodeService } from '@renderer/infrastructure/services/transcode.service';
 import { EventChannels } from '@prismgb/events';
 import { clearPreloadApi, createPreloadApiMock, resetPreloadApis, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';

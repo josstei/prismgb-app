@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory.ts';
+import { StreamingAdapterFactory } from '@renderer/infrastructure/factories/streaming-adapter.factory';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 // Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)

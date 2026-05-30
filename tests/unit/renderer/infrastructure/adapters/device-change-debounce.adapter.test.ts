@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/device-change-debounce.adapter.ts';
+import { DeviceChangeDebounceAdapter } from '@renderer/infrastructure/adapters/device-change-debounce.adapter';
 import { createLogger, createBrowserMediaServiceMock } from '../../../../factories/index.js';
 
 describe('DeviceChangeDebounceAdapter', () => {

@@ -67,7 +67,7 @@ vi.mock('@renderer/presentation/primitives/activity-auto-hide.controller', () =>
   })
 }));
 
-import { UIEffects } from '@renderer/presentation/effects/ui-effects.class.ts';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
 import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../../../factories/index.js';
 
 describe('UIEffects', () => {

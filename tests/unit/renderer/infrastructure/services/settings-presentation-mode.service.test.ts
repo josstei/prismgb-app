@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PresentationModeService } from '@renderer/infrastructure/services/settings-presentation-mode.service.ts';
+import { PresentationModeService } from '@renderer/infrastructure/services/settings-presentation-mode.service';
 import {
   createAppState,
   createLoggerFactory,

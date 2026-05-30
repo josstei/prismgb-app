@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService } from '@renderer/infrastructure/services/update.service.ts';
+import { UpdateService } from '@renderer/infrastructure/services/update.service';
 import { UpdateState } from '@prismgb/config';
 import { EventChannels } from '@prismgb/events';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';

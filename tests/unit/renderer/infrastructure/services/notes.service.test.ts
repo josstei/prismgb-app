@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@prismgb/notes';
 import { EventChannels } from '@prismgb/events';
-import { NotesStorageKeys } from '@shared/config/storage-keys.config.ts';
+import { NotesStorageKeys } from '@shared/config/storage-keys.config';
 import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
 
 describe('NotesService', () => {

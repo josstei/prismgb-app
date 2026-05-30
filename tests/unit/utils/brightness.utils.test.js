@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils.ts';
+import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils';
 
 describe('brightness.utils', () => {
   describe('sliderToBrightness', () => {

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/device-chromatic.adapter.ts';
+import { DeviceChromaticAdapter } from '@renderer/infrastructure/adapters/device-chromatic.adapter';
 import {
   createCaptureStreamMock,
   createAcquisitionCoordinatorMock,

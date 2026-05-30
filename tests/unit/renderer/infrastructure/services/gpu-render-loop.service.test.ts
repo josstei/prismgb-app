@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/gpu-render-loop.service.ts';
+import { StreamingGpuRenderLoopService } from '@renderer/infrastructure/services/gpu-render-loop.service';
 import { createLoggerFactory, createMockVideo } from '../../../../factories/index.js';
 
 describe('StreamingGpuRenderLoopService', () => {

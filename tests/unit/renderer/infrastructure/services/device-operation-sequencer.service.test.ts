@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/device-operation-sequencer.service.ts';
+import { DeviceOperationSequencerService } from '@renderer/infrastructure/services/device-operation-sequencer.service';
 import { createDeviceServiceMock, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('DeviceOperationSequencerService', () => {

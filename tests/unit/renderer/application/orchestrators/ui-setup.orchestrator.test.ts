@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator.ts';
+import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
 import {
   createAppState,
   createEventBus,

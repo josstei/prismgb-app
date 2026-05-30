@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { downloadFile } from '@renderer/lib/file-download.utils.ts';
+import { downloadFile } from '@renderer/lib/file-download.utils';
 import { installBlobDownloadMock } from '../../../support/mocks/browser-api.installers.js';
 
 describe('fileDownload', () => {

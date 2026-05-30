@@ -5,7 +5,7 @@ import {
   isRecordingReadyPayload,
   isStreamStartedPayload,
   isStreamingCapabilities
-} from '@renderer/infrastructure/streaming/streaming-contracts.ts';
+} from '@renderer/infrastructure/streaming/streaming-contracts';
 
 describe('streaming contracts', () => {
   it('guards stream start payloads from untyped event sources', () => {

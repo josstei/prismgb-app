@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { PerformanceStateService } from '@renderer/infrastructure/services/performance-state.service.ts';
+import { PerformanceStateService } from '@renderer/infrastructure/services/performance-state.service';
 import {
   createLoggerFactory,
   createReducedMotionAdapterMock,

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings-fullscreen.service.ts';
+import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings-fullscreen.service';
 import { EventChannels } from '@prismgb/events';
 import {
   clearPreloadApi,

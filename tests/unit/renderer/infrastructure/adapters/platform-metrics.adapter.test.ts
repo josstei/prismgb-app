@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter.ts';
+import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter';
 import { createProcessMetricsMock } from '../../../../factories/index.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 

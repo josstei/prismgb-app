@@ -6,7 +6,7 @@ import {
   createWorkerResponse,
   isValidWorkerMessage,
   isValidWorkerResponse
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 
 const validConfig = {
   nativeWidth: 160,

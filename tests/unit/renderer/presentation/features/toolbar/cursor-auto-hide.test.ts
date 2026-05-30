@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect.ts';
+import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
 import { createCallbackMap } from '../../../../../factories/index.js';
 
 describe('CursorAutoHide', () => {

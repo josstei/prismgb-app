@@ -9,7 +9,7 @@ import { vi } from 'vitest';
 import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import { createStorageService } from './storage.factory.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings.service.ts';
+import { SettingsService } from '@renderer/infrastructure/services/settings.service';
 import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
 
 export function createSettingsServiceHarness(overrides = {}) {

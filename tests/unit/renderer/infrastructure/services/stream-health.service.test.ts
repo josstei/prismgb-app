@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingHealthService } from '@renderer/infrastructure/services/health.service.ts';
+import { StreamingHealthService } from '@renderer/infrastructure/services/health.service';
 import { createLoggerFactory, createMockVideo } from '../../../../factories/index.js';
 
 describe('StreamingHealthService', () => {

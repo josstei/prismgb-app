@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GpuWorkerManager } from '@renderer/infrastructure/services/gpu-worker-manager.ts';
-import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.ts';
+import { GpuWorkerManager } from '@renderer/infrastructure/services/gpu-worker-manager';
+import { WorkerMessageType } from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import {
   createBitmapMock,
   createEventBus,

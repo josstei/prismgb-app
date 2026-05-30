@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/device-ipc.adapter.ts';
+import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/device-ipc.adapter';
 import {
   clearPreloadApi,
   createPreloadApiMock,

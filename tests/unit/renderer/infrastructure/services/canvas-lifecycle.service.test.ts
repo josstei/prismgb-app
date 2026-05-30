@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/canvas-lifecycle.service.ts';
+import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/canvas-lifecycle.service';
 import { EventChannels } from '@prismgb/events';
 import {
   createEventBus,

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingGpuRendererService } from '@renderer/infrastructure/services/gpu-renderer.service.ts';
+import { StreamingGpuRendererService } from '@renderer/infrastructure/services/gpu-renderer.service';
 import { EventChannels } from '@prismgb/events';
 import { buildUniforms } from '@prismgb/gpu';
 import {

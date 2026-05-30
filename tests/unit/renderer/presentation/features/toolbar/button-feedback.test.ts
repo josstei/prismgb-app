@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect.ts';
+import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
 
 describe('ButtonFeedback', () => {
   let buttonFeedback;

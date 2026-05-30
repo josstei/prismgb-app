@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/render-pipeline.service.ts';
+import { StreamingRenderPipelineService } from '@renderer/infrastructure/services/render-pipeline.service';
 import {
   createAppState,
   createCanvasLifecycleServiceMock,

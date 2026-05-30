@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator.ts';
+import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
 import {
   createAppState,
   createCaptureStreamMock,

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect.ts';
+import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
 import { installMissingMutationObserverMock } from '../../../../../support/mocks/browser-api.installers.js';
 import { createCallbackMap } from '../../../../../factories/index.js';
 

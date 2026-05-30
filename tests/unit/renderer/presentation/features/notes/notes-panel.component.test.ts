@@ -4,7 +4,7 @@ import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes
 import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component.js';
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/game-autocomplete.component.js';
 import { EventChannels } from '@prismgb/events';
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.ts';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   createEventBus,
   createLogger,

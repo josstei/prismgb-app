@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureService } from '@renderer/infrastructure/services/capture.service.ts';
+import { CaptureService } from '@renderer/infrastructure/services/capture.service';
 import {
   createCaptureStreamMock,
   createCanvasRenderingContextMock,

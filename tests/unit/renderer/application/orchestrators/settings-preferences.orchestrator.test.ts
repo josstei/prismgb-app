@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator.ts';
+import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator';
 import { EventChannels } from '@prismgb/events';
 import {
   createAppState,

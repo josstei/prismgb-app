@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/device-ipc-status.adapter.ts';
+import { DeviceIpcStatusAdapter } from '@renderer/infrastructure/adapters/device-ipc-status.adapter';
 import { IDeviceStatusProvider } from '@prismgb/devices';
 import { createDeviceStatusMock, createIpcClientMock } from '../../../../factories/index.js';
 

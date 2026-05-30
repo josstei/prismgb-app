@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CaptureSaveService } from '@renderer/infrastructure/services/capture-save.service.ts';
+import { CaptureSaveService } from '@renderer/infrastructure/services/capture-save.service';
 import { EventChannels } from '@prismgb/events';
-import { downloadFile } from '@renderer/lib/file-download.utils.ts';
+import { downloadFile } from '@renderer/lib/file-download.utils';
 
 vi.mock('@renderer/lib/file-download.utils.ts', () => ({
   downloadFile: vi.fn()

@@ -7,7 +7,7 @@ import {
   getContainer,
   initializeContainer,
   resetContainer
-} from '@renderer/application/container.ts';
+} from '@renderer/application/container';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../support/mocks/preload-api-globals.js';
 
 const expectedRegistrationKeys = [

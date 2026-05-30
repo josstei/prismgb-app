@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator.ts';
+import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance-animation.orchestrator';
 import { EventChannels } from '@prismgb/events';
 import {
   createBodyClassManagerMock,

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect.ts';
+import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
 import { createCallbackMap } from '../../../../../factories/index.js';
 
 describe('ControlsAutoHide', () => {
