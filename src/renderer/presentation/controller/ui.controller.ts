@@ -1,5 +1,5 @@
 import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
-import { downloadFile } from '@renderer/presentation/lib/file-download.utils';
+import { downloadFile } from '@renderer/lib/file-download.utils';
 import {
   createDomBindings,
   type DomBindings,
