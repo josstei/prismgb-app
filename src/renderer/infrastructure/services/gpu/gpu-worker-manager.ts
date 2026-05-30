@@ -114,7 +114,7 @@ export class GpuWorkerManager {
     this._wasCanvasTransferred = true;
 
     this._worker = new Worker(
-      new URL('../rendering/workers/render.worker.ts', import.meta.url),
+      new URL('../../rendering/workers/render.worker.ts', import.meta.url),
       { type: 'module' }
     );
 

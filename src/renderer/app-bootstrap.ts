@@ -3,7 +3,14 @@ import { UIController } from '@renderer/presentation/controller/ui.controller.js
 import { safeDispose } from '@prismgb/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike, ILoggerFactory as LoggerFactoryLike } from '@prismgb/core';
+import type { UIComponentRegistry } from '@renderer/presentation/controller/component.registry';
+import type { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
+import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
+import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
+import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
+import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
+import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@shared/features/settings/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '../../packages/prismgb-transcode/src/transcode.config.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
@@ -131,10 +138,10 @@ class RendererBootstrap {
   async _initializeUI() {
     const container = this._requireContainer();
 
-    const uiComponentRegistry = container.resolve<any>('uiComponentRegistry');
-    const uiEffects = container.resolve<any>('uiEffects');
-    const bodyClassManager = container.resolve<any>('bodyClassManager');
-    const loggerFactory = container.resolve<any>('loggerFactory');
+    const uiComponentRegistry = container.resolve<UIComponentRegistry<any>>('uiComponentRegistry');
+    const uiEffects = container.resolve<UIEffects>('uiEffects');
+    const bodyClassManager = container.resolve<BodyClassManager>('bodyClassManager');
+    const loggerFactory = container.resolve<LoggerFactoryLike>('loggerFactory');
 
     const uiController = new UIController({
       uiComponentRegistry,
@@ -160,16 +167,16 @@ class RendererBootstrap {
   async _initializeUIEventBridge() {
     try {
       const container = this._requireContainer();
-      const uiEventBridge = container.resolve<any>('uiEventBridge');
+      const uiEventBridge = container.resolve<UIEventBridge>('uiEventBridge');
       uiEventBridge.initialize();
 
-      const captureUiBridge = container.resolve<any>('captureUiBridge');
+      const captureUiBridge = container.resolve<CaptureUIBridge>('captureUiBridge');
       captureUiBridge.initialize();
 
-      const transcodeUiBridge = container.resolve<any>('transcodeUiBridge');
+      const transcodeUiBridge = container.resolve<TranscodeUIBridge>('transcodeUiBridge');
       transcodeUiBridge.initialize();
 
-      const transcodeService = container.resolve<any>('transcodeService');
+      const transcodeService = container.resolve<TranscodeService>('transcodeService');
       transcodeService.initialize();
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);
