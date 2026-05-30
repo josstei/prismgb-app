@@ -3,50 +3,6 @@
   "notes": "Each entry authorizes a coverage-threshold REDUCTION in scripts/coverage-thresholds.json that would otherwise fail the monotonic guard (node scripts/coverage-ratchet.js --check-monotonic). Per ADR-0001 a reduction must be owned, justified, and time-boxed: on expiry the threshold must be restored (debt paid down) or the waiver re-reviewed. 'from' is the prior minimum, 'to' is the lowest minimum this waiver permits.",
   "waivers": [
     {
-      "target": "shared-node",
-      "metric": "lines",
-      "from": 86,
-      "to": 70,
-      "owner": "platform:shared",
-      "reason": "Pre-existing shortfall. src/shared has historically measured ~70% lines while the 86 minimum was an unmet 'bootstrap migration' target; src/shared was not modified by the 2026-05-29 reduction work. Baselined honestly under ADR-0001; pay down by adding src/shared tests.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-09-30",
-      "adr": "0001"
-    },
-    {
-      "target": "shared-node",
-      "metric": "statements",
-      "from": 86,
-      "to": 71,
-      "owner": "platform:shared",
-      "reason": "Pre-existing shortfall (~72% statements vs an unmet 86 target). See ADR-0001; pay down by adding src/shared tests.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-09-30",
-      "adr": "0001"
-    },
-    {
-      "target": "shared-node",
-      "metric": "functions",
-      "from": 84,
-      "to": 75,
-      "owner": "platform:shared",
-      "reason": "Pre-existing shortfall (~75% functions vs an unmet 84 target). See ADR-0001; pay down by adding src/shared tests.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-09-30",
-      "adr": "0001"
-    },
-    {
-      "target": "shared-node",
-      "metric": "branches",
-      "from": 80,
-      "to": 65,
-      "owner": "platform:shared",
-      "reason": "Pre-existing shortfall (~66% branches vs an unmet 80 target). See ADR-0001; pay down by adding src/shared tests.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-09-30",
-      "adr": "0001"
-    },
-    {
       "target": "renderer-happy-dom",
       "metric": "lines",
       "from": 85,
