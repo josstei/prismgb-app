@@ -13,9 +13,7 @@ export default defineConfig({
       external: [
         'electron',
         '@prismgb/core',
-        '@prismgb/events',
-        '@prismgb/ipc',
-        '@prismgb/config'
+        '@prismgb/events'
       ],
       output: {
         preserveModules: false

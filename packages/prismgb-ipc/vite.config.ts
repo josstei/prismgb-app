@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: ['electron', '@prismgb/core', '@prismgb/config', '@prismgb/events'],
+      external: ['electron', '@prismgb/config'],
       output: {
         preserveModules: false
       }

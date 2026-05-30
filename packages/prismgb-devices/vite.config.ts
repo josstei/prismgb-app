@@ -20,8 +20,7 @@ export default defineConfig({
         '@prismgb/core',
         '@prismgb/config',
         '@prismgb/events',
-        '@prismgb/ipc',
-        'joi'
+        '@prismgb/ipc'
       ],
       output: {
         preserveModules: false

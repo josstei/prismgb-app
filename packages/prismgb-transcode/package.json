@@ -20,9 +20,7 @@
   },
   "dependencies": {
     "@prismgb/core": "*",
-    "@prismgb/ipc": "*",
-    "@prismgb/events": "*",
-    "@prismgb/config": "*"
+    "@prismgb/ipc": "*"
   },
   "devDependencies": {
     "ffmpeg-static": "^5.2.0",

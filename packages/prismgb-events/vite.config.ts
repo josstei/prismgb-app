@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: ['eventemitter3', '@prismgb/core'],
+      external: ['eventemitter3'],
       output: {
         preserveModules: false
       }

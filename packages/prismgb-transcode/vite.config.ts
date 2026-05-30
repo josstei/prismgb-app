@@ -20,8 +20,6 @@ export default defineConfig({
         'node:child_process',
         'node:events',
         '@prismgb/core',
-        '@prismgb/config',
-        '@prismgb/events',
         '@prismgb/ipc'
       ],
       output: {

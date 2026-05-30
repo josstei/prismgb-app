@@ -19,7 +19,6 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@prismgb/core": "*",
     "joi": "^18.2.1"
   },
   "devDependencies": {

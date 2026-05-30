@@ -21,7 +21,6 @@
   "dependencies": {
     "@prismgb/core": "*",
     "@prismgb/config": "*",
-    "@prismgb/events": "*",
     "@prismgb/ipc": "*",
     "electron-updater": "^6.8.3"
   },

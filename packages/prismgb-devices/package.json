@@ -19,6 +19,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@prismgb/config": "*",
     "@prismgb/core": "*",
     "@prismgb/events": "*",
     "@prismgb/ipc": "*"

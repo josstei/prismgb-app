@@ -19,7 +19,6 @@ export default defineConfig({
         'node:fs',
         '@prismgb/core',
         '@prismgb/config',
-        '@prismgb/events',
         '@prismgb/ipc'
       ],
       output: {

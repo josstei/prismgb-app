@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: ['joi', '@prismgb/core'],
+      external: ['joi'],
       output: {
         preserveModules: false
       }

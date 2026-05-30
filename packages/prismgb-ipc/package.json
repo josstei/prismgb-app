@@ -19,9 +19,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@prismgb/core": "*",
-    "@prismgb/config": "*",
-    "@prismgb/events": "*"
+    "@prismgb/config": "*"
   },
   "devDependencies": {
     "electron": "^41.6.1",
