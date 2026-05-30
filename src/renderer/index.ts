@@ -20,6 +20,7 @@ window.addEventListener('error', (event) => {
 // Import application bootstrap
 import { createApplication } from './app-bootstrap';
 import type { RendererBootstrap } from './app-bootstrap';
+import { renderFatalError } from './presentation/shell/fatal-error-screen';
 
 // Global application instance
 let app: RendererBootstrap | null = null;
@@ -41,25 +42,8 @@ async function init() {
     // and logger is not available at this point in the lifecycle
     console.error('Failed to initialize application:', normalizedError);
 
-    // Show error to user using safe DOM manipulation (prevents XSS)
-    const container = document.createElement('div');
-    container.style.cssText = 'padding: 20px; color: red; font-family: sans-serif;';
-
-    const heading = document.createElement('h2');
-    heading.textContent = 'Failed to initialize application';
-
-    const message = document.createElement('p');
-    message.textContent = normalizedError.message;
-
-    const stack = document.createElement('pre');
-    stack.textContent = normalizedError.stack ?? '';
-
-    container.appendChild(heading);
-    container.appendChild(message);
-    container.appendChild(stack);
-
-    document.body.innerHTML = '';
-    document.body.appendChild(container);
+    // Show fatal error screen
+    renderFatalError(normalizedError);
   }
 }
 
