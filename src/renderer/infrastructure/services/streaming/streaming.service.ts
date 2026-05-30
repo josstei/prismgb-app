@@ -24,6 +24,7 @@ import type {
 import type {
   LoggerFactoryLike
 } from '@prismgb/core';
+import { StreamTrackMonitor } from './stream-track-monitor.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -32,8 +33,6 @@ const StreamState = {
   STOPPING: 'stopping',
   ERROR: 'error'
 };
-
-const TRACK_ENDED_LIFECYCLE = Symbol('streamTrackEnded');
 
 type StreamLifecycleState = (typeof StreamState)[keyof typeof StreamState];
 
@@ -106,6 +105,7 @@ export class StreamingService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly adapterFactory: StreamingAdapterFactoryLike;
   private readonly ipcClient: Record<string, unknown>;
+  private readonly _trackMonitor: StreamTrackMonitor;
 
   private _state: StreamLifecycleState;
   private _operationPromise: StreamOperationPromise | null;
@@ -121,6 +121,7 @@ export class StreamingService extends BaseService {
     this.eventBus = dependencies.eventBus;
     this.adapterFactory = dependencies.adapterFactory;
     this.ipcClient = dependencies.ipcClient;
+    this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine
     this._state = StreamState.IDLE;
     this._operationPromise = null;
@@ -304,14 +305,7 @@ export class StreamingService extends BaseService {
   private _setupTrackMonitoring(): void {
     if (!this.currentStream) return;
 
-    const videoTrack = this.currentStream.getVideoTracks()[0];
-    if (!videoTrack) return;
-    this.disposables.cancel(TRACK_ENDED_LIFECYCLE);
-
-    // Create handler that stops the stream when track ends
-    const trackEndedHandler = () => {
-      this.logger.warn('Video track ended - device may have been disconnected or powered off');
-
+    this._trackMonitor.start(this.currentStream, () => {
       // Emit error event to notify UI
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
         error: new Error('Video track ended unexpectedly'),
@@ -323,18 +317,11 @@ export class StreamingService extends BaseService {
       this.stop().catch((error: unknown) => {
         this.logger.error('Error during track-ended cleanup:', error);
       });
-    };
-
-    videoTrack.addEventListener('ended', trackEndedHandler);
-    this.disposables.replace(TRACK_ENDED_LIFECYCLE, () => {
-      videoTrack.removeEventListener('ended', trackEndedHandler);
     });
-    this.logger.debug('Track monitoring set up for video track');
   }
 
   private _removeTrackMonitoring(): void {
-    this.disposables.cancel(TRACK_ENDED_LIFECYCLE);
-    this.logger.debug('Track monitoring removed');
+    this._trackMonitor.stop();
   }
 
   private async _cleanupPartialState(): Promise<void> {
