@@ -54,6 +54,17 @@ jobs:
       - name: Enforce coverage ratchets
         run: npm run coverage:ratchet
 
+      - name: Enforce coverage threshold monotonicity (ADR-0001)
+        run: |
+          BASE_REF="${{ github.base_ref }}"
+          if [ -z "$BASE_REF" ]; then
+            echo "No base ref (not a pull request) — skipping monotonic threshold check."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          git show "origin/$BASE_REF:scripts/coverage-thresholds.json" > /tmp/base-coverage-thresholds.json
+          node scripts/coverage-ratchet.js --check-monotonic --previous /tmp/base-coverage-thresholds.json
+
       - name: Run dev boot preflight
         run: xvfb-run -a npm run dev:smoke
 

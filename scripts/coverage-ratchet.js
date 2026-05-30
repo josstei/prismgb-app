@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 const DEFAULT_SUMMARY_PATH = 'artifacts/coverage/coverage-summary.json';
 const DEFAULT_THRESHOLD_PATH = 'scripts/coverage-thresholds.json';
+const DEFAULT_WAIVERS_PATH = 'scripts/coverage-waivers.json';
 const COVERAGE_METRICS = ['lines', 'statements', 'functions', 'branches'];
 const VALID_MODES = new Set(['enforce', 'warning']);
 const VALID_TARGET_MODES = new Set(['enforce', 'report-only']);
@@ -13,6 +14,9 @@ function parseArgs(argv) {
   const options = {
     summaryPath: DEFAULT_SUMMARY_PATH,
     thresholdPath: DEFAULT_THRESHOLD_PATH,
+    waiversPath: DEFAULT_WAIVERS_PATH,
+    previousPath: null,
+    checkMonotonic: false,
     reportOnly: false,
     asOfDate: getTodayIsoDate()
   };
@@ -53,6 +57,31 @@ function parseArgs(argv) {
 
     if (arg === '--report-only') {
       options.reportOnly = true;
+      continue;
+    }
+
+    if (arg === '--check-monotonic') {
+      options.checkMonotonic = true;
+      continue;
+    }
+
+    if (arg === '--previous') {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('Missing value for --previous.');
+      }
+      options.previousPath = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--waivers') {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('Missing value for --waivers.');
+      }
+      options.waiversPath = value;
+      index += 1;
       continue;
     }
   }
@@ -451,8 +480,124 @@ function printRatchetSummary(evaluation) {
   }
 }
 
+function effectiveMinimum(thresholdsObject, targetMinimums, metric) {
+  const fromTarget = targetMinimums ? targetMinimums[metric] : undefined;
+  if (fromTarget !== undefined) {
+    return fromTarget;
+  }
+  const defaults = thresholdsObject.defaultMinimums;
+  return defaults ? defaults[metric] : undefined;
+}
+
+function waiverCoversReduction(waiver, targetId, metric, currentMinimum, asOfDate) {
+  const targetMatches = waiver.target === '*' || waiver.target === targetId;
+  const metricMatches = waiver.metric === '*' || waiver.metric === metric;
+  if (!targetMatches || !metricMatches) {
+    return false;
+  }
+  if (typeof waiver.expiresOn !== 'string' || asOfDate > waiver.expiresOn) {
+    return false;
+  }
+  if (typeof waiver.to === 'number' && currentMinimum < waiver.to) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Compares two parsed coverage-threshold payloads and returns a violation for
+ * every per-target, per-metric minimum that DECREASED without an unexpired,
+ * covering waiver. Raising or holding a minimum is always allowed. This is the
+ * monotonic guard mandated by ADR-0001 — it makes a silent gate-lowering a hard
+ * failure rather than an undetected goalpost move.
+ *
+ * @param {object} params
+ * @param {{defaultMinimums?: object, targets: Array<{id: string, minimums: object}>}} params.previous
+ * @param {{defaultMinimums?: object, targets: Array<{id: string, minimums: object}>}} params.current
+ * @param {Array<{target: string, metric: string, from?: number, to?: number, expiresOn: string}>} [params.waivers]
+ * @param {string} params.asOfDate ISO date used to evaluate waiver expiry.
+ * @returns {Array<{target: string, metric: string, previous: number, current: number, message: string}>}
+ */
+function checkMonotonic({ previous, current, waivers = [], asOfDate }) {
+  ensureIsoDate(asOfDate, 'asOfDate');
+  const violations = [];
+  const previousById = new Map((previous.targets || []).map((target) => [target.id, target]));
+
+  for (const currentTarget of current.targets || []) {
+    const previousTarget = previousById.get(currentTarget.id);
+    if (!previousTarget) {
+      continue;
+    }
+
+    for (const metric of COVERAGE_METRICS) {
+      const previousMinimum = effectiveMinimum(previous, previousTarget.minimums, metric);
+      const currentMinimum = effectiveMinimum(current, currentTarget.minimums, metric);
+      if (previousMinimum === undefined || currentMinimum === undefined) {
+        continue;
+      }
+      if (currentMinimum >= previousMinimum) {
+        continue;
+      }
+
+      const covered = waivers.some((waiver) =>
+        waiverCoversReduction(waiver, currentTarget.id, metric, currentMinimum, asOfDate)
+      );
+      if (!covered) {
+        violations.push({
+          target: currentTarget.id,
+          metric,
+          previous: previousMinimum,
+          current: currentMinimum,
+          message: `Coverage minimum for ${currentTarget.id}.${metric} dropped `
+            + `${previousMinimum} -> ${currentMinimum} without an unexpired waiver (see ADR-0001).`
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
+function readCoverageWaivers(waiversPath) {
+  const absolute = path.isAbsolute(waiversPath)
+    ? waiversPath
+    : path.resolve(process.cwd(), waiversPath);
+  if (!fs.existsSync(absolute)) {
+    return [];
+  }
+  const payload = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+  return Array.isArray(payload.waivers) ? payload.waivers : [];
+}
+
+function runMonotonicCheck(options) {
+  if (!options.previousPath) {
+    throw new Error('--check-monotonic requires --previous <path-to-prior-thresholds.json>.');
+  }
+  const previous = readCoverageThresholds(options.previousPath);
+  const current = readCoverageThresholds(options.thresholdPath);
+  const waivers = readCoverageWaivers(options.waiversPath);
+  const violations = checkMonotonic({ previous, current, waivers, asOfDate: options.asOfDate });
+
+  if (violations.length === 0) {
+    console.log('Coverage monotonic check passed (no ungoverned threshold reductions).');
+    return;
+  }
+
+  console.error(`Coverage monotonic check failures: ${violations.length}`);
+  for (const violation of violations) {
+    console.error(`- ${violation.message}`);
+  }
+  process.exit(1);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
+
+  if (options.checkMonotonic) {
+    runMonotonicCheck(options);
+    return;
+  }
+
   const thresholds = readCoverageThresholds(options.thresholdPath);
   const summary = parseCoverageSummary(options.summaryPath);
   const evaluation = evaluateCoverageRatchet(summary, thresholds, {
@@ -485,5 +630,7 @@ export {
   parseCoverageSummary,
   readCoverageThresholds,
   targetMatchesPath,
-  evaluateCoverageRatchet
+  evaluateCoverageRatchet,
+  checkMonotonic,
+  readCoverageWaivers
 };

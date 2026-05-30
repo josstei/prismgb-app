@@ -64,14 +64,20 @@ We will make coverage thresholds **tamper-evident, monotonic, and honestly basel
   *weakened*. Coverage debt is visible and scheduled, not hidden in threshold edits.
 - **Obligation on callers:** the `shared-node` shortfall must be paid down to 86 by its waiver expiry, or
   the waiver re-reviewed. CI will block a silent re-lowering of any scope.
-- **One-time work:** `c4e12faf` is reverted; the honest `shared-node` baseline + its paydown waiver are
-  re-landed as a reviewed commit; the monotonic check + waiver loader are implemented test-first.
+- **One-time work:** the threshold *values* from `c4e12faf` are retained — they match measured coverage,
+  so the defect was the *process* (silent, euphemistic, ungoverned), not the numbers. They are
+  retroactively legitimized by a `coverage-waivers.json` entry plus this ADR, and the monotonic check +
+  waiver loader are implemented test-first so the lowering is governed from here on. The Context section
+  above is the honest record of how the values arrived.
 
 ## Alternatives considered
 
 - **Just revert `c4e12faf` back to 86/80.** Rejected as the sole action: it returns the gate to a value
   the codebase has never met, so `release:preflight` stays red with no path forward and no record of the
   debt. Honest baseline + tracked paydown is the durable form.
+- **Revert `c4e12faf` and re-land identical values.** Rejected: the values match true coverage, so a
+  revert-then-reapply is diff-noise that implies the numbers were wrong when only the process was. We
+  fix forward — retain the values, add the governance and audit trail they lacked.
 - **Delete the coverage gate / set it to `warning`.** Rejected — it removes a guardrail the project
   deliberately maintains, the opposite of the future-first goal.
 - **Trust review to catch threshold lowerings.** Rejected — review demonstrably missed exactly this
