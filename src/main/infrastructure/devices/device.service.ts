@@ -227,12 +227,11 @@ class DeviceService extends BaseService {
       this._usbMonitor.startMonitoring();
       monitoringStarted = true;
 
-      const onDeviceAdd = (device: UsbDeviceInfo) => this.onDeviceConnected(device);
-      const onDeviceRemove = (device: UsbDeviceInfo) => this.onDeviceDisconnected(device);
-      this._usbMonitor.on('add', onDeviceAdd);
-      this.disposables.replace(USB_ADD_LISTENER_LIFECYCLE, () => this._usbMonitor.off('add', onDeviceAdd));
-      this._usbMonitor.on('remove', onDeviceRemove);
-      this.disposables.replace(USB_REMOVE_LISTENER_LIFECYCLE, () => this._usbMonitor.off('remove', onDeviceRemove));
+      this._usbMonitor.registerLifecycleListeners(
+        (device: UsbDeviceInfo) => this.onDeviceConnected(device),
+        (device: UsbDeviceInfo) => this.onDeviceDisconnected(device)
+      );
+      this.disposables.replace(USB_ADD_LISTENER_LIFECYCLE, () => this._usbMonitor.unregisterLifecycleListeners());
 
       // Trigger initial scan for already-connected devices.
       const scanTimeoutId = setTimeout(() => {
@@ -300,6 +299,7 @@ class DeviceService extends BaseService {
    * Clean up USB event listeners
    */
   private _cleanupUSBListeners(): void {
+    this._usbMonitor.unregisterLifecycleListeners();
     this.disposables.cancel(USB_ADD_LISTENER_LIFECYCLE);
     this.disposables.cancel(USB_REMOVE_LISTENER_LIFECYCLE);
   }
