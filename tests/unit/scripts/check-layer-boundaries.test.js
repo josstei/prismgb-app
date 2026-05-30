@@ -24,6 +24,12 @@ describe('check-layer-boundaries script', () => {
     expect(report.violations).toHaveLength(0);
   });
 
+  it('accepts main entry importing main bootstrap', () => {
+    const report = runFixture('main-entry-bootstrap-pass');
+    expect(report.violations).toHaveLength(0);
+  });
+
+
   it('flags alias imports from main entry to renderer presentation', () => {
     const report = runFixture('main-entry-imports-renderer-alias');
     expect(report.violations).toHaveLength(1);

@@ -8,6 +8,7 @@ const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.ts']);
 const LayerIds = {
   CORE: 'core',
   MAIN_ENTRY: 'main/entry',
+  MAIN_BOOTSTRAP: 'main/bootstrap',
   MAIN_APPLICATION: 'main/application',
   MAIN_INFRASTRUCTURE: 'main/infrastructure',
   MAIN_IPC: 'main/ipc',
@@ -23,6 +24,8 @@ const LayerIds = {
 const SPECIAL_FILE_LAYER_MAP = new Map([
   ['main/index.ts', LayerIds.MAIN_ENTRY],
   ['main/index', LayerIds.MAIN_ENTRY],
+  ['main/app-bootstrap.ts', LayerIds.MAIN_BOOTSTRAP],
+  ['main/app-bootstrap', LayerIds.MAIN_BOOTSTRAP],
   ['renderer/index.ts', LayerIds.RENDERER_ENTRY],
   ['renderer/index', LayerIds.RENDERER_ENTRY],
   ['renderer/app-bootstrap.ts', LayerIds.RENDERER_BOOTSTRAP],
@@ -32,6 +35,7 @@ const SPECIAL_FILE_LAYER_MAP = new Map([
 const LAYER_SEQUENCE = [
   LayerIds.CORE,
   LayerIds.MAIN_ENTRY,
+  LayerIds.MAIN_BOOTSTRAP,
   LayerIds.MAIN_APPLICATION,
   LayerIds.MAIN_INFRASTRUCTURE,
   LayerIds.MAIN_IPC,
@@ -53,9 +57,18 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
   ]),
+  [LayerIds.MAIN_BOOTSTRAP]: new Set([
+    LayerIds.CORE,
+    LayerIds.RENDERER_ENTRY,
+    LayerIds.RENDERER_BOOTSTRAP,
+    LayerIds.RENDERER_APPLICATION,
+    LayerIds.RENDERER_INFRASTRUCTURE,
+    LayerIds.RENDERER_PRESENTATION
+  ]),
   [LayerIds.MAIN_APPLICATION]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_BOOTSTRAP,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -63,6 +76,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_INFRASTRUCTURE]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_BOOTSTRAP,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -70,6 +84,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.MAIN_IPC]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_BOOTSTRAP,
     LayerIds.RENDERER_APPLICATION,
     LayerIds.RENDERER_INFRASTRUCTURE,
     LayerIds.RENDERER_PRESENTATION
@@ -77,6 +92,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.RENDERER_ENTRY]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
@@ -84,6 +100,7 @@ const FORBIDDEN_LAYER_MAP = {
   [LayerIds.RENDERER_BOOTSTRAP]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
+    LayerIds.MAIN_BOOTSTRAP,
     LayerIds.MAIN_APPLICATION,
     LayerIds.MAIN_INFRASTRUCTURE,
     LayerIds.MAIN_IPC
@@ -114,6 +131,7 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.MAIN_IPC,
     LayerIds.RENDERER_INFRASTRUCTURE
   ]),
+
   [LayerIds.SHARED]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,

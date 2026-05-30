@@ -20,6 +20,8 @@ import { DeviceChromaticProfile } from '@prismgb/devices';
 import { chromaticConfig } from '@prismgb/devices';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import { safeDispose } from '@prismgb/core';
+import { AppOrchestrator } from './app.orchestrator.js';
+
 
 /**
  * Application configuration interface
@@ -63,7 +65,7 @@ export class MainServiceContainer {
       'config', 'loggerFactory', 'eventBus', 'windowService', 'trayService',
       'ipcHandlerRegistry', 'profileRegistry', 'deviceService', 'deviceLifecycleService',
       'updateService', 'deviceBridgeService', 'updateBridgeService', 'transcodeService',
-      'loginItemService'
+      'loginItemService', 'appOrchestrator'
     ];
     for (const key of keys) {
       this.registrations[key] = {};
@@ -152,6 +154,9 @@ export class MainServiceContainer {
         break;
       case 'loginItemService':
         instance = new LoginItemService(this.cradle);
+        break;
+      case 'appOrchestrator':
+        instance = new AppOrchestrator(this);
         break;
       default:
         throw new Error(`[MainServiceContainer] Could not resolve token: ${token}`);

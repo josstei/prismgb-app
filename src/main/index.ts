@@ -4,7 +4,7 @@
  */
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
-import { AppOrchestrator } from './application/index.js';
+import { MainBootstrap } from './app-bootstrap.js';
 import { getGpuPolicy, applyChromiumFlags } from './infrastructure/gpu-policy.js';
 
 const APP_NAME = 'PrismGB';
@@ -116,7 +116,7 @@ if (process.argv.includes('--smoke-test')) {
     app.quit();
   } else {
     // Create application instance
-    const application = new AppOrchestrator();
+    const application = new MainBootstrap();
 
     // Handle second instance launch - focus existing window
     app.on('second-instance', () => {

@@ -1,10 +1,6 @@
 /**
  * Application Orchestrator
  * Coordinates main process services and application lifecycle
- *
- * Note: This is a bootstrap orchestrator that creates the DI container,
- * so it passes a pre-created loggerFactory to BaseOrchestrator rather
- * than receiving it as an injected dependency.
  */
 
 import { app } from 'electron';
@@ -12,8 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { BaseOrchestrator } from '@prismgb/core';
 import { safeDisposeAll } from '@prismgb/core';
-import { createAppContainer, MainServiceContainer } from './container.js';
-import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import type { MainServiceContainer } from './container.js';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { DeviceService } from '@main/infrastructure/devices/device.service.js';
 import type { DeviceLifecycleService } from '@main/infrastructure/devices/device-lifecycle.service.js';
@@ -25,13 +21,6 @@ import type { UpdateBridge } from '@prismgb/updates';
 import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service.js';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
-/**
- * Dependencies required by AppOrchestrator
- */
-interface AppOrchestratorDependencies {
-  loggerFactory: MainLogger;
-}
-
 function resolveDevDockIconPath(appPath: string): string | null {
   const candidates = [
     path.join(appPath, 'assets/icon.png'),
@@ -41,7 +30,7 @@ function resolveDevDockIconPath(appPath: string): string | null {
   return candidates.find(candidate => fs.existsSync(candidate)) ?? null;
 }
 
-class AppOrchestrator extends BaseOrchestrator {
+export class AppOrchestrator extends BaseOrchestrator {
 
   private readonly loggerFactory: MainLogger;
   private container: MainServiceContainer | null = null;
@@ -56,13 +45,10 @@ class AppOrchestrator extends BaseOrchestrator {
   private _transcodeService: TranscodeService | null = null;
   private _loginItemService: LoginItemService | null = null;
 
-  constructor() {
-    // Create logger factory before calling super (bootstrap pattern)
-    const loggerFactory = new MainLogger();
-
-    // Call base constructor with pre-created loggerFactory
-    super({ loggerFactory } as AppOrchestratorDependencies, 'AppOrchestrator');
-    this.loggerFactory = loggerFactory;
+  constructor(container: MainServiceContainer) {
+    super(container.cradle, 'AppOrchestrator');
+    this.container = container;
+    this.loggerFactory = container.resolve('loggerFactory');
   }
 
   /**
@@ -72,20 +58,20 @@ class AppOrchestrator extends BaseOrchestrator {
   async onInitialize(): Promise<void> {
     this.logger.info('Starting PrismGB...');
 
-    // Create DI container with shared logger factory (eliminates duplicate instance)
-    this.container = await createAppContainer(this.loggerFactory);
+    const container = this.container!;
 
     // Resolve and cache core services
-    this._windowService = this.container.resolve('windowService');
-    this._deviceService = this.container.resolve('deviceService');
-    this._deviceLifecycleService = this.container.resolve('deviceLifecycleService');
-    this._trayService = this.container.resolve('trayService');
-    this._ipcHandlerRegistry = this.container.resolve('ipcHandlerRegistry');
-    this._updateService = this.container.resolve('updateService');
-    this._deviceBridgeService = this.container.resolve('deviceBridgeService');
-    this._updateBridgeService = this.container.resolve('updateBridgeService');
-    this._transcodeService = this.container.resolve('transcodeService');
-    this._loginItemService = this.container.resolve('loginItemService');
+    this._windowService = container.resolve('windowService');
+    this._deviceService = container.resolve('deviceService');
+    this._deviceLifecycleService = container.resolve('deviceLifecycleService');
+    this._trayService = container.resolve('trayService');
+    this._ipcHandlerRegistry = container.resolve('ipcHandlerRegistry');
+    this._updateService = container.resolve('updateService');
+    this._deviceBridgeService = container.resolve('deviceBridgeService');
+    this._updateBridgeService = container.resolve('updateBridgeService');
+    this._transcodeService = container.resolve('transcodeService');
+    this._loginItemService = container.resolve('loginItemService');
+
 
     // Initialize device lifecycle service (handles auto-launch)
     this._deviceLifecycleService!.initialize();
@@ -197,4 +183,4 @@ class AppOrchestrator extends BaseOrchestrator {
   }
 }
 
-export { AppOrchestrator };
+
