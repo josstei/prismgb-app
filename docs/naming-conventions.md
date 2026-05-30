@@ -25,7 +25,7 @@ This document captures the naming and organization conventions used throughout P
 | `.state.<ext>` | State containers | `app-state.ts` |
 | `.factory.<ext>` | Object construction helpers | `streaming-adapter.factory.ts` |
 | `.utils.<ext>` | Pure utilities | `filename-generator.utils.ts` |
-| `.config.<ext>` | Configuration constants | `timing.config.ts` |
+| `.config.<ext>` | Configuration constants | `storage-keys.config.ts` (shared); `timing.config.ts` (in `@prismgb/config`) |
 | `.class.<ext>` | Plain classes (no DI) | `event-bus.class.js` |
 | `.interface.<ext>` | Interface definitions | `logger.interface.ts` |
 | `.worker.<ext>` | Web workers | `render.worker.ts` |
@@ -39,11 +39,11 @@ This document captures the naming and organization conventions used throughout P
 - `src/renderer`: Renderer process and UI.
 - `src/shared`: Process-agnostic utilities and config.
 - `src/renderer/application/di`: Renderer DI registration modules (`register-*.ts`).
-- `src/renderer/infrastructure/services/<domain>`: Renderer services by domain (capture, devices, notes, performance, settings, streaming, transcode, updates).
+- `src/renderer/infrastructure/services/<domain>`: Renderer services grouped by domain (capture, devices, gpu, performance, settings, streaming, transcode, updates, platform). See Phase 3 of the codebase-reduction plan.
 - `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config).
 - `src/renderer/presentation/features/<feature>`: Feature-specific UI components and templates.
 - `src/renderer/application`: App-level orchestrators and state.
-- `src/main/infrastructure/<domain>`: Main-process services by domain (devices, transcode, updates, window, tray, etc.).
+- `src/main/infrastructure/<domain>`: Main-process services grouped by domain (devices, transcode, window, tray, logging, events).
 - `tests/unit` and `tests/integration`: Test suites.
 
 ## Identifier Naming
@@ -51,9 +51,9 @@ This document captures the naming and organization conventions used throughout P
 - Classes use PascalCase and include role suffixes: `StreamingService`, `SettingsDisplayModeOrchestrator`.
 - Services are UI-agnostic and emit events rather than manipulating DOM directly.
 - Event channel names follow `domain:action` in kebab-case.
-  - Shared event contract: `src/shared/events/event-channels.ts`.
-  - Main event channels: `src/main/infrastructure/events/event-channels.config.ts`.
-  - IPC channels: `src/shared/ipc/ipc.manifest.json`, consumed through `src/shared/ipc/ipc.manifest.ts`.
+  - Shared event contract: `packages/prismgb-events/src/event-channels.ts` (via `@prismgb/events`).
+  - Main event channels: `src/main/infrastructure/event-channels.config.ts`.
+  - IPC channels: `packages/prismgb-ipc/src/ipc.manifest.json`, consumed through `packages/prismgb-ipc/src/ipc.manifest.ts` (via `@prismgb/ipc`).
 - localStorage keys use camelCase values. Settings keys live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
 
 ## Imports and Aliases
@@ -64,15 +64,11 @@ This document captures the naming and organization conventions used throughout P
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
   - `@shared` -> `src/shared`
-  - `@core` -> `src/core` (Holds pure, environment-agnostic generic primitives)
   - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
 
-## 🏛️ Modern Core & Interface Conventions
+## Core Primitive Conventions (`@prismgb/core`)
 
-All foundational files inside `src/core/` follow 100% of modern industry standards:
-1. **Interface Naming (Pure Nouns):** Interfaces representing abstract capabilities use PascalCase pure nouns (e.g. `Logger`, `EventBus`, `Storage`, `Adapter`) without legacy Hungarian prefixes (`I...`) or defensive suffixes (`...Like`, `...Interface`).
-2. **File Naming (Scope of Concerns & kebab-case):** logical files and interfaces use lowercase kebab-case (e.g. `logger-factory.ts`, `event-bus.ts`) to ensure visual separation and 100% cross-platform path-resolution safety across macOS, Windows, and Linux CI/CD environments. Each interface concern has its own dedicated file.
-- Prefer extensionless TS imports (avoid `.ts` suffix in TS/JS import specifiers).
+Pure, environment-agnostic primitives live in the `@prismgb/core` package. Interfaces representing abstract capabilities use PascalCase pure nouns (`Logger`, `EventBus`, `Storage`) — no `I...` prefixes or `...Like`/`...Interface` suffixes. Files use lowercase kebab-case; each interface concern gets its own file. Prefer extensionless TS imports.
 
 ## Testing Conventions
 

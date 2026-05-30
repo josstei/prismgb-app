@@ -63,7 +63,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 
 ## Data and Storage
 
-Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/shared/features/settings/settings.definitions.json`, shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/devices/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/shared/features/settings/settings.definitions.json`, shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 
@@ -73,8 +73,8 @@ Screenshots will not be added to this repository.
 
 ### Add a New Device
 
-1. Register manifest metadata in `src/shared/features/devices/device.manifest.json`.
-2. Add a profile class in `src/shared/features/devices/profiles/` and register it in `src/main/infrastructure/devices/device-profile.registry.ts`.
+1. Register manifest metadata in `packages/prismgb-devices/src/device.manifest.json`.
+2. Add a profile class in `packages/prismgb-devices/src/profiles/` and register it in `src/main/infrastructure/device-profile.registry.ts`.
 3. Add an adapter in `src/renderer/infrastructure/adapters/devices/<device-name>/` and register it.
 4. Update docs and tests if behavior changes.
 
@@ -93,7 +93,7 @@ Screenshots will not be added to this repository.
 
 ## Architecture Guardrails
 
-- Renderer infrastructure timing values come from `src/shared/config/timing.config.ts`.
-- IPC handlers import manifest-derived channels from `src/shared/ipc/ipc.manifest.ts`.
-- Preload API and method descriptors are marker-generated from `src/shared/ipc/ipc.manifest.json`.
+- Renderer infrastructure timing values come from `packages/prismgb-config/src/timing.config.ts` (imported via `@prismgb/config`).
+- IPC handlers import manifest-derived channels from `packages/prismgb-ipc/src/ipc.manifest.ts` (imported via `@prismgb/ipc`).
+- Preload API and method descriptors are marker-generated from `packages/prismgb-ipc/src/ipc.manifest.json`.
 - Active runtime paths do not use `@core` imports.
