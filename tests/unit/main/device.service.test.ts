@@ -360,4 +360,113 @@ describe('DeviceService (Main Process)', () => {
       expect(deviceService.getConnectedDevice()).toBeNull();
     });
   });
+
+  describe('USB monitoring orchestration (characterization)', () => {
+    let usbMonitor;
+    let registered;
+
+    function createMockUsbMonitor() {
+      registered = {};
+      return {
+        startMonitoring: vi.fn(),
+        stopMonitoring: vi.fn(),
+        registerLifecycleListeners: vi.fn((onAdd, onRemove) => {
+          registered.onAdd = onAdd;
+          registered.onRemove = onRemove;
+        }),
+        unregisterLifecycleListeners: vi.fn(),
+        find: vi.fn(() => []),
+        on: vi.fn(),
+        off: vi.fn()
+      };
+    }
+
+    function createServiceWithUsbMonitor() {
+      usbMonitor = createMockUsbMonitor();
+      const instance = new DeviceService({
+        profileRegistry: mockProfileRegistry,
+        eventBus: mockEventBus,
+        loggerFactory: mockLoggerFactory,
+        usbMonitor
+      }, mockProfileClasses);
+      mockLogger = mockLoggerFactory._getLogger('DeviceService');
+      return instance;
+    }
+
+    beforeEach(() => {
+      deviceService = createServiceWithUsbMonitor();
+    });
+
+    it('starts monitoring: returns true, sets flag, starts the monitor and registers listeners', () => {
+      const result = deviceService.startUSBMonitoring();
+
+      expect(result).toBe(true);
+      expect(deviceService.isUsbMonitoring).toBe(true);
+      expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
+      expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
+    });
+
+    it('is idempotent: a second start does not restart the monitor', () => {
+      deviceService.startUSBMonitoring();
+      const result = deviceService.startUSBMonitoring();
+
+      expect(result).toBe(true);
+      expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops monitoring: clears flag, stops the monitor and unregisters listeners', () => {
+      deviceService.startUSBMonitoring();
+      deviceService.stopUSBMonitoring();
+
+      expect(deviceService.isUsbMonitoring).toBe(false);
+      expect(usbMonitor.stopMonitoring).toHaveBeenCalledTimes(1);
+      expect(usbMonitor.unregisterLifecycleListeners).toHaveBeenCalled();
+    });
+
+    it('publishes a check-error and returns false when the monitor fails to start', () => {
+      usbMonitor.startMonitoring.mockImplementation(() => {
+        throw new Error('hotplug unavailable');
+      });
+
+      const result = deviceService.startUSBMonitoring();
+
+      expect(result).toBe(false);
+      expect(deviceService.isUsbMonitoring).toBe(false);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        'device:check-error',
+        expect.objectContaining({ type: 'usb-monitoring-failed' })
+      );
+    });
+
+    it('routes a hotplug add event for a matched device to a connection-changed publish', () => {
+      mockProfileRegistry.detectDevice.mockReturnValue({ matched: true, profile: { name: 'Test Profile' } });
+      deviceService.startUSBMonitoring();
+
+      registered.onAdd({ vendorId: 0x1234, productId: 0x5678 });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        'device:connection-changed',
+        expect.objectContaining({ connected: true })
+      );
+    });
+
+    it('scans already-connected devices after the scan delay and connects matches', async () => {
+      vi.useFakeTimers();
+      try {
+        mockProfileRegistry.detectDevice.mockReturnValue({ matched: true, profile: { name: 'Test Profile' } });
+        usbMonitor.find.mockReturnValue([{ vendorId: 0x1234, productId: 0x5678 }]);
+
+        deviceService.startUSBMonitoring();
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(usbMonitor.find).toHaveBeenCalled();
+        expect(mockEventBus.publish).toHaveBeenCalledWith(
+          'device:connection-changed',
+          expect.objectContaining({ connected: true })
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
