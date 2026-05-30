@@ -9,7 +9,7 @@ import { appConfig } from '@prismgb/config';
 import { formatDeviceInfo } from '@prismgb/core';
 import { forEachDeviceWithModule } from '@prismgb/devices';
 import { DeviceRegistry, type DeviceRegistryEntry } from '@prismgb/devices';
-import { MainEventChannels } from '@main/infrastructure/event-channels.config.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
@@ -17,8 +17,8 @@ import {
   type UsbDeviceMonitor
 } from './usb-device-monitor.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
-import type { EventBus } from '@main/infrastructure/event-bus.js';
-import type { LoggerFactory } from '@main/infrastructure/logger.interface.js';
+import type { EventBus } from '@main/infrastructure/events/event-bus.js';
+import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 import type { DeviceProfile } from '@prismgb/devices';
 
 const { USB_SCAN_DELAY } = appConfig;

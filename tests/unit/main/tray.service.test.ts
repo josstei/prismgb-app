@@ -43,7 +43,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { TrayService } from '@main/infrastructure/tray.service.js';
+import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { Tray, Menu, app } from 'electron';
 
 describe('TrayService', () => {

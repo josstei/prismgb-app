@@ -65,7 +65,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { WindowService } from '@main/infrastructure/window.service.js';
+import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { BrowserWindow, app } from 'electron';
 
 describe('WindowService', () => {

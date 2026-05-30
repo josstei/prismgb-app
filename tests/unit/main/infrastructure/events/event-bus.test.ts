@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EventBus } from '@main/infrastructure/event-bus.js';
+import { EventBus } from '@main/infrastructure/events/event-bus.js';
 import { createLoggerFactory as createTestLoggerFactory } from '../../../../factories/index.js';
 
 describe('Main EventBus', () => {

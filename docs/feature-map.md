@@ -74,7 +74,7 @@ Screenshots will not be added to this repository.
 ### Add a New Device
 
 1. Register manifest metadata in `packages/prismgb-devices/src/device.manifest.json`.
-2. Add a profile class in `packages/prismgb-devices/src/profiles/` and register it in `src/main/infrastructure/device-profile.registry.ts`.
+2. Add a profile class in `packages/prismgb-devices/src/profiles/` and register it in `src/main/infrastructure/devices/device-profile.registry.ts`.
 3. Add an adapter in `src/renderer/infrastructure/adapters/devices/<device-name>/` and register it.
 4. Update docs and tests if behavior changes.
 

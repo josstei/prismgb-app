@@ -40,7 +40,7 @@ vi.mock('@main/infrastructure/event-channels.config.js', () => ({
   }
 }));
 
-import { DeviceService } from '@main/infrastructure/device.service.js';
+import { DeviceService } from '@main/infrastructure/devices/device.service.js';
 import { DeviceRegistry } from '@prismgb/devices';
 import { forEachDeviceWithModule } from '@prismgb/devices';
 

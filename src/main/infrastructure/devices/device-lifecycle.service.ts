@@ -5,11 +5,11 @@
 
 import { BaseService } from '@prismgb/core';
 import { appConfig } from '@prismgb/config';
-import { MainEventChannels } from '@main/infrastructure/event-channels.config.js';
+import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
 import type { DeviceService } from './device.service.js';
-import type { WindowService } from '@main/infrastructure/window.service.js';
-import type { EventBus } from '@main/infrastructure/event-bus.js';
-import type { LoggerFactory } from '@main/infrastructure/logger.interface.js';
+import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import type { EventBus } from '@main/infrastructure/events/event-bus.js';
+import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;
 const DEVICE_CONNECTION_LIFECYCLE = Symbol('deviceLifecycleConnection');

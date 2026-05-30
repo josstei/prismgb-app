@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import { app, ipcMain, shell } from 'electron';
-import type { LoggerFactory } from '@main/infrastructure/logger.interface.js';
+import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
 import { BaseService } from '@prismgb/core';
 import type {
   DeviceStatusPayload,

@@ -13,17 +13,17 @@ import path from 'path';
 import { BaseOrchestrator } from '@prismgb/core';
 import { safeDisposeAll } from '@prismgb/core';
 import { createAppContainer, MainServiceContainer } from './container.js';
-import { MainLogger } from '@main/infrastructure/logger.factory.js';
-import type { WindowService } from '@main/infrastructure/window.service.js';
-import type { DeviceService } from '@main/infrastructure/device.service.js';
-import type { DeviceLifecycleService } from '@main/infrastructure/device-lifecycle.service.js';
-import type { TrayService } from '@main/infrastructure/tray.service.js';
+import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import type { DeviceService } from '@main/infrastructure/devices/device.service.js';
+import type { DeviceLifecycleService } from '@main/infrastructure/devices/device-lifecycle.service.js';
+import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@prismgb/updates';
-import type { DeviceBridgeService } from '@main/infrastructure/device-bridge.service.js';
+import type { DeviceBridgeService } from '@main/infrastructure/devices/device-bridge.service.js';
 import type { UpdateBridge } from '@prismgb/updates';
-import type { TranscodeService } from '@main/infrastructure/transcode.service.js';
-import type { LoginItemService } from '@main/infrastructure/login-item.service.js';
+import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service.js';
+import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
 /**
  * Dependencies required by AppOrchestrator

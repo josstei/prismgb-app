@@ -3,7 +3,7 @@
  * Registers update-related IPC routes.
  */
 
-import type { Logger } from '@main/infrastructure/logger.interface.js';
+import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,

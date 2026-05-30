@@ -4,21 +4,21 @@
  */
 
 import pkg from '../../../package.json' assert { type: 'json' };
-import { EventBus } from '@main/infrastructure/event-bus.js';
-import { WindowService } from '@main/infrastructure/window.service.js';
-import { TrayService } from '@main/infrastructure/tray.service.js';
+import { EventBus } from '@main/infrastructure/events/event-bus.js';
+import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import { DeviceService } from '@main/infrastructure/device.service.js';
-import { DeviceProfileRegistry } from '@main/infrastructure/device-profile.registry.js';
-import { DeviceLifecycleService } from '@main/infrastructure/device-lifecycle.service.js';
-import { DeviceBridgeService } from '@main/infrastructure/device-bridge.service.js';
-import type { ProfileClass } from '@main/infrastructure/device.service.js';
+import { DeviceService } from '@main/infrastructure/devices/device.service.js';
+import { DeviceProfileRegistry } from '@main/infrastructure/devices/device-profile.registry.js';
+import { DeviceLifecycleService } from '@main/infrastructure/devices/device-lifecycle.service.js';
+import { DeviceBridgeService } from '@main/infrastructure/devices/device-bridge.service.js';
+import type { ProfileClass } from '@main/infrastructure/devices/device.service.js';
 import { UpdateService, UpdateBridge } from '@prismgb/updates';
-import { TranscodeService } from '@main/infrastructure/transcode.service.js';
-import { LoginItemService } from '@main/infrastructure/login-item.service.js';
+import { TranscodeService } from '@main/infrastructure/transcode/transcode.service.js';
+import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import { DeviceChromaticProfile } from '@prismgb/devices';
 import { chromaticConfig } from '@prismgb/devices';
-import type { MainLogger } from '@main/infrastructure/logger.factory.js';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import { safeDispose } from '@prismgb/core';
 
 /**

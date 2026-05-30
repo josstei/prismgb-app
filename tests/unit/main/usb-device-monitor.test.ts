@@ -33,7 +33,7 @@ import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
   toUsbDeviceInfo
-} from '@main/infrastructure/usb-device-monitor.js';
+} from '@main/infrastructure/devices/usb-device-monitor.js';
 
 function makeNodeUsbDevice(overrides = {}) {
   return {
