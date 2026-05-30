@@ -14,6 +14,7 @@ import { EventChannels } from '@prismgb/events';
 import { getErrorMessage } from '@prismgb/core';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type { LoggerFactoryLike } from '@prismgb/core';
+import { computeRms, createEaseInCurve } from './audio-gain.utils.js';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -438,14 +439,7 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   private _computeRms(buffer: Uint8Array): number {
-    if (!buffer || buffer.length === 0) return 0;
-
-    let sum = 0;
-    for (const sample of buffer) {
-      const value = (sample - 128) / 128;
-      sum += value * value;
-    }
-    return Math.sqrt(sum / buffer.length);
+    return computeRms(buffer);
   }
 
   private _fadeTo(targetGain: number, fadeMs: number): void {
@@ -462,14 +456,7 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   private _createEaseInCurve(startValue: number, endValue: number, steps: number): Float32Array {
-    const curve = new Float32Array(steps);
-    for (let i = 0; i < steps; i += 1) {
-      // Ease-in cubic: t^3 - slow start, accelerates toward end
-      const t = i / (steps - 1);
-      const eased = t * t * t;
-      curve[i] = startValue + (endValue - startValue) * eased;
-    }
-    return curve;
+    return createEaseInCurve(startValue, endValue, steps);
   }
 
   private _getWarmupTimings(): {
