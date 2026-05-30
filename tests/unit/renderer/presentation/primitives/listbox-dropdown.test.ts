@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ComboboxListboxController, ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
+import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
+import { ComboboxListboxController } from '@renderer/presentation/primitives/combobox-listbox.class.js';
 import { createCallbackMap, createLogger } from '../../../../factories/index.js';
 
 describe('ListboxDropdownController', () => {

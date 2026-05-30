@@ -1,5 +1,5 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
-import { ComboboxListboxController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
+import { ComboboxListboxController } from '@renderer/presentation/primitives/combobox-listbox.class.js';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 import type { LoggerLike } from '@prismgb/core';
 
