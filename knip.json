@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": true,
   "workspaces": {
     ".": {
       "entry": [
@@ -7,17 +8,40 @@
         "src/preload/index.ts",
         "src/renderer/index.ts",
         "src/renderer/di.generated.ts",
+        "src/renderer/application/di/external-tokens.ts",
+        "src/main/application/index.ts",
         "scripts/*.js",
-        "vite.config.js",
-        "vitest.config.js",
-        "playwright.config.js"
+        "tests/support/**/*.{js,ts}",
+        "tests/**/*.{test,spec}.{js,ts}"
       ],
-      "project": ["src/**/*.{ts,js}"]
+      "project": ["src/**/*.{ts,js}"],
+      "ignoreDependencies": ["eventemitter3", "joi", "@electron/notarize"],
+      "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
+    },
+    "packages/prismgb-gpu": {
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/prismgb-core": {
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
     },
     "packages/*": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     }
   },
-  "ignore": ["**/*.generated.ts", "**/*.d.ts", "dist/**", "release/**", "tests/fixtures/**"]
+  "ignore": [
+    "packages/prismgb-gpu/src/application/index.ts",
+    "packages/prismgb-gpu/src/domain/index.ts",
+    "packages/prismgb-gpu/src/infrastructure/canvas2d/index.ts",
+    "packages/prismgb-gpu/src/infrastructure/index.ts",
+    "packages/prismgb-gpu/src/infrastructure/webgl2/index.ts",
+    "packages/prismgb-gpu/src/infrastructure/webgpu/index.ts",
+    "**/*.generated.ts",
+    "**/*.d.ts",
+    "dist/**",
+    "release/**",
+    "tests/fixtures/**"
+  ]
 }
