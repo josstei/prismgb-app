@@ -62,6 +62,10 @@ jobs:
             exit 0
           fi
           git fetch --no-tags --depth=1 origin "$BASE_REF"
+          if ! git cat-file -e "origin/$BASE_REF:scripts/coverage-thresholds.json" 2>/dev/null; then
+            echo "Base ref has no coverage-thresholds.json — no prior floor to protect; skipping."
+            exit 0
+          fi
           git show "origin/$BASE_REF:scripts/coverage-thresholds.json" > /tmp/base-coverage-thresholds.json
           node scripts/coverage-ratchet.js --check-monotonic --previous /tmp/base-coverage-thresholds.json
 
