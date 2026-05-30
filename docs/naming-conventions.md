@@ -39,7 +39,7 @@ This document captures the naming and organization conventions used throughout P
 - `src/renderer`: Renderer process and UI.
 - `src/shared`: Process-agnostic utilities and config.
 - `src/renderer/application/di`: Renderer DI registration modules (`register-*.ts`).
-- `src/renderer/infrastructure/services/<domain>`: Renderer services grouped by domain (capture, devices, gpu, performance, settings, streaming, transcode, updates, platform). See Phase 3 of the codebase-reduction plan.
+- `src/renderer/infrastructure/services/<domain>`: Renderer services grouped by domain (capture, devices, gpu, performance, settings, streaming, transcode, updates, platform).
 - `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config).
 - `src/renderer/presentation/features/<feature>`: Feature-specific UI components and templates.
 - `src/renderer/application`: App-level orchestrators and state.
