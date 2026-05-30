@@ -9,6 +9,8 @@ import { GameAutocompleteComponent } from './game-autocomplete.component.js';
 import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './notes-panel-layout.component.js';
 import type { LoggerLike } from '@prismgb/core';
+import { wireNotesPanel } from './notes-panel-wiring.js';
+
 
 const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
 const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');
@@ -212,52 +214,7 @@ class NotesPanelComponent extends PresentationComponent {
   }
 
   _initializeSubComponents(): void {
-    const elements = this.elements!;
-    this.searchComponent!.initialize({
-      searchInput: elements.notesSearchInput,
-      onSearch: (query: string) => this._handleSearch(query)
-    });
-    this.gameFilter!.initialize({
-      filterButton: elements.notesGameFilter,
-      filterLabel: elements.notesGameFilterLabel,
-      filterMenu: elements.notesGameFilterMenu,
-      onFilterChange: (value: string) => this._handleGameFilterChange(value)
-    });
-    this.listView!.initialize({
-      listElement: elements.notesList,
-      onNoteSelect: (noteId: string) => this._handleNoteSelect(noteId)
-    });
-    this.editorView!.initialize({
-      editorElement: elements.notesEditor,
-      titleInput: elements.notesTitleInput,
-      contentArea: elements.notesContentArea,
-      deleteBtn: elements.notesDeleteBtn,
-      gameTagRow: elements.notesGameTagRow,
-      gameTag: elements.notesGameTag,
-      gameInput: elements.notesGameInput,
-      gameAddBtn: elements.notesGameAddBtn,
-      onSave: () => this._saveCurrentNote(),
-      onDelete: () => this._deleteCurrentNote(),
-      onGameInputChange: () => this._handleGameInputChange(),
-      onShowGameInput: () => this._showGameInput()
-    });
-    this.gameAutocomplete!.initialize({
-      gameInput: elements.notesGameInput,
-      autocompleteDropdown: elements.notesGameAutocomplete,
-      onInput: () => this._handleGameInputChange(),
-      onSelect: (value: string) => this._handleAutocompleteSelect(value),
-      onEnter: () => this._handleAutocompleteEnter(),
-      onEscape: () => this._handleAutocompleteEscape(),
-      onBlur: () => this.editorView!.hideGameInput(),
-      onFocus: () => {}
-    });
-    this.resizeHandler!.initialize({
-      listToggle: elements.notesListToggle,
-      panelElement: elements.notesPanel,
-      panelContent: elements.notesPanelContent,
-      listWrapper: elements.notesListWrapper,
-      onToggle: () => {}
-    });
+    wireNotesPanel(this, this.elements!);
     this._refreshGameFilterOptionsAndRenderList();
   }
 
