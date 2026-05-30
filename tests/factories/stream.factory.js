@@ -632,7 +632,7 @@ export function createStreamingAdapterRegistryMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/streaming/acquisition/constraint-builder').ConstraintBuilder} ConstraintBuilder
+ * @typedef {import('@renderer/infrastructure/services/streaming/acquisition/constraint-builder').ConstraintBuilder} ConstraintBuilder
  */
 
 /**

@@ -19,7 +19,7 @@ import { TIMING } from '@prismgb/config';
 import type {
   LoggerFactoryLike
 } from '@prismgb/core';
-import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 type StreamingViewportDependencies = {
   loggerFactory: LoggerFactoryLike;

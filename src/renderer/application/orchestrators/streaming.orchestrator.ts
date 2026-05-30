@@ -8,11 +8,11 @@ import {
   isPerformanceStatePayload,
   isStreamStartedPayload,
   isSupportedDeviceAvailablePayload
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
   PerformanceStatePayload,
   StreamingCapabilities
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 type LoggerFactoryLike = {
   create(name: string): LoggerLike;

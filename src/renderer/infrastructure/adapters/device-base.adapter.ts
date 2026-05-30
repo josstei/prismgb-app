@@ -1,5 +1,5 @@
 import { IDeviceAdapter } from '@prismgb/devices';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+import { AcquisitionContext } from '@renderer/infrastructure/services/streaming/acquisition/acquisition-context';
 
 import type { LoggerLike, EventBusLike } from '@prismgb/core';
 

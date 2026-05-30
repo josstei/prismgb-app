@@ -10,8 +10,8 @@
  * hardcoded imports and improve testability.
  */
 
-import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder';
-import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
+import { ConstraintBuilder } from '@renderer/infrastructure/services/streaming/acquisition/constraint-builder';
+import { BaseStreamLifecycle } from '@renderer/infrastructure/services/streaming/acquisition/stream-lifecycle.base';
 import { DeviceDetectionHelper, forEachDeviceWithModule, DeviceRegistry, type DeviceRegistryEntry } from '@prismgb/devices';
 import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
 

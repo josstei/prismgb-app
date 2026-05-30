@@ -3,7 +3,7 @@ import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { getDefaultNativeResolution } from '@prismgb/devices';
 import type { TypedEventBusLike } from '@prismgb/events';
-import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
   LoggerFactoryLike
 } from '@prismgb/core';

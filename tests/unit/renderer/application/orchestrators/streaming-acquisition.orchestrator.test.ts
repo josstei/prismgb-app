@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/streaming/acquisition/acquisition.orchestrator';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+import { StreamAcquisitionOrchestrator } from '@renderer/infrastructure/services/streaming/acquisition/acquisition.orchestrator';
+import { AcquisitionContext } from '@renderer/infrastructure/services/streaming/acquisition/acquisition-context';
 import {
   createCaptureStreamMock,
   createConstraintBuilderMock,

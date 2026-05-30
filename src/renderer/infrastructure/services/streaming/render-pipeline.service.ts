@@ -8,15 +8,15 @@ import type { LoggerFactoryLike } from '@prismgb/core';
 import type {
   Dimensions,
   StreamingCapabilities
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
-import { isPerformanceStatePayload } from '@renderer/infrastructure/streaming/streaming-contracts.js';
-import type { IStreamingRenderer } from '@renderer/infrastructure/adapters/streaming-renderer.interface';
-import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming-canvas2d-renderer.adapter';
-import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/adapters/streaming-gpu-renderer.adapter';
+} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import { isPerformanceStatePayload } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import type { IStreamingRenderer } from '@renderer/infrastructure/services/streaming/adapters/streaming-renderer.interface';
+import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
+import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';
 import type {
   RendererCreateRequest,
   RendererType
-} from '@renderer/infrastructure/factories/streaming-renderer.factory';
+} from '@renderer/infrastructure/services/streaming/streaming-renderer.factory';
 
 type AppStateLike = {
   isStreaming: boolean;

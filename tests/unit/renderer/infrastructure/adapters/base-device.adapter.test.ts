@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseDeviceAdapter } from '@renderer/infrastructure/adapters/device-base.adapter';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+import { AcquisitionContext } from '@renderer/infrastructure/services/streaming/acquisition/acquisition-context';
 import {
   createCaptureStreamMock,
   createConstraintBuilderMock,

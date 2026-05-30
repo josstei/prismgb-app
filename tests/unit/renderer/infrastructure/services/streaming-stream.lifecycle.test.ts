@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BaseStreamLifecycle } from '@renderer/infrastructure/streaming/acquisition/stream-lifecycle.base';
+import { BaseStreamLifecycle } from '@renderer/infrastructure/services/streaming/acquisition/stream-lifecycle.base';
 import { createMediaServiceMock, createMediaStreamMock, createMediaTrackMock, createLogger } from '../../../../factories/index.js';
 import { installMediaMocks } from '../../../../support/mocks/browser-api.installers.js';
 

@@ -8,11 +8,11 @@ import {
   isRecordingErrorPayload,
   isRecordingReadyPayload,
   isStreamingCapabilities
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
   GpuRecordingStartOptions,
   GpuRendererServiceLike
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 type LoggerFactoryLike = {
   create(name: string): LoggerLike;

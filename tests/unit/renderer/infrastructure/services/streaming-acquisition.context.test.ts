@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AcquisitionContext } from '@renderer/infrastructure/streaming/acquisition/acquisition-context';
+import { AcquisitionContext } from '@renderer/infrastructure/services/streaming/acquisition/acquisition-context';
 
 describe('AcquisitionContext', () => {
   describe('Constructor', () => {

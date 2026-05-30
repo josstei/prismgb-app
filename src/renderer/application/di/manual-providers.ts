@@ -4,11 +4,11 @@ import { PROTECTED_STORAGE_KEYS } from '../../../shared/config/storage-keys.conf
 import { DeviceIpcAdapter } from '../../infrastructure/adapters/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '../../infrastructure/adapters/device-change-debounce.adapter';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
-import { StreamingRendererFactory } from '../../infrastructure/factories/streaming-renderer.factory';
-import { StreamingGpuRendererAdapter } from '../../infrastructure/adapters/streaming-gpu-renderer.adapter';
-import { StreamingCanvas2DRendererAdapter } from '../../infrastructure/adapters/streaming-canvas2d-renderer.adapter';
+import { StreamingRendererFactory } from '@renderer/infrastructure/services/streaming/streaming-renderer.factory';
+import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';
+import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
 import { DeviceIpcStatusAdapter } from '../../infrastructure/adapters/device-ipc-status.adapter';
-import { StreamingAdapterFactory } from '../../infrastructure/factories/streaming-adapter.factory';
+import { StreamingAdapterFactory } from '@renderer/infrastructure/services/streaming/streaming-adapter.factory';
 import { DeviceChromaticAdapter } from '../../infrastructure/adapters/device-chromatic.adapter';
 import { chromaticConfig } from '@prismgb/devices';
 import { UIComponentRegistry } from '../../presentation/controller/component.registry';

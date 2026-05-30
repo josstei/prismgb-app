@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StreamingRendererFactory } from '@renderer/infrastructure/factories/streaming-renderer.factory';
+import { StreamingRendererFactory } from '@renderer/infrastructure/services/streaming/streaming-renderer.factory';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 class MockGpuRenderer {

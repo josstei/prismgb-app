@@ -1,4 +1,4 @@
-import type { Dimensions } from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 export function normalizeNativeResolution(nativeResolution: Dimensions): Dimensions {
   if (

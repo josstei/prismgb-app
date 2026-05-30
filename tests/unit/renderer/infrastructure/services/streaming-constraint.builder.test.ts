@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConstraintBuilder } from '@renderer/infrastructure/streaming/acquisition/constraint-builder';
+import { ConstraintBuilder } from '@renderer/infrastructure/services/streaming/acquisition/constraint-builder';
 import { createConstraintBuilderContextMock, createLogger } from '../../../../factories/index.js';
 
 describe('ConstraintBuilder', () => {
