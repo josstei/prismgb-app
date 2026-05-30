@@ -33,3 +33,4 @@ its Status points to the replacement.
 | --- | --- | --- |
 | [0001](0001-coverage-gate-governance.md) | Coverage-gate governance: monotonic ratchet, waivers, honest baseline | Accepted |
 | [0002](0002-renderer-container-load-strategy.md) | Renderer DI container load strategy (static import) | Accepted |
+| [0003](0003-oversized-file-decomposition-policy.md) | Oversized-file decomposition policy (LOC is a trigger, not a mandate) | Accepted |
