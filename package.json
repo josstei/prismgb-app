@@ -55,7 +55,7 @@
   "license": "MIT",
   "dependencies": {
     "@prismgb/gpu": "*",
-    "awilix": "^13.0.3",
+    "awilix": "^13.0.5",
     "electron-updater": "^6.8.9",
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
