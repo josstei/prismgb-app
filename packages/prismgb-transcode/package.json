@@ -18,14 +18,8 @@
     "test": "vitest",
     "test:run": "vitest run"
   },
-  "dependencies": {
-    "@prismgb/core": "*",
-    "@prismgb/ipc": "*"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "^3.1.0",
-    "electron": "^41.6.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vitest": "^4.0.0"
