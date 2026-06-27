@@ -6,9 +6,9 @@
 
 import { BaseService } from '@prismgb/core';
 import { formatDeviceInfo } from '@prismgb/core';
-import { forEachDeviceWithModule } from '@prismgb/devices';
-import { DeviceRegistry, type DeviceRegistryEntry } from '@prismgb/devices';
-import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
+import { forEachDeviceWithModule } from './device-iterator.utils.js';
+import { DeviceRegistry, type DeviceRegistryEntry } from './device.registry.js';
+import { MainEventChannels } from '@prismgb/events';
 import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
@@ -17,9 +17,9 @@ import {
 } from './usb-device-monitor.js';
 import { UsbMonitoringController, type DeviceConnectionHandler } from './usb-monitoring.controller.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
-import type { EventBus } from '@main/infrastructure/events/event-bus.js';
+import type { DeviceEventBus as EventBus } from './device-host.contracts.js';
 import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
-import type { DeviceProfile } from '@prismgb/devices';
+import type { DeviceProfile } from './device-profile.base.js';
 
 interface DeviceMatch {
   matched: boolean;

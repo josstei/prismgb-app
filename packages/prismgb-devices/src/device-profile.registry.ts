@@ -6,7 +6,7 @@
  */
 
 import { formatDeviceInfo } from '@prismgb/core';
-import type { DeviceProfile } from '@prismgb/devices';
+import type { DeviceProfile } from './device-profile.base.js';
 import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 
 interface USBDevice {

@@ -33,7 +33,7 @@ import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
   toUsbDeviceInfo
-} from '@main/infrastructure/devices/usb-device-monitor.js';
+} from '../../../packages/prismgb-devices/src/usb-device-monitor.js';
 
 function makeNodeUsbDevice(overrides = {}) {
   return {

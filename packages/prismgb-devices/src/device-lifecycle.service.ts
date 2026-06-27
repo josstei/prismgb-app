@@ -5,10 +5,10 @@
 
 import { BaseService } from '@prismgb/core';
 import { appConfig } from '@prismgb/config';
-import { MainEventChannels } from '@main/infrastructure/events/event-channels.config.js';
+import { MainEventChannels } from '@prismgb/events';
 import type { DeviceService } from './device.service.js';
-import type { WindowService } from '@main/infrastructure/window/window.service.js';
-import type { EventBus } from '@main/infrastructure/events/event-bus.js';
+import type { DeviceWindowService as WindowService } from './device-host.contracts.js';
+import type { DeviceEventBus as EventBus } from './device-host.contracts.js';
 import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;

@@ -7,14 +7,17 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { createEventBus, createLoggerFactory, createProfileRegistryMock } from '../../factories/index.js';
 
-// Mock @prismgb/devices
-vi.mock('@prismgb/devices', () => ({
+// Mock the device-registry + iterator submodules the SUT imports directly
+// (the service now imports these from @prismgb/devices internals, not the barrel).
+vi.mock('../../../packages/prismgb-devices/src/device.registry.js', () => ({
   DeviceRegistry: {
     registerProfileClass: vi.fn(),
     getProfileClass: vi.fn(),
     getAll: vi.fn(() => [])
-  },
-  forEachDeviceWithModule: vi.fn((moduleKey, callback, options) => {
+  }
+}));
+vi.mock('../../../packages/prismgb-devices/src/device-iterator.utils.js', () => ({
+  forEachDeviceWithModule: vi.fn((moduleKey, callback) => {
     // Simulate iterating over a test device
     if (moduleKey === 'profileModule') {
       callback({ id: 'test-device', name: 'Test Device' });
@@ -22,27 +25,9 @@ vi.mock('@prismgb/devices', () => ({
   })
 }));
 
-
-// Mock config loader
-vi.mock('@shared/config/config-loader.utils.js', () => ({
-  appConfig: {
-    USB_SCAN_DELAY: 100
-  }
-}));
-
-// Mock event channels
-vi.mock('@main/infrastructure/event-channels.config.js', () => ({
-  MainEventChannels: {
-    DEVICE: {
-      CONNECTION_CHANGED: 'device:connection-changed',
-      CHECK_ERROR: 'device:check-error'
-    }
-  }
-}));
-
-import { DeviceService } from '@main/infrastructure/devices/device.service.js';
-import { DeviceRegistry } from '@prismgb/devices';
-import { forEachDeviceWithModule } from '@prismgb/devices';
+import { DeviceService } from '@prismgb/devices/service';
+import { DeviceRegistry } from '../../../packages/prismgb-devices/src/device.registry.js';
+import { forEachDeviceWithModule } from '../../../packages/prismgb-devices/src/device-iterator.utils.js';
 
 describe('DeviceService (Main Process)', () => {
   let deviceService;

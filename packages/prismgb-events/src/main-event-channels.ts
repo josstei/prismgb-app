@@ -1,4 +1,4 @@
-import { getEventManifestScopeEvents } from '@prismgb/events';
+import { getEventManifestScopeEvents } from './event.manifest.js';
 
 type ManifestEvent = {
   domain: string;
