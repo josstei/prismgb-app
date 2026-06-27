@@ -138,6 +138,8 @@ export default defineConfig({
           environment: 'happy-dom',
           include: [
             'tests/integration/**/*.{test,spec}.{js,ts}',
+            'tests/workflows/**/*.{test,spec}.{js,ts}',
+            'tests/performance/**/*.{test,spec}.{js,ts}',
             'tests/unit/app/renderer/**/*.{test,spec}.{js,ts}',
             'tests/unit/features/**/*.{test,spec}.{js,ts}',
             'tests/unit/renderer/**/*.{test,spec}.{js,ts}',
@@ -180,6 +182,15 @@ export default defineConfig({
           alias: {
             '@': path.resolve(__dirname, 'packages/prismgb-gpu/src')
           }
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'core-package',
+          globals: true,
+          environment: 'node',
+          include: ['packages/prismgb-core/tests/unit/**/*.{test,spec}.ts']
         }
       }
     ]
