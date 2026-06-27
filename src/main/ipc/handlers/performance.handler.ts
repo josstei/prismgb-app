@@ -4,7 +4,7 @@
  */
 
 import type { App } from 'electron';
-import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerLike as Logger } from '@prismgb/core';
 import type { ProcessMetricsResponse } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '@prismgb/ipc';
 

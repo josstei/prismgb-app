@@ -6,7 +6,7 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
-import type { Logger, LoggerFactory, LogLevel } from './logger.interface.js';
+import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory, LogLevel } from '@prismgb/core';
 
 /**
  * Extended logger interface with Winston-specific features.

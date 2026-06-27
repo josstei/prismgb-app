@@ -4,7 +4,7 @@
  */
 
 import type { IpcMainInvokeEvent, Shell } from 'electron';
-import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerLike as Logger } from '@prismgb/core';
 import type { ShellOpenExternalResponse } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '@prismgb/ipc';
 

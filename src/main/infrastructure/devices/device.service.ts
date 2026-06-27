@@ -18,7 +18,7 @@ import {
 import { UsbMonitoringController, type DeviceConnectionHandler } from './usb-monitoring.controller.js';
 import type { DeviceProfileRegistry } from './device-profile.registry.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
-import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 import type { DeviceProfile } from '@prismgb/devices';
 
 interface DeviceMatch {

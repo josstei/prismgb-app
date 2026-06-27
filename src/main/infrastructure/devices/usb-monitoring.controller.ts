@@ -19,7 +19,7 @@ import { MainEventChannels } from '@main/infrastructure/events/event-channels.co
 import type { UsbDeviceInfo, UsbDeviceMonitor } from './usb-device-monitor.js';
 import type { DeviceMatch } from './device.service.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
-import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 
 const { USB_SCAN_DELAY } = appConfig;
 const USB_ADD_LISTENER_LIFECYCLE = Symbol('usbAddListener');

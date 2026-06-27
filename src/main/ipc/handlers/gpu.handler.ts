@@ -3,7 +3,7 @@
  * Registers GPU policy-related IPC routes.
  */
 
-import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerLike as Logger } from '@prismgb/core';
 import { getGpuPolicy } from '@main/infrastructure/gpu-policy.js';
 import type { GpuPolicyResponse } from '@prismgb/ipc';
 import { defineManifestIpcHandlers } from '@prismgb/ipc';

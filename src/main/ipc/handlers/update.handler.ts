@@ -3,7 +3,7 @@
  * Registers update-related IPC routes.
  */
 
-import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerLike as Logger } from '@prismgb/core';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,

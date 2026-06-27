@@ -9,7 +9,7 @@ import { MainEventChannels } from '@main/infrastructure/events/event-channels.co
 import type { DeviceService } from './device.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
-import type { LoggerFactory } from '@main/infrastructure/logging/logger.interface.js';
+import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 
 const { DEVICE_LAUNCH_DELAY } = appConfig;
 const DEVICE_CONNECTION_LIFECYCLE = Symbol('deviceLifecycleConnection');
