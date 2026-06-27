@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IPC_CHANNELS, IpcContractManifest } from '@prismgb/ipc';
-import { registerIpcHandlerDescriptors } from '@main/ipc/ipc-handler.descriptor.js';
+import { registerIpcHandlerDescriptors } from '@prismgb/ipc';
 import {
   deviceHandlerDescriptors,
   shellHandlerDescriptors,

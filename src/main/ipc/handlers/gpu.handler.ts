@@ -6,7 +6,7 @@
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import { getGpuPolicy } from '@main/infrastructure/gpu-policy.js';
 import type { GpuPolicyResponse } from '@prismgb/ipc';
-import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '@prismgb/ipc';
 
 export interface GpuHandlerDependencies {
   logger: Logger;

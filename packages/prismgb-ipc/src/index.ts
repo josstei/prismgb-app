@@ -40,3 +40,17 @@ export type {
   GpuPolicyPayload,
   GpuPolicyResponse
 } from './preload-api.contract.js';
+
+export {
+  defineIpcHandlers,
+  defineManifestIpcHandlers,
+  defineIpcHandlerRegistrationGroup,
+  registerIpcHandlerDescriptors,
+  registerIpcHandlerRegistrationGroups
+} from './ipc-handler.descriptor.js';
+export type {
+  RegisterHandler,
+  IpcHandlerResponseMode,
+  IpcHandlerDescriptor,
+  IpcHandlerRegistrationGroup
+} from './ipc-handler.descriptor.js';

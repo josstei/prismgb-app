@@ -10,7 +10,7 @@ import type {
   UpdateStatusPayload
 } from '@prismgb/ipc';
 import { IpcContractManifest } from '@prismgb/ipc';
-import { defineIpcHandlerRegistrationGroup, type IpcHandlerRegistrationGroup, type IpcHandlerDescriptor, registerIpcHandlerRegistrationGroups } from './ipc-handler.descriptor.js';
+import { defineIpcHandlerRegistrationGroup, type IpcHandlerRegistrationGroup, type IpcHandlerDescriptor, registerIpcHandlerRegistrationGroups } from '@prismgb/ipc';
 import {
   deviceHandlerDescriptors,
   updateHandlerDescriptors,

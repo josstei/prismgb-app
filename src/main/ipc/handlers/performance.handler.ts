@@ -6,7 +6,7 @@
 import type { App } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import type { ProcessMetricsResponse } from '@prismgb/ipc';
-import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '@prismgb/ipc';
 
 export interface PerformanceHandlerDependencies {
   app: App;

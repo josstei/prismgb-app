@@ -1,7 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { Logger } from '@main/infrastructure/logging/logger.interface.js';
 import type { WindowSetFullscreenResponse, WindowIsFullscreenResponse } from '@prismgb/ipc';
-import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '@prismgb/ipc';
 
 interface WindowService {
   setFullScreen(enabled: boolean): void;

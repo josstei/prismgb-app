@@ -6,7 +6,7 @@ import type {
   TranscodeStartResponse,
   TranscodeStatusResponse
 } from '@prismgb/ipc';
-import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '@prismgb/ipc';
 
 interface TranscodeService {
   transcode(options: {

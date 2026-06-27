@@ -11,7 +11,7 @@ import type {
   UpdateInstallResponse,
   UpdateStatusPayload
 } from '@prismgb/ipc';
-import { defineManifestIpcHandlers } from '../ipc-handler.descriptor.js';
+import { defineManifestIpcHandlers } from '@prismgb/ipc';
 
 interface UpdateService {
   checkForUpdates(): Promise<Record<string, unknown>>;
