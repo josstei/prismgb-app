@@ -9,7 +9,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { BaseService } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';
-import { TRANSCODE_CONFIG, TranscodeState } from '@prismgb/transcode';
+import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
 import {
   createTempSession,

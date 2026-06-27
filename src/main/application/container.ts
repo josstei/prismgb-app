@@ -14,7 +14,7 @@ import { DeviceLifecycleService } from '@main/infrastructure/devices/device-life
 import { DeviceBridgeService } from '@main/infrastructure/devices/device-bridge.service.js';
 import type { ProfileClass } from '@main/infrastructure/devices/device.service.js';
 import { UpdateService, UpdateBridge } from '@prismgb/updates';
-import { TranscodeService } from '@main/infrastructure/transcode/transcode.service.js';
+import { TranscodeService } from '@prismgb/transcode/service';
 import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import { DeviceChromaticProfile } from '@prismgb/devices';
 import { chromaticConfig } from '@prismgb/devices';

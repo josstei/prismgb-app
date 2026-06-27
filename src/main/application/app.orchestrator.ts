@@ -18,7 +18,7 @@ import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@prismgb/updates';
 import type { DeviceBridgeService } from '@main/infrastructure/devices/device-bridge.service.js';
 import type { UpdateBridge } from '@prismgb/updates';
-import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service.js';
+import type { TranscodeService } from '@prismgb/transcode/service';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
 function resolveDevDockIconPath(appPath: string): string | null {

@@ -8,7 +8,7 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
+import { TRANSCODE_CONFIG } from './transcode.config.js';
 import { DisposableBag } from '@prismgb/core';
 
 /**
@@ -18,13 +18,6 @@ export interface TranscodeProgressData {
   percent: number;
   timeUs: number;
   elapsedMs?: number;
-}
-
-/**
- * Completed event data
- */
-export interface TranscodeCompletedData {
-  outputPath: string;
 }
 
 /**

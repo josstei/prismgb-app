@@ -12,7 +12,7 @@
     "declaration": true,
     "declarationDir": "dist",
     "resolveJsonModule": true,
-    "types": ["vite/client", "node"],
+    "types": ["vite/client", "node", "electron"],
     "paths": {
       "@/*": ["./src/*"]
     }

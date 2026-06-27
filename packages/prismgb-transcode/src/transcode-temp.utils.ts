@@ -9,7 +9,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import crypto from 'node:crypto';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
+import { TRANSCODE_CONFIG } from './transcode.config.js';
 
 /**
  * Session information for a transcode operation

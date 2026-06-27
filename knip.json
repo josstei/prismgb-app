@@ -14,7 +14,7 @@
         "tests/**/*.{test,spec}.{js,ts}"
       ],
       "project": ["src/**/*.{ts,js}"],
-      "ignoreDependencies": ["eventemitter3", "joi", "@electron/notarize"],
+      "ignoreDependencies": ["eventemitter3", "joi", "@electron/notarize", "ffmpeg-static", "ffprobe-static"],
       "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
     },
     "packages/prismgb-gpu": {

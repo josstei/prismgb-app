@@ -8,9 +8,14 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./service": {
+      "import": "./dist/service.js",
+      "types": "./dist/service.d.ts"
     }
   },
   "files": ["dist"],
+  "sideEffects": false,
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build && tsc --emitDeclarationOnly",
@@ -18,8 +23,14 @@
     "test": "vitest",
     "test:run": "vitest run"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@prismgb/core": "*",
+    "@prismgb/ipc": "*",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  },
   "devDependencies": {
+    "electron": "^41.6.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vitest": "^4.0.0"

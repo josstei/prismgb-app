@@ -12,6 +12,8 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'electron',
+        'ffmpeg-static',
+        'ffprobe-static',
         'node:path',
         'node:fs',
         'node:fs/promises',
