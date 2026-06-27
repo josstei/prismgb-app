@@ -8,7 +8,7 @@ import {
   type SettingsListboxDefinition
 } from '@shared/features/settings/settings.definitions.js';
 import { escapeHtml } from '@prismgb/core';
-import { TRANSCODE_CONFIG } from '../../../../../packages/prismgb-transcode/src/transcode.config.js';
+import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 
 function createListboxOptionsTemplate(options: ReturnType<typeof getSettingsListboxOptions>): string {
   return options

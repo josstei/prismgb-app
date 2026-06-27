@@ -13,7 +13,7 @@ import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { initializeContainer, asValue } from './application/container.js';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@shared/features/settings/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '../../packages/prismgb-transcode/src/transcode.config.js';
+import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 import { PRESET_POLICY } from '@prismgb/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 
