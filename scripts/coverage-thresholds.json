@@ -27,13 +27,13 @@
       "owner": "platform:ui",
       "scope": "src/renderer",
       "minimums": {
-        "lines": 84,
-        "statements": 84,
-        "functions": 83,
+        "lines": 85,
+        "statements": 85,
+        "functions": 85,
         "branches": 72
       },
       "expiresOn": "2026-12-31",
-      "notes": "Renderer coverage target for happy-dom project split phase."
+      "notes": "Renderer coverage restored to 85 after the 2026-05-29 relocations were re-balanced (workflow/performance suites re-collected; untestable streaming adapters/factory re-excluded). ADR-0001 waivers discharged."
     },
     {
       "id": "main-preload",

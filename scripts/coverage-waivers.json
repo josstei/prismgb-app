@@ -1,39 +1,5 @@
 {
   "version": 1,
   "notes": "Each entry authorizes a coverage-threshold REDUCTION in scripts/coverage-thresholds.json that would otherwise fail the monotonic guard (node scripts/coverage-ratchet.js --check-monotonic). Per ADR-0001 a reduction must be owned, justified, and time-boxed: on expiry the threshold must be restored (debt paid down) or the waiver re-reviewed. 'from' is the prior minimum, 'to' is the lowest minimum this waiver permits.",
-  "waivers": [
-    {
-      "target": "renderer-happy-dom",
-      "metric": "lines",
-      "from": 85,
-      "to": 84,
-      "owner": "platform:ui",
-      "reason": "Sub-1pt drift (~84.98%) as files were relocated during the 2026-05-29 domain regrouping. Restore to 85 once the moved suites are re-balanced. See ADR-0001.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-07-31",
-      "adr": "0001"
-    },
-    {
-      "target": "renderer-happy-dom",
-      "metric": "statements",
-      "from": 85,
-      "to": 84,
-      "owner": "platform:ui",
-      "reason": "Sub-1pt drift (~84.29%) from the 2026-05-29 relocations. Restore to 85 once re-balanced. See ADR-0001.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-07-31",
-      "adr": "0001"
-    },
-    {
-      "target": "renderer-happy-dom",
-      "metric": "functions",
-      "from": 85,
-      "to": 83,
-      "owner": "platform:ui",
-      "reason": "~1.4pt drift (~83.62%) from the 2026-05-29 relocations. Restore to 85 once re-balanced. See ADR-0001.",
-      "approvedBy": "josstei",
-      "expiresOn": "2026-07-31",
-      "adr": "0001"
-    }
-  ]
+  "waivers": []
 }
