@@ -15,23 +15,14 @@ const sharedAlias = {
   '@preload': path.resolve(__dirname, 'src/preload'),
   '@shared': path.resolve(__dirname, 'src/shared'),
   '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
-  '@prismgb/gpu/': path.resolve(__dirname, 'packages/prismgb-gpu/src/'),
   '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
-  '@prismgb/core/': path.resolve(__dirname, 'packages/prismgb-core/src/'),
   '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
-  '@prismgb/events/': path.resolve(__dirname, 'packages/prismgb-events/src/'),
   '@prismgb/config': path.resolve(__dirname, 'packages/prismgb-config/src/index.ts'),
-  '@prismgb/config/': path.resolve(__dirname, 'packages/prismgb-config/src/'),
   '@prismgb/ipc': path.resolve(__dirname, 'packages/prismgb-ipc/src/index.ts'),
-  '@prismgb/ipc/': path.resolve(__dirname, 'packages/prismgb-ipc/src/'),
   '@prismgb/devices': path.resolve(__dirname, 'packages/prismgb-devices/src/index.ts'),
-  '@prismgb/devices/': path.resolve(__dirname, 'packages/prismgb-devices/src/'),
   '@prismgb/transcode': path.resolve(__dirname, 'packages/prismgb-transcode/src/index.ts'),
-  '@prismgb/transcode/': path.resolve(__dirname, 'packages/prismgb-transcode/src/'),
   '@prismgb/updates': path.resolve(__dirname, 'packages/prismgb-updates/src/index.ts'),
-  '@prismgb/updates/': path.resolve(__dirname, 'packages/prismgb-updates/src/'),
-  '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts'),
-  '@prismgb/notes/': path.resolve(__dirname, 'packages/prismgb-notes/src/')
+  '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts')
 };
 
 const baseCoverageConfig = {
@@ -56,9 +47,9 @@ const baseCoverageConfig = {
     // GPU/Canvas/WebGPU APIs not available in vitest
     'src/**/rendering/gpu/*.{js,ts}',
     'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
-    'src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts',
-    'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
-    'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
+    'src/renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter.ts',
+    'src/renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter.ts',
+    'src/renderer/infrastructure/services/streaming/streaming-renderer.factory.ts',
     'src/**/gpu-render-loop.service.{js,ts}',
     // Keep root CI coverage aligned with @prismgb/gpu package coverage policy.
     // Hardware-specific GPU backends are covered by focused package tests and build/type gates.
@@ -75,8 +66,6 @@ const baseCoverageConfig = {
     'src/renderer/presentation/icons/*.{js,ts}',
     'src/renderer/presentation/features/**/*.template.{js,ts}',
     // Interface and type-only files (abstract base classes, contracts, type definitions)
-    'src/shared/interfaces/**',
-    'src/shared/ipc/*.contract.ts',
     'src/**/*.interface.{js,ts}',
     'src/**/*.type.ts',
     'src/**/*.types.ts',
