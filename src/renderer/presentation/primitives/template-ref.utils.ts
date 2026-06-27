@@ -1,5 +1,5 @@
 import { EventChannels } from '@prismgb/events';
-import { TemplateActionTargets } from '@renderer/presentation/generated/template-dom.generated.js';
+import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract.js';
 
 export const TEMPLATE_REF_ATTRIBUTE = 'data-ref';
 export const TEMPLATE_ACTION_ATTRIBUTE = 'data-action';

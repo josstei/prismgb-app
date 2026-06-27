@@ -10,7 +10,7 @@ import {
   type TemplateDomShellRef,
   type TemplateDomStreamingRef,
   type TemplateDomUpdatesRef
-} from '@renderer/presentation/generated/template-dom.generated.js';
+} from '@renderer/presentation/primitives/template-dom.contract.js';
 
 export type DomBindingElement = HTMLElement | null;
 

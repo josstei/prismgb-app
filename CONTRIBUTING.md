@@ -158,7 +158,7 @@ ci: add security scanning to PR workflow
 
 This project uses Husky to enforce commit conventions:
 
-- **pre-commit**: Runs `npm test` (Vitest watch mode)
+- **pre-commit**: Runs `npm run test:run` (Vitest, single run)
 - **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
@@ -277,11 +277,11 @@ All JavaScript files follow the pattern: `{name}.{type}.js`
 ### Example Service
 
 ```javascript
-import { BaseService } from '@shared/base/service.base.js';
+import { BaseService } from '@prismgb/core';
 
 export class MyService extends BaseService {
   constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'requiredDep'], 'MyService');
+    super(dependencies, 'MyService');
   }
 
   myMethod() {

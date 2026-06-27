@@ -19,7 +19,7 @@ import type { SettingsService } from '@renderer/infrastructure/services/settings
 import type { NotesService } from '@prismgb/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/generated/template-dom.generated.js';
+import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';
 import type { RendererUiComponentDependencies } from '@renderer/presentation/controller/ui-component.catalog.js';
 
 type AppStateLike = {

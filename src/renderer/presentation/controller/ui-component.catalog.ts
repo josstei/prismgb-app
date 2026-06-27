@@ -26,7 +26,7 @@ import {
   RendererTemplateCoreComponentIds,
   type RendererTemplateComponentElementSlices,
   type RendererTemplateComponentId
-} from '@renderer/presentation/generated/template-dom.generated.js';
+} from '@renderer/presentation/primitives/template-dom.contract.js';
 import type {
   UIComponentContract,
   UIComponentDefinition,

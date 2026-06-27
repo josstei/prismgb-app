@@ -45,7 +45,7 @@ This section is generated from architecture, device, and settings manifests. Kee
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts` from template action descriptors, and deferred component startup follows the generated component ID list in `src/renderer/presentation/generated/template-dom.generated.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
+UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts` from template action descriptors, and deferred component startup follows the generated component ID list in `src/renderer/presentation/primitives/template-dom.contract.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
 
 | Flow | Event path |
 | --- | --- |

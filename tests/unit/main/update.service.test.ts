@@ -32,19 +32,6 @@ vi.mock('electron-updater', () => {
   };
 });
 
-vi.mock('@shared/ipc/ipc.manifest.js', async (importActual) => ({
-  ...(await importActual()),
-  IPC_CHANNELS: {
-    UPDATE: {
-      AVAILABLE: 'update:available',
-      NOT_AVAILABLE: 'update:not-available',
-      PROGRESS: 'update:progress',
-      DOWNLOADED: 'update:downloaded',
-      ERROR: 'update:error'
-    }
-  }
-}));
-
 import { autoUpdater } from 'electron-updater';
 
 describe('UpdateService', () => {

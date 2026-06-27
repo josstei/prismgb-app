@@ -9,7 +9,7 @@ import {
   createTemplateComponentElements,
   createTemplateCoreComponentRegistryElements,
   type RendererTemplateDeferredComponentId
-} from '@renderer/presentation/generated/template-dom.generated.js';
+} from '@renderer/presentation/primitives/template-dom.contract.js';
 import type {
   UIComponentRegistry
 } from '@renderer/presentation/controller/component.registry.js';

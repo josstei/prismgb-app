@@ -9,7 +9,6 @@
         "src/renderer/index.ts",
         "src/renderer/application/di/di.generated.ts",
         "src/renderer/application/di/external-tokens.ts",
-        "src/main/application/index.ts",
         "scripts/*.js",
         "tests/support/**/*.{js,ts}",
         "tests/**/*.{test,spec}.{js,ts}"
