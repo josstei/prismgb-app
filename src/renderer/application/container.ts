@@ -1,4 +1,4 @@
-import { GeneratedContainer } from '../di.generated.js';
+import { GeneratedContainer } from './di/di.generated.js';
 
 export type RendererServiceContainer = GeneratedContainer;
 
