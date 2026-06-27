@@ -6,7 +6,7 @@ import {
   type SettingsControlDefinition,
   type SettingsControlUi,
   type SettingsListboxDefinition
-} from '@shared/features/settings/settings.definitions.js';
+} from '@renderer/lib/settings.definitions.js';
 import { escapeHtml } from '@prismgb/core';
 import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 

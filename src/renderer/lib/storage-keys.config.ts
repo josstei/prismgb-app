@@ -3,7 +3,7 @@
  *
  * Shared storage keys used by non-UI services and presentation.
  */
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions';
+import { SettingsDefinitions } from '@renderer/lib/settings.definitions';
 
 export const NotesStorageKeys = {
   USER_NOTES: 'userNotes'

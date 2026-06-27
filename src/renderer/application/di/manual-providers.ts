@@ -1,6 +1,6 @@
 import type { LoggerFactoryLike } from '@prismgb/core';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
-import { PROTECTED_STORAGE_KEYS } from '../../../shared/config/storage-keys.config.js';
+import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
 import { DeviceIpcAdapter } from '../../infrastructure/adapters/device-ipc.adapter';
 import { DeviceChangeDebounceAdapter } from '../../infrastructure/adapters/device-change-debounce.adapter';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';

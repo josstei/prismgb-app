@@ -3,8 +3,8 @@ import {
   NotesStorageKeys,
   SETTINGS_STORAGE_KEYS,
   PROTECTED_STORAGE_KEYS
-} from '@shared/config/storage-keys.config';
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions';
+} from '@renderer/lib/storage-keys.config';
+import { SettingsDefinitions } from '@renderer/lib/settings.definitions';
 
 const expectedSettingsKeys = SettingsDefinitions.definitions.map((definition) => definition.storageKey);
 const expectedProtectedKeys = [NotesStorageKeys.USER_NOTES, ...expectedSettingsKeys];

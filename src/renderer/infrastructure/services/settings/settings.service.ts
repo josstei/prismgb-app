@@ -1,6 +1,6 @@
 import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import type { StorageServiceLike } from '@prismgb/core';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];

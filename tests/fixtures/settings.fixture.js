@@ -3,7 +3,7 @@
  *
  * Centralized test data for settings-related tests.
  */
-import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { PRESET_POLICY } from '@prismgb/gpu';
 
 const settingDefaults = Object.fromEntries(

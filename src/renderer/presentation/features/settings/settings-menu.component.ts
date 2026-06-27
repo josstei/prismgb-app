@@ -11,7 +11,7 @@ import {
   hasExternalSource,
   type SettingsControlDefinition,
   type SettingsListboxDefinition
-} from '@shared/features/settings/settings.definitions.js';
+} from '@renderer/lib/settings.definitions.js';
 import type { LoggerLike } from '@prismgb/core';
 import type { UpdateSectionElements } from '@renderer/presentation/features/updates/update-section.component.js';
 

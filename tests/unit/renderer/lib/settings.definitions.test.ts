@@ -25,8 +25,8 @@ import {
   getListboxSettingsUiDefinitions,
   getSettingsListboxOptions,
   getStartupPreferenceEventDefinitions
-} from '@shared/features/settings/settings.definitions';
-import type { SettingsListboxDefinition } from '@shared/features/settings/settings.definitions';
+} from '@renderer/lib/settings.definitions';
+import type { SettingsListboxDefinition } from '@renderer/lib/settings.definitions';
 
 function definitionNamed(name: string) {
   const definition = SettingsDefinitions.definitions.find((candidate) => candidate.name === name);

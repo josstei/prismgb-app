@@ -1,7 +1,7 @@
 import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import { getStartupPreferenceEventDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type PreferencesPayload = Record<string, unknown>;

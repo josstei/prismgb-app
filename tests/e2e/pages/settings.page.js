@@ -7,7 +7,7 @@ import { AppShellPage, AppSelectors, expectPopupHidden, expectPopupVisible } fro
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const settingsDefinitionsPath = path.resolve(
   __dirname,
-  '../../../src/shared/features/settings/settings.definitions.json'
+  '../../../src/renderer/lib/settings.definitions.json'
 );
 
 function readSettingsDefinitions() {

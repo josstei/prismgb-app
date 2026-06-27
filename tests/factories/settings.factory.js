@@ -10,7 +10,7 @@ import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import { createStorageService } from './storage.factory.js';
 import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 
 export function createSettingsServiceHarness(overrides = {}) {
   const eventBus = overrides.eventBus ?? createEventBus();

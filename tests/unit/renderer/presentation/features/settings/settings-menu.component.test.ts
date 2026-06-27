@@ -10,7 +10,7 @@ import {
   createSettingsControlsTemplate,
   getRecordingFormatOptions
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
-import { SettingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 import {
   createEventBus,

@@ -4,7 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { SettingsDefinitions as settingsDefinitions } from '@shared/features/settings/settings.definitions.js';
+import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { createSettingsServiceHarness } from '../../../../factories/index.js';
 import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 describe('SettingsService', () => {
@@ -23,7 +23,7 @@ describe('SettingsService', () => {
     it('uses enforced definitions without compatibility mappings', () => {
       const rawSettingsDefinitions = JSON.parse(
         fs.readFileSync(
-          path.join(process.cwd(), 'src/shared/features/settings/settings.definitions.json'),
+          path.join(process.cwd(), 'src/renderer/lib/settings.definitions.json'),
           'utf8'
         )
       );
