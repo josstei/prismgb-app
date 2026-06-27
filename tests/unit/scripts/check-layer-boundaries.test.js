@@ -110,4 +110,18 @@ describe('check-layer-boundaries script', () => {
       targetLayer: 'renderer/presentation'
     });
   });
+
+  it('accepts renderer infrastructure and presentation importing the renderer/lib shared kernel', () => {
+    const report = runFixture('renderer-shared-consumed-pass');
+    expect(report.violations).toHaveLength(0);
+  });
+
+  it('flags the renderer/lib shared kernel importing renderer presentation', () => {
+    const report = runFixture('renderer-shared-imports-presentation');
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]).toMatchObject({
+      sourceLayer: 'renderer/lib',
+      targetLayer: 'renderer/presentation'
+    });
+  });
 });
