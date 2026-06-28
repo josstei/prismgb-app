@@ -142,6 +142,12 @@ if (process.argv.includes('--smoke-test')) {
 
       try {
         await application.initialize();
+
+        if (process.argv.includes('--test-mode')) {
+          const testContainer = application.getContainer();
+          (globalThis as Record<string, unknown>).__e2eIpcPushBridge =
+            testContainer?.resolve<unknown>('ipcPushBridge') ?? null;
+        }
       } catch (error) {
         console.error('Application initialization failed:', error);
         dialog.showErrorBox(

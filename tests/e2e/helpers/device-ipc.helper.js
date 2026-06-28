@@ -20,11 +20,10 @@ export async function injectDeviceConnectedEvent(app, deviceInfo = {}) {
   const device = createChromaticUsbDeviceInfo(deviceInfo);
 
   await app.evaluate(
-    async ({ BrowserWindow }, payload) => {
-      const windows = BrowserWindow.getAllWindows();
-      const mainWindow = windows[0];
-      if (mainWindow?.webContents) {
-        mainWindow.webContents.send(payload.channel, payload.device);
+    async (_electron, payload) => {
+      const bridge = globalThis.__e2eIpcPushBridge;
+      if (bridge && typeof bridge.emit === 'function') {
+        bridge.emit(payload.channel, payload.device);
       }
     },
     { channel: IPC_CHANNELS.DEVICE.CONNECTED, device }
@@ -33,11 +32,10 @@ export async function injectDeviceConnectedEvent(app, deviceInfo = {}) {
 
 export async function injectDeviceDisconnectedEvent(app) {
   await app.evaluate(
-    async ({ BrowserWindow }, payload) => {
-      const windows = BrowserWindow.getAllWindows();
-      const mainWindow = windows[0];
-      if (mainWindow?.webContents) {
-        mainWindow.webContents.send(payload.channel);
+    async (_electron, payload) => {
+      const bridge = globalThis.__e2eIpcPushBridge;
+      if (bridge && typeof bridge.emit === 'function') {
+        bridge.emit(payload.channel);
       }
     },
     { channel: IPC_CHANNELS.DEVICE.DISCONNECTED }

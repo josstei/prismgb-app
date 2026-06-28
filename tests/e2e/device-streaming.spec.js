@@ -275,31 +275,30 @@ test.describe('Mock Device Infrastructure', () => {
     expect(await chromaticDevice.hasMockState()).toBe(false);
   });
 
-  test('should not break deviceAPI after mock cleanup', async ({ appShell, chromaticDevice, window }) => {
+  test('should not break the IPC bridge after mock cleanup', async ({ appShell, chromaticDevice, window }) => {
     await appShell.waitForReady();
 
-    // Verify deviceAPI exists (contextBridge-exposed, cannot be mocked)
-    const beforeHasGetStatus = await window.evaluate(() => {
-      return typeof window.deviceAPI?.getDeviceStatus === 'function';
+    const beforeHasBridge = await window.evaluate(() => {
+      return typeof window.electronTRPC?.sendMessage === 'function';
     });
-    expect(beforeHasGetStatus).toBe(true);
+    expect(beforeHasBridge).toBe(true);
 
     await chromaticDevice.injectMediaMock();
     await chromaticDevice.cleanup();
 
-    // Verify deviceAPI still works after cleanup
-    const afterHasGetStatus = await window.evaluate(() => {
-      return typeof window.deviceAPI?.getDeviceStatus === 'function';
+    const afterHasBridge = await window.evaluate(() => {
+      return typeof window.electronTRPC?.sendMessage === 'function';
     });
-    expect(afterHasGetStatus).toBe(true);
+    expect(afterHasBridge).toBe(true);
   });
 });
 
 /**
  * Full UI Flow Tests
  *
- * These tests use IPC injection via main process to trigger real deviceAPI callbacks,
- * combined with MediaDevices mocking for stream availability.
+ * These tests inject device events on the main-process IpcPushBridge (the same hub
+ * `WindowService.send` feeds), driving real device state to the renderer over the tRPC push
+ * transport, combined with MediaDevices mocking for stream availability.
  * This exercises the complete app flow: device detection -> UI update -> streaming.
  */
 test.describe('Full UI Flow with IPC Injection', () => {
@@ -358,45 +357,18 @@ test.describe('Full UI Flow with IPC Injection', () => {
     expect(streamInfo.videoSettings.height).toBe(chromaticDevice.fixture.videoSettings.height);
   });
 
-  test('should trigger deviceAPI callbacks via IPC injection', async ({
+  test('should deliver device connect and disconnect to the renderer via tRPC push', async ({
     appShell,
     chromaticDevice,
-    window,
   }) => {
     await appShell.waitForReady();
 
-    // Set up callback tracking
-    await window.evaluate(() => {
-      window.__ipcCallbackTest = {
-        connectCalled: false,
-        disconnectCalled: false,
-        receivedDevice: null,
-      };
-
-      window.deviceAPI.onDeviceConnected((device) => {
-        window.__ipcCallbackTest.connectCalled = true;
-        window.__ipcCallbackTest.receivedDevice = device;
-      });
-
-      window.deviceAPI.onDeviceDisconnected(() => {
-        window.__ipcCallbackTest.disconnectCalled = true;
-      });
-    });
-
-    // Inject device connected event
     await chromaticDevice.connect();
+    await expect(appShell.statusIndicator).toHaveClass(/connected/);
 
-    // Check connect callback was triggered
-    let callbackState = await window.evaluate(() => window.__ipcCallbackTest);
-    expect(callbackState.connectCalled).toBe(true);
-    expect(callbackState.receivedDevice.deviceName).toBe(chromaticDevice.fixture.device.label);
-
-    // Inject device disconnected event
     await chromaticDevice.disconnect();
-
-    // Check disconnect callback was triggered
-    callbackState = await window.evaluate(() => window.__ipcCallbackTest);
-    expect(callbackState.disconnectCalled).toBe(true);
+    const indicatorClasses = await appShell.statusIndicator.getAttribute('class');
+    expect(indicatorClasses.split(/\s+/)).toContain('disconnected');
   });
 });
 
