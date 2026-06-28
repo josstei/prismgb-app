@@ -7,3 +7,4 @@
  */
 
 export { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
+export type { TranscodeFormatKey } from './transcode.config.js';

@@ -1,16 +1,14 @@
-export { IPC_CHANNELS, IpcContractManifest } from './ipc.manifest.js';
-export type { IpcChannels, IpcManifest, IpcNamespaceManifest } from './ipc.manifest.js';
+export { IPC_CHANNELS } from './ipc-channels.js';
+export type { IpcChannels } from './ipc-channels.js';
+export { IpcContractManifest } from './ipc.manifest.js';
+export type { IpcManifest, IpcNamespaceManifest } from './ipc.manifest.js';
 export type {
   IpcActionResult,
   DeviceInfoPayload,
-  DeviceInfoPayload as IpcDeviceInfoPayload,
   DeviceStatusPayload,
   UpdateInfoPayload,
-  UpdateInfoPayload as IpcUpdateInfoPayload,
   UpdateProgressPayload,
-  UpdateProgressPayload as IpcUpdateProgressPayload,
   UpdateErrorPayload,
-  UpdateErrorPayload as IpcUpdateErrorPayload,
   UpdateStatusPayload,
   UpdateCheckResponse,
   UpdateDownloadResponse,
@@ -20,13 +18,9 @@ export type {
   TranscodeStartOptions,
   TranscodeJobPayload,
   TranscodeProgressPayload,
-  TranscodeProgressPayload as IpcTranscodeProgressPayload,
   TranscodeCompletedPayload,
-  TranscodeCompletedPayload as IpcTranscodeCompletedPayload,
   TranscodeCancelledPayload,
-  TranscodeCancelledPayload as IpcTranscodeCancelledPayload,
   TranscodeErrorPayload,
-  TranscodeErrorPayload as IpcTranscodeErrorPayload,
   TranscodeStartResponse,
   TranscodeCancelResponse,
   TranscodeStatusResponse,

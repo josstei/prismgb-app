@@ -209,14 +209,17 @@ export function walkCodeFiles(rootDir) {
 export function getImportSpecifiers(sourceCode) {
   const specifiers = [];
   const patterns = [
-    /(?:^|\s)import\s+(?:[\s\S]*?\sfrom\s*)?['"]([^'"]+)['"]/gm,
-    /(?:^|\s)export\s+[\s\S]*?\sfrom\s*['"]([^'"]+)['"]/gm,
-    /import\(\s*['"]([^'"]+)['"]\s*\)/gm
+    { regex: /(?:^|\s)import\s+(type\s+)?(?:[\s\S]*?\sfrom\s*)?['"]([^'"]+)['"]/gm, typeGroup: 1, specifierGroup: 2 },
+    { regex: /(?:^|\s)export\s+(type\s+)?[\s\S]*?\sfrom\s*['"]([^'"]+)['"]/gm, typeGroup: 1, specifierGroup: 2 },
+    { regex: /import\(\s*['"]([^'"]+)['"]\s*\)/gm, typeGroup: null, specifierGroup: 1 }
   ];
 
-  for (const pattern of patterns) {
-    for (const match of sourceCode.matchAll(pattern)) {
-      specifiers.push(match[1]);
+  for (const { regex, typeGroup, specifierGroup } of patterns) {
+    for (const match of sourceCode.matchAll(regex)) {
+      specifiers.push({
+        specifier: match[specifierGroup],
+        typeOnly: typeGroup !== null && Boolean(match[typeGroup])
+      });
     }
   }
 
@@ -294,6 +297,20 @@ export function resolveTargetLayer(specifier, sourceFilePath, srcRoot) {
   return classifyFileLayer(absoluteTargetPath, srcRoot);
 }
 
+/**
+ * Type-only imports carry zero runtime coupling (they are erased by the compiler), so they do not
+ * create the cross-layer runtime dependency these rules guard against. The renderer's tRPC client
+ * must `import type { AppRouter }` from `main/ipc/router` for end-to-end type inference; this exempts
+ * that single edge only. All value-level imports — and every other layer pair — remain enforced.
+ */
+function isExemptTypeOnlyImport(typeOnly, sourceLayer, targetLayer) {
+  return (
+    typeOnly &&
+    sourceLayer === LayerIds.RENDERER_INFRASTRUCTURE &&
+    targetLayer === LayerIds.MAIN_IPC
+  );
+}
+
 function buildViolationMessage(sourceLayer, targetLayer) {
   return `${sourceLayer} cannot depend on ${targetLayer}.`;
 }
@@ -322,21 +339,27 @@ export function analyzeLayerBoundaries({ projectRoot = process.cwd() } = {}) {
     const sourceCode = fs.readFileSync(filePath, 'utf8');
     const specifiers = getImportSpecifiers(sourceCode);
 
-    for (const specifier of specifiers) {
+    for (const { specifier, typeOnly } of specifiers) {
       const targetLayer = resolveTargetLayer(specifier, filePath, srcRoot);
       if (!targetLayer) {
         continue;
       }
 
-      if (forbiddenLayers.has(targetLayer)) {
-        violations.push({
-          filePath,
-          sourceLayer,
-          targetLayer,
-          specifier,
-          message: buildViolationMessage(sourceLayer, targetLayer)
-        });
+      if (!forbiddenLayers.has(targetLayer)) {
+        continue;
       }
+
+      if (isExemptTypeOnlyImport(typeOnly, sourceLayer, targetLayer)) {
+        continue;
+      }
+
+      violations.push({
+        filePath,
+        sourceLayer,
+        targetLayer,
+        specifier,
+        message: buildViolationMessage(sourceLayer, targetLayer)
+      });
     }
   }
 

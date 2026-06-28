@@ -1,4 +1,5 @@
 import type { UpdateStateValue } from '@prismgb/config';
+import type { TranscodeFormatKey } from '@prismgb/transcode';
 
 export interface IpcActionResult {
   success: boolean;
@@ -59,7 +60,7 @@ export type UpdateInstallResponse = IpcActionResult;
 
 export type UpdateGetStatusResponse = IpcActionResult & UpdateStatusPayload;
 
-export type TranscodeFormat = 'webm' | 'mp4' | 'mov';
+export type TranscodeFormat = TranscodeFormatKey;
 
 export interface TranscodeStartOptions {
   inputArgs?: string[];
