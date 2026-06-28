@@ -39,6 +39,7 @@ class IpcHandlerRegistry extends BaseService {
   private readonly loginItemService: LoginItemService;
   private readonly ipcPushBridge: IpcPushBridge;
   private handler: ReturnType<typeof createIPCHandler> | null = null;
+  private attachedWindow: BrowserWindow | null = null;
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, 'IpcHandlerRegistry');
@@ -60,13 +61,21 @@ class IpcHandlerRegistry extends BaseService {
   }
 
   attachWindow(window: BrowserWindow): void {
+    this.attachedWindow = window;
     this.handler?.attachWindow(window);
   }
 
   dispose(): void {
     this.logger.info('Removing IPC handlers');
+    // Tear down active subscriptions explicitly rather than relying on the window's `destroyed`
+    // event (which may not have fired yet on hot-reload / error-recovery / test teardown). On the
+    // normal shutdown path the window is already destroyed and the cleanup has run, so skip it.
+    if (this.handler && this.attachedWindow && !this.attachedWindow.isDestroyed()) {
+      this.handler.detachWindow(this.attachedWindow);
+    }
     ipcMain.removeAllListeners(ELECTRON_TRPC_CHANNEL);
     this.handler = null;
+    this.attachedWindow = null;
   }
 
   private createContext(): IpcContext {
