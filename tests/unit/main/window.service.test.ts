@@ -72,15 +72,18 @@ describe('WindowService', () => {
   let windowService;
   let mockLogger;
   let mockLoggerFactory;
+  let mockIpcPushBridge;
   let originalPlatform;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockLoggerFactory = createLoggerFactory();
+    mockIpcPushBridge = { emit: vi.fn(), on: vi.fn(), off: vi.fn() };
 
     windowService = new WindowService({
-      loggerFactory: mockLoggerFactory
+      loggerFactory: mockLoggerFactory,
+      ipcPushBridge: mockIpcPushBridge
     });
     mockLogger = mockLoggerFactory._getLogger('WindowService');
 
@@ -208,26 +211,23 @@ describe('WindowService', () => {
   });
 
   describe('send', () => {
-    it('should send message to renderer', () => {
+    it('forwards the channel and the first argument to the push bridge', () => {
       windowService.createWindow();
 
-      windowService.send('test-channel', 'arg1', 'arg2');
+      windowService.send('test-channel', 'payload');
 
-      expect(windowService.mainWindow.webContents.send).toHaveBeenCalledWith('test-channel', 'arg1', 'arg2');
+      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('test-channel', 'payload');
     });
 
-    it('should do nothing if window does not exist', () => {
-      // Should not throw
+    it('emits a void payload when called without arguments', () => {
+      windowService.send('window:enter-fullscreen');
+
+      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('window:enter-fullscreen', undefined);
+    });
+
+    it('emits regardless of window lifecycle (the bridge owns delivery)', () => {
       expect(() => windowService.send('test-channel', 'data')).not.toThrow();
-    });
-
-    it('should do nothing if window is destroyed', () => {
-      windowService.createWindow();
-      windowService.mainWindow.isDestroyed.mockReturnValue(true);
-
-      windowService.send('test-channel', 'data');
-
-      expect(windowService.mainWindow.webContents.send).not.toHaveBeenCalled();
+      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('test-channel', 'data');
     });
   });
 

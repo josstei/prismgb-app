@@ -8,6 +8,7 @@ import { EventBus } from '@main/infrastructure/events/event-bus.js';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import { DeviceService } from '@prismgb/devices/service';
 import { DeviceProfileRegistry } from '@prismgb/devices/service';
 import { DeviceLifecycleService } from '@prismgb/devices/service';
@@ -42,6 +43,7 @@ export interface ContainerDependencies {
   windowService: WindowService;
   trayService: TrayService;
   ipcHandlerRegistry: IpcHandlerRegistry;
+  ipcPushBridge: IpcPushBridge;
   deviceService: DeviceService;
   profileRegistry: DeviceProfileRegistry;
   deviceLifecycleService: DeviceLifecycleService;
@@ -63,7 +65,7 @@ export class MainServiceContainer {
   constructor(loggerFactory: MainLogger, overrides: Record<string, any> = {}) {
     const keys = [
       'config', 'loggerFactory', 'eventBus', 'windowService', 'trayService',
-      'ipcHandlerRegistry', 'profileRegistry', 'deviceService', 'deviceLifecycleService',
+      'ipcHandlerRegistry', 'ipcPushBridge', 'profileRegistry', 'deviceService', 'deviceLifecycleService',
       'updateService', 'deviceBridgeService', 'updateBridgeService', 'transcodeService',
       'loginItemService', 'appOrchestrator'
     ];
@@ -122,6 +124,9 @@ export class MainServiceContainer {
         break;
       case 'ipcHandlerRegistry':
         instance = new IpcHandlerRegistry(this.cradle);
+        break;
+      case 'ipcPushBridge':
+        instance = new IpcPushBridge();
         break;
       case 'profileRegistry':
         instance = new DeviceProfileRegistry({ loggerFactory: this.resolve('loggerFactory') });

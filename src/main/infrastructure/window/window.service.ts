@@ -5,6 +5,7 @@ import { dirname } from 'path';
 import { uiConfig } from '@prismgb/config';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { BaseService } from '@prismgb/core';
+import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
@@ -18,6 +19,7 @@ interface WindowServiceDependencies {
       error: (message: string) => void;
     };
   };
+  ipcPushBridge: IpcPushBridge;
 }
 
 type ConsoleMessageListener = (
@@ -58,9 +60,11 @@ class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
   private _isHiddenLaunch: boolean = false;
+  private readonly ipcPushBridge: IpcPushBridge;
 
   constructor(dependencies: WindowServiceDependencies) {
     super(dependencies, 'WindowService');
+    this.ipcPushBridge = dependencies.ipcPushBridge;
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -315,9 +319,7 @@ class WindowService extends BaseService {
   }
 
   send(channel: string, ...args: unknown[]): void {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, ...args);
-    }
+    this.ipcPushBridge.emit(channel, args[0]);
   }
 
   private _cleanupWindowListeners({
