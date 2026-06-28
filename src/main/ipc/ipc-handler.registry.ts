@@ -1,105 +1,19 @@
-import type { IpcMainInvokeEvent } from 'electron';
 import { app, ipcMain, shell } from 'electron';
-import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
-import { BaseService } from '@prismgb/core';
+import type { BrowserWindow } from 'electron';
+import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
+import { createIPCHandler } from 'electron-trpc/main';
+import { appRouter } from './router.js';
 import type {
-  DeviceStatusPayload,
-  TranscodeCancelResponse,
-  TranscodeStartResponse,
-  TranscodeStatusResponse,
-  UpdateStatusPayload
-} from '@prismgb/ipc';
-import { IpcContractManifest } from '@prismgb/ipc';
-import { defineIpcHandlerRegistrationGroup, type IpcHandlerRegistrationGroup, type IpcHandlerDescriptor, registerIpcHandlerRegistrationGroups } from '@prismgb/ipc';
-import {
-  deviceHandlerDescriptors,
-  updateHandlerDescriptors,
-  shellHandlerDescriptors,
-  performanceHandlerDescriptors,
-  windowHandlerDescriptors,
-  transcodeHandlerDescriptors,
-  gpuHandlerDescriptors,
-  loginItemHandlerDescriptors
-} from './handlers/index.js';
+  IpcContext,
+  DeviceService,
+  UpdateService,
+  WindowService,
+  LoginItemService,
+  TranscodeService
+} from './trpc.js';
+import type { IpcPushBridge } from './event-bridge.js';
 
-interface DeviceService {
-  getStatus(): DeviceStatusPayload;
-}
-
-interface UpdateService {
-  checkForUpdates(): Promise<Record<string, unknown>>;
-  downloadUpdate(): Promise<void>;
-  installUpdate(): void;
-  getStatus(): UpdateStatusPayload;
-}
-
-interface WindowService {
-  setFullScreen(enabled: boolean): void;
-  isFullScreen(): boolean;
-}
-
-interface LoginItemService {
-  isEnabled(): boolean;
-  setEnabled(enabled: boolean): void;
-}
-
-interface TranscodeService {
-  transcode(options: {
-    inputBuffer: Buffer;
-    format: string;
-    outputFilename?: string;
-    inputArgs?: string[];
-    interrupted: boolean;
-  }): Promise<TranscodeStartResponse>;
-  cancel(jobId: string): TranscodeCancelResponse;
-  getStatus(): TranscodeStatusResponse;
-}
-
-const handlerRegistrationGroupDefinitions = [
-  defineIpcHandlerRegistrationGroup('deviceAPI', deviceHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('shellAPI', shellHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('updateAPI', updateHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('metricsAPI', performanceHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('windowAPI', windowHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('transcodeAPI', transcodeHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('gpuAPI', gpuHandlerDescriptors),
-  defineIpcHandlerRegistrationGroup('loginItemAPI', loginItemHandlerDescriptors)
-] as const;
-
-const handlerRegistrationGroupsByApiName = new Map(
-  handlerRegistrationGroupDefinitions.map((group) => [group.apiName, group])
-);
-
-function createIpcHandlerRegistrationGroups() {
-  const manifestInvokeNamespaces = IpcContractManifest.namespaces.filter(({ invoke }) => (invoke || []).length > 0);
-  const manifestInvokeApiNames = manifestInvokeNamespaces.map(({ apiName }) => apiName);
-  const manifestInvokeApiNameSet = new Set(manifestInvokeApiNames);
-  const extraApiNames = handlerRegistrationGroupDefinitions.map(({ apiName }) => apiName).filter((apiName) => !manifestInvokeApiNameSet.has(apiName));
-  if (extraApiNames.length > 0) throw new Error(`IPC handler descriptor API names not declared in manifest: ${extraApiNames.join(', ')}`);
-  return manifestInvokeNamespaces.map(({ apiName, invoke }) => {
-    const registrationGroup = handlerRegistrationGroupsByApiName.get(apiName);
-    if (!registrationGroup) throw new Error(`IPC handler descriptors missing for manifest API "${apiName}"`);
-    const { descriptors } = registrationGroup;
-    const manifestChannels = invoke.map(({ channel }) => channel);
-    const descriptorByChannel = new Map<string, IpcHandlerDescriptor<Record<string, unknown>>>(), duplicateChannels = [];
-    for (const descriptor of descriptors) {
-      if (descriptorByChannel.has(descriptor.channel)) duplicateChannels.push(descriptor.channel);
-      descriptorByChannel.set(descriptor.channel, descriptor);
-    }
-    const manifestChannelSet = new Set(manifestChannels);
-    const missingChannels = manifestChannels.filter((channel) => !descriptorByChannel.has(channel));
-    const extraChannels = descriptors.map(({ channel }) => channel).filter((channel) => !manifestChannelSet.has(channel));
-    const failures = [
-      missingChannels.length ? `missing channels ${missingChannels.join(', ')}` : '',
-      extraChannels.length ? `extra channels ${extraChannels.join(', ')}` : '',
-      duplicateChannels.length ? `duplicate channels ${duplicateChannels.join(', ')}` : ''
-    ].filter(Boolean);
-    if (failures.length > 0) throw new Error(`IPC handler descriptors for ${apiName} do not match manifest: ${failures.join('; ')}`);
-    return { apiName, descriptors: manifestChannels.map((channel) => descriptorByChannel.get(channel)!) } satisfies IpcHandlerRegistrationGroup;
-  });
-}
-
-const IpcHandlerRegistrationGroups = createIpcHandlerRegistrationGroups();
+const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
 export interface IpcHandlerRegistryDependencies {
   deviceService: DeviceService;
@@ -107,18 +21,24 @@ export interface IpcHandlerRegistryDependencies {
   windowService: WindowService;
   transcodeService: TranscodeService;
   loginItemService: LoginItemService;
-  loggerFactory: LoggerFactory;
+  ipcPushBridge: IpcPushBridge;
+  loggerFactory: LoggerFactoryLike;
 }
 
+/**
+ * Owns the renderer↔main tRPC transport. `registerHandlers` installs the electron-trpc IPC handler
+ * for {@link appRouter}; {@link attachWindow} binds the main window so per-frame subscriptions are
+ * torn down on navigation/destroy. The per-request {@link IpcContext} supplies the same dependency
+ * set the retired manifest registry injected, plus the {@link IpcPushBridge}.
+ */
 class IpcHandlerRegistry extends BaseService {
-
   private readonly deviceService: DeviceService;
   private readonly updateService: UpdateService;
   private readonly windowService: WindowService;
   private readonly transcodeService: TranscodeService;
   private readonly loginItemService: LoginItemService;
-  private _registeredChannels: string[];
-  private readonly _registeredChannelsSet: Set<string>;
+  private readonly ipcPushBridge: IpcPushBridge;
+  private handler: ReturnType<typeof createIPCHandler> | null = null;
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, 'IpcHandlerRegistry');
@@ -127,13 +47,30 @@ class IpcHandlerRegistry extends BaseService {
     this.windowService = dependencies.windowService;
     this.transcodeService = dependencies.transcodeService;
     this.loginItemService = dependencies.loginItemService;
-    this._registeredChannels = [];
-    this._registeredChannelsSet = new Set<string>();
+    this.ipcPushBridge = dependencies.ipcPushBridge;
   }
 
   registerHandlers(): void {
     this.logger.info('Registering IPC handlers');
-    registerIpcHandlerRegistrationGroups(this._registerHandler.bind(this), {
+    this.handler = createIPCHandler({
+      router: appRouter,
+      createContext: async () => this.createContext(),
+      windows: []
+    });
+  }
+
+  attachWindow(window: BrowserWindow): void {
+    this.handler?.attachWindow(window);
+  }
+
+  dispose(): void {
+    this.logger.info('Removing IPC handlers');
+    ipcMain.removeAllListeners(ELECTRON_TRPC_CHANNEL);
+    this.handler = null;
+  }
+
+  private createContext(): IpcContext {
+    return {
       deviceService: this.deviceService,
       updateService: this.updateService,
       windowService: this.windowService,
@@ -141,27 +78,9 @@ class IpcHandlerRegistry extends BaseService {
       loginItemService: this.loginItemService,
       app,
       shell,
-      logger: this.logger
-    }, IpcHandlerRegistrationGroups);
-  }
-
-  dispose(): void {
-    this.logger.info('Removing IPC handlers');
-    [...this._registeredChannels].forEach(channel => {
-      ipcMain.removeHandler(channel);
-    });
-    this._registeredChannels = [];
-    this._registeredChannelsSet.clear();
-  }
-
-  private _registerHandler(channel: string, handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<unknown> | unknown): void {
-    if (this._registeredChannelsSet.has(channel)) {
-      throw new Error(`Duplicate IPC channel registration for ${channel}`);
-    }
-
-    ipcMain.handle(channel, handler);
-    this._registeredChannels.push(channel);
-    this._registeredChannelsSet.add(channel);
+      logger: this.logger,
+      ipcPushBridge: this.ipcPushBridge
+    };
   }
 }
 

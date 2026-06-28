@@ -116,7 +116,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
 
     // Create main window (hidden if launched as login item)
-    this._windowService!.createWindow({ hidden: isHiddenLaunch });
+    const mainWindow = this._windowService!.createWindow({ hidden: isHiddenLaunch });
+    this._ipcHandlerRegistry!.attachWindow(mainWindow);
 
     // Check for already connected devices
     const deviceFound = await this._deviceService!.refreshDeviceStatus();
