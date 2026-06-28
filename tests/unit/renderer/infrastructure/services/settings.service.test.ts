@@ -4,20 +4,24 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
+  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
+  return { trpcClient: createTrpcClientMock() };
+});
 import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { createSettingsServiceHarness } from '../../../../factories/index.js';
-import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
 describe('SettingsService', () => {
   let service;
   let mockEventBus;
   let mockLogger;
   let localStorageMock;
   beforeEach(() => {
+    vi.clearAllMocks();
     ({ service, eventBus: mockEventBus, logger: mockLogger, storageService: localStorageMock } = createSettingsServiceHarness());
   });
   afterEach(() => {
     localStorageMock.clear();
-    clearPreloadApi('loginItemAPI');
   });
   describe('manifest contract', () => {
     it('uses enforced definitions without compatibility mappings', () => {
@@ -127,28 +131,29 @@ describe('SettingsService', () => {
       );
     });
     it('fails fast when synchronous preference loading reaches an async setting', () => {
-      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve({ success: true, enabled: true })) }));
       expect(() => service._getSynchronousSetting('launchOnLogin')).toThrow(
         'Setting requires asynchronous access: launchOnLogin'
       );
     });
   });
   describe('launchOnLogin', () => {
-    it('queries loginItemAPI through getSetting when available', async () => {
-      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { get: vi.fn(() => Promise.resolve({ success: true, enabled: true })) }));
+    it('queries the login item state through getSetting', async () => {
+      vi.mocked(trpcClient.loginItem.get.query).mockResolvedValue({ success: true, enabled: true });
       const result = await service.getSetting('launchOnLogin');
       expect(result).toBe(true);
-      expect(window.loginItemAPI.get).toHaveBeenCalled();
+      expect(trpcClient.loginItem.get.query).toHaveBeenCalled();
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
     });
-    it('falls back to storage through getSetting when loginItemAPI is unavailable', async () => {
+    it('falls back to storage through getSetting when the login item query fails', async () => {
       localStorageMock.setItem('launchOnLogin', 'true');
+      vi.mocked(trpcClient.loginItem.get.query).mockRejectedValue(new Error('ipc failure'));
       await expect(service.getSetting('launchOnLogin')).resolves.toBe(true);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Failed to query login item state from main process');
     });
-    it('updates loginItemAPI and cache through setSetting', async () => {
-      setPreloadApi('loginItemAPI', createPreloadApiMock('loginItemAPI', { set: vi.fn(() => Promise.resolve({ success: true })) }));
+    it('updates the login item state and cache through setSetting', async () => {
+      vi.mocked(trpcClient.loginItem.set.mutate).mockResolvedValue({ success: true });
       await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(true);
-      expect(window.loginItemAPI.set).toHaveBeenCalledWith(true);
+      expect(trpcClient.loginItem.set.mutate).toHaveBeenCalledWith(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
     });
   });

@@ -52,9 +52,8 @@
     "prepare": "husky",
     "postinstall": "patch-package",
     "generate-icons": "node scripts/generate-icons.js",
-    "generate:contracts": "node scripts/generate-contracts.js",
     "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json",
-    "pretest": "node scripts/generate-di.js && node scripts/generate-contracts.js"
+    "pretest": "node scripts/generate-di.js"
   },
   "keywords": [
     "electron",
@@ -85,7 +84,6 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "joi": "^18.2.1",
     "usb": "^2.16.0",
     "winston": "^3.19.0",
     "zod": "^3.25.76"

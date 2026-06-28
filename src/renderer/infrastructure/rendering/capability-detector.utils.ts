@@ -1,5 +1,6 @@
 import { detectCapabilities as detectBase } from '@prismgb/gpu';
 import type { IPipelineCapabilities } from '@prismgb/gpu';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 
 interface RendererCapabilities extends IPipelineCapabilities {
   gpuPolicyApplied: boolean;
@@ -7,12 +8,9 @@ interface RendererCapabilities extends IPipelineCapabilities {
 }
 
 async function getGpuPolicyWithFallback() {
-  try {
-    if (window.gpuAPI?.getPolicy) {
-      return await window.gpuAPI.getPolicy();
-    }
-  } catch {
-    // Fall back to UA-based policy detection when preload API is unavailable.
+  const policy = await trpcClient.gpu.getPolicy.query().catch(() => null);
+  if (policy) {
+    return policy;
   }
 
   const ua = navigator.userAgent;

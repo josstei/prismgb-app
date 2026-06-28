@@ -1,27 +1,29 @@
-// @ts-nocheck
+/**
+ * DeviceIpcAdapter Unit Tests
+ */
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
+  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
+  return { trpcClient: createTrpcClientMock() };
+});
+
 import { DeviceIpcAdapter } from '@renderer/infrastructure/adapters/device-ipc.adapter';
-import {
-  clearPreloadApi,
-  createPreloadApiMock,
-  setPreloadApi
-} from '../../../../support/mocks/preload-api-globals.js';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { EventChannels } from '@prismgb/events';
+import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
 import { createLogger, createEventBus } from '../../../../factories/index.js';
-import { installMissingWindowMock } from '../../../../support/mocks/browser-api.installers.js';
-import { RendererPreloadBridgeDescriptors } from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
 
 describe('DeviceIpcAdapter', () => {
   let adapter;
-  let mockDeviceAPI;
   let mockLogger;
   let mockEventBus;
 
   beforeEach(() => {
-    mockDeviceAPI = createPreloadApiMock('deviceAPI');
+    vi.clearAllMocks();
     mockLogger = createLogger({ name: 'DeviceIpcAdapter' });
     mockEventBus = createEventBus();
-
-    setPreloadApi('deviceAPI', mockDeviceAPI);
 
     adapter = new DeviceIpcAdapter({
       eventBus: mockEventBus,
@@ -31,75 +33,56 @@ describe('DeviceIpcAdapter', () => {
 
   afterEach(() => {
     adapter.dispose();
-    clearPreloadApi('deviceAPI');
   });
 
   describe('subscribe', () => {
-    it('should subscribe to deviceAPI events and wire them to eventBus', () => {
-      const publishSpy = vi.spyOn(mockEventBus, 'publish');
-      
+    it('should wire tRPC device subscriptions to the eventBus', () => {
       const cleanup = adapter.subscribe();
 
-      expect(mockDeviceAPI.onDeviceConnected).toHaveBeenCalled();
-      expect(mockDeviceAPI.onDeviceDisconnected).toHaveBeenCalled();
+      expect(trpcClient.device.onConnected.subscribe).toHaveBeenCalledWith(
+        undefined,
+        { onData: expect.any(Function) }
+      );
+      expect(trpcClient.device.onDisconnected.subscribe).toHaveBeenCalledWith(
+        undefined,
+        { onData: expect.any(Function) }
+      );
       expect(typeof cleanup).toBe('function');
 
-      // Simulate device connected event
       const devicePayload = { deviceId: 'test-device', name: 'Test Device' };
-      const connectedHandler = mockDeviceAPI.onDeviceConnected.mock.calls[0][0];
-      connectedHandler(devicePayload);
 
-      expect(publishSpy).toHaveBeenCalledWith(
-        RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceConnected,
+      emitTrpcData(trpcClient.device.onConnected, devicePayload);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.DEVICE.CONNECTED,
         devicePayload
       );
 
-      // Simulate device disconnected event
-      const disconnectedHandler = mockDeviceAPI.onDeviceDisconnected.mock.calls[0][0];
-      disconnectedHandler(devicePayload);
-
-      expect(publishSpy).toHaveBeenCalledWith(
-        RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceDisconnected,
+      emitTrpcData(trpcClient.device.onDisconnected, devicePayload);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.DEVICE.DISCONNECTED,
         devicePayload
       );
     });
 
     it('should unsubscribe when the returned cleanup function is called', () => {
       const cleanup = adapter.subscribe();
-      
-      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
-      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
-      
+
+      const unsubConnected = getTrpcUnsubscribe(trpcClient.device.onConnected);
+      const unsubDisconnected = getTrpcUnsubscribe(trpcClient.device.onDisconnected);
+
       cleanup();
 
       expect(unsubConnected).toHaveBeenCalled();
       expect(unsubDisconnected).toHaveBeenCalled();
-    });
-
-    it.each([
-      ['missing window.deviceAPI', () => clearPreloadApi('deviceAPI')],
-      ['undefined window', () => installMissingWindowMock()]
-    ])('should handle %s gracefully', (_label, removeApi) => {
-      const missingApiMock = removeApi();
-
-      try {
-        const cleanup = adapter.subscribe();
-
-        expect(typeof cleanup).toBe('function');
-        expect(() => cleanup()).not.toThrow();
-      } finally {
-        missingApiMock?.cleanup?.();
-        setPreloadApi('deviceAPI', mockDeviceAPI);
-      }
     });
   });
 
   describe('dispose', () => {
     it('should call unsubscribe functions on active subscriptions', () => {
       adapter.subscribe();
-      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
-      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
-      
+      const unsubConnected = getTrpcUnsubscribe(trpcClient.device.onConnected);
+      const unsubDisconnected = getTrpcUnsubscribe(trpcClient.device.onDisconnected);
+
       adapter.dispose();
 
       expect(unsubConnected).toHaveBeenCalled();
@@ -108,9 +91,9 @@ describe('DeviceIpcAdapter', () => {
 
     it('should handle multiple dispose calls safely', () => {
       adapter.subscribe();
-      const [unsubConnected] = mockDeviceAPI.onDeviceConnected.getUnsubscribers();
-      const [unsubDisconnected] = mockDeviceAPI.onDeviceDisconnected.getUnsubscribers();
-      
+      const unsubConnected = getTrpcUnsubscribe(trpcClient.device.onConnected);
+      const unsubDisconnected = getTrpcUnsubscribe(trpcClient.device.onDisconnected);
+
       adapter.dispose();
       adapter.dispose();
 

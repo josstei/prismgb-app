@@ -1,4 +1,5 @@
 import type { LoggerFactoryLike } from '@prismgb/core';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
 import { DeviceIpcAdapter } from '../../infrastructure/adapters/device-ipc.adapter';
@@ -62,15 +63,9 @@ export const manualProviders: Record<string, ManualProvider> = {
     return rendererFactory;
   },
 
-  ipcClient: () => {
-    const globalWindow = window as unknown as { deviceAPI?: unknown };
-    if (!globalWindow.deviceAPI) {
-      throw new Error(
-        'deviceAPI is not available in the renderer. The preload script may have failed to load.'
-      );
-    }
-    return globalWindow.deviceAPI;
-  },
+  ipcClient: () => ({
+    getDeviceStatus: () => trpcClient.device.getStatus.query()
+  }),
 
   deviceStatusProvider: (resolve) =>
     new DeviceIpcStatusAdapter(resolve('ipcClient')),

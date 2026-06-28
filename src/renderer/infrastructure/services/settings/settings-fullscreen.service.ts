@@ -1,10 +1,8 @@
 import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import {
-  createRendererPreloadEventBridge,
-  RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type SettingsFullscreenServiceDependencies = {
@@ -13,6 +11,7 @@ type SettingsFullscreenServiceDependencies = {
 };
 
 const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
+const FULLSCREEN_NATIVE_LIFECYCLE = Symbol('settingsFullscreenNativeLifecycle');
 
 @Service({
   "token": "fullscreenService",
@@ -38,23 +37,16 @@ class SettingsFullscreenService extends BaseService {
       document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange)
     );
 
-    this.disposables.cancel(RendererPreloadBridgeDescriptors.windowAPI.lifecycleKey);
-    const windowAPI = window.windowAPI;
-    if (windowAPI) {
-      this.disposables.replace(RendererPreloadBridgeDescriptors.windowAPI.lifecycleKey, createRendererPreloadEventBridge({
-        api: windowAPI,
-        descriptor: RendererPreloadBridgeDescriptors.windowAPI,
-        logger: this.logger,
-        handlers: {
-          onEnterFullscreen: () => this._handleNativeFullscreen(true),
-          onLeaveFullscreen: () => this._handleNativeFullscreen(false),
-          onResized: () => {
-            this._syncFullscreenState();
-            this.eventBus.publish(RendererPreloadBridgeDescriptors.windowAPI.events.onResized);
-          }
+    this.disposables.replace(FULLSCREEN_NATIVE_LIFECYCLE, createTrpcEventBridge('SettingsFullscreenService', [
+      () => trpcClient.window.onEnterFullscreen.subscribe(undefined, { onData: () => this._handleNativeFullscreen(true) }),
+      () => trpcClient.window.onLeaveFullscreen.subscribe(undefined, { onData: () => this._handleNativeFullscreen(false) }),
+      () => trpcClient.window.onResized.subscribe(undefined, {
+        onData: () => {
+          this._syncFullscreenState();
+          this.eventBus.publish(EventChannels.UI.WINDOW_RESIZED);
         }
-      }));
-    }
+      })
+    ], this.logger));
 
     this._syncFullscreenState();
   }
@@ -70,21 +62,15 @@ class SettingsFullscreenService extends BaseService {
   }
 
   async _syncFullscreenState() {
-    if (window.windowAPI?.isFullScreen) {
-      try {
-        const result = await window.windowAPI.isFullScreen();
-        const isActuallyFullscreen = result.success ? result.isFullscreen : false;
-        this._applyFullscreenState(isActuallyFullscreen);
-        return isActuallyFullscreen;
-      } catch (err) {
-        this.logger.error('Error querying fullscreen state:', err);
-        return this._isFullscreenActive;
-      }
+    try {
+      const result = await trpcClient.window.isFullScreen.query();
+      const isActuallyFullscreen = result.success ? result.isFullscreen : false;
+      this._applyFullscreenState(isActuallyFullscreen);
+      return isActuallyFullscreen;
+    } catch (err) {
+      this.logger.error('Error querying fullscreen state:', err);
+      return this._isFullscreenActive;
     }
-
-    const isDocumentFullscreen = Boolean(document.fullscreenElement);
-    this._applyFullscreenState(isDocumentFullscreen);
-    return isDocumentFullscreen;
   }
 
   enterFullscreen() {
@@ -95,20 +81,10 @@ class SettingsFullscreenService extends BaseService {
   }
 
   _forceEnterFullscreen() {
-
-    if (window.windowAPI?.setFullScreen) {
-      window.windowAPI.setFullScreen(true).catch(err => {
-        this.logger.error('Error entering fullscreen:', err);
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
-      });
-    } else {
-      document.documentElement.requestFullscreen().catch(err => {
-        this.logger.error('Error entering fullscreen:', err);
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
-        this._isFullscreenActive = false;
-        this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: false });
-      });
-    }
+    trpcClient.window.setFullScreen.mutate(true).catch(err => {
+      this.logger.error('Error entering fullscreen:', err);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
+    });
   }
 
   exitFullscreen() {
@@ -119,14 +95,10 @@ class SettingsFullscreenService extends BaseService {
   }
 
   _forceExitFullscreen() {
-    if (window.windowAPI?.setFullScreen) {
-      window.windowAPI.setFullScreen(false).catch(err => {
-        this.logger.error('Error exiting fullscreen:', err);
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not exit fullscreen', type: 'error' });
-      });
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen();
-    }
+    trpcClient.window.setFullScreen.mutate(false).catch(err => {
+      this.logger.error('Error exiting fullscreen:', err);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not exit fullscreen', type: 'error' });
+    });
   }
 
   _handleFullscreenChange() {
@@ -140,8 +112,6 @@ class SettingsFullscreenService extends BaseService {
   _applyFullscreenState(active: boolean) {
     if (this._isFullscreenActive === active) return;
     this._isFullscreenActive = active;
-
-    // Publish event - UIEventBridge handles all UI updates (body class, controls auto-hide)
     this.eventBus.publish(EventChannels.UI.FULLSCREEN_STATE, { active });
   }
 }

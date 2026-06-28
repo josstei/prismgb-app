@@ -97,8 +97,8 @@ export default [
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
-          '@renderer/presentation/*',
-          '@main/*'
+          { group: ['@renderer/presentation/*'] },
+          { group: ['@main/*'], allowTypeImports: true }
         ]
       }]
     }

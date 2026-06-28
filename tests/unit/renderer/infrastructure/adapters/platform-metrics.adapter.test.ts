@@ -2,114 +2,52 @@
  * MetricsAdapter Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
+  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
+  return { trpcClient: createTrpcClientMock() };
+});
+
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { createProcessMetricsMock } from '../../../../factories/index.js';
-import { clearPreloadApi, createPreloadApiMock, setPreloadApi } from '../../../../support/mocks/preload-api-globals.js';
+import type { ProcessMetricsResponse } from '@prismgb/ipc';
 
 describe('MetricsAdapter', () => {
   let adapter;
 
   beforeEach(() => {
-    clearPreloadApi('metricsAPI');
-  });
-
-  afterEach(() => {
-    clearPreloadApi('metricsAPI');
+    vi.clearAllMocks();
+    adapter = new MetricsAdapter();
   });
 
   describe('constructor', () => {
-    it('should initialize with globalThis.metricsAPI if available', () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'));
-      adapter = new MetricsAdapter();
-      expect(adapter._metricsAPI).toBe(globalThis.metricsAPI);
-    });
-
-    it('should fallback to window.metricsAPI if globalThis is not available', () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'), { exposeOnGlobalThis: false });
-      adapter = new MetricsAdapter();
-      expect(adapter._metricsAPI).toBe(window.metricsAPI);
-    });
-
-    it('should handle missing metricsAPI gracefully', () => {
-      adapter = new MetricsAdapter();
-      expect(adapter._metricsAPI).toBeUndefined();
+    it('should construct without throwing', () => {
+      expect(() => new MetricsAdapter()).not.toThrow();
     });
   });
 
   describe('isAvailable', () => {
-    it('should return true when metricsAPI with getProcessMetrics exists', () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI'));
-      adapter = new MetricsAdapter();
+    it('should return true unconditionally', () => {
       expect(adapter.isAvailable()).toBe(true);
-    });
-
-    it('should return false when metricsAPI is missing', () => {
-      adapter = new MetricsAdapter();
-      expect(adapter.isAvailable()).toBe(false);
-    });
-
-    it('should return false when metricsAPI exists but getProcessMetrics is missing', () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', { getProcessMetrics: undefined }));
-      adapter = new MetricsAdapter();
-      expect(adapter.isAvailable()).toBe(false);
-    });
-
-    it('should return false when getProcessMetrics is not a function', () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', { getProcessMetrics: 'not-a-function' }));
-      adapter = new MetricsAdapter();
-      expect(adapter.isAvailable()).toBe(false);
     });
   });
 
   describe('getProcessMetrics', () => {
-    it('should return error object when API is not available', async () => {
-      adapter = new MetricsAdapter();
-      const result = await adapter.getProcessMetrics();
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Metrics API not available');
-    });
-
-    it('should call metricsAPI.getProcessMetrics when available', async () => {
+    it('should query performance.getProcessMetrics and return the result', async () => {
       const mockMetrics = createProcessMetricsMock({
         success: true,
         totalMB: '150.0',
         processes: [{ type: 'Renderer', memoryMB: '80.0' }]
       });
 
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
-        getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      }));
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsResponse);
 
-      adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
 
-      expect(globalThis.metricsAPI.getProcessMetrics).toHaveBeenCalledTimes(1);
+      expect(trpcClient.performance.getProcessMetrics.query).toHaveBeenCalledTimes(1);
       expect(result).toEqual(mockMetrics);
-    });
-
-    it('should handle promise rejection gracefully', async () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
-        getProcessMetrics: vi.fn().mockRejectedValue(new Error('IPC error'))
-      }));
-
-      adapter = new MetricsAdapter();
-      const result = await adapter.getProcessMetrics();
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('IPC error');
-    });
-
-    it('should handle errors without message property', async () => {
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
-        getProcessMetrics: vi.fn().mockRejectedValue('string error')
-      }));
-
-      adapter = new MetricsAdapter();
-      const result = await adapter.getProcessMetrics();
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
     });
 
     it('should return successful metrics data', async () => {
@@ -123,16 +61,31 @@ describe('MetricsAdapter', () => {
         ]
       });
 
-      setPreloadApi('metricsAPI', createPreloadApiMock('metricsAPI', {
-        getProcessMetrics: vi.fn().mockResolvedValue(mockMetrics)
-      }));
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsResponse);
 
-      adapter = new MetricsAdapter();
       const result = await adapter.getProcessMetrics();
 
       expect(result.success).toBe(true);
       expect(result.totalMB).toBe('200.5');
       expect(result.processes).toHaveLength(3);
+    });
+
+    it('should map a rejected query to a failure object', async () => {
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockRejectedValue(new Error('IPC error'));
+
+      const result = await adapter.getProcessMetrics();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('IPC error');
+    });
+
+    it('should map a non-Error rejection to a failure object', async () => {
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockRejectedValue('string error');
+
+      const result = await adapter.getProcessMetrics();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
   });
 });

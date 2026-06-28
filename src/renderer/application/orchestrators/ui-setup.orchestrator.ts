@@ -1,5 +1,6 @@
 import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   UIActionDescriptors,
@@ -217,11 +218,9 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   private _openExternalUrl(event: Event, url: string): void {
     event.preventDefault();
-    if (window.shellAPI?.openExternal) {
-      void window.shellAPI.openExternal(url);
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    void trpcClient.shell.openExternal.mutate(url).catch(err => {
+      this.logger.warn('Failed to open external URL:', err);
+    });
   }
 
   async onCleanup(): Promise<void> {

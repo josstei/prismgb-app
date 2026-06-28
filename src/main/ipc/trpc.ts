@@ -61,7 +61,19 @@ export interface IpcContext {
   ipcPushBridge: IpcPushBridge;
 }
 
-const t = initTRPC.context<IpcContext>().create();
+/**
+ * An identity transformer (no-op serialize/deserialize) declared explicitly so the renderer's
+ * `createTRPCProxyClient` sees a concrete `transformer` on the router config and supplies a matching
+ * one. The default transformer is branded `DefaultDataTransformer`, which the renderer's non-strict
+ * test tsconfig and the strict app tsconfig resolve inconsistently; an explicit transformer removes
+ * that ambiguity. Behaviour is unchanged — the IPC payload is passed through verbatim.
+ */
+const identityTransformer = {
+  serialize: (object: unknown) => object,
+  deserialize: (object: unknown) => object
+};
+
+const t = initTRPC.context<IpcContext>().create({ transformer: identityTransformer });
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

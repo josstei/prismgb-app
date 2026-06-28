@@ -3,6 +3,7 @@ import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import type {
   DeviceStatusPayload,
+  DeviceInfoPayload,
   ShellOpenExternalResponse,
   WindowSetFullscreenResponse,
   WindowIsFullscreenResponse,
@@ -10,12 +11,19 @@ import type {
   UpdateDownloadResponse,
   UpdateInstallResponse,
   UpdateGetStatusResponse,
+  UpdateInfoPayload,
+  UpdateProgressPayload,
+  UpdateErrorPayload,
   ProcessMetricsResponse,
   LoginItemSetResponse,
   TranscodeFormat,
   TranscodeStartResponse,
   TranscodeCancelResponse,
-  TranscodeStatusResponse
+  TranscodeStatusResponse,
+  TranscodeProgressPayload,
+  TranscodeCompletedPayload,
+  TranscodeErrorPayload,
+  TranscodeCancelledPayload
 } from '@prismgb/ipc';
 import { getGpuPolicy } from '@main/infrastructure/gpu-policy.js';
 import { router, publicProcedure, resultEnvelope, type IpcContext } from './trpc.js';
@@ -62,11 +70,11 @@ function toObjectPayload(value: unknown): Record<string, unknown> {
  * performed here rather than via `.output(z)` because tRPC 10 applies output parsers to the resolver
  * return value (the observable), not to each emitted value.
  */
-function pushSubscription(ctx: IpcContext, channel: string, schema: z.ZodTypeAny | null, label: string) {
-  return observable<unknown>((emit) => {
+function pushSubscription<TPayload>(ctx: IpcContext, channel: string, schema: z.ZodTypeAny | null, label: string) {
+  return observable<TPayload>((emit) => {
     const listener = (payload: unknown) => {
       if (!schema) {
-        emit.next(payload);
+        emit.next(payload as TPayload);
         return;
       }
       const result = schema.safeParse(payload);
@@ -74,7 +82,7 @@ function pushSubscription(ctx: IpcContext, channel: string, schema: z.ZodTypeAny
         ctx.logger.warn(`Dropping invalid ${label} subscription payload`);
         return;
       }
-      emit.next(result.data);
+      emit.next(result.data as TPayload);
     };
     ctx.ipcPushBridge.on(channel, listener);
     return () => ctx.ipcPushBridge.off(channel, listener);
@@ -100,10 +108,10 @@ const deviceRouter = router({
     )
   ),
   onConnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info')
+    pushSubscription<DeviceInfoPayload>(ctx, IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info')
   ),
   onDisconnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.DEVICE.DISCONNECTED, nullableDeviceInfoSchema, 'nullable-device-info')
+    pushSubscription<DeviceInfoPayload | null | undefined>(ctx, IPC_CHANNELS.DEVICE.DISCONNECTED, nullableDeviceInfoSchema, 'nullable-device-info')
   )
 });
 
@@ -146,13 +154,13 @@ const windowRouter = router({
     )
   ),
   onEnterFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, null, 'window-enter-fullscreen')
+    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, null, 'window-enter-fullscreen')
   ),
   onLeaveFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN, null, 'window-leave-fullscreen')
+    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN, null, 'window-leave-fullscreen')
   ),
   onResized: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.RESIZED, null, 'window-resized')
+    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.RESIZED, null, 'window-resized')
   )
 });
 
@@ -206,19 +214,19 @@ const updateRouter = router({
     )
   ),
   onAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info')
+    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info')
   ),
   onNotAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.NOT_AVAILABLE, updateInfoSchema, 'update-info')
+    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.NOT_AVAILABLE, updateInfoSchema, 'update-info')
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.PROGRESS, updateProgressSchema, 'update-progress')
+    pushSubscription<UpdateProgressPayload>(ctx, IPC_CHANNELS.UPDATE.PROGRESS, updateProgressSchema, 'update-progress')
   ),
   onDownloaded: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.DOWNLOADED, updateInfoSchema, 'update-info')
+    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.DOWNLOADED, updateInfoSchema, 'update-info')
   ),
   onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.ERROR, updateErrorSchema, 'update-error')
+    pushSubscription<UpdateErrorPayload>(ctx, IPC_CHANNELS.UPDATE.ERROR, updateErrorSchema, 'update-error')
   )
 });
 
@@ -316,16 +324,16 @@ const transcodeRouter = router({
     )
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')
+    pushSubscription<TranscodeProgressPayload>(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')
   ),
   onCompleted: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.COMPLETED, transcodeCompletedSchema, 'transcode-completed')
+    pushSubscription<TranscodeCompletedPayload>(ctx, IPC_CHANNELS.TRANSCODE.COMPLETED, transcodeCompletedSchema, 'transcode-completed')
   ),
   onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.ERROR, transcodeErrorSchema, 'transcode-error')
+    pushSubscription<TranscodeErrorPayload>(ctx, IPC_CHANNELS.TRANSCODE.ERROR, transcodeErrorSchema, 'transcode-error')
   ),
   onCancelled: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.CANCELLED, transcodeCancelledSchema, 'transcode-cancelled')
+    pushSubscription<TranscodeCancelledPayload>(ctx, IPC_CHANNELS.TRANSCODE.CANCELLED, transcodeCancelledSchema, 'transcode-cancelled')
   )
 });
 

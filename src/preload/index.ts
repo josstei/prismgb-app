@@ -1,77 +1,25 @@
 import type { IpcRenderer } from 'electron';
-import { IPC_CHANNELS, IpcContractManifest, type IpcChannels } from '@prismgb/ipc';
-import type { PreloadApiName } from '@preload/subscription.factory.js';
-import { MAX_LISTENERS_PER_CHANNEL, createListenerRegistry } from '@preload/listener-registry.js';
-import { isValidCallback } from '@preload/validators.generated.js';
-import { createDevicePreloadAPI } from '@preload/apis/device.preload-api.js';
-import { createWindowPreloadAPI } from '@preload/apis/window.preload-api.js';
-import { createUpdatePreloadAPI } from '@preload/apis/update.preload-api.js';
-import { createTranscodePreloadAPI } from '@preload/apis/transcode.preload-api.js';
-import {
-  createShellPreloadAPI,
-  createMetricsPreloadAPI,
-  createGpuPreloadAPI,
-  createLoginItemPreloadAPI
-} from '@preload/apis/inline.preload-api.js';
-import { exposePreloadApis } from '@preload/exposure.factory.js';
 
-type ElectronPreloadRuntime = { contextBridge: typeof import('electron')['contextBridge']; ipcRenderer: IpcRenderer };
-type PreloadIpcRenderer = Pick<IpcRenderer, 'invoke' | 'on' | 'removeListener'>;
-type PreloadApiFactoryContext = {
-  ipcRenderer: PreloadIpcRenderer;
-  channels: IpcChannels;
-  listenerRegistry: ReturnType<typeof createListenerRegistry>;
-  maxListeners: number;
-  isValidCallback: typeof isValidCallback;
-};
-type DisposablePreloadAPI = object & { dispose?: () => void };
-type PreloadApiFactory = (context: PreloadApiFactoryContext) => DisposablePreloadAPI;
-type PreloadApiImplementations = Record<PreloadApiName, DisposablePreloadAPI>;
+/**
+ * Preload bridge for electron-trpc (the renderer↔main tRPC transport).
+ *
+ * This inlines electron-trpc's own `exposeElectronTRPC` (dist/main.mjs) rather than importing it:
+ * the preload is bundled as a CommonJS-scoped IIFE, into which `electron-trpc/main` cannot bundle
+ * (it emits a raw top-level `import` of `electron`). The exposed `electronTRPC` global is read by the
+ * renderer's `ipcLink`; its `{ sendMessage, onMessage }` shape is electron-trpc's contract.
+ */
 
-const { contextBridge, ipcRenderer } = require('electron') as ElectronPreloadRuntime;
-const listenerRegistry = createListenerRegistry();
-
-const apiFactoryContext: PreloadApiFactoryContext = {
-  ipcRenderer,
-  channels: IPC_CHANNELS,
-  listenerRegistry,
-  maxListeners: MAX_LISTENERS_PER_CHANNEL,
-  isValidCallback
+type PreloadElectron = {
+  contextBridge: typeof import('electron')['contextBridge'];
+  ipcRenderer: IpcRenderer;
 };
 
-const preloadApiFactories = {
-  deviceAPI: createDevicePreloadAPI,
-  shellAPI: createShellPreloadAPI,
-  windowAPI: createWindowPreloadAPI,
-  updateAPI: createUpdatePreloadAPI,
-  metricsAPI: createMetricsPreloadAPI,
-  gpuAPI: createGpuPreloadAPI,
-  loginItemAPI: createLoginItemPreloadAPI,
-  transcodeAPI: createTranscodePreloadAPI
-} satisfies { readonly [TApiName in PreloadApiName]: PreloadApiFactory };
-type PreloadApiFactoryName = keyof typeof preloadApiFactories;
+const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
-function isPreloadApiFactoryName(apiName: string): apiName is PreloadApiFactoryName {
-  return Object.prototype.hasOwnProperty.call(preloadApiFactories, apiName);
-}
+const { contextBridge, ipcRenderer } = require('electron') as PreloadElectron;
 
-function getPreloadApiFactory(apiName: string): PreloadApiFactory {
-  if (!isPreloadApiFactoryName(apiName)) {
-    throw new Error(`Preload API factory not found for ${apiName}`);
-  }
-  return preloadApiFactories[apiName];
-}
-
-function createApiImplementationEntry({ apiName }: { apiName: string }): [string, DisposablePreloadAPI] {
-  return [apiName, getPreloadApiFactory(apiName)(apiFactoryContext)];
-}
-
-const apiImplementations = Object.fromEntries(
-  IpcContractManifest.namespaces.map(createApiImplementationEntry)
-) as PreloadApiImplementations;
-
-window.addEventListener('beforeunload', () => {
-  for (const api of Object.values(apiImplementations)) api.dispose?.();
+contextBridge.exposeInMainWorld('electronTRPC', {
+  sendMessage: (operation: unknown) => ipcRenderer.send(ELECTRON_TRPC_CHANNEL, operation),
+  onMessage: (callback: (response: unknown) => void) =>
+    ipcRenderer.on(ELECTRON_TRPC_CHANNEL, (_event, response: unknown) => callback(response))
 });
-
-exposePreloadApis(contextBridge, apiImplementations);

@@ -1,10 +1,8 @@
 import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import {
-  createRendererPreloadEventBridge,
-  RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type {
   TranscodeCancelResponse,
   TranscodeCancelledPayload,
@@ -15,6 +13,8 @@ import type {
   TranscodeStartOptions,
   TranscodeStartResponse
 } from '@prismgb/ipc';
+
+const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
 
 interface TranscodeEventBus {
   publish(event: string, payload?: unknown): void;
@@ -50,25 +50,14 @@ class TranscodeService extends BaseService {
       return;
     }
 
-    const transcodeAPI = window.transcodeAPI;
-    if (!transcodeAPI) {
-      this.logger.warn('transcodeAPI not available - transcoding disabled');
-      return;
-    }
-
     this.logger.info('Initializing TranscodeService');
 
-    this.disposables.replace(RendererPreloadBridgeDescriptors.transcodeAPI.lifecycleKey, createRendererPreloadEventBridge({
-      api: transcodeAPI,
-      descriptor: RendererPreloadBridgeDescriptors.transcodeAPI,
-      logger: this.logger,
-      handlers: {
-        onProgress: (data: TranscodeProgressPayload) => this._handleProgress(data),
-        onCompleted: (data: TranscodeCompletedPayload) => this._handleCompleted(data),
-        onError: (data: TranscodeErrorPayload) => this._handleError(data),
-        onCancelled: (data: TranscodeCancelledPayload) => this._handleCancelled(data)
-      }
-    }));
+    this.disposables.replace(TRANSCODE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('TranscodeService', [
+      () => trpcClient.transcode.onProgress.subscribe(undefined, { onData: (data) => this._handleProgress(data) }),
+      () => trpcClient.transcode.onCompleted.subscribe(undefined, { onData: (data) => this._handleCompleted(data) }),
+      () => trpcClient.transcode.onError.subscribe(undefined, { onData: (data) => this._handleError(data) }),
+      () => trpcClient.transcode.onCancelled.subscribe(undefined, { onData: (data) => this._handleCancelled(data) })
+    ], this.logger));
 
     this._initialized = true;
     this.logger.info('TranscodeService initialized');
@@ -80,11 +69,6 @@ class TranscodeService extends BaseService {
     outputBaseName?: string,
     options: TranscodeStartOptions = {}
   ): Promise<TranscodeStartResponse> {
-    if (!window.transcodeAPI) {
-      this.logger.warn('transcodeAPI not available');
-      return { success: false, error: 'Transcoding not available' };
-    }
-
     if (this._isTranscoding) {
       this.logger.warn('Transcoding already in progress');
       return { success: false, error: 'Transcoding already in progress' };
@@ -94,15 +78,13 @@ class TranscodeService extends BaseService {
       this.logger.info(`Starting transcode to ${format}`);
 
       const arrayBuffer = await blob.arrayBuffer();
-      const result = await window.transcodeAPI.start(
-        arrayBuffer,
+      const result = await trpcClient.transcode.start.mutate({
+        inputBuffer: arrayBuffer,
         format,
-        outputBaseName,
-        {
-          inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
-          interrupted: Boolean(options.interrupted)
-        }
-      );
+        outputFilename: outputBaseName,
+        inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
+        interrupted: Boolean(options.interrupted)
+      });
 
       if (result.success && result.jobId) {
         this._isTranscoding = true;
@@ -122,18 +104,21 @@ class TranscodeService extends BaseService {
   }
 
   async cancel(): Promise<TranscodeCancelResponse> {
-    if (!window.transcodeAPI) {
-      this.logger.warn('transcodeAPI not available');
-      return { success: false, error: 'Transcoding not available' };
-    }
-
     if (!this._isTranscoding || !this._activeJobId) {
       this.logger.warn('No transcoding in progress to cancel');
       return { success: false, error: 'No transcoding in progress' };
     }
 
     this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    return window.transcodeAPI.cancel(this._activeJobId);
+    try {
+      return await trpcClient.transcode.cancel.mutate({ jobId: this._activeJobId });
+    } catch (error) {
+      this.logger.error('Cancel transcode failed', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
   }
 
   isTranscoding() {
@@ -141,32 +126,32 @@ class TranscodeService extends BaseService {
   }
 
   isAvailable() {
-    return Boolean(window.transcodeAPI);
+    return true;
   }
 
   _handleProgress(data: TranscodeProgressPayload) {
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onProgress, data);
+    this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
   }
 
   _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onCompleted, data);
+    this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
   }
 
   _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onError, data);
+    this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
   }
 
   _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
     this._activeJobId = null;
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.transcodeAPI.events.onCancelled, data);
+    this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
   }
 
   override dispose(): void | Promise<void> {

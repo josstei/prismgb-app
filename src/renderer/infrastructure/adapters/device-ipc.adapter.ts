@@ -1,10 +1,8 @@
-import {
-  createRendererPreloadEventBridge,
-  RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { EventChannels } from '@prismgb/events';
 import { DisposableBag } from '@prismgb/core';
 import type { EventBusLike } from '@prismgb/core';
-import type { DeviceInfoPayload } from '@prismgb/ipc';
 
 type DeviceIpcLogger = { warn?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
 type DeviceIpcAdapterDependencies = {
@@ -23,23 +21,14 @@ export class DeviceIpcAdapter {
   }
 
   subscribe() {
-    if (typeof window === 'undefined' || !window.deviceAPI) {
-      return () => {};
-    }
-
-    const disposeBridge = this.disposables.add(createRendererPreloadEventBridge({
-      api: window.deviceAPI,
-      descriptor: RendererPreloadBridgeDescriptors.deviceAPI,
-      logger: this._logger,
-      handlers: {
-        onDeviceConnected: (device: DeviceInfoPayload) => {
-          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceConnected, device);
-        },
-        onDeviceDisconnected: (device: DeviceInfoPayload | null | undefined) => {
-          this.eventBus.publish(RendererPreloadBridgeDescriptors.deviceAPI.events.onDeviceDisconnected, device);
-        }
-      }
-    }));
+    const disposeBridge = this.disposables.add(createTrpcEventBridge('DeviceIpcAdapter', [
+      () => trpcClient.device.onConnected.subscribe(undefined, {
+        onData: (device) => this.eventBus.publish(EventChannels.DEVICE.CONNECTED, device)
+      }),
+      () => trpcClient.device.onDisconnected.subscribe(undefined, {
+        onData: (device) => this.eventBus.publish(EventChannels.DEVICE.DISCONNECTED, device)
+      })
+    ], this._logger));
 
     return () => { void disposeBridge(); };
   }

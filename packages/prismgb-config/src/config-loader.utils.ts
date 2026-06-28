@@ -5,7 +5,7 @@
  * App-level configuration - device-agnostic settings.
  */
 
-import Joi from 'joi';
+import { z } from 'zod';
 
 export interface AppConfig {
   DEVICE_LAUNCH_DELAY: number;
@@ -46,23 +46,30 @@ const ui: UiConfig = {
   }
 };
 
-const configSchema = Joi.object({
-  app: Joi.object({
-    DEVICE_LAUNCH_DELAY: Joi.number().integer().min(0).required(),
-    USB_SCAN_DELAY: Joi.number().integer().min(0).required()
-  }).required(),
-
-  ui: Joi.object({
-    WINDOW_CONFIG: Joi.object({
-      width: Joi.number().integer().positive().required(),
-      height: Joi.number().integer().positive().required(),
-      minWidth: Joi.number().integer().positive().required(),
-      minHeight: Joi.number().integer().positive().required(),
-      backgroundColor: Joi.string().required(),
-      title: Joi.string().required()
-    }).required()
-  }).required()
-});
+const configSchema = z
+  .object({
+    app: z
+      .object({
+        DEVICE_LAUNCH_DELAY: z.number().int().min(0),
+        USB_SCAN_DELAY: z.number().int().min(0)
+      })
+      .strict(),
+    ui: z
+      .object({
+        WINDOW_CONFIG: z
+          .object({
+            width: z.number().int().positive(),
+            height: z.number().int().positive(),
+            minWidth: z.number().int().positive(),
+            minHeight: z.number().int().positive(),
+            backgroundColor: z.string(),
+            title: z.string()
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict();
 
 const config: AppConfiguration = {
   app,
@@ -70,19 +77,16 @@ const config: AppConfiguration = {
 };
 
 function validateConfig(): AppConfiguration {
-  const { error, value } = configSchema.validate(config, {
-    abortEarly: false,
-    allowUnknown: false
-  });
+  const result = configSchema.safeParse(config);
 
-  if (error) {
-    const errorMessage = error.details
-      .map((detail) => `${detail.path.join('.')}: ${detail.message}`)
+  if (!result.success) {
+    const errorMessage = result.error.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('\n  - ');
     throw new Error(`Configuration validation failed:\n  - ${errorMessage}`);
   }
 
-  return value as AppConfiguration;
+  return result.data as AppConfiguration;
 }
 
 const validatedConfig = validateConfig();

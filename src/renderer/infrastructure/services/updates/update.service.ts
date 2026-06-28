@@ -1,10 +1,8 @@
 import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import {
-  createRendererPreloadEventBridge,
-  RendererPreloadBridgeDescriptors
-} from '@renderer/infrastructure/services/platform/preload-event-bridge.factory';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { UpdateState } from '@prismgb/config';
 import type { UpdateStateValue } from '@prismgb/config';
 import type {
@@ -12,12 +10,13 @@ import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateErrorPayload,
-  UpdateGetStatusResponse,
   UpdateInfoPayload,
   UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
 } from '@prismgb/ipc';
+
+const UPDATE_SUBSCRIPTION_LIFECYCLE = Symbol('updateSubscriptionLifecycle');
 
 function getFailureMessage(result: IpcActionResult, fallback: string): string | null {
   if (result.success !== false) {
@@ -68,28 +67,17 @@ class UpdateService extends BaseService {
       return;
     }
 
-    const updateAPI = window.updateAPI;
-    if (!updateAPI) {
-      this.logger.warn('updateAPI not available - updates disabled');
-      return;
-    }
-
     this.logger.info('Initializing UpdateService');
 
     await this._loadInitialStatus();
 
-    this.disposables.replace(RendererPreloadBridgeDescriptors.updateAPI.lifecycleKey, createRendererPreloadEventBridge({
-      api: updateAPI,
-      descriptor: RendererPreloadBridgeDescriptors.updateAPI,
-      logger: this.logger,
-      handlers: {
-        onAvailable: (info: UpdateInfoPayload) => this._handleAvailable(info),
-        onNotAvailable: (info: UpdateInfoPayload) => this._handleNotAvailable(info),
-        onProgress: (progress: UpdateProgressPayload) => this._handleProgress(progress),
-        onDownloaded: (info: UpdateInfoPayload) => this._handleDownloaded(info),
-        onError: (error: UpdateErrorPayload) => this._handleError(error)
-      }
-    }));
+    this.disposables.replace(UPDATE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('UpdateService', [
+      () => trpcClient.update.onAvailable.subscribe(undefined, { onData: (info) => this._handleAvailable(info) }),
+      () => trpcClient.update.onNotAvailable.subscribe(undefined, { onData: (info) => this._handleNotAvailable(info) }),
+      () => trpcClient.update.onProgress.subscribe(undefined, { onData: (progress) => this._handleProgress(progress) }),
+      () => trpcClient.update.onDownloaded.subscribe(undefined, { onData: (info) => this._handleDownloaded(info) }),
+      () => trpcClient.update.onError.subscribe(undefined, { onData: (error) => this._handleError(error) })
+    ], this.logger));
 
     this._initialized = true;
     this.logger.info('UpdateService initialized');
@@ -97,12 +85,7 @@ class UpdateService extends BaseService {
 
   async _loadInitialStatus() {
     try {
-      const updateAPI = window.updateAPI;
-      if (!updateAPI) {
-        return;
-      }
-
-      const result: UpdateGetStatusResponse = await updateAPI.getStatus();
+      const result = await trpcClient.update.getStatus.query();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
         this._updateInfo = result.updateInfo ?? null;
@@ -118,33 +101,33 @@ class UpdateService extends BaseService {
     this.logger.info('Update available', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.AVAILABLE);
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onAvailable, info);
+    this.eventBus.publish(EventChannels.UPDATE.AVAILABLE, info);
   }
 
   _handleNotAvailable(info: UpdateInfoPayload) {
     this.logger.info('No update available');
     this._updateInfo = info;
     this._setState(UpdateState.NOT_AVAILABLE);
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onNotAvailable, info);
+    this.eventBus.publish(EventChannels.UPDATE.NOT_AVAILABLE, info);
   }
 
   _handleProgress(progress: UpdateProgressPayload) {
     this._downloadProgress = progress;
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onProgress, progress);
+    this.eventBus.publish(EventChannels.UPDATE.PROGRESS, progress);
   }
 
   _handleDownloaded(info: UpdateInfoPayload) {
     this.logger.info('Update downloaded', { version: info?.version });
     this._updateInfo = info;
     this._setState(UpdateState.DOWNLOADED);
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onDownloaded, info);
+    this.eventBus.publish(EventChannels.UPDATE.DOWNLOADED, info);
   }
 
   _handleError(error: UpdateErrorPayload) {
     this.logger.error('Update error', error);
     this._error = error;
     this._setState(UpdateState.ERROR);
-    this.eventBus.publish(RendererPreloadBridgeDescriptors.updateAPI.events.onError, error);
+    this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
   _handleResultFailure(result: IpcActionResult, fallback: string): boolean {
@@ -203,15 +186,10 @@ class UpdateService extends BaseService {
   }
 
   async checkForUpdates(): Promise<UpdateCheckResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
     this._setState(UpdateState.CHECKING);
 
     try {
-      const result = await window.updateAPI.checkForUpdates();
+      const result = await trpcClient.update.checkForUpdates.mutate();
       if (this._handleResultFailure(result, 'Check for updates failed')) {
         return result;
       }
@@ -226,11 +204,6 @@ class UpdateService extends BaseService {
   }
 
   async downloadUpdate(): Promise<UpdateDownloadResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
     if (this._state !== UpdateState.AVAILABLE) {
       this.logger.warn('No update available to download');
       return { success: false, error: 'No update available' };
@@ -239,7 +212,7 @@ class UpdateService extends BaseService {
     this._setState(UpdateState.DOWNLOADING);
 
     try {
-      const result = await window.updateAPI.downloadUpdate();
+      const result = await trpcClient.update.downloadUpdate.mutate();
       if (this._handleResultFailure(result, 'Download update failed')) {
         return result;
       }
@@ -253,11 +226,6 @@ class UpdateService extends BaseService {
   }
 
   async installUpdate(): Promise<UpdateInstallResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
     if (this._state !== UpdateState.DOWNLOADED) {
       this.logger.warn('No update downloaded to install');
       return { success: false, error: 'No update downloaded' };
@@ -266,7 +234,7 @@ class UpdateService extends BaseService {
     this.logger.info('Installing update and restarting...');
 
     try {
-      const result = await window.updateAPI.installUpdate();
+      const result = await trpcClient.update.installUpdate.mutate();
       if (this._handleResultFailure(result, 'Install update failed')) {
         return result;
       }

@@ -81,7 +81,6 @@ export default defineConfig({
                   'electron',
                   'usb',
                   'winston',
-                  'joi',
                   'dotenv',
                   'eventemitter3'
                 ];

@@ -1,6 +1,7 @@
 import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { StorageServiceLike } from '@prismgb/core';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
@@ -205,12 +206,10 @@ class SettingsService extends BaseService {
 
   async _readLoginItemSetting(definition: SettingDefinition): Promise<boolean> {
     try {
-      if (window.loginItemAPI?.get) {
-        const result = await window.loginItemAPI.get();
-        const enabled = result.success ? result.enabled : false;
-        this.storageService.setItem(definition.storageKey, enabled.toString());
-        return enabled;
-      }
+      const result = await trpcClient.loginItem.get.query();
+      const enabled = result.success ? result.enabled : false;
+      this.storageService.setItem(definition.storageKey, enabled.toString());
+      return enabled;
     } catch {
       this.logger.warn('Failed to query login item state from main process');
     }
@@ -221,14 +220,9 @@ class SettingsService extends BaseService {
   async _writeLoginItemSetting(definition: SettingDefinition, value: unknown): Promise<boolean> {
     const enabled = this._normalizeBoolean(value);
     try {
-      if (window.loginItemAPI?.set) {
-        const result = await window.loginItemAPI.set(enabled);
-        if (!result.success) {
-          this.logger.error('Failed to set login item state in main process', result.error);
-          return false;
-        }
-      } else {
-        this.logger.error('Login item API not available');
+      const result = await trpcClient.loginItem.set.mutate(enabled);
+      if (!result.success) {
+        this.logger.error('Failed to set login item state in main process', result.error);
         return false;
       }
     } catch {
