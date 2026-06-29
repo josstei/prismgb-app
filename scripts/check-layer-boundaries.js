@@ -18,7 +18,6 @@ const LayerIds = {
   RENDERER_INFRASTRUCTURE: 'renderer/infrastructure',
   RENDERER_PRESENTATION: 'renderer/presentation',
   RENDERER_SHARED: 'renderer/lib',
-  SHARED: 'shared',
   PRELOAD: 'preload'
 };
 
@@ -46,7 +45,6 @@ const LAYER_SEQUENCE = [
   LayerIds.RENDERER_INFRASTRUCTURE,
   LayerIds.RENDERER_PRESENTATION,
   LayerIds.RENDERER_SHARED,
-  LayerIds.SHARED,
   LayerIds.PRELOAD
 ];
 
@@ -148,19 +146,6 @@ const FORBIDDEN_LAYER_MAP = {
     LayerIds.PRELOAD
   ]),
 
-  [LayerIds.SHARED]: new Set([
-    LayerIds.CORE,
-    LayerIds.MAIN_ENTRY,
-    LayerIds.MAIN_APPLICATION,
-    LayerIds.MAIN_INFRASTRUCTURE,
-    LayerIds.MAIN_IPC,
-    LayerIds.RENDERER_ENTRY,
-    LayerIds.RENDERER_BOOTSTRAP,
-    LayerIds.RENDERER_APPLICATION,
-    LayerIds.RENDERER_INFRASTRUCTURE,
-    LayerIds.RENDERER_PRESENTATION,
-    LayerIds.PRELOAD
-  ]),
   [LayerIds.PRELOAD]: new Set([
     LayerIds.CORE,
     LayerIds.MAIN_ENTRY,
@@ -266,10 +251,6 @@ function resolveAliasTarget(specifier) {
 
   if (specifier.startsWith('@renderer/')) {
     return classifyLayerFromSourceRelativePath(specifier.slice(1));
-  }
-
-  if (specifier.startsWith('@shared/')) {
-    return LayerIds.SHARED;
   }
 
   if (specifier.startsWith('@preload/')) {

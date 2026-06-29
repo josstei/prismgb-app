@@ -1,5 +1,6 @@
-import { helper } from '@shared/lib/helper';
+import { helper } from '@renderer/lib/helper';
 
 export function run() {
   return helper();
 }
+
