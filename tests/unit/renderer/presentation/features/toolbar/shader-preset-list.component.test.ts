@@ -165,7 +165,7 @@ describe('ShaderPresetListComponent', () => {
     it('should not allow selection in performance mode', () => {
       mockSettingsService.setSetting('performanceMode', true);
       mockSettingsService.setSetting.mockClear();
-      component._performanceModeEnabled = true;
+      component._performanceModeEnabled.value = true;
 
       const targetOption = optionsContainer.querySelector(`[data-preset-id="${selectablePresetId}"]`);
       targetOption.click();
@@ -187,8 +187,8 @@ describe('ShaderPresetListComponent', () => {
     });
 
     it('should show options when performance mode disabled', () => {
-      optionsContainer.classList.add('hidden');
-      unavailableMessage.classList.remove('hidden');
+      mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, true);
+      expect(optionsContainer.classList.contains('hidden')).toBe(true);
 
       mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, false);
 
@@ -261,11 +261,15 @@ describe('ShaderPresetListComponent', () => {
     });
   });
 
-  describe('_updateShaderListVisibility edge cases', () => {
-    it('should handle null elements', () => {
-      component.optionsContainer = null;
-      component.unavailableMessage = null;
-      expect(() => component._updateShaderListVisibility()).not.toThrow();
+  describe('null element handling', () => {
+    it('does not throw when elements are missing', () => {
+      const bare = new ShaderPresetListComponent({
+        settingsService: mockSettingsService,
+        eventBus: mockEventBus,
+        logger: mockLogger
+      });
+      expect(() => bare.initialize({ optionsContainer: null, unavailableMessage: null })).not.toThrow();
+      bare.dispose();
     });
   });
 });

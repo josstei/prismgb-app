@@ -1,5 +1,6 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindClass, computed } from '@prismgb/ui-base';
+import { signal } from '@prismgb/ui-base/reactive';
 import { PresetRegistry } from '@prismgb/gpu';
 import { EventChannels } from '@prismgb/events';
 import type { TypedEventBusLike } from '@prismgb/events';
@@ -32,7 +33,8 @@ class ShaderPresetListComponent extends PresentationComponent {
   declare optionsContainer: HTMLElement | null | undefined;
   declare unavailableMessage: HTMLElement | null | undefined;
   declare currentPresetId: string | null;
-  declare _performanceModeEnabled: boolean;
+
+  private readonly _performanceModeEnabled = signal(false);
 
   constructor({ settingsService, eventBus, logger }: ShaderPresetListComponentOptions) {
     super();
@@ -45,7 +47,6 @@ class ShaderPresetListComponent extends PresentationComponent {
     this.unavailableMessage = null;
 
     this.currentPresetId = null;
-    this._performanceModeEnabled = false;
   }
 
   initialize({ optionsContainer, unavailableMessage }: ShaderPresetListElements): void {
@@ -60,6 +61,7 @@ class ShaderPresetListComponent extends PresentationComponent {
 
     this._loadCurrentPreset();
     this._loadPerformanceModeState();
+    this._bindVisibility();
     this._renderPresetList();
     this._subscribeToEvents();
 
@@ -71,8 +73,16 @@ class ShaderPresetListComponent extends PresentationComponent {
   }
 
   _loadPerformanceModeState(): void {
-    this._performanceModeEnabled = this.settingsService.getBooleanSetting('performanceMode');
-    this._updateShaderListVisibility();
+    this._performanceModeEnabled.value = this.settingsService.getBooleanSetting('performanceMode');
+  }
+
+  _bindVisibility(): void {
+    this.track(bindClass(this.optionsContainer ?? null, CSSClasses.HIDDEN, this._performanceModeEnabled));
+    this.track(bindClass(
+      this.unavailableMessage ?? null,
+      CSSClasses.HIDDEN,
+      computed(() => !this._performanceModeEnabled.value)
+    ));
   }
 
   _renderPresetList(): void {
@@ -97,7 +107,7 @@ class ShaderPresetListComponent extends PresentationComponent {
       option.innerHTML = `<span class="shader-option-name">${preset.name}</span>`;
 
       optionDisposers.push(this.listen(option, 'click', () => {
-        if (!this._performanceModeEnabled) {
+        if (!this._performanceModeEnabled.value) {
           this._selectPreset(preset.id);
         }
       }));
@@ -138,18 +148,6 @@ class ShaderPresetListComponent extends PresentationComponent {
     });
   }
 
-  _updateShaderListVisibility(): void {
-    if (!this.optionsContainer || !this.unavailableMessage) return;
-
-    if (this._performanceModeEnabled) {
-      this.optionsContainer.classList.add(CSSClasses.HIDDEN);
-      this.unavailableMessage.classList.remove(CSSClasses.HIDDEN);
-    } else {
-      this.optionsContainer.classList.remove(CSSClasses.HIDDEN);
-      this.unavailableMessage.classList.add(CSSClasses.HIDDEN);
-    }
-  }
-
   _subscribeToEvents(): void {
     this.trackSubscription(this.eventBus.subscribe(
       EventChannels.SETTINGS.RENDER_PRESET_CHANGED,
@@ -164,9 +162,7 @@ class ShaderPresetListComponent extends PresentationComponent {
     this.trackSubscription(this.eventBus.subscribe(
       EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
       (enabled) => {
-        this._performanceModeEnabled = enabled;
-        this._renderPresetList();
-        this._updateShaderListVisibility();
+        this._performanceModeEnabled.value = enabled;
         this.logger?.debug(`Performance mode ${enabled ? 'enabled' : 'disabled'} - shader options updated`);
       }
     ));
