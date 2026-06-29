@@ -1,3 +1,5 @@
+import type { TranscodeFormat } from '@prismgb/ipc';
+
 type TranscodeFormatConfig = Readonly<{
   extension: string;
   mimeType: string;
@@ -53,12 +55,14 @@ export const TranscodeState = Object.freeze({
 
 export type TranscodeStateValue = typeof TranscodeState[keyof typeof TranscodeState];
 
+const TRANSCODE_FORMATS: Readonly<Record<TranscodeFormat, TranscodeFormatConfig>> = Object.freeze({
+  webm: FORMAT_WEBM,
+  mp4: FORMAT_MP4,
+  mov: FORMAT_MOV
+});
+
 export const TRANSCODE_CONFIG = Object.freeze({
-  formats: Object.freeze({
-    webm: FORMAT_WEBM,
-    mp4: FORMAT_MP4,
-    mov: FORMAT_MOV
-  }),
+  formats: TRANSCODE_FORMATS,
 
   defaultFormat: 'mp4',
   tempPrefix: 'prismgb-transcode-',
@@ -66,4 +70,4 @@ export const TRANSCODE_CONFIG = Object.freeze({
   probeDurationTimeoutMs: 10000
 } as const);
 
-export type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
+export type TranscodeFormatKey = TranscodeFormat;
