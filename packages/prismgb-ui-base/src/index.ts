@@ -28,3 +28,18 @@ export { ActivityAutoHideController } from './widgets/activity-auto-hide.control
 
 export { renderListboxOptions, updateListboxActiveState } from './widgets/listbox.utils.js';
 export type { RenderListboxOptions, UpdateListboxActiveStateOptions } from './widgets/listbox.utils.js';
+
+export {
+  TEMPLATE_REF_ATTRIBUTE,
+  TEMPLATE_ACTION_ATTRIBUTE,
+  createTemplateRefSelector,
+  createTemplateActionSelector,
+  getTemplateAction,
+  getTemplateActionTarget,
+  bindTemplateRefs
+} from './template/template-ref.helpers.js';
+export type {
+  TemplateRefList,
+  TemplateRefLegacyIdMap,
+  TemplateRefBindingOptions
+} from './template/template-ref.helpers.js';

@@ -2,12 +2,14 @@ import { BaseOrchestrator } from '@prismgb/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
+  createTemplateRefSelector,
+  getTemplateAction,
+  getTemplateActionTarget
+} from '@prismgb/ui-base';
+import {
   UIActionDescriptors,
   UIActionEvents,
   UIActionTargets,
-  createTemplateRefSelector,
-  getTemplateAction,
-  getTemplateActionTarget,
   isUIActionId,
   type UIActionControllerCommand,
   type UIActionDescriptor,

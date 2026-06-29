@@ -1,7 +1,7 @@
 import {
   bindTemplateRefs,
   type TemplateRefLegacyIdMap,
-} from '@renderer/presentation/primitives/template-ref.utils.js';
+} from '@prismgb/ui-base';
 import {
   TemplateDomRefGroups,
   TemplateRefLegacyIds,
