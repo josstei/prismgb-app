@@ -1,5 +1,5 @@
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
-import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
+import { TypedRegistryFactory } from '@prismgb/core';
 import type { IStreamingRenderer } from '@renderer/infrastructure/services/streaming/adapters/streaming-renderer.interface';
 import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
 import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';

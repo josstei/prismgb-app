@@ -6,6 +6,10 @@ export interface RegistryEntry<TValue, TMetadata, TArgs extends unknown[]> {
   metadata: TMetadata;
 }
 
+/**
+ * Generic keyed creational registry: maps string ids to value factories plus
+ * per-id metadata. A structural base-layer primitive with no domain knowledge.
+ */
 export class TypedRegistryFactory<TValue, TMetadata = Record<string, unknown>, TArgs extends unknown[] = []> {
   private readonly factories: Map<string, RegistryFactory<TValue, TArgs>>;
   private readonly metadata: Map<string, TMetadata>;

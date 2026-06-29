@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
-import type { RegistryEntry } from '@shared/registry/typed-registry.factory';
+import { TypedRegistryFactory } from '@prismgb/core';
+import type { RegistryEntry } from '@prismgb/core';
 
 describe('TypedRegistryFactory', () => {
   it('registers a factory and creates values with args', () => {

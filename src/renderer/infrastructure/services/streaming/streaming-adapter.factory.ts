@@ -13,7 +13,7 @@
 import { ConstraintBuilder } from '@renderer/infrastructure/services/streaming/acquisition/constraint-builder';
 import { BaseStreamLifecycle } from '@renderer/infrastructure/services/streaming/acquisition/stream-lifecycle.base';
 import { DeviceDetectionHelper, forEachDeviceWithModule, DeviceRegistry, type DeviceRegistryEntry } from '@prismgb/devices';
-import { TypedRegistryFactory } from '@shared/registry/typed-registry.factory';
+import { TypedRegistryFactory } from '@prismgb/core';
 
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 
