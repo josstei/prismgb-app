@@ -25,9 +25,11 @@ export type Provider<TTokenMap extends Record<string, unknown>, K extends keyof 
  * enabling locator-style injection tolerant of circular wiring.
  *
  * This primitive is the base layer for application DI: applications register
- * their concrete services against it and never hand-roll a container.
+ * their concrete services against it and never hand-roll a container. Pass a
+ * token map type argument for fully-typed resolution, or use the default for a
+ * dynamic, locator-style container.
  */
-export class Container<TTokenMap extends Record<string, any> = Record<string, any>> {
+export class Container<TTokenMap extends Record<string, any> = any> {
   #providers = new Map<keyof TTokenMap, Provider<TTokenMap, keyof TTokenMap>>();
   #instances = new Map<keyof TTokenMap, unknown>();
   #insertionOrder: (keyof TTokenMap)[] = [];

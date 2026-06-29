@@ -57,7 +57,8 @@ vi.mock('@prismgb/updates', () => ({
 }));
 
 import { BaseOrchestrator } from '@prismgb/core';
-import { MainServiceContainer } from '@main/application/container.js';
+import { createMainContainer } from '@main/application/container.js';
+import type { MainServiceContainer } from '@main/application/container.js';
 import { AppOrchestrator } from '@main/application/app.orchestrator.js';
 import { createLoggerFactory } from '../../../factories/index.js';
 
@@ -89,7 +90,7 @@ describe('Main shutdown', () => {
     }
 
     const orchestrator = new ContainerDisposingOrchestrator({ loggerFactory });
-    container = new MainServiceContainer(loggerFactory, {
+    container = createMainContainer(loggerFactory, {
       appOrchestrator: orchestrator,
       transcodeService: { dispose: leafDispose }
     });

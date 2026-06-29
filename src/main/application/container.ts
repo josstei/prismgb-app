@@ -1,9 +1,10 @@
 /**
  * Dependency Injection Container
- * Central static container for all main process dependencies
+ * Wires every main-process service onto the core Container primitive.
  */
 
 import pkg from '../../../package.json' assert { type: 'json' };
+import { Container } from '@prismgb/core';
 import { EventBus } from '@main/infrastructure/events/event-bus.js';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
@@ -20,9 +21,7 @@ import { LoginItemService } from '@main/infrastructure/window/login-item.service
 import { DeviceChromaticProfile } from '@prismgb/devices';
 import { chromaticConfig } from '@prismgb/devices';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import { safeDispose } from '@prismgb/core';
 import { AppOrchestrator } from './app.orchestrator.js';
-
 
 /**
  * Application configuration interface
@@ -34,7 +33,7 @@ interface AppConfig {
 }
 
 /**
- * Container dependencies interface
+ * Container dependencies interface — documents the main-process DI surface.
  */
 export interface ContainerDependencies {
   config: AppConfig;
@@ -55,154 +54,84 @@ export interface ContainerDependencies {
 }
 
 /**
- * Static zero-overhead Dependency Injection Container for the Main process
+ * Main-process DI container, backed by the core {@link Container} primitive.
  */
-export class MainServiceContainer {
-  private instances = new Map<string, any>();
-  private cache = new Map<string, { value: unknown }>();
-  public registrations: Record<string, any> = {};
+export type MainServiceContainer = Container;
 
-  constructor(loggerFactory: MainLogger, overrides: Record<string, any> = {}) {
-    const keys = [
-      'config', 'loggerFactory', 'eventBus', 'windowService', 'trayService',
-      'ipcHandlerRegistry', 'ipcPushBridge', 'profileRegistry', 'deviceService', 'deviceLifecycleService',
-      'updateService', 'deviceBridgeService', 'updateBridgeService', 'transcodeService',
-      'loginItemService', 'appOrchestrator'
-    ];
-    for (const key of keys) {
-      this.registrations[key] = {};
-    }
-
-    // Register config value
-    this.instances.set('config', {
-      isDevelopment: process.env.NODE_ENV === 'development',
-      appName: 'PrismGB',
-      version: pkg.version
-    });
-
-    // Register logger factory
-    this.instances.set('loggerFactory', loggerFactory);
-
-    // Apply overrides
-    for (const [key, val] of Object.entries(overrides)) {
-      const unwrapped = val && typeof val === 'object' && 'value' in val ? val.value : val;
-      this.instances.set(key, unwrapped);
-      this.cache.set(key, { value: unwrapped });
-    }
-  }
-
-  public get cradle(): any {
-    return new Proxy({}, {
-      get: (_target: object, prop: string | symbol) => {
-        if (typeof prop === 'string' && prop in this.registrations) {
-          return this.resolve(prop);
-        }
-        return undefined;
-      },
-      has: (_target: object, prop: string | symbol) => {
-        return typeof prop === 'string' && prop in this.registrations;
-      },
-      ownKeys: () => []
-    }) as any;
-  }
-
-  public resolve<T = any>(token: string): T {
-    if (this.instances.has(token)) {
-      return this.instances.get(token) as T;
-    }
-
-    let instance: unknown;
-    switch (token) {
-      case 'eventBus':
-        instance = new EventBus({ loggerFactory: this.resolve('loggerFactory') });
-        break;
-      case 'windowService':
-        instance = new WindowService(this.cradle);
-        break;
-      case 'trayService':
-        instance = new TrayService(this.cradle);
-        break;
-      case 'ipcHandlerRegistry':
-        instance = new IpcHandlerRegistry(this.cradle);
-        break;
-      case 'ipcPushBridge':
-        instance = new IpcPushBridge();
-        break;
-      case 'profileRegistry':
-        instance = new DeviceProfileRegistry({ loggerFactory: this.resolve('loggerFactory') });
-        break;
-      case 'deviceService': {
-        const profileClasses = new Map<string, ProfileClass>([
-          [chromaticConfig.id, DeviceChromaticProfile]
-        ]);
-        instance = new DeviceService({
-          profileRegistry: this.resolve('profileRegistry'),
-          eventBus: this.resolve('eventBus'),
-          loggerFactory: this.resolve('loggerFactory')
-        }, profileClasses);
-        break;
-      }
-      case 'deviceLifecycleService':
-        instance = new DeviceLifecycleService(this.cradle);
-        break;
-      case 'updateService':
-        instance = new UpdateService(this.cradle);
-        break;
-      case 'deviceBridgeService':
-        instance = new DeviceBridgeService(this.cradle);
-        break;
-      case 'updateBridgeService':
-        instance = new UpdateBridge(this.cradle);
-        break;
-      case 'transcodeService':
-        instance = new TranscodeService(this.cradle);
-        break;
-      case 'loginItemService':
-        instance = new LoginItemService(this.cradle);
-        break;
-      case 'appOrchestrator':
-        instance = new AppOrchestrator(this);
-        break;
-      default:
-        throw new Error(`[MainServiceContainer] Could not resolve token: ${token}`);
-    }
-
-    this.instances.set(token, instance);
-    this.cache.set(token, { value: instance });
-    return instance as T;
-  }
-
-  public async dispose(): Promise<void> {
-    const logger = this.resolve<MainLogger>('loggerFactory').create('Container');
-    for (const [token, instance] of this.instances.entries()) {
-      if (!instance) continue;
-      const method = typeof instance.dispose === 'function' ? 'dispose' : (typeof instance.cleanup === 'function' ? 'cleanup' : undefined);
-      if (method) {
-        await safeDispose(logger, token, instance, method);
-      }
-    }
-    this.instances.clear();
-    this.cache.clear();
-  }
+/**
+ * Unwraps the legacy `{ value }` override envelope while passing plain instances through.
+ */
+function unwrapOverride(value: unknown): unknown {
+  return value && typeof value === 'object' && 'value' in value
+    ? (value as { value: unknown }).value
+    : value;
 }
 
 /**
- * Create and configure the static DI container
+ * Build the main-process DI container: pre-seeded config + logger, every service
+ * registered against the core Container primitive, then test overrides. No
+ * hand-rolled switch — the registration calls are the source of truth.
+ */
+export function createMainContainer(
+  loggerFactory: MainLogger,
+  overrides: Record<string, unknown> = {}
+): MainServiceContainer {
+  const container = new Container();
+
+  container.registerValue('config', {
+    isDevelopment: process.env.NODE_ENV === 'development',
+    appName: 'PrismGB',
+    version: pkg.version
+  });
+  container.registerValue('loggerFactory', loggerFactory);
+
+  container.register('eventBus', (c) => new EventBus({ loggerFactory: c.resolve('loggerFactory') }));
+  container.register('windowService', (c) => new WindowService(c.cradle));
+  container.register('trayService', (c) => new TrayService(c.cradle));
+  container.register('ipcHandlerRegistry', (c) => new IpcHandlerRegistry(c.cradle));
+  container.register('ipcPushBridge', () => new IpcPushBridge());
+  container.register('profileRegistry', (c) => new DeviceProfileRegistry({ loggerFactory: c.resolve('loggerFactory') }));
+  container.register('deviceService', (c) => {
+    const profileClasses = new Map<string, ProfileClass>([[chromaticConfig.id, DeviceChromaticProfile]]);
+    return new DeviceService(
+      {
+        profileRegistry: c.resolve('profileRegistry'),
+        eventBus: c.resolve('eventBus'),
+        loggerFactory: c.resolve('loggerFactory')
+      },
+      profileClasses
+    );
+  });
+  container.register('deviceLifecycleService', (c) => new DeviceLifecycleService(c.cradle));
+  container.register('updateService', (c) => new UpdateService(c.cradle));
+  container.register('deviceBridgeService', (c) => new DeviceBridgeService(c.cradle));
+  container.register('updateBridgeService', (c) => new UpdateBridge(c.cradle));
+  container.register('transcodeService', (c) => new TranscodeService(c.cradle));
+  container.register('loginItemService', (c) => new LoginItemService(c.cradle));
+  container.register('appOrchestrator', (c) => new AppOrchestrator(c));
+
+  for (const [token, value] of Object.entries(overrides)) {
+    container.registerValue(token, unwrapOverride(value));
+  }
+
+  return container;
+}
+
+/**
+ * Create the container and eagerly bootstrap the device service.
  * @param loggerFactory - Pre-configured MainLogger instance
- * @returns Configured static container instance
+ * @returns Configured container instance
  */
 export async function createAppContainer(loggerFactory: MainLogger): Promise<MainServiceContainer> {
   const containerLogger = loggerFactory.create('Container');
   containerLogger.info('Initializing dependency injection container');
 
-  const container = new MainServiceContainer(loggerFactory);
+  const container = createMainContainer(loggerFactory);
 
-  // Eagerly resolve and initialize DeviceService during container bootstrap
   const deviceService = container.resolve<DeviceService>('deviceService');
   await deviceService.initialize();
 
-  const count = Object.keys(container.registrations).length;
-  containerLogger.info(`Registered ${count} dependencies`);
+  containerLogger.info(`Registered ${container.tokens.length} dependencies`);
 
   return container;
 }

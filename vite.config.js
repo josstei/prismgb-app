@@ -5,29 +5,13 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
-function diGeneratorPlugin() {
-  return {
-    name: 'di-generator-plugin',
-    buildStart() {
-      try {
-        console.log('[DI Plugin] Running compile-time DI generator...');
-        execSync('node scripts/generate-di.js', { stdio: 'inherit' });
-      } catch (err) {
-        console.error('[DI Plugin] DI generation failed:', err.message);
-      }
-    }
-  };
-}
-
 export default defineConfig({
   plugins: [
-    diGeneratorPlugin(),
     // Copy assets and JSON files
     viteStaticCopy({
       targets: [
