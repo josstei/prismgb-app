@@ -210,6 +210,7 @@ export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
 export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
+export { ConsoleLoggerFactory } from './primitives/console-logger.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { isRecord, isNumber, isString } from './primitives/guards.utils.js';

@@ -1,10 +1,11 @@
-import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike } from './service.base.js';
 
 /**
- * Renderer Logger
- * Lightweight console-backed logger for renderer process and tests.
+ * Console-backed {@link LoggerFactoryLike} implementation. Domain-agnostic and
+ * safe in both Node and browser contexts; the default concrete logger for the
+ * base layer.
  */
-class RendererLogger implements LoggerFactoryLike {
+export class ConsoleLoggerFactory implements LoggerFactoryLike {
   create(name = 'Log'): LoggerLike {
     const prefix = `[${name}]`;
 
@@ -25,5 +26,3 @@ class RendererLogger implements LoggerFactoryLike {
     };
   }
 }
-
-export { RendererLogger };

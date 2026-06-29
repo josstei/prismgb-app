@@ -1,7 +1,6 @@
-import { AnimationCache } from '@prismgb/core';
+import { AnimationCache, ConsoleLoggerFactory } from '@prismgb/core';
 import { NotesService } from '@prismgb/notes';
 import { EventBus } from '../../infrastructure/events/event-bus.class';
-import { RendererLogger } from '../../infrastructure/logging/logger.factory';
 import { DeviceConnectionService } from '../../infrastructure/services/devices/device-connection.service';
 import { DeviceStorageService } from '../../infrastructure/services/devices/device-storage.service';
 import { DeviceMediaService } from '../../infrastructure/services/devices/device-media.service';
@@ -67,7 +66,7 @@ export type StandardServiceFactory = (cradle: any) => unknown;
  */
 export const standardServiceRegistrations: Record<string, StandardServiceFactory> = {
   eventBus: (cradle) => new EventBus(cradle),
-  loggerFactory: () => new RendererLogger(),
+  loggerFactory: () => new ConsoleLoggerFactory(),
   deviceConnectionService: (cradle) => new DeviceConnectionService(cradle),
   deviceStorageService: (cradle) => new DeviceStorageService(cradle),
   deviceMediaService: (cradle) => new DeviceMediaService(cradle),

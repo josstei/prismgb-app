@@ -1,16 +1,16 @@
 /**
- * RendererLogger Unit Tests
+ * ConsoleLoggerFactory Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
+import { ConsoleLoggerFactory } from '@prismgb/core';
 
-describe('RendererLogger', () => {
+describe('ConsoleLoggerFactory', () => {
   let factory;
   let consoleSpy;
 
   beforeEach(() => {
-    factory = new RendererLogger();
+    factory = new ConsoleLoggerFactory();
     consoleSpy = {
       debug: vi.spyOn(console, 'debug').mockImplementation(() => {}),
       log: vi.spyOn(console, 'log').mockImplementation(() => {}),
@@ -123,8 +123,8 @@ describe('RendererLogger', () => {
   });
 
   describe('Exports', () => {
-    it('should export RendererLogger', () => {
-      expect(RendererLogger).toBeDefined();
+    it('should export ConsoleLoggerFactory', () => {
+      expect(ConsoleLoggerFactory).toBeDefined();
     });
   });
 });

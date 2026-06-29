@@ -1,4 +1,4 @@
-import { RendererLogger } from '@renderer/infrastructure/logging/logger.factory.js';
+import { ConsoleLoggerFactory } from '@prismgb/core';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { safeDispose } from '@prismgb/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
@@ -32,7 +32,7 @@ class RendererBootstrap {
     this.isInitialized = false;
     this._uiController = null;
 
-    const loggerFactory = new RendererLogger();
+    const loggerFactory = new ConsoleLoggerFactory();
     this.logger = loggerFactory.create('RendererBootstrap') as LoggerLike;
   }
 
