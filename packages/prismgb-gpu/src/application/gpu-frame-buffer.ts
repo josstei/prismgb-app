@@ -1,20 +1,25 @@
-import type {
-  LoggerFactoryLike,
-  LoggerLike
-} from '@prismgb/core';
-
 type BufferedFrame = {
   frame: unknown;
   enqueueTime: number;
 };
 
+/** Minimal logging surface consumed by {@link GpuFrameBuffer}. */
+interface FrameBufferLogger {
+  debug(message: string): void;
+}
+
+/** Factory yielding a named {@link FrameBufferLogger}. */
+interface FrameBufferLoggerFactory {
+  create(name: string): FrameBufferLogger;
+}
+
 type GpuFrameBufferDependencies = {
-  loggerFactory?: LoggerFactoryLike;
+  loggerFactory?: FrameBufferLoggerFactory;
   bufferSize?: number;
 };
 
 export class GpuFrameBuffer {
-  _logger: LoggerLike | undefined;
+  _logger: FrameBufferLogger | undefined;
   _capacity: number;
   _queue: BufferedFrame[];
   _totalEnqueued: number;

@@ -48,6 +48,9 @@ export { detectCapabilities } from './application/capability-detector';
 export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
 export type { UniformBuildContext } from './application/uniform-builder';
 
+// Frame buffering primitive (bounded queue + latency metrics)
+export { GpuFrameBuffer } from './application/gpu-frame-buffer';
+
 // Worker API (worker-safe rendering API)
 export { createWorkerPipeline, type CreateWorkerPipelineOptions, type WorkerPipeline } from './factories';
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GpuFrameBuffer } from '@renderer/infrastructure/services/gpu/gpu-frame-buffer';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { GpuFrameBuffer } from '@/application/gpu-frame-buffer';
+
+const createLoggerFactory = () => ({ create: () => ({ debug: vi.fn() }) });
 
 describe('GpuFrameBuffer', () => {
   let buffer;

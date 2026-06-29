@@ -42,7 +42,7 @@ import { PerformanceStateService } from '../../infrastructure/services/performan
 import { PerformanceStateOrchestrator } from '../orchestrators/performance/performance-state.orchestrator';
 import { AppOrchestrator } from '../orchestrators/app.orchestrator';
 import { BrowserMediaAdapter } from '../../infrastructure/browser/browser-media.adapter';
-import { GpuFrameBuffer } from '../../infrastructure/services/gpu/gpu-frame-buffer';
+import { GpuFrameBuffer } from '@prismgb/gpu';
 import { StreamingGpuRenderLoopService } from '../../infrastructure/services/gpu/gpu-render-loop.service';
 import { GpuWorkerManager } from '../../infrastructure/services/gpu/gpu-worker-manager';
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
