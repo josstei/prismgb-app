@@ -4,10 +4,12 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
-      name: 'PrismGBTranscode',
-      fileName: 'index',
-      formats: ['es']
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        service: resolve(__dirname, 'src/service.ts')
+      },
+      formats: ['es'],
+      fileName: (_format, entryName) => `${entryName}.js`
     },
     rollupOptions: {
       external: [

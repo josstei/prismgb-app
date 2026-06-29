@@ -16,6 +16,7 @@
     "build:mac": "npm run build:vite && electron-builder --mac",
     "build:linux": "npm run build:vite && electron-builder --linux",
     "build:packages": "turbo run build",
+    "check:exports": "node scripts/check-package-exports.js",
     "preview": "vite preview",
     "start": "electron dist/main/index.js",
     "lint": "eslint \"src/**/*.{js,ts}\" && node scripts/check-layer-boundaries.js",
