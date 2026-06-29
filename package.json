@@ -52,8 +52,7 @@
     "prepare": "husky",
     "postinstall": "patch-package",
     "generate-icons": "node scripts/generate-icons.js",
-    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json",
-    "pretest": "node scripts/generate-di.js"
+    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
   },
   "keywords": [
     "electron",

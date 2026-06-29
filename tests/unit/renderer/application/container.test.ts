@@ -2,7 +2,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import {
-  asValue,
   createRendererContainer,
   getContainer,
   initializeContainer,
@@ -92,7 +91,7 @@ describe('Renderer container', () => {
   it('creates renderer container with expected descriptor registrations', () => {
     const container = createRendererContainer();
 
-    const tokens = Object.keys(container.registrations);
+    const tokens = container.tokens;
 
     expect(tokens).toEqual(expect.arrayContaining(expectedRegistrationKeys));
     expect(tokens).not.toContain('uiController');
@@ -105,7 +104,7 @@ describe('Renderer container', () => {
     const uiEffects = container.resolve('uiEffects');
 
     expect(uiEffects.elements).toBeNull();
-    expect(Object.keys(container.registrations)).not.toContain('elements');
+    expect(container.tokens).not.toContain('elements');
   });
 
   it('warns and reuses container on repeated initialization', () => {
@@ -138,11 +137,9 @@ describe('Renderer container', () => {
   it('resolves UI-bound services once uiController is registered', () => {
     const container = createRendererContainer();
 
-    container.register({
-      uiController: asValue({
-        initializeComponents: () => {},
-        dispose: () => {}
-      })
+    container.registerValue('uiController', {
+      initializeComponents: () => {},
+      dispose: () => {}
     });
 
     expect(() => container.resolve('uiSetupOrchestrator')).not.toThrow();
@@ -151,29 +148,26 @@ describe('Renderer container', () => {
   it('still resolves app orchestration after uiController registration', () => {
     const container = createRendererContainer();
 
-    container.register({
-      uiController: asValue({
-        initializeComponents: () => {},
-        elements: {},
-        dispose: () => {}
-      })
+    container.registerValue('uiController', {
+      initializeComponents: () => {},
+      elements: {},
+      dispose: () => {}
     });
 
     expect(() => container.resolve('appOrchestrator')).not.toThrow();
   });
 
-  it('resolves manual-provider and promoted @Service tokens through the generated container', () => {
+  it('resolves manual-provider and standard service tokens with chained dependencies', () => {
     const container = createRendererContainer();
 
-    // Manual providers exercised through the generated container's default branch,
-    // including chained resolution (deviceStatusProvider -> ipcClient,
+    // Manual providers, including chained resolution (deviceStatusProvider -> ipcClient,
     // canvasRenderLoopService -> animationCache).
     expect(() => container.resolve('storageService')).not.toThrow();
     expect(() => container.resolve('ipcClient')).not.toThrow();
     expect(() => container.resolve('deviceStatusProvider')).not.toThrow();
     expect(() => container.resolve('canvasRenderLoopService')).not.toThrow();
 
-    // Promoted to scanned @Service: cradle construction and no-arg construction.
+    // Standard service registrations: cradle construction and no-arg construction.
     expect(container.resolve('gpuFrameBuffer')).toBeDefined();
     expect(container.resolve('animationCache')).toBeDefined();
   });

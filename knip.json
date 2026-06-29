@@ -7,8 +7,6 @@
         "src/main/index.ts",
         "src/preload/index.ts",
         "src/renderer/index.ts",
-        "src/renderer/application/di/di.generated.ts",
-        "src/renderer/application/di/external-tokens.ts",
         "scripts/*.js",
         "tests/support/**/*.{js,ts}",
         "tests/**/*.{test,spec}.{js,ts}"

@@ -11,7 +11,7 @@ import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.brid
 import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
-import { initializeContainer, asValue } from './application/container.js';
+import { initializeContainer } from './application/container.js';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 import { PRESET_POLICY } from '@prismgb/gpu';
@@ -141,9 +141,7 @@ class RendererBootstrap {
   async _registerUIComponents() {
     const container = this._requireContainer();
 
-    container.register({
-      uiController: asValue(this._uiController as UIController)
-    });
+    container.registerValue('uiController', this._uiController as UIController);
   }
 
   async _initializeUIEventBridge() {

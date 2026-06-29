@@ -1,18 +1,44 @@
-import { GeneratedContainer } from './di/di.generated.js';
+import { Container } from '@prismgb/core';
+import { standardServiceRegistrations } from './di/service-registrations.js';
+import { manualProviders } from './di/manual-providers.js';
 
-export type RendererServiceContainer = GeneratedContainer;
+export type RendererServiceContainer = Container;
 
-export function asValue<T>(value: T): { value: T } {
-  return { value };
+/**
+ * Unwraps the legacy `{ value }` override envelope while passing plain instances through.
+ */
+function unwrapOverride(value: unknown): unknown {
+  return value && typeof value === 'object' && 'value' in value
+    ? (value as { value: unknown }).value
+    : value;
 }
 
-let container: GeneratedContainer | null = null;
+/**
+ * Build a renderer DI container wired onto the core {@link Container} primitive:
+ * standard `@Service`-shaped classes, non-standard manual providers, then test
+ * overrides. No code generation — the registration maps are the source of truth.
+ */
+export function createRendererContainer(overrides: Record<string, unknown> = {}): RendererServiceContainer {
+  const container = new Container();
 
-export function createRendererContainer(): GeneratedContainer {
-  return new GeneratedContainer();
+  for (const [token, factory] of Object.entries(standardServiceRegistrations)) {
+    container.register(token, (resolver) => factory(resolver.cradle));
+  }
+
+  for (const [token, provider] of Object.entries(manualProviders)) {
+    container.register(token, (resolver) => provider((dependency) => resolver.resolve(dependency)));
+  }
+
+  for (const [token, value] of Object.entries(overrides)) {
+    container.registerValue(token, unwrapOverride(value));
+  }
+
+  return container;
 }
 
-export function initializeContainer(): GeneratedContainer {
+let container: RendererServiceContainer | null = null;
+
+export function initializeContainer(): RendererServiceContainer {
   if (container) {
     console.warn('Container already initialized');
     return container;
@@ -23,7 +49,7 @@ export function initializeContainer(): GeneratedContainer {
   return container;
 }
 
-export function getContainer(): GeneratedContainer {
+export function getContainer(): RendererServiceContainer {
   if (!container) {
     throw new Error('Container not initialized. Call initializeContainer() first.');
   }
@@ -42,17 +68,26 @@ function isCleanable(value: unknown): value is Cleanable {
   );
 }
 
+type DisposalLoggerFactory = {
+  create(name: string): { error(...args: unknown[]): void };
+};
+
 export async function resetContainer(): Promise<void> {
   const activeContainer = container;
-  if (activeContainer) {
-    container = null;
-    try {
-      const appOrchestrator = activeContainer.cache.get('appOrchestrator')?.value;
-      if (isCleanable(appOrchestrator)) {
-        await appOrchestrator.cleanup();
-      }
-    } finally {
-      await activeContainer.dispose();
+  if (!activeContainer) {
+    return;
+  }
+
+  container = null;
+  const loggerFactory = activeContainer.peek<DisposalLoggerFactory>('loggerFactory');
+  const disposalLogger = loggerFactory ? loggerFactory.create('Container') : console;
+
+  try {
+    const appOrchestrator = activeContainer.peek('appOrchestrator');
+    if (isCleanable(appOrchestrator)) {
+      await appOrchestrator.cleanup();
     }
+  } finally {
+    await activeContainer.dispose(disposalLogger);
   }
 }

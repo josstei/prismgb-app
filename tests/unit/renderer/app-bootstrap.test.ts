@@ -20,8 +20,7 @@ vi.mock('@renderer/application/container.ts', async () => {
   const { createRendererAppContainerMock } = await import('../../factories/index.js');
 
   return {
-    initializeContainer: vi.fn(() => createRendererAppContainerMock()),
-    asValue: vi.fn((val) => ({ __asValue: true, value: val }))
+    initializeContainer: vi.fn(() => createRendererAppContainerMock())
   };
 });
 

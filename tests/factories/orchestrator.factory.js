@@ -86,6 +86,7 @@ export function createRendererAppContainerMock(overrides = {}) {
     loggerFactory = createLoggerFactory(),
     services = {},
     register = vi.fn(),
+    registerValue = vi.fn(),
     dispose = vi.fn(),
     resolve,
     ...containerOverrides
@@ -109,6 +110,7 @@ export function createRendererAppContainerMock(overrides = {}) {
       ? vi.fn((name) => resolve(name, dependencyMap))
       : vi.fn((name) => dependencyMap[name] || {}),
     register,
+    registerValue,
     dispose,
     ...containerOverrides
   };

@@ -61,11 +61,15 @@ export class Container<TTokenMap extends Record<string, any> = Record<string, an
 
   /**
    * Resolve a token, constructing and caching its singleton on first access.
+   * Typed by the token map when known, or by an explicit return type for loosely
+   * mapped containers.
    * @throws if the token is not registered.
    */
-  resolve<K extends keyof TTokenMap>(token: K): TTokenMap[K] {
+  resolve<K extends keyof TTokenMap>(token: K): TTokenMap[K];
+  resolve<T = unknown>(token: string): T;
+  resolve(token: keyof TTokenMap): unknown {
     if (this.#instances.has(token)) {
-      return this.#instances.get(token) as TTokenMap[K];
+      return this.#instances.get(token);
     }
 
     const provider = this.#providers.get(token);
@@ -73,7 +77,7 @@ export class Container<TTokenMap extends Record<string, any> = Record<string, an
       throw new Error(`Dependency token "${String(token)}" is not registered`);
     }
 
-    const instance = provider(this) as TTokenMap[K];
+    const instance = provider(this);
     this.#instances.set(token, instance);
     this.#insertionOrder.push(token);
     return instance;
@@ -82,8 +86,10 @@ export class Container<TTokenMap extends Record<string, any> = Record<string, an
   /**
    * Return an already-resolved instance without triggering construction.
    */
-  peek<K extends keyof TTokenMap>(token: K): TTokenMap[K] | undefined {
-    return this.#instances.get(token) as TTokenMap[K] | undefined;
+  peek<K extends keyof TTokenMap>(token: K): TTokenMap[K] | undefined;
+  peek<T = unknown>(token: string): T | undefined;
+  peek(token: keyof TTokenMap): unknown {
+    return this.#instances.get(token);
   }
 
   /**
