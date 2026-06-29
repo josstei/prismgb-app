@@ -15,20 +15,6 @@ vi.mock('electron', () => {
   return createWindowServiceElectronMock();
 });
 
-// Mock ConfigLoader
-vi.mock('@shared/config/config-loader.utils.js', () => ({
-  uiConfig: {
-    WINDOW_CONFIG: {
-      width: 1280,
-      height: 720,
-      minWidth: 800,
-      minHeight: 600,
-      backgroundColor: '#000000',
-      title: 'PrismGB'
-    }
-  }
-}));
-
 vi.mock('url', async (importOriginal) => {
   const actual = await importOriginal();
   return {
