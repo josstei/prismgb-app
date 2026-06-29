@@ -214,4 +214,7 @@ export { ConsoleLoggerFactory } from './primitives/console-logger.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { isRecord, isNumber, isString } from './primitives/guards.utils.js';
+export { throttle } from './primitives/timing.utils.js';
+export { createDeferred } from './primitives/async.utils.js';
+export type { Deferred } from './primitives/async.utils.js';
 export { PerformanceCache, AnimationCache } from './primitives/performance-cache.utils.js';

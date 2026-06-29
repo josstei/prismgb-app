@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, createDeferred } from '@prismgb/core';
 import type { EventBusLike, LoggerLike } from '@prismgb/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@prismgb/events';
@@ -284,29 +284,24 @@ class CaptureService extends BaseService {
       return this._stopWaiter;
     }
 
-    let resolveStop!: () => void;
-    let rejectStop!: (error: unknown) => void;
     const timeout = setTimeout(() => {
       this._settleStopWaiter(new Error('Timed out waiting for recording to stop'));
     }, RECORDER_STOP_TIMEOUT_MS);
 
     this.disposables.replace(RECORDER_STOP_WAIT_LIFECYCLE, () => clearTimeout(timeout));
 
-    const promise = new Promise<void>((resolve, reject) => {
-      resolveStop = () => {
-        this.disposables.cancel(RECORDER_STOP_WAIT_LIFECYCLE);
-        resolve();
-      };
-      rejectStop = (error: unknown) => {
-        this.disposables.cancel(RECORDER_STOP_WAIT_LIFECYCLE);
-        reject(error);
-      };
-    });
+    const deferred = createDeferred<void>();
 
     this._stopWaiter = {
-      promise,
-      resolve: resolveStop,
-      reject: rejectStop
+      promise: deferred.promise,
+      resolve: () => {
+        this.disposables.cancel(RECORDER_STOP_WAIT_LIFECYCLE);
+        deferred.resolve();
+      },
+      reject: (error: unknown) => {
+        this.disposables.cancel(RECORDER_STOP_WAIT_LIFECYCLE);
+        deferred.reject(error);
+      }
     };
     return this._stopWaiter;
   }

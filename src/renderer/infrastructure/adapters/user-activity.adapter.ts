@@ -1,3 +1,5 @@
+import { throttle } from '@prismgb/core';
+
 type Cleanup = () => void;
 
 const DEFAULT_ACTIVITY_EVENTS = ['pointermove', 'keydown', 'wheel', 'touchstart'] as const;
@@ -8,18 +10,11 @@ const THROTTLE_INTERVAL_MS = 100;
 export class UserActivityAdapter {
   private _handleUserActivity: (() => void) | null = null;
   private readonly _activityEvents = DEFAULT_ACTIVITY_EVENTS;
-  private _lastActivityTime = 0;
 
   onActivity(callback: () => void): Cleanup {
     if (typeof document === 'undefined') return () => {};
 
-    this._handleUserActivity = () => {
-      const now = Date.now();
-      if (now - this._lastActivityTime >= THROTTLE_INTERVAL_MS) {
-        this._lastActivityTime = now;
-        callback();
-      }
-    };
+    this._handleUserActivity = throttle(callback, THROTTLE_INTERVAL_MS);
 
     this._activityEvents.forEach((event) => {
       document.addEventListener(event, this._handleUserActivity as EventListener, ACTIVITY_ADD_LISTENER_OPTIONS);
@@ -35,6 +30,5 @@ export class UserActivityAdapter {
       });
       this._handleUserActivity = null;
     }
-    this._lastActivityTime = 0;
   }
 }
