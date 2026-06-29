@@ -10,7 +10,7 @@ Stand up a new browser-UI package `@prismgb/ui-base`, adopt a **hand-rolled, zer
 
 "Done" concretely:
 
-1. `packages/prismgb-ui-base/` exists, mirrors the existing package conventions (parity with `@prismgb/core`/`@prismgb/events`), depends only on `@prismgb/core` (the reactive primitive is hand-rolled — no external reactivity dep), and is aliased in all **five** alias surfaces (3 vite targets + vitest `sharedAlias` + `tsconfig.app.json` + `tsconfig.base.json`).
+1. `packages/prismgb-ui-base/` exists, mirrors the existing package conventions (parity with `@prismgb/core`/`@prismgb/events`), depends only on `@prismgb/core` (the reactive primitive is hand-rolled — no external reactivity dep), **builds to `dist` and is consumed by the app from `dist`** (the Plan-02 model — no vite alias), and is src-aliased on the fast paths only (vitest `sharedAlias` + `tsconfig.app.json` + `tsconfig.base.json`).
 2. A single reactive seam file re-exports `signal`/`computed`/`effect`/`batch` — the **one-line philosophy-fork** the owner can flip to a hand-rolled signal without touching any consumer.
 3. DOM binding helpers exist with their own happy-dom unit tests proving synchronous signal→DOM updates.
 4. The accessible-widget toolkit (`PresentationComponent` anchor + `Disclosure`/`Listbox`/`Combobox`/`ActivityAutoHide` controllers + generic `template-ref` helpers) lives in `@prismgb/ui-base`; the 29 subclass import sites point at the package.
@@ -115,12 +115,12 @@ find tests -path '*presentation*' -name '*.ts' -print0 | xargs -0 wc -l | tail -
 
 **F6 — Boundary checker requires NO change** (evidence: `scripts/check-layer-boundaries.js:258-298`). `resolveAliasTarget` handles only `@/`, `@main/`, `@renderer/`, `@shared/`, `@preload/`, `@core/`; a `@prismgb/...` specifier matches none, then `resolveTargetLayer` returns `null` for any non-`.`-relative specifier (`:292-293`), so the import is skipped. This is exactly how existing `@prismgb/core`/`@prismgb/events` imports already pass. `analyzeLayerBoundaries` walks only `src/` (`:319`), so package files are never analyzed as sources. **Therefore `@prismgb/ui-base` imports (from any `src/` layer) produce zero violations with no checker change.** Do not modify `check-layer-boundaries.js`; do not extend it to police `main→ui-base` (that gap is pre-existing and out of scope). The notion "the boundary checker must learn `@prismgb/ui-base`" is **incorrect** and is intentionally not actioned — recorded here so a reviewer sees the reasoned omission.
 
-**F7 — Alias surfaces are FIVE, not three** (re-verify):
-- `vite.config.js` — 3 alias blocks: main, preload, renderer root.
-- `vitest.config.js` — `sharedAlias` (lines 10-28; currently contains `@prismgb/{gpu,core,events,config,ipc,devices/service,devices,transcode/service,transcode,updates,notes}`).
-- `tsconfig.app.json` — `paths`.
-- `tsconfig.base.json` — `paths` (its own block; contains the `@prismgb/*` + `@prismgb/*/*` pattern pairs).
-Subpath precedent exists: `@prismgb/devices/service` and `@prismgb/transcode/service` are aliased separately, longest-prefix-first, in vite and vitest `sharedAlias`. Use the same mechanism for `@prismgb/ui-base/reactive`.
+**F7 — Alias surfaces are THREE under the Plan-02 dist model** (RE-VERIFY — Plan 02 retired the vite `@prismgb/*` src-aliases; confirm with `git grep -n "@prismgb/core" -- vite.config.js`, expected EMPTY):
+- `vite.config.js` — **NO `@prismgb/*` aliases anymore** (the app consumes packages from `dist`). Do NOT add a ui-base vite alias.
+- `vitest.config.js` — `sharedAlias` (currently contains `@prismgb/{gpu,core,events,config,ipc,devices/service,devices,transcode/service,transcode,updates,notes}` — re-verify the live list). ADD ui-base here.
+- `tsconfig.app.json` — `paths`. ADD ui-base here.
+- `tsconfig.base.json` — `paths` (its own block; the `@prismgb/*` + `@prismgb/*/*` pattern pairs). ADD ui-base here.
+The app resolves `@prismgb/ui-base` at build/runtime from its built `dist` (via the workspace `node_modules` symlink), NOT an alias — so the package MUST build to dist with correct `exports` (Phase 1.1). Subpath precedent: `@prismgb/devices/service` is aliased separately (vitest/tsconfig) AND exposed via `dist` `exports` `./service`; mirror both for `@prismgb/ui-base/reactive`.
 
 **F8 — Package wiring facts (verified against `package.json` + `vitest.config.js`):**
 - Root `typecheck` = `typecheck:app && typecheck:tests && typecheck:gpu && typecheck:core` — it runs only the `gpu` and `core` workspaces (each standalone-typecheckable). It deliberately does **not** run `events`/`ipc`/`devices`/`transcode`/`notes`, because those import `@prismgb/core` and `tsc --noEmit` would otherwise resolve `@prismgb/core` through the workspace `package.json` `types: ./dist/index.d.ts` — and `dist/` is **gitignored** (`.gitignore:6` = `dist/`), so on a clean tree there is no `.d.ts`. **Consequence (F11):** to add `typecheck:ui-base` to the chain, the ui-base `tsconfig.json` MUST map `@prismgb/core` to source.
@@ -244,20 +244,22 @@ export default defineConfig({
 export * from './reactive/index.js';
 ```
 
-Add the package to the **five** alias surfaces (F7). In each vite block, each vitest `sharedAlias`, and both tsconfig `paths`, add — placed adjacent to the other `@prismgb/*` entries, with the `/reactive` subpath BEFORE the bare entry (longest-prefix-first ordering matches the `devices/service` precedent):
+Wire the package per the **dist-consumption build model that Plan 02 established** (RE-VERIFY against the current repo before acting — Plan 02 may have changed the surfaces): the app's vite build/dev now consumes every `@prismgb/*` from its built `dist` (the vite `@prismgb/*` src-aliases were RETIRED), and `predev`/`prebuild:vite` run `turbo run build` to rebuild all package dists first. `@prismgb/ui-base` is just another dist-built package, so:
 
-- vite (×3 blocks), inside `alias: {`:
-  ```js
-  '@prismgb/ui-base/reactive': path.resolve(__dirname, 'packages/prismgb-ui-base/src/reactive/index.ts'),
-  '@prismgb/ui-base': path.resolve(__dirname, 'packages/prismgb-ui-base/src/index.ts'),
-  ```
-- vitest `sharedAlias` (this is the SAME object the `ui-base-package` project references — see below): same two lines.
-- `tsconfig.app.json` and `tsconfig.base.json` `paths`:
-  ```json
-  "@prismgb/ui-base": ["./packages/prismgb-ui-base/src"],
-  "@prismgb/ui-base/reactive": ["./packages/prismgb-ui-base/src/reactive/index"],
-  "@prismgb/ui-base/*": ["./packages/prismgb-ui-base/src/*"]
-  ```
+- **NO vite alias for ui-base.** Do NOT re-add `@prismgb/*` aliases to `vite.config.js` (that would reintroduce the retired shim for one package). The app resolves `@prismgb/ui-base` and `@prismgb/ui-base/reactive` from `dist` via the workspace `node_modules` symlink — IF the package builds to dist with correct `exports` (below).
+- **src-aliases ONLY on the fast test/typecheck paths** (vitest `sharedAlias` + both tsconfigs), placed adjacent to the other `@prismgb/*` entries, `/reactive` BEFORE the bare entry (longest-prefix-first):
+  - vitest `sharedAlias` (the SAME object the `ui-base-package` project references):
+    ```js
+    '@prismgb/ui-base/reactive': path.resolve(__dirname, 'packages/prismgb-ui-base/src/reactive/index.ts'),
+    '@prismgb/ui-base': path.resolve(__dirname, 'packages/prismgb-ui-base/src/index.ts'),
+    ```
+  - `tsconfig.app.json` and `tsconfig.base.json` `paths`:
+    ```json
+    "@prismgb/ui-base": ["./packages/prismgb-ui-base/src"],
+    "@prismgb/ui-base/reactive": ["./packages/prismgb-ui-base/src/reactive/index"],
+    "@prismgb/ui-base/*": ["./packages/prismgb-ui-base/src/*"]
+    ```
+- **Dist build + exports (the app's runtime/build path):** the package's `vite.config.ts` MUST emit both entries (`index` + `reactive/index`) to `dist` (already specified in the scaffold above), and its `package.json` MUST declare the `exports` map with BOTH the `.` and `./reactive` subpaths pointing at `dist` (mirror how `@prismgb/devices` exposes `./service`), plus `main`/`types`. `turbo run build` auto-includes any workspace package with a `build` script, so the `predev`/`prebuild:vite` hooks will rebuild ui-base's dist before the app vite build — verify with a cold `rm -rf packages/prismgb-ui-base/dist && npm run dev:smoke` once a consumer imports it (Phase 1.4). Add `@prismgb/ui-base` to `scripts/check-package-exports.js`'s package list (it enumerates packages; the new `./reactive` target must be asserted on disk).
 
 Add the root scripts (`package.json`):
 - `"typecheck:ui-base": "npm run typecheck --workspace=@prismgb/ui-base"` and extend the `typecheck` script to `... && npm run typecheck:gpu && npm run typecheck:core && npm run typecheck:ui-base`.
@@ -972,7 +974,7 @@ Order leaf-first: `game-filter` → `game-autocomplete` → `notes-search` → `
 
 Interpretation:
 - `typecheck:ui-base` fail with "cannot find module '@prismgb/core'" or a `.d.ts` error → the ui-base `tsconfig.json` `paths` is missing the `@prismgb/core → ../../packages/prismgb-core/src` mapping (F11), or a ui-base source file imports another workspace package without a src mapping. Add the mapping; do NOT build `dist`.
-- `dev:smoke` fail after adding ui-base → a missing alias surface (F7 — check all five), the workspace package not linked (`ls node_modules/@prismgb/ui-base`; re-run `npm install`), or (Phase 1.4+) the F10 `eventBus` wiring missed (`requireDependency` throws "missing UI component dependency \"eventBus\"" — fix in `app-bootstrap.ts`/`ui.controller.ts`, NOT `service-registrations.ts`).
+- `dev:smoke` fail after adding ui-base → ui-base `dist` not built (the `predev` hook must `turbo run build` it; check `ls packages/prismgb-ui-base/dist/index.js`), or its `package.json` `exports` map is wrong so the app can't resolve it from `dist` (F7), or the workspace package not linked (`ls node_modules/@prismgb/ui-base`; re-run `npm install`), or (Phase 1.4+) the F10 `eventBus` wiring missed (`requireDependency` throws "missing UI component dependency \"eventBus\"" — fix in `app-bootstrap.ts`/`ui.controller.ts`, NOT `service-registrations.ts`).
 - `test:run` "passes" but your new package test never ran → the test is outside `packages/prismgb-ui-base/tests/unit/**` (F8/F9b). Move it under the package tree.
 - e2e fail on a status/device/stream/fullscreen spec after a conversion → the event→signal write isn't firing (store subscription wrong channel), the binding element ref is null (template `data-ref` mismatch), or a gated composite dropped a predicate input (F12 — re-check the `computed`). Reproduce with `dev:smoke` + DevTools before guessing.
 - Boundary checker should never flag `@prismgb/ui-base` (F6). If it does, a `src/` file used a relative `../../packages/...` path instead of the alias — fix the import, do not edit the checker.
@@ -988,7 +990,7 @@ Interpretation:
 | R3 Glue deletion breaks a still-live caller | Med | Runtime crash / silent no-op | §5 discipline: grep ALL refs (src+tests), update the bridge `*Like` interface + mocks, THEN delete; `dev:smoke` + e2e per commit | Per-commit revert; glue deleted only after grep proves zero consumers |
 | R4 Test rewrites mask a real regression (spy→DOM) | Med | False-green | Assert resulting DOM **state** (`classList.contains`, `textContent`), not call patterns; keep e2e as the behavior oracle | Revert; e2e specs are unchanged behavior contracts |
 | R5 Hand-rolled signal primitive subtly wrong (stale reads, leaked subs, missed/over-fire, infinite cascade) | Med | All bindings | Phase 1.3 correctness suite locks the hard cases (diamond update, dynamic-dep cleanup, batch coalescing, dispose-mid-propagation, no self-cascade loop) BEFORE any consumer; bindings are idempotent so over-fire is a no-op; the seam is one file so the engine is swappable | Fix `reactive/signal.ts` against the failing suite case; if intractable, swap the seam to a vetted lib behind the same API (one-file change) |
-| R6 Alias surface missed (5th place: `tsconfig.base.json`) | Med | Typecheck OR runtime mismatch | F7 enumerates all five; gate runs both `typecheck` and `dev:smoke` (fail on different missing surfaces) | Add the missing alias; no revert needed |
+| R6 Src-alias surface missed (vitest or a tsconfig) OR dist/exports wrong | Med | Typecheck/test OR runtime resolution | F7 enumerates the 3 src-alias surfaces + the dist `exports` requirement; gates run `typecheck` (tsconfig), `test:run` (vitest), and `dev:smoke` (dist resolution) — each fails on a different missing surface | Add the missing alias or fix the `exports`; no revert needed |
 | R7 `typecheck:ui-base` red on clean CI tree | Med | CI break (locally green if dist exists) | F8/F11: ui-base tsconfig maps `@prismgb/core`→src; gate runs `typecheck:ui-base` explicitly | Add the path mapping |
 | R8 Wrong-deletion of mode coordination (`setStreamingMode`) or a dropped gate/timing in Phase 5 | Med | Lost streaming-mode/cinematic/minimalist behavior, **green local gates** | F12 + Phase 4/5 corrections: retain `setStreamingMode`/auto-hide; bind gated `computed` composites; preserve minimalist transition; parity proven by e2e (`fullscreen`/`settings`/`streaming-smoke`) before any deletion | Per-commit revert; deletions are gated behind proven e2e parity |
 | R9 `eventBus` wired in the wrong file (`service-registrations.ts`) → `undefined` at runtime | Med | Boot throw / silent undefined | F10 path is explicit (app-bootstrap.ts + UIControllerDependencies + initializeComponents); `dev:smoke` catches via `requireDependency` throw | Apply F10a–c; revert the partial edit |
@@ -1003,7 +1005,7 @@ Rollback unit = the commit. Every sub-step is an independently revertible, gated
 ## 7. Done Criteria
 
 - [ ] `packages/prismgb-ui-base/` exists, mirrors package conventions, deps = `@prismgb/core` ONLY (no external reactivity dep); its `tsconfig.json` maps `@prismgb/core`→src; `npm run typecheck:ui-base` and `npm run lint:ui-base` pass and the `ui-base-package` vitest project runs (package tests collected from `packages/prismgb-ui-base/tests/unit/**`).
-- [ ] `@prismgb/ui-base` + `@prismgb/ui-base/reactive` aliased in all five surfaces (3 vite + vitest `sharedAlias` + 2 tsconfig); `npm run dev:smoke` green.
+- [ ] `@prismgb/ui-base` + `@prismgb/ui-base/reactive` src-aliased on the 3 fast paths (vitest `sharedAlias` + 2 tsconfig), build to `dist` with correct `exports`, are in the turbo build + `predev`/`prebuild:vite` rebuild, and resolve from `dist` at app build/runtime (NO vite alias); `npm run dev:smoke` green.
 - [ ] Reactive seam is a single hand-rolled file (`reactive/signal.ts`); no external reactivity dep anywhere (`git grep -rl "@preact" -- src packages` returns empty) and no consumer imports the engine except via the relative `./signal.js` seam.
 - [ ] The hand-rolled signal correctness suite (`packages/prismgb-ui-base/tests/unit/reactive/signal.test.ts`) passes and covers: diamond-update, dynamic-dep cleanup, batch coalescing, computed recompute, dispose-mid-propagation, and no-self-cascade-loop (Phase 1.3).
 - [ ] `bindText/bindClass/bindVisible/bindAttr/bindProperty` + `SignalBinder` shipped with happy-dom tests; F9 semantics locked.
