@@ -16,9 +16,6 @@
       "@preload/*": [
         "./src/preload/*"
       ],
-      "@shared/*": [
-        "./src/shared/*"
-      ],
       "@prismgb/gpu": [
         "./packages/prismgb-gpu/src"
       ],
