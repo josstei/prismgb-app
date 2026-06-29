@@ -1,11 +1,12 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '@prismgb/ui-base';
 import { EventChannels } from '@prismgb/events';
 import type { TypedEventBusLike } from '@prismgb/events';
+import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
 import type { LoggerLike } from '@prismgb/core';
 
 export interface CinematicToggleAppState {
-  isCinematicModeEnabled?: boolean;
+  cinematicModeSignal: ReadonlySignal<boolean>;
 }
 
 export interface CinematicToggleComponentOptions {
@@ -19,6 +20,7 @@ export interface CinematicToggleElements {
   textElement?: HTMLElement | null;
 }
 
+/** Binds the cinematic pill (active class / aria-pressed / label) to the cinematic-mode signal. */
 class CinematicToggleComponent extends PresentationComponent {
   declare eventBus: TypedEventBusLike;
   declare appState: CinematicToggleAppState | null | undefined;
@@ -47,35 +49,18 @@ class CinematicToggleComponent extends PresentationComponent {
       return;
     }
 
-    const initialState = this.appState?.isCinematicModeEnabled ?? true;
-    this._updateCinematicPill(initialState);
+    const enabled = this.appState?.cinematicModeSignal;
+    if (enabled) {
+      this.track(bindClass(this.toggleElement, CSSClasses.ACTIVE, enabled));
+      this.track(bindAttr(this.toggleElement, 'aria-pressed', computed(() => (enabled.value ? 'true' : 'false'))));
+      this.track(bindText(this.textElement ?? null, computed(() => (enabled.value ? 'Cinematic On' : 'Cinematic Off'))));
+    }
 
     this.listen(this.toggleElement, 'click', () => {
       this.eventBus.publish(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED);
     });
 
-    this.trackSubscription(this.eventBus.subscribe(
-      EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-      ({ enabled }) => {
-        this._updateCinematicPill(Boolean(enabled));
-      }
-    ));
-
     this.logger?.debug('Cinematic toggle initialized');
-  }
-
-  _updateCinematicPill(enabled: boolean): void {
-    if (!this.toggleElement) return;
-
-    if (enabled) {
-      this.toggleElement.classList.add(CSSClasses.ACTIVE);
-      this.toggleElement.setAttribute('aria-pressed', 'true');
-      if (this.textElement) this.textElement.textContent = 'Cinematic On';
-    } else {
-      this.toggleElement.classList.remove(CSSClasses.ACTIVE);
-      this.toggleElement.setAttribute('aria-pressed', 'false');
-      if (this.textElement) this.textElement.textContent = 'Cinematic Off';
-    }
   }
 
   override dispose(): void | Promise<void> {
