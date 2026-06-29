@@ -8,6 +8,7 @@
 import { vi } from 'vitest';
 import { createLoggerFactory } from './logger.factory.js';
 import { createUIEffectsMock } from './ui.factory.js';
+import { createEventBus } from './event-bus.factory.js';
 
 /**
  * @typedef {import('@renderer/application/orchestrators/app.orchestrator').AppOrchestrator} AppOrchestrator
@@ -83,6 +84,16 @@ export function createRendererAppContainerMock(overrides = {}) {
       initialize: vi.fn(),
       dispose: vi.fn()
     },
+    eventBus = createEventBus(),
+    appState = {
+      cinematicModeSignal: { value: true },
+      isCinematicModeEnabled: true,
+      isStreaming: false
+    },
+    bodyClassManager = {
+      bindPresentationMode: vi.fn(),
+      dispose: vi.fn()
+    },
     loggerFactory = createLoggerFactory(),
     services = {},
     register = vi.fn(),
@@ -101,6 +112,9 @@ export function createRendererAppContainerMock(overrides = {}) {
     captureUiBridge,
     transcodeUiBridge,
     transcodeService,
+    eventBus,
+    appState,
+    bodyClassManager,
     loggerFactory,
     ...services,
   };

@@ -1,6 +1,7 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindClass, effect } from '@prismgb/ui-base';
+import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 
@@ -25,6 +26,18 @@ export class BodyClassManager extends PresentationComponent {
 
   areAnimationsOff() {
     return document.body.classList.contains(APP_CSS_CLASSES.ANIMATIONS_OFF);
+  }
+
+  /**
+   * Bind the gated presentation-mode composites to body classes. Cinematic/fullscreen are
+   * plain class toggles; minimalist-fullscreen runs through {@link setMinimalistFullscreen}
+   * so its change-guard and transition timing are preserved. The store is tracked for teardown.
+   */
+  bindPresentationMode(store: PresentationModeStore) {
+    this.track(store);
+    this.track(bindClass(document.body, CSSClasses.CINEMATIC_ACTIVE, store.cinematicActive));
+    this.track(bindClass(document.body, CSSClasses.FULLSCREEN_ACTIVE, store.fullscreenActive));
+    this.track(effect(() => this.setMinimalistFullscreen(store.minimalistActive.value)));
   }
 
   setStreamingMode(isStreaming: boolean) {

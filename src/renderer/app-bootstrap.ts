@@ -16,6 +16,7 @@ import { registerAllowedValuesSource, registerDefaultValueSource } from '@render
 import { TRANSCODE_CONFIG } from '@prismgb/transcode';
 import { PRESET_POLICY } from '@prismgb/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
+import { PresentationModeStore } from './presentation/state/presentation-mode.store.js';
 
 
 
@@ -127,6 +128,12 @@ class RendererBootstrap {
     const loggerFactory = container.resolve<LoggerFactoryLike>('loggerFactory');
     const eventBus = container.resolve<EventBusLike>('eventBus');
     const appState = container.resolve<any>('appState');
+
+    const presentationModeStore = new PresentationModeStore({
+      eventBus,
+      cinematicEnabled: appState.cinematicModeSignal
+    });
+    bodyClassManager.bindPresentationMode(presentationModeStore);
 
     const uiController = new UIController({
       uiComponentRegistry,

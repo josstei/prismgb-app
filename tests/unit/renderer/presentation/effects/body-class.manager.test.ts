@@ -4,6 +4,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
+import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
+import { signal } from '@prismgb/ui-base/reactive';
+import { SharedEventBus, EventChannels } from '@prismgb/events';
 
 describe('BodyClassManager', () => {
   let manager;
@@ -208,6 +211,53 @@ describe('BodyClassManager', () => {
       expect(document.body.classList.contains('fullscreen-active')).toBe(true);
       expect(document.body.classList.contains('cinematic-active')).toBe(true);
       expect(document.body.classList.contains('streaming-mode')).toBe(true);
+    });
+  });
+
+  describe('bindPresentationMode', () => {
+    let bus;
+    let cinematicEnabled;
+    let store;
+
+    beforeEach(() => {
+      bus = new SharedEventBus();
+      cinematicEnabled = signal(false);
+      store = new PresentationModeStore({ eventBus: bus, cinematicEnabled });
+      manager.bindPresentationMode(store);
+    });
+
+    it('toggles cinematic-active from the gated cinematic && streaming composite', () => {
+      cinematicEnabled.value = true;
+      bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
+      expect(document.body.classList.contains('cinematic-active')).toBe(true);
+
+      bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: false });
+      expect(document.body.classList.contains('cinematic-active')).toBe(false);
+    });
+
+    it('toggles fullscreen-active from the fullscreen signal', () => {
+      bus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: true });
+      expect(document.body.classList.contains('fullscreen-active')).toBe(true);
+    });
+
+    it('applies minimalist-fullscreen with the transition class, then clears the transition', () => {
+      bus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, true);
+      bus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: true });
+      bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
+
+      expect(document.body.classList.contains('minimalist-fullscreen')).toBe(true);
+      expect(document.body.classList.contains('minimalist-transition')).toBe(true);
+
+      vi.advanceTimersByTime(5000);
+      expect(document.body.classList.contains('minimalist-transition')).toBe(false);
+      expect(document.body.classList.contains('minimalist-fullscreen')).toBe(true);
+    });
+
+    it('tears down store subscriptions and bindings on dispose', () => {
+      manager.dispose();
+      cinematicEnabled.value = true;
+      bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
+      expect(document.body.classList.contains('cinematic-active')).toBe(false);
     });
   });
 });
