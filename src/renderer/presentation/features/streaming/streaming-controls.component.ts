@@ -1,5 +1,6 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindText } from '@prismgb/ui-base';
+import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 
 const STREAM_TRANSITION_DURATION = 1000;
 const STREAMING_HIDE_TIMEOUT = Symbol('streaming-controls-hide-timeout');
@@ -37,6 +38,7 @@ export interface StreamingControlsBodyClassManager {
 export interface StreamingControlsComponentOptions {
   elements: StreamingControlsElements;
   bodyClassManager?: StreamingControlsBodyClassManager | null;
+  store: StreamInfoStore;
 }
 
 export interface StreamInfoSettings {
@@ -48,13 +50,19 @@ export interface StreamInfoSettings {
 class StreamingControlsComponent extends PresentationComponent {
   declare elements: StreamingControlsElements | null;
   declare bodyClassManager: StreamingControlsBodyClassManager | null;
+  declare store: StreamInfoStore;
   declare _targetStreamingMode: boolean | null;
 
-  constructor({ elements, bodyClassManager }: StreamingControlsComponentOptions) {
+  constructor({ elements, bodyClassManager, store }: StreamingControlsComponentOptions) {
     super();
     this.elements = elements;
     this.bodyClassManager = bodyClassManager || null;
+    this.store = store;
     this._targetStreamingMode = null;
+
+    this.track(store);
+    this.track(bindText(elements.currentResolution ?? null, store.resolution));
+    this.track(bindText(elements.currentFPS ?? null, store.fps));
   }
 
   private _areAnimationsDisabled(): boolean {
@@ -98,8 +106,7 @@ class StreamingControlsComponent extends PresentationComponent {
         this.bodyClassManager?.setStreamingMode?.(false);
         if (elements.screenshotBtn) elements.screenshotBtn.disabled = true;
         if (elements.recordBtn) elements.recordBtn.disabled = true;
-        if (elements.currentResolution) elements.currentResolution.textContent = '—';
-        if (elements.currentFPS) elements.currentFPS.textContent = '—';
+        this.store.reset();
       } else {
         elements.screenshotBtn?.classList.add(CSSClasses.HIDING);
         elements.recordBtn?.classList.add(CSSClasses.HIDING);
@@ -129,16 +136,7 @@ class StreamingControlsComponent extends PresentationComponent {
     this.bodyClassManager?.setStreamingMode?.(false);
     if (elements.screenshotBtn) elements.screenshotBtn.disabled = true;
     if (elements.recordBtn) elements.recordBtn.disabled = true;
-    if (elements.currentResolution) elements.currentResolution.textContent = '—';
-    if (elements.currentFPS) elements.currentFPS.textContent = '—';
-  }
-
-  updateStreamInfo(settings: StreamInfoSettings | null | undefined): void {
-    const elements = this.elements!;
-    if (settings) {
-      if (elements.currentResolution) elements.currentResolution.textContent = `${settings.width}x${settings.height}`;
-      if (elements.currentFPS) elements.currentFPS.textContent = `${settings.frameRate} fps`;
-    }
+    this.store.reset();
   }
 
   override dispose(): void | Promise<void> {

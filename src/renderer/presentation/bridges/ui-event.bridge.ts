@@ -48,7 +48,6 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
-    [EventChannels.UI.STREAM_INFO, (bridge, data) => bridge._handleStreamInfo(data)],
     [EventChannels.UI.SHUTTER_FLASH, (bridge) => bridge._handleShutterFlash()],
     [EventChannels.UI.RECORD_BUTTON_POP, (bridge) => bridge._handleRecordButtonPop()],
     [EventChannels.UI.RECORD_BUTTON_PRESS, (bridge) => bridge._handleRecordButtonPress()],
@@ -88,13 +87,6 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleStreamingMode(enabled);
   }
 
-  private _handleStreamInfo(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { settings?: unknown }
-      : {};
-    const { settings } = payload;
-    this.uiController.updateStreamInfo(settings);
-  }
 
   private _handleShutterFlash(): void {
     this.uiController.triggerShutterFlash();

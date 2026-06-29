@@ -17,7 +17,6 @@ import {
   type RendererUiComponentCatalog,
   type RendererUiComponentDependencies
 } from '@renderer/presentation/controller/ui-component.catalog.js';
-import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
 
 interface UIEffectsLike {
   triggerShutterFlash(): void;
@@ -44,27 +43,6 @@ type UIControllerBodyClassManager = NonNullable<
 export type UIControllerElements = DomBindingsFlat;
 
 
-
-function toStreamInfoSettings(settings: unknown): StreamInfoSettings | null {
-  if (typeof settings !== 'object' || settings === null) {
-    return null;
-  }
-
-  const candidate = settings as Partial<StreamInfoSettings>;
-  if (
-    typeof candidate.width === 'number' &&
-    typeof candidate.height === 'number' &&
-    typeof candidate.frameRate === 'number'
-  ) {
-    return {
-      width: candidate.width,
-      height: candidate.height,
-      frameRate: candidate.frameRate
-    };
-  }
-
-  return null;
-}
 
 export interface UIControllerDependencies {
   uiComponentRegistry?: UIComponentRegistry<RendererUiComponentCatalog> | null;
@@ -158,25 +136,6 @@ class UIController {
     }
   }
 
-  updateStreamInfo(settings: unknown): void {
-    const streamControls = this.registry?.get('streamControlsComponent');
-    if (!streamControls) {
-      return;
-    }
-
-    if (settings === undefined || settings === null) {
-      streamControls.updateStreamInfo(null);
-      return;
-    }
-
-    const streamInfo = toStreamInfoSettings(settings);
-    if (!streamInfo) {
-      this.logger?.warn('Ignoring invalid stream info payload');
-      return;
-    }
-
-    streamControls.updateStreamInfo(streamInfo);
-  }
 
   updateFullscreenButton(isFullscreen: boolean): void {
     if (this.elements.fullscreenBtn) {

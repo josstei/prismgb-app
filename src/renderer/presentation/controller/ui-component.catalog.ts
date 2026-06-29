@@ -11,6 +11,7 @@ import { StatusNotificationStore } from '@renderer/presentation/state/status-not
 import type { EventBusLike } from '@prismgb/core';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
+import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 import {
   UpdateSectionComponent,
@@ -54,7 +55,9 @@ export type DeviceStatusComponentDependencies = {
 export type StreamingControlsComponentDependencies = Pick<
   StreamingControlsComponentOptions,
   'bodyClassManager'
->;
+> & {
+  eventBus: EventBusLike;
+};
 
 export type SettingsMenuComponentDependencies =
   Omit<SettingsMenuComponentOptions, 'updateSectionComponent'> & {
@@ -183,10 +186,14 @@ const rendererUiComponentDefinitionInputsById = {
     }
   },
   streamControlsComponent: {
-    create: ({ elements = {}, dependencies = {} }) => new StreamingControlsComponent({
-      elements,
-      bodyClassManager: dependencies.bodyClassManager
-    })
+    create: ({ elements = {}, dependencies = {} }) => {
+      const eventBus = requireDependency('streamControlsComponent', dependencies, 'eventBus');
+      return new StreamingControlsComponent({
+        elements,
+        bodyClassManager: dependencies.bodyClassManager,
+        store: new StreamInfoStore({ eventBus })
+      });
+    }
   },
   transcodeToastComponent: {
     create: ({ elements = {} }) => new TranscodeToastComponent(elements)

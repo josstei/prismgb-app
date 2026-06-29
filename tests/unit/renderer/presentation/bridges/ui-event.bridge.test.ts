@@ -75,7 +75,6 @@ describe('UIEventBridge', () => {
 
       const expectedEvents = [
         EventChannels.UI.STREAMING_MODE,
-        EventChannels.UI.STREAM_INFO,
         EventChannels.UI.SHUTTER_FLASH,
         EventChannels.UI.RECORD_BUTTON_POP,
         EventChannels.UI.RECORD_BUTTON_PRESS,
@@ -119,12 +118,6 @@ describe('UIEventBridge', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid streaming mode payload');
     });
 
-    it('routes stream info updates', () => {
-      const settings = { width: 640, height: 480 };
-      subscribedHandlers[EventChannels.UI.STREAM_INFO]({ settings });
-
-      expect(mockUiController.updateStreamInfo).toHaveBeenCalledWith(settings);
-    });
 
     it('routes visual effects events', () => {
       subscribedHandlers[EventChannels.UI.SHUTTER_FLASH]();

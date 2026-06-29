@@ -205,16 +205,6 @@ describe('UIController', () => {
     });
   });
 
-  describe('updateStreamInfo', () => {
-    it('should delegate to StreamingControlsComponent', () => {
-      const settings = { width: 160, height: 144, frameRate: 60 };
-
-      controller.updateStreamInfo(settings);
-
-      expect(mockStreamControls.updateStreamInfo).toHaveBeenCalledWith(settings);
-    });
-  });
-
   describe('updateFullscreenButton', () => {
     it('should set title to Exit Fullscreen when fullscreen', () => {
       controller.updateFullscreenButton(true);

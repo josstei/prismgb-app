@@ -4,20 +4,27 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import { createStreamingControlsElementsMock, createUIBodyClassManagerMock } from '../../../../factories/index.js';
+import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
+import { createStreamingControlsElementsMock, createUIBodyClassManagerMock, createEventBus } from '../../../../factories/index.js';
+import { EventChannels } from '@prismgb/events';
 
 describe('StreamingControlsComponent', () => {
   let component;
   let mockElements;
   let mockBodyClassManager;
+  let mockEventBus;
+  let store;
 
   beforeEach(() => {
     mockBodyClassManager = createUIBodyClassManagerMock({ areAnimationsOff: vi.fn(() => false) });
     mockElements = createStreamingControlsElementsMock();
+    mockEventBus = createEventBus();
+    store = new StreamInfoStore({ eventBus: mockEventBus });
 
     component = new StreamingControlsComponent({
       elements: mockElements,
-      bodyClassManager: mockBodyClassManager
+      bodyClassManager: mockBodyClassManager,
+      store
     });
   });
 
@@ -124,6 +131,13 @@ describe('StreamingControlsComponent', () => {
       mockElements.screenshotBtn.disabled = false;
       mockElements.recordBtn.disabled = false;
 
+      // Put some initial content in stream info to verify it gets reset
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
+        settings: { width: 160, height: 144, frameRate: 60 }
+      });
+      expect(mockElements.currentResolution.textContent).toBe('160x144');
+      expect(mockElements.currentFPS.textContent).toBe('60 fps');
+
       component.setStreamingMode(false);
 
       // Immediate effects: hiding animation classes added
@@ -144,30 +158,37 @@ describe('StreamingControlsComponent', () => {
     });
   });
 
-  describe('updateStreamInfo', () => {
+  describe('updateStreamInfo via event', () => {
     it('should update resolution and FPS', () => {
-      component.updateStreamInfo({ width: 160, height: 144, frameRate: 60 });
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
+        settings: { width: 160, height: 144, frameRate: 60 }
+      });
 
       expect(mockElements.currentResolution.textContent).toBe('160x144');
       expect(mockElements.currentFPS.textContent).toBe('60 fps');
     });
 
-    it('should handle null settings', () => {
-      mockElements.currentResolution.textContent = 'existing';
-      mockElements.currentFPS.textContent = 'existing';
+    it('should handle null settings by resetting', () => {
+      // Setup some initial state
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
+        settings: { width: 160, height: 144, frameRate: 60 }
+      });
 
-      component.updateStreamInfo(null);
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, { settings: null });
 
-      expect(mockElements.currentResolution.textContent).toBe('existing');
-      expect(mockElements.currentFPS.textContent).toBe('existing');
+      expect(mockElements.currentResolution.textContent).toBe('—');
+      expect(mockElements.currentFPS.textContent).toBe('—');
     });
 
-    it('should handle undefined settings', () => {
-      mockElements.currentResolution.textContent = 'existing';
+    it('should handle undefined settings by resetting', () => {
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
+        settings: { width: 160, height: 144, frameRate: 60 }
+      });
 
-      component.updateStreamInfo(undefined);
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, { settings: undefined });
 
-      expect(mockElements.currentResolution.textContent).toBe('existing');
+      expect(mockElements.currentResolution.textContent).toBe('—');
+      expect(mockElements.currentFPS.textContent).toBe('—');
     });
   });
 
@@ -192,6 +213,10 @@ describe('StreamingControlsComponent', () => {
     it('should disable streaming immediately without animation delay', () => {
       mockElements.screenshotBtn.disabled = false;
       mockElements.recordBtn.disabled = false;
+
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
+        settings: { width: 160, height: 144, frameRate: 60 }
+      });
 
       component.setStreamingMode(false);
 
