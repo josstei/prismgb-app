@@ -1,128 +1,46 @@
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindText, bindClass, bindStyleProperty } from '@prismgb/ui-base';
+import type { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store.js';
 
-const TRANSCODE_HIDE_TIMEOUT = Symbol('transcode-toast-hide-timeout');
-
-type ClassListLike = {
-  add(...tokens: string[]): void;
-  remove(...tokens: string[]): void;
+type ClassListSink = {
+  classList: {
+    toggle(token: string, force?: boolean): boolean | void;
+  };
 };
 
-type ProgressRingLike = {
+type StylePropertySink = {
   style: {
     setProperty(propertyName: string, value: string | null): void;
   };
 };
 
-type LabelLike = {
+type TextSink = {
   textContent: string | null;
 };
 
 export interface TranscodeToastElements {
-  recordBtn?: { classList: ClassListLike } | null;
-  transcodeRing?: ProgressRingLike | null;
-  transcodePercentLabel?: LabelLike | null;
+  recordBtn?: ClassListSink | null;
+  transcodeRing?: StylePropertySink | null;
+  transcodePercentLabel?: TextSink | null;
 }
 
+export interface TranscodeToastComponentOptions {
+  elements: TranscodeToastElements;
+  store: TranscodeProgressStore;
+}
+
+/** Reflects the transcode-progress store onto the record button via declarative bindings. */
 class TranscodeToastComponent extends PresentationComponent {
-  declare elements: TranscodeToastElements;
-  declare _isVisible: boolean;
-
-  constructor(elements: TranscodeToastElements) {
+  constructor({ elements, store }: TranscodeToastComponentOptions) {
     super();
-    this.elements = elements;
-    this._isVisible = false;
-  }
+    this.track(store);
 
-  show(): void {
-    if (!this.elements.recordBtn) return;
+    const recordBtn = elements.recordBtn ?? null;
+    this.track(bindClass(recordBtn, 'transcoding', store.transcoding));
+    this.track(bindClass(recordBtn, 'transcode-success', store.succeeded));
+    this.track(bindClass(recordBtn, 'transcode-error', store.failed));
 
-    this.cancelManaged(TRANSCODE_HIDE_TIMEOUT);
-
-    this.elements.recordBtn.classList.remove('transcode-success', 'transcode-error');
-    this.elements.recordBtn.classList.add('transcoding');
-
-    if (this.elements.transcodeRing) {
-      this.elements.transcodeRing.style.setProperty('--progress', '0');
-    }
-
-    if (this.elements.transcodePercentLabel) {
-      this.elements.transcodePercentLabel.textContent = '';
-    }
-
-    this._isVisible = true;
-  }
-
-  updateProgress(percent: number): void {
-    if (!this._isVisible) return;
-
-    if (percent <= 0) return;
-
-    const clampedPercent = Math.min(100, Math.max(0, Math.round(percent)));
-
-    if (this.elements.transcodeRing) {
-      this.elements.transcodeRing.style.setProperty('--progress', String(clampedPercent));
-    }
-
-    if (this.elements.transcodePercentLabel) {
-      this.elements.transcodePercentLabel.textContent = `${clampedPercent}%`;
-    }
-  }
-
-  showSuccess(): void {
-    if (!this.elements.recordBtn) return;
-
-    this.elements.recordBtn.classList.remove('transcoding');
-    this.elements.recordBtn.classList.add('transcode-success');
-
-    if (this.elements.transcodePercentLabel) {
-      this.elements.transcodePercentLabel.textContent = '\u2713';
-    }
-
-    this.replaceTimeout(TRANSCODE_HIDE_TIMEOUT, () => {
-      this.hide();
-    }, 1200);
-  }
-
-  showError(): void {
-    if (!this.elements.recordBtn) return;
-
-    if (this.elements.transcodePercentLabel) {
-      this.elements.transcodePercentLabel.textContent = '\u2717';
-    }
-
-    this.elements.recordBtn.classList.remove('transcoding');
-    this.elements.recordBtn.classList.add('transcode-error');
-
-    this.replaceTimeout(TRANSCODE_HIDE_TIMEOUT, () => {
-      this.hide();
-    }, 2000);
-  }
-
-  hide(): void {
-    if (!this.elements.recordBtn) return;
-
-    this.cancelManaged(TRANSCODE_HIDE_TIMEOUT);
-
-    this.elements.recordBtn.classList.remove('transcoding', 'transcode-success', 'transcode-error');
-
-    if (this.elements.transcodeRing) {
-      this.elements.transcodeRing.style.setProperty('--progress', '0');
-    }
-    if (this.elements.transcodePercentLabel) {
-      this.elements.transcodePercentLabel.textContent = '';
-    }
-
-    this._isVisible = false;
-  }
-
-  get isVisible(): boolean {
-    return this._isVisible;
-  }
-
-  override dispose(): void | Promise<void> {
-    const disposed = super.dispose();
-    this.hide();
-    return disposed;
+    this.track(bindStyleProperty(elements.transcodeRing ?? null, '--progress', store.progressVariable));
+    this.track(bindText(elements.transcodePercentLabel ?? null, store.label));
   }
 }
 

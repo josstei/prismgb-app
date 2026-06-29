@@ -13,6 +13,7 @@ import { DeviceStatusComponent } from '@renderer/presentation/shared/device-stat
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
+import { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store.js';
 import {
   UpdateSectionComponent,
   type UpdateSectionComponentOptions
@@ -41,8 +42,6 @@ import type {
   UIComponentStage
 } from '@renderer/presentation/controller/component.registry.js';
 
-type NoComponentDependencies = object;
-
 export type StatusNotificationComponentDependencies = {
   eventBus: EventBusLike;
 };
@@ -56,6 +55,10 @@ export type StreamingControlsComponentDependencies = Pick<
   StreamingControlsComponentOptions,
   'bodyClassManager'
 > & {
+  eventBus: EventBusLike;
+};
+
+export type TranscodeToastComponentDependencies = {
   eventBus: EventBusLike;
 };
 
@@ -84,7 +87,7 @@ export interface RendererUiComponentCatalog {
   >;
   transcodeToastComponent: UIComponentContract<
     RendererTemplateComponentElementSlices['transcodeToastComponent'],
-    NoComponentDependencies,
+    TranscodeToastComponentDependencies,
     TranscodeToastComponent
   >;
   settingsMenuComponent: UIComponentContract<
@@ -196,7 +199,13 @@ const rendererUiComponentDefinitionInputsById = {
     }
   },
   transcodeToastComponent: {
-    create: ({ elements = {} }) => new TranscodeToastComponent(elements)
+    create: ({ elements = {}, dependencies = {} }) =>
+      new TranscodeToastComponent({
+        elements,
+        store: new TranscodeProgressStore({
+          eventBus: requireDependency('transcodeToastComponent', dependencies, 'eventBus')
+        })
+      })
   },
   settingsMenuComponent: {
     create: ({ dependencies = {} }) => {

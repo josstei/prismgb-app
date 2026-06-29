@@ -14,6 +14,11 @@ interface AttrSink {
   setAttribute(name: string, value: string): void;
   removeAttribute(name: string): void;
 }
+interface StylePropertySink {
+  style: {
+    setProperty(propertyName: string, value: string | null): void;
+  };
+}
 
 const NOOP: DisposableFunction = () => {};
 
@@ -79,5 +84,17 @@ export function bindProperty<TElement extends object, TKey extends keyof TElemen
   if (!element) return NOOP;
   return effect(() => {
     element[key] = source.value;
+  });
+}
+
+/** Set a CSS custom property (or style property) from a string signal. */
+export function bindStyleProperty(
+  element: StylePropertySink | null,
+  propertyName: string,
+  source: ReadonlySignal<string>
+): DisposableFunction {
+  if (!element) return NOOP;
+  return effect(() => {
+    element.style.setProperty(propertyName, source.value);
   });
 }

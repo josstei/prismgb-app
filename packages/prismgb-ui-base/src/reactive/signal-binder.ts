@@ -1,6 +1,6 @@
 import type { DisposableFunction } from '@prismgb/core';
 import type { ReadonlySignal } from './signal.js';
-import { bindText, bindClass, bindVisible, bindAttr, bindProperty } from './dom-bindings.js';
+import { bindText, bindClass, bindVisible, bindAttr, bindProperty, bindStyleProperty } from './dom-bindings.js';
 
 type Tracker = (disposer: DisposableFunction) => unknown;
 
@@ -34,6 +34,11 @@ export class SignalBinder {
     source: ReadonlySignal<TElement[TKey]>
   ): this {
     this.track(bindProperty(element, key, source));
+    return this;
+  }
+
+  style(element: Parameters<typeof bindStyleProperty>[0], propertyName: string, source: ReadonlySignal<string>): this {
+    this.track(bindStyleProperty(element, propertyName, source));
     return this;
   }
 }

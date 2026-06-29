@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { signal } from '../../../src/reactive/signal.js';
-import { bindText, bindClass, bindVisible, bindAttr } from '../../../src/reactive/dom-bindings.js';
+import { bindText, bindClass, bindVisible, bindAttr, bindStyleProperty } from '../../../src/reactive/dom-bindings.js';
 
 describe('dom-bindings', () => {
   it('bindText updates textContent synchronously on signal write', () => {
@@ -37,6 +37,18 @@ describe('dom-bindings', () => {
     expect(el.getAttribute('data-k')).toBe('x');
     v.value = null;
     expect(el.hasAttribute('data-k')).toBe(false);
+  });
+
+  it('bindStyleProperty sets a CSS custom property and tears down', () => {
+    const el = document.createElement('div');
+    const progress = signal('0');
+    const dispose = bindStyleProperty(el, '--progress', progress);
+    expect(el.style.getPropertyValue('--progress')).toBe('0');
+    progress.value = '42';
+    expect(el.style.getPropertyValue('--progress')).toBe('42');
+    dispose();
+    progress.value = '100';
+    expect(el.style.getPropertyValue('--progress')).toBe('42');
   });
 
   it('null element is a no-op', () => {
