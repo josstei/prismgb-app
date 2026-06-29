@@ -9,8 +9,10 @@
     "packages/*"
   ],
   "scripts": {
+    "predev": "turbo run build",
     "dev": "node scripts/patch-mac-app-name.js && vite",
     "build": "npm run build:vite && electron-builder",
+    "prebuild:vite": "turbo run build",
     "build:vite": "npm run clean:build && vite build",
     "build:win": "npm run build:vite && electron-builder --win",
     "build:mac": "npm run build:vite && electron-builder --mac",
