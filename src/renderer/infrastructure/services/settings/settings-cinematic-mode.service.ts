@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Cinematic Mode Service
  *
@@ -20,10 +19,6 @@ type SettingsCinematicModeServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "cinematicModeService",
-  "disposal": "dispose"
-})
 class SettingsCinematicModeService extends BaseService {
   private readonly appState: CinematicModeAppStateLike;
   private readonly eventBus: EventBusLike;

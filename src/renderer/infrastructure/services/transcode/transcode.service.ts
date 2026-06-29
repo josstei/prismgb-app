@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
@@ -25,10 +24,6 @@ interface TranscodeServiceDependencies {
   loggerFactory: unknown;
 }
 
-@Service({
-  "token": "transcodeService",
-  "disposal": "dispose"
-})
 class TranscodeService extends BaseService {
   private readonly eventBus: TranscodeEventBus;
   private _isTranscoding: boolean;

@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -39,16 +38,6 @@ function resolveStreamFromPayload(data: unknown): MediaStream | null {
     : null;
 }
 
-@Service({
-  "token": "streamingAudioOrchestrator",
-  "dependencies": [
-    "streamingAudioPipelineService",
-    "streamViewService",
-    "appState",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
   private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
   private readonly streamViewService: StreamViewServiceLike;

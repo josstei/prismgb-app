@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * GPU Render Loop Service
  *
@@ -27,10 +26,6 @@ type VideoFrameCallbackTarget = HTMLVideoElement & {
 
 const GPU_RENDER_LOOP_LIFECYCLE = Symbol('gpuRenderLoop');
 
-@Service({
-  "token": "gpuRenderLoopService",
-  "disposal": "dispose"
-})
 class StreamingGpuRenderLoopService extends BaseService {
   private _videoElement: HTMLVideoElement | null;
   private _active: boolean;

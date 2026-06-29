@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
@@ -44,18 +43,6 @@ type DeferredComponentDependencies = {
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
-@Service({
-  "token": "uiSetupOrchestrator",
-  "dependencies": [
-    "appState",
-    "updateOrchestrator",
-    "settingsService",
-    "notesService",
-    "uiController",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class UISetupOrchestrator extends BaseOrchestrator {
   protected readonly eventBus: TypedEventBusLike;
   private readonly appState: AppStateLike;

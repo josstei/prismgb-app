@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike } from '@prismgb/core';
 
@@ -18,10 +17,6 @@ type AppStateDependencies = {
   eventBus?: EventBusLike;
 };
 
-@Service({
-  "token": "appState",
-  "disposal": "dispose"
-})
 class AppState {
   streamingService: StreamingServiceLike | undefined;
   deviceService: DeviceServiceLike | undefined;

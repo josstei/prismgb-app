@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { UpdateState } from '@prismgb/config';
 import type { UpdateStateValue } from '@prismgb/config';
@@ -37,14 +36,6 @@ type UpdateOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "updateOrchestrator",
-  "dependencies": [
-    "updateService",
-    "updateUiService",
-    "loggerFactory"
-  ]
-})
 class UpdateOrchestrator extends BaseOrchestrator {
   private readonly updateService: UpdateServiceLike;
   private readonly updateUiService: UpdateUiServiceLike;

@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
@@ -32,10 +31,6 @@ function getAllowedValues(definition: SettingDefinition): string[] {
   return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
 }
 
-@Service({
-  "token": "settingsService",
-  "disposal": "dispose"
-})
 class SettingsService extends BaseService {
   private readonly eventBus: SettingsEventBus;
   private readonly storageService: StorageServiceLike;

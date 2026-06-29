@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -29,24 +28,6 @@ type AppOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "appOrchestrator",
-  "dependencies": [
-    "deviceOrchestrator",
-    "streamingOrchestrator",
-    "streamingAudioOrchestrator",
-    "captureOrchestrator",
-    "preferencesOrchestrator",
-    "displayModeOrchestrator",
-    "updateOrchestrator",
-    "uiSetupOrchestrator",
-    "animationPerformanceOrchestrator",
-    "performanceMetricsOrchestrator",
-    "performanceStateOrchestrator",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class AppOrchestrator extends BaseOrchestrator {
   private readonly deviceOrchestrator: LifecycleOrchestrator;
   private readonly streamingOrchestrator: LifecycleOrchestrator;

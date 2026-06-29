@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
@@ -16,14 +15,6 @@ type SettingsPreferencesOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "preferencesOrchestrator",
-  "dependencies": [
-    "settingsService",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
   private readonly settingsService: SettingsServiceLike;
 

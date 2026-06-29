@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { getDefaultNativeResolution } from '@prismgb/devices';
@@ -76,10 +75,6 @@ type RenderPipelineDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "renderPipelineService",
-  "disposal": "dispose"
-})
 export class StreamingRenderPipelineService extends BaseService {
   private readonly appState: AppStateLike;
   private readonly streamViewService: StreamViewServiceLike;

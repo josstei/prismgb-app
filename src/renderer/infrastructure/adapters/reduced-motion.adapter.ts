@@ -1,10 +1,5 @@
-import { Service } from '@prismgb/core';
 type Cleanup = () => void;
 
-@Service({
-  "token": "reducedMotionAdapter",
-  "disposal": "dispose"
-})
 export class ReducedMotionAdapter {
   private _mediaQuery: MediaQueryList | null = null;
   private _cleanupFn: Cleanup | null = null;

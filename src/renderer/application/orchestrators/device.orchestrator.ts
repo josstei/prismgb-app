@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -32,16 +31,6 @@ type DeviceOrchestratorDependencies = {
 
 const DEVICE_IPC_EVENTS_LIFECYCLE = Symbol('deviceIpcEventsLifecycle');
 
-@Service({
-  "token": "deviceOrchestrator",
-  "dependencies": [
-    "deviceService",
-    "deviceIpcAdapter",
-    "deviceOperationSequencer",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class DeviceOrchestrator extends BaseOrchestrator {
   private readonly deviceService: DeviceServiceLike;
   private readonly deviceIpcAdapter: DeviceIpcAdapterLike;

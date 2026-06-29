@@ -249,9 +249,3 @@ export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js
 export { formatDeviceInfo } from './primitives/formatters.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { PerformanceCache, AnimationCache } from './primitives/performance-cache.utils.js';
-
-// -----------------------------------------------------------------------------
-// Dependency Injection Decorators
-// -----------------------------------------------------------------------------
-export { Service } from './di/decorators.js';
-export type { ServiceOptions } from './di/decorators.js';

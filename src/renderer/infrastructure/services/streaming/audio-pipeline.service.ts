@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Streaming Audio Pipeline Service
  *
@@ -51,10 +50,6 @@ type StreamingAudioPipelineDependencies = {
 const AUDIO_WARMUP_LIFECYCLE = Symbol('audioWarmup');
 const VOLUME_SUBSCRIPTION_LIFECYCLE = Symbol('audioVolumeSubscription');
 
-@Service({
-  "token": "streamingAudioPipelineService",
-  "disposal": "dispose"
-})
 export class StreamingAudioPipelineService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly settingsService: SettingsServiceLike;

@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
@@ -40,10 +39,6 @@ type CaptureSaveServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "captureSaveService",
-  "disposal": "dispose"
-})
 class CaptureSaveService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly settingsService: CaptureSettingsServiceLike;

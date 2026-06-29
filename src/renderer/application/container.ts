@@ -15,7 +15,7 @@ function unwrapOverride(value: unknown): unknown {
 
 /**
  * Build a renderer DI container wired onto the core {@link Container} primitive:
- * standard `@Service`-shaped classes, non-standard manual providers, then test
+ * standard-construction services, non-standard manual providers, then test
  * overrides. No code generation — the registration maps are the source of truth.
  */
 export function createRendererContainer(overrides: Record<string, unknown> = {}): RendererServiceContainer {

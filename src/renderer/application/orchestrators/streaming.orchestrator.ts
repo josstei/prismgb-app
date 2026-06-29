@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { LoggerLike } from '@prismgb/core';
@@ -81,19 +80,6 @@ function getStreamErrorMessage(payload: unknown): string {
   return getErrorMessage(payload, 'Stream error');
 }
 
-@Service({
-  "token": "streamingOrchestrator",
-  "dependencies": [
-    "streamingService",
-    "appState",
-    "streamViewService",
-    "renderPipelineService",
-    "gpuRecordingService",
-    "settingsService",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class StreamingOrchestrator extends BaseOrchestrator {
   private readonly streamingService: StreamingServiceLike;
   private readonly appState: AppStateLike;

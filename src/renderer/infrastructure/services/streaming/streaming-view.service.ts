@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Stream View Service
  *
@@ -24,10 +23,6 @@ type StreamingViewDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "streamViewService",
-  "disposal": "dispose"
-})
 class StreamingViewService extends BaseService {
   private readonly uiController: UiControllerLike;
 

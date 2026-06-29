@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -23,10 +22,6 @@ type TranscodeUIBridgeDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "transcodeUiBridge",
-  "disposal": "dispose"
-})
 class TranscodeUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.TRANSCODE.STARTED, (bridge, data) => bridge._handleStarted(data)],

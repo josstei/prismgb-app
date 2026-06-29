@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
@@ -69,10 +68,6 @@ type StreamingGpuRendererDependencies = {
 
 
 
-@Service({
-  "token": "gpuRendererService",
-  "disposal": "dispose"
-})
 export class StreamingGpuRendererService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly settingsService: SettingsServiceLike;

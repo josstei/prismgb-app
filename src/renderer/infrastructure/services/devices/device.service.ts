@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Device Service
  *
@@ -41,17 +40,6 @@ type DeviceServiceDependencies = {
   deviceMediaService: DeviceMediaServiceLike;
 };
 
-@Service({
-  "token": "deviceService",
-  "dependencies": [
-    "eventBus",
-    "loggerFactory",
-    "deviceConnectionService",
-    "deviceStorageService",
-    "deviceMediaService"
-  ],
-  "disposal": "dispose"
-})
 class DeviceService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly deviceConnectionService: DeviceConnectionServiceLike;

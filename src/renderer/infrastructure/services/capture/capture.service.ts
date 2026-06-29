@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import type { EventBusLike, LoggerLike } from '@prismgb/core';
 import { FilenameGenerator } from '@prismgb/core';
@@ -42,10 +41,6 @@ function getRecorderError(event: MediaRecorderErrorEvent): Error {
   return new Error('Recording failed');
 }
 
-@Service({
-  "token": "captureService",
-  "disposal": "dispose"
-})
 class CaptureService extends BaseService {
   protected readonly eventBus: EventBusLike;
   isRecording: boolean;

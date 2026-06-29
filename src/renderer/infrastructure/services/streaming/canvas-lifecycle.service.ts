@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { getDefaultNativeResolution } from '@prismgb/devices';
@@ -47,10 +46,6 @@ type CanvasLifecycleDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "canvasLifecycleService",
-  "disposal": "dispose"
-})
 class StreamingCanvasLifecycleService extends BaseService {
   private readonly streamViewService: StreamViewServiceLike;
   private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;

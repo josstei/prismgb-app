@@ -1,10 +1,5 @@
-import { Service } from '@prismgb/core';
 type Cleanup = () => void;
 
-@Service({
-  "token": "visibilityAdapter",
-  "disposal": "dispose"
-})
 export class VisibilityAdapter {
   private _handleVisibilityChange: (() => void) | null = null;
 

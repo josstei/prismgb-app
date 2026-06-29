@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { DeviceRegistry } from '@prismgb/devices';
 import type { LoggerFactoryLike, StorageServiceLike } from '@prismgb/core';
@@ -12,10 +11,6 @@ function getDeviceStorageKey(deviceType: string | null | undefined): string {
   return `${deviceType || 'device'}_id`;
 }
 
-@Service({
-  "token": "deviceStorageService",
-  "disposal": "dispose"
-})
 class DeviceStorageService extends BaseService {
   private readonly storageService: StorageServiceLike;
 

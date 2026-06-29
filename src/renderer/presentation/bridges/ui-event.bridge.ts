@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type {
@@ -47,10 +46,6 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
-@Service({
-  "token": "uiEventBridge",
-  "disposal": "dispose"
-})
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.UI.STATUS_MESSAGE, (bridge, data) => bridge._handleStatusMessage(data)],

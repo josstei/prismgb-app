@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
@@ -11,10 +10,6 @@ const APP_CSS_CLASSES = Object.freeze({
   ANIMATIONS_OFF: 'app-animations-off'
 });
 
-@Service({
-  "token": "bodyClassManager",
-  "disposal": "dispose"
-})
 export class BodyClassManager extends PresentationComponent {
   setIdle(isIdle: boolean) {
     document.body.classList.toggle(APP_CSS_CLASSES.IDLE, isIdle);

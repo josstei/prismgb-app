@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -8,10 +7,6 @@ type UpdateUiServiceDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "updateUiService",
-  "disposal": "dispose"
-})
 class UpdateUiService extends BaseService {
   private readonly eventBus: EventBusLike;
 

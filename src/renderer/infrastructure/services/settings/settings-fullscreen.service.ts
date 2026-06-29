@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
@@ -13,10 +12,6 @@ type SettingsFullscreenServiceDependencies = {
 const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
 const FULLSCREEN_NATIVE_LIFECYCLE = Symbol('settingsFullscreenNativeLifecycle');
 
-@Service({
-  "token": "fullscreenService",
-  "disposal": "dispose"
-})
 class SettingsFullscreenService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly _boundHandleFullscreenChange: () => void;

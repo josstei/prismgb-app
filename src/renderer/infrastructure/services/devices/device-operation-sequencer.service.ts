@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
@@ -19,10 +18,6 @@ type DeviceOperationSequencerDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "deviceOperationSequencer",
-  "disposal": "dispose"
-})
 export class DeviceOperationSequencerService extends BaseService {
   private readonly deviceService: DeviceOperationTargetService;
   private readonly eventBus: EventBusLike;

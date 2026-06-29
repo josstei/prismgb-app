@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Performance Metrics Orchestrator
  *
@@ -10,14 +9,6 @@ import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 
-@Service({
-  "token": "performanceMetricsOrchestrator",
-  "dependencies": [
-    "eventBus",
-    "loggerFactory",
-    "performanceMetricsService"
-  ]
-})
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
   private readonly performanceMetricsService: PerformanceMetricsService;
 

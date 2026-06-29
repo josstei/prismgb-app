@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Metrics Adapter
  *
@@ -9,9 +8,6 @@ import { Service } from '@prismgb/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { ProcessMetricsResponse } from '@prismgb/ipc';
 
-@Service({
-  "token": "metricsAdapter"
-})
 export class MetricsAdapter {
   isAvailable() {
     return true;

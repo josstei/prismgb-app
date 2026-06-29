@@ -1,13 +1,9 @@
-import { Service } from '@prismgb/core';
 import { SharedEventBus } from '@prismgb/events';
 import { EventChannels } from '@prismgb/events';
 
 type EventBusLoggerFactory = { create(name: string): { error(message: string, error: Error): void } };
 type EventBusDependencies = { loggerFactory?: EventBusLoggerFactory };
 
-@Service({
-  "token": "eventBus"
-})
 class EventBus extends SharedEventBus {
   constructor({ loggerFactory }: EventBusDependencies = {}) {
     super({

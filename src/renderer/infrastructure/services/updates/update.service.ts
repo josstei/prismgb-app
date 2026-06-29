@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
@@ -38,10 +37,6 @@ type UpdateStatusSnapshot = UpdateStatusPayload & {
   state: UpdateStateValue;
 };
 
-@Service({
-  "token": "updateService",
-  "disposal": "dispose"
-})
 class UpdateService extends BaseService {
   private readonly eventBus: UpdateEventBus;
   private _state: UpdateStateValue;

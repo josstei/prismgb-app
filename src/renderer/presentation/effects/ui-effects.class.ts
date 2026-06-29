@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
 import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
@@ -23,13 +22,6 @@ type UIEffectsDependencies = {
   bodyClassManager?: BodyClassManagerLike | null;
 };
 
-@Service({
-  "token": "uiEffects",
-  "dependencies": [
-    "bodyClassManager"
-  ],
-  "disposal": "dispose"
-})
 export class UIEffects extends PresentationComponent {
   elements: UIElements | null;
   _bodyClassManager: BodyClassManagerLike | null;

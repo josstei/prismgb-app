@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Viewport Service
  *
@@ -41,10 +40,6 @@ const RESIZE_OBSERVER_LIFECYCLE = Symbol('streamingViewportResizeObserver');
 const RESIZE_DEBOUNCE_LIFECYCLE = Symbol('streamingViewportResizeDebounce');
 const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
 
-@Service({
-  "token": "viewportService",
-  "disposal": "dispose"
-})
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
   private _resizeTimeout: unknown | null;

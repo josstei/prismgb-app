@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Device Media Service
  *
@@ -63,10 +62,6 @@ function stopStreamTracks(stream: MediaStream | null): void {
   }
 }
 
-@Service({
-  "token": "deviceMediaService",
-  "disposal": "dispose"
-})
 class DeviceMediaService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly browserMediaService: BrowserMediaServiceLike;

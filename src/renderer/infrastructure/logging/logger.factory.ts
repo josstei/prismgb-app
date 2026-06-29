@@ -1,13 +1,9 @@
-import { Service } from '@prismgb/core';
 import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
 
 /**
  * Renderer Logger
  * Lightweight console-backed logger for renderer process and tests.
  */
-@Service({
-  "token": "loggerFactory"
-})
 class RendererLogger implements LoggerFactoryLike {
   create(name = 'Log'): LoggerLike {
     const prefix = `[${name}]`;

@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Device Connection Service
  *
@@ -19,10 +18,6 @@ interface DeviceConnectionServiceDependencies {
   deviceStatusProvider: DeviceStatusProvider;
 }
 
-@Service({
-  "token": "deviceConnectionService",
-  "disposal": "dispose"
-})
 class DeviceConnectionService extends BaseService {
   protected readonly eventBus: EventBusLike;
   private readonly deviceStatusProvider: DeviceStatusProvider;

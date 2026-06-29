@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { UiButtonFeedbackPayload } from '@prismgb/events';
@@ -15,10 +14,6 @@ type CaptureUIBridgeDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "captureUiBridge",
-  "disposal": "dispose"
-})
 class CaptureUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, (bridge) => bridge._handleScreenshotTriggered()],

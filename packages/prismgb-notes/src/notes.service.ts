@@ -1,4 +1,4 @@
-import { Service, BaseService, generateEntityId } from '@prismgb/core';
+import { BaseService, generateEntityId } from '@prismgb/core';
 import type { ILoggerFactory as LoggerFactoryLike } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { IEventBus as EventBusLike } from '@prismgb/events';
@@ -29,10 +29,6 @@ type NotesServiceDependencies = {
   storageService: StorageServiceLike;
 };
 
-@Service({
-  "token": "notesService",
-  "disposal": "dispose"
-})
 class NotesService extends BaseService {
   private readonly eventBus: EventBusLike;
   private readonly storageService: StorageServiceLike;

@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Streaming Service
  *
@@ -96,10 +95,6 @@ function toSettingsPayload(
   );
 }
 
-@Service({
-  "token": "streamingService",
-  "disposal": "dispose"
-})
 export class StreamingService extends BaseService {
   private readonly deviceService: DeviceServiceLike;
   protected readonly eventBus: TypedEventBusLike;

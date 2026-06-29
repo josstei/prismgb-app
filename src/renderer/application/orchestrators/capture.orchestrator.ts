@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { LoggerLike } from '@prismgb/core';
@@ -79,21 +78,6 @@ type CaptureOrchestratorDependencies = {
   loggerFactory: LoggerFactoryLike;
 };
 
-@Service({
-  "token": "captureOrchestrator",
-  "dependencies": [
-    "captureService",
-    "appState",
-    "streamViewService",
-    "gpuRendererService",
-    "gpuRecordingService",
-    "canvasRenderLoopService",
-    "transcodeService",
-    "captureSaveService",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class CaptureOrchestrator extends BaseOrchestrator {
   private readonly captureService: CaptureServiceLike;
   private readonly appState: AppStateLike;

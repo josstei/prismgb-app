@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -29,16 +28,6 @@ type SettingsDisplayModeOrchestratorDependencies = {
 
 const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
 
-@Service({
-  "token": "displayModeOrchestrator",
-  "dependencies": [
-    "fullscreenService",
-    "cinematicModeService",
-    "settingsService",
-    "eventBus",
-    "loggerFactory"
-  ]
-})
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   private readonly fullscreenService: FullscreenServiceLike;
   private readonly cinematicModeService: CinematicModeServiceLike;

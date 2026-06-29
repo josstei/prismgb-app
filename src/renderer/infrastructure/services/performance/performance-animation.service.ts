@@ -1,4 +1,3 @@
-import { Service } from '@prismgb/core';
 /**
  * Animation Performance Service
  *
@@ -27,13 +26,6 @@ function isPerformanceStatePayload(value: unknown): value is PerformanceStatePay
   return typeof value === 'object' && value !== null;
 }
 
-@Service({
-  "token": "animationPerformanceService",
-  "dependencies": [
-    "loggerFactory"
-  ],
-  "disposal": "dispose"
-})
 class PerformanceAnimationService extends BaseService {
   private readonly _animationSuppression: AnimationSuppressionState;
   private _isHidden: boolean;

@@ -24,8 +24,8 @@ export type ManualProvider = (resolve: ResolveFn) => unknown;
 /**
  * Tokens whose construction is non-standard (global access, provider/adapter
  * maps, `initialize()` calls, derived named loggers, or config/positional
- * constructor args) and therefore cannot be expressed as a scanned `@Service`
- * class. Standard-construction classes use `@Service` instead.
+ * constructor args) and therefore cannot be expressed as a plain `new X(cradle)`.
+ * Standard-construction services are registered in `service-registrations.ts`.
  */
 export const manualProviders: Record<string, ManualProvider> = {
   storageService: () =>
