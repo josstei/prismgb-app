@@ -54,7 +54,7 @@ describe('AppState', () => {
     });
 
     it('should setup event subscriptions when eventBus provided', () => {
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(2);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -86,7 +86,7 @@ describe('AppState', () => {
 
   describe('setCinematicMode', () => {
     it('should enable cinematic mode', () => {
-      state.isCinematicModeEnabled = false;
+      state.setCinematicMode(false);
       state.setCinematicMode(true);
       expect(state.isCinematicModeEnabled).toBe(true);
     });
@@ -132,9 +132,10 @@ describe('AppState', () => {
   });
 
   describe('EventBus Subscriptions', () => {
-    it('should subscribe to stream events', () => {
+    it('should subscribe to stream and device events', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:status-changed', expect.any(Function));
     });
 
     it('should cache stream on stream:started', () => {
@@ -152,19 +153,19 @@ describe('AppState', () => {
     });
 
     it('should clear stream cache on stream:stopped', () => {
-      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
 
       subscribedHandlers['stream:stopped']();
 
-      expect(state._streamCache).toBeNull();
+      expect(state._streamCache.value).toBeNull();
     });
 
     it('should clear capabilities cache on stream:stopped', () => {
-      state._capabilitiesCache = createStreamCapabilitiesMock();
+      state._capabilitiesCache.value = createStreamCapabilitiesMock();
 
       subscribedHandlers['stream:stopped']();
 
-      expect(state._capabilitiesCache).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
       expect(state.currentCapabilities).toBeNull();
     });
 
@@ -182,13 +183,13 @@ describe('AppState', () => {
   describe('currentStream getter', () => {
     it('should return cached stream when cache is populated', () => {
       const mockStream = createStreamPayloadMock({ id: 'cached-stream' });
-      state._streamCache = mockStream;
+      state._streamCache.value = mockStream;
 
       expect(state.currentStream).toBe(mockStream);
     });
 
     it('should fallback to streamingService.getStream when cache is null', () => {
-      state._streamCache = null;
+      state._streamCache.value = null;
       const mockStream = createStreamPayloadMock({ id: 'service-stream' });
       mockStreamingService.getStream = vi.fn(() => mockStream);
 
@@ -197,14 +198,14 @@ describe('AppState', () => {
     });
 
     it('should return null when no cache and no service', () => {
-      state._streamCache = null;
+      state._streamCache.value = null;
       state.streamingService = null;
 
       expect(state.currentStream).toBeNull();
     });
 
     it('should return null when no cache and service has no getStream', () => {
-      state._streamCache = null;
+      state._streamCache.value = null;
       mockStreamingService.getStream = undefined;
 
       expect(state.currentStream).toBeNull();
@@ -213,7 +214,7 @@ describe('AppState', () => {
     it('should prefer cache over service getStream', () => {
       const cachedStream = createStreamPayloadMock({ id: 'cached-stream' });
       const serviceStream = createStreamPayloadMock({ id: 'service-stream' });
-      state._streamCache = cachedStream;
+      state._streamCache.value = cachedStream;
       mockStreamingService.getStream = vi.fn(() => serviceStream);
 
       expect(state.currentStream).toBe(cachedStream);
@@ -224,13 +225,13 @@ describe('AppState', () => {
   describe('currentCapabilities getter', () => {
     it('should return cached capabilities when cache is populated', () => {
       const mockCapabilities = createStreamCapabilitiesMock();
-      state._capabilitiesCache = mockCapabilities;
+      state._capabilitiesCache.value = mockCapabilities;
 
       expect(state.currentCapabilities).toBe(mockCapabilities);
     });
 
     it('should fallback to streamingService.currentCapabilities when cache is null', () => {
-      state._capabilitiesCache = null;
+      state._capabilitiesCache.value = null;
       const mockCapabilities = createStreamCapabilitiesMock();
       mockStreamingService.currentCapabilities = mockCapabilities;
 
@@ -238,14 +239,14 @@ describe('AppState', () => {
     });
 
     it('should return null when no cache and no service', () => {
-      state._capabilitiesCache = null;
+      state._capabilitiesCache.value = null;
       state.streamingService = null;
 
       expect(state.currentCapabilities).toBeNull();
     });
 
     it('should return null when no cache and service has no currentCapabilities', () => {
-      state._capabilitiesCache = null;
+      state._capabilitiesCache.value = null;
       mockStreamingService.currentCapabilities = undefined;
 
       expect(state.currentCapabilities).toBeNull();
@@ -254,7 +255,7 @@ describe('AppState', () => {
     it('should prefer cache over service currentCapabilities', () => {
       const cachedCapabilities = createStreamCapabilitiesMock();
       const serviceCapabilities = createStreamCapabilitiesMock({ frameRate: 30 });
-      state._capabilitiesCache = cachedCapabilities;
+      state._capabilitiesCache.value = cachedCapabilities;
       mockStreamingService.currentCapabilities = serviceCapabilities;
 
       expect(state.currentCapabilities).toBe(cachedCapabilities);
@@ -265,64 +266,60 @@ describe('AppState', () => {
     it('should unsubscribe from all event subscriptions', () => {
       const unsubscribe1 = vi.fn();
       const unsubscribe2 = vi.fn();
-      state._subscriptions = [unsubscribe1, unsubscribe2];
+      const unsubscribe3 = vi.fn();
+      let subCount = 0;
+      mockEventBus.subscribe = vi.fn(() => {
+        subCount++;
+        if (subCount === 1) return unsubscribe1;
+        if (subCount === 2) return unsubscribe2;
+        return unsubscribe3;
+      });
 
-      state.dispose();
+      // Re-create state so it registers with our mocked subscribe
+      const testState = new AppState({
+        streamingService: mockStreamingService,
+        deviceService: mockDeviceService,
+        eventBus: mockEventBus
+      });
+
+      testState.dispose();
 
       expect(unsubscribe1).toHaveBeenCalled();
       expect(unsubscribe2).toHaveBeenCalled();
-    });
-
-    it('should clear subscriptions array after unsubscribing', () => {
-      state._subscriptions = [vi.fn(), vi.fn()];
-
-      state.dispose();
-
-      expect(state._subscriptions).toEqual([]);
+      expect(unsubscribe3).toHaveBeenCalled();
     });
 
     it('should clear stream cache', () => {
-      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
 
       state.dispose();
 
-      expect(state._streamCache).toBeNull();
+      expect(state._streamCache.value).toBeNull();
     });
 
     it('should clear capabilities cache', () => {
-      state._capabilitiesCache = createStreamCapabilitiesMock();
+      state._capabilitiesCache.value = createStreamCapabilitiesMock();
 
       state.dispose();
 
-      expect(state._capabilitiesCache).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
     });
 
-    it('should handle null subscriptions gracefully', () => {
-      state._subscriptions = null;
+    it('should handle missing eventBus subscription dispose gracefully', () => {
+      const testState = new AppState({
+        streamingService: mockStreamingService,
+        deviceService: mockDeviceService
+      });
 
-      expect(() => state.dispose()).not.toThrow();
-    });
-
-    it('should handle undefined subscriptions gracefully', () => {
-      state._subscriptions = undefined;
-
-      expect(() => state.dispose()).not.toThrow();
-    });
-
-    it('should skip non-function subscription entries', () => {
-      state._subscriptions = [vi.fn(), null, undefined, 'not-a-function', vi.fn()];
-
-      expect(() => state.dispose()).not.toThrow();
-      expect(state._subscriptions).toEqual([]);
+      expect(() => testState.dispose()).not.toThrow();
     });
 
     it('should be idempotent - safe to call multiple times', () => {
       state.dispose();
       state.dispose();
 
-      expect(state._streamCache).toBeNull();
-      expect(state._capabilitiesCache).toBeNull();
-      expect(state._subscriptions).toEqual([]);
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
     });
   });
 
@@ -373,23 +370,23 @@ describe('AppState', () => {
       const mockStream = createStreamPayloadMock({ id: 'event-stream' });
       const mockCapabilities = createStreamCapabilitiesMock({ frameRate: 60 });
 
-      expect(state._streamCache).toBeNull();
-      expect(state._capabilitiesCache).toBeNull();
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
 
       subscribedHandlers['stream:started']({ stream: mockStream, capabilities: mockCapabilities });
 
-      expect(state._streamCache).toBe(mockStream);
-      expect(state._capabilitiesCache).toBe(mockCapabilities);
+      expect(state._streamCache.value).toBe(mockStream);
+      expect(state._capabilitiesCache.value).toBe(mockCapabilities);
     });
 
     it('should clear cache when stream:stopped event fires', () => {
-      state._streamCache = createStreamPayloadMock({ id: 'test-stream' });
-      state._capabilitiesCache = createStreamCapabilitiesMock({ frameRate: 60 });
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
+      state._capabilitiesCache.value = createStreamCapabilitiesMock({ frameRate: 60 });
 
       subscribedHandlers['stream:stopped']();
 
-      expect(state._streamCache).toBeNull();
-      expect(state._capabilitiesCache).toBeNull();
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
     });
 
     it('should reflect real-time service state changes', () => {
@@ -408,8 +405,8 @@ describe('AppState', () => {
 
       subscribedHandlers['stream:started']({ stream: mockStream });
 
-      expect(state._streamCache).toBe(mockStream);
-      expect(state._capabilitiesCache).toBeUndefined();
+      expect(state._streamCache.value).toBe(mockStream);
+      expect(state._capabilitiesCache.value).toBeNull();
     });
 
     it('should handle stream:started event without stream', () => {
@@ -417,8 +414,8 @@ describe('AppState', () => {
 
       subscribedHandlers['stream:started']({ capabilities: mockCapabilities });
 
-      expect(state._streamCache).toBeUndefined();
-      expect(state._capabilitiesCache).toBe(mockCapabilities);
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBe(mockCapabilities);
     });
   });
 });
