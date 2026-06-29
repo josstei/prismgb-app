@@ -5,8 +5,7 @@
  * escape key and click-outside handling.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
 
 export interface AnchoredLayoutSizeDefaults {
   minWidth: number;
@@ -193,7 +192,7 @@ class DisclosureController extends PresentationComponent {
   constructor({
     toggleElement,
     panelElement,
-    visibleClass = CSSClasses.VISIBLE,
+    visibleClass = 'visible',
     toggleOpenClass = null,
     ariaExpandedElement = null,
     closeOnEscape = true,

@@ -6,8 +6,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, ActivityAutoHideController } from '@prismgb/ui-base';
 
 type CursorAutoHideOptions = {
   onActivity?: () => void;

@@ -1,8 +1,8 @@
-import { PresentationComponent } from '@prismgb/ui-base';
 import {
+  PresentationComponent,
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
-} from '@renderer/presentation/primitives/disclosure.class.js';
+} from '@prismgb/ui-base';
 import type { LoggerLike } from '@prismgb/core';
 
 const RESIZE_DEBOUNCE_MS = 100;

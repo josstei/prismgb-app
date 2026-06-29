@@ -1,8 +1,8 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
-import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import {
   PresentationComponent,
+  DisclosureController,
+  ListboxDropdownController,
   type PresentationLifecycleToken
 } from '@prismgb/ui-base';
 import {

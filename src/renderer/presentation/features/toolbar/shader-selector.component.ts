@@ -1,6 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { DisclosureController } from '@renderer/presentation/primitives/disclosure.class.js';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, DisclosureController } from '@prismgb/ui-base';
 import { CinematicToggleComponent, type CinematicToggleAppState } from './cinematic-toggle.component.js';
 import {
   ShaderPresetListComponent,

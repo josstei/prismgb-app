@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
 
 type EventTargetLike = {
   addEventListener(

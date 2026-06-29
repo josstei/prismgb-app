@@ -4,7 +4,7 @@
  * Shared helpers for rendering and updating listbox-style option lists.
  */
 
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+
 
 export interface RenderListboxOptions<TOption> {
   container: Element | null | undefined;
@@ -41,7 +41,7 @@ function updateListboxActiveState<TElement extends HTMLElement = HTMLElement>({
   container,
   optionSelector,
   activeValue,
-  activeClass = CSSClasses.ACTIVE,
+  activeClass = 'active',
   getOptionValue = (option) => option.dataset.value,
   setAriaSelected = true
 }: UpdateListboxActiveStateOptions<TElement>): void {

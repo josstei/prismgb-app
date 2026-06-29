@@ -1,5 +1,4 @@
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
 import { DisclosureController } from './disclosure.class.js';
 import { updateListboxActiveState } from './listbox.utils.js';
 
@@ -58,7 +57,7 @@ class ListboxDropdownController extends PresentationComponent {
     menuElement,
     labelElement,
     optionSelector = '[role="option"]',
-    activeClass = CSSClasses.ACTIVE,
+    activeClass = 'active',
     ignoreOutsideSelectors = [],
     outsideEvent = 'click',
     closeOnEscape = true,
@@ -102,7 +101,7 @@ class ListboxDropdownController extends PresentationComponent {
     const disclosure = new DisclosureController({
       toggleElement: this.triggerElement,
       panelElement: this.menuElement,
-      visibleClass: CSSClasses.VISIBLE,
+      visibleClass: 'visible',
       outsideEvent: this.outsideEvent,
       closeOnEscape: this.closeOnEscape,
       closeOnClickOutside: this.closeOnClickOutside,

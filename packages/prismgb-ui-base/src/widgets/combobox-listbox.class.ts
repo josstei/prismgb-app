@@ -1,5 +1,4 @@
-import { CSSClasses } from '@renderer/presentation/config/css-classes.config.js';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
@@ -67,7 +66,7 @@ export class ComboboxListboxController<TOption = unknown> extends PresentationCo
       optionClassName = 'combobox-option',
       optionIdPrefix = 'combobox-option',
       highlightedClass = 'highlighted',
-      visibleClass = CSSClasses.VISIBLE,
+      visibleClass = 'visible',
       listboxAriaLabel = 'Suggestions',
       debounceMs = 100,
       blurDelayMs = 150,

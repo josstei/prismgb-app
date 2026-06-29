@@ -4,8 +4,7 @@ import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.e
 import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
 import { TIMING } from '@renderer/presentation/config/constants.config';
-import { ActivityAutoHideController } from '@renderer/presentation/primitives/activity-auto-hide.controller';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, ActivityAutoHideController } from '@prismgb/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type BodyClassManagerLike = {
