@@ -69,9 +69,9 @@ describe('coverage threshold parsing', () => {
       defaultMinimums: { lines: 0 },
       targets: [
         {
-          id: 'shared-node',
-          owner: 'platform/shared',
-          scope: ['src/shared', 'src/shared/**'],
+          id: 'example-node',
+          owner: 'platform/example',
+          scope: ['src/example', 'src/example/**'],
           minimums: { lines: 10 },
           expiresOn: '2026-12-31'
         },
@@ -88,8 +88,8 @@ describe('coverage threshold parsing', () => {
 
     const config = readCoverageThresholds(thresholdPath);
     expect(config.mode).toBe('enforce');
-    expect(config.targets.map((target) => target.id)).toEqual(['shared-node', 'renderer']);
-    expect(config.targets[0].scopes).toContain('src/shared');
+    expect(config.targets.map((target) => target.id)).toEqual(['example-node', 'renderer']);
+    expect(config.targets[0].scopes).toContain('src/example');
     expect(config.targets[1].owner).toBe('platform/ui');
     expect(config.targets[1].mode).toBe('report-only');
     expect(config.targets[1].minimums).toMatchObject({ lines: 8 });
@@ -100,7 +100,7 @@ describe('coverage threshold parsing', () => {
 describe('coverage threshold evaluation', () => {
   it('passes when all configured minimums are satisfied', () => {
     const summary = {
-      'src/shared/model.ts': {
+      'src/example/model.ts': {
         lines: { total: 20, covered: 18, skipped: 0, pct: 90 },
         statements: { total: 30, covered: 28, skipped: 0, pct: 93.333333 },
         functions: { total: 10, covered: 9, skipped: 0, pct: 90 },
@@ -120,9 +120,9 @@ describe('coverage threshold evaluation', () => {
       defaultMinimums: { lines: 0, statements: 0, functions: 0, branches: 0 },
       targets: [
         {
-          id: 'shared',
-          owner: 'platform/shared',
-          scope: 'src/shared',
+          id: 'example',
+          owner: 'platform/example',
+          scope: 'src/example',
           minimums: { lines: 80, statements: 80, functions: 80, branches: 80 },
           expiresOn: '2026-12-31'
         },
@@ -143,8 +143,8 @@ describe('coverage threshold evaluation', () => {
     expect(evaluation.passed).toBe(true);
     expect(evaluation.failures).toHaveLength(0);
     expect(evaluation.results).toHaveLength(2);
-    expect(evaluation.results.find((entry) => entry.target === 'shared')).toMatchObject({
-      target: 'shared',
+    expect(evaluation.results.find((entry) => entry.target === 'example')).toMatchObject({
+      target: 'example',
       fileCount: 1,
       passes: true
     });

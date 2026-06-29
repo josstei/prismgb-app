@@ -107,7 +107,7 @@ describe('typecheck-app', () => {
         defaultOwner: 'platform:type-safety',
         entries: [
           {
-            file: 'src/shared/example.ts',
+            file: 'src/example/sample.ts',
             code: 'TS7006',
             maxCount: 1,
             expiresOn: '2026-12-31'
@@ -127,27 +127,27 @@ describe('typecheck-app', () => {
 
     writeAllowlist(
       allowlistPath,
-      [{ file: 'src/shared/example.ts', code: 'TS7006', maxCount: 1 }],
+      [{ file: 'src/example/sample.ts', code: 'TS7006', maxCount: 1 }],
       '2026-12-31',
-      'platform:shared'
+      'platform:example'
     );
 
     const loaded = loadAllowlist(allowlistPath);
     expect(loaded.entries[0]).toMatchObject({
-      owner: 'platform:shared',
+      owner: 'platform:example',
       expiresOn: '2026-12-31'
     });
   });
 
   it('treats stale allowlist buckets as reducible debt that must fail the gate', () => {
     const findings = compareDiagnosticsToAllowlist(
-      new Map([['src/shared/example.ts::TS7006', 1]]),
+      new Map([['src/example/sample.ts::TS7006', 1]]),
       [
         {
-          file: 'src/shared/example.ts',
+          file: 'src/example/sample.ts',
           code: 'TS7006',
           maxCount: 2,
-          owner: 'platform:shared',
+          owner: 'platform:example',
           expiresOn: '2026-12-31'
         }
       ]
@@ -155,7 +155,7 @@ describe('typecheck-app', () => {
 
     expect(findings.stale).toEqual([
       {
-        file: 'src/shared/example.ts',
+        file: 'src/example/sample.ts',
         code: 'TS7006',
         maxCount: 2,
         actualCount: 1

@@ -130,4 +130,4 @@ flowchart LR
 - Services should be single-responsibility and own the actual work.
 - Managers/handlers are main-process only and interface with OS or device APIs.
 - Bridges are main-process IPC entry points to the renderer.
-- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
+- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.

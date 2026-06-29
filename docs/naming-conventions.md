@@ -37,7 +37,6 @@ This document captures the naming and organization conventions used throughout P
 - `src/main`: Electron main process.
 - `src/preload`: Context bridge APIs and IPC wiring.
 - `src/renderer`: Renderer process and UI.
-- `src/shared`: Process-agnostic utilities and config.
 - `src/renderer/application/di`: Renderer DI registration modules (`register-*.ts`).
 - `src/renderer/infrastructure/services/<domain>`: Renderer services grouped by domain (capture, devices, gpu, performance, settings, streaming, transcode, updates, platform).
 - `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config).
@@ -54,7 +53,7 @@ This document captures the naming and organization conventions used throughout P
   - Shared event contract: `packages/prismgb-events/src/event-channels.ts` (via `@prismgb/events`).
   - Main event channels: `src/main/infrastructure/event-channels.config.ts`.
   - IPC channels: `packages/prismgb-ipc/src/ipc.manifest.json`, consumed through `packages/prismgb-ipc/src/ipc.manifest.ts` (via `@prismgb/ipc`).
-- localStorage keys use camelCase values. Settings keys live in `src/shared/features/settings/settings.definitions.json`; shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`.
+- localStorage keys use camelCase values. Settings keys live in `src/renderer/lib/settings.definitions.json`; shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`.
 
 ## Imports and Aliases
 
@@ -63,7 +62,6 @@ This document captures the naming and organization conventions used throughout P
   - `@main` -> `src/main`
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
-  - `@shared` -> `src/shared`
   - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
 
 ## Core Primitive Conventions (`@prismgb/core`)

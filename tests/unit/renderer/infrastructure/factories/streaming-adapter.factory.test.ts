@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingAdapterFactory } from '@renderer/infrastructure/services/streaming/streaming-adapter.factory';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
-// Mock ConstraintBuilder and BaseStreamLifecycle (now in @shared)
+// Mock ConstraintBuilder and BaseStreamLifecycle
 vi.mock('@renderer/infrastructure/streaming/acquisition/constraint-builder.ts', () => {
   return {
     ConstraintBuilder: class MockConstraintBuilder {

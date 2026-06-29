@@ -20,14 +20,14 @@ This section is generated from architecture, device, and settings manifests. Kee
 | Device profiles | 1 |
 | Settings definitions | 10 |
 | Render passes | 4 |
-| Architecture aliases | 7 |
+| Architecture aliases | 6 |
 | Platform targets | 5 |
 <!-- CODEBASE_PHASE1_MANIFESTS:END -->
 
 <!-- CODEBASE_FEATURE_MAP:START -->
 | Manifest surface | Generated facts |
 | --- | --- |
-| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@shared`, `@prismgb/gpu`, `url`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `shared`, `preload`; retired: `@core` |
+| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@prismgb/gpu`, `url`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
 | Devices | Mod Retro Chromatic (`0x374e:0x0101`, 160x144, fixture `Chromatic`) |
 | Settings UI | `launchOnLogin` -> `settingLaunchOnLogin`, `statusStripVisible` -> `settingStatusStrip`, `fullscreenOnStartup` -> `settingFullscreenOnStartup`, `autoStreamOnConnect` -> `settingAutoStreamOnConnect`, `minimalistFullscreen` -> `settingMinimalistFullscreen`, `performanceMode` -> `settingAnimationSaver`, `recordingFormat` -> `settingRecordingFormat` |
 | Startup preferences | `gameVolume`, `statusStripVisible`, `performanceMode`, `minimalistFullscreen` |
@@ -63,7 +63,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 
 ## Data and Storage
 
-Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/shared/features/settings/settings.definitions.json`, shared protected and notes keys live in `src/shared/config/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 
@@ -88,7 +88,7 @@ Screenshots will not be added to this repository.
 
 ### Add a New Setting
 
-1. Add the setting definition, storage key, default, type, and event in `src/shared/features/settings/settings.definitions.json`.
+1. Add the setting definition, storage key, default, type, and event in `src/renderer/lib/settings.definitions.json`.
 2. Update UI wiring in `src/renderer/presentation/features/settings`.
 
 ## Architecture Guardrails

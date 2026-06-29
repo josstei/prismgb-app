@@ -204,6 +204,6 @@ flowchart LR
 - Device selection is explicitly shown as a sub-step in `StreamingService` to make filtering and ordering visible during reviews.
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
-- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
+- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.
 - Shared timing constants live in `packages/prismgb-config/src/timing.config.ts` (imported via `@prismgb/config`); infrastructure code should not pull timing values from presentation config.
 - `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.
