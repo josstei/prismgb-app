@@ -2,7 +2,16 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@prismgb/events';
 import { UpdateState } from '@prismgb/config';
 import type { UpdateStateValue } from '@prismgb/config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import {
+  PresentationComponent,
+  bindText,
+  bindClass,
+  bindProperty,
+  bindStyleProperty,
+  computed,
+  effect
+} from '@prismgb/ui-base';
+import { signal } from '@prismgb/ui-base/reactive';
 
 type Unsubscribe = () => void;
 
@@ -43,6 +52,54 @@ function isUpdateStatus(status: unknown): status is UpdateStatus {
 
   const state = (status as { state?: unknown }).state;
   return typeof state === 'string' && updateStateValues.has(state);
+}
+
+const INDICATOR_CLASS_BY_STATE: Partial<Record<UpdateStateValue, string>> = {
+  [UpdateState.CHECKING]: CSSClasses.UPDATE_CHECKING,
+  [UpdateState.AVAILABLE]: CSSClasses.AVAILABLE,
+  [UpdateState.DOWNLOADING]: CSSClasses.UPDATE_DOWNLOADING,
+  [UpdateState.DOWNLOADED]: CSSClasses.UPDATE_DOWNLOADED,
+  [UpdateState.ERROR]: CSSClasses.UPDATE_ERROR
+};
+
+const ALL_INDICATOR_CLASSES = [
+  CSSClasses.UPDATE_CHECKING,
+  CSSClasses.AVAILABLE,
+  CSSClasses.UPDATE_DOWNLOADING,
+  CSSClasses.UPDATE_DOWNLOADED,
+  CSSClasses.UPDATE_ERROR
+];
+
+function statusTextFor(state: UpdateStateValue, version: string): string {
+  switch (state) {
+    case UpdateState.CHECKING:
+      return 'Checking for updates...';
+    case UpdateState.AVAILABLE:
+      return `v${version} available`;
+    case UpdateState.DOWNLOADING:
+      return 'Downloading...';
+    case UpdateState.DOWNLOADED:
+      return `v${version} ready to install`;
+    case UpdateState.ERROR:
+      return 'Update failed';
+    default:
+      return 'Up to date';
+  }
+}
+
+function actionLabelFor(state: UpdateStateValue): string {
+  switch (state) {
+    case UpdateState.CHECKING:
+      return 'Checking...';
+    case UpdateState.AVAILABLE:
+      return 'Download Update';
+    case UpdateState.DOWNLOADING:
+      return 'Downloading...';
+    case UpdateState.DOWNLOADED:
+      return 'Install & Restart';
+    default:
+      return 'Check for Updates';
+  }
 }
 
 type UpdateOrchestratorLike = {
@@ -100,12 +157,23 @@ export interface UpdateSectionComponentOptions {
   loggerFactory?: LoggerFactoryLike | null;
 }
 
+/**
+ * Renders the update section declaratively: the indicator/status/action/progress/badge UI is
+ * bound to the update-state, version, progress, and badge signals, fed by the UPDATE.* channels.
+ * Only the action-button click flow remains imperative.
+ */
 class UpdateSectionComponent extends PresentationComponent {
   private readonly updateOrchestrator: UpdateOrchestratorLike;
   private readonly eventBus: EventBusLike;
   private readonly logger: LoggerLike;
   private _initialized: boolean;
   elements: CachedUpdateSectionElements;
+
+  private readonly _state = signal<UpdateStateValue>(UpdateState.IDLE);
+  private readonly _version = signal('');
+  private readonly _progressPercent = signal(0);
+  private readonly _badgeVisible = signal(false);
+  private readonly _actionInProgress = signal(false);
 
   constructor({ updateOrchestrator, eventBus, loggerFactory }: UpdateSectionComponentOptions) {
     super();
@@ -125,6 +193,7 @@ class UpdateSectionComponent extends PresentationComponent {
     }
 
     this._cacheElements(elements);
+    this._bindUI();
     this._bindEvents();
     this._subscribeToEvents();
     this._loadInitialState();
@@ -147,6 +216,60 @@ class UpdateSectionComponent extends PresentationComponent {
     this.elements.badge = elements.badge || null;
   }
 
+  private _bindUI(): void {
+    const elements = this.elements;
+    const isUpdateReady = computed(
+      () => this._state.value === UpdateState.AVAILABLE || this._state.value === UpdateState.DOWNLOADED
+    );
+
+    this.track(effect(() => {
+      const indicator = elements.statusIndicator;
+      if (!indicator) return;
+      ALL_INDICATOR_CLASSES.forEach((className) => indicator.classList.remove(className));
+      const className = INDICATOR_CLASS_BY_STATE[this._state.value];
+      if (className) indicator.classList.add(className);
+    }));
+
+    this.track(bindText(elements.statusText, computed(() => statusTextFor(this._state.value, this._version.value))));
+    this.track(bindClass(elements.statusText, CSSClasses.HIGHLIGHT, isUpdateReady));
+    this.track(effect(() => {
+      const state = this._state.value;
+      const element = elements.statusText;
+      if (element && (state === UpdateState.IDLE || state === UpdateState.NOT_AVAILABLE)) {
+        element.classList.add(CSSClasses.FLASH_SUCCESS);
+        this.timeout(() => element.classList.remove(CSSClasses.FLASH_SUCCESS), 1500);
+      }
+    }));
+
+    this.track(bindText(elements.actionBtn, computed(() => actionLabelFor(this._state.value))));
+    this.track(bindProperty(
+      elements.actionBtn,
+      'disabled',
+      computed(() =>
+        this._actionInProgress.value ||
+        this._state.value === UpdateState.CHECKING ||
+        this._state.value === UpdateState.DOWNLOADING
+      )
+    ));
+    this.track(bindClass(
+      elements.actionBtn,
+      CSSClasses.BTN_INSTALL,
+      computed(() => this._state.value === UpdateState.DOWNLOADED)
+    ));
+
+    this.track(bindClass(elements.section, CSSClasses.UPDATE_AVAILABLE, isUpdateReady));
+
+    this.track(bindClass(
+      elements.progressContainer,
+      CSSClasses.HIDDEN,
+      computed(() => this._state.value !== UpdateState.DOWNLOADING)
+    ));
+    this.track(bindStyleProperty(elements.progressFill, 'width', computed(() => `${this._progressPercent.value}%`)));
+    this.track(bindText(elements.progressText, computed(() => `${Math.round(this._progressPercent.value)}%`)));
+
+    this.track(bindClass(elements.badge, CSSClasses.HIDDEN, computed(() => !this._badgeVisible.value)));
+  }
+
   private _bindEvents(): void {
     if (this.elements.actionBtn) {
       this.listen(this.elements.actionBtn, 'click', () => {
@@ -159,199 +282,45 @@ class UpdateSectionComponent extends PresentationComponent {
     this.trackSubscription(
       this.eventBus.subscribe(
         EventChannels.UPDATE.STATE_CHANGED,
-        (status) => this._updateUI(isUpdateStatus(status) ? status : null)
+        (status) => this._applyStatus(status)
       )
     );
 
     this.trackSubscription(
       this.eventBus.subscribe(
         EventChannels.UPDATE.PROGRESS,
-        (progress) => this._updateProgress(progress as UpdateProgress | null | undefined)
+        (progress) => {
+          const payload = progress as UpdateProgress | null | undefined;
+          if (payload) this._progressPercent.value = payload.percent || 0;
+        }
       )
     );
 
     this.trackSubscription(
-      this.eventBus.subscribe(
-        EventChannels.UPDATE.BADGE_SHOW,
-        () => this._showBadge()
-      )
+      this.eventBus.subscribe(EventChannels.UPDATE.BADGE_SHOW, () => {
+        this._badgeVisible.value = true;
+      })
     );
 
     this.trackSubscription(
-      this.eventBus.subscribe(
-        EventChannels.UPDATE.BADGE_HIDE,
-        () => this._hideBadge()
-      )
+      this.eventBus.subscribe(EventChannels.UPDATE.BADGE_HIDE, () => {
+        this._badgeVisible.value = false;
+      })
     );
+  }
+
+  private _applyStatus(status: unknown): void {
+    if (!isUpdateStatus(status)) return;
+    this._state.value = status.state;
+    this._version.value = status.updateInfo?.version ?? '';
   }
 
   private _loadInitialState(): void {
     const status = this.updateOrchestrator.getStatus();
-    this._updateUI(status);
+    this._applyStatus(status);
 
     if (status.state === UpdateState.AVAILABLE || status.state === UpdateState.DOWNLOADED) {
-      this._showBadge();
-    }
-  }
-
-  _updateUI(status: UpdateStatus | null | undefined): void {
-    if (!status) return;
-
-    const { state, updateInfo } = status;
-
-    this._updateStatusIndicator(state);
-    this._updateStatusText(state, updateInfo);
-    this._updateActionButton(state);
-    this._updateSectionStyle(state);
-    this._updateProgressVisibility(state);
-  }
-
-  private _updateStatusIndicator(state: UpdateStateValue): void {
-    const indicator = this.elements.statusIndicator;
-    if (!indicator) return;
-
-    indicator.classList.remove(
-      CSSClasses.UPDATE_CHECKING,
-      CSSClasses.UPDATE_DOWNLOADING,
-      CSSClasses.UPDATE_DOWNLOADED,
-      CSSClasses.UPDATE_ERROR,
-      CSSClasses.AVAILABLE
-    );
-
-    switch (state) {
-      case UpdateState.CHECKING:
-        indicator.classList.add(CSSClasses.UPDATE_CHECKING);
-        break;
-      case UpdateState.AVAILABLE:
-        indicator.classList.add(CSSClasses.AVAILABLE);
-        break;
-      case UpdateState.DOWNLOADING:
-        indicator.classList.add(CSSClasses.UPDATE_DOWNLOADING);
-        break;
-      case UpdateState.DOWNLOADED:
-        indicator.classList.add(CSSClasses.UPDATE_DOWNLOADED);
-        break;
-      case UpdateState.ERROR:
-        indicator.classList.add(CSSClasses.UPDATE_ERROR);
-        break;
-    }
-  }
-
-  private _updateStatusText(state: UpdateStateValue, updateInfo?: UpdateInfo | null): void {
-    const textEl = this.elements.statusText;
-    if (!textEl) return;
-
-    textEl.classList.remove(CSSClasses.HIGHLIGHT);
-
-    switch (state) {
-      case UpdateState.IDLE:
-      case UpdateState.NOT_AVAILABLE:
-        textEl.textContent = 'Up to date';
-        textEl.classList.add(CSSClasses.FLASH_SUCCESS);
-        this._scheduleTimeout(() => textEl.classList.remove(CSSClasses.FLASH_SUCCESS), 1500);
-        break;
-      case UpdateState.CHECKING:
-        textEl.textContent = 'Checking for updates...';
-        break;
-      case UpdateState.AVAILABLE:
-        textEl.textContent = `v${updateInfo?.version} available`;
-        textEl.classList.add(CSSClasses.HIGHLIGHT);
-        break;
-      case UpdateState.DOWNLOADING:
-        textEl.textContent = 'Downloading...';
-        break;
-      case UpdateState.DOWNLOADED:
-        textEl.textContent = `v${updateInfo?.version} ready to install`;
-        textEl.classList.add(CSSClasses.HIGHLIGHT);
-        break;
-      case UpdateState.ERROR:
-        textEl.textContent = 'Update failed';
-        break;
-      default:
-        textEl.textContent = 'Up to date';
-    }
-  }
-
-  _scheduleTimeout(callback: () => void, delay: number): void {
-    this.timeout(callback, delay);
-  }
-
-  private _updateActionButton(state: UpdateStateValue): void {
-    const btn = this.elements.actionBtn;
-    if (!btn) return;
-
-    btn.disabled = false;
-    btn.classList.remove(CSSClasses.BTN_INSTALL);
-
-    switch (state) {
-      case UpdateState.IDLE:
-      case UpdateState.NOT_AVAILABLE:
-      case UpdateState.ERROR:
-        btn.textContent = 'Check for Updates';
-        break;
-      case UpdateState.CHECKING:
-        btn.textContent = 'Checking...';
-        btn.disabled = true;
-        break;
-      case UpdateState.AVAILABLE:
-        btn.textContent = 'Download Update';
-        break;
-      case UpdateState.DOWNLOADING:
-        btn.textContent = 'Downloading...';
-        btn.disabled = true;
-        break;
-      case UpdateState.DOWNLOADED:
-        btn.textContent = 'Install & Restart';
-        btn.classList.add(CSSClasses.BTN_INSTALL);
-        break;
-    }
-  }
-
-  private _updateSectionStyle(state: UpdateStateValue): void {
-    const section = this.elements.section;
-    if (!section) return;
-
-    if (state === UpdateState.AVAILABLE || state === UpdateState.DOWNLOADED) {
-      section.classList.add(CSSClasses.UPDATE_AVAILABLE);
-    } else {
-      section.classList.remove(CSSClasses.UPDATE_AVAILABLE);
-    }
-  }
-
-  private _updateProgressVisibility(state: UpdateStateValue): void {
-    const container = this.elements.progressContainer;
-    if (!container) return;
-
-    if (state === UpdateState.DOWNLOADING) {
-      container.classList.remove(CSSClasses.HIDDEN);
-    } else {
-      container.classList.add(CSSClasses.HIDDEN);
-    }
-  }
-
-  _updateProgress(progress: UpdateProgress | null | undefined): void {
-    if (!progress) return;
-
-    const percent = progress.percent || 0;
-
-    if (this.elements.progressFill) {
-      this.elements.progressFill.style.width = `${percent}%`;
-    }
-
-    if (this.elements.progressText) {
-      this.elements.progressText.textContent = `${Math.round(percent)}%`;
-    }
-  }
-
-  _showBadge(): void {
-    if (this.elements.badge) {
-      this.elements.badge.classList.remove(CSSClasses.HIDDEN);
-    }
-  }
-
-  _hideBadge(): void {
-    if (this.elements.badge) {
-      this.elements.badge.classList.add(CSSClasses.HIDDEN);
+      this._badgeVisible.value = true;
     }
   }
 
@@ -359,7 +328,7 @@ class UpdateSectionComponent extends PresentationComponent {
     const btn = this.elements.actionBtn;
     if (!btn || btn.disabled) return;
 
-    btn.disabled = true;
+    this._actionInProgress.value = true;
 
     try {
       const status = this.updateOrchestrator.getStatus();
@@ -384,7 +353,8 @@ class UpdateSectionComponent extends PresentationComponent {
         type: 'error'
       });
     } finally {
-      this._updateActionButton(this.updateOrchestrator.getStatus().state);
+      this._actionInProgress.value = false;
+      this._applyStatus(this.updateOrchestrator.getStatus());
     }
   }
 
