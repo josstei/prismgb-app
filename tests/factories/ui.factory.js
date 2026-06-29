@@ -509,13 +509,6 @@ export function createUIController(options = {}) {
       elements.overlayMessage.dataset.type = type;
     }),
 
-    /**
-     * Update status message
-     */
-    updateStatusMessage: vi.fn((message, type = 'info') => {
-      elements.statusMessage.textContent = message;
-      elements.statusMessage.dataset.type = type;
-    }),
 
     /**
      * Show error overlay
@@ -713,7 +706,6 @@ export function createUIEventBridgeControllerMock(overrides = {}) {
   const { deviceStatus, ...componentOverrides } = overrides;
 
   return {
-    updateStatusMessage: vi.fn(),
     updateDeviceStatus: vi.fn(),
     updateOverlayMessage: vi.fn(),
     showErrorOverlay: vi.fn(),

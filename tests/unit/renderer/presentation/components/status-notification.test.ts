@@ -1,74 +1,28 @@
-/**
- * StatusNotificationComponent Unit Tests
- */
-
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import { createStatusNotificationElementsMock } from '../../../../factories/index.js';
+import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
+import { SharedEventBus, EventChannels } from '@prismgb/events';
 
-describe('StatusNotificationComponent', () => {
-  let component;
-  let mockElements;
+describe('StatusNotificationComponent (signal bindings)', () => {
+  let el: HTMLElement;
+  let bus: SharedEventBus;
+  let store: StatusNotificationStore;
 
   beforeEach(() => {
-    vi.useFakeTimers();
-
-    mockElements = createStatusNotificationElementsMock();
-
-    component = new StatusNotificationComponent(mockElements);
+    el = document.createElement('div');
+    bus = new SharedEventBus();
+    store = new StatusNotificationStore({ eventBus: bus });
+    new StatusNotificationComponent({ elements: { statusMessage: el as any }, store });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  it('renders message + type from a published event', () => {
+    bus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Saved', type: 'success' });
+    expect(el.textContent).toBe('Saved');
+    expect(el.dataset.type).toBe('success');
   });
 
-  describe('Constructor', () => {
-    it('should store elements reference', () => {
-      expect(component.elements).toBe(mockElements);
-    });
-
-    it('should initialize valid status types', () => {
-      expect(component.validTypes).toContain('info');
-      expect(component.validTypes).toContain('success');
-      expect(component.validTypes).toContain('warning');
-      expect(component.validTypes).toContain('error');
-    });
-  });
-
-  describe('show', () => {
-    it('should set message text', () => {
-      component.show('Test message', 'info');
-      expect(mockElements.statusMessage.textContent).toBe('Test message');
-    });
-
-    it('should set info type via data attribute', () => {
-      component.show('Test', 'info');
-      expect(mockElements.statusMessage.dataset.type).toBe('info');
-    });
-
-    it('should set success type via data attribute', () => {
-      component.show('Test', 'success');
-      expect(mockElements.statusMessage.dataset.type).toBe('success');
-    });
-
-    it('should set warning type via data attribute', () => {
-      component.show('Test', 'warning');
-      expect(mockElements.statusMessage.dataset.type).toBe('warning');
-    });
-
-    it('should set error type via data attribute', () => {
-      component.show('Test', 'error');
-      expect(mockElements.statusMessage.dataset.type).toBe('error');
-    });
-
-    it('should default to info type', () => {
-      component.show('Test');
-      expect(mockElements.statusMessage.dataset.type).toBe('info');
-    });
-
-    it('should use info type for unknown types', () => {
-      component.show('Test', 'unknown');
-      expect(mockElements.statusMessage.dataset.type).toBe('info');
-    });
+  it('falls back to info for unknown type', () => {
+    bus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'X', type: 'nope' });
+    expect(el.dataset.type).toBe('info');
   });
 });

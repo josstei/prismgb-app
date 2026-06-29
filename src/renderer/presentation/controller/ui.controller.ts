@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike, EventBusLike } from '@prismgb/core';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 import {
   createDomBindings,
@@ -78,22 +78,25 @@ export interface UIControllerDependencies {
   uiEffects?: UIEffectsLike | null;
   loggerFactory?: LoggerFactoryLike | null;
   bodyClassManager?: UIControllerBodyClassManager | null;
+  eventBus?: EventBusLike | null;
 }
 
 class UIController {
   declare registry: UIComponentRegistry<RendererUiComponentCatalog> | null | undefined;
   declare effects: UIEffectsLike | null | undefined;
   declare bodyClassManager: UIControllerBodyClassManager | null | undefined;
+  declare eventBus: EventBusLike | null | undefined;
   declare logger: LoggerLike | null;
   declare elements: UIControllerElements;
   declare dom: DomBindings;
 
   constructor(dependencies: UIControllerDependencies = {}) {
-    const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager } = dependencies;
+    const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager, eventBus } = dependencies;
 
     this.registry = uiComponentRegistry;
     this.effects = uiEffects;
     this.bodyClassManager = bodyClassManager;
+    this.eventBus = eventBus;
     this.logger = loggerFactory?.create('UIController') || null;
     this.elements = this.initializeElements();
   }
@@ -111,7 +114,7 @@ class UIController {
 
     this.registry.initialize(
       createTemplateCoreComponentRegistryElements(this.dom),
-      { bodyClassManager: this.bodyClassManager }
+      { bodyClassManager: this.bodyClassManager, eventBus: this.eventBus as any }
     );
   }
 
@@ -137,10 +140,6 @@ class UIController {
 
   toggleNotesPanel(): void {
     this.registry?.get('notesPanelComponent')?.toggle();
-  }
-
-  updateStatusMessage(message: string, type = 'info'): void {
-    this.registry?.get('statusNotificationComponent')?.show(message, type);
   }
 
   updateDeviceStatus(status: unknown): void {

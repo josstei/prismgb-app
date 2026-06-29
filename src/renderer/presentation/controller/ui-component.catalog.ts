@@ -7,6 +7,8 @@ import {
   type ShaderSelectorComponentOptions
 } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
+import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
+import type { EventBusLike } from '@prismgb/core';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 import {
@@ -39,6 +41,10 @@ import type {
 
 type NoComponentDependencies = object;
 
+export type StatusNotificationComponentDependencies = {
+  eventBus: EventBusLike;
+};
+
 export type StreamingControlsComponentDependencies = Pick<
   StreamingControlsComponentOptions,
   'bodyClassManager'
@@ -54,7 +60,7 @@ export type SettingsMenuComponentDependencies =
 export interface RendererUiComponentCatalog {
   statusNotificationComponent: UIComponentContract<
     RendererTemplateComponentElementSlices['statusNotificationComponent'],
-    NoComponentDependencies,
+    StatusNotificationComponentDependencies,
     StatusNotificationComponent
   >;
   deviceStatusComponent: UIComponentContract<
@@ -150,7 +156,12 @@ function getRendererUiComponentStage(id: RendererTemplateComponentId): UICompone
 
 const rendererUiComponentDefinitionInputsById = {
   statusNotificationComponent: {
-    create: ({ elements = {} }) => new StatusNotificationComponent(elements)
+    create: ({ elements = {}, dependencies = {} }) => new StatusNotificationComponent({
+      elements,
+      store: new StatusNotificationStore({
+        eventBus: requireDependency('statusNotificationComponent', dependencies, 'eventBus')
+      })
+    })
   },
   deviceStatusComponent: {
     create: ({ elements = {} }) => new DeviceStatusComponent(elements)

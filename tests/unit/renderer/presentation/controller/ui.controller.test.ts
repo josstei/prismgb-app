@@ -108,7 +108,8 @@ describe('UIController', () => {
       controller.initializeComponents();
 
       expect(mockRegistry.initialize).toHaveBeenCalledWith(expect.any(Object), {
-        bodyClassManager: mockBodyClassManager
+        bodyClassManager: mockBodyClassManager,
+        eventBus: undefined
       });
     });
   });
@@ -155,19 +156,6 @@ describe('UIController', () => {
     });
   });
 
-  describe('updateStatusMessage', () => {
-    it('should delegate to StatusNotificationComponent', () => {
-      controller.updateStatusMessage('Test message', 'success');
-
-      expect(mockStatusManager.show).toHaveBeenCalledWith('Test message', 'success');
-    });
-
-    it('should use info type by default', () => {
-      controller.updateStatusMessage('Test message');
-
-      expect(mockStatusManager.show).toHaveBeenCalledWith('Test message', 'info');
-    });
-  });
 
   describe('updateDeviceStatus', () => {
     it('should delegate to DeviceStatusComponent', () => {

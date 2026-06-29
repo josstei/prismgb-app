@@ -74,7 +74,6 @@ describe('UIEventBridge', () => {
       handler.initialize();
 
       const expectedEvents = [
-        EventChannels.UI.STATUS_MESSAGE,
         EventChannels.UI.DEVICE_STATUS,
         EventChannels.UI.OVERLAY_MESSAGE,
         EventChannels.UI.OVERLAY_VISIBLE,
@@ -110,17 +109,6 @@ describe('UIEventBridge', () => {
       handler.initialize();
     });
 
-    it('routes status messages to UIController', () => {
-      subscribedHandlers[EventChannels.UI.STATUS_MESSAGE]({ message: 'Test message', type: 'error' });
-
-      expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Test message', 'error');
-    });
-
-    it('defaults status message type to info', () => {
-      subscribedHandlers[EventChannels.UI.STATUS_MESSAGE]({ message: 'Test message' });
-
-      expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Test message', 'info');
-    });
 
     it('routes device status updates', () => {
       const status = { connected: true };
@@ -223,7 +211,9 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]({ enabled: true });
 
       expect(mockPresentationModeService.handleCinematicModeChanged).toHaveBeenCalledWith(true);
-      expect(mockUiController.updateStatusMessage).toHaveBeenCalledWith('Cinematic mode enabled');
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Cinematic mode enabled'
+      });
     });
 
     it('routes minimalist fullscreen changes to presentation service', () => {

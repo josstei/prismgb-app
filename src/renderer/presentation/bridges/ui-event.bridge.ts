@@ -7,7 +7,6 @@ import type {
 import type { LoggerFactoryLike } from '@prismgb/core';
 
 type UiControllerLike = {
-  updateStatusMessage(message: string, type?: string): void;
   updateDeviceStatus(status: unknown): void;
   updateOverlayMessage(deviceConnected?: boolean): void;
   showErrorOverlay(message: string): void;
@@ -48,7 +47,6 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
-    [EventChannels.UI.STATUS_MESSAGE, (bridge, data) => bridge._handleStatusMessage(data)],
     [EventChannels.UI.DEVICE_STATUS, (bridge, data) => bridge._handleDeviceStatus(data)],
     [EventChannels.UI.OVERLAY_MESSAGE, (bridge, data) => bridge._handleOverlayMessage(data)],
     [EventChannels.UI.OVERLAY_VISIBLE, (bridge, data) => bridge._handleOverlayVisible(data)],
@@ -83,15 +81,6 @@ export class UIEventBridge extends BaseService {
   initialize(): void {
     this.listenToDescriptors(UIEventBridge.eventDescriptors);
     this.logger.info('UIEventBridge initialized');
-  }
-
-  private _handleStatusMessage(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { message?: string; type?: string }
-      : {};
-    const message = typeof payload.message === 'string' ? payload.message : '';
-    const type = payload.type ?? 'info';
-    this.uiController.updateStatusMessage(message, type);
   }
 
   private _handleDeviceStatus(data: unknown): void {
@@ -196,7 +185,9 @@ export class UIEventBridge extends BaseService {
       return;
     }
     this.presentationModeService.handleCinematicModeChanged(enabled);
-    this.uiController.updateStatusMessage(`Cinematic mode ${enabled ? 'enabled' : 'disabled'}`);
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+      message: `Cinematic mode ${enabled ? 'enabled' : 'disabled'}`
+    });
   }
 
   private _handleMinimalistFullscreenChanged(enabled: unknown): void {
