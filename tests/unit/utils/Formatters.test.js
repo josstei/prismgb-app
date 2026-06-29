@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatDeviceInfo } from '@prismgb/core';
+import { formatDeviceInfo } from '@prismgb/devices';
 
 describe('Formatters', () => {
   describe('formatDeviceInfo', () => {

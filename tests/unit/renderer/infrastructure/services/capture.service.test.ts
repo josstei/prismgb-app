@@ -21,7 +21,7 @@ import {
   installMediaRecorderMock
 } from '../../../../support/mocks/browser-api.installers.js';
 
-import { FilenameGenerator } from '@prismgb/core';
+import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 
 describe('CaptureService', () => {
   let service;

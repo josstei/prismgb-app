@@ -114,31 +114,6 @@ export function formatErrorLabel(error: unknown): string {
 }
 
 /**
- * Filename generation helpers for capture outputs.
- */
-export class FilenameGenerator {
-  static timestamp(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const millis = String(now.getMilliseconds()).padStart(3, '0');
-    return `${year}${month}${day}-${hours}${minutes}${seconds}-${millis}`;
-  }
-
-  static forScreenshot(): string {
-    return `prismgb-screenshot-${this.timestamp()}.png`;
-  }
-
-  static forRecording(): string {
-    return `prismgb-recording-${this.timestamp()}.webm`;
-  }
-}
-
-/**
  * standard disposable interface for cleaning up resources.
  */
 export interface IDisposable {
@@ -246,6 +221,5 @@ export type { Disposable, DisposableFunction, DisposableKey } from './primitives
 export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
-export { formatDeviceInfo } from './primitives/formatters.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { PerformanceCache, AnimationCache } from './primitives/performance-cache.utils.js';

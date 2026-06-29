@@ -5,7 +5,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { formatDeviceInfo } from '@prismgb/core';
+import { formatDeviceInfo } from './device-info.formatter.js';
 import { forEachDeviceWithModule } from './device-iterator.utils.js';
 import { DeviceRegistry, type DeviceRegistryEntry } from './device.registry.js';
 import { MainEventChannels } from '@prismgb/events';

@@ -11,5 +11,7 @@ export type { DeviceStatusProvider, RendererDeviceStatus } from './device-status
 export { chromaticConfig, chromaticHelpers, mediaConfig } from './profiles/chromatic/device-chromatic.config.js';
 export { DeviceChromaticProfile } from './profiles/chromatic/device-chromatic.profile.js';
 export { DeviceDetectionHelper } from './device-detection.utils.js';
+export { formatDeviceInfo } from './device-info.formatter.js';
+export type { RawDeviceInfo, FormattedDeviceInfo } from './device-info.formatter.js';
 export { forEachDeviceWithModule } from './device-iterator.utils.js';
 export type { DeviceRegistryEntry } from './device.registry.js';

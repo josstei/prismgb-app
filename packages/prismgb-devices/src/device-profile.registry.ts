@@ -5,7 +5,7 @@
  * Acts as the single source of truth for all supported devices.
  */
 
-import { formatDeviceInfo } from '@prismgb/core';
+import { formatDeviceInfo } from './device-info.formatter.js';
 import type { DeviceProfile } from './device-profile.base.js';
 import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 

@@ -1,6 +1,6 @@
 import { BaseService } from '@prismgb/core';
 import type { EventBusLike, LoggerLike } from '@prismgb/core';
-import { FilenameGenerator } from '@prismgb/core';
+import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@prismgb/events';
 
 type MediaRecorderErrorEvent = Event & {
