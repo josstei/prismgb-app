@@ -24,8 +24,6 @@ type UiControllerLike = {
 
 type PresentationModeServiceLike = {
   handleStreamingMode(enabled: boolean): void;
-  handleCinematicModeChanged(enabled: boolean): void;
-  handleMinimalistFullscreenChanged(enabled: boolean): void;
   handleFullscreenState(active: boolean): void;
 };
 
@@ -56,8 +54,6 @@ export class UIEventBridge extends BaseService {
     [EventChannels.UI.RECORD_BUTTON_DISABLED, (bridge) => bridge._handleRecordButtonDisabled()],
     [EventChannels.UI.RECORD_BUTTON_ENABLED, (bridge) => bridge._handleRecordButtonEnabled()],
     [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (bridge, data) => bridge._handleCinematicMode(data)],
-    [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (bridge, enabled) =>
-      bridge._handleMinimalistFullscreenChanged(enabled)],
     [EventChannels.UI.FULLSCREEN_STATE, (bridge, data) => bridge._handleFullscreenState(data)]
   ] satisfies readonly ServiceEventDescriptor<UIEventBridge>[];
 
@@ -137,18 +133,9 @@ export class UIEventBridge extends BaseService {
       this.logger.warn('Ignoring invalid cinematic mode payload');
       return;
     }
-    this.presentationModeService.handleCinematicModeChanged(enabled);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
       message: `Cinematic mode ${enabled ? 'enabled' : 'disabled'}`
     });
-  }
-
-  private _handleMinimalistFullscreenChanged(enabled: unknown): void {
-    if (typeof enabled !== 'boolean') {
-      this.logger.warn('Ignoring invalid minimalist fullscreen payload');
-      return;
-    }
-    this.presentationModeService.handleMinimalistFullscreenChanged(enabled);
   }
 
   private _handleFullscreenState(data: unknown): void {

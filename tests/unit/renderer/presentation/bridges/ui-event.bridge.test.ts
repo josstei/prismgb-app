@@ -83,7 +83,6 @@ describe('UIEventBridge', () => {
         EventChannels.UI.RECORD_BUTTON_DISABLED,
         EventChannels.UI.RECORD_BUTTON_ENABLED,
         EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-        EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED,
         EventChannels.UI.FULLSCREEN_STATE
       ];
 
@@ -164,19 +163,12 @@ describe('UIEventBridge', () => {
       expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(false);
     });
 
-    it('routes cinematic mode changes to presentation service', () => {
+    it('publishes a status message on cinematic mode changes', () => {
       subscribedHandlers[EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]({ enabled: true });
 
-      expect(mockPresentationModeService.handleCinematicModeChanged).toHaveBeenCalledWith(true);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, {
         message: 'Cinematic mode enabled'
       });
-    });
-
-    it('routes minimalist fullscreen changes to presentation service', () => {
-      subscribedHandlers[EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED](true);
-
-      expect(mockPresentationModeService.handleMinimalistFullscreenChanged).toHaveBeenCalledWith(true);
     });
 
     it('routes fullscreen state changes to presentation service', () => {
