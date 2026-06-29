@@ -72,7 +72,7 @@ describe('ShaderSliderControlsComponent', () => {
     it('should initialize with default values', () => {
       expect(component.currentBrightness).toBe(1.0);
       expect(component.currentVolume).toBe(70);
-      expect(component._performanceModeEnabled).toBe(false);
+      expect(component._performanceModeEnabled.value).toBe(false);
     });
   });
 
@@ -308,9 +308,10 @@ describe('ShaderSliderControlsComponent', () => {
     });
 
     it('should show brightness control when performance mode disabled', () => {
-      brightnessControl.classList.add('hidden');
-      mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, false);
+      mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, true);
+      expect(brightnessControl.classList.contains('hidden')).toBe(true);
 
+      mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, false);
       expect(brightnessControl.classList.contains('hidden')).toBe(false);
     });
   });
@@ -408,7 +409,9 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(() => component._updateBrightnessControlVisibility()).not.toThrow();
+      expect(() => {
+        mockEventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, true);
+      }).not.toThrow();
     });
   });
 

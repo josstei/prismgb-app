@@ -1,5 +1,6 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent, bindText, bindClass, computed } from '@prismgb/ui-base';
+import { signal } from '@prismgb/ui-base/reactive';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils';
 import { EventChannels } from '@prismgb/events';
 import type { TypedEventBusLike } from '@prismgb/events';
@@ -38,7 +39,10 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   declare streamVideo: HTMLVideoElement | null | undefined;
   declare currentBrightness: number;
   declare currentVolume: number;
-  declare _performanceModeEnabled: boolean;
+
+  private readonly _brightnessPercent = signal(50);
+  private readonly _volumePercent = signal(70);
+  private readonly _performanceModeEnabled = signal(false);
 
   constructor({ settingsService, eventBus, logger }: ShaderSliderControlsComponentOptions) {
     super();
@@ -56,7 +60,6 @@ class ShaderSliderControlsComponent extends PresentationComponent {
 
     this.currentBrightness = 1.0;
     this.currentVolume = 70;
-    this._performanceModeEnabled = false;
   }
 
   initialize({
@@ -80,6 +83,7 @@ class ShaderSliderControlsComponent extends PresentationComponent {
       return;
     }
 
+    this._bindDisplays();
     this._loadCurrentBrightness();
     this._loadCurrentVolume();
     this._loadPerformanceModeState();
@@ -88,6 +92,12 @@ class ShaderSliderControlsComponent extends PresentationComponent {
     this._subscribeToEvents();
 
     this.logger?.debug('Shader slider controls initialized');
+  }
+
+  _bindDisplays(): void {
+    this.track(bindText(this.brightnessPercentage ?? null, computed(() => `${this._brightnessPercent.value}%`)));
+    this.track(bindText(this.volumePercentage ?? null, computed(() => `${this._volumePercent.value}%`)));
+    this.track(bindClass(this.brightnessControl ?? null, CSSClasses.HIDDEN, this._performanceModeEnabled));
   }
 
   _loadCurrentBrightness(): void {
@@ -108,18 +118,7 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   }
 
   _loadPerformanceModeState(): void {
-    this._performanceModeEnabled = this.settingsService.getBooleanSetting('performanceMode');
-    this._updateBrightnessControlVisibility();
-  }
-
-  _updateBrightnessControlVisibility(): void {
-    if (!this.brightnessControl) return;
-
-    if (this._performanceModeEnabled) {
-      this.brightnessControl.classList.add(CSSClasses.HIDDEN);
-    } else {
-      this.brightnessControl.classList.remove(CSSClasses.HIDDEN);
-    }
+    this._performanceModeEnabled.value = this.settingsService.getBooleanSetting('performanceMode');
   }
 
   _setupBrightnessSlider(): void {
@@ -175,8 +174,7 @@ class ShaderSliderControlsComponent extends PresentationComponent {
     this.trackSubscription(this.eventBus.subscribe(
       EventChannels.PERFORMANCE.RENDER_MODE_CHANGED,
       (enabled) => {
-        this._performanceModeEnabled = enabled;
-        this._updateBrightnessControlVisibility();
+        this._performanceModeEnabled.value = enabled;
       }
     ));
   }
@@ -198,19 +196,11 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   }
 
   _updateBrightnessDisplay(): void {
-    if (!this.brightnessPercentage) return;
-
     const sliderValue = this.brightnessSlider ? parseInt(this.brightnessSlider.value, 10) : 50;
-    this.brightnessPercentage.textContent = `${sliderValue}%`;
+    this._brightnessPercent.value = sliderValue;
 
     if (this.brightnessSlider) {
-      const normalizedValue = sliderValue / 100;
-      const thumbSize = 21;
-      const thumbRadius = thumbSize / 2;
-      const trackHeight = this.brightnessSlider.offsetHeight || 120;
-      const travelDistance = trackHeight - thumbSize;
-      const thumbCenter = thumbRadius + normalizedValue * travelDistance;
-      this.brightnessSlider.style.setProperty('--fill-percent', `${thumbCenter}px`);
+      this.brightnessSlider.style.setProperty('--fill-percent', this._fillPosition(sliderValue, this.brightnessSlider));
     }
   }
 
@@ -230,20 +220,22 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   }
 
   _updateVolumeDisplay(): void {
-    if (!this.volumePercentage) return;
-
     const sliderValue = this.volumeSlider ? parseInt(this.volumeSlider.value, 10) : 70;
-    this.volumePercentage.textContent = `${sliderValue}%`;
+    this._volumePercent.value = sliderValue;
 
     if (this.volumeSlider) {
-      const normalizedValue = sliderValue / 100;
-      const thumbSize = 21;
-      const thumbRadius = thumbSize / 2;
-      const trackHeight = this.volumeSlider.offsetHeight || 120;
-      const travelDistance = trackHeight - thumbSize;
-      const thumbCenter = thumbRadius + normalizedValue * travelDistance;
-      this.volumeSlider.style.setProperty('--fill-percent', `${thumbCenter}px`);
+      this.volumeSlider.style.setProperty('--fill-percent', this._fillPosition(sliderValue, this.volumeSlider));
     }
+  }
+
+  _fillPosition(sliderValue: number, slider: HTMLInputElement): string {
+    const normalizedValue = sliderValue / 100;
+    const thumbSize = 21;
+    const thumbRadius = thumbSize / 2;
+    const trackHeight = slider.offsetHeight || 120;
+    const travelDistance = trackHeight - thumbSize;
+    const thumbCenter = thumbRadius + normalizedValue * travelDistance;
+    return `${thumbCenter}px`;
   }
 
   _applyVolumeToVideo(): void {
