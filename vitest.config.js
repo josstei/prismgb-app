@@ -23,7 +23,9 @@ const sharedAlias = {
   '@prismgb/transcode/service': path.resolve(__dirname, 'packages/prismgb-transcode/src/service.ts'),
   '@prismgb/transcode': path.resolve(__dirname, 'packages/prismgb-transcode/src/index.ts'),
   '@prismgb/updates': path.resolve(__dirname, 'packages/prismgb-updates/src/index.ts'),
-  '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts')
+  '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts'),
+  '@prismgb/ui-base/reactive': path.resolve(__dirname, 'packages/prismgb-ui-base/src/reactive/index.ts'),
+  '@prismgb/ui-base': path.resolve(__dirname, 'packages/prismgb-ui-base/src/index.ts')
 };
 
 const baseCoverageConfig = {
@@ -181,6 +183,15 @@ export default defineConfig({
           globals: true,
           environment: 'node',
           include: ['packages/prismgb-core/tests/unit/**/*.{test,spec}.ts']
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'ui-base-package',
+          globals: true,
+          environment: 'happy-dom',
+          include: ['packages/prismgb-ui-base/tests/unit/**/*.{test,spec}.ts']
         }
       }
     ]

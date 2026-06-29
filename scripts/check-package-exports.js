@@ -20,7 +20,8 @@ const PACKAGE_NAMES = [
   'ipc',
   'notes',
   'transcode',
-  'updates'
+  'updates',
+  'ui-base'
 ];
 
 const EXPORT_CONDITIONS = ['import', 'types'];

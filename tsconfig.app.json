@@ -69,6 +69,15 @@
       ],
       "@prismgb/notes/*": [
         "./packages/prismgb-notes/src/*"
+      ],
+      "@prismgb/ui-base": [
+        "./packages/prismgb-ui-base/src"
+      ],
+      "@prismgb/ui-base/reactive": [
+        "./packages/prismgb-ui-base/src/reactive/index"
+      ],
+      "@prismgb/ui-base/*": [
+        "./packages/prismgb-ui-base/src/*"
       ]
     },
     "strict": true,
