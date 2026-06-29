@@ -234,6 +234,7 @@ export type { Validator as IValidator } from './interfaces/validator.js';
 export { Bus } from './primitives/bus.js';
 export { Cache } from './primitives/cache.js';
 export { Container } from './primitives/container.js';
+export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
 export { Factory } from './primitives/factory.js';
 export { Logger } from './primitives/logger.js';
 export { Pipeline } from './primitives/pipeline.js';
