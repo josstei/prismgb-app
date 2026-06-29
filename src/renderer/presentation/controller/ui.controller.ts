@@ -18,7 +18,6 @@ import {
   type RendererUiComponentDependencies
 } from '@renderer/presentation/controller/ui-component.catalog.js';
 import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import type { DeviceStatusPayloadLike } from '@renderer/presentation/shared/device-status.component.js';
 
 interface UIEffectsLike {
   triggerShutterFlash(): void;
@@ -44,13 +43,7 @@ type UIControllerBodyClassManager = NonNullable<
 
 export type UIControllerElements = DomBindingsFlat;
 
-function isDeviceStatusPayloadLike(status: unknown): status is DeviceStatusPayloadLike {
-  if (typeof status !== 'object' || status === null) {
-    return false;
-  }
 
-  return typeof (status as { connected?: unknown }).connected === 'boolean';
-}
 
 function toStreamInfoSettings(settings: unknown): StreamInfoSettings | null {
   if (typeof settings !== 'object' || settings === null) {
@@ -79,6 +72,7 @@ export interface UIControllerDependencies {
   loggerFactory?: LoggerFactoryLike | null;
   bodyClassManager?: UIControllerBodyClassManager | null;
   eventBus?: EventBusLike | null;
+  appState?: any | null;
 }
 
 class UIController {
@@ -86,17 +80,19 @@ class UIController {
   declare effects: UIEffectsLike | null | undefined;
   declare bodyClassManager: UIControllerBodyClassManager | null | undefined;
   declare eventBus: EventBusLike | null | undefined;
+  declare appState: any | null | undefined;
   declare logger: LoggerLike | null;
   declare elements: UIControllerElements;
   declare dom: DomBindings;
 
   constructor(dependencies: UIControllerDependencies = {}) {
-    const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager, eventBus } = dependencies;
+    const { uiComponentRegistry, uiEffects, loggerFactory, bodyClassManager, eventBus, appState } = dependencies;
 
     this.registry = uiComponentRegistry;
     this.effects = uiEffects;
     this.bodyClassManager = bodyClassManager;
     this.eventBus = eventBus;
+    this.appState = appState;
     this.logger = loggerFactory?.create('UIController') || null;
     this.elements = this.initializeElements();
   }
@@ -114,7 +110,11 @@ class UIController {
 
     this.registry.initialize(
       createTemplateCoreComponentRegistryElements(this.dom),
-      { bodyClassManager: this.bodyClassManager, eventBus: this.eventBus as any }
+      {
+        bodyClassManager: this.bodyClassManager,
+        eventBus: this.eventBus as any,
+        appState: this.appState
+      }
     );
   }
 
@@ -140,19 +140,6 @@ class UIController {
 
   toggleNotesPanel(): void {
     this.registry?.get('notesPanelComponent')?.toggle();
-  }
-
-  updateDeviceStatus(status: unknown): void {
-    if (!isDeviceStatusPayloadLike(status)) {
-      this.logger?.warn('Ignoring invalid device status payload');
-      return;
-    }
-
-    this.registry?.get('deviceStatusComponent')?.updateStatus(status);
-  }
-
-  updateOverlayMessage(deviceConnected: boolean): void {
-    this.registry?.get('deviceStatusComponent')?.updateOverlayMessage(deviceConnected);
   }
 
   get deviceStatus() {
@@ -189,10 +176,6 @@ class UIController {
     }
 
     streamControls.updateStreamInfo(streamInfo);
-  }
-
-  showErrorOverlay(message: string): void {
-    this.registry?.get('deviceStatusComponent')?.showError(message);
   }
 
   updateFullscreenButton(isFullscreen: boolean): void {

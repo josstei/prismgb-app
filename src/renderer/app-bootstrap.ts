@@ -126,13 +126,15 @@ class RendererBootstrap {
     const bodyClassManager = container.resolve<BodyClassManager>('bodyClassManager');
     const loggerFactory = container.resolve<LoggerFactoryLike>('loggerFactory');
     const eventBus = container.resolve<EventBusLike>('eventBus');
+    const appState = container.resolve<any>('appState');
 
     const uiController = new UIController({
       uiComponentRegistry,
       uiEffects,
       bodyClassManager,
       loggerFactory,
-      eventBus
+      eventBus,
+      appState
     });
 
     uiEffects.setElements(uiController.elements);

@@ -74,10 +74,6 @@ describe('UIEventBridge', () => {
       handler.initialize();
 
       const expectedEvents = [
-        EventChannels.UI.DEVICE_STATUS,
-        EventChannels.UI.OVERLAY_MESSAGE,
-        EventChannels.UI.OVERLAY_VISIBLE,
-        EventChannels.UI.OVERLAY_ERROR,
         EventChannels.UI.STREAMING_MODE,
         EventChannels.UI.STREAM_INFO,
         EventChannels.UI.SHUTTER_FLASH,
@@ -109,38 +105,6 @@ describe('UIEventBridge', () => {
       handler.initialize();
     });
 
-
-    it('routes device status updates', () => {
-      const status = { connected: true };
-      subscribedHandlers[EventChannels.UI.DEVICE_STATUS]({ status });
-
-      expect(mockUiController.updateDeviceStatus).toHaveBeenCalledWith(status);
-    });
-
-    it('routes overlay message updates', () => {
-      subscribedHandlers[EventChannels.UI.OVERLAY_MESSAGE]({ deviceConnected: true });
-
-      expect(mockUiController.updateOverlayMessage).toHaveBeenCalledWith(true);
-    });
-
-    it('routes overlay visibility updates', () => {
-      subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
-
-      expect(mockUiController.deviceStatus.setOverlayVisible).toHaveBeenCalledWith(true);
-    });
-
-    it('ignores invalid overlay visibility payloads', () => {
-      subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: 'true' });
-
-      expect(mockUiController.deviceStatus.setOverlayVisible).not.toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid overlay visibility payload');
-    });
-
-    it('routes overlay errors', () => {
-      subscribedHandlers[EventChannels.UI.OVERLAY_ERROR]({ message: 'Error occurred' });
-
-      expect(mockUiController.showErrorOverlay).toHaveBeenCalledWith('Error occurred');
-    });
 
     it('routes streaming mode changes to presentation service', () => {
       subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });
@@ -253,22 +217,6 @@ describe('UIEventBridge', () => {
       handler.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('UIEventBridge disposed');
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle missing deviceStatus gracefully', () => {
-      const handlerWithoutDeviceStatus = new UIEventBridge({
-        eventBus: mockEventBus,
-        uiController: { ...mockUiController, deviceStatus: null },
-        presentationModeService: mockPresentationModeService,
-        loggerFactory: mockLoggerFactory
-      });
-      handlerWithoutDeviceStatus.initialize();
-
-      expect(() => {
-        subscribedHandlers[EventChannels.UI.OVERLAY_VISIBLE]({ visible: true });
-      }).not.toThrow();
     });
   });
 });

@@ -47,10 +47,6 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
-    [EventChannels.UI.DEVICE_STATUS, (bridge, data) => bridge._handleDeviceStatus(data)],
-    [EventChannels.UI.OVERLAY_MESSAGE, (bridge, data) => bridge._handleOverlayMessage(data)],
-    [EventChannels.UI.OVERLAY_VISIBLE, (bridge, data) => bridge._handleOverlayVisible(data)],
-    [EventChannels.UI.OVERLAY_ERROR, (bridge, data) => bridge._handleOverlayError(data)],
     [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
     [EventChannels.UI.STREAM_INFO, (bridge, data) => bridge._handleStreamInfo(data)],
     [EventChannels.UI.SHUTTER_FLASH, (bridge) => bridge._handleShutterFlash()],
@@ -81,41 +77,6 @@ export class UIEventBridge extends BaseService {
   initialize(): void {
     this.listenToDescriptors(UIEventBridge.eventDescriptors);
     this.logger.info('UIEventBridge initialized');
-  }
-
-  private _handleDeviceStatus(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { status?: unknown }
-      : {};
-    const { status } = payload;
-    this.uiController.updateDeviceStatus(status);
-  }
-
-  private _handleOverlayMessage(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { deviceConnected?: unknown }
-      : {};
-    const deviceConnected = typeof payload.deviceConnected === 'boolean'
-      ? payload.deviceConnected
-      : undefined;
-    this.uiController.updateOverlayMessage(deviceConnected);
-  }
-
-  private _handleOverlayVisible(data: unknown): void {
-    const visible = getBooleanPayloadValue(data, 'visible');
-    if (visible === null) {
-      this.logger.warn('Ignoring invalid overlay visibility payload');
-      return;
-    }
-    this.uiController.deviceStatus?.setOverlayVisible(visible);
-  }
-
-  private _handleOverlayError(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { message?: unknown }
-      : {};
-    const message = typeof payload.message === 'string' ? payload.message : '';
-    this.uiController.showErrorOverlay(message);
   }
 
   private _handleStreamingMode(data: unknown): void {

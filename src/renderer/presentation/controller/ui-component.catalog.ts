@@ -10,6 +10,7 @@ import { StatusNotificationComponent } from '@renderer/presentation/shared/statu
 import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
 import type { EventBusLike } from '@prismgb/core';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
+import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 import {
   UpdateSectionComponent,
@@ -45,6 +46,11 @@ export type StatusNotificationComponentDependencies = {
   eventBus: EventBusLike;
 };
 
+export type DeviceStatusComponentDependencies = {
+  eventBus: EventBusLike;
+  appState: { deviceConnectedSignal: any };
+};
+
 export type StreamingControlsComponentDependencies = Pick<
   StreamingControlsComponentOptions,
   'bodyClassManager'
@@ -65,7 +71,7 @@ export interface RendererUiComponentCatalog {
   >;
   deviceStatusComponent: UIComponentContract<
     RendererTemplateComponentElementSlices['deviceStatusComponent'],
-    NoComponentDependencies,
+    DeviceStatusComponentDependencies,
     DeviceStatusComponent
   >;
   streamControlsComponent: UIComponentContract<
@@ -164,7 +170,17 @@ const rendererUiComponentDefinitionInputsById = {
     })
   },
   deviceStatusComponent: {
-    create: ({ elements = {} }) => new DeviceStatusComponent(elements)
+    create: ({ elements = {}, dependencies = {} }) => {
+      const eventBus = requireDependency('deviceStatusComponent', dependencies, 'eventBus');
+      const appState = requireDependency('deviceStatusComponent', dependencies, 'appState');
+      return new DeviceStatusComponent({
+        elements,
+        store: new DeviceStatusStore({
+          eventBus,
+          deviceConnectedSignal: appState.deviceConnectedSignal
+        })
+      });
+    }
   },
   streamControlsComponent: {
     create: ({ elements = {}, dependencies = {} }) => new StreamingControlsComponent({

@@ -1,96 +1,49 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
-
-type ClassListLike = {
-  add(...tokens: string[]): void;
-  remove(...tokens: string[]): void;
-  toggle(token: string, force?: boolean): boolean | void;
-};
-
-type TextElementLike = {
-  textContent: string | null;
-  classList: ClassListLike;
-};
-
-type OverlayElementLike = {
-  classList: ClassListLike;
-};
+import { PresentationComponent, bindText, bindClass, computed } from '@prismgb/ui-base';
+import type { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 
 export interface DeviceStatusElements {
-  statusIndicator?: { classList: ClassListLike } | null;
+  statusIndicator?: { classList: any } | null;
   statusText?: { textContent: string | null } | null;
-  deviceStatusText?: TextElementLike | null;
+  deviceStatusText?: { textContent: string | null; classList: any } | null;
   deviceName?: { textContent: string | null } | null;
-  overlayMessage?: TextElementLike | null;
-  streamOverlay?: OverlayElementLike | null;
+  overlayMessage?: { textContent: string | null; classList: any } | null;
+  streamOverlay?: { classList: any } | null;
 }
 
-export interface DeviceStatusPayloadLike {
-  connected: boolean;
-  device?: {
-    deviceName?: string | null;
-    configName?: string | null;
-  } | null;
+export interface DeviceStatusComponentOptions {
+  elements: DeviceStatusElements;
+  store: DeviceStatusStore;
 }
 
 class DeviceStatusComponent extends PresentationComponent {
-  declare elements: DeviceStatusElements;
-
-  constructor(elements: DeviceStatusElements) {
+  constructor({ elements, store }: DeviceStatusComponentOptions) {
     super();
-    this.elements = elements;
-  }
+    this.track(store);
 
-  updateStatus(status: DeviceStatusPayloadLike): void {
-    const { connected, device } = status;
-    const statusTextEl = this.elements.deviceStatusText;
-    const deviceNameEl = this.elements.deviceName;
+    const ind = elements.statusIndicator ?? null;
+    this.track(bindClass(ind, CSSClasses.CONNECTED, store.connected));
+    this.track(bindClass(ind, CSSClasses.DISCONNECTED, computed(() => !store.connected.value)));
 
-    if (connected) {
-      this.elements.statusIndicator?.classList.add(CSSClasses.CONNECTED);
-      this.elements.statusIndicator?.classList.remove(CSSClasses.DISCONNECTED);
-      if (this.elements.statusText) this.elements.statusText.textContent = 'Device Connected';
-      if (statusTextEl) {
-        statusTextEl.textContent = 'Connected';
-        statusTextEl.classList.add(CSSClasses.STATUS_STATE, CSSClasses.CONNECTED);
-        statusTextEl.classList.remove(CSSClasses.DISCONNECTED);
-      }
-      if (deviceNameEl) deviceNameEl.textContent = device?.deviceName || device?.configName || 'Device';
-    } else {
-      this.elements.statusIndicator?.classList.remove(CSSClasses.CONNECTED);
-      this.elements.statusIndicator?.classList.add(CSSClasses.DISCONNECTED);
-      if (this.elements.statusText) this.elements.statusText.textContent = 'No Device';
-      if (statusTextEl) {
-        statusTextEl.textContent = 'Disconnected';
-        statusTextEl.classList.add(CSSClasses.STATUS_STATE, CSSClasses.DISCONNECTED);
-        statusTextEl.classList.remove(CSSClasses.CONNECTED);
-      }
-      if (deviceNameEl) deviceNameEl.textContent = '—';
+    this.track(bindText(elements.statusText ?? null, store.statusText));
+
+    const statusTextEl = elements.deviceStatusText ?? null;
+    this.track(bindText(statusTextEl, store.deviceStatusText));
+    if (statusTextEl) {
+      statusTextEl.classList.add(CSSClasses.STATUS_STATE);
     }
-  }
+    this.track(bindClass(statusTextEl, CSSClasses.CONNECTED, store.connected));
+    this.track(bindClass(statusTextEl, CSSClasses.DISCONNECTED, computed(() => !store.connected.value)));
 
-  updateOverlayMessage(deviceConnected: boolean): void {
-    const messageEl = this.elements.overlayMessage;
-    if (!messageEl) return;
+    this.track(bindText(elements.deviceName ?? null, store.deviceName));
 
-    messageEl.textContent = '';
-    messageEl.classList.toggle(CSSClasses.OVERLAY_READY, !!deviceConnected);
-    messageEl.classList.toggle(CSSClasses.WAITING, !deviceConnected);
-  }
+    const overlayMsg = elements.overlayMessage ?? null;
+    this.track(bindText(overlayMsg, store.overlayMessage));
+    this.track(bindClass(overlayMsg, CSSClasses.OVERLAY_READY, store.overlayReady));
+    this.track(bindClass(overlayMsg, CSSClasses.WAITING, store.overlayWaiting));
 
-  showError(message: string): void {
-    if (this.elements.overlayMessage) {
-      this.elements.overlayMessage.textContent = `Error: ${message}`;
-    }
-    this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
-  }
-
-  setOverlayVisible(visible: boolean): void {
-    if (visible) {
-      this.elements.streamOverlay?.classList.remove(CSSClasses.HIDDEN);
-    } else {
-      this.elements.streamOverlay?.classList.add(CSSClasses.HIDDEN);
-    }
+    const overlay = elements.streamOverlay ?? null;
+    this.track(bindClass(overlay, CSSClasses.HIDDEN, store.streamOverlayHidden));
   }
 }
 

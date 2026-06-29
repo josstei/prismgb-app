@@ -157,24 +157,6 @@ describe('UIController', () => {
   });
 
 
-  describe('updateDeviceStatus', () => {
-    it('should delegate to DeviceStatusComponent', () => {
-      const status = { connected: true };
-
-      controller.updateDeviceStatus(status);
-
-      expect(mockDeviceStatus.updateStatus).toHaveBeenCalledWith(status);
-    });
-  });
-
-  describe('updateOverlayMessage', () => {
-    it('should delegate to DeviceStatusComponent', () => {
-      controller.updateOverlayMessage(true);
-
-      expect(mockDeviceStatus.updateOverlayMessage).toHaveBeenCalledWith(true);
-    });
-  });
-
   describe('deviceStatus getter', () => {
     it('should return device status component from registry', () => {
       const result = controller.deviceStatus;
@@ -230,14 +212,6 @@ describe('UIController', () => {
       controller.updateStreamInfo(settings);
 
       expect(mockStreamControls.updateStreamInfo).toHaveBeenCalledWith(settings);
-    });
-  });
-
-  describe('showErrorOverlay', () => {
-    it('should delegate to DeviceStatusComponent', () => {
-      controller.showErrorOverlay('Error message');
-
-      expect(mockDeviceStatus.showError).toHaveBeenCalledWith('Error message');
     });
   });
 

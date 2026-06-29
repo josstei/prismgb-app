@@ -2,98 +2,99 @@
  * DeviceStatusComponent Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import { createDeviceStatusElementsMock } from '../../../../factories/index.js';
+import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
+import { signal } from '@prismgb/ui-base/reactive';
+import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
+import { EventChannels } from '@prismgb/events';
 
 describe('DeviceStatusComponent', () => {
-  let component;
   let mockElements;
+  let mockEventBus;
+  let deviceConnectedSignal;
+  let store;
+  let component;
 
   beforeEach(() => {
     mockElements = createDeviceStatusElementsMock();
+    mockEventBus = createEventBus();
+    deviceConnectedSignal = signal(false);
 
-    component = new DeviceStatusComponent(mockElements);
-  });
+    store = new DeviceStatusStore({
+      eventBus: mockEventBus,
+      deviceConnectedSignal
+    });
 
-  describe('Constructor', () => {
-    it('should store elements reference', () => {
-      expect(component.elements).toBe(mockElements);
+    component = new DeviceStatusComponent({
+      elements: mockElements,
+      store
     });
   });
 
-  describe('updateStatus', () => {
-    it('should update UI for connected state', () => {
-      component.updateStatus({ connected: true, device: { deviceName: 'Chromatic' } });
+  describe('Constructor / Bindings', () => {
+    it('should bind connection status updates', () => {
+      // Simulate connection
+      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
+        status: { connected: true, device: { deviceName: 'Chromatic' } }
+      });
 
-      expect(mockElements.statusIndicator.classList.add).toHaveBeenCalledWith('connected');
-      expect(mockElements.statusIndicator.classList.remove).toHaveBeenCalledWith('disconnected');
+      expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('connected', true);
+      expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('disconnected', false);
       expect(mockElements.statusText.textContent).toBe('Device Connected');
       expect(mockElements.deviceStatusText.textContent).toBe('Connected');
       expect(mockElements.deviceName.textContent).toBe('Chromatic');
     });
 
     it('should use default device name when not provided', () => {
-      component.updateStatus({ connected: true, device: {} });
-
-      expect(mockElements.deviceName.textContent).toBe('Device');
-    });
-
-    it('should use default device name when device is undefined', () => {
-      component.updateStatus({ connected: true });
+      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
+        status: { connected: true, device: {} }
+      });
 
       expect(mockElements.deviceName.textContent).toBe('Device');
     });
 
     it('should update UI for disconnected state', () => {
-      component.updateStatus({ connected: false });
+      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
+        status: { connected: false }
+      });
 
-      expect(mockElements.statusIndicator.classList.remove).toHaveBeenCalledWith('connected');
-      expect(mockElements.statusIndicator.classList.add).toHaveBeenCalledWith('disconnected');
+      expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('connected', false);
+      expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('disconnected', true);
       expect(mockElements.statusText.textContent).toBe('No Device');
       expect(mockElements.deviceStatusText.textContent).toBe('Disconnected');
       expect(mockElements.deviceName.textContent).toBe('—');
     });
-  });
 
-  describe('updateOverlayMessage', () => {
-    it('should show ready state when connected', () => {
-      component.updateOverlayMessage(true);
+    it('should bind overlay message updates', () => {
+      mockEventBus.publish(EventChannels.UI.OVERLAY_MESSAGE, { deviceConnected: true });
 
       expect(mockElements.overlayMessage.textContent).toBe('');
       expect(mockElements.overlayMessage.classList.toggle).toHaveBeenCalledWith('ready', true);
       expect(mockElements.overlayMessage.classList.toggle).toHaveBeenCalledWith('waiting', false);
     });
 
-    it('should show waiting state when disconnected', () => {
-      component.updateOverlayMessage(false);
+    it('should bind overlay waiting updates', () => {
+      mockEventBus.publish(EventChannels.UI.OVERLAY_MESSAGE, { deviceConnected: false });
 
       expect(mockElements.overlayMessage.textContent).toBe('');
       expect(mockElements.overlayMessage.classList.toggle).toHaveBeenCalledWith('ready', false);
       expect(mockElements.overlayMessage.classList.toggle).toHaveBeenCalledWith('waiting', true);
     });
-  });
 
-  describe('showError', () => {
-    it('should show error message', () => {
-      component.showError('Connection failed');
+    it('should bind overlay visibility updates', () => {
+      mockEventBus.publish(EventChannels.UI.OVERLAY_VISIBLE, { visible: false });
+      expect(mockElements.streamOverlay.classList.toggle).toHaveBeenCalledWith('hidden', true);
+
+      mockEventBus.publish(EventChannels.UI.OVERLAY_VISIBLE, { visible: true });
+      expect(mockElements.streamOverlay.classList.toggle).toHaveBeenCalledWith('hidden', false);
+    });
+
+    it('should bind overlay errors', () => {
+      mockEventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message: 'Connection failed' });
 
       expect(mockElements.overlayMessage.textContent).toBe('Error: Connection failed');
-      expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden');
-    });
-  });
-
-  describe('setOverlayVisible', () => {
-    it('should show overlay when visible is true', () => {
-      component.setOverlayVisible(true);
-
-      expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden');
-    });
-
-    it('should hide overlay when visible is false', () => {
-      component.setOverlayVisible(false);
-
-      expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('hidden');
+      expect(mockElements.streamOverlay.classList.toggle).toHaveBeenCalledWith('hidden', false);
     });
   });
 });
