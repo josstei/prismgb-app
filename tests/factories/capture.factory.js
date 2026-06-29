@@ -137,24 +137,6 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
 }
 
 /**
- * Creates a mock CaptureToast.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock CaptureToast.
- */
-export function createCaptureToastMock(overrides = {}) {
-  return {
-    show: vi.fn(),
-    updateProgress: vi.fn(),
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-    hide: vi.fn(),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
  * Creates a mock CaptureUIController.
  *
  * @param {Object} [overrides={}] - Mock overrides.
@@ -244,25 +226,3 @@ export function createCaptureSaveServiceMock(overrides = {}) {
   });
 }
 
-/**
- * Creates a mock TranscodeUIController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock TranscodeUIController.
- */
-export function createTranscodeUIControllerMock(overrides = {}) {
-  const {
-    transcodeToast,
-    registry,
-    ...componentOverrides
-  } = overrides;
-
-  const toast = transcodeToast ?? createCaptureToastMock();
-
-  return {
-    registry: registry ?? {
-      get: vi.fn((name) => (name === 'transcodeToastComponent' ? toast : null)),
-    },
-    ...componentOverrides
-  };
-}

@@ -232,7 +232,6 @@ class SettingsMenuComponent extends PresentationComponent {
   }
 
   _applyStatusStripVisibility(visible: boolean): void {
-    console.log('APPLY STATUS STRIP VISIBILITY - visible:', visible, 'footer exist:', !!this.footer);
     if (!this.footer) return;
     this.footer.classList.toggle(CSSClasses.STATUS_HIDDEN, !visible);
   }

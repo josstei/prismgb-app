@@ -231,13 +231,11 @@ describe('capture.factory.js', () => {
     'createMediaBlobEventMock',
     'createMediaRecorderMock',
     'createMediaRecorderErrorEventMock',
-    'createCaptureToastMock',
     'createCaptureUIControllerMock',
     'createTranscodeServiceMock',
     'createCaptureServiceMock',
     'createCaptureGpuRecordingServiceMock',
     'createCaptureSaveServiceMock',
-    'createTranscodeUIControllerMock',
   ];
 
   it.each(expected)('module exports %s', (name) => {
