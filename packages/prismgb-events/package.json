@@ -19,6 +19,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@prismgb/core": "*",
     "eventemitter3": "^5.0.4"
   },
   "devDependencies": {

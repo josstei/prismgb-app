@@ -1,3 +1,4 @@
+import type { LeafValues, AssertNever } from '@prismgb/core';
 import { EventChannels } from './event-channels.js';
 import { getEventManifestScopeValues } from './event.manifest.js';
 export interface DeviceInfoPayload {
@@ -52,14 +53,6 @@ export interface TranscodeErrorPayload {
   error?: string;
   message?: string;
 }
-
-type LeafValues<T> = T extends string
-  ? T
-  : T extends Record<string, unknown>
-    ? LeafValues<T[keyof T]>
-    : never;
-
-type AssertNever<T extends never> = T;
 
 export type EventChannelValue = LeafValues<typeof EventChannels>;
 

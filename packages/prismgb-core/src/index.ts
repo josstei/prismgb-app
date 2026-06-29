@@ -195,6 +195,11 @@ export function createSubscription(unsubscribe: () => void): ISubscription {
 export type { Logger as ILogger, LoggerFactory as ILoggerFactory, LogLevel } from './interfaces/logger.js';
 
 // -----------------------------------------------------------------------------
+// Type Utilities
+// -----------------------------------------------------------------------------
+export type { ValueOf, UnionToIntersection, LeafValues, AssertNever } from './types/type-utils.js';
+
+// -----------------------------------------------------------------------------
 // Core Primitives (Classes / Concrete Implementations)
 // -----------------------------------------------------------------------------
 export { Container } from './primitives/container.js';

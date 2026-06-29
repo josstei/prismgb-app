@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike, ValueOf, UnionToIntersection } from '@prismgb/core';
 
 export type UIComponentStage = 'core' | 'deferred';
 
@@ -33,21 +33,14 @@ export type UIComponentInstance<
   TId extends UIComponentId<TCatalog>
 > = TCatalog[TId]['instance'];
 
-type Values<TMap> = TMap[keyof TMap];
-
-type UnionToIntersection<TUnion> =
-  (TUnion extends unknown ? (value: TUnion) => void : never) extends (value: infer TIntersection) => void
-    ? TIntersection
-    : never;
-
 export type UIComponentRegistryElements<TCatalog extends UIComponentCatalogShape<TCatalog>> = Partial<
-  UnionToIntersection<Values<{
+  UnionToIntersection<ValueOf<{
     [TId in UIComponentId<TCatalog>]: UIComponentElements<TCatalog, TId>;
   }>>
 >;
 
 export type UIComponentRegistryDependencies<TCatalog extends UIComponentCatalogShape<TCatalog>> = Partial<
-  UnionToIntersection<Values<{
+  UnionToIntersection<ValueOf<{
     [TId in UIComponentId<TCatalog>]: UIComponentDependencies<TCatalog, TId>;
   }>>
 >;

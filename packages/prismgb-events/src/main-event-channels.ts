@@ -1,3 +1,4 @@
+import type { ValueOf } from '@prismgb/core';
 import { getEventManifestScopeEvents } from './event.manifest.js';
 
 type ManifestEvent = {
@@ -46,7 +47,6 @@ export const MainEventChannels: MainEventChannelMap = mainEvents;
 /**
  * Type representing all main event channels
  */
-type ValueOf<T> = T[keyof T];
 export type MainEventChannel = ValueOf<{
   [Domain in keyof MainEventChannelMap]: ValueOf<MainEventChannelMap[Domain]>;
 }>;
