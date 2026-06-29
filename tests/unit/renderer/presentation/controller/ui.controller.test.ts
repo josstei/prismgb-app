@@ -282,30 +282,6 @@ describe('UIController', () => {
     });
   });
 
-  describe('updateCinematicMode', () => {
-    beforeEach(() => {
-      mockEffects.setCinematicMode = vi.fn();
-    });
-
-    it('should call setCinematicMode with true when active', () => {
-      controller.updateCinematicMode(true);
-
-      expect(mockEffects.setCinematicMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should call setCinematicMode with false when not active', () => {
-      controller.updateCinematicMode(false);
-
-      expect(mockEffects.setCinematicMode).toHaveBeenCalledWith(false);
-    });
-
-    it('should not throw when effects is undefined', () => {
-      controller.effects = undefined;
-
-      expect(() => controller.updateCinematicMode(true)).not.toThrow();
-    });
-  });
-
   describe('enableControlsAutoHide', () => {
     beforeEach(() => {
       mockEffects.enableControlsAutoHide = vi.fn();

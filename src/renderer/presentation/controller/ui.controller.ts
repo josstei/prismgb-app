@@ -27,10 +27,7 @@ interface UIEffectsLike {
   disableCursorAutoHide(): void;
   enableToolbarAutoHide(toolbarElement: HTMLElement | null): void;
   disableToolbarAutoHide(): void;
-  setFullscreenMode(isActive: boolean): void;
   setRecordingButtonState(recordButton: HTMLButtonElement, isActive: boolean): void;
-  setCinematicMode(isActive: boolean): void;
-  setMinimalistFullscreen(isActive: boolean): void;
   enableControlsAutoHide(controlsElement: HTMLElement | null): void;
   disableControlsAutoHide(): void;
   dispose(): void | Promise<void>;
@@ -143,10 +140,6 @@ class UIController {
     }
   }
 
-  updateFullscreenMode(isActive: boolean): void {
-    this.effects?.setFullscreenMode(isActive);
-  }
-
   triggerShutterFlash(): void {
     this.effects?.triggerShutterFlash();
   }
@@ -180,14 +173,6 @@ class UIController {
         recordBtn.classList.remove('disabled');
       }
     }
-  }
-
-  updateCinematicMode(isActive: boolean): void {
-    this.effects?.setCinematicMode(isActive);
-  }
-
-  updateMinimalistFullscreen(isActive: boolean): void {
-    this.effects?.setMinimalistFullscreen(isActive);
   }
 
   enableControlsAutoHide(): void {

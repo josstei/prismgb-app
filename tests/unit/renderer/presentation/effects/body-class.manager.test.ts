@@ -87,31 +87,6 @@ describe('BodyClassManager', () => {
     });
   });
 
-  describe('setCinematicMode', () => {
-    it('should add cinematic-active class when true', () => {
-      manager.setCinematicMode(true);
-      expect(document.body.classList.contains('cinematic-active')).toBe(true);
-    });
-
-    it('should remove cinematic-active class when false', () => {
-      document.body.classList.add('cinematic-active');
-      manager.setCinematicMode(false);
-      expect(document.body.classList.contains('cinematic-active')).toBe(false);
-    });
-  });
-
-  describe('setFullscreenMode', () => {
-    it('should add fullscreen-active class when true', () => {
-      manager.setFullscreenMode(true);
-      expect(document.body.classList.contains('fullscreen-active')).toBe(true);
-    });
-
-    it('should remove fullscreen-active class when false', () => {
-      document.body.classList.add('fullscreen-active');
-      manager.setFullscreenMode(false);
-      expect(document.body.classList.contains('fullscreen-active')).toBe(false);
-    });
-  });
 
   describe('setMinimalistFullscreen', () => {
     it('should add minimalist-fullscreen class when true', () => {
@@ -201,16 +176,6 @@ describe('BodyClassManager', () => {
 
       expect(document.body.classList.contains('streaming-mode')).toBe(false);
       expect(document.body.classList.contains('app-idle')).toBe(false);
-    });
-
-    it('should manage fullscreen and cinematic modes together', () => {
-      manager.setFullscreenMode(true);
-      manager.setCinematicMode(true);
-      manager.setStreamingMode(true);
-
-      expect(document.body.classList.contains('fullscreen-active')).toBe(true);
-      expect(document.body.classList.contains('cinematic-active')).toBe(true);
-      expect(document.body.classList.contains('streaming-mode')).toBe(true);
     });
   });
 

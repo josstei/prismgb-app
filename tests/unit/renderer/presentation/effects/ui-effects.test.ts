@@ -148,16 +148,6 @@ describe('UIEffects', () => {
     expect(toolbarInstance.invalidatePanelCache).toHaveBeenCalled();
   });
 
-  it('delegates body class operations', () => {
-    effects.setCinematicMode(true);
-    effects.setMinimalistFullscreen(true);
-    effects.setFullscreenMode(true);
-
-    expect(mockBodyClassManager.setCinematicMode).toHaveBeenCalledWith(true);
-    expect(mockBodyClassManager.setMinimalistFullscreen).toHaveBeenCalledWith(true);
-    expect(mockBodyClassManager.setFullscreenMode).toHaveBeenCalledWith(true);
-  });
-
   it('enables unified timer controller on construction', () => {
     expect(unifiedControllerInstance.enable).toHaveBeenCalled();
   });
@@ -404,26 +394,6 @@ describe('UIEffects', () => {
 
       expect(toolbarInstance.hide).not.toHaveBeenCalled();
       expect(cursorInstance.hide).toHaveBeenCalled();
-    });
-  });
-
-  describe('body class manager edge cases', () => {
-    it('handles null bodyClassManager gracefully for setCinematicMode', () => {
-      const effectsNoManager = new UIEffects({ elements: mockElements });
-
-      expect(() => effectsNoManager.setCinematicMode(true)).not.toThrow();
-    });
-
-    it('handles null bodyClassManager gracefully for setMinimalistFullscreen', () => {
-      const effectsNoManager = new UIEffects({ elements: mockElements });
-
-      expect(() => effectsNoManager.setMinimalistFullscreen(true)).not.toThrow();
-    });
-
-    it('handles null bodyClassManager gracefully for setFullscreenMode', () => {
-      const effectsNoManager = new UIEffects({ elements: mockElements });
-
-      expect(() => effectsNoManager.setFullscreenMode(true)).not.toThrow();
     });
   });
 

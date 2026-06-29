@@ -44,20 +44,12 @@ export class BodyClassManager extends PresentationComponent {
     document.body.classList.toggle(CSSClasses.STREAMING_MODE, isStreaming);
   }
 
-  setCinematicMode(isActive: boolean) {
-    document.body.classList.toggle(CSSClasses.CINEMATIC_ACTIVE, isActive);
-  }
-
   setMinimalistFullscreen(isActive: boolean) {
     const currentlyActive = document.body.classList.contains(CSSClasses.MINIMALIST_FULLSCREEN);
     if (currentlyActive === isActive) return;
 
     this._setMinimalistTransitionActive();
     document.body.classList.toggle(CSSClasses.MINIMALIST_FULLSCREEN, isActive);
-  }
-
-  setFullscreenMode(isActive: boolean) {
-    document.body.classList.toggle(CSSClasses.FULLSCREEN_ACTIVE, isActive);
   }
 
   _setMinimalistTransitionActive() {

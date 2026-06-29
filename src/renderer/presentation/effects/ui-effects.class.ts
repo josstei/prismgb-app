@@ -8,9 +8,6 @@ import { PresentationComponent, ActivityAutoHideController } from '@prismgb/ui-b
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type BodyClassManagerLike = {
-  setCinematicMode?: (isActive: boolean) => void;
-  setMinimalistFullscreen?: (isActive: boolean) => void;
-  setFullscreenMode?: (isActive: boolean) => void;
   dispose?: () => void | Promise<void>;
 };
 
@@ -125,18 +122,6 @@ export class UIEffects extends PresentationComponent {
 
   disableControlsAutoHide() {
     this._controls.disable();
-  }
-
-  setCinematicMode(isActive: boolean) {
-    this._bodyClassManager?.setCinematicMode?.(isActive);
-  }
-
-  setMinimalistFullscreen(isActive: boolean) {
-    this._bodyClassManager?.setMinimalistFullscreen?.(isActive);
-  }
-
-  setFullscreenMode(isActive: boolean) {
-    this._bodyClassManager?.setFullscreenMode?.(isActive);
   }
 
   _handleActivity() {
