@@ -192,30 +192,13 @@ export function createSubscription(unsubscribe: () => void): ISubscription {
 // -----------------------------------------------------------------------------
 // Core Interfaces
 // -----------------------------------------------------------------------------
-export type { Adapter } from './interfaces/adapter.js';
-export type { Cache as ICache } from './interfaces/cache.js';
-export type { EventBus as IEventBus } from './interfaces/event-bus.js';
-export type { Factory as IFactory } from './interfaces/factory.js';
-export type { LogWriter } from './interfaces/log-writer.js';
 export type { Logger as ILogger, LoggerFactory as ILoggerFactory, LogLevel } from './interfaces/logger.js';
-export type { Storage as IStorage } from './interfaces/storage.js';
-export type { Store as IStore } from './interfaces/store.js';
-export type { Strategy } from './interfaces/strategy.js';
-export type { Validator as IValidator } from './interfaces/validator.js';
 
 // -----------------------------------------------------------------------------
 // Core Primitives (Classes / Concrete Implementations)
 // -----------------------------------------------------------------------------
-export { Bus } from './primitives/bus.js';
-export { Cache } from './primitives/cache.js';
 export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
-export { Factory } from './primitives/factory.js';
-export { Logger } from './primitives/logger.js';
-export { Pipeline } from './primitives/pipeline.js';
-export { Registry } from './primitives/registry.js';
-export { Store } from './primitives/store.js';
-export { Validator } from './primitives/validator.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
 export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
