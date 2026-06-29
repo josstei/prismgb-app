@@ -1,5 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 
 const STREAM_TRANSITION_DURATION = 1000;
 const STREAMING_HIDE_TIMEOUT = Symbol('streaming-controls-hide-timeout');

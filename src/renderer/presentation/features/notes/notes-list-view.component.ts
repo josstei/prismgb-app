@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@prismgb/core';
 import type { LoggerLike } from '@prismgb/core';

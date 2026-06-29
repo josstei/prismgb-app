@@ -1,6 +1,6 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 

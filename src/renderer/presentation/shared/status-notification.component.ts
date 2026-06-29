@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import { bindText, bindProperty } from '@prismgb/ui-base/reactive';
 import type { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
 

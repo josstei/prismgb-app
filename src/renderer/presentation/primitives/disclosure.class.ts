@@ -6,7 +6,7 @@
  */
 
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 
 export interface AnchoredLayoutSizeDefaults {
   minWidth: number;

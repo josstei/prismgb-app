@@ -2,7 +2,7 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@prismgb/events';
 import { UpdateState } from '@prismgb/config';
 import type { UpdateStateValue } from '@prismgb/config';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 
 type Unsubscribe = () => void;
 

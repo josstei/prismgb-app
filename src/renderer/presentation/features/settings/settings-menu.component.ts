@@ -4,7 +4,7 @@ import { ListboxDropdownController } from '@renderer/presentation/primitives/lis
 import {
   PresentationComponent,
   type PresentationLifecycleToken
-} from '@renderer/presentation/primitives/presentation-component.base';
+} from '@prismgb/ui-base';
 import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,

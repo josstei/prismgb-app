@@ -1,5 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config.js';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base.js';
+import { PresentationComponent } from '@prismgb/ui-base';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');

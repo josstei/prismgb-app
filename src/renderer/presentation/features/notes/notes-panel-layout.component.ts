@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import {
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults

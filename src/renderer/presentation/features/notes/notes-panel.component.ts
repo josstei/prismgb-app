@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@prismgb/events';
 import { NotesListViewComponent } from './notes-list-view.component.js';

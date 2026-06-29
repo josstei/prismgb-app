@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import { ListboxDropdownController } from '@renderer/presentation/primitives/listbox-dropdown.class.js';
 import { renderListboxOptions } from '@renderer/presentation/primitives/listbox.utils.js';
 import type { LoggerLike } from '@prismgb/core';

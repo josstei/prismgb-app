@@ -1,6 +1,6 @@
 import { TIMING } from '@renderer/presentation/config/constants.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { PresentationComponent } from '@prismgb/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type ButtonElements = DomBindingsFlat;
