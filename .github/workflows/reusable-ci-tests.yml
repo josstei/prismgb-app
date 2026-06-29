@@ -36,11 +36,14 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Build GPU package types
-        run: npm run build --workspace=@prismgb/gpu
+      - name: Build all workspace packages (turbo, topological)
+        run: npm run build:packages
 
-      - name: Build Core package types
-        run: npm run build --workspace=@prismgb/core
+      - name: Validate package export artifacts
+        run: npm run check:exports
+
+      - name: Typecheck all workspace packages (turbo)
+        run: npm run typecheck:packages
 
       - name: Run typecheck
         run: npm run typecheck
@@ -91,11 +94,14 @@ jobs:
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
 
-      - name: Build GPU package types
-        run: npm run build --workspace=@prismgb/gpu
+      - name: Build all workspace packages (turbo, topological)
+        run: npm run build:packages
 
-      - name: Build Core package types
-        run: npm run build --workspace=@prismgb/core
+      - name: Validate package export artifacts
+        run: npm run check:exports
+
+      - name: Typecheck all workspace packages (turbo)
+        run: npm run typecheck:packages
 
       - name: Run typecheck
         run: npm run typecheck
