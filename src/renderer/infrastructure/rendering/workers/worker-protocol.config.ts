@@ -1,4 +1,5 @@
 import type { IPreset, PipelineUniforms, RenderAPI } from '@prismgb/gpu';
+import { isRecord, isNumber, isString } from '@prismgb/core';
 
 export const WorkerMessageType = Object.freeze({
   INIT: 'init',
@@ -199,18 +200,6 @@ export function createWorkerResponse(
     payload,
     timestamp: performance.now()
   } as WorkerResponse;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === 'string';
 }
 
 function isWorkerRenderAPI(value: unknown): value is WorkerRenderAPI {

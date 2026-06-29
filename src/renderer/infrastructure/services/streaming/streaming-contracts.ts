@@ -10,6 +10,7 @@ import type {
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
 } from '@prismgb/events';
+import { isRecord } from '@prismgb/core';
 
 export type {
   Dimensions,
@@ -55,10 +56,6 @@ export type IStreamingRenderer = {
   isActive?(): boolean;
   isFallback?(): boolean;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function hasNumber(value: Record<string, unknown>, key: string): boolean {
   return typeof value[key] === 'number' && Number.isFinite(value[key]);

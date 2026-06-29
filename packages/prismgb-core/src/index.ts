@@ -212,4 +212,5 @@ export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
+export { isRecord, isNumber, isString } from './primitives/guards.utils.js';
 export { PerformanceCache, AnimationCache } from './primitives/performance-cache.utils.js';
