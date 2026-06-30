@@ -36,14 +36,14 @@ describe('DeviceStatusComponent', () => {
     it('should bind connection status updates', () => {
       // Simulate connection
       mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
-        status: { connected: true, device: { deviceName: 'Chromatic' } }
+        status: { connected: true, device: { name: 'Mod Retro Chromatic' } }
       });
 
       expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('connected', true);
       expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('disconnected', false);
       expect(mockElements.statusText.textContent).toBe('Device Connected');
       expect(mockElements.deviceStatusText.textContent).toBe('Connected');
-      expect(mockElements.deviceName.textContent).toBe('Chromatic');
+      expect(mockElements.deviceName.textContent).toBe('Mod Retro Chromatic');
     });
 
     it('should use default device name when not provided', () => {

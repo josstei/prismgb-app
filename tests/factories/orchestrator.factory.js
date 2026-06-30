@@ -53,9 +53,6 @@ export function createRendererAppContainerMock(overrides = {}) {
       start: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     }),
-    adapterFactory = {
-      initialize: vi.fn().mockResolvedValue(undefined)
-    },
     uiComponentRegistry = {
       initialize: vi.fn(),
       initializeComponent: vi.fn(),
@@ -105,7 +102,6 @@ export function createRendererAppContainerMock(overrides = {}) {
 
   const dependencyMap = {
     appOrchestrator,
-    adapterFactory,
     uiComponentRegistry,
     uiEffects,
     uiEventBridge,

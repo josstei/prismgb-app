@@ -1,7 +1,7 @@
 /**
  * Streaming Service
  *
- * Manages media streaming with device-specific adapters
+ * Manages media streaming through the catalog-backed device runtime
  * 100% UI-agnostic - only manages MediaStream state and emits events
  *
  * Uses a state machine to prevent race conditions in start/stop operations.
@@ -13,17 +13,21 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { DeviceDetectionHelper } from '@prismgb/devices';
+import { matchByLabel } from '@prismgb/devices';
 import { EventChannels } from '@prismgb/events';
 import { getErrorMessage } from '@prismgb/core';
+import type { DeviceDescriptor } from '@prismgb/devices';
 import type {
-  StreamingCapabilities,
   TypedEventBusLike
 } from '@prismgb/events';
 import type {
   LoggerFactoryLike
 } from '@prismgb/core';
 import { StreamTrackMonitor } from './stream-track-monitor.js';
+import type {
+  DeviceMediaAcquirer,
+  DeviceStreamCapabilities
+} from './device-media-acquirer.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -45,7 +49,8 @@ type StreamStartResult = {
   stream: MediaStream;
   device: MediaDeviceInfo;
   settings: StreamSettingsSnapshot | null;
-  capabilities: StreamingCapabilities;
+  capabilities: DeviceStreamCapabilities;
+  strategy: string;
 };
 
 type StreamOperationPromise = Promise<StreamStartResult | void>;
@@ -55,32 +60,18 @@ type DeviceEnumerationResult = {
   connected: boolean;
 };
 
-type DeviceServiceLike = {
+type RendererDeviceRuntimeLike = {
   enumerateDevices(): Promise<DeviceEnumerationResult>;
-  getRegisteredStoredDeviceIds(): string[];
+  getStoredDeviceIds(): readonly string[];
   discoverSupportedDevice(): Promise<MediaDeviceInfo | null>;
-  registerSupportedDevice(device: MediaDeviceInfo): void;
-};
-
-type StreamingAdapterLike = {
-  getStream(device: MediaDeviceInfo): Promise<MediaStream>;
-  releaseStream(stream: MediaStream): Promise<void>;
-  getCapabilities(device: MediaDeviceInfo): Promise<StreamingCapabilities> | StreamingCapabilities;
-};
-
-type StreamingAdapterFactoryLike = {
-  getAdapterForDevice(
-    device: MediaDeviceInfo,
-    dependencies?: Record<string, unknown>
-  ): StreamingAdapterLike;
+  selectDevice(device: MediaDeviceInfo): boolean;
 };
 
 type StreamingServiceDependencies = {
-  deviceService: DeviceServiceLike;
+  rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  deviceMediaAcquirer: DeviceMediaAcquirer;
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
-  adapterFactory: StreamingAdapterFactoryLike;
-  ipcClient: Record<string, unknown>;
 };
 
 function toSettingsPayload(
@@ -96,26 +87,23 @@ function toSettingsPayload(
 }
 
 export class StreamingService extends BaseService {
-  private readonly deviceService: DeviceServiceLike;
+  private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  private readonly deviceMediaAcquirer: DeviceMediaAcquirer;
   protected readonly eventBus: TypedEventBusLike;
-  private readonly adapterFactory: StreamingAdapterFactoryLike;
-  private readonly ipcClient: Record<string, unknown>;
   private readonly _trackMonitor: StreamTrackMonitor;
 
   private _state: StreamLifecycleState;
   private _operationPromise: StreamOperationPromise | null;
   currentStream: MediaStream | null;
-  currentAdapter: StreamingAdapterLike | null;
   currentDevice: MediaDeviceInfo | null;
-  currentCapabilities: StreamingCapabilities | null;
+  currentCapabilities: DeviceStreamCapabilities | null;
 
   constructor(dependencies: StreamingServiceDependencies) {
     super(dependencies, 'StreamingService');
 
-    this.deviceService = dependencies.deviceService;
+    this.rendererDeviceRuntime = dependencies.rendererDeviceRuntime;
+    this.deviceMediaAcquirer = dependencies.deviceMediaAcquirer;
     this.eventBus = dependencies.eventBus;
-    this.adapterFactory = dependencies.adapterFactory;
-    this.ipcClient = dependencies.ipcClient;
     this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine
     this._state = StreamState.IDLE;
@@ -123,7 +111,6 @@ export class StreamingService extends BaseService {
 
     // Stream state
     this.currentStream = null;
-    this.currentAdapter = null;
     this.currentDevice = null;
     this.currentCapabilities = null;
   }
@@ -189,21 +176,18 @@ export class StreamingService extends BaseService {
         throw new Error('No device available for streaming');
       }
 
-      // Get adapter for device (pass ipcClient for device adapter)
-      this.currentAdapter = this.adapterFactory.getAdapterForDevice(device, {
-        ipcClient: this.ipcClient
-      });
+      const descriptor = this._getDescriptorForDevice(device);
+      const acquisition = await this.deviceMediaAcquirer.acquire(device, descriptor);
 
-      // Get stream from adapter
-      this.currentStream = await this.currentAdapter.getStream(device);
+      this.currentStream = acquisition.stream;
       this.currentDevice = device;
-      this.deviceService.registerSupportedDevice(device);
+      this.rendererDeviceRuntime.selectDevice(device);
 
       // Get stream settings
       const settings = this._getStreamSettings();
 
       // Get and store capabilities
-      const capabilities = await this.currentAdapter.getCapabilities(device);
+      const capabilities = acquisition.capabilities;
       this.currentCapabilities = capabilities;
 
       // Monitor video track for device disconnection/power-off
@@ -216,10 +200,17 @@ export class StreamingService extends BaseService {
         stream: this.currentStream,
         device: this.currentDevice,
         settings,
-        capabilities
+        capabilities,
+        strategy: acquisition.strategy
       });
 
-      return { stream: this.currentStream, device: this.currentDevice, settings, capabilities };
+      return {
+        stream: this.currentStream,
+        device: this.currentDevice,
+        settings,
+        capabilities,
+        strategy: acquisition.strategy
+      };
     } catch (error) {
       this.logger.error('Failed to start stream:', error);
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
@@ -276,10 +267,10 @@ export class StreamingService extends BaseService {
     // Remove track monitoring before releasing stream
     this._removeTrackMonitoring();
 
-    // Release stream via adapter (with error handling to ensure cleanup)
-    if (this.currentAdapter && this.currentStream) {
+    // Release stream via the unified media acquirer.
+    if (this.currentStream) {
       try {
-        await this.currentAdapter.releaseStream(this.currentStream);
+        await this.deviceMediaAcquirer.release(this.currentStream);
       } catch (error) {
         this.logger.error('Error releasing stream:', error);
         // Continue with cleanup even if release fails
@@ -288,7 +279,6 @@ export class StreamingService extends BaseService {
 
     // Clear state (always, even if release failed)
     this.currentStream = null;
-    this.currentAdapter = null;
     this.currentDevice = null;
     this.currentCapabilities = null;
 
@@ -327,15 +317,14 @@ export class StreamingService extends BaseService {
 
     try {
       // Release stream if it was acquired - await to prevent race conditions
-      if (this.currentAdapter && this.currentStream) {
-        await this.currentAdapter.releaseStream(this.currentStream);
+      if (this.currentStream) {
+        await this.deviceMediaAcquirer.release(this.currentStream);
       }
     } catch (error) {
       this.logger.warn('Error releasing stream during partial cleanup:', error);
     } finally {
       // Always clear all state, even if release failed
       this.currentStream = null;
-      this.currentAdapter = null;
       this.currentDevice = null;
       this.currentCapabilities = null;
     }
@@ -350,8 +339,8 @@ export class StreamingService extends BaseService {
   }
 
   private async _getDeviceById(deviceId: string): Promise<MediaDeviceInfo> {
-    // Use DeviceService to ensure permission warm-up and caching
-    const { devices } = await this.deviceService.enumerateDevices();
+    // Use the renderer device runtime to ensure permission warm-up and caching.
+    const { devices } = await this.rendererDeviceRuntime.enumerateDevices();
     const device = devices.find((enumeratedDevice) => (
       enumeratedDevice.deviceId === deviceId &&
       enumeratedDevice.kind === 'videoinput'
@@ -364,10 +353,19 @@ export class StreamingService extends BaseService {
     return device;
   }
 
+  private _getDescriptorForDevice(device: MediaDeviceInfo): DeviceDescriptor {
+    const match = matchByLabel(device.label);
+    if (!match.descriptor) {
+      throw new Error(`Unsupported device: ${device.label || device.deviceId || 'unknown'}`);
+    }
+
+    return match.descriptor;
+  }
+
   private async _autoSelectDevice(): Promise<MediaDeviceInfo> {
     this.logger.info('Auto-selecting device');
 
-    const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
+    const storedIds = this.rendererDeviceRuntime.getStoredDeviceIds();
     if (storedIds.length > 0) {
       // Try all stored device IDs in parallel for faster restoration when first IDs are stale
       try {
@@ -382,16 +380,16 @@ export class StreamingService extends BaseService {
       }
     }
 
-    const discoveredDevice = await this.deviceService.discoverSupportedDevice();
+    const discoveredDevice = await this.rendererDeviceRuntime.discoverSupportedDevice();
     if (discoveredDevice) {
       this.logger.info('Discovered supported device:', discoveredDevice.label);
       return discoveredDevice;
     }
 
-    const { devices } = await this.deviceService.enumerateDevices();
+    const { devices } = await this.rendererDeviceRuntime.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     const matchedDevice = videoDevices.find(device =>
-      DeviceDetectionHelper.matchesByLabel(device.label) !== null
+      matchByLabel(device.label).matched
     );
 
     if (matchedDevice) {
@@ -401,7 +399,7 @@ export class StreamingService extends BaseService {
 
     const labelsHidden = videoDevices.length > 0 && videoDevices.every(device => !device.label);
     if (labelsHidden) {
-      throw new Error('Chromatic camera not authorized. Please grant permission and retry.');
+      throw new Error('Supported device camera not authorized. Please grant permission and retry.');
     }
 
     throw new Error('No supported device found');

@@ -5,7 +5,7 @@
  * Central exports for integration/performance workflow mock utilities.
  */
 
-import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { CHROMATIC_SPECS } from '../devices/media.testkit.ts';
 
 export { CHROMATIC_SPECS };
 
@@ -18,13 +18,7 @@ export {
   createMockDeviceInfo,
   MockDevice,
   MockDeviceManager,
-} from './mock-device.factory.js';
-
-export {
-  DeviceState,
-  MockDeviceStateMachine,
-  createChromaticWithFSM,
-} from './mock-device-state-machine.factory.js';
+} from '../devices/media.testkit.ts';
 
 /**
  * Performance testing utilities

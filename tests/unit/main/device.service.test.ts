@@ -1,457 +1,225 @@
-// @ts-nocheck
-/**
- * DeviceService (Main Process) Unit Tests
- * Tests for DI injection of profile classes
- */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MainDeviceRuntime } from '@prismgb/devices/service';
+import { createLoggerFactory } from '../../factories/index.js';
+import {
+  createChromaticDeviceInfoPayload,
+  createChromaticUsbDeviceInfo
+} from '../../devices/chromatic-manifest.testkit';
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createEventBus, createLoggerFactory, createProfileRegistryMock } from '../../factories/index.js';
+describe('MainDeviceRuntime', () => {
+  let usbMonitor: {
+    startMonitoring: ReturnType<typeof vi.fn>;
+    stopMonitoring: ReturnType<typeof vi.fn>;
+    registerLifecycleListeners: ReturnType<typeof vi.fn>;
+    unregisterLifecycleListeners: ReturnType<typeof vi.fn>;
+    find: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+    off: ReturnType<typeof vi.fn>;
+  };
+  let lifecycleListeners: {
+    onAdd?: (device: unknown) => void;
+    onRemove?: (device: unknown) => void;
+  };
 
-// Mock the device-registry + iterator submodules the SUT imports directly
-// (the service now imports these from @prismgb/devices internals, not the barrel).
-vi.mock('../../../packages/prismgb-devices/src/device.registry.js', () => ({
-  DeviceRegistry: {
-    registerProfileClass: vi.fn(),
-    getProfileClass: vi.fn(),
-    getAll: vi.fn(() => [])
-  }
-}));
-vi.mock('../../../packages/prismgb-devices/src/device-iterator.utils.js', () => ({
-  forEachDeviceWithModule: vi.fn((moduleKey, callback) => {
-    // Simulate iterating over a test device
-    if (moduleKey === 'profileModule') {
-      callback({ id: 'test-device', name: 'Test Device' });
-    }
-  })
-}));
-
-import { DeviceService } from '@prismgb/devices/service';
-import { DeviceRegistry } from '../../../packages/prismgb-devices/src/device.registry.js';
-import { forEachDeviceWithModule } from '../../../packages/prismgb-devices/src/device-iterator.utils.js';
-
-describe('DeviceService (Main Process)', () => {
-  let deviceService;
-  let mockProfileRegistry;
-  let mockEventBus;
-  let mockLogger;
-  let mockLoggerFactory;
-  let mockProfileClasses;
-
-  // Mock profile class for testing
-  class MockChromaticProfile {
-    constructor() {
-      this.id = 'chromatic-mod-retro';
-      this.name = 'Mock Chromatic';
-    }
+  function createUsbMonitor() {
+    lifecycleListeners = {};
+    return {
+      startMonitoring: vi.fn(),
+      stopMonitoring: vi.fn(),
+      registerLifecycleListeners: vi.fn((onAdd, onRemove) => {
+        lifecycleListeners.onAdd = onAdd;
+        lifecycleListeners.onRemove = onRemove;
+      }),
+      unregisterLifecycleListeners: vi.fn(),
+      find: vi.fn(() => []),
+      on: vi.fn(),
+      off: vi.fn()
+    };
   }
 
-  class MockTestProfile {
-    constructor() {
-      this.id = 'test-device';
-      this.name = 'Mock Test Profile';
-    }
+  function createRuntime(now = () => 1000) {
+    usbMonitor = createUsbMonitor();
+    return new MainDeviceRuntime({
+      loggerFactory: createLoggerFactory(),
+      usbMonitor: usbMonitor as never,
+      now
+    });
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockLoggerFactory = createLoggerFactory();
-
-    mockProfileRegistry = createProfileRegistryMock();
-
-    mockEventBus = createEventBus();
-
-    // Default profile classes injected via DI
-    mockProfileClasses = new Map([
-      ['chromatic-mod-retro', MockChromaticProfile],
-      ['test-device', MockTestProfile]
-    ]);
-
-    // Setup DeviceRegistry mock to return our test classes
-    DeviceRegistry.getProfileClass.mockImplementation((deviceId) => {
-      return mockProfileClasses.get(deviceId) || null;
-    });
   });
 
-  function createDeviceService(profileClasses = mockProfileClasses) {
-    const instance = new DeviceService({
-      profileRegistry: mockProfileRegistry,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    }, profileClasses);
-    mockLogger = mockLoggerFactory._getLogger('DeviceService');
-    return instance;
-  }
+  it('starts USB monitoring and registers hotplug listeners on initialize', async () => {
+    const runtime = createRuntime();
 
-  function createDeviceServiceWithoutProfileClasses() {
-    const instance = new DeviceService({
-      profileRegistry: mockProfileRegistry,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
-    mockLogger = mockLoggerFactory._getLogger('DeviceService');
-    return instance;
-  }
+    await runtime.initialize();
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+    expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
+    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
   });
 
-  describe('Constructor', () => {
-    it('should accept profileClasses parameter', () => {
-      deviceService = createDeviceService();
+  it('is idempotent when initialized more than once', async () => {
+    const runtime = createRuntime();
 
-      expect(deviceService._profileClasses).toBe(mockProfileClasses);
-    });
+    await runtime.initialize();
+    await runtime.initialize();
 
-    it('should default to empty Map if profileClasses not provided', () => {
-      deviceService = createDeviceServiceWithoutProfileClasses();
-
-      expect(deviceService._profileClasses).toBeInstanceOf(Map);
-      expect(deviceService._profileClasses.size).toBe(0);
-    });
-
-    it('should store profile registry dependency', () => {
-      deviceService = createDeviceService();
-
-      expect(deviceService.profileRegistry).toBe(mockProfileRegistry);
-    });
-
-    it('should create logger with correct name', () => {
-      deviceService = createDeviceService();
-
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('DeviceService');
-    });
-
-    it('should initialize state properties', () => {
-      deviceService = createDeviceService();
-
-      expect(deviceService.isDeviceConnected).toBe(false);
-      expect(deviceService.connectedDeviceInfo).toBeNull();
-      expect(deviceService.isUsbMonitoring).toBe(false);
-      expect(deviceService._areProfilesInitialized).toBe(false);
-    });
+    expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
+    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
   });
 
-  describe('initialize', () => {
-    beforeEach(() => {
-      deviceService = createDeviceService();
+  it('reconciles matching USB devices into canonical connected status', async () => {
+    const runtime = createRuntime(() => 2000);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo({
+      locationId: 3,
+      deviceAddress: 9,
+      serialNumber: 'MOCK-001'
+    })]);
+
+    const status = await runtime.reconcileDeviceStatus('startup');
+
+    expect(status).toEqual({
+      state: 'connected',
+      connected: true,
+      device: createChromaticDeviceInfoPayload({
+        locationId: 3,
+        deviceAddress: 9,
+        serialNumber: 'MOCK-001'
+      }),
+      updatedAt: 2000
     });
-
-    it('should register profile classes with DeviceRegistry', async () => {
-      await deviceService.initialize();
-
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledWith(
-        'chromatic-mod-retro',
-        MockChromaticProfile
-      );
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledWith(
-        'test-device',
-        MockTestProfile
-      );
-    });
-
-    it('should register profile classes in order', async () => {
-      await deviceService.initialize();
-
-      // Verify registerProfileClass was called for each entry in the map
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledTimes(2);
-    });
-
-    it('should set initialized flag after successful initialization', async () => {
-      await deviceService.initialize();
-
-      expect(deviceService._areProfilesInitialized).toBe(true);
-    });
-
-    it('should warn if already initialized', async () => {
-      await deviceService.initialize();
-      await deviceService.initialize();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('DeviceService already initialized');
-    });
-
-    it('should prevent concurrent initialization', async () => {
-      // Start two initializations simultaneously
-      const init1 = deviceService.initialize();
-      const init2 = deviceService.initialize();
-
-      await Promise.all([init1, init2]);
-
-      // registerProfileClass should only be called once per profile class
-      // (not doubled due to concurrent calls)
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledTimes(2);
-    });
-
-    it('should use forEachDeviceWithModule to find devices with profiles', async () => {
-      await deviceService.initialize();
-
-      expect(forEachDeviceWithModule).toHaveBeenCalledWith(
-        'profileModule',
-        expect.any(Function),
-        { logger: mockLogger }
-      );
-    });
-
-    it('should retrieve profile class from DeviceRegistry', async () => {
-      await deviceService.initialize();
-
-      expect(DeviceRegistry.getProfileClass).toHaveBeenCalledWith('test-device');
-    });
-
-    it('should create profile instance and register with ProfileRegistry', async () => {
-      await deviceService.initialize();
-
-      expect(mockProfileRegistry.registerProfile).toHaveBeenCalled();
-      const registeredProfile = mockProfileRegistry.registerProfile.mock.calls[0][0];
-      expect(registeredProfile).toBeInstanceOf(MockTestProfile);
-    });
-
-    it('should set default profile to first registered one', async () => {
-      await deviceService.initialize();
-
-      expect(mockProfileRegistry.setDefaultProfile).toHaveBeenCalledWith('test-device');
-    });
-
-    it('should log successful profile registration', async () => {
-      await deviceService.initialize();
-
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Registered profile for')
-      );
-    });
-
-    it('should handle missing profile class gracefully', async () => {
-      // Configure DeviceRegistry to return null for test-device
-      DeviceRegistry.getProfileClass.mockImplementation((deviceId) => {
-        if (deviceId === 'test-device') return null;
-        return mockProfileClasses.get(deviceId);
-      });
-
-      // Should not throw, just log error
-      await expect(deviceService.initialize()).rejects.toThrow(
-        'No device profiles were successfully initialized'
-      );
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('No profile class found for device')
-      );
-    });
+    expect(runtime.isConnected()).toBe(true);
   });
 
-  describe('DI pattern consistency', () => {
-    it('should work with empty profileClasses map', async () => {
-      deviceService = createDeviceService(new Map());
+  it('reconciles no matching device into canonical disconnected status', async () => {
+    const runtime = createRuntime(() => 3000);
+    usbMonitor.find.mockReturnValue([{
+      ...createChromaticUsbDeviceInfo(),
+      vendorId: 0x9999
+    }]);
 
-      // Mock no devices with profileModule
-      forEachDeviceWithModule.mockImplementation(() => {});
+    const status = await runtime.reconcileDeviceStatus('manual-refresh');
 
-      await expect(deviceService.initialize()).rejects.toThrow(
-        'No device profiles were successfully initialized'
-      );
-
-      // No classes should be registered
-      expect(DeviceRegistry.registerProfileClass).not.toHaveBeenCalled();
+    expect(status).toEqual({
+      state: 'disconnected',
+      connected: false,
+      device: null,
+      updatedAt: 3000
     });
-
-    it('should iterate over all injected profile classes', async () => {
-      const multipleClasses = new Map([
-        ['device-1', MockChromaticProfile],
-        ['device-2', MockTestProfile],
-        ['device-3', MockChromaticProfile]
-      ]);
-
-      // Mock forEachDeviceWithModule to iterate over all devices
-      forEachDeviceWithModule.mockImplementation((moduleKey, callback) => {
-        if (moduleKey === 'profileModule') {
-          callback({ id: 'device-1', name: 'Device 1' });
-          callback({ id: 'device-2', name: 'Device 2' });
-          callback({ id: 'device-3', name: 'Device 3' });
-        }
-      });
-
-      // Mock DeviceRegistry to return the injected classes
-      DeviceRegistry.getProfileClass.mockImplementation((deviceId) => {
-        return multipleClasses.get(deviceId) || null;
-      });
-
-      deviceService = createDeviceService(multipleClasses);
-
-      await deviceService.initialize();
-
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledTimes(3);
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledWith('device-1', MockChromaticProfile);
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledWith('device-2', MockTestProfile);
-      expect(DeviceRegistry.registerProfileClass).toHaveBeenCalledWith('device-3', MockChromaticProfile);
-    });
+    expect(runtime.isConnected()).toBe(false);
   });
 
-  describe('getStatus', () => {
-    beforeEach(() => {
-      deviceService = createDeviceService();
-    });
+  it('emits status changes only when connection state changes', async () => {
+    const runtime = createRuntime(() => 4000);
+    const onStatusChanged = vi.fn();
+    runtime.onStatusChanged(onStatusChanged);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
 
-    it('should return connected status', () => {
-      deviceService.isDeviceConnected = true;
-      deviceService.connectedDeviceInfo = { id: 'test' };
+    await runtime.reconcileDeviceStatus('startup');
+    await runtime.reconcileDeviceStatus('manual-refresh');
 
-      const status = deviceService.getStatus();
-
-      expect(status).toEqual({
-        connected: true,
-        device: { id: 'test' }
-      });
-    });
-
-    it('should return disconnected status', () => {
-      const status = deviceService.getStatus();
-
-      expect(status).toEqual({
-        connected: false,
-        device: null
-      });
-    });
+    expect(onStatusChanged).toHaveBeenCalledTimes(1);
+    expect(onStatusChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'connected', connected: true }),
+      'startup'
+    );
   });
 
-  describe('isConnected', () => {
-    beforeEach(() => {
-      deviceService = createDeviceService();
-    });
+  it('routes hotplug callbacks through the same reconciliation path', async () => {
+    const runtime = createRuntime(() => 5000);
+    const onStatusChanged = vi.fn();
+    runtime.onStatusChanged(onStatusChanged);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
 
-    it('should return true when device is connected', () => {
-      deviceService.isDeviceConnected = true;
+    await runtime.initialize();
+    lifecycleListeners.onAdd?.({});
+    await Promise.resolve();
 
-      expect(deviceService.isConnected()).toBe(true);
-    });
-
-    it('should return false when device is not connected', () => {
-      expect(deviceService.isConnected()).toBe(false);
-    });
+    expect(onStatusChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'connected' }),
+      'hotplug-add'
+    );
   });
 
-  describe('getConnectedDevice', () => {
-    beforeEach(() => {
-      deviceService = createDeviceService();
-    });
+  it('routes hotplug remove callbacks through the same reconciliation path', async () => {
+    const runtime = createRuntime(() => 5500);
+    const onStatusChanged = vi.fn();
+    runtime.onStatusChanged(onStatusChanged);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
 
-    it('should return connected device info', () => {
-      const deviceInfo = { id: 'test', name: 'Test Device' };
-      deviceService.connectedDeviceInfo = deviceInfo;
+    await runtime.reconcileDeviceStatus('startup');
+    usbMonitor.find.mockReturnValue([]);
+    await runtime.initialize();
+    lifecycleListeners.onRemove?.({});
+    await Promise.resolve();
 
-      expect(deviceService.getConnectedDevice()).toBe(deviceInfo);
-    });
-
-    it('should return null when no device connected', () => {
-      expect(deviceService.getConnectedDevice()).toBeNull();
-    });
+    expect(onStatusChanged).toHaveBeenLastCalledWith(
+      expect.objectContaining({ state: 'disconnected', connected: false }),
+      'hotplug-remove'
+    );
   });
 
-  describe('USB monitoring orchestration (characterization)', () => {
-    let usbMonitor;
-    let registered;
+  it('keeps canonical status when a status listener side effect fails', async () => {
+    const loggerFactory = createLoggerFactory();
+    usbMonitor = createUsbMonitor();
+    const runtime = new MainDeviceRuntime({
+      loggerFactory,
+      usbMonitor: usbMonitor as never,
+      now: () => 5750
+    });
+    const onCheckError = vi.fn();
+    runtime.onStatusChanged(() => {
+      throw new Error('integration failed');
+    });
+    runtime.onCheckError(onCheckError);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
 
-    function createMockUsbMonitor() {
-      registered = {};
-      return {
-        startMonitoring: vi.fn(),
-        stopMonitoring: vi.fn(),
-        registerLifecycleListeners: vi.fn((onAdd, onRemove) => {
-          registered.onAdd = onAdd;
-          registered.onRemove = onRemove;
-        }),
-        unregisterLifecycleListeners: vi.fn(),
-        find: vi.fn(() => []),
-        on: vi.fn(),
-        off: vi.fn()
-      };
-    }
+    const status = await runtime.reconcileDeviceStatus('startup');
 
-    function createServiceWithUsbMonitor() {
-      usbMonitor = createMockUsbMonitor();
-      const instance = new DeviceService({
-        profileRegistry: mockProfileRegistry,
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory,
-        usbMonitor
-      }, mockProfileClasses);
-      mockLogger = mockLoggerFactory._getLogger('DeviceService');
-      return instance;
-    }
+    expect(status).toMatchObject({
+      state: 'connected',
+      connected: true,
+      device: expect.objectContaining({ id: createChromaticDeviceInfoPayload().id })
+    });
+    expect(runtime.getStatus()).toBe(status);
+    expect(onCheckError).not.toHaveBeenCalled();
+    expect(loggerFactory._getLogger('MainDeviceRuntime').error).toHaveBeenCalledWith(
+      'Device status listener failed',
+      expect.any(Error)
+    );
+  });
 
-    beforeEach(() => {
-      deviceService = createServiceWithUsbMonitor();
+  it('emits canonical error status and check error when USB scan fails', async () => {
+    const runtime = createRuntime(() => 6000);
+    const onStatusChanged = vi.fn();
+    const onCheckError = vi.fn();
+    runtime.onStatusChanged(onStatusChanged);
+    runtime.onCheckError(onCheckError);
+    usbMonitor.find.mockImplementation(() => {
+      throw new Error('scan failed');
     });
 
-    it('starts monitoring: returns true, sets flag, starts the monitor and registers listeners', () => {
-      const result = deviceService.startUSBMonitoring();
+    const status = await runtime.reconcileDeviceStatus('tray-refresh');
 
-      expect(result).toBe(true);
-      expect(deviceService.isUsbMonitoring).toBe(true);
-      expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-      expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
+    expect(status).toEqual({
+      state: 'error',
+      connected: false,
+      device: null,
+      error: 'scan failed',
+      updatedAt: 6000
     });
+    expect(onCheckError).toHaveBeenCalledWith({ reason: 'tray-refresh', error: 'scan failed' });
+    expect(onStatusChanged).toHaveBeenCalledWith(status, 'tray-refresh');
+  });
 
-    it('is idempotent: a second start does not restart the monitor', () => {
-      deviceService.startUSBMonitoring();
-      const result = deviceService.startUSBMonitoring();
+  it('cleans up USB lifecycle listeners and monitoring on dispose', async () => {
+    const runtime = createRuntime();
 
-      expect(result).toBe(true);
-      expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-    });
+    await runtime.initialize();
+    await runtime.dispose();
 
-    it('stops monitoring: clears flag, stops the monitor and unregisters listeners', () => {
-      deviceService.startUSBMonitoring();
-      deviceService.stopUSBMonitoring();
-
-      expect(deviceService.isUsbMonitoring).toBe(false);
-      expect(usbMonitor.stopMonitoring).toHaveBeenCalledTimes(1);
-      expect(usbMonitor.unregisterLifecycleListeners).toHaveBeenCalled();
-    });
-
-    it('publishes a check-error and returns false when the monitor fails to start', () => {
-      usbMonitor.startMonitoring.mockImplementation(() => {
-        throw new Error('hotplug unavailable');
-      });
-
-      const result = deviceService.startUSBMonitoring();
-
-      expect(result).toBe(false);
-      expect(deviceService.isUsbMonitoring).toBe(false);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        'device:check-error',
-        expect.objectContaining({ type: 'usb-monitoring-failed' })
-      );
-    });
-
-    it('routes a hotplug add event for a matched device to a connection-changed publish', () => {
-      mockProfileRegistry.detectDevice.mockReturnValue({ matched: true, profile: { name: 'Test Profile' } });
-      deviceService.startUSBMonitoring();
-
-      registered.onAdd({ vendorId: 0x1234, productId: 0x5678 });
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        'device:connection-changed',
-        expect.objectContaining({ connected: true })
-      );
-    });
-
-    it('scans already-connected devices after the scan delay and connects matches', async () => {
-      vi.useFakeTimers();
-      try {
-        mockProfileRegistry.detectDevice.mockReturnValue({ matched: true, profile: { name: 'Test Profile' } });
-        usbMonitor.find.mockReturnValue([{ vendorId: 0x1234, productId: 0x5678 }]);
-
-        deviceService.startUSBMonitoring();
-        await vi.advanceTimersByTimeAsync(1000);
-
-        expect(usbMonitor.find).toHaveBeenCalled();
-        expect(mockEventBus.publish).toHaveBeenCalledWith(
-          'device:connection-changed',
-          expect.objectContaining({ connected: true })
-        );
-      } finally {
-        vi.useRealTimers();
-      }
-    });
+    expect(usbMonitor.unregisterLifecycleListeners).toHaveBeenCalled();
+    expect(usbMonitor.stopMonitoring).toHaveBeenCalled();
   });
 });

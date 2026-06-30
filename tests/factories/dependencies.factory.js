@@ -6,14 +6,13 @@
  */
 
 import { createAppState } from './app-state.factory.js';
-import {
-  createDeviceService,
-  createAdapterFactory,
-  createDeviceServiceMock
-} from './device.factory.js';
+import { createRendererDeviceRuntimeMock } from './device.factory.js';
 import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
-import { createStreamingService } from './stream.factory.js';
+import {
+  createDeviceMediaAcquirerMock,
+  createStreamingService
+} from './stream.factory.js';
 import { createUIController } from './ui.factory.js';
 
 /**
@@ -24,11 +23,10 @@ import { createUIController } from './ui.factory.js';
  */
 export function createStreamingServiceDependencies(overrides = {}) {
   return {
-    deviceService: createDeviceServiceMock(),
+    rendererDeviceRuntime: createRendererDeviceRuntimeMock(),
+    deviceMediaAcquirer: createDeviceMediaAcquirerMock(),
     eventBus: createEventBus(),
     loggerFactory: createLoggerFactory(),
-    adapterFactory: createAdapterFactory(),
-    ipcClient: {},
     ...overrides
   };
 }
@@ -46,8 +44,8 @@ export function createMockDependencies(overrides = {}) {
     appState: createAppState(),
     uiController: createUIController(),
     streamingService: createStreamingService(),
-    deviceService: createDeviceService(),
-    adapterFactory: createAdapterFactory(),
+    rendererDeviceRuntime: createRendererDeviceRuntimeMock(),
+    deviceMediaAcquirer: createDeviceMediaAcquirerMock(),
     ...overrides,
   };
 }

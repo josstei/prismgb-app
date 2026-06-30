@@ -34,15 +34,19 @@ import {
   createNoopUsbDeviceMonitor,
   toUsbDeviceInfo
 } from '../../../packages/prismgb-devices/src/usb-device-monitor.js';
+import { CHROMATIC_DESCRIPTOR } from '../../devices/chromatic-manifest.testkit';
+
+const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;
+const chromaticUsbName = `USB Device ${chromaticUsb.hexVendorId.slice(2)}:${chromaticUsb.hexProductId.slice(2)}`;
 
 function makeNodeUsbDevice(overrides = {}) {
   return {
     busNumber: 4,
     deviceAddress: 12,
     deviceDescriptor: {
-      idVendor: 0x374e,
-      idProduct: 0x0101,
-      bDeviceClass: 0x0e
+      idVendor: chromaticUsb.vendorId,
+      idProduct: chromaticUsb.productId,
+      bDeviceClass: chromaticUsb.deviceClass
     },
     ...overrides
   };
@@ -57,11 +61,11 @@ describe('usb-device-monitor', () => {
   it('maps node-usb descriptors to app USB device info', () => {
     expect(toUsbDeviceInfo(makeNodeUsbDevice())).toEqual({
       locationId: 4,
-      vendorId: 0x374e,
-      productId: 0x0101,
-      deviceName: 'USB Device 374e:0101',
+      vendorId: chromaticUsb.vendorId,
+      productId: chromaticUsb.productId,
+      deviceName: chromaticUsbName,
       deviceAddress: 12,
-      deviceClass: 0x0e,
+      deviceClass: chromaticUsb.deviceClass,
       busNumber: 4
     });
   });
@@ -73,8 +77,8 @@ describe('usb-device-monitor', () => {
 
     expect(monitor.find()).toEqual([
       expect.objectContaining({
-        vendorId: 0x374e,
-        productId: 0x0101
+        vendorId: chromaticUsb.vendorId,
+        productId: chromaticUsb.productId
       })
     ]);
   });

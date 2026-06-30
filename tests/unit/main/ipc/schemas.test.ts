@@ -4,6 +4,8 @@ import {
   booleanArgumentSchema,
   transcodeStartSchema,
   transcodeCancelSchema,
+  deviceStatusPayloadSchema,
+  deviceStatusResponseSchema,
   transcodeProgressSchema,
   transcodeCompletedSchema,
   transcodeCancelledSchema,
@@ -15,9 +17,15 @@ import {
   gpuPolicyResponseSchema,
   loginItemGetResponseSchema
 } from '@main/ipc/schemas/index.js';
+import {
+  createChromaticDeviceInfoPayload,
+  createChromaticDeviceStatusPayload
+} from '../../../devices/chromatic-manifest.testkit';
 
 const accepts = (schema: { safeParse: (v: unknown) => { success: boolean } }, value: unknown) =>
   schema.safeParse(value).success;
+
+const canonicalDeviceInfo = createChromaticDeviceInfoPayload();
 
 describe('IPC input schemas (security)', () => {
   it('externalUrlSchema accepts http/https and rejects other protocols, empty, and over-length', () => {
@@ -54,17 +62,40 @@ describe('IPC input schemas (security)', () => {
 });
 
 describe('IPC subscription payload schemas (defense-in-depth)', () => {
-  it('deviceInfoSchema accepts the optional-typed shape and rejects wrong field types', () => {
-    expect(accepts(deviceInfoSchema, {})).toBe(true);
-    expect(accepts(deviceInfoSchema, { vendorId: 1234, deviceName: 'Chromatic' })).toBe(true);
+  it('deviceInfoSchema accepts only the canonical strict device info shape', () => {
+    expect(accepts(deviceInfoSchema, canonicalDeviceInfo)).toBe(true);
+    expect(accepts(deviceInfoSchema, {})).toBe(false);
     expect(accepts(deviceInfoSchema, { vendorId: 'not-a-number' })).toBe(false);
-    expect(accepts(deviceInfoSchema, { deviceName: 42 })).toBe(false);
+    expect(accepts(deviceInfoSchema, { ...canonicalDeviceInfo, deviceName: 'legacy' })).toBe(false);
+  });
+
+  it('deviceStatus schemas require a canonical status and put IPC success only on the response schema', () => {
+    const status = {
+      state: 'connected',
+      connected: true,
+      device: canonicalDeviceInfo
+    };
+
+    expect(accepts(deviceStatusPayloadSchema, status)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, { ...status, success: true })).toBe(false);
+    expect(accepts(deviceStatusResponseSchema, { ...status, success: true })).toBe(true);
+    expect(accepts(deviceStatusResponseSchema, { connected: null, success: true })).toBe(false);
+  });
+
+  it('E2E device helpers produce canonical payloads accepted by strict schemas', () => {
+    const deviceInfo = createChromaticDeviceInfoPayload();
+    const connectedStatus = createChromaticDeviceStatusPayload(true);
+    const disconnectedStatus = createChromaticDeviceStatusPayload(false);
+
+    expect(accepts(deviceInfoSchema, deviceInfo)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, connectedStatus)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, disconnectedStatus)).toBe(true);
   });
 
   it('nullableDeviceInfoSchema also accepts null and undefined', () => {
     expect(accepts(nullableDeviceInfoSchema, null)).toBe(true);
     expect(accepts(nullableDeviceInfoSchema, undefined)).toBe(true);
-    expect(accepts(nullableDeviceInfoSchema, { vendorId: 1 })).toBe(true);
+    expect(accepts(nullableDeviceInfoSchema, canonicalDeviceInfo)).toBe(true);
     expect(accepts(nullableDeviceInfoSchema, { vendorId: 'x' })).toBe(false);
   });
 

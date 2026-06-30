@@ -446,6 +446,19 @@ describe('CaptureOrchestrator', () => {
       expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:status-message', { message: 'Recording saved!' });
     });
 
+    it('should publish error status when save returns unsuccessful result', async () => {
+      const mockBlob = new Blob(['test'], { type: 'video/webm' });
+      const filename = 'recording.webm';
+      mockCaptureSaveService.saveRecording.mockResolvedValue({ success: false, error: 'Blob too large' });
+
+      await orchestrator._handleRecordingReady({ blob: mockBlob, filename });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+        message: 'Failed to save recording. Please try again.',
+        type: 'error'
+      });
+    });
+
     it('should log error and publish error status when save fails', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
       const filename = 'recording.webm';

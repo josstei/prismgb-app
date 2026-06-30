@@ -14,7 +14,7 @@ import type {
   PipelineUniforms
 } from '@prismgb/gpu';
 import { getErrorMessage } from '@prismgb/core';
-import { getDefaultNativeResolution } from '@prismgb/devices';
+import { DeviceCatalog } from '@prismgb/devices';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type {
   LoggerFactoryLike
@@ -128,7 +128,7 @@ export class StreamingGpuRendererService extends BaseService {
     this._currentPresetId = null;
     this._currentPreset = null;
     this._globalBrightness = 1.0;
-    this._nativeResolution = getDefaultNativeResolution();
+    this._nativeResolution = DeviceCatalog.nativeResolution();
     this._bitmapOptions = createNativeBitmapOptions(this._nativeResolution);
     this._scaleFactor = 1;
     this._targetWidth = this._nativeResolution.width;
@@ -169,7 +169,7 @@ export class StreamingGpuRendererService extends BaseService {
    */
   async initialize(
     canvasElement: HTMLCanvasElement,
-    nativeResolution: Dimensions = getDefaultNativeResolution()
+    nativeResolution: Dimensions = DeviceCatalog.nativeResolution()
   ): Promise<boolean> {
     this.logger.info('Initializing GPU renderer...');
 

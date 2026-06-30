@@ -14,7 +14,6 @@ export {
   CHROMATIC_CAPABILITIES,
   CHROMATIC_STREAM_SETTINGS,
   TRACK_CAPABILITIES,
-  CHROMATIC_PROFILE,
   USB_DEVICE_INFO,
   createDeviceFixture,
   createDeviceListFixture,
@@ -70,4 +69,4 @@ export {
 } from './capture.fixture.js';
 
 // Re-export Chromatic specs from manifest-backed fixture source
-export { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+export { CHROMATIC_SPECS } from '../devices/media.testkit.ts';

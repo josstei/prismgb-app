@@ -352,6 +352,7 @@ class CaptureService extends BaseService {
     const stopWaiter = this._createStopWaiter();
 
     try {
+      this._requestFinalRecorderData(recorder);
       recorder.stop();
       this.isRecording = false;
 
@@ -366,6 +367,14 @@ class CaptureService extends BaseService {
     }
 
     await stopWaiter.promise;
+  }
+
+  private _requestFinalRecorderData(recorder: MediaRecorder): void {
+    try {
+      recorder.requestData();
+    } catch (error) {
+      this.logger.warn('Failed to flush recording data before stop', error);
+    }
   }
 
   override async dispose(): Promise<void> {

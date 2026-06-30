@@ -15,13 +15,11 @@ import {
 } from './baseline.config.js';
 import {
   createAppState,
-  createDeviceAdapter,
-  createDeviceService,
   createEventBus,
   createLoggerFactory,
   createMockDependencies,
-  DeviceState,
-  createChromaticWithFSM,
+  createRendererDeviceRuntimeMock,
+  MockDeviceManager,
 } from '../factories/index.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import { AnimationCache } from '@prismgb/core';
@@ -156,26 +154,25 @@ describe('Performance Baselines', () => {
   });
 
   describe('Device Operations', () => {
+    let deviceManager;
     let device;
 
     beforeEach(() => {
-      device = createChromaticWithFSM();
+      deviceManager = new MockDeviceManager().setupMediaDevicesMock();
+      device = MockDeviceManager.createChromatic();
+      deviceManager.addDevice(device);
     });
 
     afterEach(() => {
-      device.reset();
+      deviceManager.reset();
     });
 
-    it('should meet baseline for device state transition', async () => {
-      await device.connect();
-
+    it('should meet baseline for media device enumeration', async () => {
       const result = await measure(() => {
-        device._forceState(DeviceState.CONNECTED);
-        device._forceState(DeviceState.DISCONNECTED);
-        device._forceState(DeviceState.CONNECTED);
+        navigator.mediaDevices.enumerateDevices();
       }, 50);
 
-      assertBaseline('device-state-transition', result.avg);
+      assertBaseline('device-enumerate', result.avg);
     });
   });
 
@@ -193,7 +190,7 @@ describe('Performance Baselines', () => {
         () => createEventBus(),
         () => createAppState(),
         () => createLoggerFactory(),
-        () => createDeviceService(),
+        () => createRendererDeviceRuntimeMock(),
       ];
 
       for (const factory of factories) {

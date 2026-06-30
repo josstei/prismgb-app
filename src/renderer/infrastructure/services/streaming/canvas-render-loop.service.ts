@@ -4,7 +4,7 @@ import {
   type IPipelineCapabilities
 } from '@prismgb/gpu';
 import { DisposableBag } from '@prismgb/core';
-import { getDefaultNativeResolution } from '@prismgb/devices';
+import { DeviceCatalog } from '@prismgb/devices';
 import type { LoggerLike } from '@prismgb/core';
 
 type AnimationCacheLike = {
@@ -61,13 +61,13 @@ export class StreamingCanvasRenderLoopService {
     this._displayWidth = 0;
     this._displayHeight = 0;
     this._devicePixelRatio = 1;
-    this._nativeResolution = getDefaultNativeResolution();
+    this._nativeResolution = DeviceCatalog.nativeResolution();
     this._disposables = new DisposableBag();
   }
 
   async initialize(
     canvasElement: HTMLCanvasElement,
-    nativeResolution: NativeResolution = getDefaultNativeResolution()
+    nativeResolution: NativeResolution = DeviceCatalog.nativeResolution()
   ): Promise<void> {
     const sameNativeResolution = this._nativeResolution.width === nativeResolution.width &&
       this._nativeResolution.height === nativeResolution.height;

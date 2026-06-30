@@ -15,8 +15,9 @@ const expectedRegistrationKeys = [
   'userActivityAdapter',
   'reducedMotionAdapter',
   'metricsAdapter',
-  'deviceIpcAdapter',
-  'deviceChangeDebounceAdapter',
+  'deviceStatusPort',
+  'mediaDevicesPort',
+  'devicePreferenceStore',
   'animationCache',
   'canvasRenderLoopService',
   'viewportService',
@@ -28,14 +29,8 @@ const expectedRegistrationKeys = [
   'gpuRendererService',
   'streamingRendererFactory',
   'renderPipelineService',
-  'ipcClient',
-  'deviceStatusProvider',
-  'adapterFactory',
-  'deviceStorageService',
-  'deviceConnectionService',
-  'deviceMediaService',
-  'deviceService',
-  'deviceOperationSequencer',
+  'deviceMediaAcquirer',
+  'rendererDeviceRuntime',
   'streamingService',
   'captureService',
   'gpuRecordingService',
@@ -55,7 +50,6 @@ const expectedRegistrationKeys = [
   'presentationModeService',
   'captureUiBridge',
   'transcodeUiBridge',
-  'deviceOrchestrator',
   'streamingAudioOrchestrator',
   'streamingOrchestrator',
   'captureOrchestrator',
@@ -139,14 +133,15 @@ describe('Renderer container', () => {
   it('resolves manual-provider and standard service tokens with chained dependencies', () => {
     const container = createRendererContainer();
 
-    // Manual providers, including chained resolution (deviceStatusProvider -> ipcClient,
-    // canvasRenderLoopService -> animationCache).
+    // Manual providers, including platform ports and canvasRenderLoopService -> animationCache.
     expect(() => container.resolve('storageService')).not.toThrow();
-    expect(() => container.resolve('ipcClient')).not.toThrow();
-    expect(() => container.resolve('deviceStatusProvider')).not.toThrow();
+    expect(() => container.resolve('deviceStatusPort')).not.toThrow();
+    expect(() => container.resolve('mediaDevicesPort')).not.toThrow();
+    expect(() => container.resolve('devicePreferenceStore')).not.toThrow();
     expect(() => container.resolve('canvasRenderLoopService')).not.toThrow();
 
     // Standard service registrations: cradle construction and no-arg construction.
+    expect(() => container.resolve('deviceMediaAcquirer')).not.toThrow();
     expect(container.resolve('gpuFrameBuffer')).toBeDefined();
     expect(container.resolve('animationCache')).toBeDefined();
   });

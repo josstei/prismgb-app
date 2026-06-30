@@ -3,6 +3,7 @@ export type {
   IpcActionResult,
   DeviceInfoPayload,
   DeviceStatusPayload,
+  DeviceStatusResponse,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,

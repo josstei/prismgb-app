@@ -1,382 +1,295 @@
-/**
- * Device Service (Main)
- * Handles device detection, connection, and disconnection
- * Integrates with ProfileRegistry for profile-based device matching
- */
-
 import { BaseService } from '@prismgb/core';
-import { formatDeviceInfo } from './device-info.formatter.js';
-import { forEachDeviceWithModule } from './device-iterator.utils.js';
-import { DeviceRegistry, type DeviceRegistryEntry } from './device.registry.js';
-import { MainEventChannels } from '@prismgb/events';
+import {
+  matchByUsb,
+  toDeviceInfo,
+  type DeviceInfo,
+  type DeviceMatch,
+  type DeviceStatus,
+  type ObservedUsbDevice
+} from './index.js';
 import {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
   type UsbDeviceInfo,
   type UsbDeviceMonitor
 } from './usb-device-monitor.js';
-import { UsbMonitoringController, type DeviceConnectionHandler } from './usb-monitoring.controller.js';
-import type { DeviceProfileRegistry } from './device-profile.registry.js';
-import type { DeviceEventBus as EventBus } from './device-host.contracts.js';
-import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
-import type { DeviceProfile } from './device-profile.base.js';
+import type { LoggerFactoryLike } from '@prismgb/core';
 
-interface DeviceMatch {
-  matched: boolean;
-  config: {
-    deviceName: string;
-    vendorId: number;
-    productId: number;
-  } | null;
-  profile: DeviceProfile | null;
+export type DeviceReconcileReason =
+  | 'startup'
+  | 'hotplug-add'
+  | 'hotplug-remove'
+  | 'tray-refresh'
+  | 'manual-refresh';
+
+export interface DeviceRuntimeCheckError {
+  reason: DeviceReconcileReason;
+  error: string;
 }
 
-interface DeviceStatus {
-  connected: boolean;
-  device: ConnectedDeviceInfo | null;
+export interface DeviceRuntimeEvents {
+  statusChanged: DeviceStatus;
+  checkError: DeviceRuntimeCheckError;
 }
 
-interface ConnectedDeviceInfo extends UsbDeviceInfo {
-  locationId?: number;
-  vendorId: number;
-  productId: number;
-  deviceName?: string;
-  manufacturer?: string;
-  serialNumber?: string;
-  deviceAddress?: number;
-  configName: string;
-}
-
-type ProfileClass = new () => DeviceProfile;
-
-interface DeviceServiceDependencies {
-  profileRegistry: DeviceProfileRegistry;
-  eventBus: EventBus;
-  loggerFactory: LoggerFactory;
+export interface MainDeviceRuntimeDependencies {
+  loggerFactory: LoggerFactoryLike;
   usbMonitor?: UsbDeviceMonitor;
+  now?: () => number;
 }
+
+export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceReconcileReason) => void;
+export type DeviceCheckErrorListener = (error: DeviceRuntimeCheckError) => void;
+export type DeviceRuntimeUnsubscribe = () => void;
+
+const TEST_MODE_ARGS = new Set(['--test-mode']);
 
 function isTestMode(): boolean {
-  return process.argv.includes('--test-mode') || process.env.NODE_ENV === 'test';
+  return process.argv.some((argument) => TEST_MODE_ARGS.has(argument)) || process.env.NODE_ENV === 'test';
 }
 
-class DeviceService extends BaseService implements DeviceConnectionHandler {
+function createInitialStatus(now: () => number): DeviceStatus {
+  return {
+    state: 'unknown',
+    connected: false,
+    device: null,
+    updatedAt: now()
+  };
+}
 
-  private readonly profileRegistry: DeviceProfileRegistry;
-  private readonly eventBus: EventBus;
-  private isDeviceConnected: boolean;
-  private connectedDeviceInfo: ConnectedDeviceInfo | null;
-  private _areProfilesInitialized: boolean;
-  private _initializationLock: Promise<void> | null;
-  private _checkDeviceLock: Promise<boolean> | null;
-  private readonly _profileClasses: Map<string, ProfileClass>;
-  private readonly _usbMonitor: UsbDeviceMonitor;
-  private readonly _usbMonitoringController: UsbMonitoringController;
+function sameDeviceInfo(left: DeviceInfo | null, right: DeviceInfo | null): boolean {
+  if (left === right) {
+    return true;
+  }
 
-  constructor(dependencies: DeviceServiceDependencies, profileClasses: Map<string, ProfileClass> = new Map()) {
-    super(dependencies, 'DeviceService');
-    this.profileRegistry = dependencies.profileRegistry;
-    this.eventBus = dependencies.eventBus;
-    this.isDeviceConnected = false;
-    this.connectedDeviceInfo = null;
-    this._areProfilesInitialized = false;
-    this._initializationLock = null;
-    this._checkDeviceLock = null;
-    this._usbMonitor = dependencies.usbMonitor ?? (
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.id === right.id &&
+    left.vendorId === right.vendorId &&
+    left.productId === right.productId &&
+    left.locationId === right.locationId &&
+    left.deviceAddress === right.deviceAddress &&
+    left.serialNumber === right.serialNumber;
+}
+
+function isSameStatus(left: DeviceStatus, right: DeviceStatus): boolean {
+  return left.state === right.state &&
+    left.connected === right.connected &&
+    left.error === right.error &&
+    sameDeviceInfo(left.device, right.device);
+}
+
+function toObservedUsbDevice(device: UsbDeviceInfo): ObservedUsbDevice {
+  const observed: ObservedUsbDevice = {
+    vendorId: device.vendorId,
+    productId: device.productId
+  };
+
+  if (device.locationId !== undefined) {
+    observed.locationId = device.locationId;
+  }
+
+  if (device.deviceAddress !== undefined) {
+    observed.deviceAddress = device.deviceAddress;
+  }
+
+  if (device.deviceName !== undefined) {
+    observed.deviceName = device.deviceName;
+  }
+
+  if (device.manufacturer !== undefined) {
+    observed.manufacturer = device.manufacturer;
+  }
+
+  if (device.serialNumber !== undefined) {
+    observed.serialNumber = device.serialNumber;
+  }
+
+  if (device.deviceClass !== undefined) {
+    observed.deviceClass = device.deviceClass;
+  }
+
+  if (device.busNumber !== undefined) {
+    observed.busNumber = device.busNumber;
+  }
+
+  return observed;
+}
+
+export class MainDeviceRuntime extends BaseService {
+  private readonly usbMonitor: UsbDeviceMonitor;
+  private readonly now: () => number;
+  private status: DeviceStatus;
+  private initialized = false;
+  private initializationLock: Promise<void> | null = null;
+  private reconcileLock: Promise<DeviceStatus> | null = null;
+  private readonly statusListeners = new Set<DeviceStatusListener>();
+  private readonly checkErrorListeners = new Set<DeviceCheckErrorListener>();
+
+  constructor(dependencies: MainDeviceRuntimeDependencies) {
+    super(dependencies, 'MainDeviceRuntime');
+    this.usbMonitor = dependencies.usbMonitor ?? (
       isTestMode() ? createNoopUsbDeviceMonitor() : createNodeUsbDeviceMonitor()
     );
-
-    this._usbMonitoringController = new UsbMonitoringController({
-      usbMonitor: this._usbMonitor,
-      eventBus: this.eventBus,
-      loggerFactory: dependencies.loggerFactory,
-      connectionHandler: this
-    });
-    this.disposables.add(() => this._usbMonitoringController.dispose());
-
-    // Profile classes registered via DI bootstrap
-    this._profileClasses = profileClasses;
+    this.now = dependencies.now ?? Date.now;
+    this.status = createInitialStatus(this.now);
   }
 
-  /**
-   * Initialize the device service (must be called after construction)
-   * Loads device profiles from the registry
-   * Uses mutex to prevent concurrent initialization
-   */
-  async initialize(): Promise<void> {
-    // Return existing initialization if in progress
-    if (this._initializationLock) {
-      return this._initializationLock;
+  initialize(): Promise<void> {
+    if (this.initializationLock) {
+      return this.initializationLock;
     }
 
-    if (this._areProfilesInitialized) {
-      this.logger.warn('DeviceService already initialized');
-      return;
+    if (this.initialized) {
+      this.logger.warn('MainDeviceRuntime already initialized');
+      return Promise.resolve();
     }
 
-    this._initializationLock = this._performInitialization();
-
-    try {
-      await this._initializationLock;
-    } finally {
-      this._initializationLock = null;
-    }
-  }
-
-  /**
-   * Perform actual initialization work
-   */
-  private async _performInitialization(): Promise<void> {
-    await this._initializeProfiles();
-    this._areProfilesInitialized = true;
-  }
-
-  /**
-   * Initialize device profiles and register them
-   * Dynamically loads profiles from the device registry
-   */
-  private async _initializeProfiles(): Promise<void> {
-    try {
-      let registeredCount = 0;
-      let firstProfileId: string | null = null;
-      const failedProfiles: Array<{ id: string; reason: string }> = [];
-
-      // Register profile classes with DeviceRegistry (injected via DI bootstrap)
-      for (const [deviceId, ProfileClass] of this._profileClasses) {
-        DeviceRegistry.registerProfileClass(deviceId, ProfileClass);
-      }
-
-      // Load profiles from registry using shared iterator
-      const devices: DeviceRegistryEntry[] = [];
-      forEachDeviceWithModule('profileModule', (device) => {
-        devices.push(device);
-      }, { logger: this.logger });
-
-      // Load profiles from registry
-      for (const device of devices) {
-        try {
-          // Get profile class from DeviceRegistry
-          const ProfileClass = DeviceRegistry.getProfileClass(device.id) as ProfileClass | null;
-
-          if (!ProfileClass) {
-            this.logger.error(`No profile class found for device: ${device.id}`);
-            failedProfiles.push({ id: device.id, reason: 'No profile class found' });
-            continue;
-          }
-
-          // Create and register profile instance
-          const profileInstance = new ProfileClass();
-          this.profileRegistry.registerProfile(profileInstance);
-
-          registeredCount++;
-
-          // Track first profile for default
-          if (!firstProfileId) {
-            firstProfileId = device.id;
-          }
-
-          this.logger.info(`Registered profile for ${device.name} (${device.id})`);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger.error(`Failed to load profile for ${device.id}:`, error);
-          failedProfiles.push({ id: device.id, reason: errorMessage });
-        }
-      }
-
-      // Set default profile to the first registered one
-      if (firstProfileId) {
-        this.profileRegistry.setDefaultProfile(firstProfileId);
-      }
-
-      this.logger.info(`Registered ${registeredCount} device profile(s) from registry`);
-
-      // Log summary warning if any profiles failed to load
-      if (failedProfiles.length > 0) {
-        const failedIds = failedProfiles.map(p => p.id).join(', ');
-        this.logger.warn(`Failed to initialize ${failedProfiles.length} device profile(s): ${failedIds}`);
-      }
-
-      const requiredProfileIds = new Set(devices.filter(device => device.enabled !== false).map(device => device.id));
-      const failedRequiredProfiles = failedProfiles.filter(profile => requiredProfileIds.has(profile.id));
-
-      if (registeredCount === 0) {
-        throw new Error('No device profiles were successfully initialized');
-      }
-
-      if (failedRequiredProfiles.length > 0) {
-        const requiredIds = failedRequiredProfiles.map(profile => profile.id).join(', ');
-        throw new Error(`Required device profile(s) failed to initialize: ${requiredIds}`);
-      }
-    } catch (error) {
-      this.logger.error('Failed to initialize device profiles', error);
-      throw error; // Re-throw to indicate initialization failure
-    }
-  }
-
-  startUSBMonitoring(): boolean {
-    return this._usbMonitoringController.start();
-  }
-
-  stopUSBMonitoring(): void {
-    this._usbMonitoringController.stop();
-  }
-
-  get isUsbMonitoring(): boolean {
-    return this._usbMonitoringController.isMonitoring;
-  }
-
-  matchDevice(device: UsbDeviceInfo): DeviceMatch {
-    // Match via ProfileRegistry (profile-based)
-    const detectionResult = this.profileRegistry.detectDevice(device);
-    if (detectionResult.matched && detectionResult.profile) {
-      this.logger.info(`Profile matched: ${detectionResult.profile.name}`);
-      return {
-        matched: true,
-        config: {
-          deviceName: detectionResult.profile.name,
-          vendorId: device.vendorId,
-          productId: device.productId
+    this.initializationLock = Promise.resolve().then(() => {
+      this.usbMonitor.startMonitoring();
+      this.usbMonitor.registerLifecycleListeners(
+        () => {
+          void this.reconcileDeviceStatus('hotplug-add');
         },
-        profile: detectionResult.profile
-      };
-    }
-
-    return { matched: false, config: null, profile: null };
-  }
-
-  /**
-   * Refresh device connection status
-   * Uses mutex to prevent concurrent device checks
-   */
-  async refreshDeviceStatus(): Promise<boolean> {
-    // Return existing check if in progress
-    if (this._checkDeviceLock) {
-      return this._checkDeviceLock;
-    }
-
-    this._checkDeviceLock = this._performDeviceCheck();
-
-    try {
-      return await this._checkDeviceLock;
-    } finally {
-      this._checkDeviceLock = null;
-    }
-  }
-
-  /**
-   * Perform actual device check
-   */
-  private async _performDeviceCheck(): Promise<boolean> {
-    try {
-      let devices: UsbDeviceInfo[] = [];
-      try {
-        devices = this._usbMonitor.find();
-        this.logger.debug(`find() returned ${devices.length} device(s)`);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`USB device scan failed: ${errorMessage}`);
-      }
-
-      // Handle undefined/null/empty
-      if (!devices || devices.length === 0) {
-        this.logger.info('No USB devices found');
-        this.isDeviceConnected = false;
-        this.connectedDeviceInfo = null;
-        return false;
-      }
-
-      this.logger.info(`Scanning ${devices.length} USB device(s)...`);
-
-      // Try to match devices via ProfileRegistry
-      for (const device of devices) {
-        const match = this.matchDevice(device);
-        if (match.matched && match.config) {
-          const formatted = formatDeviceInfo(device);
-          this.logger.info(`Device found: ${match.config.deviceName}`, { device: formatted });
-          this.isDeviceConnected = true;
-          this.connectedDeviceInfo = { ...device, configName: match.config.deviceName };
-          return true;
+        () => {
+          void this.reconcileDeviceStatus('hotplug-remove');
         }
-      }
+      );
+      this.initialized = true;
+      this.logger.info('Main device runtime initialized');
+    }).finally(() => {
+      this.initializationLock = null;
+    });
 
-      this.isDeviceConnected = false;
-      this.connectedDeviceInfo = null;
-      return false;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Error checking for device', error);
-      this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, {
-        error: errorMessage
-      });
-      return false;
-    }
+    return this.initializationLock;
   }
 
-  /**
-   * Handle device connection
-   */
-  onDeviceConnected(device: UsbDeviceInfo): void {
-    const formatted = formatDeviceInfo(device);
-    this.logger.info('Device connected', { device: formatted });
-
-    const match = this.matchDevice(device);
-
-    if (match.matched && match.config) {
-      this.logger.info(`Configured device detected: ${match.config.deviceName}`);
-
-      this.isDeviceConnected = true;
-      this.connectedDeviceInfo = { ...device, configName: match.config.deviceName };
-
-      this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, this.getStatus());
-    } else {
-      this.logger.info('Device ignored (not a configured device)');
+  reconcileDeviceStatus(reason: DeviceReconcileReason): Promise<DeviceStatus> {
+    if (this.reconcileLock) {
+      return this.reconcileLock;
     }
+
+    this.reconcileLock = this.performDeviceReconciliation(reason).finally(() => {
+      this.reconcileLock = null;
+    });
+
+    return this.reconcileLock;
   }
 
-  /**
-   * Handle device disconnection
-   */
-  onDeviceDisconnected(device: UsbDeviceInfo): void {
-    const formatted = formatDeviceInfo(device);
-    this.logger.info('Device disconnected', { device: formatted });
-
-    // Check if this was a tracked device
-    const match = this.matchDevice(device);
-
-    if (match.matched && match.profile) {
-      this.logger.info(`Device disconnected: ${match.profile.name}`);
-
-      this.isDeviceConnected = false;
-      this.connectedDeviceInfo = null;
-
-      this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, this.getStatus());
-    }
-  }
-
-  /**
-   * Get current device connection status
-   */
   getStatus(): DeviceStatus {
-    return {
-      connected: this.isDeviceConnected,
-      device: this.connectedDeviceInfo
+    return this.status;
+  }
+
+  isConnected(): boolean {
+    return this.status.connected;
+  }
+
+  onStatusChanged(listener: DeviceStatusListener): DeviceRuntimeUnsubscribe {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
     };
   }
 
-  /**
-   * Check if device is connected
-   */
-  isConnected(): boolean {
-    return this.isDeviceConnected;
+  onCheckError(listener: DeviceCheckErrorListener): DeviceRuntimeUnsubscribe {
+    this.checkErrorListeners.add(listener);
+    return () => {
+      this.checkErrorListeners.delete(listener);
+    };
   }
 
-  /**
-   * Get connected device info
-   */
-  getConnectedDevice(): ConnectedDeviceInfo | null {
-    return this.connectedDeviceInfo;
+  override async dispose(): Promise<void> {
+    this.usbMonitor.unregisterLifecycleListeners();
+    this.usbMonitor.stopMonitoring();
+    this.statusListeners.clear();
+    this.checkErrorListeners.clear();
+    await super.dispose();
+  }
+
+  private async performDeviceReconciliation(reason: DeviceReconcileReason): Promise<DeviceStatus> {
+    let nextStatus: DeviceStatus;
+
+    try {
+      const devices = this.usbMonitor.find();
+      nextStatus = this.createStatusFromDevices(devices);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to reconcile device status', error);
+
+      nextStatus = {
+        state: 'error',
+        connected: false,
+        device: null,
+        error: message,
+        updatedAt: this.now()
+      };
+      this.commitStatus(nextStatus, reason);
+      this.emitCheckError({ reason, error: message });
+      return this.status;
+    }
+
+    this.commitStatus(nextStatus, reason);
+    return this.status;
+  }
+
+  private createStatusFromDevices(devices: readonly UsbDeviceInfo[]): DeviceStatus {
+    for (const device of devices) {
+      const observed = toObservedUsbDevice(device);
+      const match = matchByUsb(observed);
+
+      if (match.matched && match.descriptor) {
+        return {
+          state: 'connected',
+          connected: true,
+          device: toDeviceInfo(match.descriptor, observed),
+          updatedAt: this.now()
+        };
+      }
+    }
+
+    return {
+      state: 'disconnected',
+      connected: false,
+      device: null,
+      updatedAt: this.now()
+    };
+  }
+
+  private commitStatus(nextStatus: DeviceStatus, reason: DeviceReconcileReason): void {
+    if (isSameStatus(this.status, nextStatus)) {
+      this.status = {
+        ...nextStatus,
+        updatedAt: this.status.updatedAt
+      };
+      return;
+    }
+
+    this.status = nextStatus;
+    this.emitStatusChanged(nextStatus, reason);
+  }
+
+  private emitStatusChanged(status: DeviceStatus, reason: DeviceReconcileReason): void {
+    for (const listener of this.statusListeners) {
+      try {
+        listener(status, reason);
+      } catch (error) {
+        this.logger.error('Device status listener failed', error);
+      }
+    }
+  }
+
+  private emitCheckError(error: DeviceRuntimeCheckError): void {
+    for (const listener of this.checkErrorListeners) {
+      try {
+        listener(error);
+      } catch (listenerError) {
+        this.logger.error('Device check-error listener failed', listenerError);
+      }
+    }
   }
 }
 
-export { DeviceService };
-export type { DeviceServiceDependencies, DeviceMatch, DeviceStatus, ConnectedDeviceInfo, ProfileClass };
+export type ConnectedDeviceInfo = DeviceInfo;
+export type { DeviceMatch, DeviceStatus };

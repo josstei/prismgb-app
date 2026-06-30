@@ -1,5 +1,7 @@
 # PrismGB
 
+<!-- Source: package.json, packages/prismgb-devices/src/device.manifest.json, packages/prismgb-devices/src/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
+
 <p align="center">
   <img src="assets/Logo.png" alt="PrismGB Logo" width="400">
 </p>
@@ -94,7 +96,7 @@ PrismGB includes 6 carefully tuned render presets:
 |---------|-------------|
 | **USB Hot-Plug** | Automatic device detection and reconnection |
 | **Auto-Stream** | Optionally start streaming when device connects |
-| **Device Profiles** | Extensible device profile system |
+| **Manifest Device Catalog** | Shared device descriptor drives USB matching, media constraints, and tests |
 
 ## Requirements
 
@@ -280,19 +282,19 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              Main Process                                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
-│  │   Window    │ │    Tray     │ │   Device    │ │     Transcode       ││
-│  │  Service    │ │   Service   │ │   Service   │ │      Service        ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────────┘│
+│  ┌─────────────────┐ ┌─────────────────────┐ ┌───────────────────────┐ │
+│  │ MainDeviceRuntime│ │DeviceIntegrationSvc │ │  IPC Handler Registry │ │
+│  │  USB reconcile   │ │tray/window side fx  │ │  tRPC router + push   │ │
+│  └─────────────────┘ └─────────────────────┘ └───────────────────────┘ │
 │  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────────────────┐  │
-│  │   Update    │ │ Performance │ │         IPC Handler Registry      │  │
-│  │   Service   │ │   Metrics   │ │                                   │  │
+│  │   Window    │ │   Update    │ │         Transcode Service         │  │
+│  │  Service    │ │  Service    │ │          FFmpeg jobs              │  │
 │  └─────────────┘ └─────────────┘ └───────────────────────────────────┘  │
 └────────────────────────────────┬────────────────────────────────────────┘
-                                 │ IPC (contextBridge)
+                                 │ electron-trpc IPC + push subscriptions
 ┌────────────────────────────────┴────────────────────────────────────────┐
 │                            Preload Script                                │
-│                     (Secure IPC bridge, no Node.js)                      │
+│                 exposes electronTRPC only, no Node.js                    │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │
 ┌────────────────────────────────┴────────────────────────────────────────┐
@@ -303,6 +305,9 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 │  │  │   Streaming   │ │  Render Pipeline  │ │    GPU Render Loop    │  ││
 │  │  │    Service    │ │  (4-pass shader)  │ │   (WebGL2/WebGPU)     │  ││
 │  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
+│  │  ┌────────────────────┐ ┌────────────────────────────────────────┐  ││
+│  │  │RendererDeviceRuntime│ │ DeviceMediaAcquirer + platform ports │  ││
+│  │  └────────────────────┘ └────────────────────────────────────────┘  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────────┐│
 │  │                       Capture Orchestrator                           ││
@@ -312,8 +317,8 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 │  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐│
-│  │   Device     │ │   Settings   │ │    Notes     │ │      Update      ││
-│  │   Service    │ │   Service    │ │   Service    │ │     Service      ││
+│  │ Device UI    │ │   Settings   │ │    Notes     │ │      Update      ││
+│  │ state stores │ │   Service    │ │   Service    │ │     Service      ││
 │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────────┐│
 │  │                          UI Layer                                    ││
@@ -428,7 +433,6 @@ If transcoding fails, ensure FFmpeg binaries are included in the application pac
 | [docs/architecture-diagrams-onboarding.md](docs/architecture-diagrams-onboarding.md) | Architectural onboarding guide |
 | [docs/naming-conventions.md](docs/naming-conventions.md) | Code naming standards |
 | [docs/ci-cd-workflows.md](docs/ci-cd-workflows.md) | GitHub Actions workflows |
-| [docs/plans/2026-02-07-architecture-closure-plan.md](docs/plans/2026-02-07-architecture-closure-plan.md) | Multi-phase architecture closure plan |
 
 ## Testing
 

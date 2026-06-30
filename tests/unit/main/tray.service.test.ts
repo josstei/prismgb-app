@@ -5,7 +5,6 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
-  createDeviceServiceMock,
   createLoggerFactory,
   createWindowServiceMock
 } from '../../factories/index.js';
@@ -49,7 +48,7 @@ import { Tray, Menu, app } from 'electron';
 describe('TrayService', () => {
   let trayService;
   let mockWindowService;
-  let mockDeviceService;
+  let mockMainDeviceRuntime;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -62,14 +61,14 @@ describe('TrayService', () => {
       showWindow: vi.fn()
     });
 
-    mockDeviceService = createDeviceServiceMock({
+    mockMainDeviceRuntime = {
       isConnected: vi.fn(),
-      refreshDeviceStatus: vi.fn()
-    });
+      reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
+    };
 
     trayService = new TrayService({
       windowService: mockWindowService,
-      deviceService: mockDeviceService,
+      mainDeviceRuntime: mockMainDeviceRuntime,
       loggerFactory: mockLoggerFactory
     });
     mockLogger = mockLoggerFactory._getLogger('TrayService');
@@ -92,8 +91,8 @@ describe('TrayService', () => {
       expect(trayService.windowService).toBe(mockWindowService);
     });
 
-    it('should store device service', () => {
-      expect(trayService.deviceService).toBe(mockDeviceService);
+    it('should store main device runtime', () => {
+      expect(trayService.mainDeviceRuntime).toBe(mockMainDeviceRuntime);
     });
   });
 
@@ -176,11 +175,21 @@ describe('TrayService', () => {
     });
 
     it('should check device connection status', () => {
-      mockDeviceService.isConnected.mockReturnValue(true);
+      mockMainDeviceRuntime.isConnected.mockReturnValue(true);
 
       trayService.updateTrayMenu();
 
-      expect(mockDeviceService.isConnected).toHaveBeenCalled();
+      expect(mockMainDeviceRuntime.isConnected).toHaveBeenCalled();
+    });
+
+    it('should reconcile through the tray-refresh path from the menu item', () => {
+      trayService.updateTrayMenu();
+
+      const template = Menu.buildFromTemplate.mock.calls.at(-1)[0];
+      const refreshItem = template.find((item) => item.label === 'Refresh Devices');
+      refreshItem.click();
+
+      expect(mockMainDeviceRuntime.reconcileDeviceStatus).toHaveBeenCalledWith('tray-refresh');
     });
   });
 

@@ -3,6 +3,7 @@ import {
   CHROMATIC_E2E_FIXTURE,
   CHROMATIC_SPECS,
   createChromaticUsbDeviceInfo,
+  createChromaticDeviceStatusPayload,
 } from '../../support/chromatic-device-specs.js';
 import { AppShellPage } from '../pages/app-shell.page.js';
 import { StreamPage } from '../pages/stream.page.js';
@@ -66,10 +67,7 @@ export class ChromaticDeviceFixture {
     const { autoConnect = true, testPattern = 'animated' } = options;
 
     await this.injectMediaMock({ autoConnect, testPattern });
-    await setMockDeviceStatus(this.electronApp, {
-      connected: true,
-      device: this.fixture.usbDeviceInfo,
-    });
+    await setMockDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(true));
     await injectDeviceConnectedEvent(this.electronApp);
 
     await this.expectConnected();
@@ -77,7 +75,7 @@ export class ChromaticDeviceFixture {
 
   async disconnect() {
     await this.mockDevice?.disconnect();
-    await setMockDeviceStatus(this.electronApp, { connected: false, device: null });
+    await setMockDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(false));
     await injectDeviceDisconnectedEvent(this.electronApp);
     await this.expectDisconnected();
   }

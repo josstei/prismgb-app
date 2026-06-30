@@ -25,9 +25,6 @@
   },
   "dependencies": {
     "@prismgb/core": "*",
-    "@prismgb/config": "*",
-    "@prismgb/events": "*",
-    "@prismgb/ipc": "*",
     "usb": "^2.16.0"
   },
   "devDependencies": {

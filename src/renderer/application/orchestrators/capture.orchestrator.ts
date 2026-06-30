@@ -301,9 +301,17 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       });
       this._recordingInterrupted = false;
 
+      if (!result.success) {
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+          message: 'Failed to save recording. Please try again.',
+          type: 'error'
+        });
+        return;
+      }
+
       // Only show status message for direct saves (webm)
       // Transcoded saves show their own status messages
-      if (result.success && !result.transcoded) {
+      if (!result.transcoded) {
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
       }
     } catch (error) {

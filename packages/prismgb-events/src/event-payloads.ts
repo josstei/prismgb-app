@@ -1,17 +1,7 @@
 import type { LeafValues, AssertNever } from '@prismgb/core';
+import type { DeviceInfoPayload } from '@prismgb/devices';
 import { EventChannels } from './event-channels.js';
 import { getEventManifestScopeValues } from './event.manifest.js';
-export interface DeviceInfoPayload {
-  locationId?: number;
-  vendorId?: number;
-  productId?: number;
-  deviceName?: string;
-  manufacturer?: string;
-  serialNumber?: string;
-  deviceAddress?: number;
-  configName?: string;
-}
-
 export interface UpdateInfoPayload {
   version?: string;
   releaseDate?: string;
@@ -97,6 +87,7 @@ export type StreamStartedPayload = {
   device: MediaDeviceInfo;
   settings: StreamSettingsPayload | null;
   capabilities: StreamingCapabilities;
+  strategy?: string;
 };
 
 export type StreamErrorPayload = {

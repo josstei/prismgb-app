@@ -1,4 +1,4 @@
-import { createChromaticUsbDeviceInfo } from '../../support/chromatic-device-specs.js';
+import { createChromaticDeviceInfoPayload } from '../../support/chromatic-device-specs.js';
 import { IPC_CHANNELS } from '../../support/ipc-channels.js';
 
 export async function setMockDeviceStatus(app, mockStatus) {
@@ -17,7 +17,7 @@ export async function clearMockDeviceStatus(app) {
 }
 
 export async function injectDeviceConnectedEvent(app, deviceInfo = {}) {
-  const device = createChromaticUsbDeviceInfo(deviceInfo);
+  const device = createChromaticDeviceInfoPayload(deviceInfo);
 
   await app.evaluate(
     async (_electron, payload) => {

@@ -1,6 +1,6 @@
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import { getDefaultNativeResolution } from '@prismgb/devices';
+import { DeviceCatalog } from '@prismgb/devices';
 import { getErrorMessage } from '@prismgb/core';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type { LoggerFactoryLike } from '@prismgb/core';
@@ -294,7 +294,7 @@ export class StreamingRenderPipelineService extends BaseService {
 
   private async _startRendering(capabilities: StreamingCapabilities): Promise<void> {
     this._currentCapabilities = capabilities;
-    const nativeRes = capabilities?.nativeResolution || getDefaultNativeResolution();
+    const nativeRes = capabilities?.nativeResolution || DeviceCatalog.nativeResolution();
     const video = this.streamViewService.getVideo();
 
     const gpuAvailable = !this._performanceModeEnabled;
@@ -451,7 +451,7 @@ export class StreamingRenderPipelineService extends BaseService {
     await this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
-    const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();
+    const nativeRes = this._currentCapabilities?.nativeResolution || DeviceCatalog.nativeResolution();
     this.canvasLifecycleService.setupCanvasSize(nativeRes, false);
 
     const canvas = this.streamViewService.getCanvas();
@@ -469,7 +469,7 @@ export class StreamingRenderPipelineService extends BaseService {
     await this.canvasLifecycleService.recreateCanvas();
     this._canvas2dContextCreated = false;
 
-    const nativeRes = this._currentCapabilities?.nativeResolution || getDefaultNativeResolution();
+    const nativeRes = this._currentCapabilities?.nativeResolution || DeviceCatalog.nativeResolution();
     this.canvasLifecycleService.setupCanvasSize(nativeRes, true);
 
     const canvas = this.streamViewService.getCanvas();

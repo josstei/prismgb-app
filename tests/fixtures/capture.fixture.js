@@ -4,7 +4,7 @@
  * Centralized test data for capture-related tests (screenshots, recordings).
  */
 
-import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { CHROMATIC_SPECS } from '../devices/media.testkit.ts';
 
 /**
  * Screenshot filename patterns

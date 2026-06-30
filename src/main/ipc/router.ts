@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS } from '@prismgb/ipc';
+import { toDeviceStatusPayload } from '@prismgb/devices';
 import type {
   DeviceStatusPayload,
+  DeviceStatusResponse,
   DeviceInfoPayload,
   ShellOpenExternalResponse,
   WindowSetFullscreenResponse,
@@ -42,7 +44,8 @@ import {
   transcodeErrorSchema,
   transcodeCancelledSchema,
   gpuPolicyResponseSchema,
-  loginItemGetResponseSchema
+  loginItemGetResponseSchema,
+  deviceStatusResponseSchema
 } from './schemas/index.js';
 
 function errorMessage(error: unknown): string {
@@ -90,20 +93,47 @@ function pushSubscription<TPayload>(ctx: IpcContext, channel: string, schema: z.
 }
 
 const deviceRouter = router({
-  getStatus: publicProcedure.query(({ ctx }) =>
-    resultEnvelope<DeviceStatusPayload>(
+  getStatus: publicProcedure.output(deviceStatusResponseSchema).query(({ ctx }) =>
+    resultEnvelope<DeviceStatusResponse>(
       () => {
         const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
         if (isTestMode() && testGlobal.__testMockDeviceStatus) {
           ctx.logger.debug('Using mock device status for testing');
-          return { ...testGlobal.__testMockDeviceStatus, success: true } as DeviceStatusPayload;
+          return { success: true, ...testGlobal.__testMockDeviceStatus };
         }
-        const status = ctx.deviceService.getStatus();
-        return { ...status, success: true } as DeviceStatusPayload;
+        return { success: true, ...toDeviceStatusPayload(ctx.mainDeviceRuntime.getStatus()) };
       },
       (error) => {
         ctx.logger.error('Failed to get device status:', error);
-        return { connected: false, error: errorMessage(error), success: false } as DeviceStatusPayload;
+        return {
+          success: false,
+          state: 'error',
+          connected: false,
+          device: null,
+          error: errorMessage(error)
+        };
+      }
+    )
+  ),
+  refreshStatus: publicProcedure.output(deviceStatusResponseSchema).mutation(({ ctx }) =>
+    resultEnvelope<DeviceStatusResponse>(
+      async () => {
+        const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
+        if (isTestMode() && testGlobal.__testMockDeviceStatus) {
+          ctx.logger.debug('Using mock device refresh status for testing');
+          return { success: true, ...testGlobal.__testMockDeviceStatus };
+        }
+        return { success: true, ...toDeviceStatusPayload(await ctx.mainDeviceRuntime.reconcileDeviceStatus('manual-refresh')) };
+      },
+      (error) => {
+        ctx.logger.error('Failed to refresh device status:', error);
+        return {
+          success: false,
+          state: 'error',
+          connected: false,
+          device: null,
+          error: errorMessage(error)
+        };
       }
     )
   ),

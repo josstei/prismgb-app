@@ -40,24 +40,22 @@ describe('fileDownload', () => {
     const blob = new Blob(['test']);
     const promise = downloadFile(blob, 'test.txt');
 
-    // Immediately after click, anchor is removed but URL not yet revoked
     expect(downloadMock.removeChild).toHaveBeenCalledWith(mockAnchor);
     expect(downloadMock.revokeObjectURL).not.toHaveBeenCalled();
+    await expect(promise).resolves.toBeUndefined();
 
-    // Advance timers to trigger delayed revocation
     await vi.advanceTimersByTimeAsync(5000);
-    await promise;
 
     expect(downloadMock.revokeObjectURL).toHaveBeenCalledWith('blob:test');
   });
 
-  it('should return a promise that resolves after cleanup', async () => {
+  it('should return a promise that resolves after download starts', async () => {
     const blob = new Blob(['test']);
     const promise = downloadFile(blob, 'test.txt');
 
     expect(promise).toBeInstanceOf(Promise);
 
-    await vi.advanceTimersByTimeAsync(5000);
     await expect(promise).resolves.toBeUndefined();
+    expect(downloadMock.revokeObjectURL).not.toHaveBeenCalled();
   });
 });

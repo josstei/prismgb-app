@@ -8,19 +8,19 @@ interface StreamingServiceLike {
   getStream(): MediaStream | null;
 }
 
-interface DeviceServiceLike {
+interface RendererDeviceRuntimeLike {
   readonly isConnected: boolean;
 }
 
 type AppStateDependencies = {
   streamingService?: StreamingServiceLike;
-  deviceService?: DeviceServiceLike;
+  rendererDeviceRuntime?: RendererDeviceRuntimeLike;
   eventBus?: EventBusLike;
 };
 
 class AppState {
   streamingService: StreamingServiceLike | undefined;
-  deviceService: DeviceServiceLike | undefined;
+  rendererDeviceRuntime: RendererDeviceRuntimeLike | undefined;
   eventBus: EventBusLike | undefined;
 
   private readonly _isCinematicModeEnabled = signal(true);
@@ -31,14 +31,14 @@ class AppState {
   private readonly _bag = new DisposableBag();
 
   constructor(dependencies: AppStateDependencies = {}) {
-    const { streamingService, deviceService, eventBus } = dependencies;
+    const { streamingService, rendererDeviceRuntime, eventBus } = dependencies;
 
     this.streamingService = streamingService;
-    this.deviceService = deviceService;
+    this.rendererDeviceRuntime = rendererDeviceRuntime;
     this.eventBus = eventBus;
 
     this._isStreamingSignal = signal(streamingService?.isStreaming ?? false);
-    this._deviceConnectedSignal = signal(deviceService?.isConnected ?? false);
+    this._deviceConnectedSignal = signal(rendererDeviceRuntime?.isConnected ?? false);
 
     if (this.eventBus) {
       this._setupEventSubscriptions();
@@ -90,7 +90,7 @@ class AppState {
   }
 
   get deviceConnected() {
-    return this.deviceService?.isConnected ?? false;
+    return this.rendererDeviceRuntime?.isConnected ?? false;
   }
 
   get deviceConnectedSignal(): ReadonlySignal<boolean> {

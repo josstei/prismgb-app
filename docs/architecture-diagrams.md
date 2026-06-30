@@ -1,5 +1,7 @@
 # Architecture Diagrams
 
+<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/service-registrations.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, packages/prismgb-devices/src/index.ts, packages/prismgb-devices/src/service.ts -->
+
 These diagrams provide focused, review-friendly views of the application's core orchestration and service boundaries.
 
 Related docs:
@@ -10,26 +12,31 @@ Legend
 - Solid edges: direct dependency (constructor injection).
 - Dashed labeled edges: indirect communication via EventBus.
 - Dashed unlabeled edges: error/cleanup or retry flow.
+- Dotted labeled edges: package data, contract, or static helper usage.
 - IPC edges are labeled explicitly.
 
 ## Renderer DI Composition
 
 ```mermaid
 flowchart LR
-  Container["container.ts (composition shell)"]
-  Infra["register-infrastructure.ts"]
-  Devices["register-devices.ts"]
-  Streaming["register-streaming.ts"]
-  Capture["register-capture.ts"]
-  UI["register-ui.ts"]
-  Orchestrators["register-orchestrators.ts"]
+  Container["application/di/container.ts"]
+  Standard["service-registrations.ts"]
+  Manual["manual-providers.ts"]
+  DeviceRuntime[RendererDeviceRuntime]
+  MediaAcquirer[DeviceMediaAcquirer]
+  StreamingService[StreamingService]
+  CaptureServices[Capture services]
+  PresentationBridges[Presentation bridges]
+  Orchestrators[App orchestrators]
 
-  Container --> Infra
-  Container --> Devices
-  Container --> Streaming
-  Container --> Capture
-  Container --> UI
-  Container --> Orchestrators
+  Container --> Standard
+  Container --> Manual
+  Standard --> DeviceRuntime
+  Standard --> MediaAcquirer
+  Standard --> StreamingService
+  Standard --> CaptureServices
+  Standard --> PresentationBridges
+  Standard --> Orchestrators
 ```
 
 ## Streaming and Device Selection
@@ -40,20 +47,27 @@ flowchart LR
     UISetupOrchestrator[UISetupOrchestrator]
     StreamingOrchestrator[StreamingOrchestrator]
     StreamingService[StreamingService]
-    DeviceOrchestrator[DeviceOrchestrator]
-    DeviceService[DeviceService]
-    DeviceMediaService[DeviceMediaService]
-    DeviceConnectionService[DeviceConnectionService]
+    RendererDeviceRuntime[RendererDeviceRuntime]
+    DeviceMediaAcquirer[DeviceMediaAcquirer]
+    TrpcDeviceStatusPort[TrpcDeviceStatusPort]
+    BrowserMediaDevicesPort[BrowserMediaDevicesPort]
+    StorageDevicePreferenceStore[StorageDevicePreferenceStore]
+    DeviceCatalog[DeviceCatalog]
     UIEventBridge[UIEventBridge]
   end
 
   UISetupOrchestrator -. "ui:stream-start/stop-requested" .-> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
   StreamingOrchestrator -. "ui:streaming-mode, ui:stream-info" .-> UIEventBridge
-  DeviceOrchestrator --> DeviceService
-  StreamingService --> DeviceService
-  DeviceService --> DeviceMediaService
-  DeviceService --> DeviceConnectionService
+  StreamingService --> RendererDeviceRuntime
+  StreamingService --> DeviceMediaAcquirer
+  StreamingService -. "matchByLabel helper" .-> DeviceCatalog
+  RendererDeviceRuntime --> TrpcDeviceStatusPort
+  RendererDeviceRuntime --> BrowserMediaDevicesPort
+  RendererDeviceRuntime --> StorageDevicePreferenceStore
+  RendererDeviceRuntime -. "selection descriptors" .-> DeviceCatalog
+  DeviceMediaAcquirer --> BrowserMediaDevicesPort
+  DeviceMediaAcquirer -. "descriptor argument" .-> DeviceCatalog
 ```
 
 ## Capture and GPU Recording
@@ -79,26 +93,35 @@ flowchart LR
   subgraph RENDERER[Renderer]
     CaptureSaveService[CaptureSaveService]
     TranscodeServiceRenderer["TranscodeService (Renderer)"]
+    TrpcClient[Renderer tRPC client]
     TranscodeUIBridge[TranscodeUIBridge]
+    TranscodeProgressStore[TranscodeProgressStore]
     TranscodeToast[TranscodeToastComponent]
-    CaptureUIBridge[CaptureUIBridge]
   end
 
   subgraph MAIN[Main Process]
-    TranscodeIpcHandler[TranscodeIpcHandler]
+    AppRouter["appRouter (tRPC)"]
     TranscodeServiceMain["TranscodeService (Main)"]
+    WindowService[WindowService]
+    IpcPushBridge[IpcPushBridge]
     FFmpeg[ffmpeg/ffprobe]
   end
 
   CaptureSaveService --> TranscodeServiceRenderer
-  TranscodeServiceRenderer -- IPC: transcode:start --> TranscodeIpcHandler
-  TranscodeIpcHandler --> TranscodeServiceMain
+  TranscodeServiceRenderer -- "transcode.start/cancel/status" --> TrpcClient
+  TrpcClient --> AppRouter
+  AppRouter --> TranscodeServiceMain
   TranscodeServiceMain --> FFmpeg
-  TranscodeServiceMain -- IPC: transcode:progress --> TranscodeServiceRenderer
-  TranscodeServiceMain -- IPC: transcode:completed --> TranscodeServiceRenderer
-  TranscodeServiceRenderer --> TranscodeUIBridge
-  TranscodeUIBridge --> TranscodeToast
-  TranscodeUIBridge --> CaptureUIBridge
+  TranscodeServiceMain --> WindowService
+  WindowService -- IPC push --> IpcPushBridge
+  AppRouter --> IpcPushBridge
+  IpcPushBridge -- "progress/completed/error/cancelled" --> AppRouter
+  AppRouter -- "transcode subscriptions" --> TrpcClient
+  TrpcClient --> TranscodeServiceRenderer
+  TranscodeServiceRenderer -. "transcode:* events" .-> TranscodeUIBridge
+  TranscodeServiceRenderer -. "transcode:* events" .-> TranscodeProgressStore
+  TranscodeProgressStore --> TranscodeToast
+  TranscodeUIBridge -. "ui:record-button enabled/disabled" .-> TranscodeToast
 ```
 
 ## Performance and Metrics
@@ -130,32 +153,41 @@ flowchart LR
   subgraph MAIN[Main Process]
     AppOrchestrator["AppOrchestrator (Main)"]
     IpcHandlerRegistry[IpcHandlerRegistry]
+    AppRouter["appRouter (tRPC)"]
+    IpcPushBridge[IpcPushBridge]
+    WindowService[WindowService]
     TrayService[TrayService]
-    DeviceBridge[DeviceBridgeService]
+    EventBus[EventBus]
+    DeviceIntegrationService[DeviceIntegrationService]
+    MainDeviceRuntime[MainDeviceRuntime]
     UpdateBridge[UpdateBridge]
-    DeviceServiceMain[DeviceServiceMain]
     UpdateServiceMain[UpdateServiceMain]
     TranscodeServiceMain[TranscodeServiceMain]
     UsbMonitor[node-usb]
-    DeviceRegistry[DeviceRegistry]
-    DeviceProfileRegistry[DeviceProfileRegistry]
+    DeviceCatalog[DeviceCatalog]
     AutoUpdater[electron-updater]
     FFmpeg[ffmpeg-static]
   end
 
   AppOrchestrator --> IpcHandlerRegistry
+  AppOrchestrator --> MainDeviceRuntime
+  AppOrchestrator --> DeviceIntegrationService
   AppOrchestrator --> TrayService
-  AppOrchestrator --> DeviceBridge
   AppOrchestrator --> UpdateBridge
 
-  IpcHandlerRegistry --> DeviceServiceMain
+  IpcHandlerRegistry --> AppRouter
+  IpcHandlerRegistry --> IpcPushBridge
+  AppRouter --> MainDeviceRuntime
   IpcHandlerRegistry --> UpdateServiceMain
   IpcHandlerRegistry --> TranscodeServiceMain
-  TrayService --> DeviceServiceMain
-
-    DeviceServiceMain --> UsbMonitor
-  DeviceServiceMain --> DeviceRegistry
-  DeviceServiceMain --> DeviceProfileRegistry
+  DeviceIntegrationService --> MainDeviceRuntime
+  DeviceIntegrationService --> TrayService
+  DeviceIntegrationService --> WindowService
+  DeviceIntegrationService --> EventBus
+  DeviceIntegrationService -. "launch policy lookup" .-> DeviceCatalog
+  WindowService --> IpcPushBridge
+  MainDeviceRuntime --> UsbMonitor
+  MainDeviceRuntime -. "USB matcher data" .-> DeviceCatalog
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
@@ -182,26 +214,50 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph MAIN[Main Process]
-    DeviceBridge[DeviceBridgeService]
+    MainDeviceRuntime[MainDeviceRuntime]
+    DeviceIntegrationService[DeviceIntegrationService]
+    WindowService[WindowService]
+    IpcPushBridge[IpcPushBridge]
+    AppRouter["appRouter (tRPC)"]
     UpdateBridge[UpdateBridge]
     TranscodeService[TranscodeService]
   end
 
   subgraph RENDERER[Renderer]
-    DeviceServiceRenderer["DeviceService (Renderer)"]
+    TrpcClient[Renderer tRPC client]
+    RendererDeviceRuntime[RendererDeviceRuntime]
+    DeviceMediaAcquirer[DeviceMediaAcquirer]
+    StreamingService[StreamingService]
     UIService["UIService / UI Components"]
     TranscodeServiceRenderer["TranscodeService (Renderer)"]
   end
 
-  DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
-  UpdateBridge -- IPC: update-status --> UIService
-  TranscodeServiceRenderer -- IPC: transcode:start --> TranscodeService
-  TranscodeService -- IPC: transcode:progress/completed --> TranscodeServiceRenderer
+  DeviceIntegrationService --> MainDeviceRuntime
+  DeviceIntegrationService -- "device connected/disconnected" --> WindowService
+  WindowService -- IPC push --> IpcPushBridge
+  TrpcClient -- "device.getStatus / refreshStatus / subscriptions" --> AppRouter
+  AppRouter --> MainDeviceRuntime
+  AppRouter --> IpcPushBridge
+  IpcPushBridge -- "subscription payloads" --> AppRouter
+  AppRouter -- "device subscription data" --> TrpcClient
+  TrpcClient --> RendererDeviceRuntime
+  StreamingService --> RendererDeviceRuntime
+  StreamingService --> DeviceMediaAcquirer
+  RendererDeviceRuntime -. "device status events" .-> UIService
+  UpdateBridge -- update push --> WindowService
+  TranscodeService -- transcode push --> WindowService
+  TrpcClient -- "update/transcode subscriptions" --> AppRouter
+  AppRouter -- "update/transcode data" --> TrpcClient
+  TrpcClient --> UIService
+  TranscodeServiceRenderer -- "transcode.start/cancel/status" --> TrpcClient
 ```
 
 ## Notes
 
-- Device selection is explicitly shown as a sub-step in `StreamingService` to make filtering and ordering visible during reviews.
+- `@prismgb/devices` root exports the manifest-backed catalog, contracts, matchers, and payload helpers used across processes.
+- `@prismgb/devices/service` is main-process only and exports `MainDeviceRuntime`.
+- `RendererDeviceRuntime` owns renderer device state, media enumeration, stored media-device IDs, and browser `devicechange` refreshes.
+- `DeviceMediaAcquirer` owns `getUserMedia` constraint construction, fallback attempts, stream metadata, and stream release.
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.
