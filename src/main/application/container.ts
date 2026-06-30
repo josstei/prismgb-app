@@ -10,6 +10,7 @@ import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import { MainDeviceRuntime } from '@prismgb/devices/service';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { UpdateService, UpdateBridge } from '@prismgb/updates';
@@ -30,6 +31,10 @@ function unwrapOverride(value: unknown): unknown {
   return value && typeof value === 'object' && 'value' in value
     ? (value as { value: unknown }).value
     : value;
+}
+
+function isE2eTestControlEnabled(): boolean {
+  return process.env.PRISMGB_E2E_TEST_CONTROL === '1';
 }
 
 /**
@@ -56,6 +61,10 @@ export function createMainContainer(
   container.register('trayService', (c) => new TrayService(c.cradle));
   container.register('ipcHandlerRegistry', (c) => new IpcHandlerRegistry(c.cradle));
   container.register('ipcPushBridge', () => new IpcPushBridge());
+  container.register('mainProcessTestControl', (c) => new MainProcessTestControl({
+    enabled: isE2eTestControlEnabled(),
+    ipcPushBridge: c.resolve('ipcPushBridge')
+  }));
   container.register('deviceIntegrationService', (c) => new DeviceIntegrationService(c.cradle));
   container.register('updateService', (c) => new UpdateService(c.cradle));
   container.register('updateBridgeService', (c) => new UpdateBridge(c.cradle));

@@ -12,6 +12,10 @@
     "./service": {
       "import": "./dist/service.js",
       "types": "./dist/service.d.ts"
+    },
+    "./testkit": {
+      "import": "./dist/testkit.js",
+      "types": "./dist/testkit.d.ts"
     }
   },
   "files": ["dist"],

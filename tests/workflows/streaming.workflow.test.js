@@ -11,50 +11,45 @@ import {
   createEventBus,
   createStreamingService,
   StreamingState,
-  MockDeviceManager,
 } from '../factories/index.js';
+import { createManifestMediaEnvironment } from '../devices/media.testkit.ts';
 import { EventChannels } from '@prismgb/events';
 
 describe('Streaming Workflow Integration', () => {
   let eventBus;
   let appState;
-  let deviceManager;
-  let device;
+  let mediaEnvironment;
 
   beforeEach(() => {
     eventBus = createEventBus();
     appState = createAppState();
-    deviceManager = new MockDeviceManager().setupMediaDevicesMock();
-    device = MockDeviceManager.createChromatic();
+    mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
   });
 
   afterEach(() => {
-    deviceManager.reset();
+    mediaEnvironment.cleanup();
     eventBus._reset();
     vi.clearAllMocks();
   });
 
   it('should enumerate the manifest-backed Chromatic media device when connected', async () => {
-    deviceManager.addDevice(device);
-
     const devices = await navigator.mediaDevices.enumerateDevices();
 
     expect(devices).toContainEqual(expect.objectContaining({
-      deviceId: device.deviceInfo.deviceId,
+      deviceId: mediaEnvironment.videoDevice.deviceId,
       kind: 'videoinput',
-      label: device.deviceInfo.label,
+      label: mediaEnvironment.videoDevice.label,
     }));
   });
 
   it('should acquire a stream through the media device harness', async () => {
     const events = [];
-    deviceManager.addDevice(device);
     eventBus.subscribe(EventChannels.STREAM.STARTED, ({ stream }) => {
       events.push(`stream:${stream.getVideoTracks().length}`);
     });
 
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: device.deviceInfo.deviceId } },
+      video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
     });
     eventBus.publish(EventChannels.STREAM.STARTED, { stream });
     appState.setStreaming(true);
@@ -65,8 +60,7 @@ describe('Streaming Workflow Integration', () => {
   });
 
   it('should reject media acquisition after device disconnect', async () => {
-    deviceManager.addDevice(device);
-    device.disconnect();
+    mediaEnvironment.disconnect();
 
     await expect(navigator.mediaDevices.getUserMedia({ video: true }))
       .rejects.toThrow('Requested device not found');
@@ -74,7 +68,6 @@ describe('Streaming Workflow Integration', () => {
 
   it('should publish disconnect interruption while streaming', async () => {
     const events = [];
-    deviceManager.addDevice(device);
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     appState.setStreaming(true);
     appState.setDeviceConnected(true);
@@ -83,7 +76,7 @@ describe('Streaming Workflow Integration', () => {
       events.push('session-interrupted');
     });
 
-    device.disconnect();
+    mediaEnvironment.disconnect();
     eventBus.publish(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
     appState.setStreaming(false);
     appState.setDeviceConnected(false);

@@ -19,8 +19,8 @@ import {
   createLoggerFactory,
   createMockDependencies,
   createRendererDeviceRuntimeMock,
-  MockDeviceManager,
 } from '../factories/index.js';
+import { createManifestMediaEnvironment } from '../devices/media.testkit.ts';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import { AnimationCache } from '@prismgb/core';
 
@@ -154,17 +154,14 @@ describe('Performance Baselines', () => {
   });
 
   describe('Device Operations', () => {
-    let deviceManager;
-    let device;
+    let mediaEnvironment;
 
     beforeEach(() => {
-      deviceManager = new MockDeviceManager().setupMediaDevicesMock();
-      device = MockDeviceManager.createChromatic();
-      deviceManager.addDevice(device);
+      mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
     });
 
     afterEach(() => {
-      deviceManager.reset();
+      mediaEnvironment.cleanup();
     });
 
     it('should meet baseline for media device enumeration', async () => {

@@ -3,6 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  DeviceCatalog,
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile
+} from '@prismgb/devices';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 import {
   createCaptureStreamMock,
@@ -15,6 +20,31 @@ import {
   createStreamingServiceDependencies,
 } from '../../../../factories/index.js';
 
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
+}
+
+function createStreamingTarget(overrides = {}) {
+  const descriptor = DeviceCatalog.default();
+  const videoDevice = createDeviceInfo({ deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' });
+
+  return {
+    videoDevice,
+    audioDevice: null,
+    descriptor,
+    profile: getDeviceStreamProfile(descriptor),
+    acquisition: getDeviceAcquisitionProfile(descriptor),
+    ...overrides
+  };
+}
+
 describe('StreamingService', () => {
   let service;
   let mockDependencies;
@@ -23,28 +53,22 @@ describe('StreamingService', () => {
   let mockDeviceMediaAcquirer;
   let mockLogger;
   let mockLoggerFactory;
+  let mockTarget;
 
   beforeEach(() => {
     mockEventBus = createEventBus();
-
+    mockTarget = createStreamingTarget();
     mockRendererDeviceRuntime = createRendererDeviceRuntimeMock({
-      getStoredDeviceIds: vi.fn(),
-      enumerateDevices: vi.fn(),
-      discoverSupportedDevice: vi.fn(),
-      selectDevice: vi.fn(() => true)
+      resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
     });
-
     mockDeviceMediaAcquirer = createDeviceMediaAcquirerMock();
-
     mockLoggerFactory = createLoggerFactory();
-
     mockDependencies = createStreamingServiceDependencies({
       rendererDeviceRuntime: mockRendererDeviceRuntime,
       deviceMediaAcquirer: mockDeviceMediaAcquirer,
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory
     });
-
     service = new StreamingService(mockDependencies);
     mockLogger = mockLoggerFactory._getLogger('StreamingService');
   });
@@ -64,7 +88,6 @@ describe('StreamingService', () => {
   });
 
   describe('start', () => {
-    const mockDevice = createDeviceInfo({ deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' });
     const mockVideoTrack = createMediaTrackMock({
       kind: 'video',
       label: 'Video',
@@ -75,61 +98,118 @@ describe('StreamingService', () => {
       audioTracks: [],
       videoTracks: [mockVideoTrack]
     });
+    const capabilities = {
+      ...getDeviceStreamProfile(DeviceCatalog.default()),
+      hasAudio: false
+    };
 
     beforeEach(() => {
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
       mockDeviceMediaAcquirer.acquire.mockResolvedValue({
         stream: mockStream,
         strategy: 'full',
-        capabilities: { hasAudio: true, hasVideo: true }
+        capabilities
       });
     });
 
-    it('should start streaming with specific device ID', async () => {
+    it('should start streaming with a runtime-resolved target for a specific device ID', async () => {
       const result = await service.start('device-1');
 
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith('device-1');
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
       expect(result.stream).toBe(mockStream);
-      expect(result.device).toBe(mockDevice);
+      expect(result.device).toBe(mockTarget.videoDevice);
       expect(service.isStreaming).toBe(true);
     });
 
-    it('should auto-select device when no ID provided', async () => {
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue(['device-1']);
-
+    it('should resolve an automatic target when no ID is provided', async () => {
       const result = await service.start();
 
-      expect(result.device).toBe(mockDevice);
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith(null);
+      expect(result.device).toBe(mockTarget.videoDevice);
+    });
+
+    it('should reuse in-flight start work for concurrent start calls', async () => {
+      const pendingAcquire = createDeferred();
+      mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
+
+      const firstStart = service.start('device-1');
+      const secondStart = service.start('device-1');
+
+      await vi.waitFor(() => {
+        expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledTimes(1);
+        expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledTimes(1);
+      });
+
+      pendingAcquire.resolve({
+        stream: mockStream,
+        strategy: 'full',
+        capabilities
+      });
+
+      await expect(firstStart).resolves.toMatchObject({ stream: mockStream });
+      await expect(secondStart).resolves.toMatchObject({ stream: mockStream });
     });
 
     it('should stop existing stream before starting new one', async () => {
-      // Set state machine to streaming state
       service._state = 'streaming';
       service.currentStream = mockStream;
 
       await service.start('device-1');
 
-      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalled();
+      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
     });
 
-    it('should publish stream:started event', async () => {
-      await service.start('device-1');
+    it('should wait for start to finish when stop is called while starting', async () => {
+      const pendingAcquire = createDeferred();
+      mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:started', expect.objectContaining({
+      const startPromise = service.start('device-1');
+      const stopPromise = service.stop();
+
+      pendingAcquire.resolve({
         stream: mockStream,
-        device: mockDevice
-      }));
+        strategy: 'full',
+        capabilities
+      });
+
+      await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
+      await expect(stopPromise).resolves.toBeUndefined();
+      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
+      expect(service.isStreaming).toBe(false);
     });
 
-    it('should preserve null audio settings in stream:started event payload', async () => {
+    it('should wait for stop to finish when start is called while stopping', async () => {
+      const stopRelease = createDeferred();
+      service._state = 'streaming';
+      service.currentStream = mockStream;
+      mockDeviceMediaAcquirer.release.mockReturnValueOnce(stopRelease.promise);
+
+      const stopPromise = service.stop();
+      const startPromise = service.start('device-1');
+
+      expect(mockDeviceMediaAcquirer.acquire).not.toHaveBeenCalled();
+      stopRelease.resolve();
+
+      await expect(stopPromise).resolves.toBeUndefined();
+      await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+    });
+
+    it('should publish stream:started event with settings, capabilities, and strategy', async () => {
       await service.start('device-1');
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:started', expect.objectContaining({
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:started', {
+        stream: mockStream,
+        device: mockTarget.videoDevice,
         settings: {
           video: { width: 160 },
           audio: null,
           hasAudio: false
-        }
-      }));
+        },
+        capabilities,
+        strategy: 'full'
+      });
     });
 
     it('should preserve null video settings in stream:started event payload', async () => {
@@ -142,7 +222,7 @@ describe('StreamingService', () => {
       mockDeviceMediaAcquirer.acquire.mockResolvedValue({
         stream: noVideoStream,
         strategy: 'full',
-        capabilities: { hasAudio: true, hasVideo: true }
+        capabilities: { ...capabilities, hasAudio: true }
       });
 
       await service.start('device-1');
@@ -156,24 +236,21 @@ describe('StreamingService', () => {
       }));
     });
 
-    it('should throw when device not found', async () => {
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
+    it('should publish stream:error event when target resolution fails', async () => {
+      const error = new Error('No supported device found');
+      mockRendererDeviceRuntime.resolveStreamingTarget.mockRejectedValue(error);
 
-      await expect(service.start('unknown-device')).rejects.toThrow('Device not found');
-    });
+      await expect(service.start()).rejects.toThrow('No supported device found');
 
-    it('should throw when no device available for auto-select', async () => {
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue([]);
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({
-        devices: [createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' })],
-        connected: true
+      expect(mockEventBus.publish).toHaveBeenCalledWith('stream:error', {
+        error,
+        operation: 'start',
+        deviceId: 'auto-select',
+        message: 'No supported device found'
       });
-      mockRendererDeviceRuntime.discoverSupportedDevice.mockResolvedValue(null);
-
-      await expect(service.start()).rejects.toThrow('Supported device camera not authorized');
     });
 
-    it('should publish stream:error event on failure', async () => {
+    it('should publish stream:error event when acquisition fails', async () => {
       const error = new Error('Stream failed');
       mockDeviceMediaAcquirer.acquire.mockRejectedValue(error);
 
@@ -206,7 +283,6 @@ describe('StreamingService', () => {
     const mockStream = createCaptureStreamMock({ id: 'stream-1' });
 
     beforeEach(() => {
-      // Set state machine to streaming state
       service._state = 'streaming';
       service.currentStream = mockStream;
       service.currentDevice = createDeviceInfo({ deviceId: 'device-1' });
@@ -233,7 +309,6 @@ describe('StreamingService', () => {
     });
 
     it('should do nothing if not streaming', async () => {
-      // Reset to idle state
       service._state = 'idle';
 
       await service.stop();
@@ -268,91 +343,7 @@ describe('StreamingService', () => {
     });
   });
 
-  describe('_getDeviceById', () => {
-    it('should find device by ID', async () => {
-      const devices = [
-        createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput' }),
-        createDeviceInfo({ deviceId: 'dev-2', kind: 'videoinput' })
-      ];
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
-
-      const result = await service._getDeviceById('dev-2');
-
-      expect(result.deviceId).toBe('dev-2');
-    });
-
-    it('should throw for non-existent device', async () => {
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: [], connected: false });
-
-      await expect(service._getDeviceById('unknown')).rejects.toThrow('Device not found: unknown');
-    });
-
-    it('should filter by videoinput kind', async () => {
-      const devices = [
-        createDeviceInfo({ deviceId: 'dev-1', kind: 'audioinput' }),
-        createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput' })
-      ];
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: devices, connected: true });
-
-      const result = await service._getDeviceById('dev-1');
-
-      expect(result.kind).toBe('videoinput');
-    });
-  });
-
-  describe('_autoSelectDevice', () => {
-    it('should use stored runtime device first', async () => {
-      const mockDevice = createDeviceInfo({ deviceId: 'selected-dev', kind: 'videoinput', label: 'Chromatic' });
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue(['selected-dev']);
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
-
-      const result = await service._autoSelectDevice();
-
-      expect(result.deviceId).toBe('selected-dev');
-    });
-
-    it('should fallback to label matching when stored IDs missing', async () => {
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue([]);
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({
-        devices: [createDeviceInfo({ deviceId: 'chromatic-dev', kind: 'videoinput', label: 'ModRetro Chromatic' })],
-        connected: true
-      });
-
-      const result = await service._autoSelectDevice();
-
-      expect(result.label).toContain('Chromatic');
-    });
-
-    it('should throw when labels are hidden', async () => {
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue([]);
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({
-        devices: [createDeviceInfo({ deviceId: 'dev-1', kind: 'videoinput', label: '' })],
-        connected: true
-      });
-      mockRendererDeviceRuntime.discoverSupportedDevice.mockResolvedValue(null);
-
-      await expect(service._autoSelectDevice()).rejects.toThrow('Supported device camera not authorized');
-    });
-
-    it('should use discoverSupportedDevice when stored IDs not in enumerated devices', async () => {
-      const discoveredDevice = createDeviceInfo({ deviceId: 'discovered-dev', kind: 'videoinput', label: 'Chromatic' });
-      mockRendererDeviceRuntime.getStoredDeviceIds.mockReturnValue(['old-stale-id']);
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({
-        devices: [createDeviceInfo({ deviceId: 'other-dev', kind: 'videoinput', label: '' })],
-        connected: true
-      });
-      mockRendererDeviceRuntime.discoverSupportedDevice.mockResolvedValue(discoveredDevice);
-
-      const result = await service._autoSelectDevice();
-
-      expect(mockRendererDeviceRuntime.discoverSupportedDevice).toHaveBeenCalled();
-      expect(result).toBe(discoveredDevice);
-    });
-
-  });
-
   describe('ERROR state recovery', () => {
-    const mockDevice = createDeviceInfo({ deviceId: 'device-1', label: 'Chromatic', kind: 'videoinput' });
     const mockVideoTrack = createMediaTrackMock({
       kind: 'video',
       label: 'Video',
@@ -363,43 +354,37 @@ describe('StreamingService', () => {
       audioTracks: [],
       videoTracks: [mockVideoTrack]
     });
-
-    beforeEach(() => {
-      mockRendererDeviceRuntime.enumerateDevices.mockResolvedValue({ devices: [mockDevice], connected: true });
-    });
+    const capabilities = {
+      ...getDeviceStreamProfile(DeviceCatalog.default()),
+      hasAudio: false
+    };
 
     it('should clean up partial state when starting from ERROR state', async () => {
-      // Simulate ERROR state with partial state
       service._state = 'error';
       service.currentStream = mockStream;
-      service.currentDevice = mockDevice;
-
-      // Set up successful start
+      service.currentDevice = mockTarget.videoDevice;
       mockDeviceMediaAcquirer.acquire.mockResolvedValue({
         stream: mockStream,
         strategy: 'full',
-        capabilities: { hasAudio: true, hasVideo: true }
+        capabilities
       });
 
       await service.start('device-1');
 
-      // Should have called release to clean up old stream
       expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
     });
 
     it('should allow restart after ERROR state', async () => {
-      // First start fails
       const error = new Error('First attempt failed');
       mockDeviceMediaAcquirer.acquire.mockRejectedValueOnce(error);
 
       await expect(service.start('device-1')).rejects.toThrow('First attempt failed');
       expect(service._state).toBe('error');
 
-      // Second start succeeds
       mockDeviceMediaAcquirer.acquire.mockResolvedValue({
         stream: mockStream,
         strategy: 'full',
-        capabilities: { hasAudio: true, hasVideo: true }
+        capabilities
       });
 
       const result = await service.start('device-1');
@@ -409,15 +394,11 @@ describe('StreamingService', () => {
     });
 
     it('should clear partial state even if release fails during cleanup', async () => {
-      // Simulate ERROR state with partial state
       service._state = 'error';
       service.currentStream = mockStream;
-      service.currentDevice = mockDevice;
-
-      // release fails during cleanup
+      service.currentDevice = mockTarget.videoDevice;
       mockDeviceMediaAcquirer.release.mockRejectedValueOnce(new Error('Release failed'));
 
-      // But new start should still work
       const newStream = createCaptureStreamMock({
         id: 'stream-2',
         audioTracks: [],
@@ -426,61 +407,13 @@ describe('StreamingService', () => {
       mockDeviceMediaAcquirer.acquire.mockResolvedValue({
         stream: newStream,
         strategy: 'full',
-        capabilities: { hasAudio: true, hasVideo: true }
+        capabilities
       });
 
       const result = await service.start('device-1');
 
-      // Should have tried to release old stream
       expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
-      // But should have continued and got new stream
       expect(result.stream).toBe(newStream);
-    });
-  });
-
-  describe('_getStreamSettings', () => {
-    it('should return null when no stream', () => {
-      service.currentStream = null;
-      expect(service._getStreamSettings()).toBeNull();
-    });
-
-    it('should return video and audio settings', () => {
-      const videoSettings = { width: 160, height: 144 };
-      const audioSettings = { sampleRate: 48000 };
-
-      service.currentStream = createCaptureStreamMock({
-        videoTracks: [createMediaTrackMock({ getSettings: vi.fn(() => videoSettings) })],
-        audioTracks: [createMediaTrackMock({ getSettings: vi.fn(() => audioSettings) })]
-      });
-
-      const result = service._getStreamSettings();
-
-      expect(result.video).toEqual(videoSettings);
-      expect(result.audio).toEqual(audioSettings);
-      expect(result.hasAudio).toBe(true);
-    });
-
-    it('should handle stream with no audio', () => {
-      service.currentStream = createCaptureStreamMock({
-        videoTracks: [createMediaTrackMock({ getSettings: vi.fn(() => ({})) })],
-        audioTracks: []
-      });
-
-      const result = service._getStreamSettings();
-
-      expect(result.audio).toBeNull();
-      expect(result.hasAudio).toBe(false);
-    });
-
-    it('should handle stream with no video', () => {
-      service.currentStream = createCaptureStreamMock({
-        videoTracks: [],
-        audioTracks: [createMediaTrackMock({ getSettings: vi.fn(() => ({})) })]
-      });
-
-      const result = service._getStreamSettings();
-
-      expect(result.video).toBeNull();
     });
   });
 });

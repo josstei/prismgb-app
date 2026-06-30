@@ -195,7 +195,7 @@ export function createStreamingAppState(overrides = {}) {
     initialState: {
       isStreaming: true,
       deviceConnected: true,
-      selectedDeviceId: 'mock-chromatic-device',
+      selectedDeviceId: 'chromatic-video-device',
       ...overrides,
     },
   });
@@ -210,7 +210,7 @@ export function createRecordingAppState(overrides = {}) {
       isStreaming: true,
       deviceConnected: true,
       isRecording: true,
-      selectedDeviceId: 'mock-chromatic-device',
+      selectedDeviceId: 'chromatic-video-device',
       ...overrides,
     },
   });

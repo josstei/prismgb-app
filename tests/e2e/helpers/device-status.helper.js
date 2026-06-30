@@ -1,7 +1,7 @@
 /**
  * Device status helpers for E2E tests.
  *
- * Keep this helper UI-focused. Device IPC and media mocks live in the current
+ * Keep this helper UI-focused. Device IPC and media environments live in the
  * Electron fixture and Chromatic helper surfaces.
  */
 

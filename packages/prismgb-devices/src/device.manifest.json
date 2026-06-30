@@ -52,14 +52,14 @@
         "defaultFrameRate": 60,
         "supportedFrameRates": [30, 60],
         "label": "Chromatic",
-        "videoDeviceId": "mock-chromatic-video-device",
-        "audioDeviceId": "mock-chromatic-audio-device",
-        "groupId": "mock-chromatic-group",
+        "videoDeviceId": "chromatic-video-device",
+        "audioDeviceId": "chromatic-audio-device",
+        "groupId": "chromatic-media-group",
         "audio": {
           "sampleRate": 48000,
           "channels": 2
         },
-        "e2eHelper": "tests/e2e/helpers/mock-chromatic.helper.js"
+        "e2eHelper": "tests/e2e/helpers/chromatic-media-environment.helper.js"
       }
     }
   ]

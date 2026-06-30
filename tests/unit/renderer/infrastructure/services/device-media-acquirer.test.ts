@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceCatalog } from '@prismgb/devices';
+import {
+  DeviceCatalog,
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile
+} from '@prismgb/devices';
 import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer';
 import {
   createCaptureStreamMock,
@@ -9,7 +13,7 @@ import {
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
   CHROMATIC_VIDEO_DEVICE_INFO
-} from '../../../../devices/chromatic-manifest.testkit';
+} from '../../../../devices/media.testkit';
 import {
   createChromaticAudioDeviceInfo,
   createChromaticVideoDeviceInfo
@@ -33,8 +37,18 @@ function createActiveStream(id = 'stream-1') {
 }
 
 function createAcquirer() {
+  const descriptor = DeviceCatalog.default();
+  const device = createMediaDevice();
+  const audioDevice = createAudioDevice();
+  const target = {
+    videoDevice: device,
+    audioDevice,
+    descriptor,
+    profile: getDeviceStreamProfile(descriptor),
+    acquisition: getDeviceAcquisitionProfile(descriptor)
+  };
   const mediaDevicesPort = {
-    enumerateDevices: vi.fn(async () => [createMediaDevice(), createAudioDevice()]),
+    enumerateDevices: vi.fn(async () => [device, audioDevice]),
     getUserMedia: vi.fn(async () => createActiveStream()),
     subscribeDeviceChange: vi.fn()
   };
@@ -48,8 +62,10 @@ function createAcquirer() {
     acquirer,
     mediaDevicesPort,
     loggerFactory,
-    descriptor: DeviceCatalog.default(),
-    device: createMediaDevice()
+    descriptor,
+    device,
+    audioDevice,
+    target
   };
 }
 
@@ -59,9 +75,9 @@ describe('DeviceMediaAcquirer', () => {
   });
 
   it('builds full constraints with exact video targeting and paired audio input', async () => {
-    const { acquirer, mediaDevicesPort, descriptor, device } = createAcquirer();
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
 
-    const result = await acquirer.acquire(device, descriptor);
+    const result = await acquirer.acquire(target);
 
     expect(result.strategy).toBe('full');
     expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledWith({
@@ -81,10 +97,12 @@ describe('DeviceMediaAcquirer', () => {
   });
 
   it('disables audio instead of using the default microphone when no paired audio input exists', async () => {
-    const { acquirer, mediaDevicesPort, descriptor, device } = createAcquirer();
-    mediaDevicesPort.enumerateDevices.mockResolvedValue([device]);
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
 
-    await acquirer.acquire(device, descriptor);
+    await acquirer.acquire({
+      ...target,
+      audioDevice: null
+    });
 
     expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledWith(expect.objectContaining({
       audio: false,
@@ -95,14 +113,14 @@ describe('DeviceMediaAcquirer', () => {
   });
 
   it('falls back through simple, minimal, and video-only strategies without losing video device targeting', async () => {
-    const { acquirer, mediaDevicesPort, descriptor, device } = createAcquirer();
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
     mediaDevicesPort.getUserMedia
       .mockRejectedValueOnce(new Error('full failed'))
       .mockRejectedValueOnce(new Error('simple failed'))
       .mockRejectedValueOnce(new Error('minimal failed'))
       .mockResolvedValueOnce(createActiveStream('fallback-stream'));
 
-    const result = await acquirer.acquire(device, descriptor);
+    const result = await acquirer.acquire(target);
 
     expect(result.strategy).toBe('video-only-simple');
     expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledTimes(4);

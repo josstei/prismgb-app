@@ -64,6 +64,8 @@ export const test = base.extend({
         DISABLE_CRASH_REPORTER: 'true',
         // Disable tray icon in tests (may not exist in dist)
         DISABLE_TRAY: 'true',
+        // Enable explicit main-process test-control IPC port for device fixtures
+        PRISMGB_E2E_TEST_CONTROL: '1',
       },
       timeout: 30000,
     });
@@ -220,8 +222,8 @@ export async function getAppInfo(app) {
 }
 
 export {
-  clearMockDeviceStatus,
+  clearTestDeviceStatus,
   injectDeviceConnectedEvent,
   injectDeviceDisconnectedEvent,
-  setMockDeviceStatus,
+  setTestDeviceStatus,
 } from '../helpers/device-ipc.helper.js';

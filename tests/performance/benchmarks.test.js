@@ -11,13 +11,10 @@ import {
   PerformanceCache,
   AnimationCache
 } from '@prismgb/core';
+import { performanceUtils } from '../factories/index.js';
 import {
-  CHROMATIC_SPECS,
-  MockDevice,
-  MockDeviceManager,
-  createMockStream,
-  performanceUtils,
-} from '../factories/index.js';
+  createManifestMediaEnvironment,
+} from '../devices/media.testkit.ts';
 
 // Performance thresholds (in milliseconds)
 const THRESHOLDS = {
@@ -192,12 +189,12 @@ describe('Performance Benchmarks', () => {
     });
   });
 
-  describe('MockDevice Performance', () => {
-    it('should create mock streams quickly', async () => {
-      const device = new MockDevice();
+  describe('Manifest Media Environment Performance', () => {
+    it('should create manifest streams quickly', async () => {
+      const mediaEnvironment = createManifestMediaEnvironment();
 
       const result = await performanceUtils.measureTime(
-        async () => await device.getStream(),
+        async () => await mediaEnvironment.createStream(),
         100
       );
 
@@ -210,19 +207,19 @@ describe('Performance Benchmarks', () => {
       // Use fake timers for deterministic frame generation testing
       vi.useFakeTimers();
 
-      const device = new MockDevice();
+      const mediaEnvironment = createManifestMediaEnvironment();
       const frames = [];
       const targetFps = 60;
       const duration = 1000; // 1 second test
 
-      device.startFrameGeneration((frame) => {
+      mediaEnvironment.startFrameGeneration((frame) => {
         frames.push(frame);
       }, targetFps);
 
       // Advance time by the duration
       vi.advanceTimersByTime(duration);
 
-      device._stopFrameGeneration();
+      mediaEnvironment.stopFrameGeneration();
 
       // Restore real timers
       vi.useRealTimers();

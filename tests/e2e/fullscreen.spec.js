@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from './fixtures/electron.fixture.js';
-import { CHROMATIC_E2E_FIXTURE } from '../support/chromatic-device-specs.js';
+import { CHROMATIC_MEDIA_FIXTURE } from './helpers/chromatic-media-environment.helper.js';
 
 const skipInCI = process.env.CI && !process.env.RUN_FULLSCREEN_TESTS;
 
@@ -126,7 +126,7 @@ test.describe('Fullscreen UI Adaptations', () => {
 
     if (fullscreenBox && initialBox) {
       const aspectRatio = fullscreenBox.width / fullscreenBox.height;
-      const expectedRatio = CHROMATIC_E2E_FIXTURE.display.aspectRatio;
+      const expectedRatio = CHROMATIC_MEDIA_FIXTURE.display.aspectRatio;
 
       expect(aspectRatio).toBeGreaterThan(expectedRatio * 0.8);
       expect(aspectRatio).toBeLessThan(expectedRatio * 1.5);

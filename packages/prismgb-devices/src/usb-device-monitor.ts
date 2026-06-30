@@ -1,42 +1,6 @@
 import type { Device as NodeUsbDevice } from 'usb';
 import * as nodeModule from 'module';
 
-let nodeUsbLib: any = null;
-function getUsbLib() {
-  if (nodeUsbLib !== null) return nodeUsbLib;
-
-  // 0. Try global mock hook (used for test environments like Vitest/Happy DOM)
-  if ((globalThis as any).__usbMock) {
-    nodeUsbLib = (globalThis as any).__usbMock;
-    return nodeUsbLib;
-  }
-
-  // 1. Try global require (e.g. in CJS or test environments where require is globally mocked)
-  try {
-    if (typeof require === 'function') {
-      nodeUsbLib = require('usb');
-      if (nodeUsbLib) return nodeUsbLib;
-    }
-  } catch {
-    // proceed
-  }
-
-  // 2. Try Node.js standard createRequire
-  try {
-    if (nodeModule && typeof nodeModule.createRequire === 'function') {
-      const req = nodeModule.createRequire(import.meta.url);
-      nodeUsbLib = req('usb');
-      if (nodeUsbLib) return nodeUsbLib;
-    }
-  } catch {
-    // proceed
-  }
-
-  console.warn('[usb-device-monitor] Failed to load native C++ "usb" module. Falling back to mock monitor.');
-  nodeUsbLib = false;
-  return nodeUsbLib;
-}
-
 type UsbDeviceEvent = 'add' | 'remove';
 
 interface UsbDeviceInfo {
@@ -64,6 +28,16 @@ interface UsbDeviceMonitor {
   unregisterLifecycleListeners(): void;
 }
 
+interface UsbModule {
+  getDeviceList(): NodeUsbDevice[];
+  usb?: {
+    on(event: NodeUsbEvent, listener: NodeUsbListener): void;
+    off(event: NodeUsbEvent, listener: NodeUsbListener): void;
+    unrefHotplugEvents?(): void;
+  };
+}
+
+type UsbModuleLoader = () => UsbModule | null;
 type NodeUsbEvent = 'attach' | 'detach';
 type NodeUsbListener = (device: NodeUsbDevice) => void;
 
@@ -71,6 +45,34 @@ const EVENT_MAP: Record<UsbDeviceEvent, NodeUsbEvent> = {
   add: 'attach',
   remove: 'detach'
 };
+
+function loadNativeUsbModule(): UsbModule | null {
+  try {
+    if (typeof require === 'function') {
+      const usb = require('usb') as UsbModule;
+      if (usb) {
+        return usb;
+      }
+    }
+  } catch {
+    // Fall through to createRequire.
+  }
+
+  try {
+    if (nodeModule && typeof nodeModule.createRequire === 'function') {
+      const req = nodeModule.createRequire(import.meta.url);
+      const usb = req('usb') as UsbModule;
+      if (usb) {
+        return usb;
+      }
+    }
+  } catch {
+    // Fall through to no-op monitor.
+  }
+
+  console.warn('[usb-device-monitor] Failed to load native C++ "usb" module. Falling back to no-op monitor.');
+  return null;
+}
 
 function toUsbDeviceInfo(device: NodeUsbDevice): UsbDeviceInfo {
   const descriptor = device.deviceDescriptor;
@@ -89,11 +91,13 @@ function toUsbDeviceInfo(device: NodeUsbDevice): UsbDeviceInfo {
 }
 
 class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
+  private readonly usbModule: UsbModule;
   private readonly listeners: Map<UsbDeviceEvent, Map<(device: UsbDeviceInfo) => void, NodeUsbListener>>;
   private onAddCallback: ((device: UsbDeviceInfo) => void) | null = null;
   private onRemoveCallback: ((device: UsbDeviceInfo) => void) | null = null;
 
-  constructor() {
+  constructor(usbModule: UsbModule) {
+    this.usbModule = usbModule;
     this.listeners = new Map([
       ['add', new Map()],
       ['remove', new Map()]
@@ -101,10 +105,7 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
   }
 
   startMonitoring(): void {
-    const usb = getUsbLib();
-    if (usb && usb.usb) {
-      usb.usb.unrefHotplugEvents?.();
-    }
+    this.usbModule.usb?.unrefHotplugEvents?.();
   }
 
   stopMonitoring(): void {
@@ -116,8 +117,7 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
   }
 
   on(event: UsbDeviceEvent, callback: (device: UsbDeviceInfo) => void): void {
-    const usb = getUsbLib();
-    if (!usb || !usb.usb) return;
+    if (!this.usbModule.usb) return;
 
     const callbacks = this.listeners.get(event);
     if (!callbacks || callbacks.has(callback)) {
@@ -126,13 +126,12 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
 
     const listener = (device: NodeUsbDevice) => callback(toUsbDeviceInfo(device));
     callbacks.set(callback, listener);
-    usb.usb.on(EVENT_MAP[event], listener);
-    usb.usb.unrefHotplugEvents?.();
+    this.usbModule.usb.on(EVENT_MAP[event], listener);
+    this.usbModule.usb.unrefHotplugEvents?.();
   }
 
   off(event: UsbDeviceEvent, callback: (device: UsbDeviceInfo) => void): void {
-    const usb = getUsbLib();
-    if (!usb || !usb.usb) return;
+    if (!this.usbModule.usb) return;
 
     const callbacks = this.listeners.get(event);
     const listener = callbacks?.get(callback);
@@ -140,14 +139,12 @@ class NodeUsbDeviceMonitor implements UsbDeviceMonitor {
       return;
     }
 
-    usb.usb.off(EVENT_MAP[event], listener);
+    this.usbModule.usb.off(EVENT_MAP[event], listener);
     callbacks.delete(callback);
   }
 
   find(): UsbDeviceInfo[] {
-    const usb = getUsbLib();
-    if (!usb) return [];
-    return usb.getDeviceList().map(toUsbDeviceInfo);
+    return this.usbModule.getDeviceList().map(toUsbDeviceInfo);
   }
 
   registerLifecycleListeners(
@@ -191,12 +188,13 @@ class NoopUsbDeviceMonitor implements UsbDeviceMonitor {
   unregisterLifecycleListeners(): void {}
 }
 
-function createNodeUsbDeviceMonitor(): UsbDeviceMonitor {
-  const usb = getUsbLib();
-  if (!usb) {
+function createNodeUsbDeviceMonitor(options: { loadUsbModule?: UsbModuleLoader } = {}): UsbDeviceMonitor {
+  try {
+    const usb = (options.loadUsbModule ?? loadNativeUsbModule)();
+    return usb ? new NodeUsbDeviceMonitor(usb) : new NoopUsbDeviceMonitor();
+  } catch {
     return new NoopUsbDeviceMonitor();
   }
-  return new NodeUsbDeviceMonitor();
 }
 
 function createNoopUsbDeviceMonitor(): UsbDeviceMonitor {
@@ -206,6 +204,13 @@ function createNoopUsbDeviceMonitor(): UsbDeviceMonitor {
 export {
   createNodeUsbDeviceMonitor,
   createNoopUsbDeviceMonitor,
+  loadNativeUsbModule,
   toUsbDeviceInfo
 };
-export type { UsbDeviceEvent, UsbDeviceInfo, UsbDeviceMonitor };
+export type {
+  UsbDeviceEvent,
+  UsbDeviceInfo,
+  UsbDeviceMonitor,
+  UsbModule,
+  UsbModuleLoader
+};

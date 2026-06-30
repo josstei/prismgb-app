@@ -1,78 +1,83 @@
-/**
- * E2E Mock Chromatic Helpers
- *
- * Provides high-level helpers to inject mock Chromatic device into E2E tests.
- * Designed for Playwright Electron testing.
- *
- * Two-pronged approach:
- * 1. IPC injection via main process (injectDeviceConnectedEvent) - triggers real deviceAPI callbacks
- * 2. MediaDevices mock (injectMockChromaticDevice) - provides mock video/audio streams
- *
- * For full UI testing, use both together:
- * - Inject MediaDevices mock first (for stream availability)
- * - Then inject IPC event (triggers device connected UI state)
- */
-
 import {
-  CHROMATIC_E2E_FIXTURE,
-  CHROMATIC_SPECS,
-} from '../../support/chromatic-device-specs.js';
+  createFixtureDeviceInfoPayload,
+  createFixtureDeviceStatus,
+  getDeviceFixtureProfile,
+} from '@prismgb/devices/testkit';
 
-export { CHROMATIC_E2E_FIXTURE, CHROMATIC_SPECS };
+const chromaticProfile = getDeviceFixtureProfile();
+const { descriptor, fixture } = chromaticProfile;
 
-/**
- * Test pattern types for video generation
- */
+export const CHROMATIC_MEDIA_FIXTURE = {
+  device: {
+    label: fixture.label,
+  },
+  usbDeviceInfo: chromaticProfile.usbDeviceInfo,
+  display: {
+    aspectRatio: descriptor.display.aspectRatio,
+    nativeHeight: descriptor.display.nativeHeight,
+    nativeWidth: descriptor.display.nativeWidth,
+  },
+  videoDevice: chromaticProfile.videoDevice,
+  audioDevice: chromaticProfile.audioDevice,
+  videoSettings: chromaticProfile.trackSettings.video,
+  audioSettings: chromaticProfile.trackSettings.audio,
+  stream: {
+    defaultFrameRate: fixture.defaultFrameRate,
+  },
+};
+
+export function createChromaticDeviceInfoPayload(overrides = {}) {
+  return createFixtureDeviceInfoPayload(descriptor, overrides);
+}
+
+export function createChromaticDeviceStatusPayload(connected = true, deviceOverrides = {}) {
+  return createFixtureDeviceStatus(descriptor, connected, deviceOverrides);
+}
+
 export const TestPatterns = {
   SOLID_GRAY: 'solid-gray',
   COLOR_BARS: 'color-bars',
-  CHECKERBOARD: 'checkerboard',
-  GRADIENT: 'gradient',
-  ANIMATED: 'animated',
-  FRAME_COUNTER: 'frame-counter',
 };
 
-/**
- * Inject mock device infrastructure into the Electron renderer
- *
- * @param {import('@playwright/test').Page} page - Playwright page/window
- * @param {Object} options - Configuration options
- * @returns {Promise<Object>} Controller object for test manipulation
- */
-export async function injectMockChromaticDevice(page, options = {}) {
+export async function installChromaticMediaEnvironment(page, options = {}) {
   const {
     autoConnect = false,
     testPattern = 'color-bars',
     includeAudio = true,
-    mockMediaRecorder = true,
+    installMediaRecorder = true,
   } = options;
 
-  // Inject the mock infrastructure into the page
+  // Install the media environment into the page.
   await page.evaluate(
-    ({ fixture, testPattern, includeAudio, mockMediaRecorder }) => {
-      // Store mock state on window for test access
-      window.__mockChromaticState = {
+    ({ fixture, testPattern, includeAudio, installMediaRecorder }) => {
+      window.__chromaticMediaEnvironment = {
         isConnected: false,
         deviceInfo: null,
         testPattern,
         includeAudio,
         fixture,
         deviceChangeListeners: [],
-        _activeVideoStream: null,
-        _activeAudioStream: null,
+        activeStreams: [],
       };
 
-      const state = window.__mockChromaticState;
+      const state = window.__chromaticMediaEnvironment;
+      state.cleanupStreams = () => {
+        state.activeStreams.splice(0).forEach((stream) => stream.__chromaticCleanup?.());
+      };
+      state.dispatchDeviceChange = () => {
+        const event = new Event('devicechange');
+        state.deviceChangeListeners.forEach((listener) => {
+          try {
+            listener(event);
+          } catch (e) {
+            console.error(e);
+          }
+        });
+        navigator.mediaDevices.dispatchEvent(event);
+      };
       const { display, videoDevice, audioDevice, videoSettings, audioSettings } = fixture;
       const streamSettings = fixture.stream;
 
-      // === Note on deviceAPI ===
-      // The deviceAPI is exposed via contextBridge.exposeInMainWorld which creates
-      // non-configurable properties that cannot be replaced from the renderer context.
-      // For E2E tests, we focus on mocking navigator.mediaDevices which CAN be replaced.
-      // The mock state is stored on window.__mockChromaticState for tests to access.
-
-      // === Mock MediaDevices ===
       const originalEnumerateDevices =
         navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
       const originalGetUserMedia =
@@ -83,8 +88,8 @@ export async function injectMockChromaticDevice(page, options = {}) {
         navigator.mediaDevices.removeEventListener.bind(navigator.mediaDevices);
       const originalMediaRecorder = window.MediaRecorder;
 
-      function installMockMediaRecorder() {
-        class MockMediaRecorder extends EventTarget {
+      function installChromaticMediaRecorder() {
+        class ChromaticMediaRecorder extends EventTarget {
           static isTypeSupported(type) {
             return typeof type === 'string' && type.startsWith('video/webm');
           }
@@ -137,22 +142,54 @@ export async function injectMockChromaticDevice(page, options = {}) {
               return;
             }
 
-            const blob = new Blob([`mock-chromatic-recording-${Date.now()}`], {
+            const blob = new Blob([`chromatic-recording-${Date.now()}`], {
               type: this.mimeType || 'video/webm',
             });
             this.dispatchEvent(new BlobEvent('dataavailable', { data: blob }));
           }
         }
 
-        window.MediaRecorder = MockMediaRecorder;
+        window.MediaRecorder = ChromaticMediaRecorder;
       }
 
-      if (mockMediaRecorder) {
-        installMockMediaRecorder();
+      if (installMediaRecorder) {
+        installChromaticMediaRecorder();
       }
 
-      // Helper to create video canvas stream
-      function createMockVideoStream() {
+      function createNotFoundError() {
+        const error = new Error('Requested device not found');
+        error.name = 'NotFoundError';
+        return error;
+      }
+
+      function exactDeviceIdFromConstraint(constraint) {
+        if (!constraint) {
+          return null;
+        }
+
+        if (typeof constraint === 'string') {
+          return constraint;
+        }
+
+        if (typeof constraint === 'object' && 'exact' in constraint) {
+          return constraint.exact == null ? null : String(constraint.exact);
+        }
+
+        return null;
+      }
+
+      function assertRequestedDevice(trackConstraints, device) {
+        if (!trackConstraints || typeof trackConstraints !== 'object') {
+          return;
+        }
+
+        const requestedDeviceId = exactDeviceIdFromConstraint(trackConstraints.deviceId);
+        if (requestedDeviceId && requestedDeviceId !== device.deviceId) {
+          throw createNotFoundError();
+        }
+      }
+
+      function createSyntheticVideoStream() {
         const canvas = document.createElement('canvas');
         canvas.width = display.nativeWidth;
         canvas.height = display.nativeHeight;
@@ -164,7 +201,6 @@ export async function injectMockChromaticDevice(page, options = {}) {
         function renderFrame() {
           frameCount++;
 
-          // Draw test pattern based on type
           switch (state.testPattern) {
             case 'solid-gray':
               ctx.fillStyle = '#808080';
@@ -181,34 +217,12 @@ export async function injectMockChromaticDevice(page, options = {}) {
               break;
             }
 
-            case 'frame-counter':
-              ctx.fillStyle = '#1a1a2e';
-              ctx.fillRect(0, 0, display.nativeWidth, display.nativeHeight);
-              ctx.fillStyle = '#48bb78';
-              ctx.font = 'bold 16px monospace';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(`F:${frameCount}`, display.nativeWidth / 2, display.nativeHeight / 2);
-              break;
-
             case 'animated': {
               ctx.fillStyle = '#0f0f1e';
               ctx.fillRect(0, 0, display.nativeWidth, display.nativeHeight);
               const x = (frameCount * 2) % (display.nativeWidth + 20) - 20;
               ctx.fillStyle = '#48bb78';
               ctx.fillRect(x, 0, 20, display.nativeHeight);
-              break;
-            }
-
-            case 'checkerboard': {
-              const cellSize = 16;
-              for (let y = 0; y < display.nativeHeight; y += cellSize) {
-                for (let x = 0; x < display.nativeWidth; x += cellSize) {
-                  const isLight = (x / cellSize + y / cellSize) % 2 === 0;
-                  ctx.fillStyle = isLight ? '#ffffff' : '#000000';
-                  ctx.fillRect(x, y, cellSize, cellSize);
-                }
-              }
               break;
             }
 
@@ -224,14 +238,12 @@ export async function injectMockChromaticDevice(page, options = {}) {
 
         const stream = canvas.captureStream(streamSettings.defaultFrameRate);
 
-        // Store for cleanup
-        stream.__mockCanvas = canvas;
-        stream.__mockAnimationId = animationId;
-        stream.__mockCleanup = () => {
+        stream.__chromaticCanvas = canvas;
+        stream.__chromaticAnimationId = animationId;
+        stream.__chromaticCleanup = () => {
           if (animationId) cancelAnimationFrame(animationId);
         };
 
-        // Enhance video track settings
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
           const originalGetSettings = videoTrack.getSettings.bind(videoTrack);
@@ -244,8 +256,7 @@ export async function injectMockChromaticDevice(page, options = {}) {
         return stream;
       }
 
-      // Helper to create audio stream
-      function createMockAudioStream() {
+      function createSyntheticAudioStream() {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
           sampleRate: audioSettings.sampleRate,
         });
@@ -255,7 +266,7 @@ export async function injectMockChromaticDevice(page, options = {}) {
         oscillator.frequency.value = 440;
 
         const gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0; // Silent by default
+        gainNode.gain.value = 0;
 
         const destination = audioCtx.createMediaStreamDestination();
 
@@ -265,18 +276,16 @@ export async function injectMockChromaticDevice(page, options = {}) {
 
         const stream = destination.stream;
 
-        // Store for cleanup
-        stream.__mockAudioCtx = audioCtx;
-        stream.__mockOscillator = oscillator;
-        stream.__mockGainNode = gainNode;
-        stream.__mockCleanup = () => {
+        stream.__chromaticAudioCtx = audioCtx;
+        stream.__chromaticOscillator = oscillator;
+        stream.__chromaticGainNode = gainNode;
+        stream.__chromaticCleanup = () => {
           oscillator.stop();
           oscillator.disconnect();
           gainNode.disconnect();
           audioCtx.close();
         };
 
-        // Enhance audio track settings
         const audioTrack = stream.getAudioTracks()[0];
         if (audioTrack) {
           const originalGetSettings = audioTrack.getSettings.bind(audioTrack);
@@ -289,7 +298,6 @@ export async function injectMockChromaticDevice(page, options = {}) {
         return stream;
       }
 
-      // Override enumerateDevices
       navigator.mediaDevices.enumerateDevices = async () => {
         const devices = [];
 
@@ -314,32 +322,30 @@ export async function injectMockChromaticDevice(page, options = {}) {
         return devices;
       };
 
-      // Override getUserMedia
-      navigator.mediaDevices.getUserMedia = async (constraints) => {
+      navigator.mediaDevices.getUserMedia = async (constraints = {}) => {
         if (!state.isConnected) {
-          const error = new Error('Requested device not found');
-          error.name = 'NotFoundError';
-          throw error;
+          throw createNotFoundError();
         }
 
         const tracks = [];
 
         if (constraints.video) {
-          const videoStream = createMockVideoStream();
+          assertRequestedDevice(constraints.video, videoDevice);
+          const videoStream = createSyntheticVideoStream();
           videoStream.getVideoTracks().forEach((t) => tracks.push(t));
-          state._activeVideoStream = videoStream;
+          state.activeStreams.push(videoStream);
         }
 
         if (constraints.audio && state.includeAudio) {
-          const audioStream = createMockAudioStream();
+          assertRequestedDevice(constraints.audio, audioDevice);
+          const audioStream = createSyntheticAudioStream();
           audioStream.getAudioTracks().forEach((t) => tracks.push(t));
-          state._activeAudioStream = audioStream;
+          state.activeStreams.push(audioStream);
         }
 
         return new MediaStream(tracks);
       };
 
-      // Override addEventListener
       navigator.mediaDevices.addEventListener = (type, listener, options) => {
         if (type === 'devicechange') {
           state.deviceChangeListeners.push(listener);
@@ -347,7 +353,6 @@ export async function injectMockChromaticDevice(page, options = {}) {
         return originalAddEventListener(type, listener, options);
       };
 
-      // Override removeEventListener
       navigator.mediaDevices.removeEventListener = (type, listener, options) => {
         if (type === 'devicechange') {
           const idx = state.deviceChangeListeners.indexOf(listener);
@@ -356,8 +361,7 @@ export async function injectMockChromaticDevice(page, options = {}) {
         return originalRemoveEventListener(type, listener, options);
       };
 
-      // Store originals for restoration (note: deviceAPI cannot be mocked due to contextBridge)
-      window.__mockChromaticState.__originals = {
+      window.__chromaticMediaEnvironment.__originals = {
         enumerateDevices: originalEnumerateDevices,
         getUserMedia: originalGetUserMedia,
         addEventListener: originalAddEventListener,
@@ -365,102 +369,59 @@ export async function injectMockChromaticDevice(page, options = {}) {
         MediaRecorder: originalMediaRecorder,
       };
     },
-    { fixture: CHROMATIC_E2E_FIXTURE, testPattern, includeAudio, mockMediaRecorder }
+    { fixture: CHROMATIC_MEDIA_FIXTURE, testPattern, includeAudio, installMediaRecorder }
   );
 
-  // If autoConnect, simulate connection
   if (autoConnect) {
-    await simulateDeviceConnect(page);
+    await connectChromaticMedia(page);
   }
 
-  // Return controller object
   return {
-    connect: () => simulateDeviceConnect(page),
-    disconnect: () => simulateDeviceDisconnect(page),
-    setTestPattern: (pattern) => setMockTestPattern(page, pattern),
-    cleanup: () => cleanupMockDevice(page),
-    getStatus: () => getMockDeviceStatus(page),
+    connect: () => connectChromaticMedia(page),
+    disconnect: () => disconnectChromaticMedia(page),
+    setTestPattern: (pattern) => setChromaticTestPattern(page, pattern),
+    cleanup: () => cleanupChromaticMediaEnvironment(page),
+    getStatus: () => getChromaticMediaEnvironmentStatus(page),
   };
 }
 
-/**
- * Simulate device connection
- */
-export async function simulateDeviceConnect(page) {
+export async function connectChromaticMedia(page) {
   await page.evaluate(() => {
-    const state = window.__mockChromaticState;
+    const state = window.__chromaticMediaEnvironment;
     if (!state) {
-      console.error('Mock device not injected');
+      console.error('Chromatic media environment not installed');
       return;
     }
 
     state.isConnected = true;
     state.deviceInfo = { ...state.fixture.usbDeviceInfo };
-
-    // Trigger devicechange event
-    const event = new Event('devicechange');
-    state.deviceChangeListeners.forEach((listener) => {
-      try {
-        listener(event);
-      } catch (e) {
-        console.error(e);
-      }
-    });
-    navigator.mediaDevices.dispatchEvent(event);
+    state.dispatchDeviceChange();
   });
 }
 
-/**
- * Simulate device disconnection
- */
-export async function simulateDeviceDisconnect(page) {
+export async function disconnectChromaticMedia(page) {
   await page.evaluate(() => {
-    const state = window.__mockChromaticState;
+    const state = window.__chromaticMediaEnvironment;
     if (!state) return;
 
-    // Cleanup active streams
-    if (state._activeVideoStream?.__mockCleanup) {
-      state._activeVideoStream.__mockCleanup();
-    }
-    if (state._activeAudioStream?.__mockCleanup) {
-      state._activeAudioStream.__mockCleanup();
-    }
-
+    state.cleanupStreams();
     state.isConnected = false;
     state.deviceInfo = null;
-    state._activeVideoStream = null;
-    state._activeAudioStream = null;
-
-    // Trigger devicechange event
-    const event = new Event('devicechange');
-    state.deviceChangeListeners.forEach((listener) => {
-      try {
-        listener(event);
-      } catch (e) {
-        console.error(e);
-      }
-    });
-    navigator.mediaDevices.dispatchEvent(event);
+    state.dispatchDeviceChange();
   });
 }
 
-/**
- * Set test pattern dynamically
- */
-export async function setMockTestPattern(page, pattern) {
+export async function setChromaticTestPattern(page, pattern) {
   await page.evaluate((p) => {
-    if (window.__mockChromaticState) {
-      window.__mockChromaticState.testPattern = p;
+    if (window.__chromaticMediaEnvironment) {
+      window.__chromaticMediaEnvironment.testPattern = p;
     }
   }, pattern);
 }
 
-/**
- * Get mock device status
- */
-export async function getMockDeviceStatus(page) {
+export async function getChromaticMediaEnvironmentStatus(page) {
   return page.evaluate(() => {
-    const state = window.__mockChromaticState;
+    const state = window.__chromaticMediaEnvironment;
     if (!state) {
       return { injected: false, isConnected: false };
     }
@@ -474,23 +435,13 @@ export async function getMockDeviceStatus(page) {
   });
 }
 
-/**
- * Clean up mock device and restore original APIs
- */
-export async function cleanupMockDevice(page) {
+export async function cleanupChromaticMediaEnvironment(page) {
   await page.evaluate(() => {
-    const state = window.__mockChromaticState;
+    const state = window.__chromaticMediaEnvironment;
     if (!state) return;
 
-    // Cleanup active streams
-    if (state._activeVideoStream?.__mockCleanup) {
-      state._activeVideoStream.__mockCleanup();
-    }
-    if (state._activeAudioStream?.__mockCleanup) {
-      state._activeAudioStream.__mockCleanup();
-    }
+    state.cleanupStreams();
 
-    // Restore original APIs (note: deviceAPI cannot be mocked due to contextBridge)
     const originals = state.__originals;
     if (originals) {
       if (originals.enumerateDevices) {
@@ -510,51 +461,6 @@ export async function cleanupMockDevice(page) {
       }
     }
 
-    delete window.__mockChromaticState;
-  });
-}
-
-/**
- * Wait for device status indicator to show specific state
- */
-export async function waitForDeviceIndicator(page, expectedState, options = {}) {
-  const { timeout = 5000 } = options;
-
-  if (expectedState === 'connected') {
-    await page.waitForSelector('#statusIndicator.connected', {
-      timeout,
-      state: 'attached',
-    });
-  } else {
-    // Wait for NOT connected
-    await page.waitForFunction(
-      () => {
-        const indicator = document.getElementById('statusIndicator');
-        return indicator && !indicator.classList.contains('connected');
-      },
-      { timeout }
-    );
-  }
-}
-
-/**
- * Check if stream is active (canvas has rendered content)
- */
-export async function isStreamActive(page) {
-  return page.evaluate(() => {
-    const canvas = document.querySelector('#streamCanvas');
-    if (!canvas) return false;
-
-    // Check if canvas has non-zero dimensions
-    if (canvas.width === 0 || canvas.height === 0) return false;
-
-    // Try to get image data to check if canvas has content
-    try {
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx.getImageData(0, 0, 1, 1);
-      return imageData.data.some((v) => v !== 0);
-    } catch {
-      return false;
-    }
+    delete window.__chromaticMediaEnvironment;
   });
 }

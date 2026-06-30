@@ -12,11 +12,15 @@ import type {
   TranscodeService
 } from './trpc.js';
 import type { IpcPushBridge } from './event-bridge.js';
+import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
+import type { MainProcessTestControlPort } from './test-control.port.js';
+import type { DeviceStatusPayload } from '@prismgb/ipc';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
 export interface IpcHandlerRegistryDependencies {
   mainDeviceRuntime: MainDeviceRuntimePort;
+  mainProcessTestControl: MainProcessTestControlPort;
   updateService: UpdateService;
   windowService: WindowService;
   transcodeService: TranscodeService;
@@ -33,6 +37,7 @@ export interface IpcHandlerRegistryDependencies {
  */
 class IpcHandlerRegistry extends BaseService {
   private readonly mainDeviceRuntime: MainDeviceRuntimePort;
+  private readonly mainProcessTestControl: MainProcessTestControlPort;
   private readonly updateService: UpdateService;
   private readonly windowService: WindowService;
   private readonly transcodeService: TranscodeService;
@@ -44,6 +49,7 @@ class IpcHandlerRegistry extends BaseService {
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, 'IpcHandlerRegistry');
     this.mainDeviceRuntime = dependencies.mainDeviceRuntime;
+    this.mainProcessTestControl = dependencies.mainProcessTestControl;
     this.updateService = dependencies.updateService;
     this.windowService = dependencies.windowService;
     this.transcodeService = dependencies.transcodeService;
@@ -58,6 +64,7 @@ class IpcHandlerRegistry extends BaseService {
       createContext: async () => this.createContext(),
       windows: []
     });
+    this.registerTestControlHandlers();
   }
 
   attachWindow(window: BrowserWindow): void {
@@ -74,13 +81,29 @@ class IpcHandlerRegistry extends BaseService {
       this.handler.detachWindow(this.attachedWindow);
     }
     ipcMain.removeAllListeners(ELECTRON_TRPC_CHANNEL);
+    ipcMain.removeAllListeners(TEST_CONTROL_CHANNELS.SET_DEVICE_STATUS);
+    ipcMain.removeAllListeners(TEST_CONTROL_CHANNELS.CLEAR_DEVICE_STATUS);
+    ipcMain.removeAllListeners(TEST_CONTROL_CHANNELS.EMIT_PUSH);
     this.handler = null;
     this.attachedWindow = null;
+  }
+
+  private registerTestControlHandlers(): void {
+    ipcMain.on(TEST_CONTROL_CHANNELS.SET_DEVICE_STATUS, (_event, payload: DeviceStatusPayload) => {
+      this.mainProcessTestControl.setDeviceStatusOverride(payload);
+    });
+    ipcMain.on(TEST_CONTROL_CHANNELS.CLEAR_DEVICE_STATUS, () => {
+      this.mainProcessTestControl.setDeviceStatusOverride(null);
+    });
+    ipcMain.on(TEST_CONTROL_CHANNELS.EMIT_PUSH, (_event, payload: { channel: string; data?: unknown }) => {
+      this.mainProcessTestControl.emitPush(payload.channel, payload.data);
+    });
   }
 
   private createContext(): IpcContext {
     return {
       mainDeviceRuntime: this.mainDeviceRuntime,
+      mainProcessTestControl: this.mainProcessTestControl,
       updateService: this.updateService,
       windowService: this.windowService,
       transcodeService: this.transcodeService,

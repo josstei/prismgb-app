@@ -59,7 +59,7 @@ export function createMockDependencies(overrides = {}) {
 export function createStreamingDependencies(overrides = {}) {
   const deps = createMockDependencies();
   deps.appState._forceSet('deviceConnected', true);
-  deps.appState._forceSet('selectedDeviceId', 'mock-chromatic-device');
+  deps.appState._forceSet('selectedDeviceId', 'chromatic-video-device');
   return { ...deps, ...overrides };
 }
 

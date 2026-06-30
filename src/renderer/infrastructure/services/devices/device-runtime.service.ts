@@ -1,7 +1,16 @@
 import { BaseService, getErrorMessage } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
-import type { DeviceDescriptor, DeviceStatus } from '@prismgb/devices';
+import {
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile
+} from '@prismgb/devices';
+import type {
+  DeviceAcquisitionProfile,
+  DeviceDescriptor,
+  DeviceStatus,
+  DeviceStreamProfile
+} from '@prismgb/devices';
 import type {
   DevicePreferenceStore,
   DeviceStatusPort,
@@ -19,6 +28,14 @@ export interface RendererDeviceSnapshot {
   selectedDeviceId: string | null;
   hasMediaPermission: boolean;
   lastEnumerationAt: number | null;
+}
+
+export interface DeviceStreamingTarget {
+  videoDevice: MediaDeviceInfo;
+  audioDevice: MediaDeviceInfo | null;
+  descriptor: DeviceDescriptor;
+  profile: DeviceStreamProfile;
+  acquisition: DeviceAcquisitionProfile;
 }
 
 export type RendererDeviceRefreshReason =
@@ -196,51 +213,47 @@ export class RendererDeviceRuntime extends BaseService {
     };
   }
 
-  async discoverSupportedDevice(): Promise<MediaDeviceInfo | null> {
+  async resolveStreamingTarget(deviceId: string | null = null): Promise<DeviceStreamingTarget> {
     if (!this.acceptingRefreshes) {
-      return null;
+      throw new Error('Device runtime is not accepting refreshes');
     }
 
     const snapshot = await this.refresh('manual-refresh');
-    if (snapshot.selectedDeviceId) {
-      return snapshot.supportedDevices.find((device) => device.deviceId === snapshot.selectedDeviceId) ?? null;
+    const selectedDevice = deviceId
+      ? this.findSupportedDevice(snapshot, deviceId)
+      : this.findSelectedDevice(snapshot);
+
+    if (selectedDevice) {
+      return this.createStreamingTarget(selectedDevice);
     }
 
-    if (snapshot.status.connected && !snapshot.hasMediaPermission) {
+    if (!deviceId && snapshot.status.connected && !snapshot.hasMediaPermission) {
       await this.warmUpPermissions();
       const permissionSnapshot = await this.refresh('manual-refresh');
-      return permissionSnapshot.selectedDeviceId
-        ? permissionSnapshot.supportedDevices.find((device) => device.deviceId === permissionSnapshot.selectedDeviceId) ?? null
-        : null;
+      const permissionDevice = this.findSelectedDevice(permissionSnapshot);
+      if (permissionDevice) {
+        return this.createStreamingTarget(permissionDevice);
+      }
     }
 
-    return null;
-  }
+    const devices = await this.enumerateMediaDevices('manual-refresh');
+    const videoDevices = devices.filter((device) => device.kind === 'videoinput');
+    const requestedDevice = deviceId
+      ? videoDevices.find((device) => device.deviceId === deviceId) ?? null
+      : null;
 
-  selectDevice(device: MediaDeviceInfo): boolean {
-    if (!this.acceptingRefreshes) {
-      return false;
+    if (deviceId) {
+      if (requestedDevice && getDeviceDescriptor(requestedDevice)) {
+        return this.createStreamingTarget(requestedDevice);
+      }
+      throw new Error(`Device not found: ${deviceId}`);
     }
 
-    const descriptor = getDeviceDescriptor(device);
-    if (!descriptor || !device.deviceId) {
-      this.logger.warn('Ignoring unsupported media device selection');
-      return false;
+    if (videoDevices.length > 0 && videoDevices.every((device) => !device.label)) {
+      throw new Error('Supported device camera not authorized. Please grant permission and retry.');
     }
 
-    this.devicePreferenceStore.storeDeviceId(device.deviceId, descriptor.id);
-    this.knownSupportedDeviceIds.add(device.deviceId);
-    this.currentSnapshot = {
-      ...this.currentSnapshot,
-      supportedDevices: this.mergeSupportedDevice(device),
-      selectedDeviceId: device.deviceId,
-      hasMediaPermission: Boolean(device.label) || this.currentSnapshot.hasMediaPermission
-    };
-    return true;
-  }
-
-  getStoredDeviceIds(): readonly string[] {
-    return this.devicePreferenceStore.getStoredDeviceIds();
+    throw new Error('No supported device found');
   }
 
   async cleanup(): Promise<void> {
@@ -278,7 +291,7 @@ export class RendererDeviceRuntime extends BaseService {
   ): Promise<RendererDeviceSnapshot> {
     const status = incomingStatus ?? await this.getStatusForReason(reason);
     const devices = await this.enumerateMediaDevices(reason);
-    const storedDeviceIds = this.devicePreferenceStore.getStoredDeviceIds();
+    const storedDeviceIds = this.devicePreferenceStore.readStoredDeviceIds();
     const selection = selectDevice({ devices, storedDeviceIds });
     const hasMediaPermission = selection.supportedDevices.length > 0 ||
       devices.some((device) => device.kind === 'videoinput' && Boolean(device.label));
@@ -370,6 +383,64 @@ export class RendererDeviceRuntime extends BaseService {
     const withoutDuplicate = this.currentSnapshot.supportedDevices
       .filter((knownDevice) => knownDevice.deviceId !== device.deviceId);
     return [device, ...withoutDuplicate];
+  }
+
+  private findSupportedDevice(snapshot: RendererDeviceSnapshot, deviceId: string): MediaDeviceInfo | null {
+    return snapshot.supportedDevices.find((device) => device.deviceId === deviceId) ?? null;
+  }
+
+  private findSelectedDevice(snapshot: RendererDeviceSnapshot): MediaDeviceInfo | null {
+    return snapshot.selectedDeviceId ? this.findSupportedDevice(snapshot, snapshot.selectedDeviceId) : null;
+  }
+
+  private commitStreamingSelection(device: MediaDeviceInfo, descriptor: DeviceDescriptor): void {
+    this.devicePreferenceStore.storeDeviceId(device.deviceId, descriptor.id);
+    this.knownSupportedDeviceIds.add(device.deviceId);
+    this.currentSnapshot = {
+      ...this.currentSnapshot,
+      supportedDevices: this.mergeSupportedDevice(device),
+      selectedDeviceId: device.deviceId,
+      hasMediaPermission: Boolean(device.label) || this.currentSnapshot.hasMediaPermission
+    };
+  }
+
+  private async createStreamingTarget(device: MediaDeviceInfo): Promise<DeviceStreamingTarget> {
+    if (!device.deviceId) {
+      throw new Error('Streaming target requires a media device ID');
+    }
+
+    const descriptor = getDeviceDescriptor(device);
+    if (!descriptor) {
+      throw new Error(`Unsupported device: ${device.label || device.deviceId || 'unknown'}`);
+    }
+
+    this.commitStreamingSelection(device, descriptor);
+
+    return {
+      videoDevice: device,
+      audioDevice: await this.resolvePairedAudioDevice(device),
+      descriptor,
+      profile: getDeviceStreamProfile(descriptor),
+      acquisition: getDeviceAcquisitionProfile(descriptor)
+    };
+  }
+
+  private async resolvePairedAudioDevice(device: MediaDeviceInfo): Promise<MediaDeviceInfo | null> {
+    if (!device.groupId) {
+      return null;
+    }
+
+    try {
+      const devices = await this.mediaDevicesPort.enumerateDevices();
+      return devices.find((candidate) => (
+        candidate.kind === 'audioinput' &&
+        candidate.groupId === device.groupId &&
+        Boolean(candidate.deviceId)
+      )) ?? null;
+    } catch (error) {
+      this.logger.warn('Failed to enumerate paired audio devices:', getErrorMessage(error));
+      return null;
+    }
   }
 
   private async warmUpPermissions(): Promise<void> {

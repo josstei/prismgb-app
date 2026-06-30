@@ -10,6 +10,7 @@ import type {
   TranscodeStatusResponse
 } from '@prismgb/ipc';
 import type { IpcPushBridge } from './event-bridge.js';
+import type { MainProcessTestControlPort } from './test-control.port.js';
 
 export interface MainDeviceRuntimePort {
   getStatus(): DeviceStatus;
@@ -52,6 +53,7 @@ export interface TranscodeService {
  */
 export interface IpcContext {
   mainDeviceRuntime: MainDeviceRuntimePort;
+  mainProcessTestControl: MainProcessTestControlPort;
   updateService: UpdateService;
   windowService: WindowService;
   transcodeService: TranscodeService;

@@ -1,5 +1,5 @@
 /**
- * Streaming smoke E2E coverage using the supported mock Chromatic device.
+ * Streaming smoke E2E coverage using the supported Chromatic media environment.
  *
  * This complements the manual smoke checklist with deterministic app-level
  * coverage for environments where real hardware is not attached.
@@ -9,7 +9,7 @@ import { test, expect } from './fixtures/electron.fixture.js';
 
 test.setTimeout(45000);
 
-test.describe('Streaming Smoke with Mock Chromatic', () => {
+test.describe('Streaming Smoke with Chromatic Media Environment', () => {
   test('exercises stream, shader, fallback, screenshot, recording, and stop paths', async ({
     appShell,
     chromaticDevice,
@@ -42,7 +42,7 @@ test.describe('Streaming Smoke with Mock Chromatic', () => {
     await streamPage.stop();
   });
 
-  test('stops an active stream when the mock device disconnects', async ({
+  test('stops an active stream when the Chromatic media environment disconnects', async ({
     appShell,
     chromaticDevice,
     streamPage,

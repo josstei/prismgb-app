@@ -1,16 +1,87 @@
 import { vi } from 'vitest';
 import { installMediaMocks } from '../support/mocks/browser-api.installers.js';
 import {
-  CHROMATIC_AUDIO_DEVICE_INFO,
-  CHROMATIC_AUDIO_TRACK_SETTINGS,
-  CHROMATIC_DESCRIPTOR,
-  CHROMATIC_FIXTURE,
-  CHROMATIC_SPECS,
-  CHROMATIC_STREAM_CAPABILITIES,
-  CHROMATIC_VIDEO_DEVICE_INFO,
-  CHROMATIC_VIDEO_TRACK_SETTINGS,
-  createChromaticFrameData
-} from './chromatic-manifest.testkit';
+  createFixtureDeviceInfoPayload,
+  createFixtureDeviceStatus,
+  createFixtureFrameData,
+  getDeviceFixtureProfile
+} from '@prismgb/devices/testkit';
+import type {
+  DeviceInfoPayload,
+  DeviceStatusPayload,
+  ObservedUsbDevice
+} from '@prismgb/devices';
+
+const CHROMATIC_PROFILE = getDeviceFixtureProfile();
+
+export const CHROMATIC_DESCRIPTOR = CHROMATIC_PROFILE.descriptor;
+export const CHROMATIC_FIXTURE = CHROMATIC_PROFILE.fixture;
+
+export const CHROMATIC_SPECS = CHROMATIC_PROFILE.specs;
+export const CHROMATIC_VIDEO_DEVICE_INFO = CHROMATIC_PROFILE.videoDevice;
+export const CHROMATIC_AUDIO_DEVICE_INFO = CHROMATIC_PROFILE.audioDevice;
+export const CHROMATIC_VIDEO_TRACK_SETTINGS = CHROMATIC_PROFILE.trackSettings.video;
+export const CHROMATIC_AUDIO_TRACK_SETTINGS = CHROMATIC_PROFILE.trackSettings.audio ?? (() => {
+  throw new Error('Chromatic fixture must expose audio track settings');
+})();
+export const CHROMATIC_STREAM_CAPABILITIES = Object.freeze({
+  ...CHROMATIC_PROFILE.streamProfile,
+  hasVideo: true,
+  hasAudio: true
+});
+
+export function createChromaticUsbDeviceInfo(overrides: Partial<ObservedUsbDevice> = {}): ObservedUsbDevice {
+  return {
+    ...CHROMATIC_PROFILE.usbDeviceInfo,
+    ...overrides
+  };
+}
+
+export function createChromaticDeviceInfoPayload(
+  overrides: Partial<DeviceInfoPayload> = {}
+): DeviceInfoPayload {
+  return createFixtureDeviceInfoPayload(CHROMATIC_DESCRIPTOR, overrides);
+}
+
+export function createChromaticDeviceStatusPayload(
+  connected = true,
+  deviceOverrides: Partial<DeviceInfoPayload> = {}
+): DeviceStatusPayload {
+  return createFixtureDeviceStatus(CHROMATIC_DESCRIPTOR, connected, deviceOverrides);
+}
+
+export function createChromaticFrameData(overrides: Partial<{ width: number; height: number }> = {}) {
+  return createFixtureFrameData(CHROMATIC_DESCRIPTOR, overrides);
+}
+
+if (!CHROMATIC_FIXTURE.audio || !CHROMATIC_FIXTURE.audioDeviceId) {
+  throw new Error('Chromatic fixture must define paired audio metadata');
+}
+
+type ListenerStore = Map<string, Set<EventListenerOrEventListenerObject>>;
+
+function addListener(store: ListenerStore, event: string, handler: EventListenerOrEventListenerObject): void {
+  const handlers = store.get(event) ?? new Set<EventListenerOrEventListenerObject>();
+  handlers.add(handler);
+  store.set(event, handlers);
+}
+
+function removeListener(store: ListenerStore, event: string, handler: EventListenerOrEventListenerObject): void {
+  store.get(event)?.delete(handler);
+}
+
+function dispatchToListener(listener: EventListenerOrEventListenerObject, event: Event): void {
+  if (typeof listener === 'function') {
+    listener(event);
+  } else {
+    listener.handleEvent(event);
+  }
+}
+
+function dispatchListeners(store: ListenerStore, event: Event): boolean {
+  store.get(event.type)?.forEach((handler) => dispatchToListener(handler, event));
+  return true;
+}
 
 export type MediaDeviceInfoDouble = MediaDeviceInfo & {
   toJSON(): {
@@ -21,14 +92,9 @@ export type MediaDeviceInfoDouble = MediaDeviceInfo & {
   };
 };
 
-export type MediaStreamTrackDouble = MediaStreamTrack & {
-  _eventListeners: Map<string, EventListenerOrEventListenerObject[]>;
-};
+export type MediaStreamTrackDouble = MediaStreamTrack;
 
-export type MediaStreamDouble = MediaStream & {
-  _tracks: MediaStreamTrack[];
-  _setTracks(nextTracks: MediaStreamTrack[]): void;
-};
+export type MediaStreamDouble = MediaStream;
 
 export interface MediaDeviceInfoOptions {
   deviceId?: string;
@@ -99,19 +165,15 @@ function defaultSettings(kind: 'audio' | 'video'): MediaTrackSettings {
     : { ...CHROMATIC_VIDEO_TRACK_SETTINGS };
 }
 
+const range = (value: number) => ({ min: value, max: value });
+
 function defaultCapabilities(kind: 'audio' | 'video'): MediaTrackCapabilities {
   if (kind === 'audio') {
     return {
       deviceId: CHROMATIC_AUDIO_DEVICE_INFO.deviceId,
       groupId: CHROMATIC_AUDIO_DEVICE_INFO.groupId,
-      sampleRate: {
-        min: CHROMATIC_AUDIO_TRACK_SETTINGS.sampleRate,
-        max: CHROMATIC_AUDIO_TRACK_SETTINGS.sampleRate
-      },
-      channelCount: {
-        min: CHROMATIC_AUDIO_TRACK_SETTINGS.channelCount,
-        max: CHROMATIC_AUDIO_TRACK_SETTINGS.channelCount
-      },
+      sampleRate: range(CHROMATIC_AUDIO_TRACK_SETTINGS.sampleRate),
+      channelCount: range(CHROMATIC_AUDIO_TRACK_SETTINGS.channelCount),
       echoCancellation: [false],
       noiseSuppression: [false],
       autoGainControl: [false]
@@ -124,16 +186,13 @@ function defaultCapabilities(kind: 'audio' | 'video'): MediaTrackCapabilities {
   return {
     deviceId: CHROMATIC_VIDEO_DEVICE_INFO.deviceId,
     groupId: CHROMATIC_VIDEO_DEVICE_INFO.groupId,
-    width: { min: width, max: width },
-    height: { min: height, max: height },
+    width: range(width),
+    height: range(height),
     frameRate: {
       min: Math.min(...CHROMATIC_FIXTURE.supportedFrameRates),
       max: Math.max(...CHROMATIC_FIXTURE.supportedFrameRates)
     },
-    aspectRatio: {
-      min: CHROMATIC_DESCRIPTOR.display.aspectRatio,
-      max: CHROMATIC_DESCRIPTOR.display.aspectRatio
-    },
+    aspectRatio: range(CHROMATIC_DESCRIPTOR.display.aspectRatio),
     facingMode: ['environment']
   } as MediaTrackCapabilities;
 }
@@ -172,7 +231,7 @@ export function createMediaStreamTrack(options: MediaTrackOptions = {}): MediaSt
     ...defaultConstraints(kind),
     ...options.constraints
   };
-  const eventListeners = new Map<string, EventListenerOrEventListenerObject[]>();
+  const eventListeners: ListenerStore = new Map();
   let enabled = options.enabled ?? true;
   let readyState = options.readyState ?? 'live';
 
@@ -200,34 +259,13 @@ export function createMediaStreamTrack(options: MediaTrackOptions = {}): MediaSt
       readyState = 'ended';
       enabled = false;
     }),
-    addEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) => {
-      if (!eventListeners.has(event)) {
-        eventListeners.set(event, []);
-      }
-      eventListeners.get(event)?.push(handler);
-    }),
-    removeEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) => {
-      const handlers = eventListeners.get(event);
-      if (!handlers) {
-        return;
-      }
-      const index = handlers.indexOf(handler);
-      if (index >= 0) {
-        handlers.splice(index, 1);
-      }
-    }),
-    dispatchEvent: vi.fn((event: Event) => {
-      const handlers = eventListeners.get(event.type) ?? [];
-      for (const handler of handlers) {
-        if (typeof handler === 'function') {
-          handler(event);
-        } else {
-          handler.handleEvent(event);
-        }
-      }
-      return true;
-    }),
-    _eventListeners: eventListeners
+    addEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) =>
+      addListener(eventListeners, event, handler)
+    ),
+    removeEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) =>
+      removeListener(eventListeners, event, handler)
+    ),
+    dispatchEvent: vi.fn((event: Event) => dispatchListeners(eventListeners, event))
   };
 
   return track as unknown as MediaStreamTrackDouble;
@@ -285,7 +323,7 @@ export function createMediaStream(options: MediaStreamOptions = {}): MediaStream
   const tracks = options.tracks
     ? [...options.tracks]
     : [...(options.videoTracks ?? []), ...(options.audioTracks ?? [])];
-  const eventListeners = new Map<string, EventListenerOrEventListenerObject[]>();
+  const eventListeners: ListenerStore = new Map();
 
   const stream = {
     id: options.id ?? `mock-stream-${Date.now()}-${randomSuffix()}`,
@@ -303,37 +341,13 @@ export function createMediaStream(options: MediaStreamOptions = {}): MediaStream
       }
     }),
     clone: vi.fn(() => createMediaStream({ ...options, tracks })),
-    addEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) => {
-      if (!eventListeners.has(event)) {
-        eventListeners.set(event, []);
-      }
-      eventListeners.get(event)?.push(handler);
-    }),
-    removeEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) => {
-      const handlers = eventListeners.get(event);
-      if (!handlers) {
-        return;
-      }
-      const index = handlers.indexOf(handler);
-      if (index >= 0) {
-        handlers.splice(index, 1);
-      }
-    }),
-    dispatchEvent: vi.fn((event: Event) => {
-      const handlers = eventListeners.get(event.type) ?? [];
-      for (const handler of handlers) {
-        if (typeof handler === 'function') {
-          handler(event);
-        } else {
-          handler.handleEvent(event);
-        }
-      }
-      return true;
-    }),
-    _tracks: tracks,
-    _setTracks(nextTracks: MediaStreamTrack[]) {
-      tracks.splice(0, tracks.length, ...nextTracks);
-    }
+    addEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) =>
+      addListener(eventListeners, event, handler)
+    ),
+    removeEventListener: vi.fn((event: string, handler: EventListenerOrEventListenerObject) =>
+      removeListener(eventListeners, event, handler)
+    ),
+    dispatchEvent: vi.fn((event: Event) => dispatchListeners(eventListeners, event))
   };
 
   return stream as unknown as MediaStreamDouble;
@@ -365,258 +379,278 @@ export function createChromaticStreamCapabilities(overrides: Record<string, unkn
   };
 }
 
-export function createMockVideoTrack(options: Record<string, unknown> = {}) {
-  const width = Number(options.width ?? CHROMATIC_SPECS.nativeWidth);
-  const height = Number(options.height ?? CHROMATIC_SPECS.nativeHeight);
-  const frameRate = Number(options.frameRate ?? CHROMATIC_SPECS.defaultFrameRate);
-  const deviceId = String(options.deviceId ?? CHROMATIC_SPECS.deviceId);
-  const label = String(options.label ?? CHROMATIC_SPECS.label);
+export interface ManifestMediaEnvironmentOptions {
+  connected?: boolean;
+}
 
-  return createMediaTrackMock({
-    kind: 'video',
-    label,
-    settings: {
-      deviceId,
-      width,
-      height,
-      frameRate,
-      aspectRatio: width / height,
-      facingMode: 'environment'
-    },
-    capabilities: {
-      deviceId,
-      width: { min: width, max: width },
-      height: { min: height, max: height },
-      frameRate: {
-        min: Math.min(...CHROMATIC_SPECS.frameRates),
-        max: Math.max(...CHROMATIC_SPECS.frameRates)
-      },
-      aspectRatio: { min: width / height, max: width / height },
-      facingMode: ['environment']
-    },
-    constraints: {
-      deviceId: { exact: deviceId },
-      width: { exact: width },
-      height: { exact: height },
-      frameRate: { ideal: frameRate }
-    }
+export interface ManifestMediaEnvironment {
+  readonly videoDevice: MediaDeviceInfoDouble;
+  readonly audioDevice: MediaDeviceInfoDouble;
+  install(): ManifestMediaEnvironment;
+  cleanup(): void;
+  connect(): ManifestMediaEnvironment;
+  disconnect(): ManifestMediaEnvironment;
+  addMediaDevice(device: MediaDeviceInfo): ManifestMediaEnvironment;
+  getCapabilities(overrides?: Record<string, unknown>): ReturnType<typeof createChromaticStreamCapabilities>;
+  createStream(constraints?: MediaStreamConstraints): Promise<MediaStreamDouble>;
+  stopStreams(): ManifestMediaEnvironment;
+  startFrameGeneration(callback: (frame: ReturnType<typeof createChromaticFrameData>) => void, fps?: number): void;
+  stopFrameGeneration(): void;
+  snapshot(): {
+    connected: boolean;
+    devices: MediaDeviceInfoDouble[];
+    activeStreamCount: number;
+    listenerCount: number;
+  };
+}
+
+type MediaMockHandle = {
+  cleanup(): void;
+};
+
+function createNotFoundError(): Error {
+  const error = new Error('Requested device not found');
+  error.name = 'NotFoundError';
+  return error;
+}
+
+function toMediaDeviceInfoDouble(device: MediaDeviceInfo): MediaDeviceInfoDouble {
+  return createMediaDeviceInfo({
+    deviceId: device.deviceId,
+    groupId: device.groupId,
+    kind: device.kind,
+    label: device.label
   });
 }
 
-export function createMockStream(options: Record<string, unknown> = {}) {
-  return createChromaticMediaStream({
-    includeAudio: false,
-    tracks: [createMockVideoTrack(options) as unknown as MediaStreamTrack]
-  });
+function exactDeviceIdFromConstraint(constraint: unknown): string | null {
+  if (!constraint) {
+    return null;
+  }
+
+  if (typeof constraint === 'string') {
+    return constraint;
+  }
+
+  if (typeof constraint === 'object' && 'exact' in constraint) {
+    const exact = (constraint as { exact?: unknown }).exact;
+    return exact === undefined ? null : String(exact);
+  }
+
+  return null;
 }
 
-export function createMockDeviceInfo(options: MediaDeviceInfoOptions = {}) {
-  return createChromaticVideoDeviceInfo(options);
+function requestedDeviceIdFromConstraints(constraints: boolean | MediaTrackConstraints | undefined): string | null {
+  if (!constraints || typeof constraints !== 'object') {
+    return null;
+  }
+
+  return exactDeviceIdFromConstraint(constraints.deviceId);
 }
 
-export class MockDevice {
-  specs: Record<string, unknown>;
-  deviceInfo: MediaDeviceInfoDouble;
-  isConnected = true;
-  activeStream: MediaStream | null = null;
-  private frameInterval: ReturnType<typeof setInterval> | null = null;
-
-  constructor(options: Record<string, unknown> = {}) {
-    this.specs = { ...CHROMATIC_SPECS, ...options };
-    this.deviceInfo = createMockDeviceInfo({
-      deviceId: String(options.deviceId ?? CHROMATIC_SPECS.deviceId),
-      label: String(options.label ?? CHROMATIC_SPECS.label)
-    });
+function requestedFrameRateFromConstraints(constraints: boolean | MediaTrackConstraints | undefined): number {
+  if (!constraints || typeof constraints !== 'object' || !constraints.frameRate) {
+    return CHROMATIC_SPECS.defaultFrameRate;
   }
 
-  getDeviceInfo() {
-    return this.deviceInfo;
+  const frameRate = constraints.frameRate;
+  if (typeof frameRate === 'number') {
+    return frameRate;
   }
 
-  connect() {
-    this.isConnected = true;
-    return this;
+  if (typeof frameRate === 'object') {
+    const candidate = 'exact' in frameRate ? frameRate.exact : frameRate.ideal;
+    return typeof candidate === 'number' ? candidate : CHROMATIC_SPECS.defaultFrameRate;
   }
 
-  disconnect() {
-    this.isConnected = false;
-    this.stopStream();
-    return this;
-  }
-
-  getStream(constraints: Record<string, unknown> = {}) {
-    if (!this.isConnected) {
-      return Promise.reject(new Error('Device not connected'));
-    }
-
-    this.activeStream = createMockStream({
-      width: this.specs.nativeWidth,
-      height: this.specs.nativeHeight,
-      frameRate: constraints.frameRate ?? this.specs.defaultFrameRate,
-      deviceId: this.deviceInfo.deviceId,
-      label: this.deviceInfo.label
-    });
-
-    return Promise.resolve(this.activeStream);
-  }
-
-  stopStream() {
-    if (this.activeStream) {
-      this.activeStream.getTracks().forEach((track) => track.stop());
-      this.activeStream = null;
-    }
-    this.stopFrameGeneration();
-  }
-
-  startFrameGeneration(callback: (frame: ReturnType<typeof createChromaticFrameData>) => void, fps = 60) {
-    this.stopFrameGeneration();
-    const interval = 1000 / fps;
-
-    this.frameInterval = setInterval(() => {
-      callback(this.generateFrame());
-    }, interval);
-  }
-
-  _stopFrameGeneration() {
-    this.stopFrameGeneration();
-  }
-
-  private stopFrameGeneration() {
-    if (this.frameInterval) {
-      clearInterval(this.frameInterval);
-      this.frameInterval = null;
-    }
-  }
-
-  private generateFrame() {
-    return createChromaticFrameData({
-      width: Number(this.specs.nativeWidth ?? CHROMATIC_SPECS.nativeWidth),
-      height: Number(this.specs.nativeHeight ?? CHROMATIC_SPECS.nativeHeight)
-    });
-  }
-
-  getCapabilities() {
-    return createChromaticStreamCapabilities({
-      canvasScale: 4,
-      deviceName: this.specs.label ?? CHROMATIC_SPECS.label
-    });
-  }
+  return CHROMATIC_SPECS.defaultFrameRate;
 }
 
-export class MockDeviceManager {
-  devices = new Map<string, MockDevice>();
-  private deviceChangeListeners: EventListenerOrEventListenerObject[] = [];
-  private mediaMock: { cleanup(): void } | null = null;
+function withoutDevice(devices: MediaDeviceInfoDouble[], deviceId: string): MediaDeviceInfoDouble[] {
+  return devices.filter((device) => device.deviceId !== deviceId);
+}
 
-  addDevice(device: MockDevice) {
-    this.devices.set(device.deviceInfo.deviceId, device);
-    this.notifyDeviceChange(device);
-    return this;
-  }
+export function createManifestMediaEnvironment(
+  options: ManifestMediaEnvironmentOptions = {}
+): ManifestMediaEnvironment {
+  let connected = options.connected ?? true;
+  let devices = createChromaticMediaDevices();
+  let mediaMock: MediaMockHandle | null = null;
+  let frameInterval: ReturnType<typeof setInterval> | null = null;
+  const activeStreams = new Set<MediaStreamDouble>();
+  const deviceChangeListeners = new Set<EventListenerOrEventListenerObject>();
+  const videoDevice = createChromaticVideoDeviceInfo();
+  const audioDevice = createChromaticAudioDeviceInfo();
 
-  removeDevice(deviceId: string) {
-    const device = this.devices.get(deviceId);
-    if (device) {
-      device.disconnect();
-      this.devices.delete(deviceId);
-      this.notifyDeviceChange(device);
+  const visibleDevices = () => connected ? [...devices] : [];
+  const dispatchDeviceChange = (device?: MediaDeviceInfo): void => {
+    const event = { type: 'devicechange', device } as unknown as Event;
+    deviceChangeListeners.forEach((listener) => dispatchToListener(listener, event));
+  };
+
+  const resolveDevice = (
+    kind: MediaDeviceKind,
+    constraints: boolean | MediaTrackConstraints | undefined
+  ): MediaDeviceInfoDouble | null => {
+    if (constraints === false) {
+      return null;
     }
-    return this;
-  }
 
-  getDevices() {
-    return Array.from(this.devices.values())
-      .filter((device) => device.isConnected)
-      .map((device) => device.getDeviceInfo());
-  }
+    const candidates = visibleDevices().filter((device) => device.kind === kind);
+    const requestedDeviceId = requestedDeviceIdFromConstraints(constraints);
+    const device = requestedDeviceId
+      ? candidates.find((candidate) => candidate.deviceId === requestedDeviceId)
+      : candidates[0] ?? null;
 
-  getDevice(deviceId: string) {
-    return this.devices.get(deviceId);
-  }
+    if (!device) {
+      throw createNotFoundError();
+    }
 
-  setupMediaDevicesMock() {
-    this.mediaMock?.cleanup();
-    this.deviceChangeListeners = [];
-    this.mediaMock = installMediaMocks({
-      enumerateDevices: async () => this.getDevices(),
-      getUserMedia: async (constraints: MediaStreamConstraints) => {
-        const videoConstraints = constraints.video;
-        let deviceId: string | null = null;
+    return device;
+  };
 
-        if (videoConstraints && typeof videoConstraints === 'object') {
-          const candidate = videoConstraints.deviceId;
-          if (candidate && typeof candidate === 'object' && 'exact' in candidate) {
-            deviceId = String(candidate.exact);
-          } else if (candidate) {
-            deviceId = String(candidate);
+  const createDefaultStream = (constraints: MediaStreamConstraints = {}): MediaStreamDouble => {
+    const tracks: MediaStreamTrack[] = [];
+    const videoDevice = resolveDevice('videoinput', constraints.video);
+    const audioDevice = constraints.audio === false
+      ? null
+      : resolveDevice('audioinput', constraints.audio);
+
+    if (videoDevice) {
+      const frameRate = requestedFrameRateFromConstraints(constraints.video);
+      tracks.push(createChromaticVideoTrack({
+        label: videoDevice.label,
+        settings: {
+          ...CHROMATIC_VIDEO_TRACK_SETTINGS,
+          deviceId: videoDevice.deviceId,
+          groupId: videoDevice.groupId,
+          frameRate
+        },
+        constraints: {
+          deviceId: { exact: videoDevice.deviceId },
+          width: { exact: CHROMATIC_VIDEO_TRACK_SETTINGS.width },
+          height: { exact: CHROMATIC_VIDEO_TRACK_SETTINGS.height },
+          frameRate: { ideal: frameRate }
+        }
+      }));
+    }
+
+    if (audioDevice) {
+      tracks.push(createChromaticAudioTrack({
+        label: audioDevice.label,
+        settings: {
+          ...CHROMATIC_AUDIO_TRACK_SETTINGS,
+          deviceId: audioDevice.deviceId,
+          groupId: audioDevice.groupId
+        },
+        constraints: {
+          deviceId: { exact: audioDevice.deviceId },
+          sampleRate: { ideal: CHROMATIC_AUDIO_TRACK_SETTINGS.sampleRate },
+          channelCount: { ideal: CHROMATIC_AUDIO_TRACK_SETTINGS.channelCount },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      }));
+    }
+
+    const stream = createMediaStream({ tracks });
+    activeStreams.add(stream);
+    return stream;
+  };
+
+  const environment: ManifestMediaEnvironment = {
+    videoDevice,
+    audioDevice,
+    install() {
+      mediaMock?.cleanup();
+      deviceChangeListeners.clear();
+      mediaMock = installMediaMocks({
+        enumerateDevices: async () => visibleDevices(),
+        getUserMedia: async (constraints: MediaStreamConstraints = {}) => {
+          if (!connected) {
+            throw createNotFoundError();
+          }
+
+          return createDefaultStream(constraints);
+        },
+        addEventListener: (event: string, listener: EventListenerOrEventListenerObject) => {
+          if (event === 'devicechange') {
+            deviceChangeListeners.add(listener);
+          }
+        },
+        removeEventListener: (event: string, listener: EventListenerOrEventListenerObject) => {
+          if (event === 'devicechange') {
+            deviceChangeListeners.delete(listener);
           }
         }
-
-        const device = deviceId
-          ? this.devices.get(deviceId)
-          : Array.from(this.devices.values()).find((candidate) => candidate.isConnected);
-
-        if (!device?.isConnected) {
-          const error = new Error('Requested device not found');
-          error.name = 'NotFoundError';
-          throw error;
-        }
-
-        return device.getStream(
-          videoConstraints && typeof videoConstraints === 'object'
-            ? videoConstraints as Record<string, unknown>
-            : {}
-        );
-      },
-      addEventListener: (event: string, listener: EventListenerOrEventListenerObject) => {
-        if (event === 'devicechange') {
-          this.deviceChangeListeners.push(listener);
-        }
-      },
-      removeEventListener: (event: string, listener: EventListenerOrEventListenerObject) => {
-        if (event !== 'devicechange') {
-          return;
-        }
-        const index = this.deviceChangeListeners.indexOf(listener);
-        if (index >= 0) {
-          this.deviceChangeListeners.splice(index, 1);
-        }
+      }) as MediaMockHandle;
+      return environment;
+    },
+    cleanup() {
+      environment.stopStreams();
+      environment.stopFrameGeneration();
+      mediaMock?.cleanup();
+      mediaMock = null;
+      deviceChangeListeners.clear();
+    },
+    connect() {
+      connected = true;
+      dispatchDeviceChange();
+      return environment;
+    },
+    disconnect() {
+      connected = false;
+      environment.stopStreams();
+      dispatchDeviceChange();
+      return environment;
+    },
+    addMediaDevice(device: MediaDeviceInfo) {
+      devices = [...withoutDevice(devices, device.deviceId), toMediaDeviceInfoDouble(device)];
+      dispatchDeviceChange(device);
+      return environment;
+    },
+    getCapabilities(overrides: Record<string, unknown> = {}) {
+      return createChromaticStreamCapabilities({
+        deviceName: videoDevice.label,
+        ...overrides
+      });
+    },
+    async createStream(constraints: MediaStreamConstraints = { video: true, audio: true }) {
+      if (!connected) {
+        throw createNotFoundError();
       }
-    });
 
-    return this;
-  }
+      return createDefaultStream(constraints);
+    },
+    stopStreams() {
+      activeStreams.forEach((stream) => {
+        stream.getTracks().forEach((track) => track.stop());
+      });
+      activeStreams.clear();
+      return environment;
+    },
+    startFrameGeneration(callback: (frame: ReturnType<typeof createChromaticFrameData>) => void, fps = CHROMATIC_SPECS.defaultFrameRate) {
+      environment.stopFrameGeneration();
+      frameInterval = setInterval(() => {
+        callback(createChromaticFrameData());
+      }, 1000 / fps);
+    },
+    stopFrameGeneration() {
+      if (frameInterval) {
+        clearInterval(frameInterval);
+        frameInterval = null;
+      }
+    },
+    snapshot() {
+      return {
+        connected,
+        devices: visibleDevices(),
+        activeStreamCount: activeStreams.size,
+        listenerCount: deviceChangeListeners.size
+      };
+    }
+  };
 
-  private notifyDeviceChange(device?: MockDevice) {
-    const event = { type: 'devicechange', device: device?.getDeviceInfo() } as unknown as Event;
-    this.deviceChangeListeners.forEach((listener) => dispatchToMediaListener(listener, event));
-  }
-
-  static createChromatic(options: Record<string, unknown> = {}) {
-    return new MockDevice({
-      ...CHROMATIC_SPECS,
-      ...options
-    });
-  }
-
-  reset() {
-    this.mediaMock?.cleanup();
-    this.mediaMock = null;
-    this.devices.forEach((device) => device.disconnect());
-    this.devices.clear();
-    this.deviceChangeListeners = [];
-    return this;
-  }
+  return environment;
 }
-
-function dispatchToMediaListener(listener: EventListenerOrEventListenerObject, event: Event) {
-  if (typeof listener === 'function') {
-    listener(event);
-  } else {
-    listener.handleEvent(event);
-  }
-}
-
-export const mockDeviceManager = new MockDeviceManager();
-
-export { CHROMATIC_SPECS };
