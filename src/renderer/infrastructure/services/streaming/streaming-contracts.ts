@@ -48,15 +48,6 @@ export type RecordingScaleParams = {
   needsClearing: boolean;
 };
 
-export type IStreamingRenderer = {
-  initialize(canvasElement: HTMLCanvasElement, nativeResolution?: Dimensions): Promise<boolean>;
-  renderFrame(videoElement: HTMLVideoElement): Promise<void> | void;
-  resize(width: number, height: number): void;
-  cleanup?(): void | Promise<void>;
-  isActive?(): boolean;
-  isFallback?(): boolean;
-};
-
 function hasNumber(value: Record<string, unknown>, key: string): boolean {
   return typeof value[key] === 'number' && Number.isFinite(value[key]);
 }

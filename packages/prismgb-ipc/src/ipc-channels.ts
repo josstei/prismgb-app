@@ -8,5 +8,3 @@ export const IPC_CHANNELS = {
   LOGIN_ITEM: { GET: 'login-item:get', SET: 'login-item:set' },
   TRANSCODE: { START: 'transcode:start', CANCEL: 'transcode:cancel', GET_STATUS: 'transcode:get-status', PROGRESS: 'transcode:progress', COMPLETED: 'transcode:completed', ERROR: 'transcode:error', CANCELLED: 'transcode:cancelled' }
 } as const;
-
-export type IpcChannels = typeof IPC_CHANNELS;

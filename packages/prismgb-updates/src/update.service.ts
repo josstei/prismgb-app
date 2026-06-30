@@ -7,8 +7,7 @@ import type { ILoggerFactory as LoggerFactory } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { UpdateState, type UpdateStateValue } from '@prismgb/config';
 
-export { UpdateState };
-export type UpdateStateType = UpdateStateValue;
+type UpdateStateType = UpdateStateValue;
 
 const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
 const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');

@@ -32,11 +32,6 @@ export type {
   CRTUniforms
 } from './domain/shaders';
 
-export type {
-  FrameSource,
-  IFrameProvider
-} from './domain/frame';
-
 // Preset Registry and policy (for UI to list/select presets)
 export { PRESET_POLICY, PresetRegistry } from './domain/presets';
 export type { PresetPolicy } from './domain/presets';

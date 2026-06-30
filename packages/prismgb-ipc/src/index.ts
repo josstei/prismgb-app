@@ -1,5 +1,4 @@
 export { IPC_CHANNELS } from './ipc-channels.js';
-export type { IpcChannels } from './ipc-channels.js';
 export type {
   IpcActionResult,
   DeviceInfoPayload,
@@ -25,10 +24,7 @@ export type {
   WindowSetFullscreenResponse,
   WindowIsFullscreenResponse,
   ShellOpenExternalResponse,
-  LoginItemGetResponse,
   LoginItemSetResponse,
   ProcessMetricPayload,
-  ProcessMetricsResponse,
-  GpuPolicyPayload,
-  GpuPolicyResponse
+  ProcessMetricsResponse
 } from './preload-api.contract.js';

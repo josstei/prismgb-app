@@ -115,9 +115,6 @@ export interface WindowIsFullscreenResponse extends IpcActionResult {
 }
 export type ShellOpenExternalResponse = IpcActionResult;
 
-export interface LoginItemGetResponse extends IpcActionResult {
-  enabled: boolean;
-}
 export type LoginItemSetResponse = IpcActionResult;
 
 export interface ProcessMetricPayload {
@@ -137,10 +134,3 @@ export interface ProcessMetricsResponse extends IpcActionResult {
   processCount: number;
   processes: ProcessMetricPayload[];
 }
-
-export interface GpuPolicyPayload {
-  skipWebGPU: boolean;
-  reason: string | null;
-}
-
-export interface GpuPolicyResponse extends IpcActionResult, GpuPolicyPayload {}

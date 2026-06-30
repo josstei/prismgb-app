@@ -3,9 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import {
   createRendererContainer,
-  getContainer,
-  initializeContainer,
-  resetContainer
+  initializeContainer
 } from '@renderer/application/container';
 
 const expectedRegistrationKeys = [
@@ -83,9 +81,8 @@ describe('Renderer container', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.restoreAllMocks();
-    await resetContainer();
   });
 
   it('creates renderer container with expected descriptor registrations', () => {
@@ -114,24 +111,6 @@ describe('Renderer container', () => {
 
     expect(first).toBe(second);
     expect(warnSpy).toHaveBeenCalledWith('Container already initialized');
-  });
-
-  it('returns the active container', () => {
-    const container = initializeContainer();
-    expect(getContainer()).toBe(container);
-  });
-
-  it('throws if container is accessed before initialization', () => {
-    expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');
-  });
-
-  it('disposes and clears container state on reset', async () => {
-    const container = initializeContainer();
-    const disposeSpy = vi.spyOn(container, 'dispose');
-    await resetContainer();
-
-    expect(disposeSpy).toHaveBeenCalled();
-    expect(() => getContainer()).toThrow('Container not initialized. Call initializeContainer() first.');
   });
 
   it('resolves UI-bound services once uiController is registered', () => {
