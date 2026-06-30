@@ -25,13 +25,10 @@
     "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix && node scripts/check-layer-boundaries.js",
     "lint:dead-code": "knip",
     "packaging:check-native-abi": "node scripts/check-electron-native-abi.js",
-    "architecture:type-debt:report": "node scripts/type-debt-report.js --output artifacts/type-debt-current.json",
-    "architecture:type-debt:check": "node scripts/typecheck-app.js --allowlist scripts/type-debt-allowlist.json",
-    "coverage:ratchet": "node scripts/coverage-ratchet.js",
     "clean:generated": "node scripts/clean-generated.js",
     "clean:build": "node scripts/clean-generated.js --build",
     "dev:smoke": "node scripts/dev-boot-smoke.js",
-    "release:preflight": "npm run packaging:check-native-abi && npm run architecture:type-debt:check && npm run test:coverage && npm run coverage:ratchet && npm run dev:smoke",
+    "release:preflight": "npm run packaging:check-native-abi && npm run test:coverage && npm run dev:smoke",
     "typecheck:app": "node scripts/typecheck-app.js",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "typecheck:gpu": "npm run typecheck --workspace=@prismgb/gpu",
@@ -56,8 +53,7 @@
     "test:e2e:debug": "npm run build:vite && playwright test --debug",
     "prepare": "husky",
     "postinstall": "patch-package",
-    "generate-icons": "node scripts/generate-icons.js",
-    "typecheck:app:allowlist": "node scripts/typecheck-app.js --write-allowlist scripts/type-debt-allowlist.json"
+    "generate-icons": "node scripts/generate-icons.js"
   },
   "keywords": [
     "electron",

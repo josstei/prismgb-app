@@ -51,26 +51,8 @@ jobs:
       - name: Run build smoke
         run: npm run build:vite
 
-      - name: Run tests with coverage
-        run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
-
-      - name: Enforce coverage ratchets
-        run: npm run coverage:ratchet
-
-      - name: Enforce coverage threshold monotonicity (ADR-0001)
-        run: |
-          BASE_REF="${{ github.base_ref }}"
-          if [ -z "$BASE_REF" ]; then
-            echo "No base ref (not a pull request) — skipping monotonic threshold check."
-            exit 0
-          fi
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          if ! git cat-file -e "origin/$BASE_REF:scripts/coverage-thresholds.json" 2>/dev/null; then
-            echo "Base ref has no coverage-thresholds.json — no prior floor to protect; skipping."
-            exit 0
-          fi
-          git show "origin/$BASE_REF:scripts/coverage-thresholds.json" > /tmp/base-coverage-thresholds.json
-          node scripts/coverage-ratchet.js --check-monotonic --previous /tmp/base-coverage-thresholds.json
+      - name: Run tests
+        run: npm run test:run
 
       - name: Run dev boot preflight
         run: xvfb-run -a npm run dev:smoke

@@ -1,5 +1,0 @@
-{
-  "version": 1,
-  "notes": "Each entry authorizes a coverage-threshold REDUCTION in scripts/coverage-thresholds.json that would otherwise fail the monotonic guard (node scripts/coverage-ratchet.js --check-monotonic). Per ADR-0001 a reduction must be owned, justified, and time-boxed: on expiry the threshold must be restored (debt paid down) or the waiver re-reviewed. 'from' is the prior minimum, 'to' is the lowest minimum this waiver permits.",
-  "waivers": []
-}

@@ -76,13 +76,7 @@ const baseCoverageConfig = {
     'src/**/*.d.ts',
     // JSON configuration files
     '**/*.json'
-  ],
-  thresholds: {
-    lines: 0,
-    functions: 0,
-    branches: 0,
-    statements: 0
-  }
+  ]
 };
 
 export default defineConfig({
