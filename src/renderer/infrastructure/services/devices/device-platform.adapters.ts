@@ -22,7 +22,7 @@ export interface MediaDevicesPort {
 }
 
 export interface DevicePreferenceStore {
-  getStoredDeviceIds(): readonly string[];
+  readStoredDeviceIds(): readonly string[];
   storeDeviceId(deviceId: string, deviceIdKind: DeviceId): void;
 }
 
@@ -167,7 +167,7 @@ export class StorageDevicePreferenceStore implements DevicePreferenceStore {
     this.logger = logger;
   }
 
-  getStoredDeviceIds(): readonly string[] {
+  readStoredDeviceIds(): readonly string[] {
     const storedIds = DeviceCatalog.enabled()
       .map((descriptor) => this.getStoredDeviceId(descriptor.id))
       .filter((deviceId): deviceId is string => Boolean(deviceId));

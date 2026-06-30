@@ -3,6 +3,8 @@ import {
   DEFAULT_DEVICE_ID,
   DEFAULT_NATIVE_RESOLUTION,
   DeviceCatalog,
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile,
   matchByLabel,
   matchByUsb,
   matchDevice,
@@ -11,9 +13,15 @@ import {
 } from '@prismgb/devices';
 import * as DevicesPublicApi from '@prismgb/devices';
 import {
+  createFixtureDeviceStatus,
+  createFixtureFrameData,
+  createFixtureMediaDevices,
+  getDeviceFixtureProfile
+} from '@prismgb/devices/testkit';
+import {
   CHROMATIC_DESCRIPTOR,
   CHROMATIC_SPECS
-} from '../../../devices/chromatic-manifest.testkit';
+} from '../../../devices/media.testkit';
 
 describe('DeviceCatalog', () => {
   it('uses the manifest as the canonical device source', () => {
@@ -66,6 +74,102 @@ describe('DeviceCatalog', () => {
     });
     expect(DeviceCatalog.nativeResolution()).toEqual(DEFAULT_NATIVE_RESOLUTION);
     expect(DeviceCatalog.nativeResolution(CHROMATIC_DESCRIPTOR.id)).toEqual(DEFAULT_NATIVE_RESOLUTION);
+  });
+
+  it('derives stream profiles through the catalog', () => {
+    const profile = getDeviceStreamProfile(CHROMATIC_DESCRIPTOR);
+
+    expect(profile).toEqual({
+      hasVideo: true,
+      audioSupport: true,
+      canvasScale: 4,
+      nativeResolution: DEFAULT_NATIVE_RESOLUTION,
+      canvasResolution: {
+        width: CHROMATIC_DESCRIPTOR.display.nativeWidth * 4,
+        height: CHROMATIC_DESCRIPTOR.display.nativeHeight * 4,
+        scale: 4
+      },
+      frameRate: CHROMATIC_DESCRIPTOR.fixture?.defaultFrameRate,
+      fallbackStrategy: CHROMATIC_DESCRIPTOR.media.fallbackStrategy,
+      pixelPerfect: CHROMATIC_DESCRIPTOR.display.pixelPerfect,
+      supportedResolutions: CHROMATIC_DESCRIPTOR.display.resolutions,
+      supportedFrameRates: CHROMATIC_DESCRIPTOR.fixture?.supportedFrameRates
+    });
+    expect(DeviceCatalog.streamProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+    expect(Object.isFrozen(profile)).toBe(true);
+  });
+
+  it('derives ordered acquisition attempts once in the catalog', () => {
+    const profile = getDeviceAcquisitionProfile(CHROMATIC_DESCRIPTOR);
+    const [fullAttempt, simpleAttempt, minimalAttempt, videoOnlySimpleAttempt] = profile.attempts;
+    const videoConstraints = CHROMATIC_DESCRIPTOR.media.video as {
+      width: { ideal: number };
+      height: { ideal: number };
+      frameRate: { ideal: number };
+    };
+
+    expect(profile.allowFallback).toBe(true);
+    expect(profile.fallbackStrategy).toBe(CHROMATIC_DESCRIPTOR.media.fallbackStrategy);
+    expect(profile.attempts.map((attempt) => attempt.strategy)).toEqual([
+      'full',
+      'simple',
+      'minimal',
+      'video-only-simple',
+      'video-only-minimal'
+    ]);
+    expect(fullAttempt).toMatchObject({
+      detail: 'full',
+      includeAudio: true,
+      includeVideo: true,
+      audioConstraints: CHROMATIC_DESCRIPTOR.media.audio.full,
+      videoConstraints: CHROMATIC_DESCRIPTOR.media.video
+    });
+    expect(simpleAttempt?.videoConstraints).toEqual({
+      width: videoConstraints.width.ideal,
+      height: videoConstraints.height.ideal,
+      frameRate: videoConstraints.frameRate.ideal
+    });
+    expect(minimalAttempt).toMatchObject({
+      detail: 'minimal',
+      audioConstraints: {},
+      videoConstraints: {}
+    });
+    expect(videoOnlySimpleAttempt).toMatchObject({
+      includeAudio: false,
+      audioConstraints: null
+    });
+    expect(DeviceCatalog.acquisitionProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+  });
+
+  it('exposes fixture projection through the package testkit subpath', () => {
+    const profile = getDeviceFixtureProfile(CHROMATIC_DESCRIPTOR);
+
+    expect(profile.descriptor.id).toBe(CHROMATIC_DESCRIPTOR.id);
+    expect(profile.specs).toMatchObject({
+      id: CHROMATIC_DESCRIPTOR.id,
+      label: CHROMATIC_DESCRIPTOR.fixture?.label,
+      deviceId: CHROMATIC_DESCRIPTOR.fixture?.videoDeviceId,
+      audioDeviceId: CHROMATIC_DESCRIPTOR.fixture?.audioDeviceId
+    });
+    expect(createFixtureMediaDevices(CHROMATIC_DESCRIPTOR)).toEqual([
+      profile.videoDevice,
+      profile.audioDevice
+    ]);
+    expect(createFixtureDeviceStatus(CHROMATIC_DESCRIPTOR, true)).toEqual({
+      state: 'connected',
+      connected: true,
+      device: profile.deviceInfoPayload
+    });
+    expect(createFixtureDeviceStatus(CHROMATIC_DESCRIPTOR, false)).toEqual({
+      state: 'disconnected',
+      connected: false,
+      device: null
+    });
+    expect(createFixtureFrameData(CHROMATIC_DESCRIPTOR, { timestamp: 5 })).toMatchObject({
+      width: CHROMATIC_DESCRIPTOR.display.nativeWidth,
+      height: CHROMATIC_DESCRIPTOR.display.nativeHeight,
+      timestamp: 5
+    });
   });
 
   it('matches observed USB devices and media labels through one matcher', () => {
@@ -122,6 +226,8 @@ describe('DeviceCatalog', () => {
       'DEFAULT_DEVICE_ID',
       'DEFAULT_NATIVE_RESOLUTION',
       'DeviceCatalog',
+      'getDeviceAcquisitionProfile',
+      'getDeviceStreamProfile',
       'matchByLabel',
       'matchByUsb',
       'matchDevice',

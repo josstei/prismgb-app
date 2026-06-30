@@ -2,54 +2,54 @@
  * Device Streaming E2E Tests
  *
  * Tests device connection, streaming, and disconnection flows
- * using the MockChromaticDevice infrastructure.
+ * using the Chromatic media environment.
  */
 
 import {
   test,
   expect,
 } from './fixtures/electron.fixture.js';
-import { TestPatterns } from './helpers/mock-chromatic.helper.js';
+import { TestPatterns } from './helpers/chromatic-media-environment.helper.js';
 import { SettingsTestControls } from './pages/settings.page.js';
 
 test.setTimeout(45000);
 
-test.describe('Device Streaming with Mock Device', () => {
-  test('should detect device connection via mock IPC', async ({ appShell, chromaticDevice }) => {
+test.describe('Device Streaming with Chromatic Media Environment', () => {
+  test('should detect device connection via test-control IPC', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock();
+    await chromaticDevice.installMediaEnvironment();
 
-    let mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.isConnected).toBe(false);
+    let mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.isConnected).toBe(false);
 
     await chromaticDevice.connectMediaOnly();
 
-    mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.isConnected).toBe(true);
-    expect(mockStatus.deviceInfo).toBeTruthy();
-    expect(mockStatus.deviceInfo.deviceName).toBe(chromaticDevice.fixture.device.label);
+    mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.isConnected).toBe(true);
+    expect(mediaStatus.deviceInfo).toBeTruthy();
+    expect(mediaStatus.deviceInfo.deviceName).toBe(chromaticDevice.fixture.device.label);
   });
 
-  test('should handle device disconnection via mock IPC', async ({ appShell, chromaticDevice }) => {
+  test('should handle device disconnection via test-control IPC', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({ autoConnect: true });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: true });
 
-    let mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.isConnected).toBe(true);
+    let mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.isConnected).toBe(true);
 
     await chromaticDevice.disconnectMediaOnly();
 
-    mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.isConnected).toBe(false);
-    expect(mockStatus.deviceInfo).toBeNull();
+    mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.isConnected).toBe(false);
+    expect(mediaStatus.deviceInfo).toBeNull();
   });
 
-  test('should enumerate mock device in media devices', async ({ appShell, chromaticDevice }) => {
+  test('should enumerate Chromatic in media devices', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({ autoConnect: false });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: false });
 
     let devices = await chromaticDevice.enumerateMediaDevices();
 
@@ -68,10 +68,10 @@ test.describe('Device Streaming with Mock Device', () => {
     expect(audioDevice.label).toBe(chromaticDevice.fixture.audioDevice.label);
   });
 
-  test('should get mock stream via getUserMedia', async ({ appShell, chromaticDevice }) => {
+  test('should get Chromatic stream via getUserMedia', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({ autoConnect: true });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: true });
     const streamInfo = await chromaticDevice.getMediaStreamInfo({ video: true, audio: true });
 
     expect(streamInfo.hasVideo).toBe(true);
@@ -83,7 +83,7 @@ test.describe('Device Streaming with Mock Device', () => {
   test('should fail getUserMedia when device disconnected', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({ autoConnect: false });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: false });
 
     const result = await chromaticDevice.page.evaluate(async () => {
       try {
@@ -105,7 +105,7 @@ test.describe('Device Streaming with Mock Device', () => {
   test('should handle rapid connect/disconnect cycles', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock();
+    await chromaticDevice.installMediaEnvironment();
 
     for (let i = 0; i < 5; i++) {
       await chromaticDevice.connectMediaOnly();
@@ -114,7 +114,7 @@ test.describe('Device Streaming with Mock Device', () => {
       await chromaticDevice.page.waitForTimeout(100);
     }
 
-    const status = await chromaticDevice.getMockStatus();
+    const status = await chromaticDevice.getMediaEnvironmentStatus();
     expect(status.isConnected).toBe(false);
 
     await expect(appShell.streamContainer).toBeAttached();
@@ -123,29 +123,29 @@ test.describe('Device Streaming with Mock Device', () => {
   test('should change test pattern dynamically', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({
+    await chromaticDevice.installMediaEnvironment({
       autoConnect: true,
       testPattern: TestPatterns.SOLID_GRAY,
     });
 
-    let mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.testPattern).toBe(TestPatterns.SOLID_GRAY);
+    let mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.testPattern).toBe(TestPatterns.SOLID_GRAY);
 
-    await chromaticDevice.mockDevice.setTestPattern(TestPatterns.COLOR_BARS);
+    await chromaticDevice.setTestPattern(TestPatterns.COLOR_BARS);
     await chromaticDevice.page.waitForTimeout(100);
 
-    mockStatus = await chromaticDevice.getMockStatus();
-    expect(mockStatus.testPattern).toBe(TestPatterns.COLOR_BARS);
+    mediaStatus = await chromaticDevice.getMediaEnvironmentStatus();
+    expect(mediaStatus.testPattern).toBe(TestPatterns.COLOR_BARS);
   });
 });
 
 test.describe('Device Connection Edge Cases', () => {
   test('should handle connection during app initialization', async ({ appShell, chromaticDevice }) => {
-    await chromaticDevice.injectMediaMock({ autoConnect: true });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: true });
 
     await appShell.waitForReady();
 
-    const status = await chromaticDevice.getMockStatus();
+    const status = await chromaticDevice.getMediaEnvironmentStatus();
     expect(status.isConnected).toBe(true);
   });
 
@@ -166,7 +166,7 @@ test.describe('Device Connection Edge Cases', () => {
     await settingsMenu.pressEscape();
 
     // Device should still be connected
-    const status = await chromaticDevice.getMockStatus();
+    const status = await chromaticDevice.getMediaEnvironmentStatus();
     expect(status.isConnected).toBe(true);
   });
 
@@ -182,7 +182,7 @@ test.describe('Device Connection Edge Cases', () => {
     await appShell.pressEscape();
 
     // Device should still be connected
-    const status = await chromaticDevice.getMockStatus();
+    const status = await chromaticDevice.getMediaEnvironmentStatus();
     expect(status.isConnected).toBe(true);
   });
 
@@ -206,7 +206,7 @@ test.describe('Device Connection Edge Cases', () => {
     await settingsMenu.pressEscape();
 
     // Device should still be connected
-    const status = await chromaticDevice.getMockStatus();
+    const status = await chromaticDevice.getMediaEnvironmentStatus();
     expect(status.isConnected).toBe(true);
   });
 });
@@ -254,28 +254,28 @@ test.describe('Stream Quality Verification', () => {
   });
 });
 
-test.describe('Mock Device Infrastructure', () => {
-  test('should properly inject mock state', async ({ appShell, chromaticDevice }) => {
+test.describe('Chromatic Media Environment Infrastructure', () => {
+  test('should install media state', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock();
+    await chromaticDevice.installMediaEnvironment();
 
-    expect(await chromaticDevice.hasMockState()).toBe(true);
+    expect(await chromaticDevice.hasMediaEnvironmentState()).toBe(true);
   });
 
   test('should clean up properly after test', async ({ appShell, chromaticDevice }) => {
     await appShell.waitForReady();
 
-    await chromaticDevice.injectMediaMock({ autoConnect: true });
+    await chromaticDevice.installMediaEnvironment({ autoConnect: true });
 
-    expect(await chromaticDevice.hasMockState()).toBe(true);
+    expect(await chromaticDevice.hasMediaEnvironmentState()).toBe(true);
 
     await chromaticDevice.cleanup();
 
-    expect(await chromaticDevice.hasMockState()).toBe(false);
+    expect(await chromaticDevice.hasMediaEnvironmentState()).toBe(false);
   });
 
-  test('should not break the IPC bridge after mock cleanup', async ({ appShell, chromaticDevice, window }) => {
+  test('should not break the IPC bridge after media environment cleanup', async ({ appShell, chromaticDevice, window }) => {
     await appShell.waitForReady();
 
     const beforeHasBridge = await window.evaluate(() => {
@@ -283,7 +283,7 @@ test.describe('Mock Device Infrastructure', () => {
     });
     expect(beforeHasBridge).toBe(true);
 
-    await chromaticDevice.injectMediaMock();
+    await chromaticDevice.installMediaEnvironment();
     await chromaticDevice.cleanup();
 
     const afterHasBridge = await window.evaluate(() => {
@@ -298,7 +298,7 @@ test.describe('Mock Device Infrastructure', () => {
  *
  * These tests inject device events on the main-process IpcPushBridge (the same hub
  * `WindowService.send` feeds), driving real device state to the renderer over the tRPC push
- * transport, combined with MediaDevices mocking for stream availability.
+ * transport, combined with the MediaDevices environment for stream availability.
  * This exercises the complete app flow: device detection -> UI update -> streaming.
  */
 test.describe('Full UI Flow with IPC Injection', () => {
@@ -328,7 +328,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     // Verify connected state
     await expect(appShell.statusIndicator).toHaveClass(/connected/);
 
-    // Now disconnect - update mock status and send event
+    // Now disconnect - update test-control status and send event.
     await chromaticDevice.disconnect();
 
     // Verify UI shows disconnected state
@@ -338,7 +338,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     expect(classList).not.toContain('connected');
   });
 
-  test('should enable streaming with IPC + MediaDevices mock', async ({
+  test('should enable streaming with IPC plus MediaDevices environment', async ({
     appShell,
     chromaticDevice,
   }) => {
@@ -349,7 +349,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
     // Verify UI shows connected
     await expect(appShell.statusIndicator).toHaveClass(/connected/);
 
-    // Verify mock stream is available
+    // Verify Chromatic stream is available.
     const streamInfo = await chromaticDevice.getMediaStreamInfo({ video: true });
 
     expect(streamInfo.hasVideo).toBe(true);
@@ -376,7 +376,7 @@ test.describe('Full UI Flow with IPC Injection', () => {
  * Stream Playback Tests
  *
  * Tests the actual streaming flow: clicking to start, verifying video renders,
- * and stopping the stream. Uses both IPC injection and MediaDevices mock.
+ * and stopping the stream through IPC plus the MediaDevices environment.
  */
 test.describe('Stream Playback', () => {
   test('should start streaming when overlay is clicked', async ({
@@ -407,7 +407,7 @@ test.describe('Stream Playback', () => {
   }) => {
     await appShell.waitForReady();
 
-    // Set up mock device
+    // Set up media environment.
     await chromaticDevice.connect({ testPattern: 'color-bars' });
 
     // Click to start streaming

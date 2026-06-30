@@ -3,7 +3,6 @@ import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { toDeviceStatusPayload } from '@prismgb/devices';
 import type {
-  DeviceStatusPayload,
   DeviceStatusResponse,
   DeviceInfoPayload,
   ShellOpenExternalResponse,
@@ -52,10 +51,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error';
 }
 
-function isTestMode(): boolean {
-  return process.argv.includes('--test-mode') || process.env.NODE_ENV === 'test';
-}
-
 function toBuffer(inputBuffer: ArrayBuffer): Buffer {
   return Buffer.from(inputBuffer);
 }
@@ -96,10 +91,10 @@ const deviceRouter = router({
   getStatus: publicProcedure.output(deviceStatusResponseSchema).query(({ ctx }) =>
     resultEnvelope<DeviceStatusResponse>(
       () => {
-        const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
-        if (isTestMode() && testGlobal.__testMockDeviceStatus) {
-          ctx.logger.debug('Using mock device status for testing');
-          return { success: true, ...testGlobal.__testMockDeviceStatus };
+        const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
+        if (override) {
+          ctx.logger.debug('Using test-control device status override');
+          return { success: true, ...override };
         }
         return { success: true, ...toDeviceStatusPayload(ctx.mainDeviceRuntime.getStatus()) };
       },
@@ -118,10 +113,10 @@ const deviceRouter = router({
   refreshStatus: publicProcedure.output(deviceStatusResponseSchema).mutation(({ ctx }) =>
     resultEnvelope<DeviceStatusResponse>(
       async () => {
-        const testGlobal = global as typeof globalThis & { __testMockDeviceStatus?: DeviceStatusPayload };
-        if (isTestMode() && testGlobal.__testMockDeviceStatus) {
-          ctx.logger.debug('Using mock device refresh status for testing');
-          return { success: true, ...testGlobal.__testMockDeviceStatus };
+        const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
+        if (override) {
+          ctx.logger.debug('Using test-control device refresh status override');
+          return { success: true, ...override };
         }
         return { success: true, ...toDeviceStatusPayload(await ctx.mainDeviceRuntime.reconcileDeviceStatus('manual-refresh')) };
       },

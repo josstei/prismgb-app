@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
 import { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
-import { createChromaticDeviceInfoPayload } from '../../../devices/chromatic-manifest.testkit';
+import {
+  createChromaticDeviceInfoPayload,
+  createChromaticDeviceStatusPayload
+} from '../../../devices/media.testkit';
 
 function createContext(overrides: Partial<Record<string, unknown>> = {}) {
   const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -20,6 +23,11 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
         device: createChromaticDeviceInfoPayload(),
         updatedAt: 12346
       }))
+    },
+    mainProcessTestControl: {
+      getDeviceStatusOverride: vi.fn(() => null),
+      setDeviceStatusOverride: vi.fn(),
+      emitPush: vi.fn()
     },
     updateService: {
       checkForUpdates: vi.fn(async () => ({ version: '1.0.0' })),
@@ -70,6 +78,70 @@ describe('appRouter — queries / mutations', () => {
       connected: true,
       device: createChromaticDeviceInfoPayload()
     });
+  });
+
+  it('device.getStatus uses context status override without reading runtime state', async () => {
+    const override = createChromaticDeviceStatusPayload(false);
+    const context = createContext({
+      mainProcessTestControl: {
+        getDeviceStatusOverride: vi.fn(() => override),
+        setDeviceStatusOverride: vi.fn(),
+        emitPush: vi.fn()
+      }
+    });
+
+    const result = await caller(context).device.getStatus();
+
+    expect(context.mainDeviceRuntime.getStatus).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      ...override
+    });
+  });
+
+  it('device.refreshStatus uses context status override without reconciling runtime state', async () => {
+    const override = createChromaticDeviceStatusPayload(true, { serialNumber: 'OVERRIDE-1' });
+    const context = createContext({
+      mainProcessTestControl: {
+        getDeviceStatusOverride: vi.fn(() => override),
+        setDeviceStatusOverride: vi.fn(),
+        emitPush: vi.fn()
+      }
+    });
+
+    const result = await caller(context).device.refreshStatus();
+
+    expect(context.mainDeviceRuntime.reconcileDeviceStatus).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      ...override
+    });
+  });
+
+  it('device.getStatus falls back to runtime after status override clears', async () => {
+    const override = createChromaticDeviceStatusPayload(false);
+    const getDeviceStatusOverride = vi.fn()
+      .mockReturnValueOnce(override)
+      .mockReturnValueOnce(null);
+    const context = createContext({
+      mainProcessTestControl: {
+        getDeviceStatusOverride,
+        setDeviceStatusOverride: vi.fn(),
+        emitPush: vi.fn()
+      }
+    });
+
+    await expect(caller(context).device.getStatus()).resolves.toEqual({
+      success: true,
+      ...override
+    });
+    await expect(caller(context).device.getStatus()).resolves.toEqual({
+      success: true,
+      state: 'connected',
+      connected: true,
+      device: createChromaticDeviceInfoPayload()
+    });
+    expect(context.mainDeviceRuntime.getStatus).toHaveBeenCalledTimes(1);
   });
 
   it('device.getStatus maps a thrown handler error to a failure envelope (resultEnvelope)', async () => {

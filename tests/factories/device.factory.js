@@ -7,7 +7,13 @@
 
 import { vi } from 'vitest';
 import {
+  DeviceCatalog,
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile,
+} from '@prismgb/devices';
+import {
   CHROMATIC_SPECS,
+  createChromaticAudioDeviceInfo,
   createChromaticMediaStream,
   createChromaticVideoDeviceInfo,
   createChromaticVideoTrack,
@@ -93,6 +99,16 @@ export function createMediaStream(options = {}) {
  * @returns {Object} Mock device directory.
  */
 export function createRendererDeviceRuntimeMock(overrides = {}) {
+  const descriptor = DeviceCatalog.default();
+  const videoDevice = createDeviceInfo();
+  const audioDevice = createChromaticAudioDeviceInfo();
+  const streamingTarget = {
+    videoDevice,
+    audioDevice,
+    descriptor,
+    profile: getDeviceStreamProfile(descriptor),
+    acquisition: getDeviceAcquisitionProfile(descriptor)
+  };
   const snapshot = {
     status: {
       state: 'disconnected',
@@ -127,9 +143,7 @@ export function createRendererDeviceRuntimeMock(overrides = {}) {
     refresh: vi.fn().mockResolvedValue(snapshot),
     snapshot: vi.fn(() => snapshot),
     enumerateDevices: vi.fn().mockResolvedValue({ devices: snapshot.supportedDevices, connected: snapshot.status.connected }),
-    discoverSupportedDevice: vi.fn().mockResolvedValue(null),
-    selectDevice: vi.fn(() => true),
-    getStoredDeviceIds: vi.fn(() => []),
+    resolveStreamingTarget: vi.fn().mockResolvedValue(streamingTarget),
     ...overrides
   });
 

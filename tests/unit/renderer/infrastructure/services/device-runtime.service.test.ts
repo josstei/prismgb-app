@@ -7,7 +7,7 @@ import {
   CHROMATIC_SPECS,
   createChromaticVideoDeviceInfo
 } from '../../../../devices/media.testkit';
-import { createChromaticDeviceInfoPayload } from '../../../../devices/chromatic-manifest.testkit';
+import { createChromaticDeviceInfoPayload } from '../../../../devices/media.testkit';
 
 const connectedStatus: DeviceStatus = {
   state: 'connected',
@@ -27,6 +27,26 @@ function createMediaDevice(overrides: Partial<MediaDeviceInfo> = {}): MediaDevic
   return createChromaticVideoDeviceInfo(overrides);
 }
 
+function createAudioDevice(overrides: Partial<MediaDeviceInfo> = {}): MediaDeviceInfo {
+  return createChromaticVideoDeviceInfo({
+    deviceId: CHROMATIC_SPECS.audioDeviceId,
+    groupId: CHROMATIC_SPECS.groupId,
+    kind: 'audioinput',
+    label: `${CHROMATIC_SPECS.label} Audio`,
+    ...overrides
+  });
+}
+
+function createPermissionStream() {
+  const track = { stop: vi.fn() };
+  return {
+    stream: {
+      getTracks: vi.fn(() => [track])
+    } as unknown as MediaStream,
+    track
+  };
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -38,9 +58,15 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-function createRuntime() {
+function createRuntime(options: {
+  devices?: MediaDeviceInfo[];
+  storedDeviceIds?: string[];
+  status?: DeviceStatus;
+} = {}) {
   let statusListener: ((status: DeviceStatus) => void) | null = null;
   let deviceChangeListener: (() => void) | null = null;
+  const initialStatus = options.status ?? connectedStatus;
+  const initialDevices = options.devices ?? [createMediaDevice()];
   const eventBus = createEventBus();
   const loggerFactory = createLoggerFactory();
   const statusUnsubscribe = vi.fn(() => {
@@ -50,15 +76,15 @@ function createRuntime() {
     deviceChangeListener = null;
   });
   const statusPort = {
-    getStatus: vi.fn(async () => connectedStatus),
-    refreshStatus: vi.fn(async () => connectedStatus),
+    getStatus: vi.fn(async () => initialStatus),
+    refreshStatus: vi.fn(async () => initialStatus),
     subscribe: vi.fn((listener: (status: DeviceStatus) => void) => {
       statusListener = listener;
       return statusUnsubscribe;
     })
   };
   const mediaDevicesPort = {
-    enumerateDevices: vi.fn(async () => [createMediaDevice()]),
+    enumerateDevices: vi.fn(async () => initialDevices),
     getUserMedia: vi.fn(),
     subscribeDeviceChange: vi.fn((listener: () => void) => {
       deviceChangeListener = listener;
@@ -66,7 +92,7 @@ function createRuntime() {
     })
   };
   const devicePreferenceStore = {
-    getStoredDeviceIds: vi.fn(() => []),
+    readStoredDeviceIds: vi.fn(() => options.storedDeviceIds ?? []),
     storeDeviceId: vi.fn()
   };
   const runtime = new RendererDeviceRuntime({
@@ -182,15 +208,104 @@ describe('RendererDeviceRuntime', () => {
     expect(statusPort.refreshStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('selectDevice persists only catalog-supported devices', () => {
-    const { runtime, devicePreferenceStore } = createRuntime();
+  it('resolves an explicit streaming target with paired audio and catalog profiles', async () => {
+    const videoDevice = createMediaDevice({ deviceId: 'selected-camera' });
+    const audioDevice = createAudioDevice();
+    const { runtime, devicePreferenceStore } = createRuntime({
+      devices: [videoDevice, audioDevice]
+    });
 
-    expect(runtime.selectDevice(createMediaDevice({ deviceId: 'selected-camera' }))).toBe(true);
+    const target = await runtime.resolveStreamingTarget('selected-camera');
+
+    expect(target.videoDevice).toBe(videoDevice);
+    expect(target.audioDevice).toBe(audioDevice);
+    expect(target.descriptor.id).toBe(CHROMATIC_SPECS.id);
+    expect(target.profile.canvasResolution).toEqual({ width: 640, height: 576, scale: 4 });
+    expect(target.acquisition.attempts.map((attempt) => attempt.strategy)).toEqual([
+      'full',
+      'simple',
+      'minimal',
+      'video-only-simple',
+      'video-only-minimal'
+    ]);
     expect(runtime.selectedDeviceId).toBe('selected-camera');
     expect(devicePreferenceStore.storeDeviceId).toHaveBeenCalledWith('selected-camera', CHROMATIC_SPECS.id);
+  });
 
-    expect(runtime.selectDevice(createMediaDevice({ deviceId: 'unsupported', label: 'Integrated Camera' }))).toBe(false);
-    expect(runtime.selectedDeviceId).toBe('selected-camera');
+  it('resolves the currently selected streaming target', async () => {
+    const videoDevice = createMediaDevice({ deviceId: 'selected-camera' });
+    const { runtime } = createRuntime({ devices: [videoDevice] });
+
+    await runtime.initialize();
+    const target = await runtime.resolveStreamingTarget();
+
+    expect(target.videoDevice).toBe(videoDevice);
+  });
+
+  it('restores the first valid stored device when earlier stored IDs are stale', async () => {
+    const videoDevice = createMediaDevice({ deviceId: 'valid-stored-camera' });
+    const { runtime } = createRuntime({
+      devices: [videoDevice],
+      storedDeviceIds: ['stale-camera', 'valid-stored-camera']
+    });
+
+    const target = await runtime.resolveStreamingTarget();
+
+    expect(target.videoDevice.deviceId).toBe('valid-stored-camera');
+  });
+
+  it('resolves a visible catalog label match without stored IDs', async () => {
+    const videoDevice = createMediaDevice({
+      deviceId: 'visible-camera',
+      label: 'USB ModRetro Chromatic Camera'
+    });
+    const { runtime } = createRuntime({ devices: [videoDevice] });
+
+    const target = await runtime.resolveStreamingTarget();
+
+    expect(target.videoDevice.deviceId).toBe('visible-camera');
+  });
+
+  it('warms permissions, cleans up probe tracks, and resolves target when hidden labels become visible', async () => {
+    const hiddenDevice = createMediaDevice({ deviceId: 'hidden-camera', label: '' });
+    const visibleDevice = createMediaDevice({ deviceId: 'visible-camera' });
+    const audioDevice = createAudioDevice();
+    const { stream, track } = createPermissionStream();
+    const { runtime, mediaDevicesPort } = createRuntime({ devices: [hiddenDevice] });
+    mediaDevicesPort.enumerateDevices
+      .mockResolvedValueOnce([hiddenDevice])
+      .mockResolvedValueOnce([hiddenDevice])
+      .mockResolvedValueOnce([visibleDevice, audioDevice])
+      .mockResolvedValueOnce([visibleDevice, audioDevice]);
+    mediaDevicesPort.getUserMedia.mockResolvedValue(stream);
+
+    const target = await runtime.resolveStreamingTarget();
+
+    expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledWith({ video: true });
+    expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(target.videoDevice).toBe(visibleDevice);
+    expect(target.audioDevice).toBe(audioDevice);
+  });
+
+  it('throws the authorization error when hidden labels remain hidden after permission denial', async () => {
+    const hiddenDevice = createMediaDevice({ deviceId: 'hidden-camera', label: '' });
+    const { runtime, mediaDevicesPort } = createRuntime({ devices: [hiddenDevice] });
+    mediaDevicesPort.enumerateDevices
+      .mockResolvedValueOnce([hiddenDevice])
+      .mockResolvedValueOnce([hiddenDevice])
+      .mockResolvedValueOnce([hiddenDevice])
+      .mockResolvedValueOnce([hiddenDevice]);
+    mediaDevicesPort.getUserMedia.mockRejectedValue(new Error('denied'));
+
+    await expect(runtime.resolveStreamingTarget()).rejects.toThrow('Supported device camera not authorized');
+  });
+
+  it('throws no-supported-device for unsupported visible cameras', async () => {
+    const { runtime } = createRuntime({
+      devices: [createMediaDevice({ deviceId: 'integrated-camera', label: 'Integrated Camera' })]
+    });
+
+    await expect(runtime.resolveStreamingTarget()).rejects.toThrow('No supported device found');
   });
 
   it('publishes disconnected-during-session when a connected runtime receives a disconnected push', async () => {

@@ -10,7 +10,7 @@ import {
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload,
   createChromaticUsbDeviceInfo
-} from '../../../devices/chromatic-manifest.testkit';
+} from '../../../devices/media.testkit';
 
 describe('device contract mappers', () => {
   it('maps observed USB devices to canonical device info without fixture-only fields', () => {

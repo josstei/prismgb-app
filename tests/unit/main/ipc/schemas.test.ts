@@ -20,7 +20,7 @@ import {
 import {
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload
-} from '../../../devices/chromatic-manifest.testkit';
+} from '../../../devices/media.testkit';
 
 const accepts = (schema: { safeParse: (v: unknown) => { success: boolean } }, value: unknown) =>
   schema.safeParse(value).success;

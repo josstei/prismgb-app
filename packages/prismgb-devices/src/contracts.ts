@@ -12,6 +12,8 @@ export type DeviceMediaFallbackStrategy = 'audio-simple' | 'video-only' | 'stric
 
 export type DeviceConstraintMap = Record<string, unknown>;
 
+export type DeviceAcquisitionConstraintDetail = 'full' | 'simple' | 'minimal';
+
 export interface DeviceResolution {
   label?: string;
   width: number;
@@ -90,6 +92,43 @@ export interface DeviceFixtureDescriptor {
   e2eHelper?: string;
 }
 
+export interface DeviceNativeResolution {
+  width: number;
+  height: number;
+}
+
+export interface DeviceCanvasResolution extends DeviceNativeResolution {
+  scale: number;
+}
+
+export interface DeviceStreamProfile {
+  hasVideo: boolean;
+  audioSupport: boolean;
+  canvasScale: number;
+  nativeResolution: DeviceNativeResolution;
+  canvasResolution: DeviceCanvasResolution;
+  frameRate: number;
+  fallbackStrategy: DeviceMediaFallbackStrategy;
+  pixelPerfect: boolean;
+  supportedResolutions: readonly DeviceResolution[];
+  supportedFrameRates: readonly number[];
+}
+
+export interface DeviceAcquisitionAttempt {
+  strategy: string;
+  detail: DeviceAcquisitionConstraintDetail;
+  includeAudio: boolean;
+  includeVideo: boolean;
+  audioConstraints: DeviceConstraintMap | null;
+  videoConstraints: DeviceConstraintMap | null;
+}
+
+export interface DeviceAcquisitionProfile {
+  allowFallback: boolean;
+  fallbackStrategy: DeviceMediaFallbackStrategy;
+  attempts: readonly DeviceAcquisitionAttempt[];
+}
+
 export interface DeviceDescriptor {
   id: DeviceId;
   name: string;
@@ -150,10 +189,61 @@ export interface DeviceStatusPayload {
   error?: string;
 }
 
+export interface DeviceFixtureTrackSettings {
+  video: MediaTrackSettings;
+  audio?: MediaTrackSettings;
+}
+
+export interface DeviceFixtureFrameData {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+  timestamp: number;
+}
+
+export interface DeviceFixtureSpecs {
+  id: DeviceId;
+  vendorId: number;
+  productId: number;
+  deviceClass?: number;
+  alternateDeviceClass?: number;
+  hexVendorId: `0x${string}`;
+  hexProductId: `0x${string}`;
+  name: string;
+  label: string;
+  manufacturer: string;
+  nativeWidth: number;
+  nativeHeight: number;
+  aspectRatio: number;
+  frameRates: readonly number[];
+  supportedFrameRates: readonly number[];
+  defaultFrameRate: number;
+  audioSampleRate: number;
+  audioChannels: number;
+  deviceId: string;
+  audioDeviceId: string;
+  groupId: string;
+  labelPatterns: readonly string[];
+}
+
+export interface DeviceFixtureProfile {
+  descriptor: DeviceDescriptor;
+  fixture: DeviceFixtureDescriptor;
+  specs: DeviceFixtureSpecs;
+  usbDeviceInfo: ObservedUsbDevice;
+  deviceInfoPayload: DeviceInfoPayload;
+  videoDevice: ObservedMediaDevice;
+  audioDevice: ObservedMediaDevice | null;
+  trackSettings: DeviceFixtureTrackSettings;
+  streamProfile: DeviceStreamProfile;
+}
+
 export interface DeviceCatalogApi {
   all(): readonly DeviceDescriptor[];
   enabled(): readonly DeviceDescriptor[];
   get(id: DeviceId): DeviceDescriptor | null;
   default(): DeviceDescriptor;
-  nativeResolution(id?: DeviceId): { width: number; height: number };
+  nativeResolution(id?: DeviceId): DeviceNativeResolution;
+  streamProfile(id?: DeviceId): DeviceStreamProfile;
+  acquisitionProfile(id?: DeviceId): DeviceAcquisitionProfile;
 }

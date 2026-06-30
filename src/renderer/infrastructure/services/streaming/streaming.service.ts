@@ -13,10 +13,8 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import { matchByLabel } from '@prismgb/devices';
 import { EventChannels } from '@prismgb/events';
 import { getErrorMessage } from '@prismgb/core';
-import type { DeviceDescriptor } from '@prismgb/devices';
 import type {
   TypedEventBusLike
 } from '@prismgb/events';
@@ -28,6 +26,7 @@ import type {
   DeviceMediaAcquirer,
   DeviceStreamCapabilities
 } from './device-media-acquirer.js';
+import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -55,16 +54,8 @@ type StreamStartResult = {
 
 type StreamOperationPromise = Promise<StreamStartResult | void>;
 
-type DeviceEnumerationResult = {
-  devices: MediaDeviceInfo[];
-  connected: boolean;
-};
-
 type RendererDeviceRuntimeLike = {
-  enumerateDevices(): Promise<DeviceEnumerationResult>;
-  getStoredDeviceIds(): readonly string[];
-  discoverSupportedDevice(): Promise<MediaDeviceInfo | null>;
-  selectDevice(device: MediaDeviceInfo): boolean;
+  resolveStreamingTarget(deviceId?: string | null): Promise<DeviceStreamingTarget>;
 };
 
 type StreamingServiceDependencies = {
@@ -164,24 +155,11 @@ export class StreamingService extends BaseService {
 
   private async _performStart(deviceId: string | null): Promise<StreamStartResult> {
     try {
-      // Get device
-      let device: MediaDeviceInfo;
-      if (deviceId) {
-        device = await this._getDeviceById(deviceId);
-      } else {
-        device = await this._autoSelectDevice();
-      }
-
-      if (!device) {
-        throw new Error('No device available for streaming');
-      }
-
-      const descriptor = this._getDescriptorForDevice(device);
-      const acquisition = await this.deviceMediaAcquirer.acquire(device, descriptor);
+      const target = await this.rendererDeviceRuntime.resolveStreamingTarget(deviceId);
+      const acquisition = await this.deviceMediaAcquirer.acquire(target);
 
       this.currentStream = acquisition.stream;
-      this.currentDevice = device;
-      this.rendererDeviceRuntime.selectDevice(device);
+      this.currentDevice = target.videoDevice;
 
       // Get stream settings
       const settings = this._getStreamSettings();
@@ -336,73 +314,6 @@ export class StreamingService extends BaseService {
 
   isActive(): boolean {
     return this.isStreaming;
-  }
-
-  private async _getDeviceById(deviceId: string): Promise<MediaDeviceInfo> {
-    // Use the renderer device runtime to ensure permission warm-up and caching.
-    const { devices } = await this.rendererDeviceRuntime.enumerateDevices();
-    const device = devices.find((enumeratedDevice) => (
-      enumeratedDevice.deviceId === deviceId &&
-      enumeratedDevice.kind === 'videoinput'
-    ));
-
-    if (!device) {
-      throw new Error(`Device not found: ${deviceId}`);
-    }
-
-    return device;
-  }
-
-  private _getDescriptorForDevice(device: MediaDeviceInfo): DeviceDescriptor {
-    const match = matchByLabel(device.label);
-    if (!match.descriptor) {
-      throw new Error(`Unsupported device: ${device.label || device.deviceId || 'unknown'}`);
-    }
-
-    return match.descriptor;
-  }
-
-  private async _autoSelectDevice(): Promise<MediaDeviceInfo> {
-    this.logger.info('Auto-selecting device');
-
-    const storedIds = this.rendererDeviceRuntime.getStoredDeviceIds();
-    if (storedIds.length > 0) {
-      // Try all stored device IDs in parallel for faster restoration when first IDs are stale
-      try {
-        const device = await Promise.any(
-          storedIds.map(deviceId => this._getDeviceById(deviceId))
-        );
-        this.logger.info('Using stored device ID:', device.label);
-        return device;
-      } catch {
-        // AggregateError - all stored IDs failed, fall through to label matching
-        this.logger.warn('All stored device IDs not found in enumeration');
-      }
-    }
-
-    const discoveredDevice = await this.rendererDeviceRuntime.discoverSupportedDevice();
-    if (discoveredDevice) {
-      this.logger.info('Discovered supported device:', discoveredDevice.label);
-      return discoveredDevice;
-    }
-
-    const { devices } = await this.rendererDeviceRuntime.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    const matchedDevice = videoDevices.find(device =>
-      matchByLabel(device.label).matched
-    );
-
-    if (matchedDevice) {
-      this.logger.info('Auto-selected device by label:', matchedDevice.label);
-      return matchedDevice;
-    }
-
-    const labelsHidden = videoDevices.length > 0 && videoDevices.every(device => !device.label);
-    if (labelsHidden) {
-      throw new Error('Supported device camera not authorized. Please grant permission and retry.');
-    }
-
-    throw new Error('No supported device found');
   }
 
   private _getStreamSettings(): StreamSettingsSnapshot | null {

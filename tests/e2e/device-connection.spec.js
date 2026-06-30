@@ -4,7 +4,7 @@
  * Tests for device connection and disconnection flows.
  *
  * NOTE: Tests that require actual device connection are skipped because
- * the device mocks cannot fully simulate Electron IPC device events.
+ * this suite intentionally avoids Electron IPC device events.
  * These tests focus on UI state that can be verified without a device.
  */
 

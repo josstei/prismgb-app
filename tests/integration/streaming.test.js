@@ -7,28 +7,25 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  CHROMATIC_SPECS,
-  MockDevice,
-  MockDeviceManager,
-  createMockUIController,
+  createUIController,
   performanceUtils,
 } from '../factories/index.js';
 import { createEventBus, createAppState } from '../factories/index.js';
+import {
+  CHROMATIC_SPECS,
+  createManifestMediaEnvironment,
+  createMediaDeviceInfo,
+} from '../devices/media.testkit.ts';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
 import { AnimationCache } from '@prismgb/core';
 
 describe('Streaming Pipeline Integration', () => {
-  let mockDeviceManager;
-  let chromaticDevice;
+  let mediaEnvironment;
   let animationCache;
 
   beforeEach(() => {
-    // Setup mock device infrastructure
-    mockDeviceManager = new MockDeviceManager();
-    chromaticDevice = MockDeviceManager.createChromatic();
-    mockDeviceManager.addDevice(chromaticDevice);
-    mockDeviceManager.setupMediaDevicesMock();
+    mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
 
     // Create test animation cache
     animationCache = new AnimationCache();
@@ -39,7 +36,7 @@ describe('Streaming Pipeline Integration', () => {
   });
 
   afterEach(() => {
-    mockDeviceManager.reset();
+    mediaEnvironment.cleanup();
     vi.clearAllMocks();
   });
 
@@ -47,18 +44,20 @@ describe('Streaming Pipeline Integration', () => {
     it('should detect Chromatic device via mediaDevices API', async () => {
       const devices = await navigator.mediaDevices.enumerateDevices();
 
-      expect(devices).toHaveLength(1);
-      expect(devices[0].label).toBe('Chromatic');
-      expect(devices[0].kind).toBe('videoinput');
+      expect(devices).toContainEqual(expect.objectContaining({
+        label: 'Chromatic',
+        kind: 'videoinput',
+      }));
     });
 
     it('should emit device change events', async () => {
       const changeHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', changeHandler);
 
-      // Add another device
-      const secondDevice = new MockDevice({ deviceId: 'second-device', label: 'Second Camera' });
-      mockDeviceManager.addDevice(secondDevice);
+      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
+        deviceId: 'second-device',
+        label: 'Second Camera',
+      }));
 
       expect(changeHandler).toHaveBeenCalled();
     });
@@ -67,11 +66,14 @@ describe('Streaming Pipeline Integration', () => {
       const staleHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', staleHandler);
 
-      mockDeviceManager.setupMediaDevicesMock();
+      mediaEnvironment.install();
 
       const currentHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', currentHandler);
-      mockDeviceManager.addDevice(new MockDevice({ deviceId: 'second-device', label: 'Second Camera' }));
+      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
+        deviceId: 'second-device',
+        label: 'Second Camera',
+      }));
 
       expect(staleHandler).not.toHaveBeenCalled();
       expect(currentHandler).toHaveBeenCalledTimes(1);
@@ -81,8 +83,7 @@ describe('Streaming Pipeline Integration', () => {
       const changeHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', changeHandler);
 
-      // Disconnect the Chromatic
-      mockDeviceManager.removeDevice(chromaticDevice.deviceInfo.deviceId);
+      mediaEnvironment.disconnect();
 
       const devices = await navigator.mediaDevices.enumerateDevices();
 
@@ -95,7 +96,7 @@ describe('Streaming Pipeline Integration', () => {
     it('should acquire stream from Chromatic device', async () => {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          deviceId: { exact: chromaticDevice.deviceInfo.deviceId },
+          deviceId: { exact: mediaEnvironment.videoDevice.deviceId },
           width: { exact: CHROMATIC_SPECS.nativeWidth },
           height: { exact: CHROMATIC_SPECS.nativeHeight },
         },
@@ -112,11 +113,11 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should fail when device is disconnected', async () => {
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       await expect(
         navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: chromaticDevice.deviceInfo.deviceId } },
+          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
         })
       ).rejects.toThrow('Requested device not found');
     });
@@ -220,7 +221,7 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Canvas Rendering Integration', () => {
     it('should setup canvas with correct dimensions', () => {
-      const uiController = createMockUIController();
+      const uiController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
       // Simulate canvas setup for 4x scale
@@ -235,7 +236,7 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should get 2D context with correct options', () => {
-      const uiController = createMockUIController();
+      const uiController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
       const ctx = canvas.getContext('2d', {
@@ -264,24 +265,24 @@ describe('Streaming Pipeline Integration', () => {
       eventBus.subscribe('stream:stopped', () => events.push({ type: 'stream:stopped' }));
 
       // 1. Device connects
-      eventBus.publish('device:connected', { deviceId: chromaticDevice.deviceInfo.deviceId });
+      eventBus.publish('device:connected', { deviceId: mediaEnvironment.videoDevice.deviceId });
 
       // 2. Acquire stream
-      const stream = await chromaticDevice.getStream();
+      const stream = await mediaEnvironment.createStream();
       expect(stream).toBeDefined();
 
       // 3. Start streaming
       appState.setStreaming(true);
       eventBus.publish('stream:started', {
         stream,
-        capabilities: chromaticDevice.getCapabilities(),
+        capabilities: mediaEnvironment.getCapabilities(),
       });
 
       expect(appState.isStreaming).toBe(true);
       expect(events.some(e => e.type === 'stream:started')).toBe(true);
 
       // 4. Stop streaming
-      chromaticDevice.stopStream();
+      mediaEnvironment.stopStreams();
       appState.setStreaming(false);
       eventBus.publish('stream:stopped');
 
@@ -326,11 +327,11 @@ describe('Streaming Pipeline Integration', () => {
       });
 
       // Disconnect device before stream acquisition
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       try {
         await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: chromaticDevice.deviceInfo.deviceId } },
+          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
         });
       } catch (error) {
         eventBus.publish('stream:error', { message: error.message, name: error.name });
@@ -345,14 +346,14 @@ describe('Streaming Pipeline Integration', () => {
       const eventBus = createEventBus();
 
       // Start streaming
-      const stream = await chromaticDevice.getStream();
+      const stream = await mediaEnvironment.createStream();
       appState.setStreaming(true);
 
       // Simulate unexpected disconnection
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       // Handle disconnection
-      if (!chromaticDevice.isConnected && appState.isStreaming) {
+      if (!mediaEnvironment.snapshot().connected && appState.isStreaming) {
         appState.setStreaming(false);
         eventBus.publish('stream:stopped');
         eventBus.publish('device:disconnected-during-session');
@@ -381,8 +382,9 @@ describe('Streaming Pipeline Integration', () => {
     it('should complete 100 stream start/stop cycles under time limit', async () => {
       const result = await performanceUtils.measureTime(async () => {
         for (let i = 0; i < 100; i++) {
-          const stream = await chromaticDevice.getStream();
-          chromaticDevice.stopStream();
+          const stream = await mediaEnvironment.createStream();
+          expect(stream.getVideoTracks()).toHaveLength(1);
+          mediaEnvironment.stopStreams();
         }
       }, 1);
 
@@ -394,20 +396,20 @@ describe('Streaming Pipeline Integration', () => {
   });
 });
 
-describe('Mock Device Accuracy', () => {
+describe('Manifest Media Environment Accuracy', () => {
   it('should match real Chromatic specifications', () => {
-    const device = MockDeviceManager.createChromatic();
-    const caps = device.getCapabilities();
+    const environment = createManifestMediaEnvironment();
+    const caps = environment.getCapabilities();
 
     expect(caps.nativeResolution.width).toBe(160);
     expect(caps.nativeResolution.height).toBe(144);
-    expect(caps.canvasScale).toBe(4);
+    expect(caps.canvasResolution.scale).toBe(4);
     expect(caps.deviceName).toBe('Chromatic');
   });
 
   it('should provide accurate stream settings', async () => {
-    const device = MockDeviceManager.createChromatic();
-    const stream = await device.getStream();
+    const environment = createManifestMediaEnvironment();
+    const stream = await environment.createStream();
     const track = stream.getVideoTracks()[0];
     const settings = track.getSettings();
 

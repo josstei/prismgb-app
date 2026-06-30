@@ -4,7 +4,7 @@ import { createLoggerFactory } from '../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticUsbDeviceInfo
-} from '../../devices/chromatic-manifest.testkit';
+} from '../../devices/media.testkit';
 
 describe('MainDeviceRuntime', () => {
   let usbMonitor: {

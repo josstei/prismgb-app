@@ -9,7 +9,6 @@ import {
 } from './index.js';
 import {
   createNodeUsbDeviceMonitor,
-  createNoopUsbDeviceMonitor,
   type UsbDeviceInfo,
   type UsbDeviceMonitor
 } from './usb-device-monitor.js';
@@ -41,12 +40,6 @@ export interface MainDeviceRuntimeDependencies {
 export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceReconcileReason) => void;
 export type DeviceCheckErrorListener = (error: DeviceRuntimeCheckError) => void;
 export type DeviceRuntimeUnsubscribe = () => void;
-
-const TEST_MODE_ARGS = new Set(['--test-mode']);
-
-function isTestMode(): boolean {
-  return process.argv.some((argument) => TEST_MODE_ARGS.has(argument)) || process.env.NODE_ENV === 'test';
-}
 
 function createInitialStatus(now: () => number): DeviceStatus {
   return {
@@ -130,9 +123,7 @@ export class MainDeviceRuntime extends BaseService {
 
   constructor(dependencies: MainDeviceRuntimeDependencies) {
     super(dependencies, 'MainDeviceRuntime');
-    this.usbMonitor = dependencies.usbMonitor ?? (
-      isTestMode() ? createNoopUsbDeviceMonitor() : createNodeUsbDeviceMonitor()
-    );
+    this.usbMonitor = dependencies.usbMonitor ?? createNodeUsbDeviceMonitor();
     this.now = dependencies.now ?? Date.now;
     this.status = createInitialStatus(this.now);
   }

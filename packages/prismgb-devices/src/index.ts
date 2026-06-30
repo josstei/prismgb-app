@@ -1,7 +1,9 @@
 export {
   DEFAULT_DEVICE_ID,
   DEFAULT_NATIVE_RESOLUTION,
-  DeviceCatalog
+  DeviceCatalog,
+  getDeviceAcquisitionProfile,
+  getDeviceStreamProfile
 } from './catalog.js';
 export {
   matchByLabel,
@@ -15,6 +17,10 @@ export {
 } from './payloads.js';
 export type {
   DeviceBehaviorPolicy,
+  DeviceAcquisitionAttempt,
+  DeviceAcquisitionConstraintDetail,
+  DeviceAcquisitionProfile,
+  DeviceCanvasResolution,
   DeviceCatalogApi,
   DeviceConnectionState,
   DeviceConstraintMap,
@@ -22,6 +28,7 @@ export type {
   DeviceDisplayProfile,
   DeviceFixtureAudioDescriptor,
   DeviceFixtureDescriptor,
+  DeviceFixtureSpecs,
   DeviceId,
   DeviceInfo,
   DeviceInfoPayload,
@@ -30,9 +37,11 @@ export type {
   DeviceMediaAudioProfile,
   DeviceMediaFallbackStrategy,
   DeviceMediaProfile,
+  DeviceNativeResolution,
   DeviceResolution,
   DeviceStatus,
   DeviceStatusPayload,
+  DeviceStreamProfile,
   ObservedMediaDevice,
   ObservedUsbDevice,
   UsbIdentity

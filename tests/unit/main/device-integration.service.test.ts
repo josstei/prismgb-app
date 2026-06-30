@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { createEventBus, createLoggerFactory } from '../../factories/index.js';
-import { createChromaticDeviceInfoPayload } from '../../devices/chromatic-manifest.testkit';
+import { createChromaticDeviceInfoPayload } from '../../devices/media.testkit';
 
 describe('DeviceIntegrationService', () => {
   let statusListener: ((status: unknown, reason: unknown) => void) | null;

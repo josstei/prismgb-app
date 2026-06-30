@@ -97,17 +97,6 @@ export {
   DEFAULT_STATE,
 } from './app-state.factory.js';
 
-export {
-  CHROMATIC_SPECS,
-  createMockVideoTrack,
-  createMockStream,
-  createMockDeviceInfo,
-  MockDevice,
-  MockDeviceManager,
-  createMockUIController,
-  performanceUtils,
-} from './streaming-mocks.factory.js';
-
 // System factories
 export {
   createDisposableMock,
@@ -155,6 +144,7 @@ export {
 
 // Performance factories
 export {
+  performanceUtils,
   createPerformanceMetricsAdapterMock,
   createVisibilityAdapterMock,
   createUserActivityAdapterMock,

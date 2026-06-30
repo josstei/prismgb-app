@@ -7,6 +7,57 @@
 
 import { vi } from 'vitest';
 
+export const performanceUtils = {
+  async measureTime(fn, iterations = 1) {
+    const times = [];
+
+    for (let i = 0; i < iterations; i++) {
+      const start = performance.now();
+      await fn();
+      times.push(performance.now() - start);
+    }
+
+    return {
+      min: Math.min(...times),
+      max: Math.max(...times),
+      avg: times.reduce((a, b) => a + b, 0) / times.length,
+      total: times.reduce((a, b) => a + b, 0),
+      iterations,
+      times,
+    };
+  },
+
+  measureMemory() {
+    if (performance.memory) {
+      return {
+        usedJSHeapSize: performance.memory.usedJSHeapSize,
+        totalJSHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+      };
+    }
+    return null;
+  },
+
+  createDeferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  },
+
+  async waitFor(condition, { timeout = 5000, interval = 50 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (await condition()) return true;
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+    throw new Error(`waitFor timeout after ${timeout}ms`);
+  },
+};
+
 export function createPerformanceMetricsAdapterMock(overrides = {}) {
   return {
     isAvailable: vi.fn(() => false),

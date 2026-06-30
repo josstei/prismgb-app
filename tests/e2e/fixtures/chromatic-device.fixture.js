@@ -1,21 +1,17 @@
 import { expect } from '@playwright/test';
-import {
-  CHROMATIC_E2E_FIXTURE,
-  CHROMATIC_SPECS,
-  createChromaticUsbDeviceInfo,
-  createChromaticDeviceStatusPayload,
-} from '../../support/chromatic-device-specs.js';
 import { AppShellPage } from '../pages/app-shell.page.js';
 import { StreamPage } from '../pages/stream.page.js';
 import {
-  cleanupMockDevice,
-  injectMockChromaticDevice,
-} from '../helpers/mock-chromatic.helper.js';
+  CHROMATIC_MEDIA_FIXTURE,
+  cleanupChromaticMediaEnvironment,
+  createChromaticDeviceStatusPayload,
+  installChromaticMediaEnvironment,
+} from '../helpers/chromatic-media-environment.helper.js';
 import {
-  clearMockDeviceStatus,
+  clearTestDeviceStatus,
   injectDeviceConnectedEvent,
   injectDeviceDisconnectedEvent,
-  setMockDeviceStatus,
+  setTestDeviceStatus,
 } from '../helpers/device-ipc.helper.js';
 
 export class ChromaticDeviceFixture {
@@ -24,40 +20,36 @@ export class ChromaticDeviceFixture {
     this.page = page;
     this.appShell = new AppShellPage(page);
     this.streamPage = new StreamPage(page);
-    this.specs = CHROMATIC_SPECS;
-    this.fixture = CHROMATIC_E2E_FIXTURE;
-    this.mockDevice = null;
+    this.fixture = CHROMATIC_MEDIA_FIXTURE;
+    this.mediaEnvironment = null;
   }
 
-  async injectMediaMock(options = {}) {
-    this.mockDevice = await injectMockChromaticDevice(this.page, options);
-    return this.mockDevice;
+  async installMediaEnvironment(options = {}) {
+    this.mediaEnvironment = await installChromaticMediaEnvironment(this.page, options);
+    return this.mediaEnvironment;
   }
 
   async connectMediaOnly(options = {}) {
-    const mockDevice = this.mockDevice ?? (await this.injectMediaMock(options));
-    await mockDevice.connect();
-    return mockDevice;
+    const mediaEnvironment = this.mediaEnvironment ?? (await this.installMediaEnvironment(options));
+    await mediaEnvironment.connect();
+    return mediaEnvironment;
   }
 
   async disconnectMediaOnly() {
-    await this.mockDevice?.disconnect();
+    await this.mediaEnvironment?.disconnect();
   }
 
   async setMediaConnected(connected) {
     await this.page.evaluate(
       ({ connected: nextConnected, usbDeviceInfo }) => {
-        const state = window.__mockChromaticState;
+        const state = window.__chromaticMediaEnvironment;
         if (!state) {
-          throw new Error('Mock Chromatic device has not been injected');
+          throw new Error('Chromatic media environment has not been installed');
         }
 
         state.isConnected = nextConnected;
         state.deviceInfo = nextConnected ? { ...usbDeviceInfo } : null;
-
-        const event = new Event('devicechange');
-        state.deviceChangeListeners.forEach((listener) => listener(event));
-        navigator.mediaDevices.dispatchEvent(event);
+        state.dispatchDeviceChange();
       },
       { connected, usbDeviceInfo: this.fixture.usbDeviceInfo }
     );
@@ -66,24 +58,24 @@ export class ChromaticDeviceFixture {
   async connect(options = {}) {
     const { autoConnect = true, testPattern = 'animated' } = options;
 
-    await this.injectMediaMock({ autoConnect, testPattern });
-    await setMockDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(true));
+    await this.installMediaEnvironment({ autoConnect, testPattern });
+    await setTestDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(true));
     await injectDeviceConnectedEvent(this.electronApp);
 
     await this.expectConnected();
   }
 
   async disconnect() {
-    await this.mockDevice?.disconnect();
-    await setMockDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(false));
+    await this.mediaEnvironment?.disconnect();
+    await setTestDeviceStatus(this.electronApp, createChromaticDeviceStatusPayload(false));
     await injectDeviceDisconnectedEvent(this.electronApp);
     await this.expectDisconnected();
   }
 
   async cleanup() {
     await Promise.allSettled([
-      cleanupMockDevice(this.page),
-      clearMockDeviceStatus(this.electronApp),
+      cleanupChromaticMediaEnvironment(this.page),
+      clearTestDeviceStatus(this.electronApp),
     ]);
   }
 
@@ -126,12 +118,20 @@ export class ChromaticDeviceFixture {
     }).toPass({ timeout: 5000 });
   }
 
-  async getMockStatus() {
-    if (!this.mockDevice) {
+  async getMediaEnvironmentStatus() {
+    if (!this.mediaEnvironment) {
       return { injected: false, isConnected: false };
     }
 
-    return this.mockDevice.getStatus();
+    return this.mediaEnvironment.getStatus();
+  }
+
+  async setTestPattern(pattern) {
+    if (!this.mediaEnvironment) {
+      throw new Error('Chromatic media environment has not been installed');
+    }
+
+    await this.mediaEnvironment.setTestPattern(pattern);
   }
 
   async enumerateMediaDevices() {
@@ -146,8 +146,8 @@ export class ChromaticDeviceFixture {
     });
   }
 
-  async hasMockState() {
-    return this.page.evaluate(() => Boolean(window.__mockChromaticState));
+  async hasMediaEnvironmentState() {
+    return this.page.evaluate(() => Boolean(window.__chromaticMediaEnvironment));
   }
 
   async getMediaStreamInfo(constraints = { video: true, audio: true }) {
@@ -163,9 +163,5 @@ export class ChromaticDeviceFixture {
         audioSettings: audioTrack?.getSettings() ?? null,
       };
     }, constraints);
-  }
-
-  get usbDeviceInfo() {
-    return createChromaticUsbDeviceInfo();
   }
 }
