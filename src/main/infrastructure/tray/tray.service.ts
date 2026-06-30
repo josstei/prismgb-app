@@ -6,14 +6,15 @@
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { BaseService } from '@prismgb/core';
+import type { DeviceReconcileReason } from '@prismgb/devices/service';
 
 /**
  * Menu configuration item
  */
 interface MenuConfigItem {
   label: string;
-  service: 'windowService' | 'deviceService';
-  method: 'showWindow' | 'refreshDeviceStatus';
+  service: 'windowService' | 'mainDeviceRuntime';
+  method: 'showWindow' | 'reconcileDeviceStatus';
 }
 
 /**
@@ -23,8 +24,8 @@ interface TrayServiceDependencies {
   windowService: {
     showWindow: () => void;
   };
-  deviceService: {
-    refreshDeviceStatus: () => void;
+  mainDeviceRuntime: {
+    reconcileDeviceStatus: (reason: DeviceReconcileReason) => Promise<unknown>;
     isConnected: () => boolean;
   };
   loggerFactory: {
@@ -46,20 +47,20 @@ const MENU_CONFIG: MenuConfigItem[] = [
   },
   {
     label: 'Refresh Devices',
-    service: 'deviceService',
-    method: 'refreshDeviceStatus'
+    service: 'mainDeviceRuntime',
+    method: 'reconcileDeviceStatus'
   }
 ];
 
 class TrayService extends BaseService {
   private tray: Tray | null = null;
   private readonly windowService: TrayServiceDependencies['windowService'];
-  private readonly deviceService: TrayServiceDependencies['deviceService'];
+  private readonly mainDeviceRuntime: TrayServiceDependencies['mainDeviceRuntime'];
 
   constructor(dependencies: TrayServiceDependencies) {
     super(dependencies, 'TrayService');
     this.windowService = dependencies.windowService;
-    this.deviceService = dependencies.deviceService;
+    this.mainDeviceRuntime = dependencies.mainDeviceRuntime;
   }
 
   /**
@@ -99,7 +100,7 @@ class TrayService extends BaseService {
   updateTrayMenu(): void {
     if (!this.tray) return;
 
-    const isDeviceConnected = this.deviceService ? this.deviceService.isConnected() : false;
+    const isDeviceConnected = this.mainDeviceRuntime.isConnected();
 
     // Build dynamic menu items from config
     const menuItems: MenuItemConstructorOptions[] = MENU_CONFIG.map(({ label, service, method }) => ({
@@ -110,8 +111,10 @@ class TrayService extends BaseService {
           return;
         }
 
-        if (service === 'deviceService' && method === 'refreshDeviceStatus') {
-          this.deviceService.refreshDeviceStatus();
+        if (service === 'mainDeviceRuntime' && method === 'reconcileDeviceStatus') {
+          void this.mainDeviceRuntime.reconcileDeviceStatus('tray-refresh').catch((error: unknown) => {
+            this.logger.error('Failed to refresh devices from tray', error);
+          });
         }
       }
     }));

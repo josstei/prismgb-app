@@ -5,7 +5,13 @@
  */
 
 export { booleanArgumentSchema, externalUrlSchema } from './common.schemas.js';
-export { deviceInfoSchema, nullableDeviceInfoSchema } from './device.schemas.js';
+export {
+  deviceConnectionStateSchema,
+  deviceInfoSchema,
+  nullableDeviceInfoSchema,
+  deviceStatusPayloadSchema,
+  deviceStatusResponseSchema
+} from './device.schemas.js';
 export { updateInfoSchema, updateProgressSchema, updateErrorSchema } from './update.schemas.js';
 export {
   transcodeStartSchema,

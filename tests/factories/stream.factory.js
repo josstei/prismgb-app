@@ -6,8 +6,13 @@
  */
 
 import { vi } from 'vitest';
-import { createMediaStream, createDeviceAdapter, createDeviceInfo, AdapterState } from './device.factory.js';
-import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { createMediaStream, createDeviceInfo } from './device.factory.js';
+import {
+  CHROMATIC_SPECS,
+  createMediaTrackMock as createDeviceMediaTrackMock,
+  createChromaticStreamCapabilities,
+  createMediaStream as createMediaStreamDouble,
+} from '../devices/media.testkit.ts';
 
 /**
  * Streaming service states
@@ -32,8 +37,8 @@ export function createStreamingService(options = {}) {
 
   let state = initialState;
   let currentStream = null;
-  let currentAdapter = null;
   let currentDeviceId = null;
+  let currentCapabilities = null;
 
   const service = {
     /**
@@ -48,9 +53,8 @@ export function createStreamingService(options = {}) {
       currentDeviceId = deviceId;
 
       try {
-        currentAdapter = createDeviceAdapter({ deviceId });
-        await currentAdapter.initialize();
-        currentStream = await currentAdapter.getStream();
+        currentStream = createMediaStream({ deviceId });
+        currentCapabilities = createStreamCapabilitiesMock();
         state = StreamingState.STREAMING;
         return currentStream;
       } catch (error) {
@@ -69,14 +73,13 @@ export function createStreamingService(options = {}) {
 
       state = StreamingState.STOPPING;
 
-      if (currentAdapter) {
-        currentAdapter.releaseStream();
-        currentAdapter.cleanup();
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
       }
 
       currentStream = null;
-      currentAdapter = null;
       currentDeviceId = null;
+      currentCapabilities = null;
       state = StreamingState.IDLE;
     }),
 
@@ -98,10 +101,7 @@ export function createStreamingService(options = {}) {
     /**
      * Get current capabilities
      */
-    getCapabilities: vi.fn(() => {
-      if (!currentAdapter) return null;
-      return currentAdapter.getCapabilities();
-    }),
+    getCapabilities: vi.fn(() => currentCapabilities),
 
     // ==========================================
     // Test Helpers
@@ -109,14 +109,12 @@ export function createStreamingService(options = {}) {
 
     _getState() { return state; },
     _setState(s) { state = s; },
-    _getAdapter() { return currentAdapter; },
-    _setAdapter(a) { currentAdapter = a; },
     _setStream(s) { currentStream = s; },
     _reset() {
       state = StreamingState.IDLE;
       currentStream = null;
-      currentAdapter = null;
       currentDeviceId = null;
+      currentCapabilities = null;
       vi.clearAllMocks();
     },
   };
@@ -219,8 +217,8 @@ export function createRenderPipeline(options = {}) {
  */
 export function createMockCanvas(options = {}) {
   const {
-    width = 640,
-    height = 576,
+    width = CHROMATIC_SPECS.nativeWidth * 4,
+    height = CHROMATIC_SPECS.nativeHeight * 4,
   } = options;
 
   const drawCalls = [];
@@ -353,78 +351,9 @@ export function createStreamPayloadMock(overrides = {}) {
   };
 }
 
-export function createAcquisitionContextMock(overrides = {}) {
-  const {
-    profile = {
-      video: {
-        width: 160,
-        height: 144
-      }
-    },
-    ...contextOverrides
-  } = overrides;
-
-  return {
-    deviceId: 'test-device-123',
-    profile: {
-      ...profile,
-      video: {
-        width: 160,
-        height: 144,
-        ...(profile?.video ?? {})
-      }
-    },
-    ...contextOverrides
-  };
-}
-
-export function createConstraintBuilderContextMock(overrides = {}) {
-  const audioProfileDefaults = {
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
-    sampleRate: 48000,
-  };
-  const videoProfileDefaults = {
-    width: 1920,
-    height: 1080,
-    frameRate: 60,
-  };
-  const {
-    deviceId = 'test-device-id',
-    audioDeviceId = 'audio-device-id',
-    videoDeviceId = 'video-device-id',
-    profile = {
-      audio: audioProfileDefaults,
-      video: videoProfileDefaults,
-    },
-    getDeviceConstraint = vi.fn(() => ({ exact: videoDeviceId })),
-    getAudioDeviceConstraint = vi.fn(() => ({ exact: audioDeviceId })),
-    ...contextOverrides
-  } = overrides;
-
-  return {
-    deviceId,
-    getDeviceConstraint,
-    getAudioDeviceConstraint,
-    profile: {
-      ...profile,
-      audio: {
-        ...audioProfileDefaults,
-        ...(profile.audio ?? {}),
-      },
-      video: {
-        ...videoProfileDefaults,
-        ...(profile.video ?? {}),
-      },
-    },
-    ...contextOverrides,
-  };
-}
-
 export function createStreamConstraintsMock(overrides = {}) {
   const {
-    deviceId = 'test-device-123',
+    deviceId = CHROMATIC_SPECS.deviceId,
     audio = {},
     video = {},
     ...constraintOverrides
@@ -437,7 +366,7 @@ export function createStreamConstraintsMock(overrides = {}) {
     : audio;
   const normalizedVideo = typeof video === 'object' && video !== null
     ? {
-      width: 160,
+      width: CHROMATIC_SPECS.nativeWidth,
       ...video,
       ...(!('deviceId' in video) ? { deviceId: { exact: deviceId } } : {})
     }
@@ -453,19 +382,21 @@ export function createStreamConstraintsMock(overrides = {}) {
 export function createStreamStartedPayloadMock(overrides = {}) {
   const {
     stream = createCaptureStreamMock(),
-    device = createDeviceInfo({
-      deviceId: 'test-device-id',
-      label: 'Test Device',
-      kind: 'videoinput'
-    }),
+    device = createDeviceInfo(),
     settings = {
       video: {
-        width: 160,
-        height: 144,
-        frameRate: 60
+        width: CHROMATIC_SPECS.nativeWidth,
+        height: CHROMATIC_SPECS.nativeHeight,
+        frameRate: CHROMATIC_SPECS.defaultFrameRate
       }
     },
-    capabilities = createStreamCapabilitiesMock({ canvasScale: 4, nativeResolution: { width: 160, height: 144 } }),
+    capabilities = createStreamCapabilitiesMock({
+      canvasScale: 4,
+      nativeResolution: {
+        width: CHROMATIC_SPECS.nativeWidth,
+        height: CHROMATIC_SPECS.nativeHeight
+      }
+    }),
     ...payloadOverrides
   } = overrides;
 
@@ -480,11 +411,7 @@ export function createStreamStartedPayloadMock(overrides = {}) {
 
 export function createSupportedDevicePayloadMock(overrides = {}) {
   const {
-    device = createDeviceInfo({
-      deviceId: 'test-device-id',
-      label: 'Test Device',
-      kind: 'videoinput'
-    }),
+    device = createDeviceInfo(),
     ...payloadOverrides
   } = overrides;
 
@@ -495,44 +422,17 @@ export function createSupportedDevicePayloadMock(overrides = {}) {
 }
 
 export function createMediaTrackMock(overrides = {}) {
-  const eventListeners = new Map();
-
-  return {
-    id: overrides.id ?? `track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    stop: vi.fn(),
-    clone: vi.fn(() => ({ ...createMediaTrackMock(), id: 'cloned-track' })),
-    addEventListener: vi.fn((event, handler) => {
-      if (!eventListeners.has(event)) {
-        eventListeners.set(event, []);
-      }
-      eventListeners.get(event).push(handler);
-    }),
-    removeEventListener: vi.fn((event, handler) => {
-      const handlers = eventListeners.get(event);
-      if (handlers) {
-        const index = handlers.indexOf(handler);
-        if (index > -1) {
-          handlers.splice(index, 1);
-        }
-      }
-    }),
-    _eventListeners: eventListeners,
-    ...overrides
-  };
+  return createDeviceMediaTrackMock(overrides);
 }
 
 export function createMediaStreamMock(overrides = {}) {
   const tracks = Array.isArray(overrides.tracks) ? [...overrides.tracks] : [];
   const { tracks: _tracks, ...streamOverrides } = overrides;
+  const stream = createMediaStreamDouble({ ...streamOverrides, tracks });
 
   return {
-    addTrack: vi.fn((track) => tracks.push(track)),
-    getTracks: vi.fn(() => [...tracks]),
-    ...streamOverrides,
-    _tracks: tracks,
-    _setTracks: (nextTracks) => {
-      tracks.splice(0, tracks.length, ...nextTracks);
-    },
+    ...stream,
+    ...streamOverrides
   };
 }
 
@@ -557,17 +457,7 @@ export function createCaptureStreamMock(overrides = {}) {
 }
 
 export function createStreamCapabilitiesMock(overrides = {}) {
-  const {
-    frameRate = 60,
-    nativeResolution = { width: 160, height: 144 },
-    ...capabilityOverrides
-  } = overrides;
-
-  return {
-    frameRate,
-    nativeResolution,
-    ...capabilityOverrides
-  };
+  return createChromaticStreamCapabilities(overrides);
 }
 
 export function createBrowserMediaServiceMock(overrides = {}) {
@@ -580,73 +470,25 @@ export function createBrowserMediaServiceMock(overrides = {}) {
   };
 }
 
-/**
- * @typedef {import('@renderer/infrastructure/services/devices/device-media.service').DeviceMediaService} DeviceMediaService
- */
-
-/**
- * Creates a mock DeviceMediaService.
- *
- * @param {Partial<import('vitest').Mocked<DeviceMediaService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<DeviceMediaService>} A strongly-typed mock DeviceMediaService.
- */
-export function createMediaServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    getUserMedia: vi.fn().mockResolvedValue({
-      id: 'mock-media-stream',
-      active: true,
-      getTracks: vi.fn(() => [{ kind: 'video', label: 'Mock Video' }])
-    }),
-    ...overrides,
+export function createDeviceMediaAcquirerMock(overrides = {}) {
+  const stream = createCaptureStreamMock();
+  const capabilities = createStreamCapabilitiesMock({
+    hasAudio: false,
+    hasVideo: true,
+    audioSupport: true,
+    fallbackStrategy: 'audio-simple'
   });
-}
 
-export function createStreamingAdapterMock(overrides = {}) {
   return {
-    getStream: vi.fn(),
-    releaseStream: vi.fn().mockResolvedValue(undefined),
-    getCapabilities: vi.fn(),
+    acquire: vi.fn(async () => ({
+      stream,
+      strategy: 'full',
+      capabilities
+    })),
+    release: vi.fn().mockResolvedValue(undefined),
+    getStreamInfo: vi.fn(() => null),
     ...overrides
   };
-}
-
-export function createStreamingAdapterRegistryMock(overrides = {}) {
-  const { defaultAdapter, ...methodOverrides } = overrides;
-  const state = {
-    adapter: defaultAdapter ?? createStreamingAdapterMock()
-  };
-
-  const registry = /** @type {any} */ ({
-    _setAdapter: (nextAdapter) => {
-      state.adapter = nextAdapter;
-    },
-    _getAdapter: () => state.adapter,
-    ...methodOverrides
-  });
-
-  if (!('getAdapterForDevice' in methodOverrides)) {
-    registry.getAdapterForDevice = vi.fn((..._) => state.adapter);
-  }
-
-  return registry;
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/streaming/acquisition/constraint-builder').ConstraintBuilder} ConstraintBuilder
- */
-
-/**
- * Creates a mock ConstraintBuilder.
- *
- * @param {Partial<import('vitest').Mocked<ConstraintBuilder>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<ConstraintBuilder>} A strongly-typed mock ConstraintBuilder.
- */
-export function createConstraintBuilderMock(overrides = {}) {
-  return /** @type {any} */ ({
-    build: vi.fn(() => ({ video: { width: 160, height: 144 } })),
-    buildWithStrategy: vi.fn(),
-    ...overrides
-  });
 }
 
 export default {
@@ -656,8 +498,6 @@ export default {
   createMockVideo,
   StreamingState,
   createStreamPayloadMock,
-  createAcquisitionContextMock,
-  createConstraintBuilderContextMock,
   createStreamConstraintsMock,
   createStreamStartedPayloadMock,
   createSupportedDevicePayloadMock,
@@ -666,8 +506,5 @@ export default {
   createCaptureStreamMock,
   createStreamCapabilitiesMock,
   createBrowserMediaServiceMock,
-  createMediaServiceMock,
-  createStreamingAdapterMock,
-  createStreamingAdapterRegistryMock,
-  createConstraintBuilderMock,
+  createDeviceMediaAcquirerMock,
 };

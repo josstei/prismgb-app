@@ -1,29 +1,14 @@
 /**
  * Streaming Pipeline Factory
  *
- * Creates mock services and adapters for the renderer streaming pipeline:
- * render loops, GPU pipeline, canvas lifecycle, viewport, and acquisition coordination.
+ * Creates mock services for the renderer streaming pipeline:
+ * render loops, GPU pipeline, canvas lifecycle, and viewport.
  * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';
 import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
-
-/**
- * Creates a mock StreamLifecycle.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock StreamLifecycle.
- */
-export function createStreamLifecycleMock(overrides = {}) {
-  return {
-    acquireStream: vi.fn(() => Promise.resolve({ id: 'mock-stream' })),
-    releaseStream: vi.fn(() => Promise.resolve()),
-    getStreamInfo: vi.fn(),
-    ...overrides
-  };
-}
 
 /**
  * Creates a mock WorkerInstance.
@@ -37,34 +22,6 @@ export function createWorkerInstanceMock(overrides = {}) {
     terminate: vi.fn(),
     onmessage: null,
     onerror: null,
-    ...overrides
-  };
-}
-
-/**
- * Creates a mock AcquisitionCoordinator.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock AcquisitionCoordinator.
- */
-export function createAcquisitionCoordinatorMock(overrides = {}) {
-  return {
-    acquire: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
- * Creates a mock FallbackStrategy.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock FallbackStrategy.
- */
-export function createFallbackStrategyMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    hasMore: vi.fn(),
-    getNext: vi.fn(),
     ...overrides
   };
 }

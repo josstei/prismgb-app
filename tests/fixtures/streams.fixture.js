@@ -4,7 +4,7 @@
  * Centralized test data for stream-related tests.
  */
 
-import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { CHROMATIC_SPECS } from '../devices/media.testkit.ts';
 import { CHROMATIC_DEVICE, CHROMATIC_STREAM_SETTINGS } from './devices.fixture.js';
 
 /**

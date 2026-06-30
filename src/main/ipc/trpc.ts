@@ -1,8 +1,8 @@
 import { initTRPC } from '@trpc/server';
 import type { App, Shell } from 'electron';
 import type { LoggerLike } from '@prismgb/core';
+import type { DeviceStatus } from '@prismgb/devices';
 import type {
-  DeviceStatusPayload,
   UpdateStatusPayload,
   TranscodeFormat,
   TranscodeStartResponse,
@@ -11,8 +11,9 @@ import type {
 } from '@prismgb/ipc';
 import type { IpcPushBridge } from './event-bridge.js';
 
-export interface DeviceService {
-  getStatus(): DeviceStatusPayload;
+export interface MainDeviceRuntimePort {
+  getStatus(): DeviceStatus;
+  reconcileDeviceStatus(reason: 'manual-refresh'): Promise<DeviceStatus>;
 }
 
 export interface UpdateService {
@@ -50,7 +51,7 @@ export interface TranscodeService {
  * from. Supplied per-request by `createIPCHandler`'s `createContext`.
  */
 export interface IpcContext {
-  deviceService: DeviceService;
+  mainDeviceRuntime: MainDeviceRuntimePort;
   updateService: UpdateService;
   windowService: WindowService;
   transcodeService: TranscodeService;

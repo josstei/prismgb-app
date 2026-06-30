@@ -5,16 +5,16 @@
  * Use these fixtures instead of hardcoded values.
  */
 
-import { CHROMATIC_SPECS } from '../support/chromatic-device-specs.js';
+import { CHROMATIC_SPECS } from '../devices/media.testkit.ts';
 
 /**
  * Chromatic device fixture
  */
 export const CHROMATIC_DEVICE = {
-  deviceId: 'test-chromatic-device-001',
-  label: 'Chromatic',
+  deviceId: CHROMATIC_SPECS.deviceId,
+  label: CHROMATIC_SPECS.label,
   kind: 'videoinput',
-  groupId: 'test-chromatic-group',
+  groupId: CHROMATIC_SPECS.groupId,
   specs: {
     vendorId: CHROMATIC_SPECS.vendorId,
     productId: CHROMATIC_SPECS.productId,
@@ -75,7 +75,7 @@ export const CHROMATIC_CAPABILITIES = {
   },
   supportedFrameRates: CHROMATIC_SPECS.frameRates,
   canvasScale: 4,
-  deviceName: 'Chromatic',
+  deviceName: CHROMATIC_SPECS.label,
 };
 
 /**
@@ -104,26 +104,15 @@ export const TRACK_CAPABILITIES = {
 };
 
 /**
- * Device profile fixture
- */
-export const CHROMATIC_PROFILE = {
-  deviceId: CHROMATIC_DEVICE.deviceId,
-  label: CHROMATIC_DEVICE.label,
-  nativeWidth: CHROMATIC_SPECS.nativeWidth,
-  nativeHeight: CHROMATIC_SPECS.nativeHeight,
-  aspectRatio: CHROMATIC_SPECS.nativeWidth / CHROMATIC_SPECS.nativeHeight,
-};
-
-/**
  * USB device info fixture (for main process)
  */
 export const USB_DEVICE_INFO = {
   vendorId: CHROMATIC_SPECS.vendorId,
   productId: CHROMATIC_SPECS.productId,
-  deviceName: 'Chromatic',
-  manufacturer: 'ModRetro',
+  deviceName: CHROMATIC_SPECS.label,
+  manufacturer: CHROMATIC_SPECS.manufacturer,
   serialNumber: 'TEST-001',
-  deviceClass: 239,
+  deviceClass: CHROMATIC_SPECS.alternateDeviceClass,
 };
 
 /**
@@ -161,7 +150,6 @@ export default {
   CHROMATIC_CAPABILITIES,
   CHROMATIC_STREAM_SETTINGS,
   TRACK_CAPABILITIES,
-  CHROMATIC_PROFILE,
   USB_DEVICE_INFO,
   createDeviceFixture,
   createDeviceListFixture,

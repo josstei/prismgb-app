@@ -1,25 +1,17 @@
 import type { UpdateStateValue } from '@prismgb/config';
+import type {
+  DeviceInfoPayload,
+  DeviceStatusPayload
+} from '@prismgb/devices';
 
 export interface IpcActionResult {
   success: boolean;
   error?: string;
 }
 
-export interface DeviceInfoPayload {
-  locationId?: number;
-  vendorId?: number;
-  productId?: number;
-  deviceName?: string;
-  manufacturer?: string;
-  serialNumber?: string;
-  deviceAddress?: number;
-  configName?: string;
-}
+export type { DeviceInfoPayload, DeviceStatusPayload };
 
-export interface DeviceStatusPayload extends IpcActionResult {
-  connected: boolean | null;
-  device?: DeviceInfoPayload | null;
-}
+export type DeviceStatusResponse = IpcActionResult & DeviceStatusPayload;
 
 export interface UpdateInfoPayload {
   version?: string;

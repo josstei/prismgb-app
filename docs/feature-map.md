@@ -1,5 +1,7 @@
 # Feature Map
 
+<!-- Source: packages/prismgb-devices/src/device.manifest.json, packages/prismgb-devices/src/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/chromatic-manifest.testkit.ts -->
+
 This document maps user-facing features to the codebase for maintenance and onboarding.
 
 ## User-Facing Features
@@ -17,7 +19,7 @@ This section is generated from architecture, device, and settings manifests. Kee
 | IPC channels | 29 |
 | Renderer events | 75 |
 | Main events | 3 |
-| Device profiles | 1 |
+| Device descriptors | 1 |
 | Settings definitions | 10 |
 | Render passes | 4 |
 | Architecture aliases | 6 |
@@ -56,14 +58,14 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 | Recording format | Settings format dropdown -> `SettingsService.setSetting('recordingFormat', value)` -> `settings:recording-format-changed` persists and drives later saves |
 | Shader/brightness/volume | shader panel settings -> `settings:render-preset-changed`, `settings:brightness-changed`, and `settings:volume-changed` -> render pipeline and slider UI sync |
 | Performance mode | Settings toggle -> `settings:performance-mode-changed` -> `performance:render-mode-changed` -> `StreamingOrchestrator` switches to Canvas2D when enabled |
-| Device connect/disconnect | `window.deviceAPI` preload subscriptions -> manifest-backed `device:connected` / `device:disconnected` EventBus events -> `DeviceOrchestrator` queues sequenced connect/disconnect handling |
+| Device connect/disconnect | `MainDeviceRuntime` reconciles USB status -> `DeviceIntegrationService` publishes EventBus/tray/window side effects -> `WindowService.send` emits to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
 | Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
 | Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
-| Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `window.updateAPI` IPC -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
+| Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `trpcClient.update.*` procedures and subscriptions -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
 
 ## Data and Storage
 
-Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored device IDs live in `src/renderer/infrastructure/services/device-storage.service.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored media-device IDs are managed by `StorageDevicePreferenceStore` in `src/renderer/infrastructure/services/devices/device-platform.adapters.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 
@@ -74,9 +76,18 @@ Screenshots will not be added to this repository.
 ### Add a New Device
 
 1. Register manifest metadata in `packages/prismgb-devices/src/device.manifest.json`.
-2. Add a profile class in `packages/prismgb-devices/src/profiles/` and register it in `src/main/infrastructure/devices/device-profile.registry.ts`.
-3. Add an adapter in `src/renderer/infrastructure/adapters/devices/<device-name>/` and register it.
-4. Update docs and tests if behavior changes.
+2. Extend `packages/prismgb-devices/src/contracts.ts` and `packages/prismgb-devices/src/catalog.ts` only if the manifest schema needs a new field.
+3. Use `DeviceCatalog`, `matchDevice`, and `toDeviceStatusPayload` from `@prismgb/devices`; individual hardware models should not get their own runtime classes.
+4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from the manifest-backed testkit.
+5. Update docs and tests if behavior changes.
+
+Device test entry points:
+- `tests/devices/chromatic-manifest.testkit.ts`: manifest descriptor constants, USB/media specs, payload builders, and frame data.
+- `tests/devices/media.testkit.ts`: `MediaDeviceInfo`, `MediaStreamTrack`, and `MediaStream` doubles derived from the manifest fixture.
+- `tests/devices/browser-media.harness.ts`: `navigator.mediaDevices` harness with connect/disconnect and `devicechange` behavior.
+- `tests/devices/chromatic.e2e.fixture.ts`: E2E fixture payloads shared by Playwright helpers.
+
+Do not hand-write device fixture classes or duplicate manifest constants in individual tests.
 
 ### Add a Render Preset
 
@@ -94,6 +105,6 @@ Screenshots will not be added to this repository.
 ## Architecture Guardrails
 
 - Renderer infrastructure timing values come from `packages/prismgb-config/src/timing.config.ts` (imported via `@prismgb/config`).
-- IPC handlers import manifest-derived channels from `packages/prismgb-ipc/src/ipc.manifest.ts` (imported via `@prismgb/ipc`).
-- Preload API and method descriptors are marker-generated from `packages/prismgb-ipc/src/ipc.manifest.json`.
+- IPC handlers and renderer clients use `IPC_CHANNELS` plus payload contract types from `@prismgb/ipc`.
+- Main IPC behavior is implemented in `src/main/ipc/router.ts` with schema validation in `src/main/ipc/schemas`.
 - Active runtime paths do not use `@core` imports.

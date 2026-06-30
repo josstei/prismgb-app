@@ -4,7 +4,6 @@ export { EventChannels } from './event-channels.js';
 export type {
   TypedEventBusLike,
   Dimensions,
-  DeviceInfoPayload,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
@@ -26,9 +25,9 @@ export type {
   SupportedDeviceAvailablePayload,
   NativeResolution
 } from './event-payloads.js';
+export type { DeviceInfoPayload } from '@prismgb/devices';
 
 export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest.js';
 export { EVENT_PAYLOAD_CHANNELS } from './event-payloads.js';
 export { MainEventChannels } from './main-event-channels.js';
 export type { MainEventChannel } from './main-event-channels.js';
-

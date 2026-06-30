@@ -255,8 +255,8 @@ describe('StreamingOrchestrator', () => {
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Auto-starting stream - device available: Test Device');
-      expect(mockStreamingService.start).toHaveBeenCalledWith('test-device-id');
+      expect(mockLogger.info).toHaveBeenCalledWith(`Auto-starting stream - device available: ${mockDeviceData.device.label}`);
+      expect(mockStreamingService.start).toHaveBeenCalledWith(mockDeviceData.device.deviceId);
     });
 
     it('should bypass appState.deviceConnected check (browser enumeration is source of truth)', async () => {
@@ -266,7 +266,7 @@ describe('StreamingOrchestrator', () => {
 
       await orchestrator._handleSupportedDeviceAvailable(mockDeviceData);
 
-      expect(mockStreamingService.start).toHaveBeenCalledWith('test-device-id');
+      expect(mockStreamingService.start).toHaveBeenCalledWith(mockDeviceData.device.deviceId);
     });
 
     it('should not auto-start when setting disabled', async () => {

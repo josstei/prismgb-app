@@ -40,11 +40,16 @@ export const TestPatterns = {
  * @returns {Promise<Object>} Controller object for test manipulation
  */
 export async function injectMockChromaticDevice(page, options = {}) {
-  const { autoConnect = false, testPattern = 'color-bars', includeAudio = true } = options;
+  const {
+    autoConnect = false,
+    testPattern = 'color-bars',
+    includeAudio = true,
+    mockMediaRecorder = true,
+  } = options;
 
   // Inject the mock infrastructure into the page
   await page.evaluate(
-    ({ fixture, testPattern, includeAudio }) => {
+    ({ fixture, testPattern, includeAudio, mockMediaRecorder }) => {
       // Store mock state on window for test access
       window.__mockChromaticState = {
         isConnected: false,
@@ -76,6 +81,75 @@ export async function injectMockChromaticDevice(page, options = {}) {
         navigator.mediaDevices.addEventListener.bind(navigator.mediaDevices);
       const originalRemoveEventListener =
         navigator.mediaDevices.removeEventListener.bind(navigator.mediaDevices);
+      const originalMediaRecorder = window.MediaRecorder;
+
+      function installMockMediaRecorder() {
+        class MockMediaRecorder extends EventTarget {
+          static isTypeSupported(type) {
+            return typeof type === 'string' && type.startsWith('video/webm');
+          }
+
+          constructor(stream, recorderOptions = {}) {
+            super();
+            this.stream = stream;
+            this.mimeType = recorderOptions.mimeType ?? 'video/webm';
+            this.state = 'inactive';
+            this._timesliceTimer = null;
+          }
+
+          start(timeslice) {
+            if (this.state !== 'inactive') {
+              throw new DOMException('MediaRecorder is already recording', 'InvalidStateError');
+            }
+
+            this.state = 'recording';
+            this.requestData();
+
+            if (Number.isFinite(timeslice) && timeslice > 0) {
+              this._timesliceTimer = window.setInterval(() => {
+                if (this.state === 'recording') {
+                  this.requestData();
+                }
+              }, timeslice);
+            }
+          }
+
+          stop() {
+            if (this.state === 'inactive') {
+              return;
+            }
+
+            this.requestData();
+            this.state = 'inactive';
+
+            if (this._timesliceTimer) {
+              window.clearInterval(this._timesliceTimer);
+              this._timesliceTimer = null;
+            }
+
+            window.setTimeout(() => {
+              this.dispatchEvent(new Event('stop'));
+            }, 0);
+          }
+
+          requestData() {
+            if (this.state !== 'recording') {
+              return;
+            }
+
+            const blob = new Blob([`mock-chromatic-recording-${Date.now()}`], {
+              type: this.mimeType || 'video/webm',
+            });
+            this.dispatchEvent(new BlobEvent('dataavailable', { data: blob }));
+          }
+        }
+
+        window.MediaRecorder = MockMediaRecorder;
+      }
+
+      if (mockMediaRecorder) {
+        installMockMediaRecorder();
+      }
 
       // Helper to create video canvas stream
       function createMockVideoStream() {
@@ -288,9 +362,10 @@ export async function injectMockChromaticDevice(page, options = {}) {
         getUserMedia: originalGetUserMedia,
         addEventListener: originalAddEventListener,
         removeEventListener: originalRemoveEventListener,
+        MediaRecorder: originalMediaRecorder,
       };
     },
-    { fixture: CHROMATIC_E2E_FIXTURE, testPattern, includeAudio }
+    { fixture: CHROMATIC_E2E_FIXTURE, testPattern, includeAudio, mockMediaRecorder }
   );
 
   // If autoConnect, simulate connection
@@ -429,6 +504,9 @@ export async function cleanupMockDevice(page) {
       }
       if (originals.removeEventListener) {
         navigator.mediaDevices.removeEventListener = originals.removeEventListener;
+      }
+      if (originals.MediaRecorder) {
+        window.MediaRecorder = originals.MediaRecorder;
       }
     }
 

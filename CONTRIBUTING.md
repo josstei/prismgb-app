@@ -1,5 +1,7 @@
 # Contributing to PrismGB
 
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, packages/prismgb-devices/src/device.manifest.json -->
+
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
@@ -91,18 +93,21 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for the full script list and local setup no
 ## Project Structure
 
 ```
+packages/              # Workspace packages shared across main and renderer
 src/
 ├── main/               # Electron main process
-├── preload/            # Context bridge APIs
+├── preload/            # Electron tRPC context bridge
 ├── renderer/           # Renderer process and UI
 │   ├── application/    # App orchestrators and state
 │   ├── assets/         # Styles, fonts, images
-│   ├── features/       # Domain features (capture, devices, notes, settings, streaming, updates)
-│   ├── infrastructure/ # Event bus, logging, adapters
-│   ├── ui/             # Templates, components, orchestration
+│   ├── infrastructure/ # Browser adapters and domain services
+│   ├── presentation/   # Templates, components, bridges, effects, styles
 │   └── lib/            # Renderer-only utilities
-├── shared/             # Shared utilities and config
-tests/                  # Unit and integration tests
+tests/
+├── devices/            # Manifest-backed device testkit
+├── e2e/                # Playwright tests and fixtures
+├── integration/        # Integration tests
+└── unit/               # Unit tests
 docs/                   # Architecture and feature docs
 scripts/                # Build and tooling scripts
 ```
@@ -246,36 +251,37 @@ See `docs/naming-conventions.md` for the full guide. Highlights are below.
 
 ### File Naming
 
-All JavaScript files follow the pattern: `{name}.{type}.js`
+Runtime files follow the pattern: `{name}.{type}.{ext}`
 
 | Suffix | Purpose |
 |--------|---------|
-| `.service.js` | Business logic (extends `BaseService`) |
-| `.orchestrator.js` | Lifecycle coordination (extends `BaseOrchestrator`) |
-| `.adapter.js` | External API wrappers |
-| `.component.js` | UI components |
-| `.handler.js` | IPC handlers |
-| `.factory.js` | Instance creation |
-| `.bridge.js` | Cross-module coordination |
-| `.registry.js` | Collection management |
-| `.interface.js` | Interface definitions |
-| `.worker.js` | Web Workers |
-| `.state.js` | State management |
-| `.config.js` | Configuration constants |
-| `.profile.js` | Device profiles |
-| `.utils.js` | Pure utility functions |
-| `.class.js` | Plain classes (no DI) |
-| `.base.js` | Abstract base classes |
+| `.service.<ext>` | Business logic (extends `BaseService`) |
+| `.orchestrator.<ext>` | Lifecycle coordination (extends `BaseOrchestrator`) |
+| `.adapter.<ext>` | External API wrappers |
+| `.component.<ext>` | UI components |
+| `.handler.<ext>` | IPC handlers |
+| `.factory.<ext>` | Instance creation |
+| `.bridge.<ext>` | Cross-module coordination |
+| `.registry.<ext>` | Collection management |
+| `.interface.<ext>` | Interface definitions |
+| `.worker.<ext>` | Web Workers |
+| `.state.<ext>` | State management |
+| `.config.<ext>` | Configuration constants |
+| `.contract.<ext>` | Public payload and API shapes |
+| `.testkit.ts` | Shared test fixtures and doubles |
+| `.utils.<ext>` | Pure utility functions |
+| `.class.<ext>` | Plain classes (no DI) |
+| `.base.<ext>` | Abstract base classes |
 
 **Rules:**
 - Use kebab-case for filenames
-- Type suffix uses dot separator: `device-profile.registry.js`, `streaming-worker-protocol.config.js`
+- Type suffix uses dot separator: `preset.registry.ts`, `streaming-worker-protocol.config.js`
 - Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
 - Entry points (`index.js`) and DI containers (`container.js`) are exceptions
 
 ### Example Service
 
-```javascript
+```ts
 import { BaseService } from '@prismgb/core';
 
 export class MyService extends BaseService {
@@ -319,17 +325,30 @@ npm run test:smoke       # Smoke test (requires build)
 Tests should be placed in:
 - `tests/unit/` for unit tests
 - `tests/integration/` for integration tests
-- Or co-located with source files as `*.test.js`
+- `tests/e2e/` for Playwright workflows
+- `tests/devices/` for shared manifest-backed device fixtures
+- Or co-located with source files as `*.test.ts`, `*.spec.ts`, or the equivalent `.js` form for runtime-only modules
 
-```javascript
+### Device Test Fixtures
+
+Use the canonical device testkit instead of duplicating device constants or fixture classes:
+
+- `tests/devices/chromatic-manifest.testkit.ts`: manifest descriptor constants, USB/media specs, payload builders, and frame data.
+- `tests/devices/media.testkit.ts`: media-device, track, stream, and state doubles derived from the manifest fixture.
+- `tests/devices/browser-media.harness.ts`: `navigator.mediaDevices` harness for connect/disconnect and `devicechange` behavior.
+- `tests/devices/chromatic.e2e.fixture.ts`: Playwright fixture payloads for Chromatic E2E helpers.
+
+Do not hand-write device fixture classes in individual tests.
+
+```ts
 import { describe, it, expect, vi } from 'vitest';
-import { MyService } from './MyService.js';
+import { MyService } from './my.service';
 
 describe('MyService', () => {
   it('should do something', () => {
     const mockDeps = {
       eventBus: { publish: vi.fn(), subscribe: vi.fn() },
-      loggerFactory: { createLogger: () => ({ info: vi.fn() }) }
+      loggerFactory: { create: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }
     };
 
     const service = new MyService(mockDeps);

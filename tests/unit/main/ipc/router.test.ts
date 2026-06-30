@@ -2,11 +2,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
 import { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
+import { createChromaticDeviceInfoPayload } from '../../../devices/chromatic-manifest.testkit';
 
 function createContext(overrides: Partial<Record<string, unknown>> = {}) {
   const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const context = {
-    deviceService: { getStatus: vi.fn(() => ({ connected: true, productName: 'Chromatic' })) },
+    mainDeviceRuntime: {
+      getStatus: vi.fn(() => ({
+        state: 'connected',
+        connected: true,
+        device: createChromaticDeviceInfoPayload(),
+        updatedAt: 12345
+      })),
+      reconcileDeviceStatus: vi.fn(async () => ({
+        state: 'connected',
+        connected: true,
+        device: createChromaticDeviceInfoPayload(),
+        updatedAt: 12346
+      }))
+    },
     updateService: {
       checkForUpdates: vi.fn(async () => ({ version: '1.0.0' })),
       downloadUpdate: vi.fn(async () => undefined),
@@ -34,22 +48,67 @@ function caller(context: IpcContext) {
 }
 
 describe('appRouter — queries / mutations', () => {
-  it('device.getStatus returns the success envelope from the service', async () => {
+  it('device.getStatus maps canonical device status to the IPC success envelope', async () => {
     const context = createContext();
     const result = await caller(context).device.getStatus();
-    expect(result).toMatchObject({ connected: true, success: true });
+    expect(result).toEqual({
+      success: true,
+      state: 'connected',
+      connected: true,
+      device: createChromaticDeviceInfoPayload()
+    });
+  });
+
+  it('device.refreshStatus reconciles through the manual-refresh runtime path', async () => {
+    const context = createContext();
+    const result = await caller(context).device.refreshStatus();
+
+    expect(context.mainDeviceRuntime.reconcileDeviceStatus).toHaveBeenCalledWith('manual-refresh');
+    expect(result).toEqual({
+      success: true,
+      state: 'connected',
+      connected: true,
+      device: createChromaticDeviceInfoPayload()
+    });
   });
 
   it('device.getStatus maps a thrown handler error to a failure envelope (resultEnvelope)', async () => {
     const context = createContext({
-      deviceService: {
+      mainDeviceRuntime: {
         getStatus: vi.fn(() => {
           throw new Error('usb exploded');
         })
       }
     });
     const result = await caller(context).device.getStatus();
-    expect(result).toMatchObject({ connected: false, success: false, error: 'usb exploded' });
+    expect(result).toEqual({
+      success: false,
+      state: 'error',
+      connected: false,
+      device: null,
+      error: 'usb exploded'
+    });
+  });
+
+  it('device.refreshStatus maps a thrown reconcile error to a failure envelope', async () => {
+    const context = createContext({
+      mainDeviceRuntime: {
+        getStatus: vi.fn(),
+        reconcileDeviceStatus: vi.fn(async () => {
+          throw new Error('refresh exploded');
+        })
+      }
+    });
+
+    const result = await caller(context).device.refreshStatus();
+
+    expect(result).toEqual({
+      success: false,
+      state: 'error',
+      connected: false,
+      device: null,
+      error: 'refresh exploded'
+    });
   });
 
   it('shell.openExternal forwards a valid url and rejects an invalid one at the input boundary', async () => {
@@ -108,11 +167,17 @@ describe('appRouter — subscriptions', () => {
     const received: unknown[] = [];
     const subscription = observableResult.subscribe({ next: (value: unknown) => received.push(value) });
 
-    bridge.emit('device:connected', { vendorId: 1234 });
-    bridge.emit('device:connected', { vendorId: 'not-a-number' });
-    bridge.emit('device:connected', { productId: 42 });
+    const validDevice = createChromaticDeviceInfoPayload();
 
-    expect(received).toEqual([{ vendorId: 1234 }, { productId: 42 }]);
+    bridge.emit('device:connected', validDevice);
+    bridge.emit('device:connected', { vendorId: 'not-a-number' });
+    bridge.emit('device:connected', { ...validDevice, extra: true });
+    bridge.emit('device:connected', { ...validDevice, serialNumber: 'MOCK-002' });
+
+    expect(received).toEqual([
+      validDevice,
+      { ...validDevice, serialNumber: 'MOCK-002' }
+    ]);
     subscription.unsubscribe();
   });
 

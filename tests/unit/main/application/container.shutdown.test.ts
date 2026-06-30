@@ -113,14 +113,14 @@ describe('Main shutdown', () => {
 
     const destroyWindow = vi.fn();
     const ipcDispose = vi.fn();
-    const stopUSBMonitoring = vi.fn();
+    const runtimeDispose = vi.fn();
+    const integrationDispose = vi.fn();
     const trayDestroy = vi.fn();
     Object.assign(orchestrator, {
       _windowService: { destroyWindow },
       _ipcHandlerRegistry: { dispose: ipcDispose },
-      _deviceBridgeService: { dispose: vi.fn() },
-      _deviceLifecycleService: { dispose: vi.fn() },
-      _deviceService: { stopUSBMonitoring },
+      _deviceIntegrationService: { dispose: integrationDispose },
+      _mainDeviceRuntime: { dispose: runtimeDispose },
       _trayService: { destroy: trayDestroy },
       _updateBridgeService: { dispose: vi.fn() },
       _transcodeService: { dispose: vi.fn() }
@@ -130,7 +130,8 @@ describe('Main shutdown', () => {
 
     expect(destroyWindow).toHaveBeenCalledTimes(1);
     expect(ipcDispose).toHaveBeenCalledTimes(1);
-    expect(stopUSBMonitoring).toHaveBeenCalledTimes(1);
+    expect(integrationDispose).toHaveBeenCalledTimes(1);
+    expect(runtimeDispose).toHaveBeenCalledTimes(1);
     expect(trayDestroy).toHaveBeenCalledTimes(1);
     expect(containerDispose).not.toHaveBeenCalled();
   });

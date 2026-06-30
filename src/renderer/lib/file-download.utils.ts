@@ -18,8 +18,9 @@ export function downloadFile(blob: Blob, filename: string): Promise<void> {
 
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
-        resolve();
       }, 5000);
+
+      resolve();
     } catch (error) {
       reject(error);
     }

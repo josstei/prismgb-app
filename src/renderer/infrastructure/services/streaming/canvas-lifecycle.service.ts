@@ -1,6 +1,6 @@
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import { getDefaultNativeResolution } from '@prismgb/devices';
+import { DeviceCatalog } from '@prismgb/devices';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
@@ -90,7 +90,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     const section = this.streamViewService.getCanvasSection();
     if (!canvas || !container || !section) return;
 
-    const resolution = nativeResolution || getDefaultNativeResolution();
+    const resolution = nativeResolution || DeviceCatalog.nativeResolution();
     this._nativeResolution = resolution;
     this._useGpuRenderer = useGpu;
     const nativeAspectRatio = `${resolution.width} / ${resolution.height}`;

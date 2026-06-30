@@ -1,12 +1,8 @@
 import { AnimationCache, ConsoleLoggerFactory } from '@prismgb/core';
 import { NotesService } from '@prismgb/notes';
 import { EventBus } from '../../infrastructure/events/event-bus.class';
-import { DeviceConnectionService } from '../../infrastructure/services/devices/device-connection.service';
-import { DeviceStorageService } from '../../infrastructure/services/devices/device-storage.service';
-import { DeviceMediaService } from '../../infrastructure/services/devices/device-media.service';
-import { DeviceService } from '../../infrastructure/services/devices/device.service';
-import { DeviceOperationSequencerService } from '../../infrastructure/services/devices/device-operation-sequencer.service';
-import { DeviceOrchestrator } from '../orchestrators/device.orchestrator';
+import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
+import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';
 import { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import { AppState } from '../state/app-state';
 import { StreamingViewService } from '../../infrastructure/services/streaming/streaming-view.service';
@@ -67,12 +63,8 @@ export type StandardServiceFactory = (cradle: any) => unknown;
 export const standardServiceRegistrations: Record<string, StandardServiceFactory> = {
   eventBus: (cradle) => new EventBus(cradle),
   loggerFactory: () => new ConsoleLoggerFactory(),
-  deviceConnectionService: (cradle) => new DeviceConnectionService(cradle),
-  deviceStorageService: (cradle) => new DeviceStorageService(cradle),
-  deviceMediaService: (cradle) => new DeviceMediaService(cradle),
-  deviceService: (cradle) => new DeviceService(cradle),
-  deviceOperationSequencer: (cradle) => new DeviceOperationSequencerService(cradle),
-  deviceOrchestrator: (cradle) => new DeviceOrchestrator(cradle),
+  rendererDeviceRuntime: (cradle) => new RendererDeviceRuntime(cradle),
+  deviceMediaAcquirer: (cradle) => new DeviceMediaAcquirer(cradle),
   streamingService: (cradle) => new StreamingService(cradle),
   appState: (cradle) => new AppState(cradle),
   streamViewService: (cradle) => new StreamingViewService(cradle),

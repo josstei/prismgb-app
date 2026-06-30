@@ -48,10 +48,6 @@
         "discord-integration"
       ],
       "labelPatterns": ["chromatic", "modretro", "mod retro", "374e:0101"],
-      "modules": {
-        "profile": "device-chromatic.profile",
-        "adapter": "device-chromatic.adapter"
-      },
       "fixture": {
         "defaultFrameRate": 60,
         "supportedFrameRates": [30, 60],

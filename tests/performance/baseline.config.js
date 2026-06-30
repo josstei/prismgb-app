@@ -119,14 +119,6 @@ export const PerformanceBaselines = Object.freeze({
     description: 'Mock device enumeration',
   },
 
-  'device-state-transition': {
-    baseline: 0.1,
-    tolerance: 0.5,
-    unit: 'ms',
-    category: 'device',
-    description: 'Device state machine transition',
-  },
-
   // UI operations
   'dom-element-create': {
     baseline: 0.1,

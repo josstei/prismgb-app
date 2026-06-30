@@ -5,8 +5,7 @@ import type { EventBusLike, DisposableFunction } from '@prismgb/core';
 export interface DeviceStatusPayloadLike {
   connected: boolean;
   device?: {
-    deviceName?: string | null;
-    configName?: string | null;
+    name?: string | null;
   } | null;
 }
 
@@ -38,7 +37,7 @@ export class DeviceStatusStore {
           const status = data as DeviceStatusPayloadLike;
           this._connected.value = status.connected;
           this._deviceName.value = status.connected
-            ? (status.device?.deviceName || status.device?.configName || 'Device')
+            ? (status.device?.name || 'Device')
             : '—';
         } else {
           this._connected.value = false;

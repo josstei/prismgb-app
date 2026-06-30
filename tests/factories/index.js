@@ -55,19 +55,8 @@ export {
   createDeviceInfo,
   createVideoTrack,
   createMediaStream,
-  createDeviceAdapter,
-  createDeviceService,
-  createAdapterFactory,
-  AdapterState,
-  createDeviceServiceMock,
-  createProfileRegistryMock,
-  createDeviceStatusProviderMock,
-  createDeviceStatusMock,
-  createDeviceChangeDebounceAdapterMock,
+  createRendererDeviceRuntimeMock,
   createDeviceStatusComponentMock,
-  createIpcClientMock,
-  createDeviceIpcAdapterMock,
-  createDeviceOperationSequencerMock,
 } from './device.factory.js';
 
 // Stream factories
@@ -83,15 +72,10 @@ export {
   createCaptureStreamMock,
   createStreamCapabilitiesMock,
   createStreamConstraintsMock,
-  createAcquisitionContextMock,
-  createConstraintBuilderContextMock,
-  createConstraintBuilderMock,
   createSupportedDevicePayloadMock,
   createStreamStartedPayloadMock,
   createBrowserMediaServiceMock,
-  createMediaServiceMock,
-  createStreamingAdapterMock,
-  createStreamingAdapterRegistryMock,
+  createDeviceMediaAcquirerMock,
 } from './stream.factory.js';
 
 // Storage factories
@@ -120,9 +104,6 @@ export {
   createMockDeviceInfo,
   MockDevice,
   MockDeviceManager,
-  DeviceState,
-  MockDeviceStateMachine,
-  createChromaticWithFSM,
   createMockUIController,
   performanceUtils,
 } from './streaming-mocks.factory.js';
@@ -201,10 +182,7 @@ export {
 
 // Streaming pipeline factories
 export {
-  createStreamLifecycleMock,
   createWorkerInstanceMock,
-  createAcquisitionCoordinatorMock,
-  createFallbackStrategyMock,
   createStreamingViewControllerMock,
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock,

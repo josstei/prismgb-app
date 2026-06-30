@@ -7,10 +7,12 @@ const projectRoot = path.resolve(__dirname, '../..');
 const deviceManifestPath = path.join(projectRoot, 'packages/prismgb-devices/src/device.manifest.json');
 const deviceManifest = JSON.parse(fs.readFileSync(deviceManifestPath, 'utf8'));
 
-const chromaticDeviceManifestEntry = deviceManifest.devices.find((device) => device.id === 'chromatic-mod-retro');
+const chromaticDeviceManifestEntry = deviceManifest.devices.find((device) =>
+  device.enabled && device.fixture?.videoDeviceId
+);
 
 if (!chromaticDeviceManifestEntry) {
-  throw new Error('Device manifest must define chromatic-mod-retro');
+  throw new Error('Device manifest must define an enabled fixture-backed device');
 }
 
 export const CHROMATIC_DEVICE_MANIFEST_ENTRY = Object.freeze(chromaticDeviceManifestEntry);
@@ -42,17 +44,31 @@ function createBaseUsbDeviceInfo() {
     productId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.productId,
     deviceName: fixture.label,
     manufacturer: CHROMATIC_DEVICE_MANIFEST_ENTRY.manufacturer,
-    serialNumber: 'MOCK-001',
-    configName: CHROMATIC_DEVICE_MANIFEST_ENTRY.name
+    serialNumber: 'MOCK-001'
+  };
+}
+
+function createBaseDeviceInfoPayload() {
+  return {
+    id: CHROMATIC_DEVICE_MANIFEST_ENTRY.id,
+    name: CHROMATIC_DEVICE_MANIFEST_ENTRY.name,
+    manufacturer: CHROMATIC_DEVICE_MANIFEST_ENTRY.manufacturer,
+    vendorId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.vendorId,
+    productId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.productId,
+    serialNumber: 'MOCK-001'
   };
 }
 
 const chromaticSpecs = {
+  id: CHROMATIC_DEVICE_MANIFEST_ENTRY.id,
   vendorId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.vendorId,
   productId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.productId,
+  deviceClass: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.deviceClass,
+  alternateDeviceClass: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.alternateDeviceClass,
+  hexVendorId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.hexVendorId,
+  hexProductId: CHROMATIC_DEVICE_MANIFEST_ENTRY.usb.hexProductId,
   name: fixture.label,
   label: fixture.label,
-  configName: CHROMATIC_DEVICE_MANIFEST_ENTRY.name,
   manufacturer: CHROMATIC_DEVICE_MANIFEST_ENTRY.manufacturer,
   nativeWidth: CHROMATIC_DEVICE_MANIFEST_ENTRY.display.nativeWidth,
   nativeHeight: CHROMATIC_DEVICE_MANIFEST_ENTRY.display.nativeHeight,
@@ -76,9 +92,9 @@ export const CHROMATIC_E2E_FIXTURE = deepFreeze({
     name: CHROMATIC_DEVICE_MANIFEST_ENTRY.name,
     label: fixture.label,
     audioLabel: `${fixture.label} Audio`,
-    manufacturer: CHROMATIC_DEVICE_MANIFEST_ENTRY.manufacturer,
-    configName: CHROMATIC_DEVICE_MANIFEST_ENTRY.name
+    manufacturer: CHROMATIC_DEVICE_MANIFEST_ENTRY.manufacturer
   },
+  deviceInfoPayload: createBaseDeviceInfoPayload(),
   usbDeviceInfo: createBaseUsbDeviceInfo(),
   display: {
     nativeWidth: CHROMATIC_DEVICE_MANIFEST_ENTRY.display.nativeWidth,
@@ -124,5 +140,20 @@ export function createChromaticUsbDeviceInfo(overrides = {}) {
   return {
     ...CHROMATIC_E2E_FIXTURE.usbDeviceInfo,
     ...overrides
+  };
+}
+
+export function createChromaticDeviceInfoPayload(overrides = {}) {
+  return {
+    ...CHROMATIC_E2E_FIXTURE.deviceInfoPayload,
+    ...overrides
+  };
+}
+
+export function createChromaticDeviceStatusPayload(connected = true, deviceOverrides = {}) {
+  return {
+    state: connected ? 'connected' : 'disconnected',
+    connected,
+    device: connected ? createChromaticDeviceInfoPayload(deviceOverrides) : null
   };
 }

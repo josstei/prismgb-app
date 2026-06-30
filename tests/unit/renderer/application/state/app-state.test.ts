@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppState } from '@renderer/application/state/app-state';
 import {
-  createDeviceServiceMock,
+  createRendererDeviceRuntimeMock,
   createEventBus,
   createStreamCapabilitiesMock,
   createStreamPayloadMock,
@@ -15,9 +15,24 @@ import {
 describe('AppState', () => {
   let state;
   let mockStreamingService;
-  let mockDeviceService;
+  let mockRendererDeviceRuntime;
   let mockEventBus;
   let subscribedHandlers;
+
+  function setRuntimeConnected(connected) {
+    mockRendererDeviceRuntime.snapshot.mockReturnValue({
+      status: {
+        state: connected ? 'connected' : 'disconnected',
+        connected,
+        device: null,
+        updatedAt: connected ? 1 : 2
+      },
+      supportedDevices: [],
+      selectedDeviceId: null,
+      hasMediaPermission: false,
+      lastEnumerationAt: connected ? 1 : 2
+    });
+  }
 
   beforeEach(() => {
     subscribedHandlers = {};
@@ -25,7 +40,20 @@ describe('AppState', () => {
     // Create mock services
     mockStreamingService = createStreamingServiceFacadeMock({ isStreaming: false });
 
-    mockDeviceService = createDeviceServiceMock({ isConnected: false });
+    mockRendererDeviceRuntime = createRendererDeviceRuntimeMock({
+      snapshot: vi.fn(() => ({
+        status: {
+          state: 'disconnected',
+          connected: false,
+          device: null,
+          updatedAt: 0
+        },
+        supportedDevices: [],
+        selectedDeviceId: null,
+        hasMediaPermission: false,
+        lastEnumerationAt: null
+      }))
+    });
 
     mockEventBus = createEventBus({
       onSubscribe: (event, handler) => {
@@ -35,7 +63,7 @@ describe('AppState', () => {
 
     state = new AppState({
       streamingService: mockStreamingService,
-      deviceService: mockDeviceService,
+      rendererDeviceRuntime: mockRendererDeviceRuntime,
       eventBus: mockEventBus
     });
   });
@@ -72,14 +100,13 @@ describe('AppState', () => {
   });
 
   describe('Derived State - deviceConnected', () => {
-    it('should derive device connection state from DeviceService', () => {
+    it('should derive device connection state from RendererDeviceRuntime', () => {
       expect(state.deviceConnected).toBe(false);
 
-      // Change service state
-      mockDeviceService.isConnected = true;
+      setRuntimeConnected(true);
       expect(state.deviceConnected).toBe(true);
 
-      mockDeviceService.isConnected = false;
+      setRuntimeConnected(false);
       expect(state.deviceConnected).toBe(false);
     });
   });
@@ -99,9 +126,9 @@ describe('AppState', () => {
 
   describe('State Integration', () => {
     it('should maintain independent state values', () => {
-      // Update service state (the real way to change state now)
+      // Update service/runtime state.
       mockStreamingService.isStreaming = true;
-      mockDeviceService.isConnected = true;
+      setRuntimeConnected(true);
       state.setCinematicMode(false);
 
       expect(state.isStreaming).toBe(true);
@@ -109,14 +136,14 @@ describe('AppState', () => {
       expect(state.isCinematicModeEnabled).toBe(false);
     });
 
-    it('should reflect service state changes', () => {
+    it('should reflect service and runtime state changes', () => {
       // Start with defaults
       expect(state.isStreaming).toBe(false);
       expect(state.deviceConnected).toBe(false);
 
       // Change services
       mockStreamingService.isStreaming = true;
-      mockDeviceService.isConnected = true;
+      setRuntimeConnected(true);
 
       // State reflects service changes
       expect(state.isStreaming).toBe(true);
@@ -124,7 +151,7 @@ describe('AppState', () => {
 
       // Reset services
       mockStreamingService.isStreaming = false;
-      mockDeviceService.isConnected = false;
+      setRuntimeConnected(false);
 
       expect(state.isStreaming).toBe(false);
       expect(state.deviceConnected).toBe(false);
@@ -172,7 +199,7 @@ describe('AppState', () => {
     it('should not setup subscriptions without eventBus', () => {
       const stateNoEventBus = new AppState({
         streamingService: mockStreamingService,
-        deviceService: mockDeviceService
+        rendererDeviceRuntime: mockRendererDeviceRuntime
       });
 
       // Should not throw and state should work
@@ -278,7 +305,7 @@ describe('AppState', () => {
       // Re-create state so it registers with our mocked subscribe
       const testState = new AppState({
         streamingService: mockStreamingService,
-        deviceService: mockDeviceService,
+        rendererDeviceRuntime: mockRendererDeviceRuntime,
         eventBus: mockEventBus
       });
 
@@ -308,7 +335,7 @@ describe('AppState', () => {
     it('should handle missing eventBus subscription dispose gracefully', () => {
       const testState = new AppState({
         streamingService: mockStreamingService,
-        deviceService: mockDeviceService
+        rendererDeviceRuntime: mockRendererDeviceRuntime
       });
 
       expect(() => testState.dispose()).not.toThrow();
@@ -326,7 +353,7 @@ describe('AppState', () => {
   describe('Edge Cases', () => {
     it('should handle missing streamingService gracefully', () => {
       const stateNoService = new AppState({
-        deviceService: mockDeviceService,
+        rendererDeviceRuntime: mockRendererDeviceRuntime,
         eventBus: mockEventBus
       });
 
@@ -335,7 +362,7 @@ describe('AppState', () => {
       expect(stateNoService.currentCapabilities).toBeNull();
     });
 
-    it('should handle missing deviceService gracefully', () => {
+    it('should handle missing rendererDeviceRuntime gracefully', () => {
       const stateNoDevice = new AppState({
         streamingService: mockStreamingService,
         eventBus: mockEventBus
@@ -355,7 +382,7 @@ describe('AppState', () => {
 
     it('should maintain cinematic mode state independently of services', () => {
       state.streamingService = null;
-      state.deviceService = null;
+      state.rendererDeviceRuntime = null;
 
       state.setCinematicMode(false);
       expect(state.isCinematicModeEnabled).toBe(false);

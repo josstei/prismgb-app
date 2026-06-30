@@ -249,6 +249,7 @@ export function installMediaRecorderMock(options = {}) {
         this.state = 'inactive';
         this.dispatchEvent({ type: 'stop' });
       });
+      this.requestData = vi.fn();
     }
   };
 

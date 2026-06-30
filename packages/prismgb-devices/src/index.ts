@@ -1,15 +1,39 @@
-export { DeviceProfile } from './device-profile.base.js';
-export { DeviceRegistry } from './device.registry.js';
 export {
-  getDefaultNativeResolution,
-  DEFAULT_NATIVE_RESOLUTION
-} from './device-defaults.js';
-
-export { IDeviceAdapter } from './device-adapter.interface.js';
-export type { DeviceStatusProvider, RendererDeviceStatus } from './device-status-provider.interface.js';
-export { chromaticConfig, chromaticHelpers, mediaConfig } from './profiles/chromatic/device-chromatic.config.js';
-export { DeviceChromaticProfile } from './profiles/chromatic/device-chromatic.profile.js';
-export { DeviceDetectionHelper } from './device-detection.utils.js';
-export { formatDeviceInfo } from './device-info.formatter.js';
-export { forEachDeviceWithModule } from './device-iterator.utils.js';
-export type { DeviceRegistryEntry } from './device.registry.js';
+  DEFAULT_DEVICE_ID,
+  DEFAULT_NATIVE_RESOLUTION,
+  DeviceCatalog
+} from './catalog.js';
+export {
+  matchByLabel,
+  matchByUsb,
+  matchDevice
+} from './matcher.js';
+export {
+  toDeviceInfo,
+  toDeviceInfoPayload,
+  toDeviceStatusPayload
+} from './payloads.js';
+export type {
+  DeviceBehaviorPolicy,
+  DeviceCatalogApi,
+  DeviceConnectionState,
+  DeviceConstraintMap,
+  DeviceDescriptor,
+  DeviceDisplayProfile,
+  DeviceFixtureAudioDescriptor,
+  DeviceFixtureDescriptor,
+  DeviceId,
+  DeviceInfo,
+  DeviceInfoPayload,
+  DeviceMatch,
+  DeviceMatchReason,
+  DeviceMediaAudioProfile,
+  DeviceMediaFallbackStrategy,
+  DeviceMediaProfile,
+  DeviceResolution,
+  DeviceStatus,
+  DeviceStatusPayload,
+  ObservedMediaDevice,
+  ObservedUsbDevice,
+  UsbIdentity
+} from './contracts.js';

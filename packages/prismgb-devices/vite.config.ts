@@ -19,10 +19,7 @@ export default defineConfig({
         'usb',
         'node:path',
         'node:fs',
-        '@prismgb/core',
-        '@prismgb/config',
-        '@prismgb/events',
-        '@prismgb/ipc'
+        '@prismgb/core'
       ],
       output: {
         preserveModules: false

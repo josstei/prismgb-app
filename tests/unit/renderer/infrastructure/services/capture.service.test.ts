@@ -233,6 +233,29 @@ describe('CaptureService', () => {
       expect(stopSpy).toHaveBeenCalled();
     });
 
+    it('should flush buffered recorder data before stopping', async () => {
+      const requestDataSpy = vi.spyOn(service.mediaRecorder, 'requestData');
+
+      await service.stopRecording();
+
+      expect(requestDataSpy).toHaveBeenCalled();
+    });
+
+    it('should continue stopping when recorder data flush fails', async () => {
+      const stopSpy = vi.spyOn(service.mediaRecorder, 'stop');
+      service.mediaRecorder.requestData.mockImplementation(() => {
+        throw new Error('Flush failed');
+      });
+
+      await service.stopRecording();
+
+      expect(stopSpy).toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Failed to flush recording data before stop',
+        expect.any(Error)
+      );
+    });
+
     it('should emit capture:recording-stopped event', async () => {
       await service.stopRecording();
 

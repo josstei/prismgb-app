@@ -13,7 +13,7 @@ type UISetupOrchestratorLike = LifecycleOrchestrator & {
 };
 
 type AppOrchestratorDependencies = {
-  deviceOrchestrator: LifecycleOrchestrator;
+  rendererDeviceRuntime: LifecycleOrchestrator;
   streamingOrchestrator: LifecycleOrchestrator;
   streamingAudioOrchestrator: LifecycleOrchestrator;
   captureOrchestrator: LifecycleOrchestrator;
@@ -29,7 +29,7 @@ type AppOrchestratorDependencies = {
 };
 
 export class AppOrchestrator extends BaseOrchestrator {
-  private readonly deviceOrchestrator: LifecycleOrchestrator;
+  private readonly rendererDeviceRuntime: LifecycleOrchestrator;
   private readonly streamingOrchestrator: LifecycleOrchestrator;
   private readonly streamingAudioOrchestrator: LifecycleOrchestrator;
   private readonly captureOrchestrator: LifecycleOrchestrator;
@@ -46,7 +46,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       dependencies,
       'AppOrchestrator'
     );
-    this.deviceOrchestrator = dependencies.deviceOrchestrator;
+    this.rendererDeviceRuntime = dependencies.rendererDeviceRuntime;
     this.streamingOrchestrator = dependencies.streamingOrchestrator;
     this.streamingAudioOrchestrator = dependencies.streamingAudioOrchestrator;
     this.captureOrchestrator = dependencies.captureOrchestrator;
@@ -67,7 +67,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Initialize domain orchestrators
     await this.streamingAudioOrchestrator.initialize();
     await this.streamingOrchestrator.initialize();
-    await this.deviceOrchestrator.initialize();
+    await this.rendererDeviceRuntime.initialize();
     await this.captureOrchestrator.initialize();
 
     // Initialize application orchestrators
@@ -128,7 +128,7 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
 
-    // Note: App state automatically derives deviceConnected from DeviceService
+    // AppState derives device connection from RendererDeviceRuntime.
     // No need to manually update appState.setDeviceConnected() anymore
 
     // Update UI via events
@@ -159,7 +159,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],
-      ['deviceOrchestrator', this.deviceOrchestrator]
+      ['rendererDeviceRuntime', this.rendererDeviceRuntime]
     ];
 
     for (const [name, orchestrator] of orchestrators) {

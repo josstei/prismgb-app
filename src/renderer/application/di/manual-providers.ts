@@ -2,16 +2,15 @@ import type { LoggerFactoryLike } from '@prismgb/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
-import { DeviceIpcAdapter } from '../../infrastructure/adapters/device-ipc.adapter';
-import { DeviceChangeDebounceAdapter } from '../../infrastructure/adapters/device-change-debounce.adapter';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
 import { StreamingRendererFactory } from '@renderer/infrastructure/services/streaming/streaming-renderer.factory';
 import { StreamingGpuRendererAdapter } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';
 import { StreamingCanvas2DRendererAdapter } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
-import { DeviceIpcStatusAdapter } from '../../infrastructure/adapters/device-ipc-status.adapter';
-import { StreamingAdapterFactory } from '@renderer/infrastructure/services/streaming/streaming-adapter.factory';
-import { DeviceChromaticAdapter } from '../../infrastructure/adapters/device-chromatic.adapter';
-import { chromaticConfig } from '@prismgb/devices';
+import {
+  BrowserMediaDevicesPort,
+  StorageDevicePreferenceStore,
+  TrpcDeviceStatusPort
+} from '../../infrastructure/services/devices/device-platform.adapters';
 import { UIComponentRegistry } from '../../presentation/controller/component.registry';
 import { rendererUiComponentDefinitions } from '../../presentation/controller/ui-component.catalog';
 
@@ -31,17 +30,23 @@ export const manualProviders: Record<string, ManualProvider> = {
   storageService: () =>
     new BrowserStorageAdapter({ protectedKeys: PROTECTED_STORAGE_KEYS }),
 
-  deviceIpcAdapter: (resolve) =>
-    new DeviceIpcAdapter({
-      eventBus: resolve('eventBus'),
-      logger: resolve<LoggerFactoryLike>('loggerFactory').create('DeviceIpcAdapter')
-    }),
+  deviceStatusPort: (resolve) =>
+    new TrpcDeviceStatusPort(
+      trpcClient,
+      resolve<LoggerFactoryLike>('loggerFactory').create('TrpcDeviceStatusPort')
+    ),
 
-  deviceChangeDebounceAdapter: (resolve) =>
-    new DeviceChangeDebounceAdapter({
-      browserMediaService: resolve('browserMediaService'),
-      logger: resolve<LoggerFactoryLike>('loggerFactory').create('DeviceChangeDebounceAdapter')
-    }),
+  mediaDevicesPort: (resolve) =>
+    new BrowserMediaDevicesPort(
+      resolve('browserMediaService'),
+      resolve<LoggerFactoryLike>('loggerFactory').create('BrowserMediaDevicesPort')
+    ),
+
+  devicePreferenceStore: (resolve) =>
+    new StorageDevicePreferenceStore(
+      resolve('storageService'),
+      resolve<LoggerFactoryLike>('loggerFactory').create('StorageDevicePreferenceStore')
+    ),
 
   canvasRenderLoopService: (resolve) =>
     new StreamingCanvasRenderLoopService(
@@ -61,25 +66,6 @@ export const manualProviders: Record<string, ManualProvider> = {
     );
     rendererFactory.initialize();
     return rendererFactory;
-  },
-
-  ipcClient: () => ({
-    getDeviceStatus: () => trpcClient.device.getStatus.query()
-  }),
-
-  deviceStatusProvider: (resolve) =>
-    new DeviceIpcStatusAdapter(resolve('ipcClient')),
-
-  adapterFactory: (resolve) => {
-    const adapterClasses = new Map([[chromaticConfig.id, DeviceChromaticAdapter]]);
-    const adapterFactory = new StreamingAdapterFactory(
-      resolve('eventBus'),
-      resolve('loggerFactory'),
-      resolve('browserMediaService'),
-      adapterClasses as never
-    );
-    adapterFactory.initialize();
-    return adapterFactory;
   },
 
   uiComponentRegistry: (resolve) =>

@@ -19,7 +19,8 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@prismgb/config": "*"
+    "@prismgb/config": "*",
+    "@prismgb/devices": "*"
   },
   "devDependencies": {
     "electron": "^41.6.1",

@@ -10,7 +10,7 @@ import { createEventBus, createLoggerFactory, createOrchestratorMock } from '../
 
 describe('AppOrchestrator', () => {
   let orchestrator;
-  let mockDeviceOrchestrator;
+  let mockRendererDeviceRuntime;
   let mockStreamingOrchestrator;
   let mockStreamingAudioOrchestrator;
   let mockCaptureOrchestrator;
@@ -26,7 +26,7 @@ describe('AppOrchestrator', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockDeviceOrchestrator = createOrchestratorMock();
+    mockRendererDeviceRuntime = createOrchestratorMock();
 
     mockStreamingOrchestrator = createOrchestratorMock({
       start: vi.fn(),
@@ -70,7 +70,7 @@ describe('AppOrchestrator', () => {
     mockLoggerFactory = createLoggerFactory();
 
     orchestrator = new AppOrchestrator({
-      deviceOrchestrator: mockDeviceOrchestrator,
+      rendererDeviceRuntime: mockRendererDeviceRuntime,
       streamingOrchestrator: mockStreamingOrchestrator,
       streamingAudioOrchestrator: mockStreamingAudioOrchestrator,
       captureOrchestrator: mockCaptureOrchestrator,
@@ -114,7 +114,7 @@ describe('AppOrchestrator', () => {
     it('should initialize all domain orchestrators', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockDeviceOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockRendererDeviceRuntime.initialize).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.initialize).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.initialize).toHaveBeenCalled();
     });
@@ -156,7 +156,7 @@ describe('AppOrchestrator', () => {
 
   describe('_handleDeviceStatusChanged', () => {
     it('should update UI when connected', () => {
-      const status = { connected: true, device: { deviceName: 'Chromatic' } };
+      const status = { connected: true, device: { name: 'Mod Retro Chromatic' } };
 
       orchestrator._handleDeviceStatusChanged(status);
 
@@ -214,7 +214,7 @@ describe('AppOrchestrator', () => {
       expect(mockStreamingAudioOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockRendererDeviceRuntime.cleanup).toHaveBeenCalled();
     });
 
     it('should continue cleanup even if one orchestrator fails', async () => {
@@ -226,7 +226,7 @@ describe('AppOrchestrator', () => {
       // Should still attempt to cleanup all other orchestrators
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockDeviceOrchestrator.cleanup).toHaveBeenCalled();
+      expect(mockRendererDeviceRuntime.cleanup).toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith('Error cleaning up streamingOrchestrator:', error);
     });
   });
