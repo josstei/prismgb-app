@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { signal } from '../../../src/reactive/signal.js';
-import { bindText, bindClass, bindVisible, bindAttr, bindStyleProperty } from '../../../src/reactive/dom-bindings.js';
+import { bindText, bindClass, bindAttr, bindStyleProperty } from '../../../src/reactive/dom-bindings.js';
 
 describe('dom-bindings', () => {
   it('bindText updates textContent synchronously on signal write', () => {
@@ -15,19 +15,13 @@ describe('dom-bindings', () => {
     expect(el.textContent).toBe('b'); // torn down
   });
 
-  it('bindClass / bindVisible toggle correctly', () => {
+  it('bindClass toggles correctly', () => {
     const el = document.createElement('div');
     const on = signal(false);
     bindClass(el, 'active', on);
     expect(el.classList.contains('active')).toBe(false);
     on.value = true;
     expect(el.classList.contains('active')).toBe(true);
-
-    const visible = signal(true);
-    bindVisible(el, visible, 'hidden');
-    expect(el.classList.contains('hidden')).toBe(false);
-    visible.value = false;
-    expect(el.classList.contains('hidden')).toBe(true);
   });
 
   it('bindAttr sets and removes', () => {

@@ -5,8 +5,6 @@ type EffectRunner = {
 };
 
 let activeEffect: EffectRunner | null = null;
-let batchDepth = 0;
-const pendingEffects = new Set<EffectRunner>();
 
 function track(subscribers: Set<EffectRunner>): void {
   if (activeEffect) {
@@ -17,10 +15,7 @@ function track(subscribers: Set<EffectRunner>): void {
 
 function trigger(subscribers: Set<EffectRunner>): void {
   for (const runner of [...subscribers]) {
-    if (!runner.active) continue;
-    if (batchDepth > 0) {
-      pendingEffects.add(runner);
-    } else {
+    if (runner.active) {
       runner.run();
     }
   }
@@ -98,32 +93,4 @@ export function computed<T>(fn: () => T): ReadonlySignal<T> {
       return derived.peek();
     }
   };
-}
-
-export function batch(fn: () => void): void {
-  batchDepth += 1;
-  try {
-    fn();
-  } finally {
-    batchDepth -= 1;
-    if (batchDepth === 0) {
-      const queued = [...pendingEffects];
-      pendingEffects.clear();
-      for (const runner of queued) {
-        if (runner.active) {
-          runner.run();
-        }
-      }
-    }
-  }
-}
-
-export function untracked<T>(fn: () => T): T {
-  const previous = activeEffect;
-  activeEffect = null;
-  try {
-    return fn();
-  } finally {
-    activeEffect = previous;
-  }
 }

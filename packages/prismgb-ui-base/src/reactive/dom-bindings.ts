@@ -46,18 +46,6 @@ export function bindClass(
   });
 }
 
-/** Toggle a "hidden" class inversely to a visibility signal. */
-export function bindVisible(
-  element: ClassListSink | null,
-  source: ReadonlySignal<boolean>,
-  hiddenToken = 'hidden'
-): DisposableFunction {
-  if (!element) return NOOP;
-  return effect(() => {
-    element.classList.toggle(hiddenToken, !source.value);
-  });
-}
-
 /** Set/remove an attribute from a nullable string signal. */
 export function bindAttr(
   element: AttrSink | null,

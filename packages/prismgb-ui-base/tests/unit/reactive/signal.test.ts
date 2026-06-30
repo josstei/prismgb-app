@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect, batch, untracked } from '../../../src/reactive/signal.js';
+import { signal, computed, effect } from '../../../src/reactive/signal.js';
 
 describe('signal primitive', () => {
   it('runs effects eagerly and re-runs synchronously on each change', () => {
@@ -22,11 +22,10 @@ describe('signal primitive', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('peek() and untracked() read without subscribing', () => {
+  it('peek() reads without subscribing', () => {
     const s = signal(0);
     const fn = vi.fn(() => {
       s.peek();
-      untracked(() => s.value);
     });
     effect(fn);
     s.value = 5;
@@ -65,19 +64,6 @@ describe('signal primitive', () => {
     expect(fn).toHaveBeenCalledTimes(2);
     y.value = 'y2';
     expect(fn).toHaveBeenCalledTimes(3);
-  });
-
-  it('batch() coalesces multiple writes into one flush per effect', () => {
-    const a = signal(0);
-    const b = signal(0);
-    const fn = vi.fn(() => a.value + b.value);
-    effect(fn);
-    expect(fn).toHaveBeenCalledTimes(1);
-    batch(() => {
-      a.value = 1;
-      b.value = 2;
-    });
-    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   it('dispose() stops re-runs and detaches the effect', () => {
