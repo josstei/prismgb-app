@@ -16,6 +16,7 @@ import {
   type UIActionEvent
 } from '@renderer/presentation/primitives/template-ref.utils.js';
 import type { LoggerFactoryLike } from '@prismgb/core';
+import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import type { NotesService } from '@prismgb/notes';
@@ -27,6 +28,7 @@ import type { RendererUiComponentDependencies } from '@renderer/presentation/con
 type AppStateLike = {
   readonly isStreaming: boolean;
   readonly isCinematicModeEnabled?: boolean;
+  readonly cinematicModeSignal: ReadonlySignal<boolean>;
 };
 
 type UISetupOrchestratorDependencies = {
