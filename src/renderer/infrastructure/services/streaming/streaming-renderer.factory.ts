@@ -1,5 +1,4 @@
 import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
-import { TypedRegistryFactory } from '@prismgb/core';
 import type { IStreamingRenderer } from '@renderer/infrastructure/services/streaming/adapters/streaming-renderer.interface';
 import type { Canvas2DRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter';
 import type { GpuRendererAdapterDependencies } from '@renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter';
@@ -31,18 +30,12 @@ export type RendererCreateRequest =
       dependencies: RendererCreateDependencies<'canvas2d'>;
     };
 
-type RendererMetadata = {
-  typeId: RendererType;
-  supportsPresets: boolean;
-};
-
 export class StreamingRendererFactory {
   private readonly eventBus: EventBusLike;
   private readonly loggerFactory: LoggerFactoryLike;
   private readonly logger: LoggerLike;
   private readonly _rendererProviders: RendererProviderRegistry;
   private readonly _commonDependencies: Pick<GpuRendererAdapterDependencies, 'loggerFactory'>;
-  private readonly _rendererRegistry: TypedRegistryFactory<RendererType, RendererMetadata>;
   private _initialized: boolean;
 
   constructor(
@@ -60,8 +53,6 @@ export class StreamingRendererFactory {
       loggerFactory: this.loggerFactory
     };
 
-    this._rendererRegistry = new TypedRegistryFactory();
-
     this._initialized = false;
   }
 
@@ -71,41 +62,18 @@ export class StreamingRendererFactory {
       return;
     }
 
-    try {
-      this._register('gpu');
-      this._register('canvas2d');
-
-      this._initialized = true;
-      this.logger.info(`Loaded ${this._rendererRegistry.listIds().length} renderer(s)`);
-    } catch (error) {
-      this.logger.error('Failed to initialize renderer registry', error);
-      throw error;
-    }
-  }
-
-  _register(typeId: RendererType, metadata: Partial<RendererMetadata> = {}): void {
-    if (!this._rendererProviders[typeId]) {
-      throw new Error(`No renderer provider configured for type: ${typeId}`);
-    }
-
-    const normalizedMetadata = {
-      typeId,
-      supportsPresets: typeId === 'gpu',
-      ...metadata
-    };
-
-    this._rendererRegistry.registerValue(typeId, typeId, normalizedMetadata);
+    this._initialized = true;
+    this.logger.info('StreamingRendererFactory initialized');
   }
 
   createRenderer(request: RendererCreateRequest): IStreamingRenderer {
     if (!this._initialized) {
       throw new Error('StreamingRendererFactory not initialized. Call initialize() first.');
     }
+
     const { type } = request;
 
-    try {
-      this._rendererRegistry.create(type);
-    } catch {
+    if (type !== 'gpu' && type !== 'canvas2d') {
       throw new Error(`No renderer registered for type: ${type}`);
     }
 
@@ -141,41 +109,5 @@ export class StreamingRendererFactory {
 
     this.logger.debug('GPU not available - selecting Canvas2D');
     return 'canvas2d';
-  }
-
-  hasRenderer(typeId: RendererType): boolean {
-    return this._rendererRegistry.has(typeId);
-  }
-
-  getRegisteredTypes(): string[] {
-    return this._rendererRegistry.listIds();
-  }
-
-  getMetadata(typeId: RendererType): RendererMetadata | undefined {
-    return this._rendererRegistry.getMetadata(typeId);
-  }
-
-  registerRenderer(
-    typeId: RendererType,
-    rendererProvider: RendererProvider<'gpu'> | RendererProvider<'canvas2d'>,
-    metadata: Partial<RendererMetadata> = {}
-  ): void {
-    if (typeId === 'gpu') {
-      this._rendererProviders.gpu = rendererProvider as RendererProvider<'gpu'>;
-    } else {
-      this._rendererProviders.canvas2d = rendererProvider as RendererProvider<'canvas2d'>;
-    }
-    this._register(typeId, metadata);
-    this.logger.info(`Registered renderer: ${typeId}`);
-  }
-
-  unregister(typeId: RendererType): boolean {
-    this._rendererRegistry.unregister(typeId);
-    return true;
-  }
-
-  clear(): void {
-    this._rendererRegistry.clear();
-    this._initialized = false;
   }
 }

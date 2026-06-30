@@ -1,8 +1,6 @@
 import type { LoggerLike } from '@prismgb/core';
 import type { AcquisitionContextLike, AcquisitionOptions } from './acquisition.types';
 
-import { IConstraintBuilder } from './acquisition.interface';
-
 /**
  * ConstraintBuilder
  *
@@ -15,11 +13,10 @@ import { IConstraintBuilder } from './acquisition.interface';
  * - 'simple': Basic constraints with essential processing flags
  * - 'minimal': Just device targeting, no quality settings
  */
-export class ConstraintBuilder extends IConstraintBuilder {
+export class ConstraintBuilder {
   logger: LoggerLike | null;
 
   constructor(logger: LoggerLike | null = null) {
-    super();
     this.logger = logger;
   }
 

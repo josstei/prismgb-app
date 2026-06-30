@@ -50,12 +50,9 @@ describe('StreamingRendererFactory', () => {
     vi.restoreAllMocks();
   });
 
-  it('should initialize and track renderer registrations', () => {
+  it('should initialize', () => {
     factory.initialize();
 
-    expect(factory.hasRenderer('gpu')).toBe(true);
-    expect(factory.hasRenderer('canvas2d')).toBe(true);
-    expect(factory.getRegisteredTypes()).toEqual(['gpu', 'canvas2d']);
     expect(factory._initialized).toBe(true);
   });
 
@@ -71,19 +68,6 @@ describe('StreamingRendererFactory', () => {
     expect(renderer._deps).toEqual({
       loggerFactory: mockLoggerFactory,
       appState: 'state'
-    });
-  });
-
-  it('should preserve metadata defaults', () => {
-    factory.initialize();
-
-    expect(factory.getMetadata('gpu')).toEqual({
-      typeId: 'gpu',
-      supportsPresets: true
-    });
-    expect(factory.getMetadata('canvas2d')).toEqual({
-      typeId: 'canvas2d',
-      supportsPresets: false
     });
   });
 
@@ -106,34 +90,6 @@ describe('StreamingRendererFactory', () => {
     expect(() => factory.createRenderer({ type: 'gpu', dependencies: {} })).toThrow(
       'StreamingRendererFactory not initialized. Call initialize() first.'
     );
-  });
-
-  it('should support manual renderer registration and unregistration', () => {
-    const CustomRenderer = class {
-      constructor(deps) { this._deps = deps; }
-    };
-    const customProvider = vi.fn((deps) => new CustomRenderer(deps));
-
-    factory.registerRenderer('gpu', customProvider, { supportsPresets: false });
-    expect(factory.hasRenderer('gpu')).toBe(true);
-
-    factory.initialize();
-    expect(factory.hasRenderer('gpu')).toBe(true);
-
-    const renderer = factory.createRenderer({ type: 'gpu', dependencies: { customDep: true } });
-    expect(renderer).toBeInstanceOf(CustomRenderer);
-
-    factory.unregister('gpu');
-    expect(factory.hasRenderer('gpu')).toBe(false);
-  });
-
-  it('should clear registrations and reset initialization state', () => {
-    factory.initialize();
-    factory.clear();
-
-    expect(factory.getRegisteredTypes()).toEqual([]);
-    expect(factory._initialized).toBe(false);
-    expect(factory.hasRenderer('gpu')).toBe(false);
   });
 
   it('should resolve render type by capability and performance mode', () => {

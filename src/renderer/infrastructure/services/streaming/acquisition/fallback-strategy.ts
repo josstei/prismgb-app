@@ -6,23 +6,6 @@ export interface FallbackConfig {
   description?: string;
 }
 
-export class IFallbackStrategy {
-  initialize(_context: unknown): void {
-    throw new Error('initialize() must be implemented');
-  }
-
-  getNext(): FallbackConfig | null {
-    throw new Error('getNext() must be implemented');
-  }
-
-  hasMore(): boolean {
-    throw new Error('hasMore() must be implemented');
-  }
-
-  reset(): void {
-    throw new Error('reset() must be implemented');
-  }
-}
 import type { AcquisitionContextLike } from './acquisition.types';
 
 /**
@@ -40,14 +23,13 @@ import type { AcquisitionContextLike } from './acquisition.types';
  * 3. video-only-simple - Video only with simplified constraints
  * 4. video-only-minimal - Video only with minimal constraints (last resort)
  */
-export class DeviceAwareFallbackStrategy extends IFallbackStrategy {
+export class DeviceAwareFallbackStrategy {
   includeAudioFallbacks: boolean;
   currentIndex: number;
   chain: FallbackConfig[] | null;
   context: AcquisitionContextLike | null;
 
   constructor(options: { includeAudioFallbacks?: boolean } = {}) {
-    super();
     this.includeAudioFallbacks = options.includeAudioFallbacks !== false;
     this.currentIndex = -1;
     this.chain = null;

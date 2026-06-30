@@ -1,7 +1,5 @@
 import type { LoggerLike } from '@prismgb/core';
 
-import { IStreamLifecycle } from './acquisition.interface';
-
 type MediaServiceLike = {
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
 };
@@ -9,7 +7,7 @@ type MediaServiceLike = {
 /**
  * Base implementation of stream lifecycle management
  */
-export class BaseStreamLifecycle extends IStreamLifecycle {
+export class BaseStreamLifecycle {
   logger: LoggerLike | null;
   mediaService: MediaServiceLike | null;
   activeStreams: Set<MediaStream>;
@@ -19,7 +17,6 @@ export class BaseStreamLifecycle extends IStreamLifecycle {
    * @param {Object} mediaService - Optional media service (BrowserMediaAdapter or compatible)
    */
   constructor(logger: LoggerLike | null = null, mediaService: MediaServiceLike | null = null) {
-    super();
     this.logger = logger;
     this.mediaService = mediaService;
     this.activeStreams = new Set();
