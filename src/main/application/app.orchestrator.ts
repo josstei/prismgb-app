@@ -173,14 +173,6 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     this.logger.info('PrismGB shutdown complete');
   }
-
-  /**
-   * Get the DI container
-   * @returns The DI container
-   */
-  getContainer(): MainServiceContainer | null {
-    return this.container;
-  }
 }
 
 

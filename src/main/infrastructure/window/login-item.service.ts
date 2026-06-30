@@ -40,4 +40,3 @@ class LoginItemService extends BaseService {
 }
 
 export { LoginItemService };
-export type { LoginItemServiceDependencies };

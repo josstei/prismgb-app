@@ -8,18 +8,6 @@ import path from 'path';
 import fs from 'fs';
 import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory, LogLevel } from '@prismgb/core';
 
-/**
- * Extended logger interface with Winston-specific features.
- * Used by MainLogger to provide access to underlying Winston logger.
- */
-export interface IMainLogger extends Logger {
-  /**
-   * Get the underlying Winston logger instance.
-   * @returns The Winston logger
-   */
-  getWinstonLogger(): winston.Logger;
-}
-
 // Import Electron app for log path resolution
 // Falls back gracefully in test environment
 let electronApp: Electron.App | null = null;
@@ -130,7 +118,7 @@ export class MainLogger implements LoggerFactory {
    * @param context - The context name (e.g., 'DeviceServiceMain', 'WebcamService')
    * @returns Logger instance with context-aware methods
    */
-  create(context: string): IMainLogger {
+  create(context: string): Logger {
     const childLogger = this.rootLogger.child({ context });
 
     return {
@@ -175,29 +163,7 @@ export class MainLogger implements LoggerFactory {
           ? { error: firstArg.message, stack: firstArg.stack }
           : firstArg;
         childLogger.error(message, meta);
-      },
-
-      /**
-       * Get the underlying Winston logger instance
-       * @returns The Winston logger
-       */
-      getWinstonLogger: (): winston.Logger => childLogger
+      }
     };
-  }
-
-  /**
-   * Get the root logger instance (for advanced use cases)
-   * @returns The root Winston logger
-   */
-  getRootLogger(): winston.Logger {
-    return this.rootLogger;
-  }
-
-  /**
-   * Set the log level dynamically
-   * @param level - The log level (error, warn, info, debug)
-   */
-  setLevel(level: LogLevel): void {
-    this.rootLogger.level = level;
   }
 }

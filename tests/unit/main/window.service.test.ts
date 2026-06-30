@@ -184,18 +184,6 @@ describe('WindowService', () => {
     });
   });
 
-  describe('hasWindow', () => {
-    it('should return false initially', () => {
-      expect(windowService.hasWindow()).toBe(false);
-    });
-
-    it('should return true after creation', () => {
-      windowService.createWindow();
-
-      expect(windowService.hasWindow()).toBe(true);
-    });
-  });
-
   describe('send', () => {
     it('forwards the channel and the first argument to the push bridge', () => {
       windowService.createWindow();

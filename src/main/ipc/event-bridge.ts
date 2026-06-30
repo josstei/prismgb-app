@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 
-export type IpcPushChannelListener = (payload: unknown) => void;
+type IpcPushChannelListener = (payload: unknown) => void;
 
 /**
  * In-process fan-out for main → renderer push channels.

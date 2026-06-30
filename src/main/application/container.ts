@@ -33,27 +33,6 @@ interface AppConfig {
 }
 
 /**
- * Container dependencies interface — documents the main-process DI surface.
- */
-export interface ContainerDependencies {
-  config: AppConfig;
-  loggerFactory: MainLogger;
-  eventBus: EventBus;
-  windowService: WindowService;
-  trayService: TrayService;
-  ipcHandlerRegistry: IpcHandlerRegistry;
-  ipcPushBridge: IpcPushBridge;
-  deviceService: DeviceService;
-  profileRegistry: DeviceProfileRegistry;
-  deviceLifecycleService: DeviceLifecycleService;
-  deviceBridgeService: DeviceBridgeService;
-  updateService: UpdateService;
-  updateBridgeService: UpdateBridge;
-  transcodeService: TranscodeService;
-  loginItemService: LoginItemService;
-}
-
-/**
  * Main-process DI container, backed by the core {@link Container} primitive.
  */
 export type MainServiceContainer = Container;

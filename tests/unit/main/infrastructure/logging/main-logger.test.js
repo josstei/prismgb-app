@@ -159,7 +159,6 @@ describe('MainLogger', () => {
       expect(typeof childLogger.info).toBe('function');
       expect(typeof childLogger.warn).toBe('function');
       expect(typeof childLogger.error).toBe('function');
-      expect(typeof childLogger.getWinstonLogger).toBe('function');
     });
 
     describe('child logger methods', () => {
@@ -217,39 +216,6 @@ describe('MainLogger', () => {
 
         expect(mockWinstonChild.error).toHaveBeenCalledWith('error occurred', {});
       });
-
-      it('should return winston logger via getWinstonLogger', () => {
-        const winstonLogger = childLogger.getWinstonLogger();
-
-        expect(winstonLogger).toBe(mockWinstonChild);
-      });
-    });
-  });
-
-  describe('getRootLogger', () => {
-    it('should return root logger', () => {
-      const root = logger.getRootLogger();
-
-      expect(root).toBe(logger.rootLogger);
-    });
-  });
-
-  describe('setLevel', () => {
-    it('should set log level on root logger', () => {
-      logger.setLevel('warn');
-
-      expect(logger.rootLogger.level).toBe('warn');
-    });
-
-    it('should accept different log levels', () => {
-      logger.setLevel('error');
-      expect(logger.rootLogger.level).toBe('error');
-
-      logger.setLevel('info');
-      expect(logger.rootLogger.level).toBe('info');
-
-      logger.setLevel('debug');
-      expect(logger.rootLogger.level).toBe('debug');
     });
   });
 });

@@ -16,10 +16,8 @@ export interface GpuPolicy {
 }
 
 export const GPU_ENV_VARS = {
-  DISABLE_GPU: 'PRISMGB_DISABLE_GPU',
   FORCE_WEBGL: 'PRISMGB_FORCE_WEBGL',
-  FORCE_WEBGPU: 'PRISMGB_FORCE_WEBGPU',
-  FORCE_SOFTWARE: 'PRISMGB_FORCE_SOFTWARE'
+  FORCE_WEBGPU: 'PRISMGB_FORCE_WEBGPU'
 } as const;
 
 export function detectPlatform(): PlatformInfo {

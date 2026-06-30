@@ -297,10 +297,6 @@ class WindowService extends BaseService {
     this.mainWindow = null;
   }
 
-  hasWindow(): boolean {
-    return this.mainWindow !== null;
-  }
-
   getMainWindow(): BrowserWindow | null {
     return this.mainWindow;
   }
@@ -361,4 +357,3 @@ class WindowService extends BaseService {
 }
 
 export { WindowService };
-export type { WindowServiceDependencies };
