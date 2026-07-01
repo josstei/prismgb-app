@@ -5,8 +5,7 @@ import {
   getEnabledRenderPasses,
   readFiniteNumber,
   readFiniteNumberPair,
-  readUniformSourceValue,
-  type PlannedRenderPass
+  readUniformSourceValue
 } from '@/application/passes';
 import { PASS_SPECS } from '@/domain/pass-specs';
 import { buildUniforms } from '@/application/uniform-builder';
@@ -27,8 +26,8 @@ function alignTo(offset: number, alignment: number): number {
   return Math.ceil(offset / alignment) * alignment;
 }
 
-function pass(id: string, outputsToCanvas = false): PlannedRenderPass & { id: string } {
-  return { id, outputsToCanvas };
+function pass(id: string): { id: string } {
+  return { id };
 }
 
 function buildFixtureUniforms(presetId = 'vibrant'): PipelineUniforms {
@@ -133,12 +132,12 @@ describe('compileRenderPasses', () => {
 });
 
 describe('createRenderPassPlan', () => {
-  it('alternates intermediate targets until a pass outputs to canvas', () => {
+  it('alternates intermediate targets across every enabled pass', () => {
     const plan = createRenderPassPlan([
       pass('pixel-upscale'),
       pass('unsharp-mask'),
       pass('color-elevation'),
-      pass('crt-lcd', true)
+      pass('crt-lcd')
     ]);
 
     expect(plan.steps.map((step) => ({
@@ -149,35 +148,26 @@ describe('createRenderPassPlan', () => {
       { pass: 'pixel-upscale', source: { kind: 'source' }, target: { kind: 'intermediate', index: 0 } },
       { pass: 'unsharp-mask', source: { kind: 'intermediate', index: 0 }, target: { kind: 'intermediate', index: 1 } },
       { pass: 'color-elevation', source: { kind: 'intermediate', index: 1 }, target: { kind: 'intermediate', index: 0 } },
-      { pass: 'crt-lcd', source: { kind: 'intermediate', index: 0 }, target: { kind: 'canvas' } }
+      { pass: 'crt-lcd', source: { kind: 'intermediate', index: 0 }, target: { kind: 'intermediate', index: 1 } }
     ]);
-    expect(plan.finalCanvasCopy).toEqual({
-      required: false,
-      source: { kind: 'intermediate', index: 0 }
-    });
+    expect(plan.presentSource).toEqual({ kind: 'intermediate', index: 1 });
   });
 
-  it('requests final canvas copy from the last intermediate when no pass outputs to canvas', () => {
+  it('presents from the last written intermediate', () => {
     const plan = createRenderPassPlan([
       pass('pixel-upscale'),
       pass('color-elevation')
     ]);
 
     expect(plan.steps.at(-1)?.target).toEqual({ kind: 'intermediate', index: 1 });
-    expect(plan.finalCanvasCopy).toEqual({
-      required: true,
-      source: { kind: 'intermediate', index: 1 }
-    });
+    expect(plan.presentSource).toEqual({ kind: 'intermediate', index: 1 });
   });
 
-  it('does not request copy when there are no enabled passes', () => {
+  it('presents the source directly when there are no enabled passes', () => {
     const plan = createRenderPassPlan([]);
 
     expect(plan.steps).toEqual([]);
-    expect(plan.finalCanvasCopy).toEqual({
-      required: false,
-      source: { kind: 'source' }
-    });
+    expect(plan.presentSource).toEqual({ kind: 'source' });
   });
 
   it('fails closed when no intermediate target is available', () => {

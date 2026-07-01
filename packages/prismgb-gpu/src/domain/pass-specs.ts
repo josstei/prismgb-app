@@ -59,7 +59,6 @@ export type RenderPassSpec = {
   readonly uniformBlock: UniformBlock;
   readonly webgpuUniformLayout: WebGpuUniformLayoutSpec;
   readonly sampler: SamplerPolicy;
-  readonly outputsToCanvas: boolean;
 };
 
 export type RenderPassDefinition = RenderPassSpec;
@@ -68,7 +67,6 @@ export type RenderPassRuntimeBase = {
   passId: string;
   order: number;
   enabledWhen: RenderPassEnablement;
-  outputsToCanvas: boolean;
   sampler: SamplerPolicy;
 };
 
@@ -96,8 +94,7 @@ export const PASS_SPECS: readonly RenderPassSpec[] = [
         { name: '_padding', type: 'f32', offsetBytes: 20, byteLength: 4, source: constant(0) }
       ]
     },
-    sampler: 'nearest',
-    outputsToCanvas: false
+    sampler: 'nearest'
   },
   {
     id: 'unsharp-mask',
@@ -119,8 +116,7 @@ export const PASS_SPECS: readonly RenderPassSpec[] = [
         { name: 'scaleFactor', type: 'f32', offsetBytes: 12, byteLength: 4, source: field('unsharp', 'scaleFactor') }
       ]
     },
-    sampler: 'linear',
-    outputsToCanvas: false
+    sampler: 'linear'
   },
   {
     id: 'color-elevation',
@@ -141,8 +137,7 @@ export const PASS_SPECS: readonly RenderPassSpec[] = [
         { name: '_padding3', type: 'f32', offsetBytes: 28, byteLength: 4, source: constant(0) }
       ]
     },
-    sampler: 'linear',
-    outputsToCanvas: false
+    sampler: 'linear'
   },
   {
     id: 'crt-lcd',
@@ -171,8 +166,7 @@ export const PASS_SPECS: readonly RenderPassSpec[] = [
         { name: 'vignetteStrength', type: 'f32', offsetBytes: 28, byteLength: 4, source: field('crt', 'vignetteStrength') }
       ]
     },
-    sampler: 'linear',
-    outputsToCanvas: true
+    sampler: 'linear'
   }
 ];
 

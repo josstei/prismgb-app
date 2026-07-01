@@ -19,11 +19,14 @@ describe('pass-specs', () => {
     }
   });
 
-  it('routes every pass to a compiled WebGPU shader source', () => {
-    const webgpuShaders = Object.keys(loadWebGpuShaders().byFileName).sort();
-    const passShaders = PASS_SPECS.map((pass) => pass.webgpuShader).sort();
+  it('routes every pass to a compiled WebGPU shader source alongside the present pass', () => {
+    const webgpuShaders = Object.keys(loadWebGpuShaders().byFileName);
 
-    expect(webgpuShaders).toEqual(passShaders);
+    for (const pass of PASS_SPECS) {
+      expect(webgpuShaders).toContain(pass.webgpuShader);
+    }
+    // The dedicated present pass is not a render-pass spec but must be compiled.
+    expect(webgpuShaders).toContain('present.wgsl');
   });
 
   it('packs each pass uniform buffer at the exact declared offsets and sources', () => {

@@ -180,6 +180,7 @@ export class WebGpuDriver implements RenderDriver {
   private canvasFormat: GPUTextureFormat | null = null;
 
   private renderPipelines: RenderPipelines | null = null;
+  private presentPipeline: GPURenderPipeline | null = null;
 
   private sourceTexture: GPUTexture | null = null;
   private intermediateTextures: GPUTexture[] = [];
@@ -255,6 +256,13 @@ export class WebGpuDriver implements RenderDriver {
       return module;
     };
 
+    const createNativeRenderPipelineAsync = device[CREATE_NATIVE_RENDER_PIPELINE_ASYNC] as unknown as (
+      descriptor: GPURenderPipelineDescriptor
+    ) => Promise<GPURenderPipeline>;
+    if (typeof createNativeRenderPipelineAsync !== 'function') {
+      throw new Error('WebGPU device cannot create render pipelines asynchronously');
+    }
+
     const pipelines = new Map<string, GPURenderPipeline>();
     for (const pass of WEBGPU_RENDER_PASSES) {
       const shaderSource = shaders.byFileName[pass.backend.shaderFile];
@@ -263,30 +271,35 @@ export class WebGpuDriver implements RenderDriver {
       }
 
       const shaderModule = await createAndValidate(`${pass.passId} shader`, shaderSource);
-      const descriptor: GPURenderPipelineDescriptor = {
+      pipelines.set(pass.passId, await createNativeRenderPipelineAsync.call(device, {
         label: `${pass.passId} pipeline`,
         layout: 'auto',
         vertex: { module: shaderModule, entryPoint: 'vertexMain' },
         fragment: {
           module: shaderModule,
           entryPoint: 'fragmentMain',
-          targets: [{ format: pass.outputsToCanvas ? this.canvasFormat! : 'rgba8unorm' }]
+          targets: [{ format: 'rgba8unorm' }]
         },
         primitive: { topology: 'triangle-strip' }
-      };
-
-      const createNativeRenderPipelineAsync = device[CREATE_NATIVE_RENDER_PIPELINE_ASYNC] as unknown as (
-        descriptor: GPURenderPipelineDescriptor
-      ) => Promise<GPURenderPipeline>;
-      if (typeof createNativeRenderPipelineAsync !== 'function') {
-        throw new Error('WebGPU device cannot create render pipelines asynchronously');
-      }
-
-      pipelines.set(
-        pass.passId,
-        await createNativeRenderPipelineAsync.call(device, descriptor)
-      );
+      }));
     }
+
+    const presentShaderSource = shaders.byFileName['present.wgsl'];
+    if (!presentShaderSource) {
+      throw new Error('Missing WebGPU present shader source');
+    }
+    const presentModule = await createAndValidate('present shader', presentShaderSource);
+    this.presentPipeline = await createNativeRenderPipelineAsync.call(device, {
+      label: 'present pipeline',
+      layout: 'auto',
+      vertex: { module: presentModule, entryPoint: 'vertexMain' },
+      fragment: {
+        module: presentModule,
+        entryPoint: 'fragmentMain',
+        targets: [{ format: this.canvasFormat! }]
+      },
+      primitive: { topology: 'triangle-strip' }
+    });
 
     this.renderPipelines = pipelines;
   }
@@ -392,13 +405,11 @@ export class WebGpuDriver implements RenderDriver {
         );
       }
 
-      if (plan.finalCanvasCopy.required) {
-        this.copyToCanvas(
-          commandEncoder,
-          this.resolvePlanTexture(plan.finalCanvasCopy.source),
-          this.context.getCurrentTexture()
-        );
-      }
+      this.present(
+        commandEncoder,
+        this.resolvePlanTexture(plan.presentSource),
+        this.context.getCurrentTexture()
+      );
 
       this.device.queue.submit([commandEncoder.finish()]);
       state.recordFrame(performance.now() - startTime);
@@ -415,22 +426,7 @@ export class WebGpuDriver implements RenderDriver {
   }
 
   private resolvePlanTargetTexture(target: RenderPlanTarget): GPUTexture {
-    return target.kind === 'canvas'
-      ? this.context!.getCurrentTexture()
-      : this.intermediateTextures[target.index];
-  }
-
-  private getPassSampler(pass: WebGpuRenderPass): GPUSampler {
-    return pass.sampler === 'nearest' ? this.nearestSampler! : this.linearSampler!;
-  }
-
-  private getCanvasOutputPass(): WebGpuRenderPass {
-    const pass = WEBGPU_RENDER_PASSES.find((candidate) => candidate.outputsToCanvas);
-    if (!pass) {
-      throw new Error('No render pass is configured to output to canvas');
-    }
-
-    return pass;
+    return this.intermediateTextures[target.index];
   }
 
   private renderPass(
@@ -451,9 +447,7 @@ export class WebGpuDriver implements RenderDriver {
     );
 
     const outputIndex = this.intermediateTextures.indexOf(outputTexture);
-    const outputView = pass.outputsToCanvas
-      ? outputTexture.createView()
-      : this.intermediateTextureViews[outputIndex];
+    const outputView = this.intermediateTextureViews[outputIndex];
 
     if (!outputView) {
       throw new Error(`Invalid output target for pass '${pass.passId}'`);
@@ -474,25 +468,33 @@ export class WebGpuDriver implements RenderDriver {
     passEncoder.end();
   }
 
-  private copyToCanvas(
+  private present(
     commandEncoder: GPUCommandEncoder,
-    sourceTexture: GPUTexture,
+    inputTexture: GPUTexture,
     canvasTexture: GPUTexture
   ): void {
-    const pass = this.getCanvasOutputPass();
-    const pipeline = this.renderPipelines!.get(pass.passId)!;
-    const uniformBuffer = this.uniformBuffers!.get(pass.passId)!;
-    const sampler = this.getPassSampler(pass);
+    const bindGroup = this.device!.createBindGroup({
+      label: 'Present BindGroup',
+      layout: this.presentPipeline!.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: inputTexture.createView() },
+        { binding: 1, resource: this.linearSampler! }
+      ]
+    });
 
-    this.renderPass(
-      commandEncoder,
-      pass,
-      pipeline,
-      sourceTexture,
-      canvasTexture,
-      uniformBuffer,
-      sampler
-    );
+    const passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: canvasTexture.createView(),
+        loadOp: 'clear',
+        storeOp: 'store',
+        clearValue: { r: 0, g: 0, b: 0, a: 1 }
+      }]
+    });
+
+    passEncoder.setPipeline(this.presentPipeline!);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.draw(4);
+    passEncoder.end();
   }
 
   private uploadUniforms(state: PipelineState): void {
@@ -579,6 +581,7 @@ export class WebGpuDriver implements RenderDriver {
     this.context = null;
     this.canvasFormat = null;
     this.renderPipelines = null;
+    this.presentPipeline = null;
     this.nearestSampler = null;
     this.linearSampler = null;
     this.hasError = false;

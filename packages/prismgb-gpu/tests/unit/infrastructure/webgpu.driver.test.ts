@@ -110,7 +110,7 @@ describe('WebGpuDriver', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders planned WebGPU passes and copies non-canvas final output to the canvas', async () => {
+  it('renders planned WebGPU passes to intermediates and presents the final texture to the canvas', async () => {
     const runtime = createWebGpuRuntimeMock();
     vi.stubGlobal('navigator', { gpu: runtime.gpu });
 
@@ -133,17 +133,21 @@ describe('WebGpuDriver', () => {
       'pixel-upscale pipeline',
       'unsharp-mask pipeline',
       'color-elevation pipeline',
-      'crt-lcd pipeline'
+      'present pipeline'
     ]);
     expect(runtime.beginRenderPass).toHaveBeenCalledTimes(4);
     expect(runtime.beginRenderPass.mock.calls[3][0].colorAttachments[0].view).toBe(runtime.canvasTexture.view);
     expect(runtime.context.getCurrentTexture).toHaveBeenCalledTimes(1);
-    expect(runtime.createBindGroup.mock.calls.map(([descriptor]) => descriptor.entries[1].resource.label)).toEqual([
+
+    const bindGroups = runtime.createBindGroup.mock.calls.map(([descriptor]) => descriptor);
+    // Effect passes bind their input texture at binding 1 (uniform buffer is binding 0).
+    expect(bindGroups.slice(0, 3).map((descriptor) => descriptor.entries[1].resource.label)).toEqual([
       'Source Texture view',
       'Intermediate Texture 0 view',
-      'Intermediate Texture 1 view',
-      'Intermediate Texture 0 view'
+      'Intermediate Texture 1 view'
     ]);
+    // The present pass samples the final intermediate at binding 0 and writes to the canvas.
+    expect(bindGroups[3].entries[0].resource.label).toBe('Intermediate Texture 0 view');
     expect(runtime.device.queue.submit).toHaveBeenCalledTimes(1);
   });
 

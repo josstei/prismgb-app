@@ -31,8 +31,6 @@ export type RenderPlanSource = {
 };
 
 export type RenderPlanTarget = {
-  kind: 'canvas';
-} | {
   kind: 'intermediate';
   index: number;
 };
@@ -43,18 +41,9 @@ export type RenderPassPlanStep<TPass> = {
   target: RenderPlanTarget;
 };
 
-export type FinalCanvasCopyPlan = {
-  required: boolean;
-  source: RenderPlanSource;
-};
-
 export type RenderPassPlan<TPass> = {
   steps: readonly RenderPassPlanStep<TPass>[];
-  finalCanvasCopy: FinalCanvasCopyPlan;
-};
-
-export type PlannedRenderPass = {
-  outputsToCanvas: boolean;
+  presentSource: RenderPlanSource;
 };
 
 export function compileRenderPasses<TBackendState>(
@@ -64,7 +53,6 @@ export function compileRenderPasses<TBackendState>(
     passId: pass.id,
     order: pass.order,
     enabledWhen: pass.enabledWhen,
-    outputsToCanvas: pass.outputsToCanvas,
     sampler: pass.sampler,
     isEnabled: buildRenderPassEnablementPredicate(pass),
     backend: compiler.compile(pass)
@@ -202,7 +190,7 @@ export function getEnabledRenderPasses<T extends EnableableRenderPass>(
   return passes.filter((pass) => isRenderPassEnabled(pass, uniforms, preset));
 }
 
-export function createRenderPassPlan<TPass extends PlannedRenderPass>(
+export function createRenderPassPlan<TPass>(
   passes: readonly TPass[],
   intermediateCount = 2
 ): RenderPassPlan<TPass> {
@@ -212,13 +200,10 @@ export function createRenderPassPlan<TPass extends PlannedRenderPass>(
 
   let currentSource: RenderPlanSource = { kind: 'source' };
   let outputIndex = 0;
-  let renderedToCanvas = false;
   const steps: RenderPassPlanStep<TPass>[] = [];
 
   for (const pass of passes) {
-    const target: RenderPlanTarget = pass.outputsToCanvas
-      ? { kind: 'canvas' }
-      : { kind: 'intermediate', index: outputIndex };
+    const target: RenderPlanTarget = { kind: 'intermediate', index: outputIndex };
 
     steps.push({
       pass,
@@ -226,20 +211,12 @@ export function createRenderPassPlan<TPass extends PlannedRenderPass>(
       target
     });
 
-    if (target.kind === 'canvas') {
-      renderedToCanvas = true;
-      break;
-    }
-
     currentSource = target;
     outputIndex = (outputIndex + 1) % intermediateCount;
   }
 
   return {
     steps,
-    finalCanvasCopy: {
-      required: !renderedToCanvas && currentSource.kind === 'intermediate',
-      source: currentSource
-    }
+    presentSource: currentSource
   };
 }
