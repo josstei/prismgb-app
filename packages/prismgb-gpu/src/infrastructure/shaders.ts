@@ -3,7 +3,6 @@ export interface ShaderSourceMap {
 }
 
 export type WebGpuShaders = ShaderSourceMap;
-export type WebGlShaders = ShaderSourceMap;
 
 const WEBGPU_FULLSCREEN_VERTEX_SOURCE = `
 struct VertexOutput {
@@ -40,12 +39,6 @@ const WEBGPU_SHADER_MODULES = import.meta.glob('./shaders/webgpu/*.wgsl', {
   eager: true
 }) as Record<string, string>;
 
-const WEBGL_SHADER_MODULES = import.meta.glob('./shaders/webgl/*.glsl', {
-  query: '?raw',
-  import: 'default',
-  eager: true
-}) as Record<string, string>;
-
 function createShaderSourceMap(
   modules: Record<string, string>,
   transformSource: (source: string) => string = (source) => source
@@ -74,8 +67,4 @@ function composeWebGpuShader(source: string): string {
 
 export function loadWebGpuShaders(): WebGpuShaders {
   return createShaderSourceMap(WEBGPU_SHADER_MODULES, composeWebGpuShader);
-}
-
-export function loadWebGlShaders(): WebGlShaders {
-  return createShaderSourceMap(WEBGL_SHADER_MODULES);
 }

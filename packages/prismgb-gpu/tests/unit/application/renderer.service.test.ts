@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGpuRenderer } from '@/application/renderer.service';
-import { WebGlRenderer } from '@/infrastructure/webgl.renderer';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@prismgb/gpu/testkit';
 
 function createCanvas2DRenderFixture() {
@@ -36,7 +35,6 @@ describe('renderer service', () => {
       preferredBackend: 'canvas2d',
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        webgl2: false,
         offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'canvas2d'
@@ -60,7 +58,6 @@ describe('renderer service', () => {
       nativeHeight: 144,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        webgl2: false,
         offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'canvas2d'
@@ -87,7 +84,6 @@ describe('renderer service', () => {
       allowCanvas2D: false,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        webgl2: false,
         offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'webgpu'
@@ -95,32 +91,6 @@ describe('renderer service', () => {
     })).rejects.toThrow('No accelerated render backend available');
 
     expect(canvas.getContext).not.toHaveBeenCalledWith('2d', expect.anything());
-  });
-
-  it('disposes a recoverable WebGL renderer failure before falling back to Canvas2D', async () => {
-    const disposeSpy = vi.spyOn(WebGlRenderer.prototype, 'dispose');
-    const canvas = createCanvas2DRenderFixture();
-    const renderer = await createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      capabilities: {
-        ...createRenderCapabilitiesFixture(),
-        webgpu: false,
-        webgl2: true,
-        preferredBackend: 'webgl2'
-      }
-    });
-
-    expect(disposeSpy).toHaveBeenCalledTimes(1);
-    expect(canvas.getContext).toHaveBeenCalledWith('webgl2', expect.any(Object));
-    expect(canvas.getContext).toHaveBeenCalledWith('2d', {
-      alpha: false,
-      desynchronized: true
-    });
-    expect(renderer.isInitialized).toBe(true);
-
-    await renderer.dispose();
   });
 
   it('falls back when WebGPU device acquisition fails after capability detection', async () => {
@@ -141,7 +111,6 @@ describe('renderer service', () => {
       capabilities: {
         ...createRenderCapabilitiesFixture(),
         webgpu: true,
-        webgl2: false,
         preferredBackend: 'webgpu'
       }
     });
@@ -154,28 +123,5 @@ describe('renderer service', () => {
     expect(renderer.isInitialized).toBe(true);
 
     await renderer.dispose();
-  });
-
-  it('surfaces non-recoverable accelerated renderer initialization failures', async () => {
-    vi.spyOn(WebGlRenderer.prototype, 'initialize')
-      .mockRejectedValueOnce(new Error("Missing WebGL shader source for pass 'pixel-upscale'"));
-    const disposeSpy = vi.spyOn(WebGlRenderer.prototype, 'dispose')
-      .mockResolvedValueOnce();
-    const canvas = createCanvas2DRenderFixture();
-
-    await expect(createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      capabilities: {
-        ...createRenderCapabilitiesFixture(),
-        webgpu: false,
-        webgl2: true,
-        preferredBackend: 'webgl2'
-      }
-    })).rejects.toThrow('Failed to initialize webgl2 renderer');
-
-    expect(disposeSpy).toHaveBeenCalledTimes(1);
-    expect(canvas.getContext).not.toHaveBeenCalledWith('2d', expect.anything());
   });
 });

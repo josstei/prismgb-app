@@ -44,7 +44,6 @@ describe('GpuVideoRendererSession', () => {
       allowCanvas2D: true,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        webgl2: false,
         offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'canvas2d'
@@ -74,7 +73,6 @@ describe('GpuVideoRendererSession', () => {
       createWorker: () => worker,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: true,
-        webgl2: false,
         offscreenCanvas: true,
         transferControlToOffscreen: true,
         preferredBackend: 'webgpu'
@@ -113,7 +111,6 @@ describe('GpuVideoRendererSession', () => {
       createWorker: () => worker,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: true,
-        webgl2: false,
         offscreenCanvas: true,
         transferControlToOffscreen: true,
         preferredBackend: 'webgpu'

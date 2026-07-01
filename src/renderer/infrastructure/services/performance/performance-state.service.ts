@@ -19,7 +19,7 @@ export type PerformanceState = {
 
 type PerformanceCapabilities = StreamingCapabilities & {
   maxTextureSize?: number;
-  preferredBackend?: 'webgpu' | 'webgl2' | 'canvas2d';
+  preferredBackend?: 'webgpu' | 'canvas2d';
 };
 
 type VisibilityAdapterLike = {
@@ -214,7 +214,7 @@ class PerformanceStateService extends BaseService {
       return false;
     }
 
-    const noAcceleratedPath = !capabilities.webgpu && !capabilities.webgl2;
+    const noAcceleratedPath = !capabilities.webgpu;
     const usingCanvasFallback = capabilities.preferredBackend === 'canvas2d';
     const maxTextureSize = typeof capabilities.maxTextureSize === 'number'
       ? capabilities.maxTextureSize

@@ -133,7 +133,7 @@ describe('PerformanceStateService', () => {
   it('should detect weak GPU based on capabilities', () => {
     service.initialize({ onStateChange: (state) => states.push(state) });
 
-    service.setCapabilities({ webgpu: false, webgl2: false, preferredBackend: 'canvas2d', maxTextureSize: 1024 });
+    service.setCapabilities({ webgpu: false, preferredBackend: 'canvas2d', maxTextureSize: 1024 });
 
     expect(states[states.length - 1].weakGpuDetected).toBe(true);
   });

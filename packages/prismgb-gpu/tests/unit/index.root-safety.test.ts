@@ -4,10 +4,6 @@ vi.mock('@/infrastructure/capabilities.browser', () => {
   throw new Error('browser capabilities imported');
 });
 
-vi.mock('@/infrastructure/webgl.renderer', () => {
-  throw new Error('webgl renderer imported');
-});
-
 vi.mock('@/infrastructure/webgpu.renderer', () => {
   throw new Error('webgpu renderer imported');
 });

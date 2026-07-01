@@ -19,7 +19,7 @@ function createConfig() {
     targetWidth: 640,
     targetHeight: 576,
     scaleFactor: 4,
-    backend: 'webgl2' as const,
+    backend: 'webgpu' as const,
     presetId: 'vibrant'
   };
 }
@@ -49,7 +49,7 @@ describe('WorkerRendererClient', () => {
     const transferControlToOffscreen = vi.spyOn(canvas, 'transferControlToOffscreen');
     const initializePromise = client.initialize(canvas, createConfig());
 
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgl2' }) } as MessageEvent);
+    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
 
     await initializePromise;
 
@@ -79,7 +79,7 @@ describe('WorkerRendererClient', () => {
     expect(client.isReady()).toBe(false);
 
     const reinitializePromise = client.initialize(canvas, createConfig(), 50);
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgl2' }) } as MessageEvent);
+    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
 
     await expect(reinitializePromise).resolves.toBe(true);
     expect(worker.postMessage).toHaveBeenLastCalledWith(
@@ -94,7 +94,7 @@ describe('WorkerRendererClient', () => {
     client.onMessage(WorkerResponseType.FRAME_RENDERED, onFrameRendered);
 
     const initializePromise = client.initialize(canvas, createConfig());
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgl2' }) } as MessageEvent);
+    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
     await initializePromise;
 
     const imageBitmap = { close: vi.fn() } as unknown as ImageBitmap;
@@ -111,7 +111,7 @@ describe('WorkerRendererClient', () => {
   it('releases resources without terminating and fully terminates on dispose', async () => {
     const canvas = createMockCanvas();
     const initializePromise = client.initialize(canvas, createConfig());
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgl2' }) } as MessageEvent);
+    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
     await initializePromise;
 
     client.releaseResources();

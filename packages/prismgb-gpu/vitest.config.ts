@@ -13,7 +13,6 @@ export default defineConfig({
       exclude: [
         'src/**/*.interface.ts',
         'src/infrastructure/webgpu.renderer.ts',
-        'src/infrastructure/webgl.renderer.ts',
         'src/infrastructure/workers/**'
       ]
     }

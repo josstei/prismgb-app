@@ -48,10 +48,9 @@ export function createRenderCapabilitiesFixture(
 ): RenderCapabilities {
   return {
     webgpu: false,
-    webgl2: true,
     offscreenCanvas: true,
     transferControlToOffscreen: true,
-    preferredBackend: 'webgl2',
+    preferredBackend: 'canvas2d',
     maxTextureSize: 4096,
     ...overrides
   };
@@ -164,82 +163,6 @@ export function createMockCanvas(
     getContext: (contextType: string) => contexts[contextType] ?? null,
     transferControlToOffscreen: () => offscreenCanvas
   };
-}
-
-export function createMockWebGL2Context(): WebGL2RenderingContext {
-  const activeUniforms = 0x8B86;
-  const linkStatus = 0x8B82;
-  const compileStatus = 0x8B81;
-  const maxTextureSize = 0x0D33;
-
-  return {
-    ACTIVE_UNIFORMS: activeUniforms,
-    LINK_STATUS: linkStatus,
-    COMPILE_STATUS: compileStatus,
-    MAX_TEXTURE_SIZE: maxTextureSize,
-    VERTEX_SHADER: 0x8B31,
-    FRAGMENT_SHADER: 0x8B30,
-    TEXTURE_2D: 0x0DE1,
-    NEAREST: 0x2600,
-    LINEAR: 0x2601,
-    TEXTURE_MIN_FILTER: 0x2801,
-    TEXTURE_MAG_FILTER: 0x2800,
-    TEXTURE_WRAP_S: 0x2802,
-    TEXTURE_WRAP_T: 0x2803,
-    CLAMP_TO_EDGE: 0x812F,
-    RGBA: 0x1908,
-    UNSIGNED_BYTE: 0x1401,
-    FRAMEBUFFER: 0x8D40,
-    READ_FRAMEBUFFER: 0x8CA8,
-    DRAW_FRAMEBUFFER: 0x8CA9,
-    COLOR_ATTACHMENT0: 0x8CE0,
-    COLOR_BUFFER_BIT: 0x4000,
-    TRIANGLES: 0x0004,
-    TEXTURE0: 0x84C0,
-    createShader: () => ({}),
-    shaderSource: () => undefined,
-    compileShader: () => undefined,
-    getShaderParameter: (_shader: unknown, parameter: number) => parameter === compileStatus,
-    getShaderInfoLog: () => '',
-    deleteShader: () => undefined,
-    createProgram: () => ({}),
-    attachShader: () => undefined,
-    linkProgram: () => undefined,
-    getProgramParameter: (_program: unknown, parameter: number) => (
-      parameter === activeUniforms ? 0 : parameter === linkStatus
-    ),
-    getProgramInfoLog: () => '',
-    deleteProgram: () => undefined,
-    getActiveUniform: () => null,
-    getUniformLocation: () => null,
-    useProgram: () => undefined,
-    uniform1i: () => undefined,
-    uniform1f: () => undefined,
-    uniform2f: () => undefined,
-    createVertexArray: () => ({}),
-    bindVertexArray: () => undefined,
-    deleteVertexArray: () => undefined,
-    createTexture: () => ({}),
-    bindTexture: () => undefined,
-    texParameteri: () => undefined,
-    texImage2D: () => undefined,
-    texSubImage2D: () => undefined,
-    deleteTexture: () => undefined,
-    createFramebuffer: () => ({}),
-    bindFramebuffer: () => undefined,
-    framebufferTexture2D: () => undefined,
-    deleteFramebuffer: () => undefined,
-    viewport: () => undefined,
-    activeTexture: () => undefined,
-    drawArrays: () => undefined,
-    blitFramebuffer: () => undefined,
-    clearColor: () => undefined,
-    clear: () => undefined,
-    getParameter: (parameter: number) => parameter === maxTextureSize ? 8192 : 'mock',
-    getExtension: (name: string) => name === 'WEBGL_lose_context'
-      ? { loseContext: () => undefined }
-      : null
-  } as unknown as WebGL2RenderingContext;
 }
 
 export function createWorkerRendererClientMock(

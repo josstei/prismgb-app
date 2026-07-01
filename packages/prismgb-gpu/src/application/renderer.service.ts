@@ -31,17 +31,11 @@ function selectGpuRendererBackend(
   if (requestedBackend === 'webgpu' && capabilities.webgpu) {
     return 'webgpu';
   }
-  if (requestedBackend === 'webgl2' && capabilities.webgl2) {
-    return 'webgl2';
-  }
   if (requestedBackend === 'canvas2d' && allowCanvas2D) {
     return 'canvas2d';
   }
   if (capabilities.webgpu) {
     return 'webgpu';
-  }
-  if (capabilities.webgl2) {
-    return 'webgl2';
   }
   if (!allowCanvas2D) {
     return requestedBackend;
@@ -54,8 +48,7 @@ function isRecoverableBackendInitializationError(error: unknown): boolean {
 }
 
 const BACKEND_FALLBACKS: Record<RenderBackend, readonly RenderBackend[]> = {
-  webgpu: ['webgpu', 'webgl2', 'canvas2d'],
-  webgl2: ['webgl2', 'canvas2d'],
+  webgpu: ['webgpu', 'canvas2d'],
   canvas2d: ['canvas2d']
 };
 
@@ -107,14 +100,6 @@ export async function createGpuRenderer(options: CreateGpuRendererOptions): Prom
       const { WebGpuRenderer } = await import('../infrastructure/webgpu.renderer');
       const renderer = new WebGpuRenderer(baseConfig);
       const initializedRenderer = await initializeBackendRenderer('webgpu', renderer);
-      if (initializedRenderer) return initializedRenderer;
-      continue;
-    }
-
-    if (backend === 'webgl2' && capabilities.webgl2) {
-      const { WebGlRenderer } = await import('../infrastructure/webgl.renderer');
-      const renderer = new WebGlRenderer(baseConfig);
-      const initializedRenderer = await initializeBackendRenderer('webgl2', renderer);
       if (initializedRenderer) return initializedRenderer;
       continue;
     }

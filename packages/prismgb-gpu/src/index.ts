@@ -16,8 +16,7 @@ export type {
   RenderPreset,
   RenderPresetSummary,
   ShaderPresetCatalog,
-  WebGPULimits,
-  WebGL2Info
+  WebGPULimits
 } from './domain/types';
 export { RecoverableBackendInitializationError } from './domain/errors';
 

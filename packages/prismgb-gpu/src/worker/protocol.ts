@@ -39,7 +39,7 @@ export const WorkerResponseType = Object.freeze({
 
 export type WorkerResponseTypeValue = typeof WorkerResponseType[keyof typeof WorkerResponseType];
 
-export type WorkerRenderBackend = Extract<RenderBackend, 'webgpu' | 'webgl2'>;
+export type WorkerRenderBackend = Extract<RenderBackend, 'webgpu'>;
 
 export type WorkerRendererConfig = {
   nativeWidth: number;
@@ -219,7 +219,7 @@ export function createWorkerResponse(
 }
 
 export function isWorkerRenderBackend(value: unknown): value is WorkerRenderBackend {
-  return value === 'webgpu' || value === 'webgl2';
+  return value === 'webgpu';
 }
 
 function isImageBitmapLike(value: unknown): value is ImageBitmap {

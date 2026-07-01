@@ -1,4 +1,4 @@
-export type RenderBackend = 'webgpu' | 'webgl2' | 'canvas2d';
+export type RenderBackend = 'webgpu' | 'canvas2d';
 
 export interface RenderCanvas {
   width: number;
@@ -66,21 +66,13 @@ export interface WebGPULimits {
   maxBindGroups: number;
 }
 
-export interface WebGL2Info {
-  renderer: string;
-  vendor: string;
-  maxTextureSize: number;
-}
-
 export interface RenderCapabilities {
   webgpu: boolean;
-  webgl2: boolean;
   offscreenCanvas: boolean;
   transferControlToOffscreen: boolean;
   preferredBackend: RenderBackend;
   maxTextureSize: number;
   webgpuLimits?: WebGPULimits;
-  webgl2Info?: WebGL2Info;
 }
 
 export interface RenderStats {

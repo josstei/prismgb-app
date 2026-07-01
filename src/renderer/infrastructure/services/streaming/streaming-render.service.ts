@@ -350,7 +350,6 @@ export class StreamingRenderService extends BaseService {
         allowCanvas2D: true,
         capabilities: {
           webgpu: capabilities.webgpu ?? false,
-          webgl2: false,
           offscreenCanvas: capabilities.offscreenCanvas ?? false,
           transferControlToOffscreen: capabilities.transferControlToOffscreen ?? false,
           preferredBackend: capabilities.webgpu ? 'webgpu' : 'canvas2d',
@@ -429,7 +428,6 @@ export class StreamingRenderService extends BaseService {
         allowCanvas2D: true,
         capabilities: {
           webgpu: this._currentCapabilities?.webgpu ?? false,
-          webgl2: false,
           offscreenCanvas: this._currentCapabilities?.offscreenCanvas ?? false,
           transferControlToOffscreen: this._currentCapabilities?.transferControlToOffscreen ?? false,
           preferredBackend: this._currentCapabilities?.webgpu ? 'webgpu' : 'canvas2d',
@@ -481,7 +479,6 @@ export class StreamingRenderService extends BaseService {
         allowCanvas2D: true,
         capabilities: {
           webgpu: false,
-          webgl2: false,
           offscreenCanvas: false,
           transferControlToOffscreen: false,
           preferredBackend: 'canvas2d',

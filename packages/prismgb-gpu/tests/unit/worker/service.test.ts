@@ -70,7 +70,7 @@ const { mockCreateGpuRenderer, mockResolvePreset } = vi.hoisted(() => {
 });
 
 const mockRenderer = {
-  backend: 'webgl2',
+  backend: 'webgpu',
   renderFrame: vi.fn(),
   resize: vi.fn(),
   captureFrame: vi.fn(),
@@ -185,7 +185,7 @@ describe('worker service', () => {
     expect(offscreenCanvas.height).toBe(576);
     expect(harness.postedMessages.at(-1)?.[0]).toMatchObject({
       type: WorkerResponseType.READY,
-      payload: { backend: 'webgl2' }
+      payload: { backend: 'webgpu' }
     });
   });
 

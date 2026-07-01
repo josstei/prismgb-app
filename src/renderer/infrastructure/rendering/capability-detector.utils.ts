@@ -34,7 +34,7 @@ async function detectCapabilities(): Promise<RendererCapabilities> {
     return {
       ...base,
       webgpu: false,
-      preferredBackend: base.webgl2 ? 'webgl2' : 'canvas2d',
+      preferredBackend: 'canvas2d',
       gpuPolicyApplied: true,
       gpuPolicyReason: gpuPolicy.reason
     };
@@ -48,12 +48,11 @@ async function detectCapabilities(): Promise<RendererCapabilities> {
 }
 
 function isGPURenderingAvailable(capabilities: RendererCapabilities): boolean {
-  return capabilities.webgpu || capabilities.webgl2;
+  return capabilities.webgpu;
 }
 
 function isWorkerRenderingAvailable(capabilities: RendererCapabilities): boolean {
-  return capabilities.transferControlToOffscreen &&
-    (capabilities.webgpu || capabilities.webgl2);
+  return capabilities.transferControlToOffscreen && capabilities.webgpu;
 }
 
 function describeCapabilities(capabilities: RendererCapabilities): string {
@@ -63,10 +62,6 @@ function describeCapabilities(capabilities: RendererCapabilities): string {
     parts.push(`WebGPU skipped (${capabilities.gpuPolicyReason})`);
   } else if (capabilities.webgpu) {
     parts.push(`WebGPU (max texture: ${capabilities.webgpuLimits?.maxTextureDimension2D}px)`);
-  }
-
-  if (capabilities.webgl2) {
-    parts.push(`WebGL2 (${capabilities.webgl2Info?.renderer || 'unknown GPU'})`);
   }
 
   if (capabilities.transferControlToOffscreen) {

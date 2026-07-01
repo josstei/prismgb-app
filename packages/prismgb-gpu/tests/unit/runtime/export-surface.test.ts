@@ -2,11 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/infrastructure/capabilities.browser', () => ({
   detectBrowserGpuCapabilities: vi.fn(async () => ({
-    webgpu: false,
-    webgl2: true,
+    webgpu: true,
     offscreenCanvas: true,
     transferControlToOffscreen: true,
-    preferredBackend: 'webgl2',
+    preferredBackend: 'webgpu',
     maxTextureSize: 4096
   }))
 }));
@@ -18,7 +17,7 @@ describe('@prismgb/gpu/runtime export surface', () => {
     expect(runtime.createGpuVideoRendererSession).toEqual(expect.any(Function));
     expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));
     await expect(runtime.detectBrowserGpuCapabilities()).resolves.toEqual(expect.objectContaining({
-      preferredBackend: 'webgl2'
+      preferredBackend: 'webgpu'
     }));
   });
 });

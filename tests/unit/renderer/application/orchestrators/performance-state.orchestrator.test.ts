@@ -75,7 +75,7 @@ describe('PerformanceStateOrchestrator', () => {
   it('should forward capability changes to the performance state service', async () => {
     await coordinator.initialize();
 
-    const capabilities = { webgl2: true };
+    const capabilities = { webgpu: true };
     eventHandlers[EventChannels.RENDER.CAPABILITY_DETECTED](capabilities);
 
     expect(mockPerformanceStateService.setCapabilities).toHaveBeenCalledWith(capabilities);

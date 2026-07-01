@@ -1,20 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RenderPassManifest, RENDER_PASS_DEFINITIONS } from '@/domain/render-passes';
-import { loadWebGlShaders, loadWebGpuShaders } from '@/infrastructure/shaders';
-
-function extractWebGLUniformNames(shaderSource: string): string[] {
-  const sourceWithoutComments = shaderSource.replace(/\/\*[\s\S]*?\*\//g, '');
-  return [...sourceWithoutComments.matchAll(/^\s*uniform\s+\w+\s+(\w+)\s*;/gm)]
-    .map((match) => match[1])
-    .sort();
-}
-
-function contractWebGLBindings(pass: typeof RenderPassManifest.passes[number]) {
-  return [
-    pass.webgl2Uniforms.texture,
-    ...pass.webgl2Uniforms.additional
-  ];
-}
+import { loadWebGpuShaders } from '@/infrastructure/shaders';
 
 describe('render-pass manifest', () => {
   it('marks the render-pass manifest as enforced runtime ownership', () => {
@@ -35,28 +21,8 @@ describe('render-pass manifest', () => {
 
   it('keeps shader file routing aligned with backend shader loaders', () => {
     const webgpuShaders = Object.keys(loadWebGpuShaders().byFileName).sort();
-    const webgl2Shaders = Object.keys(loadWebGlShaders().byFileName).sort();
-    const passBasedWebGLFiles = [...new Set(
-      RenderPassManifest.passes.flatMap((pass) => [pass.webgl2VertexShader, pass.webgl2FragmentShader])
-    )].sort();
     const passBasedWebGPUFiles = RenderPassManifest.passes.map((pass) => pass.webgpuShader).sort();
-    const utilityShaderFiles = [...new Set(RenderPassManifest.utilityShaders.map((shader) => shader.file))].sort();
 
     expect(webgpuShaders).toEqual(passBasedWebGPUFiles);
-    expect(webgl2Shaders).toEqual([...new Set([...passBasedWebGLFiles, ...utilityShaderFiles])].sort());
-  });
-
-  it('keeps manifest WebGL uniform names aligned with GLSL declarations', () => {
-    const webgl2Shaders = loadWebGlShaders().byFileName;
-
-    for (const pass of RenderPassManifest.passes) {
-      const shaderSource = webgl2Shaders[pass.webgl2FragmentShader];
-      expect(shaderSource).toBeTruthy();
-
-      const declaredUniforms = extractWebGLUniformNames(shaderSource);
-      const manifestUniforms = contractWebGLBindings(pass).map((binding) => binding.name).sort();
-
-      expect(manifestUniforms).toEqual(declaredUniforms);
-    }
   });
 });

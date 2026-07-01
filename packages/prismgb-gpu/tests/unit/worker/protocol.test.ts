@@ -14,7 +14,7 @@ const validConfig = {
   targetWidth: 640,
   targetHeight: 576,
   scaleFactor: 4,
-  backend: 'webgl2',
+  backend: 'webgpu',
   presetId: 'true-color'
 } as const;
 
@@ -42,7 +42,7 @@ describe('worker protocol', () => {
 
   it('validates worker responses at the boundary', () => {
     expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.READY, {
-      backend: 'webgl2'
+      backend: 'webgpu'
     }))).toBe(true);
     expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.ERROR, {
       message: 'failed',
