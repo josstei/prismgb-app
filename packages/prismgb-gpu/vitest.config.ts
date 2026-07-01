@@ -12,7 +12,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.interface.ts',
-        'src/infrastructure/webgpu.renderer.ts',
+        'src/infrastructure/webgpu.driver.ts',
         'src/infrastructure/workers/**'
       ]
     }

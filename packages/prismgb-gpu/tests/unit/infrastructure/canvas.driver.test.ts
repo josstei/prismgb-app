@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer } from '@/infrastructure/canvas.renderer';
+import { CanvasDriver } from '@/infrastructure/canvas.driver';
+import { PipelineController } from '@/infrastructure/pipeline-controller';
 import { getPackageDefaultPreset } from '@/application/catalog';
 import { createMockCanvas } from '@prismgb/gpu/testkit';
 
@@ -14,7 +15,7 @@ function createCanvas2DTestFixture() {
   return { canvas, context };
 }
 
-describe('CanvasRenderer', () => {
+describe('CanvasDriver', () => {
   beforeEach(() => {
     vi.stubGlobal('performance', {
       now: vi.fn(() => 0)
@@ -23,12 +24,12 @@ describe('CanvasRenderer', () => {
 
   it('keeps image smoothing disabled after resize resets canvas context state', async () => {
     const { canvas, context } = createCanvas2DTestFixture();
-    const renderer = new CanvasRenderer({
+    const renderer = new PipelineController({
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
       preset: getPackageDefaultPreset()
-    });
+    }, new CanvasDriver());
 
     await renderer.initialize();
     expect(context.imageSmoothingEnabled).toBe(false);

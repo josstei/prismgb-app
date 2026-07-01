@@ -1,4 +1,4 @@
-import { BasePipeline } from './pipeline-base';
+import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
 import type { PipelineUniforms } from '../domain/uniforms';
@@ -172,7 +172,7 @@ export const WEBGPU_RENDER_PASSES = compileRenderPasses<WebGpuPassState>({
   compile: compileWebGpuPassState
 });
 
-export class WebGpuRenderer extends BasePipeline {
+export class WebGpuDriver implements RenderDriver {
   readonly backend = 'webgpu' as const;
 
   private device: GPUDevice | null = null;
@@ -195,9 +195,7 @@ export class WebGpuRenderer extends BasePipeline {
 
   private hasError = false;
 
-  async initialize(): Promise<void> {
-    if (this._isInitialized) return;
-
+  async initialize(state: PipelineState): Promise<void> {
     if (!navigator.gpu) {
       throw new RecoverableBackendInitializationError('WebGPU not supported');
     }
@@ -219,11 +217,11 @@ export class WebGpuRenderer extends BasePipeline {
     this.device.lost.then(() => {
       if (this.device === initializedDevice) {
         this.hasError = true;
-        this._isActive = false;
+        state.deactivate();
       }
     });
 
-    this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
+    this.context = state.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
       throw new RecoverableBackendInitializationError('WebGPU context not available');
     }
@@ -237,10 +235,7 @@ export class WebGpuRenderer extends BasePipeline {
 
     await this.createPipelines();
     this.createSamplers();
-    this.createResources();
-
-    this._isInitialized = true;
-    this._isActive = true;
+    this.createResources(state);
   }
 
   private async createPipelines(): Promise<void> {
@@ -316,13 +311,13 @@ export class WebGpuRenderer extends BasePipeline {
     });
   }
 
-  private createResources(): void {
+  private createResources(state: PipelineState): void {
     const device = this.device!;
-    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
+    const [targetWidth, targetHeight] = state.uniforms.upscale.outputSize;
 
     this.sourceTexture = device.createTexture({
       label: 'Source Texture',
-      size: [this.nativeWidth, this.nativeHeight],
+      size: [state.nativeWidth, state.nativeHeight],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
     });
@@ -353,8 +348,8 @@ export class WebGpuRenderer extends BasePipeline {
     this.uniformBuffers = uniformBuffers;
   }
 
-  renderFrame(source: TexImageSource): void {
-    if (!this._isActive || !this.device || !this.context || this.hasError) return;
+  renderFrame(source: TexImageSource, state: PipelineState): void {
+    if (!state.isActive || !this.device || !this.context || this.hasError) return;
     if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) return;
 
     const startTime = performance.now();
@@ -363,14 +358,14 @@ export class WebGpuRenderer extends BasePipeline {
       this.device.queue.copyExternalImageToTexture(
         { source: source as ImageBitmap, flipY: true },
         { texture: this.sourceTexture },
-        [this.nativeWidth, this.nativeHeight]
+        [state.nativeWidth, state.nativeHeight]
       );
 
-      this.uploadUniforms();
+      this.uploadUniforms(state);
 
       const commandEncoder = this.device.createCommandEncoder();
       const plan = createRenderPassPlan(
-        getEnabledRenderPasses(WEBGPU_RENDER_PASSES, this.uniforms, this.preset),
+        getEnabledRenderPasses(WEBGPU_RENDER_PASSES, state.uniforms, state.preset),
         this.intermediateTextures.length
       );
 
@@ -406,10 +401,10 @@ export class WebGpuRenderer extends BasePipeline {
       }
 
       this.device.queue.submit([commandEncoder.finish()]);
-      this.updateStats(performance.now() - startTime);
+      state.recordFrame(performance.now() - startTime);
     } catch {
       this.hasError = true;
-      this._isActive = false;
+      state.deactivate();
     }
   }
 
@@ -500,10 +495,10 @@ export class WebGpuRenderer extends BasePipeline {
     );
   }
 
-  private uploadUniforms(): void {
+  private uploadUniforms(state: PipelineState): void {
     const device = this.device!;
     for (const pass of WEBGPU_RENDER_PASSES) {
-      const uniformData = pass.backend.uniformData(this.uniforms);
+      const uniformData = pass.backend.uniformData(state.uniforms);
       const buffer = this.uniformBuffers!.get(pass.passId);
       if (!buffer) {
         throw new Error(`Missing uniform buffer for pass '${pass.passId}'`);
@@ -515,18 +510,18 @@ export class WebGpuRenderer extends BasePipeline {
     }
   }
 
-  protected onUniformsChanged(): void {
+  onUniformsChanged(): void {
     this.uniformChangeTracker.invalidateAll();
   }
 
-  protected onResize(): void {
+  resize(state: PipelineState): void {
     if (!this.device || !this.context) return;
 
     this.intermediateTextures.forEach((texture) => texture.destroy());
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
 
-    const [targetWidth, targetHeight] = this.uniforms.upscale.outputSize;
+    const [targetWidth, targetHeight] = state.uniforms.upscale.outputSize;
     for (let i = 0; i < 2; i++) {
       const texture = this.device.createTexture({
         label: `Intermediate Texture ${i}`,
@@ -548,8 +543,8 @@ export class WebGpuRenderer extends BasePipeline {
     this.uniformChangeTracker.invalidateAll();
   }
 
-  async captureFrame(): Promise<ImageBitmap> {
-    return createImageBitmap(this.canvas as ImageBitmapSource);
+  async captureFrame(state: PipelineState): Promise<ImageBitmap> {
+    return createImageBitmap(state.canvas as ImageBitmapSource);
   }
 
   clearFrame(): void {
@@ -588,11 +583,5 @@ export class WebGpuRenderer extends BasePipeline {
     this.linearSampler = null;
     this.hasError = false;
     this.bindGroupStore.invalidate();
-    this._isActive = false;
-    this._isInitialized = false;
-  }
-
-  async dispose(): Promise<void> {
-    this.releaseResources();
   }
 }

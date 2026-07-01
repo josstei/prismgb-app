@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPreset } from '@/application/catalog';
-import { WebGpuRenderer } from '@/infrastructure/webgpu.renderer';
+import { WebGpuDriver } from '@/infrastructure/webgpu.driver';
+import { PipelineController } from '@/infrastructure/pipeline-controller';
 
 interface MockGpuTexture {
   label: string;
@@ -89,7 +90,7 @@ function createWebGpuRuntimeMock() {
   };
 }
 
-describe('WebGpuRenderer', () => {
+describe('WebGpuDriver', () => {
   beforeEach(() => {
     vi.stubGlobal('GPUTextureUsage', {
       TEXTURE_BINDING: 1,
@@ -118,12 +119,12 @@ describe('WebGpuRenderer', () => {
       height: 576,
       getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
     };
-    const renderer = new WebGpuRenderer({
+    const renderer = new PipelineController({
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
       preset: getPreset('vibrant')!
-    });
+    }, new WebGpuDriver());
 
     await renderer.initialize();
     renderer.renderFrame({} as TexImageSource);
@@ -146,6 +147,43 @@ describe('WebGpuRenderer', () => {
     expect(runtime.device.queue.submit).toHaveBeenCalledTimes(1);
   });
 
+  it('recreates intermediate textures on resize and clears via a dedicated render pass', async () => {
+    const runtime = createWebGpuRuntimeMock();
+    vi.stubGlobal('navigator', { gpu: runtime.gpu });
+
+    const canvas = {
+      width: 640,
+      height: 576,
+      getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
+    };
+    const renderer = new PipelineController({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      preset: getPreset('vibrant')!
+    }, new WebGpuDriver());
+
+    await renderer.initialize();
+    const texturesAfterInit = runtime.createTexture.mock.calls.length;
+    const configuresAfterInit = runtime.context.configure.mock.calls.length;
+
+    renderer.resize(1280, 1152);
+
+    expect(runtime.createTexture.mock.calls.length).toBe(texturesAfterInit + 2);
+    expect(runtime.context.configure.mock.calls.length).toBe(configuresAfterInit + 1);
+
+    runtime.beginRenderPass.mockClear();
+    runtime.draw.mockClear();
+    runtime.device.queue.submit.mockClear();
+
+    renderer.clearFrame();
+
+    expect(runtime.beginRenderPass).toHaveBeenCalledTimes(1);
+    expect(runtime.beginRenderPass.mock.calls[0][0].colorAttachments[0].loadOp).toBe('clear');
+    expect(runtime.draw).not.toHaveBeenCalled();
+    expect(runtime.device.queue.submit).toHaveBeenCalledTimes(1);
+  });
+
   it('does not resume after public resource release destroys GPU resources', async () => {
     const runtime = createWebGpuRuntimeMock();
     vi.stubGlobal('navigator', { gpu: runtime.gpu });
@@ -155,12 +193,12 @@ describe('WebGpuRenderer', () => {
       height: 576,
       getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
     };
-    const renderer = new WebGpuRenderer({
+    const renderer = new PipelineController({
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
       preset: getPreset('vibrant')!
-    });
+    }, new WebGpuDriver());
 
     await renderer.initialize();
     renderer.releaseResources();

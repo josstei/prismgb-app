@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PASS_SPECS, RENDER_PASS_DEFINITIONS } from '@/domain/pass-specs';
-import { WEBGPU_RENDER_PASSES } from '@/infrastructure/webgpu.renderer';
+import { WEBGPU_RENDER_PASSES } from '@/infrastructure/webgpu.driver';
 import { loadWebGpuShaders } from '@/infrastructure/shaders';
 import { createPipelineUniformsFixture } from '@/testkit/fixtures';
 

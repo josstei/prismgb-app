@@ -1,7 +1,8 @@
 import { getPackageDefaultPreset } from './catalog';
 import { RecoverableBackendInitializationError } from '../domain/errors';
 import type { RenderBackend, RenderCapabilities, RenderPipeline, RenderPipelineConfig } from '../domain/types';
-import { CanvasRenderer } from '../infrastructure/canvas.renderer';
+import { CanvasDriver } from '../infrastructure/canvas.driver';
+import { PipelineController } from '../infrastructure/pipeline-controller';
 
 export interface CreateGpuRendererOptions extends RenderPipelineConfig {
   capabilities?: RenderCapabilities;
@@ -71,12 +72,12 @@ async function initializeBackendRenderer(
 }
 
 async function createCanvasRenderer(options: CreateGpuRendererOptions): Promise<RenderPipeline> {
-  const renderer = new CanvasRenderer({
+  const renderer = new PipelineController({
     canvas: options.canvas,
     nativeWidth: options.nativeWidth,
     nativeHeight: options.nativeHeight,
     preset: options.preset ?? getPackageDefaultPreset()
-  });
+  }, new CanvasDriver());
   await renderer.initialize();
   return renderer;
 }
@@ -97,8 +98,8 @@ export async function createGpuRenderer(options: CreateGpuRendererOptions): Prom
 
   for (const backend of backendFallbacks) {
     if (backend === 'webgpu' && capabilities.webgpu) {
-      const { WebGpuRenderer } = await import('../infrastructure/webgpu.renderer');
-      const renderer = new WebGpuRenderer(baseConfig);
+      const { WebGpuDriver } = await import('../infrastructure/webgpu.driver');
+      const renderer = new PipelineController(baseConfig, new WebGpuDriver());
       const initializedRenderer = await initializeBackendRenderer('webgpu', renderer);
       if (initializedRenderer) return initializedRenderer;
       continue;
