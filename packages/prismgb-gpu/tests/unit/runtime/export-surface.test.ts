@@ -15,8 +15,7 @@ describe('@prismgb/gpu/runtime export surface', () => {
   it('exports runtime factories and lazy browser capability detection', async () => {
     const runtime = await import('@prismgb/gpu/runtime');
 
-    expect(runtime.createCanvas2DRenderPipeline).toEqual(expect.any(Function));
-    expect(runtime.createRenderPipeline).toEqual(expect.any(Function));
+    expect(runtime.createGpuVideoRendererSession).toEqual(expect.any(Function));
     expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));
     await expect(runtime.detectBrowserGpuCapabilities()).resolves.toEqual(expect.objectContaining({
       preferredBackend: 'webgl2'

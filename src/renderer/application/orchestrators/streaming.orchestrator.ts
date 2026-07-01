@@ -34,7 +34,7 @@ type StreamViewServiceLike = {
   clearStream(): void;
 };
 
-type RenderPipelineServiceLike = {
+type StreamingRenderServiceLike = {
   initialize(): void;
   handleCanvasExpired(): Promise<void>;
   handlePerformanceStateChanged(state: PerformanceStatePayload): void;
@@ -59,7 +59,7 @@ type StreamingOrchestratorDependencies = {
   streamingService: StreamingServiceLike;
   appState: AppStateLike;
   streamViewService: StreamViewServiceLike;
-  renderPipelineService: RenderPipelineServiceLike;
+  streamingRenderService: StreamingRenderServiceLike;
   gpuRecordingService: GpuRecordingServiceLike;
   settingsService: SettingsServiceLike;
   eventBus: TypedEventBusLike;
@@ -84,7 +84,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   private readonly streamingService: StreamingServiceLike;
   private readonly appState: AppStateLike;
   private readonly streamViewService: StreamViewServiceLike;
-  private readonly renderPipelineService: RenderPipelineServiceLike;
+  private readonly streamingRenderService: StreamingRenderServiceLike;
   private readonly gpuRecordingService: GpuRecordingServiceLike;
   private readonly settingsService: SettingsServiceLike;
   protected readonly eventBus: TypedEventBusLike;
@@ -97,7 +97,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this.streamingService = dependencies.streamingService;
     this.appState = dependencies.appState;
     this.streamViewService = dependencies.streamViewService;
-    this.renderPipelineService = dependencies.renderPipelineService;
+    this.streamingRenderService = dependencies.streamingRenderService;
     this.gpuRecordingService = dependencies.gpuRecordingService;
     this.settingsService = dependencies.settingsService;
     this.eventBus = dependencies.eventBus;
@@ -108,12 +108,12 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     this._wireDeviceEvents();
 
     this.subscribeWithCleanup({
-      [EventChannels.RENDER.CANVAS_EXPIRED]: () => this.renderPipelineService.handleCanvasExpired(),
+      [EventChannels.RENDER.CANVAS_EXPIRED]: () => this.streamingRenderService.handleCanvasExpired(),
       [EventChannels.UI.STREAM_START_REQUESTED]: () => this.start(),
       [EventChannels.UI.STREAM_STOP_REQUESTED]: () => this.stop()
     });
 
-    this.renderPipelineService.initialize();
+    this.streamingRenderService.initialize();
   }
 
   async start(deviceId: string | null = null): Promise<void> {
@@ -168,11 +168,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    this.renderPipelineService.handlePerformanceStateChanged(state);
+    this.streamingRenderService.handlePerformanceStateChanged(state);
   }
 
   _handleWindowResized(): void {
-    this.renderPipelineService.handleFullscreenChange();
+    this.streamingRenderService.handleFullscreenChange();
   }
 
   _handleRenderPresetChanged(presetId: unknown): void {
@@ -181,7 +181,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    this.renderPipelineService.handleRenderPresetChanged(presetId);
+    this.streamingRenderService.handleRenderPresetChanged(presetId);
   }
 
   async _handlePerformanceModeChanged(enabled: unknown): Promise<void> {
@@ -190,7 +190,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    await this.renderPipelineService.handlePerformanceModeChanged(enabled);
+    await this.streamingRenderService.handlePerformanceModeChanged(enabled);
   }
 
   private _wireDeviceEvents(): void {
@@ -220,7 +220,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     }
 
     try {
-      await this.renderPipelineService.startPipeline(capabilities);
+      await this.streamingRenderService.startPipeline(capabilities);
 
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Streaming from camera' });
     } catch (error) {
@@ -250,7 +250,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       await this.gpuRecordingService.stop();
     }
 
-    this.renderPipelineService.stopPipeline();
+    this.streamingRenderService.stopPipeline();
     this.streamViewService.clearStream();
 
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: false });
@@ -295,7 +295,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   async onCleanup(): Promise<void> {
-    await this.renderPipelineService.cleanup();
+    await this.streamingRenderService.cleanup();
 
     if (this.streamingService.isActive()) {
       try {

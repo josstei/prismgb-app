@@ -11,9 +11,7 @@ import {
   createCaptureGpuRecordingServiceMock,
   createCaptureSaveServiceMock,
   createCaptureServiceMock,
-  createCanvasRenderLoopServiceMock,
   createBitmapMock,
-  createGpuRendererServiceMock,
   createStreamingViewServiceMock,
   createStreamingViewElementsMock,
   createStreamPayloadMock,
@@ -25,9 +23,8 @@ describe('CaptureOrchestrator', () => {
   let mockCaptureService;
   let mockAppState;
   let mockStreamingViewService;
-  let mockGpuRendererService;
+  let mockStreamingRenderService;
   let mockCaptureGpuRecordingService;
-  let mockCanvasRenderLoopService;
   let mockTranscodeService;
   let mockCaptureSaveService;
   let mockEventBus;
@@ -58,17 +55,16 @@ describe('CaptureOrchestrator', () => {
     // Store element references for test assertions
     mockStreamingViewService._elements = mockStreamingViewElements;
 
-    mockGpuRendererService = createGpuRendererServiceMock({
+    mockStreamingRenderService = {
       isActive: vi.fn(() => false),
       captureFrame: vi.fn(),
-      getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
-    });
+      getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
+      isCanvasTransferred: vi.fn(() => false),
+      resize: vi.fn(),
+      resetCanvasState: vi.fn()
+    };
 
     mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock();
-
-    mockCanvasRenderLoopService = createCanvasRenderLoopServiceMock({
-      isActive: vi.fn(() => false)
-    });
 
     mockTranscodeService = createTranscodeServiceMock({
       isTranscoding: vi.fn(() => false)
@@ -83,9 +79,8 @@ describe('CaptureOrchestrator', () => {
       captureService: mockCaptureService,
       appState: mockAppState,
       streamViewService: mockStreamingViewService,
-      gpuRendererService: mockGpuRendererService,
+      streamingRenderService: mockStreamingRenderService,
       gpuRecordingService: mockCaptureGpuRecordingService,
-      canvasRenderLoopService: mockCanvasRenderLoopService,
       transcodeService: mockTranscodeService,
       captureSaveService: mockCaptureSaveService,
       eventBus: mockEventBus,
@@ -122,34 +117,23 @@ describe('CaptureOrchestrator', () => {
   describe('takeScreenshot', () => {
     it('should capture from video element when no rendering pipeline active', async () => {
       mockAppState.setStreaming(true);
-      mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
+      mockStreamingRenderService.isActive.mockReturnValue(false);
 
       await orchestrator.takeScreenshot();
 
       expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamingViewService._elements.streamVideo);
     });
 
-    it('should capture from GPU renderer when GPU is active', async () => {
+    it('should capture from rendering session when active', async () => {
       mockAppState.setStreaming(true);
-      mockGpuRendererService.isActive.mockReturnValue(true);
+      mockStreamingRenderService.isActive.mockReturnValue(true);
       const mockBitmap = createBitmapMock();
-      mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
+      mockStreamingRenderService.captureFrame.mockResolvedValue(mockBitmap);
 
       await orchestrator.takeScreenshot();
 
-      expect(mockGpuRendererService.captureFrame).toHaveBeenCalled();
+      expect(mockStreamingRenderService.captureFrame).toHaveBeenCalled();
       expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockBitmap);
-    });
-
-    it('should capture from canvas when Canvas2D rendering is active', async () => {
-      mockAppState.setStreaming(true);
-      mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
-
-      await orchestrator.takeScreenshot();
-
-      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockStreamingViewService._elements.streamCanvas);
     });
 
     it('should trigger visual feedback when streaming', async () => {
@@ -198,7 +182,7 @@ describe('CaptureOrchestrator', () => {
       });
       mockAppState.currentStream = mockStream;
       mockAppState.currentCapabilities = { frameRate: 75 };
-      mockGpuRendererService.isActive.mockReturnValue(true);
+      mockStreamingRenderService.isActive.mockReturnValue(true);
 
       await orchestrator.toggleRecording();
 
@@ -216,7 +200,7 @@ describe('CaptureOrchestrator', () => {
       });
       mockAppState.currentStream = mockStream;
       mockAppState.currentCapabilities = null;
-      mockGpuRendererService.isActive.mockReturnValue(true);
+      mockStreamingRenderService.isActive.mockReturnValue(true);
 
       await orchestrator.toggleRecording();
 
@@ -334,30 +318,19 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('_getCaptureSource', () => {
-    it('should return GPU frame when GPU renderer is active', async () => {
-      mockGpuRendererService.isActive.mockReturnValue(true);
+    it('should return session frame when rendering session is active', async () => {
+      mockStreamingRenderService.isActive.mockReturnValue(true);
       const mockBitmap = createBitmapMock();
-      mockGpuRendererService.captureFrame.mockResolvedValue(mockBitmap);
+      mockStreamingRenderService.captureFrame.mockResolvedValue(mockBitmap);
 
       const source = await orchestrator._getCaptureSource();
 
       expect(source).toBe(mockBitmap);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from GPU renderer');
+      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from renderer session');
     });
 
-    it('should return canvas when Canvas2D is active but GPU is not', async () => {
-      mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderLoopService.isActive.mockReturnValue(true);
-
-      const source = await orchestrator._getCaptureSource();
-
-      expect(source).toBe(mockStreamingViewService._elements.streamCanvas);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Capturing screenshot from Canvas2D renderer');
-    });
-
-    it('should return video element when no rendering pipeline is active', async () => {
-      mockGpuRendererService.isActive.mockReturnValue(false);
-      mockCanvasRenderLoopService.isActive.mockReturnValue(false);
+    it('should return video element when no rendering session is active', async () => {
+      mockStreamingRenderService.isActive.mockReturnValue(false);
 
       const source = await orchestrator._getCaptureSource();
 

@@ -1,4 +1,3 @@
-import type { PipelineUniforms } from '../domain/uniforms';
 import type { RenderBackend, RenderPreset } from '../domain/types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -18,6 +17,7 @@ export const WorkerMessageType = Object.freeze({
   FRAME: 'frame',
   RESIZE: 'resize',
   SET_PRESET: 'setPreset',
+  SET_BRIGHTNESS: 'setBrightness',
   REQUEST_CAPTURE: 'requestCapture',
   CAPTURE: 'capture',
   RELEASE: 'release',
@@ -58,7 +58,10 @@ export type InitPayload = {
 
 export type FramePayload = {
   imageBitmap: ImageBitmap;
-  uniforms: PipelineUniforms;
+};
+
+export type BrightnessPayload = {
+  brightness: number;
 };
 
 export type ResizePayload = {
@@ -79,6 +82,7 @@ export type WorkerMessagePayloadMap = {
   [WorkerMessageType.FRAME]: FramePayload;
   [WorkerMessageType.RESIZE]: ResizePayload;
   [WorkerMessageType.SET_PRESET]: PresetPayload;
+  [WorkerMessageType.SET_BRIGHTNESS]: BrightnessPayload;
   [WorkerMessageType.REQUEST_CAPTURE]: EmptyWorkerPayload;
   [WorkerMessageType.CAPTURE]: EmptyWorkerPayload;
   [WorkerMessageType.RELEASE]: EmptyWorkerPayload;
@@ -261,8 +265,7 @@ export function isInitPayload(value: unknown): value is InitPayload {
 export function isFramePayload(value: unknown): value is FramePayload {
   return (
     isRecord(value) &&
-    isImageBitmapLike(value.imageBitmap) &&
-    isRecord(value.uniforms)
+    isImageBitmapLike(value.imageBitmap)
   );
 }
 
@@ -292,6 +295,8 @@ export function isWorkerMessagePayload<K extends WorkerMessageTypeValue>(
       return isResizePayload(payload);
     case WorkerMessageType.SET_PRESET:
       return isPresetPayload(payload);
+    case WorkerMessageType.SET_BRIGHTNESS:
+      return isRecord(payload) && isNumber(payload.brightness);
     case WorkerMessageType.REQUEST_CAPTURE:
     case WorkerMessageType.CAPTURE:
     case WorkerMessageType.RELEASE:

@@ -7,7 +7,6 @@
  */
 
 import { vi } from 'vitest';
-import { createWorkerRendererClientMock as createPackageWorkerRendererClientMock } from '@prismgb/gpu/testkit';
 import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
 
@@ -129,30 +128,6 @@ export function createStreamingViewElementsMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/canvas-render-loop.service').StreamingCanvasRenderLoopService} StreamingCanvasRenderLoopService
- */
-
-/**
- * Creates a mock CanvasRenderLoopService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingCanvasRenderLoopService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingCanvasRenderLoopService>} A strongly-typed mock CanvasRenderLoopService.
- */
-export function createCanvasRenderLoopServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    isActive: vi.fn(() => false),
-    startRendering: vi.fn(),
-    stopRendering: vi.fn(),
-    clearCanvas: vi.fn(),
-    resize: vi.fn(),
-    resetCanvasState: vi.fn(),
-    cleanup: vi.fn(),
-    hasContextFor: vi.fn().mockReturnValue(false),
-    ...overrides
-  });
-}
-
-/**
  * @typedef {import('@renderer/infrastructure/services/platform/viewport.service').StreamingViewportService} StreamingViewportService
  */
 
@@ -196,113 +171,10 @@ export function createStreamHealthServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/gpu/gpu-render-loop.service').StreamingGpuRenderLoopService} StreamingGpuRenderLoopService
- */
-
-/**
- * Creates a mock GpuRenderLoopService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingGpuRenderLoopService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingGpuRenderLoopService>} A strongly-typed mock GpuRenderLoopService.
- */
-export function createGpuRenderLoopServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    start: vi.fn(),
-    stop: vi.fn(),
-    ...overrides
-  });
-}
-
-/**
- * Creates a mock WorkerRendererClient.
+ * Creates a mock GpuRendererService (the target-dimensions provider consumed by the recording service).
  *
  * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock WorkerRendererClient.
- */
-export function createWorkerRendererClientMock(overrides = {}) {
-  const client = createPackageWorkerRendererClientMock();
-
-  return {
-    ...client,
-    isReady: vi.fn(client.isReady),
-    isCanvasTransferred: vi.fn(client.isCanvasTransferred),
-    initialize: vi.fn(client.initialize),
-    renderFrame: vi.fn(client.renderFrame),
-    setPreset: vi.fn(client.setPreset),
-    resize: vi.fn(client.resize),
-    requestCapture: vi.fn(client.requestCapture),
-    requestCapturedFrame: vi.fn(client.requestCapturedFrame),
-    sendCommand: vi.fn(client.sendCommand),
-    onMessage: vi.fn(client.onMessage),
-    onReady: vi.fn(client.onReady),
-    onFrameRendered: vi.fn(client.onFrameRendered),
-    onStats: vi.fn(client.onStats),
-    onError: vi.fn(client.onError),
-    onCaptureRequested: vi.fn(client.onCaptureRequested),
-    onCaptureReady: vi.fn(client.onCaptureReady),
-    onReleased: vi.fn(client.onReleased),
-    onDestroyed: vi.fn(client.onDestroyed),
-    releaseResources: vi.fn(client.releaseResources),
-    terminate: vi.fn(client.terminate),
-    dispose: vi.fn(client.dispose),
-    ...overrides
-  };
-}
-
-/**
- * Creates a mock StreamingRendererFactory.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock StreamingRendererFactory.
- */
-export function createStreamingRendererFactoryMock(overrides = {}) {
-  return {
-    selectRendererType: vi.fn(() => 'canvas2d'),
-    createRenderer: vi.fn(),
-    hasRenderer: vi.fn().mockReturnValue(true),
-    getRegisteredTypes: vi.fn(() => ['gpu', 'canvas2d']),
-    ...overrides
-  };
-}
-
-/**
- * Creates a mock RendererAdapter.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock RendererAdapter.
- */
-export function createRendererAdapterMock(overrides = {}) {
-  return {
-    initialize: vi.fn().mockResolvedValue(true),
-    renderFrame: vi.fn().mockResolvedValue(undefined),
-    resize: vi.fn(),
-    isActive: vi.fn().mockReturnValue(true),
-    pause: vi.fn(),
-    resume: vi.fn(),
-    cleanup: vi.fn(),
-    supportsPresets: vi.fn().mockReturnValue(false),
-    getPresetId: vi.fn(() => null),
-    setPreset: vi.fn(),
-    setHiddenStateFn: vi.fn(),
-    isCanvasTransferred: vi.fn().mockReturnValue(false),
-    terminateAndReset: vi.fn(),
-    releaseGpuResources: vi.fn(),
-    clearCanvas: vi.fn(),
-    resetCanvasState: vi.fn(),
-    handlePipelineStop: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/gpu/gpu-renderer.service').StreamingGpuRendererService} StreamingGpuRendererService
- */
-
-/**
- * Creates a mock GpuRendererService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingGpuRendererService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingGpuRendererService>} A strongly-typed mock GpuRendererService.
+ * @returns {Object} Mock GpuRendererService.
  */
 export function createGpuRendererServiceMock(overrides = {}) {
   return /** @type {any} */ ({
@@ -343,22 +215,6 @@ export function createStreamViewServiceMock(overrides = {}) {
 }
 
 /**
- * Creates a mock CanvasRenderPipeline.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock CanvasRenderPipeline.
- */
-export function createCanvasRenderPipelineMock(overrides = {}) {
-  return {
-    renderFrame: vi.fn(),
-    resize: vi.fn(),
-    clearFrame: vi.fn(),
-    dispose: vi.fn(async () => undefined),
-    ...overrides
-  };
-}
-
-/**
  * @typedef {import('@renderer/infrastructure/services/streaming/streaming.service').StreamingService} StreamingService
  */
 
@@ -379,16 +235,16 @@ export function createStreamingServiceFacadeMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@renderer/infrastructure/services/streaming/render-pipeline.service').StreamingRenderPipelineService} StreamingRenderPipelineService
+ * @typedef {import('@renderer/infrastructure/services/streaming/streaming-render.service').StreamingRenderService} StreamingRenderService
  */
 
 /**
- * Creates a mock StreamingRenderPipelineService.
+ * Creates a mock StreamingRenderService.
  *
- * @param {Partial<import('vitest').Mocked<StreamingRenderPipelineService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingRenderPipelineService>} A strongly-typed mock StreamingRenderPipelineService.
+ * @param {Partial<import('vitest').Mocked<StreamingRenderService>>} [overrides={}] - Mock overrides.
+ * @returns {import('vitest').Mocked<StreamingRenderService>} A strongly-typed mock StreamingRenderService.
  */
-export function createStreamingRenderPipelineServiceMock(overrides = {}) {
+export function createStreamingRenderServiceMock(overrides = {}) {
   return /** @type {any} */ ({
     initialize: vi.fn(),
     handleCanvasExpired: vi.fn(),

@@ -13,14 +13,6 @@
       "import": "./dist/runtime.js",
       "types": "./dist/runtime.d.ts"
     },
-    "./worker": {
-      "import": "./dist/worker.js",
-      "types": "./dist/worker.d.ts"
-    },
-    "./worker-entry": {
-      "import": "./dist/worker-entry.js",
-      "types": "./dist/worker-entry.d.ts"
-    },
     "./testkit": {
       "import": "./dist/testkit.js",
       "types": "./dist/testkit.d.ts"

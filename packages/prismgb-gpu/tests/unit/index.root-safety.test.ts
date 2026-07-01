@@ -4,12 +4,12 @@ vi.mock('@/infrastructure/capabilities.browser', () => {
   throw new Error('browser capabilities imported');
 });
 
-vi.mock('@/infrastructure/webgl2/webgl2-pipeline', () => {
-  throw new Error('webgl2 pipeline imported');
+vi.mock('@/infrastructure/webgl.renderer', () => {
+  throw new Error('webgl renderer imported');
 });
 
-vi.mock('@/infrastructure/webgpu/webgpu-pipeline', () => {
-  throw new Error('webgpu pipeline imported');
+vi.mock('@/infrastructure/webgpu.renderer', () => {
+  throw new Error('webgpu renderer imported');
 });
 
 vi.mock('@/worker/client', () => {
@@ -22,7 +22,7 @@ describe('@prismgb/gpu root export safety', () => {
 
     expect(gpu.getRendererDefaultPreset().id).toBe('vibrant');
     expect(gpu.buildUniforms).toEqual(expect.any(Function));
-    expect(gpu.createRenderPipeline).toBeUndefined();
+    expect(gpu.createGpuRenderer).toBeUndefined();
     expect(gpu.detectBrowserGpuCapabilities).toBeUndefined();
     expect(gpu.WorkerRendererClient).toBeUndefined();
   });

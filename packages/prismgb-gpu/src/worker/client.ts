@@ -3,7 +3,6 @@ import {
   WorkerResponseType,
   createWorkerMessage,
   isValidWorkerResponse,
-  type FramePayload,
   type PresetPayload,
   type ResizePayload,
   type WorkerMessagePayloadMap,
@@ -212,8 +211,12 @@ export class WorkerRendererClient {
     return true;
   }
 
-  renderFrame(imageBitmap: ImageBitmap, uniforms: FramePayload['uniforms']): boolean {
-    return this.sendCommand(WorkerMessageType.FRAME, { imageBitmap, uniforms }, [imageBitmap]);
+  renderFrame(imageBitmap: ImageBitmap): boolean {
+    return this.sendCommand(WorkerMessageType.FRAME, { imageBitmap }, [imageBitmap]);
+  }
+
+  setBrightness(brightness: number): boolean {
+    return this.sendCommand(WorkerMessageType.SET_BRIGHTNESS, { brightness });
   }
 
   setPreset(presetId: string, preset: PresetPayload['preset']): boolean {

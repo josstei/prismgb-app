@@ -91,6 +91,19 @@ export interface RenderStats {
   framesDropped: number;
 }
 
+export interface GpuVideoRendererStats {
+  fps: number;
+  frameTime: number;
+  gpuTime?: number;
+  uploadTime?: number;
+}
+
+export interface GpuVideoRendererError {
+  message: string;
+  code?: string;
+  stack?: string;
+}
+
 export interface RenderPipeline {
   readonly backend: RenderBackend;
   readonly isInitialized: boolean;

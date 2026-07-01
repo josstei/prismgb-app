@@ -1,0 +1,147 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
+import {
+  createAppState,
+  createCanvasLifecycleServiceMock,
+  createEventBus,
+  createLoggerFactory,
+  createStreamingViewServiceMock,
+  createStreamHealthServiceMock
+} from '../../../../factories/index.js';
+
+const mockSession = {
+  backend: 'webgpu',
+  isActive: true,
+  isCanvasTransferred: true,
+  renderFrame: vi.fn(async () => {}),
+  resize: vi.fn(),
+  setPreset: vi.fn(),
+  setBrightness: vi.fn(),
+  captureFrame: vi.fn(async () => ({ width: 160, height: 144 } as any)),
+  release: vi.fn(),
+  terminate: vi.fn(),
+  dispose: vi.fn(),
+};
+
+vi.mock('@prismgb/gpu/runtime', () => ({
+  createGpuVideoRendererSession: vi.fn(async () => mockSession)
+}));
+
+describe('StreamingRenderService', () => {
+  let service: StreamingRenderService;
+  let mockAppState: any;
+  let mockStreamViewService: any;
+  let mockCanvasLifecycleService: any;
+  let mockStreamHealthService: any;
+  let mockSettingsService: any;
+  let mockEventBus: any;
+  let mockLogger: any;
+  let mockLoggerFactory: any;
+  let canvas: HTMLCanvasElement;
+  let video: HTMLVideoElement;
+
+  beforeEach(() => {
+    const section = document.createElement('section');
+    const container = document.createElement('div');
+    canvas = document.createElement('canvas');
+    video = document.createElement('video');
+
+    container.appendChild(canvas);
+    section.appendChild(container);
+    document.body.appendChild(section);
+
+    mockAppState = createAppState();
+
+    mockStreamViewService = createStreamingViewServiceMock({
+      getCanvas: vi.fn(() => canvas),
+      getVideo: vi.fn(() => video),
+      getCanvasContainer: vi.fn(() => container),
+      getCanvasSection: vi.fn(() => section),
+      setCanvas: vi.fn()
+    });
+
+    mockCanvasLifecycleService = createCanvasLifecycleServiceMock();
+    mockStreamHealthService = createStreamHealthServiceMock();
+
+    mockSettingsService = {
+      getNumberSetting: vi.fn((name) => {
+        if (name === 'globalBrightness') return 1.0;
+        return null;
+      }),
+      getStringSetting: vi.fn((name) => {
+        if (name === 'renderPreset') return 'vibrant';
+        return null;
+      })
+    };
+
+    mockEventBus = createEventBus();
+    mockLoggerFactory = createLoggerFactory();
+
+    service = new StreamingRenderService({
+      appState: mockAppState,
+      streamViewService: mockStreamViewService,
+      canvasLifecycleService: mockCanvasLifecycleService,
+      streamHealthService: mockStreamHealthService,
+      settingsService: mockSettingsService,
+      eventBus: mockEventBus,
+      loggerFactory: mockLoggerFactory
+    });
+    mockLogger = mockLoggerFactory._getLogger('StreamingRenderService');
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  describe('initialization', () => {
+    it('initializes canvas lifecycle service', () => {
+      service.initialize();
+      expect(mockCanvasLifecycleService.initialize).toHaveBeenCalled();
+    });
+  });
+
+  describe('startPipeline', () => {
+    it('starts rendering after stream health check', async () => {
+      mockAppState.setStreaming(true);
+
+      const startPromise = service.startPipeline({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        nativeResolution: { width: 160, height: 144 }
+      });
+
+      // trigger stream health check callback
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+
+      await startPromise;
+
+      expect(mockStreamHealthService.checkStreamHealth).toHaveBeenCalled();
+      expect(mockSession.terminate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('stopPipeline', () => {
+    it('terminates active session and cleans up resources', async () => {
+      mockAppState.setStreaming(true);
+
+      const startPromise = service.startPipeline({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        nativeResolution: { width: 160, height: 144 }
+      });
+
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+      await startPromise;
+
+      service.stopPipeline();
+
+      expect(mockSession.terminate).toHaveBeenCalled();
+    });
+  });
+});

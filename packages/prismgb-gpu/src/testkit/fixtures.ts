@@ -1,4 +1,4 @@
-import { getRendererDefaultPreset } from '../application/preset-catalog';
+import { getRendererDefaultPreset } from '../application/catalog';
 import type {
   RenderCapabilities,
   RenderCanvas,

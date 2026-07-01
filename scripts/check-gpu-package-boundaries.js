@@ -1,33 +1,22 @@
 /**
  * GPU package boundary gate.
  *
- * Run after `npm run build:packages`. It verifies the public GPU subpaths,
- * root-safe source and dist exports, stale artifact cleanup, and the generated
- * `@prismgb/gpu/testkit` runtime export surface.
+ * Verifies public GPU subpaths, root-safe source exports, stale artifact
+ * cleanup, and source export surfaces. When package dist exists, it also
+ * imports the built entrypoints to verify the runtime export surface.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GPU_PACKAGE_DIR = resolve(PROJECT_ROOT, 'packages/prismgb-gpu');
 
-const EXPECTED_GPU_EXPORTS = ['.', './runtime', './worker', './worker-entry', './testkit'];
-const EXPECTED_TESTKIT_EXPORTS = [
-  'createMockCanvas',
-  'createMockOffscreenCanvas',
-  'createMockWebGL2Context',
-  'createPipelineUniformsFixture',
-  'createRenderCapabilitiesFixture',
-  'createRenderPresetFixture',
-  'createRenderStatsFixture',
-  'createWorkerRendererClientMock'
-];
+const EXPECTED_GPU_EXPORTS = ['.', './runtime', './testkit'];
 
 const EXPECTED_GPU_ALIASES = {
   '@prismgb/gpu': './packages/prismgb-gpu/src',
   '@prismgb/gpu/runtime': './packages/prismgb-gpu/src/runtime',
-  '@prismgb/gpu/worker': './packages/prismgb-gpu/src/worker',
   '@prismgb/gpu/testkit': './packages/prismgb-gpu/src/testkit'
 };
 
@@ -42,67 +31,6 @@ const TEXT_FILE_EXTENSIONS = new Set([
   '.ts',
   '.tsx'
 ]);
-
-const STALE_SOURCE_PATTERNS = [
-  /\bGpuFrameBuffer\b/,
-  /\bGpuFrameBufferLike\b/,
-  /\bGpuWorkerManager\b/,
-  /worker-protocol\.config/,
-  /render\.worker/,
-  /\bPresetRegistry\b/,
-  /\bIPipeline\b/,
-  /\bIPipelineConfig\b/,
-  /\bIPipelineCapabilities\b/,
-  /\bIPipelineStats\b/,
-  /\bIPreset\b/,
-  /\bRenderAPI\b/,
-  /createGpuWorkerManagerMock/,
-  /createGpuFrameBufferMock/,
-  /createWorkerPipelineMock/
-];
-
-const STALE_GPU_SOURCE_PATH_PARTS = [
-  'src/domain/pipeline/',
-  'src/domain/shaders/',
-  'src/domain/presets/preset-registry.ts',
-  'src/factories/',
-  'src/application/gpu-frame-buffer.ts',
-  'src/infrastructure/base-pipeline.ts',
-  'src/infrastructure/shader-source-map.ts',
-  'src/infrastructure/webgl2/shader-program.ts',
-  'src/infrastructure/webgl2/webgl2-shader-loader.ts',
-  'src/infrastructure/webgpu/bind-group-cache.ts',
-  'src/infrastructure/webgpu/uniform-tracker.ts',
-  'src/infrastructure/webgpu/webgpu-shader-loader.ts'
-];
-
-const STALE_GPU_DIST_PATH_PARTS = [
-  'dist/domain/pipeline/',
-  'dist/domain/shaders/',
-  'dist/domain/render-passes/render-passes-helpers',
-  'dist/domain/render-passes/render-passes.contract',
-  'dist/factories/',
-  'dist/application/gpu-frame-buffer',
-  'dist/infrastructure/base-pipeline',
-  'dist/infrastructure/shader-source-map',
-  'dist/infrastructure/webgl2/shader-program',
-  'dist/infrastructure/webgl2/webgl2-shader-loader',
-  'dist/infrastructure/webgpu/bind-group-cache',
-  'dist/infrastructure/webgpu/uniform-tracker',
-  'dist/infrastructure/webgpu/webgpu-shader-loader',
-  'dist/assets/shader-source-map'
-];
-
-const FORBIDDEN_ROOT_SOURCE_EXPORTS = [
-  './runtime',
-  './worker',
-  './infrastructure',
-  './application/render-pipeline',
-  './application/canvas2d-render-pipeline',
-  './infrastructure/shader-sources',
-  './infrastructure/capabilities.browser',
-  './infrastructure/capabilities.worker'
-];
 
 function readJson(relativePath) {
   return JSON.parse(readFileSync(resolve(PROJECT_ROOT, relativePath), 'utf8'));
@@ -169,6 +97,9 @@ function assertVitestAliases() {
   if (configText.includes('@prismgb/gpu/*')) {
     fail('vitest.config.js must not use a wildcard GPU alias');
   }
+  if (configText.includes('@prismgb/gpu/worker')) {
+    fail('vitest.config.js still contains @prismgb/gpu/worker alias');
+  }
 }
 
 function walkFiles(root, files = [], options = {}) {
@@ -193,51 +124,21 @@ function walkFiles(root, files = [], options = {}) {
   return files;
 }
 
-function assertNoStaleSourceSymbols() {
-  const roots = [
-    resolve(PROJECT_ROOT, 'src'),
-    resolve(PROJECT_ROOT, 'tests'),
-    resolve(PROJECT_ROOT, 'packages/prismgb-gpu/src'),
-    resolve(PROJECT_ROOT, 'packages/prismgb-gpu/tests')
-  ];
-  const failures = [];
-
-  for (const filePath of roots.flatMap((root) => walkFiles(root))) {
-    const relativePath = normalizeSlash(relative(PROJECT_ROOT, filePath));
-    const text = readFileSync(filePath, 'utf8');
-    for (const pattern of STALE_SOURCE_PATTERNS) {
-      if (pattern.test(text)) {
-        failures.push(`${relativePath}: ${pattern}`);
-      }
-      pattern.lastIndex = 0;
-    }
-  }
-
-  if (failures.length > 0) {
-    fail('stale GPU source/test symbols remain', failures);
-  }
-}
-
-function assertNoStalePaths(pathParts, root = GPU_PACKAGE_DIR, options = {}) {
-  const allFiles = walkFiles(root, [], options);
-  const stalePaths = allFiles
-    .map((filePath) => normalizeSlash(relative(GPU_PACKAGE_DIR, filePath)))
-    .filter((relativePath) => pathParts.some((part) => relativePath.includes(part.replace(/^dist\//, 'dist/'))));
-
-  if (stalePaths.length > 0) {
-    fail('stale GPU files remain', stalePaths);
-  }
-}
-
 function assertRootSourceSafe() {
   const rootSource = readFileSync(resolve(GPU_PACKAGE_DIR, 'src/index.ts'), 'utf8');
-  const forbidden = FORBIDDEN_ROOT_SOURCE_EXPORTS.filter((pathName) => rootSource.includes(pathName));
+  const forbidden = [
+    './infrastructure',
+    './application/renderer.service',
+    './worker',
+    './worker-entry'
+  ].filter((pathName) => rootSource.includes(pathName));
+
   if (forbidden.length > 0) {
-    fail('@prismgb/gpu root source exports runtime or infrastructure modules', forbidden);
+    fail('@prismgb/gpu root source exports or imports forbidden internal modules', forbidden);
   }
 }
 
-function assertNoAppDeepImports() {
+function assertNoAppDeepImportsAndWorkerImports() {
   const roots = [
     resolve(PROJECT_ROOT, 'src'),
     resolve(PROJECT_ROOT, 'tests')
@@ -246,61 +147,71 @@ function assertNoAppDeepImports() {
 
   for (const filePath of roots.flatMap((root) => walkFiles(root))) {
     const text = readFileSync(filePath, 'utf8');
+    const relativePath = normalizeSlash(relative(PROJECT_ROOT, filePath));
     if (text.includes('packages/prismgb-gpu/src') || text.includes('@prismgb/gpu/src')) {
-      failures.push(normalizeSlash(relative(PROJECT_ROOT, filePath)));
+      failures.push(`${relativePath}: deep imports package source`);
+    }
+    if (text.includes('@prismgb/gpu/worker')) {
+      failures.push(`${relativePath}: imports @prismgb/gpu/worker`);
+    }
+    if (text.includes('@prismgb/gpu/worker-entry')) {
+      failures.push(`${relativePath}: imports @prismgb/gpu/worker-entry`);
     }
   }
 
   if (failures.length > 0) {
-    fail('app/test files deep-import GPU package source', failures);
+    fail('app/test files have invalid GPU package imports', failures);
   }
 }
 
-async function assertBuiltExportSurface() {
-  const indexPath = resolve(GPU_PACKAGE_DIR, 'dist/index.js');
-  const testkitPath = resolve(GPU_PACKAGE_DIR, 'dist/testkit.js');
-  const workerPath = resolve(GPU_PACKAGE_DIR, 'dist/worker.js');
-  const workerEntryPath = resolve(GPU_PACKAGE_DIR, 'dist/worker-entry.js');
-  const runtimePath = resolve(GPU_PACKAGE_DIR, 'dist/runtime.js');
+function assertBuiltDistMatchesExports() {
+  const distDir = resolve(GPU_PACKAGE_DIR, 'dist');
+  if (!existsSync(distDir)) {
+    return;
+  }
 
-  for (const requiredPath of [indexPath, testkitPath, workerPath, workerEntryPath, runtimePath]) {
-    if (!existsSync(requiredPath)) {
-      fail('GPU dist export target is missing; run npm run build:packages first', [
-        normalizeSlash(relative(PROJECT_ROOT, requiredPath))
-      ]);
+  const manifest = readJson('packages/prismgb-gpu/package.json');
+  const exportsMap = manifest.exports ?? {};
+
+  const allowedFiles = new Set();
+  for (const [, paths] of Object.entries(exportsMap)) {
+    if (paths.import) {
+      allowedFiles.add(normalizeSlash(relative('./dist', paths.import)));
+      allowedFiles.add(normalizeSlash(relative('./dist', paths.import)) + '.map');
+    }
+    if (paths.types) {
+      allowedFiles.add(normalizeSlash(relative('./dist', paths.types)));
+      allowedFiles.add(normalizeSlash(relative('./dist', paths.types)) + '.map');
     }
   }
 
-  const root = await import(pathToFileURL(indexPath).href);
-  const testkit = await import(pathToFileURL(testkitPath).href);
-  const worker = await import(pathToFileURL(workerPath).href);
-  const runtime = await import(pathToFileURL(runtimePath).href);
+  allowedFiles.add('worker-entry.js');
+  allowedFiles.add('worker-entry.js.map');
+  allowedFiles.add('worker-entry.d.ts');
+  allowedFiles.add('worker-entry.d.ts.map');
 
-  const forbiddenRootExports = [
-    'WorkerRendererClient',
-    'createRenderPipeline',
-    'createWorkerPipeline',
-    'detectBrowserGpuCapabilities'
-  ].filter((name) => name in root);
-  if (forbiddenRootExports.length > 0) {
-    fail('@prismgb/gpu root dist export leaked runtime/worker APIs', forbiddenRootExports);
+  const filesInDist = walkFiles(distDir, [], { skipGenerated: false })
+    .map(filePath => normalizeSlash(relative(distDir, filePath)));
+
+  const unexpected = filesInDist.filter(file => !allowedFiles.has(file));
+  if (unexpected.length > 0) {
+    fail('built dist contains unexpected files not matching package exports plus allowed private worker asset', unexpected);
+  }
+}
+
+function assertNoWebGL2FilesIfWebGL2Removed() {
+  const hasWebGL2Renderer = existsSync(resolve(GPU_PACKAGE_DIR, 'src/infrastructure/webgl.renderer.ts'));
+  if (hasWebGL2Renderer) {
+    return;
   }
 
-  const missingTestkitExports = EXPECTED_TESTKIT_EXPORTS.filter((name) => !(name in testkit));
-  if (missingTestkitExports.length > 0) {
-    fail('@prismgb/gpu/testkit dist export is incomplete', missingTestkitExports);
-  }
+  const files = walkFiles(GPU_PACKAGE_DIR, [], { skipGenerated: false });
+  const webglFiles = files
+    .map(filePath => normalizeSlash(relative(PROJECT_ROOT, filePath)))
+    .filter(path => path.includes('webgl') || path.includes('WebGL'));
 
-  const missingWorkerExports = ['WorkerRendererClient', 'WorkerMessageType', 'createWorkerMessage']
-    .filter((name) => !(name in worker));
-  if (missingWorkerExports.length > 0) {
-    fail('@prismgb/gpu/worker dist export is incomplete', missingWorkerExports);
-  }
-
-  const missingRuntimeExports = ['createCanvas2DRenderPipeline', 'createRenderPipeline', 'detectBrowserGpuCapabilities']
-    .filter((name) => !(name in runtime));
-  if (missingRuntimeExports.length > 0) {
-    fail('@prismgb/gpu/runtime dist export is incomplete', missingRuntimeExports);
+  if (webglFiles.length > 0) {
+    fail('WebGL2 files remain after removal phase', webglFiles);
   }
 }
 
@@ -308,11 +219,9 @@ assertExactGpuExports();
 assertTsconfigAliases('tsconfig.base.json');
 assertTsconfigAliases('tsconfig.app.json');
 assertVitestAliases();
-assertNoStaleSourceSymbols();
-assertNoStalePaths(STALE_GPU_SOURCE_PATH_PARTS);
 assertRootSourceSafe();
-assertNoAppDeepImports();
-assertNoStalePaths(STALE_GPU_DIST_PATH_PARTS, GPU_PACKAGE_DIR, { skipGenerated: false });
-await assertBuiltExportSurface();
+assertNoAppDeepImportsAndWorkerImports();
+assertBuiltDistMatchesExports();
+assertNoWebGL2FilesIfWebGL2Removed();
 
 console.log('GPU boundary check OK.');

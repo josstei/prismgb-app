@@ -13,7 +13,7 @@ import {
   createEventBus,
   createLoggerFactory,
   createCaptureGpuRecordingServiceMock,
-  createStreamingRenderPipelineServiceMock,
+  createStreamingRenderServiceMock,
   createStreamingServiceFacadeMock,
   createStreamingViewServiceMock,
   createSettingsServiceMock
@@ -27,7 +27,7 @@ describe('StreamingOrchestrator', () => {
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
-  let mockStreamingRenderPipelineService;
+  let mockStreamingRenderService;
   let mockCaptureGpuRecordingService;
   let mockSettingsService;
 
@@ -55,7 +55,7 @@ describe('StreamingOrchestrator', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    mockStreamingRenderPipelineService = createStreamingRenderPipelineServiceMock();
+    mockStreamingRenderService = createStreamingRenderServiceMock();
 
     mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock({
       isActive: vi.fn().mockReturnValue(false),
@@ -72,7 +72,7 @@ describe('StreamingOrchestrator', () => {
       streamingService: mockStreamingService,
       appState: mockAppState,
       streamViewService: mockStreamingViewService,
-      renderPipelineService: mockStreamingRenderPipelineService,
+      streamingRenderService: mockStreamingRenderService,
       gpuRecordingService: mockCaptureGpuRecordingService,
       settingsService: mockSettingsService,
       eventBus: mockEventBus,
@@ -97,7 +97,7 @@ describe('StreamingOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:disconnected-during-session', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:supported-device-available', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('render:canvas-expired', expect.any(Function));
-      expect(mockStreamingRenderPipelineService.initialize).toHaveBeenCalled();
+      expect(mockStreamingRenderService.initialize).toHaveBeenCalled();
     });
   });
 
@@ -177,13 +177,13 @@ describe('StreamingOrchestrator', () => {
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:streaming-mode', { enabled: true });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:stream-info', { settings: mockData.settings.video });
-      expect(mockStreamingRenderPipelineService.startPipeline).toHaveBeenCalledWith(mockData.capabilities);
+      expect(mockStreamingRenderService.startPipeline).toHaveBeenCalledWith(mockData.capabilities);
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Streaming from camera' });
     });
 
     it('should handle unhealthy stream', async () => {
       const error = new Error('No frames received');
-      mockStreamingRenderPipelineService.startPipeline.mockRejectedValue(error);
+      mockStreamingRenderService.startPipeline.mockRejectedValue(error);
 
       await orchestrator._handleStreamStarted(mockData);
 
@@ -202,7 +202,7 @@ describe('StreamingOrchestrator', () => {
     it('should stop render pipeline and clear video', () => {
       orchestrator._handleStreamStopped();
 
-      expect(mockStreamingRenderPipelineService.stopPipeline).toHaveBeenCalled();
+      expect(mockStreamingRenderService.stopPipeline).toHaveBeenCalled();
       expect(mockStreamingViewService.clearStream).toHaveBeenCalled();
     });
 
@@ -315,23 +315,23 @@ describe('StreamingOrchestrator', () => {
   describe('Performance event handling', () => {
     it('should delegate performance mode changes', () => {
       orchestrator._handlePerformanceModeChanged(true);
-      expect(mockStreamingRenderPipelineService.handlePerformanceModeChanged).toHaveBeenCalledWith(true);
+      expect(mockStreamingRenderService.handlePerformanceModeChanged).toHaveBeenCalledWith(true);
     });
 
     it('should delegate render preset changes', () => {
       orchestrator._handleRenderPresetChanged('vibrant');
-      expect(mockStreamingRenderPipelineService.handleRenderPresetChanged).toHaveBeenCalledWith('vibrant');
+      expect(mockStreamingRenderService.handleRenderPresetChanged).toHaveBeenCalledWith('vibrant');
     });
 
     it('should delegate performance state changes', () => {
       const state = { hidden: true };
       orchestrator._handlePerformanceStateChanged(state);
-      expect(mockStreamingRenderPipelineService.handlePerformanceStateChanged).toHaveBeenCalledWith(state);
+      expect(mockStreamingRenderService.handlePerformanceStateChanged).toHaveBeenCalledWith(state);
     });
 
     it('should delegate window resized to render pipeline', () => {
       orchestrator._handleWindowResized();
-      expect(mockStreamingRenderPipelineService.handleFullscreenChange).toHaveBeenCalled();
+      expect(mockStreamingRenderService.handleFullscreenChange).toHaveBeenCalled();
     });
   });
 
@@ -341,7 +341,7 @@ describe('StreamingOrchestrator', () => {
 
       await orchestrator.onCleanup();
 
-      expect(mockStreamingRenderPipelineService.cleanup).toHaveBeenCalled();
+      expect(mockStreamingRenderService.cleanup).toHaveBeenCalled();
       expect(mockStreamingService.stop).toHaveBeenCalled();
     });
   });

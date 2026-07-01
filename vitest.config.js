@@ -14,7 +14,6 @@ const sharedAlias = {
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
   '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-  '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
   '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
   '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
   '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
@@ -60,10 +59,10 @@ const baseCoverageConfig = {
     'src/**/gpu-render-loop.service.{js,ts}',
     // Keep root CI coverage aligned with @prismgb/gpu package coverage policy.
     // Hardware-specific GPU backends are covered by focused package tests and build/type gates.
-    'packages/prismgb-gpu/src/infrastructure/webgpu/**',
-    'packages/prismgb-gpu/src/infrastructure/webgl2/**',
+    'packages/prismgb-gpu/src/infrastructure/webgpu.renderer.ts',
+    'packages/prismgb-gpu/src/infrastructure/webgl.renderer.ts',
     'packages/prismgb-gpu/src/infrastructure/workers/**',
-    'packages/prismgb-gpu/src/infrastructure/canvas2d/**',
+    'packages/prismgb-gpu/src/infrastructure/canvas.renderer.ts',
     // Audio warmup requires Web Audio API not available in vitest
     'src/**/audio/*.{js,ts}',
     // Canvas lifecycle requires complex DOM/Canvas API interactions
@@ -163,7 +162,6 @@ export default defineConfig({
           alias: {
             '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
             '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
             '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
             '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           },
@@ -176,7 +174,6 @@ export default defineConfig({
           alias: {
             '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
             '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
             '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
             '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           }

@@ -19,15 +19,10 @@ const expectedRegistrationKeys = [
   'mediaDevicesPort',
   'devicePreferenceStore',
   'animationCache',
-  'canvasRenderLoopService',
   'viewportService',
   'canvasLifecycleService',
-  'gpuRenderLoopService',
   'streamHealthService',
-  'workerRendererClient',
-  'gpuRendererService',
-  'streamingRendererFactory',
-  'renderPipelineService',
+  'streamingRenderService',
   'deviceMediaAcquirer',
   'rendererDeviceRuntime',
   'streamingService',
@@ -137,7 +132,7 @@ describe('Renderer container', () => {
     expect(() => container.resolve('deviceStatusPort')).not.toThrow();
     expect(() => container.resolve('mediaDevicesPort')).not.toThrow();
     expect(() => container.resolve('devicePreferenceStore')).not.toThrow();
-    expect(() => container.resolve('canvasRenderLoopService')).not.toThrow();
+    expect(() => container.resolve('streamingRenderService')).not.toThrow();
 
     // Standard service registrations: cradle construction and no-arg construction.
     expect(() => container.resolve('deviceMediaAcquirer')).not.toThrow();

@@ -14,8 +14,9 @@ type StreamViewServiceLike = {
   setCanvas(canvas: HTMLCanvasElement): void;
 };
 
-type CanvasRenderLoopServiceLike = {
-  resize(canvas: HTMLCanvasElement, width: number, height: number): void;
+type StreamingRenderServiceLike = {
+  isCanvasTransferred(): boolean;
+  resize(width: number, height: number): void;
   resetCanvasState(): Promise<void>;
 };
 
@@ -32,40 +33,37 @@ type ViewportServiceLike = {
   cleanup(): void;
 };
 
-type GpuRendererServiceLike = {
-  isCanvasTransferred(): boolean;
-  resize(width: number, height: number): void;
-};
-
 type CanvasLifecycleDependencies = {
   streamViewService: StreamViewServiceLike;
-  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   viewportService: ViewportServiceLike;
-  gpuRendererService: GpuRendererServiceLike;
+  streamingRenderService: StreamingRenderServiceLike;
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
 };
 
 class StreamingCanvasLifecycleService extends BaseService {
+  private readonly dependencies: CanvasLifecycleDependencies;
   private readonly streamViewService: StreamViewServiceLike;
-  private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
   private readonly viewportService: ViewportServiceLike;
-  private readonly gpuRendererService: GpuRendererServiceLike;
   protected readonly eventBus: TypedEventBusLike;
 
   private _nativeResolution: Dimensions | null;
   private _useGpuRenderer: boolean;
 
+  private get streamingRenderService(): StreamingRenderServiceLike {
+    return this.dependencies.streamingRenderService;
+  }
+
   constructor(dependencies: CanvasLifecycleDependencies) {
+    const { streamViewService, viewportService, eventBus, loggerFactory } = dependencies;
     super(
-      dependencies,
+      { streamViewService, viewportService, eventBus, loggerFactory },
       'StreamingCanvasLifecycleService'
     );
 
+    this.dependencies = dependencies;
     this.streamViewService = dependencies.streamViewService;
-    this.canvasRenderLoopService = dependencies.canvasRenderLoopService;
     this.viewportService = dependencies.viewportService;
-    this.gpuRendererService = dependencies.gpuRendererService;
     this.eventBus = dependencies.eventBus;
     this._nativeResolution = null;
     this._useGpuRenderer = false;
@@ -101,12 +99,19 @@ class StreamingCanvasLifecycleService extends BaseService {
     const dimensions = this.viewportService.calculateDimensions(canvas, resolution);
     if (!dimensions) return;
 
-    if (this.gpuRendererService.isCanvasTransferred()) {
-      this.gpuRendererService.resize(dimensions.width, dimensions.height);
+    if (this.streamingRenderService.isCanvasTransferred()) {
+      this.streamingRenderService.resize(dimensions.width, dimensions.height);
       canvas.style.width = dimensions.width + 'px';
       canvas.style.height = dimensions.height + 'px';
     } else {
-      this.canvasRenderLoopService.resize(canvas, dimensions.width, dimensions.height);
+      const dpr = window.devicePixelRatio || 1;
+      const backingWidth = Math.round(dimensions.width * dpr);
+      const backingHeight = Math.round(dimensions.height * dpr);
+      canvas.width = backingWidth;
+      canvas.height = backingHeight;
+      canvas.style.width = `${dimensions.width}px`;
+      canvas.style.height = `${dimensions.height}px`;
+      this.streamingRenderService.resize(dimensions.width, dimensions.height);
     }
 
     if (!this.viewportService.isInitialized()) {
@@ -140,7 +145,7 @@ class StreamingCanvasLifecycleService extends BaseService {
 
     this.streamViewService.setCanvas(newCanvas);
 
-    await this.canvasRenderLoopService.resetCanvasState();
+    await this.streamingRenderService.resetCanvasState();
     this.viewportService.resetDimensions();
 
     this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });

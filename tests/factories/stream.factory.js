@@ -123,11 +123,11 @@ export function createStreamingService(options = {}) {
 }
 
 /**
- * Creates a mock RenderPipeline
- * @param {Object} options - Pipeline options
- * @returns {Object} Mock RenderPipeline
+ * Creates a mock stream renderer.
+ * @param {Object} options - Renderer options.
+ * @returns {Object} Mock stream renderer.
  */
-export function createRenderPipeline(options = {}) {
+export function createStreamRenderer(options = {}) {
   const {
     width = CHROMATIC_SPECS.nativeWidth * 4,
     height = CHROMATIC_SPECS.nativeHeight * 4,
@@ -493,7 +493,7 @@ export function createDeviceMediaAcquirerMock(overrides = {}) {
 
 export default {
   createStreamingService,
-  createRenderPipeline,
+  createStreamRenderer,
   createMockCanvas,
   createMockVideo,
   StreamingState,

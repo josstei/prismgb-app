@@ -12,8 +12,8 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.interface.ts',
-        'src/infrastructure/webgpu/**',
-        'src/infrastructure/webgl2/**',
+        'src/infrastructure/webgpu.renderer.ts',
+        'src/infrastructure/webgl.renderer.ts',
         'src/infrastructure/workers/**'
       ]
     }
@@ -22,7 +22,6 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src'),
       '@prismgb/gpu/runtime': resolve(__dirname, 'src/runtime.ts'),
-      '@prismgb/gpu/worker': resolve(__dirname, 'src/worker.ts'),
       '@prismgb/gpu/testkit': resolve(__dirname, 'src/testkit.ts'),
       '@prismgb/gpu': resolve(__dirname, 'src/index.ts')
     }

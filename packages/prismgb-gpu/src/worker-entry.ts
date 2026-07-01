@@ -1,3 +1,3 @@
-import { installWorkerRenderer, type WorkerScopeLike } from './worker/renderer';
+import { startWorkerRendererService, type WorkerRendererServiceScope } from './worker/service';
 
-installWorkerRenderer(self as unknown as WorkerScopeLike);
+startWorkerRendererService(self as unknown as WorkerRendererServiceScope);

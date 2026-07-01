@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RenderPassManifest, RENDER_PASS_DEFINITIONS } from '@/domain/render-passes';
-import { loadWebGL2Shaders, loadWebGPUShaders } from '@/infrastructure/shader-sources';
+import { loadWebGlShaders, loadWebGpuShaders } from '@/infrastructure/shaders';
 
 function extractWebGLUniformNames(shaderSource: string): string[] {
   const sourceWithoutComments = shaderSource.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -34,8 +34,8 @@ describe('render-pass manifest', () => {
   });
 
   it('keeps shader file routing aligned with backend shader loaders', () => {
-    const webgpuShaders = Object.keys(loadWebGPUShaders().byFileName).sort();
-    const webgl2Shaders = Object.keys(loadWebGL2Shaders().byFileName).sort();
+    const webgpuShaders = Object.keys(loadWebGpuShaders().byFileName).sort();
+    const webgl2Shaders = Object.keys(loadWebGlShaders().byFileName).sort();
     const passBasedWebGLFiles = [...new Set(
       RenderPassManifest.passes.flatMap((pass) => [pass.webgl2VertexShader, pass.webgl2FragmentShader])
     )].sort();
@@ -47,7 +47,7 @@ describe('render-pass manifest', () => {
   });
 
   it('keeps manifest WebGL uniform names aligned with GLSL declarations', () => {
-    const webgl2Shaders = loadWebGL2Shaders().byFileName;
+    const webgl2Shaders = loadWebGlShaders().byFileName;
 
     for (const pass of RenderPassManifest.passes) {
       const shaderSource = webgl2Shaders[pass.webgl2FragmentShader];

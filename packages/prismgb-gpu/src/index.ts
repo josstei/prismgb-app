@@ -44,7 +44,7 @@ export {
   getRendererDefaultPreset,
   getUiPresets,
   resolvePreset
-} from './application/preset-catalog';
+} from './application/catalog';
 
 // Uniform Builder (for building shader uniforms from presets)
 export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';

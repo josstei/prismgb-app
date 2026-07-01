@@ -6,14 +6,13 @@ import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/dev
 import { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import { AppState } from '../state/app-state';
 import { StreamingViewService } from '../../infrastructure/services/streaming/streaming-view.service';
-import { StreamingRenderPipelineService } from '../../infrastructure/services/streaming/render-pipeline.service';
+import { StreamingRenderService } from '../../infrastructure/services/streaming/streaming-render.service';
 import { CaptureGpuRecordingService } from '../../infrastructure/services/gpu/gpu-recording.service';
 import { SettingsService } from '../../infrastructure/services/settings/settings.service';
 import { StreamingOrchestrator } from '../orchestrators/streaming.orchestrator';
 import { StreamingAudioPipelineService } from '../../infrastructure/services/streaming/audio-pipeline.service';
 import { StreamingAudioOrchestrator } from '../orchestrators/streaming-audio.orchestrator';
 import { CaptureService } from '../../infrastructure/services/capture/capture.service';
-import { StreamingGpuRendererService } from '../../infrastructure/services/gpu/gpu-renderer.service';
 import { TranscodeService } from '../../infrastructure/services/transcode/transcode.service';
 import { CaptureSaveService } from '../../infrastructure/services/capture/capture-save.service';
 import { CaptureOrchestrator } from '../orchestrators/capture.orchestrator';
@@ -38,8 +37,6 @@ import { PerformanceStateService } from '../../infrastructure/services/performan
 import { PerformanceStateOrchestrator } from '../orchestrators/performance/performance-state.orchestrator';
 import { AppOrchestrator } from '../orchestrators/app.orchestrator';
 import { BrowserMediaAdapter } from '../../infrastructure/browser/browser-media.adapter';
-import { WorkerRendererClient } from '@prismgb/gpu/worker';
-import { StreamingGpuRenderLoopService } from '../../infrastructure/services/gpu/gpu-render-loop.service';
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
 import { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
@@ -67,14 +64,18 @@ export const standardServiceRegistrations: Record<string, StandardServiceFactory
   streamingService: (cradle) => new StreamingService(cradle),
   appState: (cradle) => new AppState(cradle),
   streamViewService: (cradle) => new StreamingViewService(cradle),
-  renderPipelineService: (cradle) => new StreamingRenderPipelineService(cradle),
-  gpuRecordingService: (cradle) => new CaptureGpuRecordingService(cradle),
+  streamingRenderService: (cradle) => new StreamingRenderService(cradle),
+  gpuRecordingService: (cradle) => new CaptureGpuRecordingService({
+    gpuRendererService: cradle.streamingRenderService,
+    eventBus: cradle.eventBus,
+    loggerFactory: cradle.loggerFactory
+  }),
   settingsService: (cradle) => new SettingsService(cradle),
   streamingOrchestrator: (cradle) => new StreamingOrchestrator(cradle),
   streamingAudioPipelineService: (cradle) => new StreamingAudioPipelineService(cradle),
   streamingAudioOrchestrator: (cradle) => new StreamingAudioOrchestrator(cradle),
   captureService: (cradle) => new CaptureService(cradle),
-  gpuRendererService: (cradle) => new StreamingGpuRendererService(cradle),
+
   transcodeService: (cradle) => new TranscodeService(cradle),
   captureSaveService: (cradle) => new CaptureSaveService(cradle),
   captureOrchestrator: (cradle) => new CaptureOrchestrator(cradle),
@@ -100,11 +101,7 @@ export const standardServiceRegistrations: Record<string, StandardServiceFactory
   performanceStateOrchestrator: (cradle) => new PerformanceStateOrchestrator(cradle),
   appOrchestrator: (cradle) => new AppOrchestrator(cradle),
   browserMediaService: () => new BrowserMediaAdapter(),
-  gpuRenderLoopService: (cradle) => new StreamingGpuRenderLoopService(cradle),
-  workerRendererClient: (cradle) => new WorkerRendererClient({
-    createWorker: () => new Worker(new URL('@prismgb/gpu/worker-entry', import.meta.url), { type: 'module' }),
-    logger: cradle.loggerFactory.create('WorkerRendererClient')
-  }),
+
   streamHealthService: (cradle) => new StreamingHealthService(cradle),
   viewportService: (cradle) => new StreamingViewportService(cradle),
   presentationModeService: (cradle) => new PresentationModeService(cradle),

@@ -9,8 +9,7 @@ import {
   isStreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
-  GpuRecordingStartOptions,
-  GpuRendererServiceLike
+  GpuRecordingStartOptions
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 type LoggerFactoryLike = {
@@ -43,9 +42,7 @@ type GpuRecordingServiceLike = {
   stop(): Promise<void>;
 };
 
-type CanvasRenderLoopServiceLike = {
-  isActive(): boolean;
-};
+
 
 type TranscodeServiceLike = {
   isTranscoding(): boolean;
@@ -69,9 +66,8 @@ type CaptureOrchestratorDependencies = {
   captureService: CaptureServiceLike;
   appState: AppStateLike;
   streamViewService: StreamViewServiceLike;
-  gpuRendererService: GpuRendererServiceLike;
+  streamingRenderService: any;
   gpuRecordingService: GpuRecordingServiceLike;
-  canvasRenderLoopService: CanvasRenderLoopServiceLike;
   transcodeService: TranscodeServiceLike;
   captureSaveService: CaptureSaveServiceLike;
   eventBus: TypedEventBusLike;
@@ -82,9 +78,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   private readonly captureService: CaptureServiceLike;
   private readonly appState: AppStateLike;
   private readonly streamViewService: StreamViewServiceLike;
-  private readonly gpuRendererService: GpuRendererServiceLike;
+  private readonly streamingRenderService: any;
   private readonly gpuRecordingService: GpuRecordingServiceLike;
-  private readonly canvasRenderLoopService: CanvasRenderLoopServiceLike;
   private readonly transcodeService: TranscodeServiceLike;
   private readonly captureSaveService: CaptureSaveServiceLike;
   protected readonly eventBus: TypedEventBusLike;
@@ -100,9 +95,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this.captureService = dependencies.captureService;
     this.appState = dependencies.appState;
     this.streamViewService = dependencies.streamViewService;
-    this.gpuRendererService = dependencies.gpuRendererService;
+    this.streamingRenderService = dependencies.streamingRenderService;
     this.gpuRecordingService = dependencies.gpuRecordingService;
-    this.canvasRenderLoopService = dependencies.canvasRenderLoopService;
     this.transcodeService = dependencies.transcodeService;
     this.captureSaveService = dependencies.captureSaveService;
     this.eventBus = dependencies.eventBus;
@@ -147,18 +141,9 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _getCaptureSource(): Promise<CaptureSource> {
-    if (this.gpuRendererService.isActive()) {
-      this.logger.debug('Capturing screenshot from GPU renderer');
-      return this.gpuRendererService.captureFrame();
-    }
-
-    if (this.canvasRenderLoopService.isActive()) {
-      this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      const canvas = this.streamViewService.getCanvas();
-      if (!canvas) {
-        throw new Error('Stream canvas element is unavailable');
-      }
-      return canvas;
+    if (this.streamingRenderService.isActive()) {
+      this.logger.debug('Capturing screenshot from renderer session');
+      return this.streamingRenderService.captureFrame();
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
@@ -199,7 +184,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     }
 
     try {
-      if (this.gpuRendererService.isActive()) {
+      if (this.streamingRenderService.isActive()) {
         await this._startGpuRecording(stream);
       } else {
         await this.captureService.startRecording(stream);

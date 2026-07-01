@@ -62,7 +62,7 @@ export {
 // Stream factories
 export {
   createStreamingService,
-  createRenderPipeline,
+  createStreamRenderer,
   createMockCanvas,
   createMockVideo,
   StreamingState,
@@ -177,18 +177,12 @@ export {
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock,
   createStreamingViewElementsMock,
-  createCanvasRenderLoopServiceMock,
   createViewportServiceMock,
   createStreamHealthServiceMock,
-  createGpuRenderLoopServiceMock,
-  createWorkerRendererClientMock,
-  createStreamingRendererFactoryMock,
-  createRendererAdapterMock,
   createGpuRendererServiceMock,
   createStreamViewServiceMock,
-  createCanvasRenderPipelineMock,
   createStreamingServiceFacadeMock,
-  createStreamingRenderPipelineServiceMock,
+  createStreamingRenderServiceMock,
   createCanvasLifecycleServiceMock,
 } from './streaming-pipeline.factory.js';
 
