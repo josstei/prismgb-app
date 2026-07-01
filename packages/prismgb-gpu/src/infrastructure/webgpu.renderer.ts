@@ -5,12 +5,7 @@ import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
   createRenderPassPlan,
-  getManifestNumber,
-  getManifestString,
   getEnabledRenderPasses,
-  isRecord,
-  normalizeUniformBlock,
-  normalizeUniformValueSource,
   readFiniteNumber,
   readFiniteNumberPair,
   readUniformSourceValue,
@@ -18,17 +13,9 @@ import {
   type RenderPlanSource,
   type RenderPlanTarget
 } from '../application/passes';
-import type { RenderPassDefinition, UniformValueSource } from '../domain/render-passes';
+import type { RenderPassDefinition, WebGpuUniformMemberSpec } from '../domain/pass-specs';
 
-type WebGpuUniformNumericType = 'f32' | 'vec2<f32>';
-
-type WebGpuUniformMember = {
-  name: string;
-  type: WebGpuUniformNumericType;
-  offsetBytes: number;
-  byteLength: number;
-  source: UniformValueSource;
-};
+type WebGpuUniformMember = WebGpuUniformMemberSpec;
 
 type WebGpuUniformLayout = {
   passId: string;
@@ -123,55 +110,12 @@ class UniformChangeTracker {
   }
 }
 
-function isSupportedWebGpuUniformType(value: string): value is WebGpuUniformNumericType {
-  return value === 'f32' || value === 'vec2<f32>';
-}
-
-function normalizeWebGpuUniformType(value: string, context: string): WebGpuUniformNumericType {
-  if (isSupportedWebGpuUniformType(value)) {
-    return value;
-  }
-
-  throw new Error(`${context} uses unsupported WebGPU uniform type '${value}'`);
-}
-
-function normalizeWebGpuUniformMember(
-  input: unknown,
-  defaultUniformBlock: string,
-  passId: string
-): WebGpuUniformMember {
-  const context = `Render pass '${passId}' WebGPU uniform member`;
-  if (!isRecord(input)) {
-    throw new Error(`${context} must be an object`);
-  }
-
-  const name = getManifestString(input, 'name', context);
-  return {
-    name,
-    type: normalizeWebGpuUniformType(getManifestString(input, 'type', context), context),
-    offsetBytes: getManifestNumber(input, 'offsetBytes', context),
-    byteLength: getManifestNumber(input, 'byteLength', context),
-    source: normalizeUniformValueSource(input.source, defaultUniformBlock, `${context} '${name}'`)
-  };
-}
-
 function normalizeWebGpuUniformLayout(pass: RenderPassDefinition): WebGpuUniformLayout {
-  const context = `Render pass '${pass.id}' WebGPU uniform layout`;
-  const layout = pass.webgpuUniformLayout as unknown;
-  if (!isRecord(layout)) {
-    throw new Error(`${context} is missing`);
-  }
-
-  const rawMembers = layout.members;
-  if (!Array.isArray(rawMembers)) {
-    throw new Error(`${context} requires array 'members'`);
-  }
-
   return {
     passId: pass.id,
-    uniformBlock: normalizeUniformBlock(pass.uniformBlock),
-    byteLength: getManifestNumber(layout, 'byteLength', context),
-    members: rawMembers.map((member) => normalizeWebGpuUniformMember(member, pass.uniformBlock, pass.id))
+    uniformBlock: pass.uniformBlock,
+    byteLength: pass.webgpuUniformLayout.byteLength,
+    members: pass.webgpuUniformLayout.members
   };
 }
 
@@ -223,7 +167,7 @@ function compileWebGpuPassState(pass: RenderPassDefinition): WebGpuPassState {
   };
 }
 
-const WEBGPU_RENDER_PASSES = compileRenderPasses<WebGpuPassState>({
+export const WEBGPU_RENDER_PASSES = compileRenderPasses<WebGpuPassState>({
   backendName: 'webgpu',
   compile: compileWebGpuPassState
 });

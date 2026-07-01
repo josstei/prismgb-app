@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { RenderPassManifest } from '@/domain/render-passes';
+import { PASS_SPECS } from '@/domain/pass-specs';
 import { loadWebGpuShaders } from '@/infrastructure/shaders';
 
 describe('shaders', () => {
   it('composes each WebGPU fragment source with the shared fullscreen vertex prelude', () => {
     const shaders = loadWebGpuShaders().byFileName;
 
-    for (const pass of RenderPassManifest.passes) {
+    for (const pass of PASS_SPECS) {
       const source = shaders[pass.webgpuShader];
 
       expect(source).toBeTruthy();

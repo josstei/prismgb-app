@@ -8,7 +8,7 @@ import {
   readUniformSourceValue,
   type PlannedRenderPass
 } from '@/application/passes';
-import { RenderPassManifest } from '@/domain/render-passes';
+import { PASS_SPECS } from '@/domain/pass-specs';
 import { buildUniforms } from '@/application/uniform-builder';
 import { getPreset } from '@/application/catalog';
 import type { PipelineUniforms } from '@/domain/uniforms';
@@ -57,14 +57,7 @@ function compileWebGpuContractPasses() {
 
         for (const member of manifestPass.webgpuUniformLayout.members) {
           const outputIndex = member.offsetBytes / Float32Array.BYTES_PER_ELEMENT;
-          const value = readUniformSourceValue(uniforms, {
-            ...member.source,
-            uniformBlock: member.source.kind === 'uniformField'
-              ? 'uniformBlock' in member.source
-                ? member.source.uniformBlock
-                : manifestPass.uniformBlock
-              : undefined
-          });
+          const value = readUniformSourceValue(uniforms, member.source);
 
           if (member.type === 'vec2<f32>') {
             const [x, y] = readFiniteNumberPair(value, `member ${member.name}`);
@@ -102,7 +95,7 @@ describe('compileRenderPasses', () => {
 
   it('derives pass order and backend state from the manifest once', () => {
     const compiledPasses = compileWebGpuContractPasses();
-    const contractOrder = [...RenderPassManifest.passes].sort((left, right) => left.order - right.order);
+    const contractOrder = [...PASS_SPECS].sort((left, right) => left.order - right.order);
 
     expect(compiledPasses.map((candidate) => candidate.passId)).toEqual(contractOrder.map((candidate) => candidate.id));
     expect(compiledPasses.map((candidate) => candidate.backend.shaderFile)).toEqual(
