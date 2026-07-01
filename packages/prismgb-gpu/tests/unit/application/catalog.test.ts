@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BUILT_IN_PRESET_CATALOG,
-  BUILT_IN_PRESETS,
   PRESET_POLICY,
-  getAllPresets,
-  getPackageDefaultPreset,
-  getPreset,
   getRendererDefaultPreset,
   getUiPresets,
   resolvePreset
 } from '@/index';
-import { createShaderPresetCatalog } from '@/application/catalog';
+import { BUILT_IN_PRESET_CATALOG, BUILT_IN_PRESETS } from '@/domain/presets';
+import {
+  createShaderPresetCatalog,
+  getAllPresets,
+  getPackageDefaultPreset,
+  getPreset
+} from '@/application/catalog';
 
 describe('preset catalog', () => {
   it('exports built-in catalog and policy through the package entrypoint without mutable registration', () => {

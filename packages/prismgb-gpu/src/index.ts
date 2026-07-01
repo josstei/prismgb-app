@@ -20,31 +20,11 @@ export type {
 } from './domain/types';
 export { RecoverableBackendInitializationError } from './domain/errors';
 
-export type {
-  PipelineUniforms,
-  UpscaleUniforms,
-  UnsharpUniforms,
-  ColorUniforms,
-  CRTUniforms
-} from './domain/uniforms';
-
-export {
-  BUILT_IN_PRESET_CATALOG,
-  BUILT_IN_PRESETS,
-  PRESET_POLICY
-} from './domain/presets';
+export { PRESET_POLICY } from './domain/presets';
 export type { PresetPolicy } from './domain/presets';
 
 export {
-  createShaderPresetCatalog,
-  getAllPresets,
-  getPackageDefaultPreset,
-  getPreset,
   getRendererDefaultPreset,
   getUiPresets,
   resolvePreset
 } from './application/catalog';
-
-// Uniform Builder (for building shader uniforms from presets)
-export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
-export type { UniformBuildContext } from './application/uniform-builder';
