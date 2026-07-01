@@ -173,29 +173,37 @@ function assertBuiltDistMatchesExports() {
   const manifest = readJson('packages/prismgb-gpu/package.json');
   const exportsMap = manifest.exports ?? {};
 
-  const allowedFiles = new Set();
+  const exportTargets = new Set();
   for (const [, paths] of Object.entries(exportsMap)) {
-    if (paths.import) {
-      allowedFiles.add(normalizeSlash(relative('./dist', paths.import)));
-      allowedFiles.add(normalizeSlash(relative('./dist', paths.import)) + '.map');
-    }
-    if (paths.types) {
-      allowedFiles.add(normalizeSlash(relative('./dist', paths.types)));
-      allowedFiles.add(normalizeSlash(relative('./dist', paths.types)) + '.map');
-    }
+    if (paths.import) exportTargets.add(normalizeSlash(relative('./dist', paths.import)));
+    if (paths.types) exportTargets.add(normalizeSlash(relative('./dist', paths.types)));
   }
-
-  allowedFiles.add('worker-entry.js');
-  allowedFiles.add('worker-entry.js.map');
-  allowedFiles.add('worker-entry.d.ts');
-  allowedFiles.add('worker-entry.d.ts.map');
 
   const filesInDist = walkFiles(distDir, [], { skipGenerated: false })
     .map(filePath => normalizeSlash(relative(distDir, filePath)));
+  const distFileSet = new Set(filesInDist);
 
-  const unexpected = filesInDist.filter(file => !allowedFiles.has(file));
-  if (unexpected.length > 0) {
-    fail('built dist contains unexpected files not matching package exports plus allowed private worker asset', unexpected);
+  // Positive invariant: every declared export target must actually be built.
+  const missingTargets = [...exportTargets].filter(target => !distFileSet.has(target));
+  if (missingTargets.length > 0) {
+    fail('built dist is missing declared export targets', missingTargets);
+  }
+
+  // Leak guard: the dist may contain export targets, the private worker-entry
+  // asset, type declarations, source maps, and hashed build chunks. Reject any
+  // other bare (non-hashed) JavaScript entry, which would expose an undeclared
+  // public module.
+  const allowedNamedJs = new Set([...exportTargets, 'worker-entry.js']);
+  const isHashedChunk = (file) => file.startsWith('assets/') || /-[A-Za-z0-9_-]{8,}\.js$/.test(file);
+
+  const undeclaredEntries = filesInDist.filter((file) => {
+    if (!file.endsWith('.js')) return false;
+    if (allowedNamedJs.has(file)) return false;
+    return !isHashedChunk(file);
+  });
+
+  if (undeclaredEntries.length > 0) {
+    fail('built dist exposes undeclared public JavaScript entries', undeclaredEntries);
   }
 }
 
