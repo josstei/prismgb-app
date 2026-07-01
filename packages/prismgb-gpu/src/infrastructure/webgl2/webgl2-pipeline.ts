@@ -1,12 +1,14 @@
-import { BasePipeline } from '../base-pipeline';
+import { BasePipeline } from '../pipeline-base';
+import { RecoverableBackendInitializationError } from '../../domain/errors';
+import { getEnabledRenderPasses } from '../../application/render-pass-enablement';
+import { createRenderPassPlan, type RenderPlanSource } from '../../application/render-plan';
 import {
   applyWebGLPassUniforms,
-  getEnabledRenderPasses,
-  RENDER_PASS_HELPERS,
-  type RenderPassHelpers
-} from '../../domain/render-passes/render-passes-helpers';
-import { loadShaders } from './webgl2-shader-loader';
-import { ShaderProgram } from './shader-program';
+  WEBGL2_RENDER_PASSES,
+  type WebGL2RenderPass
+} from '../webgl2.uniforms';
+import { loadWebGL2Shaders } from '../shader-sources';
+import { ShaderProgram } from './webgl2.program';
 
 type ShaderPrograms = Map<string, ShaderProgram>;
 
@@ -17,6 +19,8 @@ type ShaderPrograms = Map<string, ShaderProgram>;
  * intermediate textures for multi-pass rendering.
  */
 export class WebGL2Pipeline extends BasePipeline {
+  readonly backend = 'webgl2' as const;
+
   private gl: WebGL2RenderingContext | null = null;
   private programs: ShaderPrograms | null = null;
   private sourceTexture: WebGLTexture | null = null;
@@ -36,14 +40,14 @@ export class WebGL2Pipeline extends BasePipeline {
       powerPreference: 'low-power'
     };
 
-    this.gl = this.canvas.getContext('webgl2', baseAttributes)
-      ?? this.canvas.getContext('webgl2', {
+    this.gl = (this.canvas.getContext('webgl2', baseAttributes) as WebGL2RenderingContext | null)
+      ?? (this.canvas.getContext('webgl2', {
         ...baseAttributes,
         powerPreference: 'high-performance'
-      });
+      }) as WebGL2RenderingContext | null);
 
     if (!this.gl) {
-      throw new Error('WebGL2 context not available');
+      throw new RecoverableBackendInitializationError('WebGL2 context not available');
     }
 
     this.createPrograms();
@@ -56,10 +60,10 @@ export class WebGL2Pipeline extends BasePipeline {
 
   private createPrograms(): void {
     const gl = this.gl!;
-    const shaders = loadShaders();
+    const shaders = loadWebGL2Shaders();
 
     const programs = new Map<string, ShaderProgram>();
-    for (const pass of RENDER_PASS_HELPERS) {
+    for (const pass of WEBGL2_RENDER_PASSES) {
       const vertexSource = shaders.byFileName[pass.webgl.vertexShaderFile];
       const fragmentSource = shaders.byFileName[pass.webgl.fragmentShaderFile];
       if (!vertexSource || !fragmentSource) {
@@ -131,23 +135,22 @@ export class WebGL2Pipeline extends BasePipeline {
     gl.bindTexture(gl.TEXTURE_2D, null);
 
     gl.bindVertexArray(this.vao);
-    let currentTexture = this.sourceTexture;
-    let outputIndex = 0;
-    let currentFramebufferIndex = -1;
-    let renderedToCanvas = false;
+    const plan = createRenderPassPlan(
+      getEnabledRenderPasses(WEBGL2_RENDER_PASSES, this.uniforms, this.preset),
+      this.intermediateTextures.length
+    );
 
-    for (const pass of getEnabledRenderPasses(this.uniforms, this.preset)) {
+    for (const step of plan.steps) {
+      const { pass } = step;
       const program = this.programs.get(pass.passId);
       if (!program) {
         throw new Error(`Missing WebGL2 program for pass '${pass.passId}'`);
       }
 
-      const targetTexture = pass.outputsToCanvas
-        ? null
-        : this.intermediateTextures[outputIndex];
+      const sourceTexture = this.resolvePlanTexture(step.source);
 
-      if (targetTexture) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[outputIndex]);
+      if (step.target.kind === 'intermediate') {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[step.target.index]);
         gl.viewport(0, 0, targetWidth, targetHeight);
       } else {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -155,28 +158,19 @@ export class WebGL2Pipeline extends BasePipeline {
       }
 
       program.use();
-      this.configureTextureSampler(pass, currentTexture);
+      this.configureTextureSampler(pass, sourceTexture);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, currentTexture);
+      gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
       applyWebGLPassUniforms(program, pass, this.uniforms);
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      if (pass.outputsToCanvas) {
-        renderedToCanvas = true;
-        break;
-      }
-
-      currentTexture = targetTexture!;
-      currentFramebufferIndex = outputIndex;
-      outputIndex = (outputIndex + 1) % this.intermediateTextures.length;
     }
 
-    if (!renderedToCanvas) {
-      if (currentFramebufferIndex < 0) {
+    if (plan.finalCanvasCopy.required) {
+      if (plan.finalCanvasCopy.source.kind !== 'intermediate') {
         throw new Error('WebGL2 render pass chain produced no intermediate output');
       }
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[currentFramebufferIndex]);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.framebuffers[plan.finalCanvasCopy.source.index]);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       gl.blitFramebuffer(
         0, 0, targetWidth, targetHeight,
@@ -189,6 +183,12 @@ export class WebGL2Pipeline extends BasePipeline {
 
     gl.bindVertexArray(null);
     this.updateStats(performance.now() - startTime);
+  }
+
+  private resolvePlanTexture(source: RenderPlanSource): WebGLTexture {
+    return source.kind === 'source'
+      ? this.sourceTexture!
+      : this.intermediateTextures[source.index];
   }
 
   async captureFrame(): Promise<ImageBitmap> {
@@ -208,11 +208,31 @@ export class WebGL2Pipeline extends BasePipeline {
   }
 
   protected onResize(): void {
-    this.releaseResources();
+    this.releaseRenderTargets();
     this.createResources();
   }
 
   releaseResources(): void {
+    if (!this.gl) {
+      this._isActive = false;
+      this._isInitialized = false;
+      return;
+    }
+
+    this.releaseRenderTargets();
+    this.programs?.forEach((program) => program.destroy());
+    this.programs = null;
+
+    if (this.vao) {
+      this.gl.deleteVertexArray(this.vao);
+      this.vao = null;
+    }
+
+    this._isActive = false;
+    this._isInitialized = false;
+  }
+
+  private releaseRenderTargets(): void {
     if (!this.gl) return;
 
     const gl = this.gl;
@@ -224,28 +244,16 @@ export class WebGL2Pipeline extends BasePipeline {
     this.intermediateTextures = [];
     this.framebuffers.forEach((framebuffer) => gl.deleteFramebuffer(framebuffer));
     this.framebuffers = [];
-    this._isActive = false;
   }
 
   async dispose(): Promise<void> {
     this.releaseResources();
 
-    if (this.programs) {
-      this.programs.forEach((program) => program.destroy());
-      this.programs = null;
-    }
-
-    if (this.gl && this.vao) {
-      this.gl.deleteVertexArray(this.vao);
-      this.vao = null;
-    }
-
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.gl = null;
-    this._isInitialized = false;
   }
 
-  private configureTextureSampler(pass: RenderPassHelpers, texture: WebGLTexture): void {
+  private configureTextureSampler(pass: WebGL2RenderPass, texture: WebGLTexture): void {
     const gl = this.gl!;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     const filter = pass.sampler === 'nearest' ? gl.NEAREST : gl.LINEAR;

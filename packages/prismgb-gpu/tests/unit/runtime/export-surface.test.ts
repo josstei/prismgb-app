@@ -1,0 +1,25 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/infrastructure/capabilities.browser', () => ({
+  detectBrowserGpuCapabilities: vi.fn(async () => ({
+    webgpu: false,
+    webgl2: true,
+    offscreenCanvas: true,
+    transferControlToOffscreen: true,
+    preferredBackend: 'webgl2',
+    maxTextureSize: 4096
+  }))
+}));
+
+describe('@prismgb/gpu/runtime export surface', () => {
+  it('exports runtime factories and lazy browser capability detection', async () => {
+    const runtime = await import('@prismgb/gpu/runtime');
+
+    expect(runtime.createCanvas2DRenderPipeline).toEqual(expect.any(Function));
+    expect(runtime.createRenderPipeline).toEqual(expect.any(Function));
+    expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));
+    await expect(runtime.detectBrowserGpuCapabilities()).resolves.toEqual(expect.objectContaining({
+      preferredBackend: 'webgl2'
+    }));
+  });
+});

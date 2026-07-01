@@ -6,9 +6,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/shader-preset-list.component.js';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
 import { EventChannels } from '@prismgb/events';
-import { PRESET_POLICY, PresetRegistry } from '@prismgb/gpu';
+import { PRESET_POLICY, getUiPresets } from '@prismgb/gpu';
 
-const uiPresets = PresetRegistry.getForUI();
+const uiPresets = getUiPresets();
 const selectablePresetId = uiPresets.find(
   (preset) => preset.id !== PRESET_POLICY.rendererDefaultId
 )?.id;
@@ -78,6 +78,16 @@ describe('ShaderPresetListComponent', () => {
       component.initialize({ optionsContainer, unavailableMessage });
       expect(mockSettingsService.getStringSetting).toHaveBeenCalledWith('renderPreset');
       expect(component.currentPresetId).toBe(PRESET_POLICY.rendererDefaultId);
+    });
+
+    it('should normalize an unknown saved preset to the renderer default', () => {
+      mockSettingsService.getStringSetting.mockReturnValueOnce('missing-preset');
+
+      component.initialize({ optionsContainer, unavailableMessage });
+
+      expect(component.currentPresetId).toBe(PRESET_POLICY.rendererDefaultId);
+      const activeOption = optionsContainer.querySelector('.shader-option.active');
+      expect(activeOption.dataset.presetId).toBe(PRESET_POLICY.rendererDefaultId);
     });
 
     it('should load performance mode state', () => {

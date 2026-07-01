@@ -1,8 +1,8 @@
-import { detectCapabilities as detectBase } from '@prismgb/gpu';
-import type { IPipelineCapabilities } from '@prismgb/gpu';
+import { detectBrowserGpuCapabilities as detectBase } from '@prismgb/gpu/runtime';
+import type { RenderCapabilities } from '@prismgb/gpu';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 
-interface RendererCapabilities extends IPipelineCapabilities {
+interface RendererCapabilities extends RenderCapabilities {
   gpuPolicyApplied: boolean;
   gpuPolicyReason: string | null;
 }
@@ -34,7 +34,7 @@ async function detectCapabilities(): Promise<RendererCapabilities> {
     return {
       ...base,
       webgpu: false,
-      preferredAPI: base.webgl2 ? 'webgl2' : 'canvas2d',
+      preferredBackend: base.webgl2 ? 'webgl2' : 'canvas2d',
       gpuPolicyApplied: true,
       gpuPolicyReason: gpuPolicy.reason
     };
@@ -77,7 +77,7 @@ function describeCapabilities(capabilities: RendererCapabilities): string {
     parts.push('Canvas2D only');
   }
 
-  return `GPU Capabilities: ${parts.join(', ')} - Using: ${capabilities.preferredAPI}`;
+  return `GPU Capabilities: ${parts.join(', ')} - Using: ${capabilities.preferredBackend}`;
 }
 
 export const CapabilityDetector = {

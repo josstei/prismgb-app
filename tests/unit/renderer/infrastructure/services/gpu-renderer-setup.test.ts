@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { isWorkerRenderAPI, computeRendererConfig } from '../../../../../src/renderer/infrastructure/services/gpu/gpu-renderer-setup.js';
+import { isWorkerRenderBackend, computeRendererConfig } from '../../../../../src/renderer/infrastructure/services/gpu/gpu-renderer-setup.js';
 
 describe('gpu-renderer-setup utilities', () => {
-  describe('isWorkerRenderAPI', () => {
+  describe('isWorkerRenderBackend', () => {
     it('returns true for webgpu and webgl2', () => {
-      expect(isWorkerRenderAPI('webgpu')).toBe(true);
-      expect(isWorkerRenderAPI('webgl2')).toBe(true);
+      expect(isWorkerRenderBackend('webgpu')).toBe(true);
+      expect(isWorkerRenderBackend('webgl2')).toBe(true);
     });
 
     it('returns false for other APIs', () => {
-      expect(isWorkerRenderAPI('canvas2d' as any)).toBe(false);
-      expect(isWorkerRenderAPI('unknown' as any)).toBe(false);
+      expect(isWorkerRenderBackend('canvas2d' as any)).toBe(false);
+      expect(isWorkerRenderBackend('unknown' as any)).toBe(false);
     });
   });
 
@@ -19,14 +19,14 @@ describe('gpu-renderer-setup utilities', () => {
       const nativeResolution = { width: 160, height: 144 };
       const clientWidth = 320;
       const clientHeight = 288;
-      const preferredAPI = 'webgpu';
+      const preferredBackend = 'webgpu';
       const savedPresetId = 'default';
 
       const result = computeRendererConfig(
         nativeResolution,
         clientWidth,
         clientHeight,
-        preferredAPI,
+        preferredBackend,
         savedPresetId
       );
 
@@ -39,7 +39,7 @@ describe('gpu-renderer-setup utilities', () => {
         targetWidth: 320,
         targetHeight: 288,
         scaleFactor: 2,
-        api: 'webgpu',
+        backend: 'webgpu',
         presetId: 'default'
       });
     });

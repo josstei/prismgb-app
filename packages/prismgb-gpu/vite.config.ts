@@ -4,9 +4,14 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        runtime: resolve(__dirname, 'src/runtime.ts'),
+        worker: resolve(__dirname, 'src/worker.ts'),
+        'worker-entry': resolve(__dirname, 'src/worker-entry.ts'),
+        testkit: resolve(__dirname, 'src/testkit.ts')
+      },
       name: 'PrismGBGpu',
-      fileName: 'index',
       formats: ['es']
     },
     rollupOptions: {

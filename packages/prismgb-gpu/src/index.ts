@@ -7,22 +7,19 @@
 
 // Domain Types (for typing only)
 export type {
-  IPipeline,
-  IPipelineConfig,
-  IPipelineCapabilities,
-  IPipelineStats,
-  RenderAPI,
+  RenderPipeline,
+  RenderPipelineConfig,
+  RenderCapabilities,
+  RenderStats,
+  RenderBackend,
+  RenderCanvas,
+  RenderPreset,
+  RenderPresetSummary,
+  ShaderPresetCatalog,
   WebGPULimits,
   WebGL2Info
-} from './domain/pipeline';
-
-export type {
-  IPreset,
-  UpscaleConfig,
-  UnsharpConfig,
-  ColorConfig,
-  CRTConfig
-} from './domain/presets';
+} from './domain/types';
+export { RecoverableBackendInitializationError } from './domain/errors';
 
 export type {
   PipelineUniforms,
@@ -30,29 +27,25 @@ export type {
   UnsharpUniforms,
   ColorUniforms,
   CRTUniforms
-} from './domain/shaders';
+} from './domain/uniforms';
 
-// Preset Registry and policy (for UI to list/select presets)
-export { PRESET_POLICY, PresetRegistry } from './domain/presets';
+export {
+  BUILT_IN_PRESET_CATALOG,
+  BUILT_IN_PRESETS,
+  PRESET_POLICY
+} from './domain/presets';
 export type { PresetPolicy } from './domain/presets';
 
-// Capability Detection (for UI to show GPU status)
-export { detectCapabilities } from './application/capability-detector';
+export {
+  createShaderPresetCatalog,
+  getAllPresets,
+  getPackageDefaultPreset,
+  getPreset,
+  getRendererDefaultPreset,
+  getUiPresets,
+  resolvePreset
+} from './application/preset-catalog';
 
 // Uniform Builder (for building shader uniforms from presets)
 export { buildUniforms, calculateScaleFactor } from './application/uniform-builder';
 export type { UniformBuildContext } from './application/uniform-builder';
-
-// Frame buffering primitive (bounded queue + latency metrics)
-export { GpuFrameBuffer } from './application/gpu-frame-buffer';
-
-// Worker API (worker-safe rendering API)
-export { createWorkerPipeline, type CreateWorkerPipelineOptions, type WorkerPipeline } from './factories';
-
-// Pipeline Factory (main entry point)
-export { createPipeline, type CreatePipelineOptions } from './factories';
-
-import { BUILT_IN_PRESETS } from './domain/presets';
-import { PresetRegistry } from './domain/presets';
-
-PresetRegistry.registerMany(BUILT_IN_PRESETS);

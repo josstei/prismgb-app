@@ -1,20 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Canvas2DPipeline } from '@/infrastructure/canvas2d/canvas2d-pipeline';
-import { BUILT_IN_PRESETS, PresetRegistry } from '@/domain/presets';
+import { getPackageDefaultPreset } from '@/application/preset-catalog';
+import { createMockCanvas } from '@prismgb/gpu/testkit';
 
-PresetRegistry.registerMany(BUILT_IN_PRESETS);
-
-function createCanvasMock() {
+function createCanvas2DTestFixture() {
   const context = {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     imageSmoothingEnabled: true
   };
-  const canvas = {
-    width: 160,
-    height: 144,
-    getContext: vi.fn(() => context)
-  };
+  const canvas = createMockCanvas(160, 144, { '2d': context });
 
   return { canvas, context };
 }
@@ -27,12 +22,12 @@ describe('Canvas2DPipeline', () => {
   });
 
   it('keeps image smoothing disabled after resize resets canvas context state', async () => {
-    const { canvas, context } = createCanvasMock();
+    const { canvas, context } = createCanvas2DTestFixture();
     const pipeline = new Canvas2DPipeline({
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: PresetRegistry.getDefault()
+      preset: getPackageDefaultPreset()
     });
 
     await pipeline.initialize();
@@ -44,5 +39,8 @@ describe('Canvas2DPipeline', () => {
     expect(canvas.width).toBe(320);
     expect(canvas.height).toBe(288);
     expect(context.imageSmoothingEnabled).toBe(false);
+
+    await pipeline.dispose();
+    expect(pipeline.isActive).toBe(false);
   });
 });

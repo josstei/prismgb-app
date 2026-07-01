@@ -1,12 +1,13 @@
-import { BasePipeline } from '../base-pipeline';
+import { BasePipeline } from '../pipeline-base';
+import { RecoverableBackendInitializationError } from '../../domain/errors';
+import { getEnabledRenderPasses } from '../../application/render-pass-enablement';
+import { createRenderPassPlan, type RenderPlanSource, type RenderPlanTarget } from '../../application/render-plan';
 import {
-  getEnabledRenderPasses,
-  RENDER_PASS_HELPERS,
-  type RenderPassHelpers
-} from '../../domain/render-passes/render-passes-helpers';
-import { loadShaders } from './webgpu-shader-loader';
-import { BindGroupCache } from './bind-group-cache';
-import { UniformTracker } from './uniform-tracker';
+  WEBGPU_RENDER_PASSES,
+  type WebGPURenderPass
+} from '../webgpu.uniforms';
+import { loadWebGPUShaders } from '../shader-sources';
+import { BindGroupCache, UniformTracker } from './webgpu.resources';
 
 type RenderPipelines = Map<string, GPURenderPipeline>;
 type UniformBuffers = Map<string, GPUBuffer>;
@@ -19,6 +20,8 @@ type UniformBuffers = Map<string, GPUBuffer>;
  * optimized per-frame overhead.
  */
 export class WebGPUPipeline extends BasePipeline {
+  readonly backend = 'webgpu' as const;
+
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
@@ -43,26 +46,33 @@ export class WebGPUPipeline extends BasePipeline {
     if (this._isInitialized) return;
 
     if (!navigator.gpu) {
-      throw new Error('WebGPU not supported');
+      throw new RecoverableBackendInitializationError('WebGPU not supported');
     }
 
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
       ?? await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
 
     if (!adapter) {
-      throw new Error('WebGPU adapter not available');
+      throw new RecoverableBackendInitializationError('WebGPU adapter not available');
     }
 
-    this.device = await adapter.requestDevice();
+    try {
+      this.device = await adapter.requestDevice();
+    } catch (error) {
+      throw new RecoverableBackendInitializationError('WebGPU device not available', { cause: error });
+    }
 
+    const initializedDevice = this.device;
     this.device.lost.then(() => {
-      this.hasError = true;
-      this._isActive = false;
+      if (this.device === initializedDevice) {
+        this.hasError = true;
+        this._isActive = false;
+      }
     });
 
     this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
-      throw new Error('WebGPU context not available');
+      throw new RecoverableBackendInitializationError('WebGPU context not available');
     }
 
     this.canvasFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -82,7 +92,7 @@ export class WebGPUPipeline extends BasePipeline {
 
   private async createPipelines(): Promise<void> {
     const device = this.device!;
-    const shaders = loadShaders();
+    const shaders = loadWebGPUShaders();
 
     const createAndValidate = async (label: string, code: string): Promise<GPUShaderModule> => {
       const module = device.createShaderModule({ label, code });
@@ -98,7 +108,7 @@ export class WebGPUPipeline extends BasePipeline {
     };
 
     const pipelines = new Map<string, GPURenderPipeline>();
-    for (const pass of RENDER_PASS_HELPERS) {
+    for (const pass of WEBGPU_RENDER_PASSES) {
       const shaderSource = shaders.byFileName[pass.webgpu.shaderFile];
       if (!shaderSource) {
         throw new Error(`Missing WebGPU shader source for pass '${pass.passId}'`);
@@ -169,7 +179,7 @@ export class WebGPUPipeline extends BasePipeline {
     }
 
     const uniformBuffers = new Map<string, GPUBuffer>();
-    for (const pass of RENDER_PASS_HELPERS) {
+    for (const pass of WEBGPU_RENDER_PASSES) {
       uniformBuffers.set(pass.passId, device.createBuffer({
         label: `${pass.passId} uniform buffer`,
         size: pass.webgpu.layout.byteLength,
@@ -196,12 +206,13 @@ export class WebGPUPipeline extends BasePipeline {
       this.uploadUniforms();
 
       const commandEncoder = this.device.createCommandEncoder();
-      const enabledPasses = getEnabledRenderPasses(this.uniforms, this.preset);
-      let currentInputTexture = this.sourceTexture;
-      let outputIndex = 0;
-      let renderedToCanvas = false;
+      const plan = createRenderPassPlan(
+        getEnabledRenderPasses(WEBGPU_RENDER_PASSES, this.uniforms, this.preset),
+        this.intermediateTextures.length
+      );
 
-      for (const pass of enabledPasses) {
+      for (const step of plan.steps) {
+        const { pass } = step;
         const pipeline = this.renderPipelines.get(pass.passId);
         const uniformBuffer = this.uniformBuffers.get(pass.passId);
         const sampler = pass.sampler === 'nearest'
@@ -212,31 +223,23 @@ export class WebGPUPipeline extends BasePipeline {
           throw new Error(`Missing pass runtime state for '${pass.passId}'`);
         }
 
-        const outputTexture = pass.outputsToCanvas
-          ? this.context.getCurrentTexture()
-          : this.intermediateTextures[outputIndex];
-
         this.renderPass(
           commandEncoder,
           pass,
           pipeline,
-          currentInputTexture,
-          outputTexture,
+          this.resolvePlanTexture(step.source),
+          this.resolvePlanTargetTexture(step.target),
           uniformBuffer,
           sampler
         );
-
-        if (pass.outputsToCanvas) {
-          renderedToCanvas = true;
-          break;
-        }
-
-        currentInputTexture = outputTexture;
-        outputIndex = (outputIndex + 1) % this.intermediateTextures.length;
       }
 
-      if (!renderedToCanvas) {
-        this.copyToCanvas(commandEncoder, currentInputTexture, this.context.getCurrentTexture());
+      if (plan.finalCanvasCopy.required) {
+        this.copyToCanvas(
+          commandEncoder,
+          this.resolvePlanTexture(plan.finalCanvasCopy.source),
+          this.context.getCurrentTexture()
+        );
       }
 
       this.device.queue.submit([commandEncoder.finish()]);
@@ -247,12 +250,24 @@ export class WebGPUPipeline extends BasePipeline {
     }
   }
 
-  private getPassSampler(pass: RenderPassHelpers): GPUSampler {
+  private resolvePlanTexture(source: RenderPlanSource): GPUTexture {
+    return source.kind === 'source'
+      ? this.sourceTexture!
+      : this.intermediateTextures[source.index];
+  }
+
+  private resolvePlanTargetTexture(target: RenderPlanTarget): GPUTexture {
+    return target.kind === 'canvas'
+      ? this.context!.getCurrentTexture()
+      : this.intermediateTextures[target.index];
+  }
+
+  private getPassSampler(pass: WebGPURenderPass): GPUSampler {
     return pass.sampler === 'nearest' ? this.nearestSampler! : this.linearSampler!;
   }
 
-  private getCanvasOutputPass(): RenderPassHelpers {
-    const pass = RENDER_PASS_HELPERS.find((candidate) => candidate.outputsToCanvas);
+  private getCanvasOutputPass(): WebGPURenderPass {
+    const pass = WEBGPU_RENDER_PASSES.find((candidate) => candidate.outputsToCanvas);
     if (!pass) {
       throw new Error('No render pass is configured to output to canvas');
     }
@@ -262,7 +277,7 @@ export class WebGPUPipeline extends BasePipeline {
 
   private renderPass(
     commandEncoder: GPUCommandEncoder,
-    pass: RenderPassHelpers,
+    pass: WebGPURenderPass,
     pipeline: GPURenderPipeline,
     inputTexture: GPUTexture,
     outputTexture: GPUTexture,
@@ -324,7 +339,7 @@ export class WebGPUPipeline extends BasePipeline {
 
   private uploadUniforms(): void {
     const device = this.device!;
-    for (const pass of RENDER_PASS_HELPERS) {
+    for (const pass of WEBGPU_RENDER_PASSES) {
       const uniformData = pass.webgpu.uniformData(this.uniforms);
       const buffer = this.uniformBuffers!.get(pass.passId);
       if (!buffer) {
@@ -401,19 +416,20 @@ export class WebGPUPipeline extends BasePipeline {
     this.uniformBuffers?.forEach((buffer) => buffer.destroy());
     this.uniformBuffers = null;
 
+    this.device?.destroy();
+    this.device = null;
+    this.context = null;
+    this.canvasFormat = null;
+    this.renderPipelines = null;
+    this.nearestSampler = null;
+    this.linearSampler = null;
+    this.hasError = false;
     this.bindGroupCache.invalidate();
     this._isActive = false;
+    this._isInitialized = false;
   }
 
   async dispose(): Promise<void> {
     this.releaseResources();
-
-    this.device?.destroy();
-    this.device = null;
-    this.context = null;
-    this.renderPipelines = null;
-    this.nearestSampler = null;
-    this.linearSampler = null;
-    this._isInitialized = false;
   }
 }

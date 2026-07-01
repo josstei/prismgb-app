@@ -1,8 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { buildUniforms, calculateScaleFactor } from '@/application/uniform-builder';
-import { PresetRegistry, BUILT_IN_PRESETS } from '@/domain/presets';
-
-PresetRegistry.registerMany(BUILT_IN_PRESETS);
+import { getPreset } from '@/application/preset-catalog';
 
 describe('calculateScaleFactor', () => {
   it('should calculate integer scale factor', () => {
@@ -22,7 +20,7 @@ describe('calculateScaleFactor', () => {
 
 describe('buildUniforms', () => {
   it('should build uniforms from preset and dimensions', () => {
-    const preset = PresetRegistry.get('true-color')!;
+    const preset = getPreset('true-color')!;
 
     const uniforms = buildUniforms({
       preset,
@@ -43,7 +41,7 @@ describe('buildUniforms', () => {
   });
 
   it('should apply brightness multiplier', () => {
-    const preset = PresetRegistry.get('true-color')!;
+    const preset = getPreset('true-color')!;
 
     const uniforms = buildUniforms({
       preset,
@@ -58,7 +56,7 @@ describe('buildUniforms', () => {
   });
 
   it('should disable effects when preset has them disabled', () => {
-    const preset = PresetRegistry.get('performance')!;
+    const preset = getPreset('performance')!;
 
     const uniforms = buildUniforms({
       preset,
@@ -77,7 +75,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include scaleFactor in unsharp uniforms', () => {
-    const preset = PresetRegistry.get('true-color')!;
+    const preset = getPreset('true-color')!;
 
     const uniforms = buildUniforms({
       preset,
@@ -92,7 +90,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include scaleFactor and resolution in crt uniforms', () => {
-    const preset = PresetRegistry.get('vintage')!;
+    const preset = getPreset('vintage')!;
 
     const uniforms = buildUniforms({
       preset,
@@ -109,7 +107,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include enabled flags from preset', () => {
-    const preset = PresetRegistry.get('vintage')!;
+    const preset = getPreset('vintage')!;
 
     const uniforms = buildUniforms({
       preset,

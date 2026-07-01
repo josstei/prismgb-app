@@ -1,12 +1,12 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, computed } from '@prismgb/ui-base';
 import { signal } from '@prismgb/ui-base/reactive';
-import { PresetRegistry } from '@prismgb/gpu';
+import { getUiPresets, resolvePreset } from '@prismgb/gpu';
 import { EventChannels } from '@prismgb/events';
 import type { TypedEventBusLike } from '@prismgb/events';
 import type { LoggerLike } from '@prismgb/core';
 
-type UiShaderPreset = ReturnType<typeof PresetRegistry.getForUI>[number];
+type UiShaderPreset = ReturnType<typeof getUiPresets>[number];
 const presetOptionListenersKey = Symbol('shader-preset-option-listeners');
 
 export interface ShaderPresetSettingsService {
@@ -69,7 +69,7 @@ class ShaderPresetListComponent extends PresentationComponent {
   }
 
   _loadCurrentPreset(): void {
-    this.currentPresetId = this.settingsService.getStringSetting('renderPreset');
+    this.currentPresetId = resolvePreset(this.settingsService.getStringSetting('renderPreset')).id;
   }
 
   _loadPerformanceModeState(): void {
@@ -92,7 +92,7 @@ class ShaderPresetListComponent extends PresentationComponent {
     this.cancelManaged(presetOptionListenersKey);
     container.innerHTML = '';
 
-    const presets = PresetRegistry.getForUI();
+    const presets = getUiPresets();
     const optionDisposers: Array<() => void> = [];
     presets.forEach((preset: UiShaderPreset) => {
       const option = document.createElement('button');

@@ -13,6 +13,9 @@ const sharedAlias = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
+  '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
+  '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
+  '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
   '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
   '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
   '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
@@ -158,7 +161,11 @@ export default defineConfig({
       {
         test: {
           alias: {
-            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src')
+            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
+            '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
+            '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
+            '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
+            '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           },
           name: 'gpu-package',
           globals: true,
@@ -167,7 +174,11 @@ export default defineConfig({
         },
         resolve: {
           alias: {
-            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src')
+            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
+            '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
+            '@prismgb/gpu/worker': path.resolve(__dirname, 'packages/prismgb-gpu/src/worker.ts'),
+            '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
+            '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           }
         }
       },

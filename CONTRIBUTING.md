@@ -275,7 +275,7 @@ Runtime files follow the pattern: `{name}.{type}.{ext}`
 
 **Rules:**
 - Use kebab-case for filenames
-- Type suffix uses dot separator: `preset.registry.ts`, `streaming-worker-protocol.config.js`
+- Type suffix uses dot separator: `component.registry.ts`, `timing.config.ts`
 - Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
 - Entry points (`index.js`) and DI containers (`container.js`) are exceptions
 

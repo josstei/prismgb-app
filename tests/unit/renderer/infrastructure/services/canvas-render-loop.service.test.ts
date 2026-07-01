@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPipeline } from '@prismgb/gpu';
+import { createCanvas2DRenderPipeline } from '@prismgb/gpu/runtime';
 import { StreamingCanvasRenderLoopService } from '@renderer/infrastructure/services/streaming/canvas-render-loop.service';
 import {
   createAnimationCacheMock,
@@ -11,11 +11,11 @@ import {
 } from '../../../../factories/index.js';
 import { installDevicePixelRatioMock } from '../../../../support/mocks/browser-api.installers.js';
 
-vi.mock('@prismgb/gpu', async (importOriginal) => {
+vi.mock('@prismgb/gpu/runtime', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    createPipeline: vi.fn()
+    createCanvas2DRenderPipeline: vi.fn()
   };
 });
 
@@ -37,7 +37,7 @@ describe('StreamingCanvasRenderLoopService', () => {
     mockAnimationCache = createAnimationCacheMock();
     mockPipeline = createCanvasRenderPipelineMock();
 
-    createPipeline.mockResolvedValue(mockPipeline);
+    createCanvas2DRenderPipeline.mockResolvedValue(mockPipeline);
 
     mockCanvas = createMockCanvas({ width: 0, height: 0 });
     mockCanvas.style = {};
@@ -60,16 +60,10 @@ describe('StreamingCanvasRenderLoopService', () => {
 
     await service.initialize(mockCanvas, { width: 160, height: 144 });
 
-    expect(createPipeline).toHaveBeenCalledWith(expect.objectContaining({
+    expect(createCanvas2DRenderPipeline).toHaveBeenCalledWith(expect.objectContaining({
       canvas: mockCanvas,
       nativeWidth: 160,
-      nativeHeight: 144,
-      preferredAPI: 'canvas2d',
-      capabilities: expect.objectContaining({
-        webgpu: false,
-        webgl2: false,
-        preferredAPI: 'canvas2d'
-      })
+      nativeHeight: 144
     }));
     expect(service.hasContextFor(mockCanvas)).toBe(true);
   });
@@ -88,7 +82,7 @@ describe('StreamingCanvasRenderLoopService', () => {
     await service.initialize(mockCanvas, { width: 320, height: 240 });
 
     expect(mockPipeline.dispose).toHaveBeenCalledTimes(1);
-    expect(createPipeline).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(createCanvas2DRenderPipeline).toHaveBeenLastCalledWith(expect.objectContaining({
       nativeWidth: 320,
       nativeHeight: 240
     }));

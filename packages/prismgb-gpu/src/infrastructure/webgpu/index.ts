@@ -1,4 +1,3 @@
 export { WebGPUPipeline } from './webgpu-pipeline';
-export { BindGroupCache } from './bind-group-cache';
-export { UniformTracker } from './uniform-tracker';
-export { loadShaders, type WebGPUShaders } from './webgpu-shader-loader';
+export { BindGroupCache, UniformTracker } from './webgpu.resources';
+export { loadWebGPUShaders, type WebGPUShaders } from '../shader-sources';

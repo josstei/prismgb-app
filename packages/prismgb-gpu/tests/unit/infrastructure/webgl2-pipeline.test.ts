@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebGL2Pipeline } from '@/infrastructure/webgl2/webgl2-pipeline';
-import { BUILT_IN_PRESETS, PresetRegistry } from '@/domain/presets';
-
-PresetRegistry.registerMany(BUILT_IN_PRESETS);
+import { getPreset } from '@/application/preset-catalog';
 
 function createWebGL2ContextMock() {
-  const framebuffers = [{ id: 'framebuffer-0' }, { id: 'framebuffer-1' }];
-  let framebufferIndex = 0;
+  const framebuffers: Array<{ id: string }> = [];
   let textureIndex = 0;
 
   return {
@@ -59,7 +56,11 @@ function createWebGL2ContextMock() {
     texImage2D: vi.fn(),
     texSubImage2D: vi.fn(),
     deleteTexture: vi.fn(),
-    createFramebuffer: vi.fn(() => framebuffers[framebufferIndex++]),
+    createFramebuffer: vi.fn(() => {
+      const framebuffer = { id: `framebuffer-${framebuffers.length}` };
+      framebuffers.push(framebuffer);
+      return framebuffer;
+    }),
     bindFramebuffer: vi.fn(),
     framebufferTexture2D: vi.fn(),
     deleteFramebuffer: vi.fn(),
@@ -92,7 +93,7 @@ describe('WebGL2Pipeline', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: PresetRegistry.get('vibrant')!
+      preset: getPreset('vibrant')!
     });
 
     await pipeline.initialize();
@@ -117,7 +118,7 @@ describe('WebGL2Pipeline', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: PresetRegistry.get('vibrant')!
+      preset: getPreset('vibrant')!
     });
 
     await pipeline.initialize();
@@ -147,5 +148,56 @@ describe('WebGL2Pipeline', () => {
       gl.LINEAR,
       gl.LINEAR
     ]);
+  });
+
+  it('keeps rendering active after resizing render targets', async () => {
+    const gl = createWebGL2ContextMock();
+    const canvas = {
+      width: 640,
+      height: 576,
+      getContext: vi.fn(() => gl)
+    };
+    const pipeline = new WebGL2Pipeline({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      preset: getPreset('vibrant')!
+    });
+
+    await pipeline.initialize();
+    pipeline.renderFrame({} as TexImageSource);
+    const drawCallsBeforeResize = gl.drawArrays.mock.calls.length;
+
+    pipeline.resize(800, 720);
+    pipeline.renderFrame({} as TexImageSource);
+
+    expect(pipeline.isActive).toBe(true);
+    expect(canvas.width).toBe(800);
+    expect(canvas.height).toBe(720);
+    expect(gl.drawArrays.mock.calls.length).toBeGreaterThan(drawCallsBeforeResize);
+  });
+
+  it('does not resume after public resource release destroys render resources', async () => {
+    const gl = createWebGL2ContextMock();
+    const canvas = {
+      width: 640,
+      height: 576,
+      getContext: vi.fn(() => gl)
+    };
+    const pipeline = new WebGL2Pipeline({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      preset: getPreset('vibrant')!
+    });
+
+    await pipeline.initialize();
+    pipeline.releaseResources();
+    pipeline.resume();
+    pipeline.renderFrame({} as TexImageSource);
+
+    expect(pipeline.isInitialized).toBe(false);
+    expect(pipeline.isActive).toBe(false);
+    expect(gl.drawArrays).not.toHaveBeenCalled();
   });
 });

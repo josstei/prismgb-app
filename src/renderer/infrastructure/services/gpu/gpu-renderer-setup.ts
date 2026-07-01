@@ -1,15 +1,26 @@
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils.js';
 import { calculateNativeScaleFactor } from '@renderer/infrastructure/services/streaming/native-resolution.utils.js';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-import type { IPipelineCapabilities, RenderAPI } from '@prismgb/gpu';
-import type { WorkerRendererConfig } from '@renderer/infrastructure/rendering/workers/worker-protocol.config.js';
+import type { RenderCapabilities, RenderBackend } from '@prismgb/gpu';
 
-export type RendererCapabilities = IPipelineCapabilities & {
+export type RendererCapabilities = RenderCapabilities & {
   gpuPolicyApplied: boolean;
   gpuPolicyReason: string | null;
 };
 
-export function isWorkerRenderAPI(value: RenderAPI): value is WorkerRendererConfig['api'] {
+type WorkerRendererBackend = Extract<RenderBackend, 'webgpu' | 'webgl2'>;
+
+type WorkerRendererClientConfig = {
+  nativeWidth: number;
+  nativeHeight: number;
+  targetWidth: number;
+  targetHeight: number;
+  scaleFactor: number;
+  backend: WorkerRendererBackend;
+  presetId: string;
+};
+
+export function isWorkerRenderBackend(value: RenderBackend): value is WorkerRendererBackend {
   return value === 'webgpu' || value === 'webgl2';
 }
 
@@ -22,13 +33,13 @@ export function computeRendererConfig(
   nativeResolution: Dimensions,
   clientWidth: number,
   clientHeight: number,
-  preferredAPI: RenderAPI,
+  preferredBackend: RenderBackend,
   savedPresetId: string
 ): {
   scaleFactor: number;
   targetWidth: number;
   targetHeight: number;
-  config: WorkerRendererConfig;
+  config: WorkerRendererClientConfig;
 } {
   const scaleFactor = calculateNativeScaleFactor(
     nativeResolution,
@@ -38,15 +49,15 @@ export function computeRendererConfig(
   const targetWidth = nativeResolution.width * scaleFactor;
   const targetHeight = nativeResolution.height * scaleFactor;
 
-  const api = isWorkerRenderAPI(preferredAPI) ? preferredAPI : 'webgl2';
+  const backend = isWorkerRenderBackend(preferredBackend) ? preferredBackend : 'webgl2';
 
-  const config: WorkerRendererConfig = {
+  const config: WorkerRendererClientConfig = {
     nativeWidth: nativeResolution.width,
     nativeHeight: nativeResolution.height,
     targetWidth,
     targetHeight,
     scaleFactor,
-    api,
+    backend,
     presetId: savedPresetId
   };
 

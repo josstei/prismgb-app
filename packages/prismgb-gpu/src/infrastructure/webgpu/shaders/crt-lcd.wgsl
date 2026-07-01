@@ -29,37 +29,6 @@ struct CRTUniforms {
 // Mathematical constant
 const PI: f32 = 3.14159265359;
 
-// Vertex output structure
-struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
-  @location(0) uv: vec2<f32>
-}
-
-/**
- * Vertex shader - Full-screen quad
- */
-@vertex
-fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
-  var positions = array<vec2<f32>, 4>(
-    vec2<f32>(-1.0, -1.0),
-    vec2<f32>(1.0, -1.0),
-    vec2<f32>(-1.0, 1.0),
-    vec2<f32>(1.0, 1.0)
-  );
-
-  var uvs = array<vec2<f32>, 4>(
-    vec2<f32>(0.0, 1.0),
-    vec2<f32>(1.0, 1.0),
-    vec2<f32>(0.0, 0.0),
-    vec2<f32>(1.0, 0.0)
-  );
-
-  var output: VertexOutput;
-  output.position = vec4<f32>(positions[vertexIndex], 0.0, 1.0);
-  output.uv = uvs[vertexIndex];
-  return output;
-}
-
 /**
  * Apply barrel distortion to UV coordinates
  * Simulates the curved surface of CRT monitors

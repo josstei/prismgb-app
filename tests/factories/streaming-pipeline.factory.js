@@ -7,6 +7,7 @@
  */
 
 import { vi } from 'vitest';
+import { createWorkerRendererClientMock as createPackageWorkerRendererClientMock } from '@prismgb/gpu/testkit';
 import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
 
@@ -213,41 +214,37 @@ export function createGpuRenderLoopServiceMock(overrides = {}) {
 }
 
 /**
- * Creates a mock GpuWorkerManager.
+ * Creates a mock WorkerRendererClient.
  *
  * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock GpuWorkerManager.
+ * @returns {Object} Mock WorkerRendererClient.
  */
-export function createGpuWorkerManagerMock(overrides = {}) {
-  return {
-    isReady: vi.fn(() => false),
-    isCanvasTransferred: vi.fn(() => false),
-    getCapabilities: vi.fn(() => null),
-    initialize: vi.fn().mockResolvedValue(true),
-    sendCommand: vi.fn(),
-    onMessage: vi.fn(() => vi.fn()),
-    releaseResources: vi.fn(),
-    terminate: vi.fn(),
-    ...overrides
-  };
-}
+export function createWorkerRendererClientMock(overrides = {}) {
+  const client = createPackageWorkerRendererClientMock();
 
-/**
- * Creates a mock GpuFrameBuffer.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock GpuFrameBuffer.
- */
-export function createGpuFrameBufferMock(overrides = {}) {
   return {
-    enqueue: vi.fn(() => true),
-    dequeue: vi.fn(() => null),
-    isFull: vi.fn(() => false),
-    flush: vi.fn(),
-    getMetrics: vi.fn(() => ({ queued: 0, dropped: 0, avgLatency: 0 })),
-    resetMetrics: vi.fn(),
-    getCapacity: vi.fn(() => 3),
-    getSize: vi.fn(() => 0),
+    ...client,
+    isReady: vi.fn(client.isReady),
+    isCanvasTransferred: vi.fn(client.isCanvasTransferred),
+    initialize: vi.fn(client.initialize),
+    renderFrame: vi.fn(client.renderFrame),
+    setPreset: vi.fn(client.setPreset),
+    resize: vi.fn(client.resize),
+    requestCapture: vi.fn(client.requestCapture),
+    requestCapturedFrame: vi.fn(client.requestCapturedFrame),
+    sendCommand: vi.fn(client.sendCommand),
+    onMessage: vi.fn(client.onMessage),
+    onReady: vi.fn(client.onReady),
+    onFrameRendered: vi.fn(client.onFrameRendered),
+    onStats: vi.fn(client.onStats),
+    onError: vi.fn(client.onError),
+    onCaptureRequested: vi.fn(client.onCaptureRequested),
+    onCaptureReady: vi.fn(client.onCaptureReady),
+    onReleased: vi.fn(client.onReleased),
+    onDestroyed: vi.fn(client.onDestroyed),
+    releaseResources: vi.fn(client.releaseResources),
+    terminate: vi.fn(client.terminate),
+    dispose: vi.fn(client.dispose),
     ...overrides
   };
 }
@@ -341,30 +338,6 @@ export function createStreamViewServiceMock(overrides = {}) {
     attachMutedStream: vi.fn(),
     clearStream: vi.fn(),
     setMuted: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
- * Creates a mock WorkerPipeline.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock WorkerPipeline.
- */
-export function createWorkerPipelineMock(overrides = {}) {
-  return {
-    render: vi.fn(),
-    resize: vi.fn(),
-    captureFrame: vi.fn(async () => ({ id: 'captured-frame', close: vi.fn() })),
-    getStats: vi.fn(() => ({
-      fps: 60,
-      frameTime: 16.0,
-      framesRendered: 10,
-      framesDropped: 0
-    })),
-    dispose: vi.fn(async () => {}),
-    setPreset: vi.fn(),
-    setBrightness: vi.fn(),
     ...overrides
   };
 }

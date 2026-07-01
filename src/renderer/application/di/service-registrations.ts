@@ -38,9 +38,8 @@ import { PerformanceStateService } from '../../infrastructure/services/performan
 import { PerformanceStateOrchestrator } from '../orchestrators/performance/performance-state.orchestrator';
 import { AppOrchestrator } from '../orchestrators/app.orchestrator';
 import { BrowserMediaAdapter } from '../../infrastructure/browser/browser-media.adapter';
-import { GpuFrameBuffer } from '@prismgb/gpu';
+import { WorkerRendererClient } from '@prismgb/gpu/worker';
 import { StreamingGpuRenderLoopService } from '../../infrastructure/services/gpu/gpu-render-loop.service';
-import { GpuWorkerManager } from '../../infrastructure/services/gpu/gpu-worker-manager';
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
 import { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
@@ -101,9 +100,11 @@ export const standardServiceRegistrations: Record<string, StandardServiceFactory
   performanceStateOrchestrator: (cradle) => new PerformanceStateOrchestrator(cradle),
   appOrchestrator: (cradle) => new AppOrchestrator(cradle),
   browserMediaService: () => new BrowserMediaAdapter(),
-  gpuFrameBuffer: (cradle) => new GpuFrameBuffer(cradle),
   gpuRenderLoopService: (cradle) => new StreamingGpuRenderLoopService(cradle),
-  gpuWorkerManager: (cradle) => new GpuWorkerManager(cradle),
+  workerRendererClient: (cradle) => new WorkerRendererClient({
+    createWorker: () => new Worker(new URL('@prismgb/gpu/worker-entry', import.meta.url), { type: 'module' }),
+    logger: cradle.loggerFactory.create('WorkerRendererClient')
+  }),
   streamHealthService: (cradle) => new StreamingHealthService(cradle),
   viewportService: (cradle) => new StreamingViewportService(cradle),
   presentationModeService: (cradle) => new PresentationModeService(cradle),

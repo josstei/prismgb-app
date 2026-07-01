@@ -1,6 +1,8 @@
-import { BasePipeline, type BasePipelineConfig } from '../base-pipeline';
+import { BasePipeline } from '../pipeline-base';
 
 export class Canvas2DPipeline extends BasePipeline {
+  readonly backend = 'canvas2d' as const;
+
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
   async initialize(): Promise<void> {
@@ -63,10 +65,11 @@ export class Canvas2DPipeline extends BasePipeline {
 
   releaseResources(): void {
     this._isActive = false;
+    this._isInitialized = false;
+    this.ctx = null;
   }
 
   async dispose(): Promise<void> {
-    this.ctx = null;
-    this._isInitialized = false;
+    this.releaseResources();
   }
 }

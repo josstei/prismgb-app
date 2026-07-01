@@ -24,8 +24,7 @@ const expectedRegistrationKeys = [
   'canvasLifecycleService',
   'gpuRenderLoopService',
   'streamHealthService',
-  'gpuFrameBuffer',
-  'gpuWorkerManager',
+  'workerRendererClient',
   'gpuRendererService',
   'streamingRendererFactory',
   'renderPipelineService',
@@ -142,7 +141,6 @@ describe('Renderer container', () => {
 
     // Standard service registrations: cradle construction and no-arg construction.
     expect(() => container.resolve('deviceMediaAcquirer')).not.toThrow();
-    expect(container.resolve('gpuFrameBuffer')).toBeDefined();
     expect(container.resolve('animationCache')).toBeDefined();
   });
 });

@@ -20,7 +20,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      '@prismgb/gpu/runtime': resolve(__dirname, 'src/runtime.ts'),
+      '@prismgb/gpu/worker': resolve(__dirname, 'src/worker.ts'),
+      '@prismgb/gpu/testkit': resolve(__dirname, 'src/testkit.ts'),
+      '@prismgb/gpu': resolve(__dirname, 'src/index.ts')
     }
   }
 });

@@ -1,8 +1,7 @@
 import {
-  createPipeline,
-  type IPipeline,
-  type IPipelineCapabilities
+  type RenderPipeline
 } from '@prismgb/gpu';
+import { createCanvas2DRenderPipeline } from '@prismgb/gpu/runtime';
 import { DisposableBag } from '@prismgb/core';
 import { DeviceCatalog } from '@prismgb/devices';
 import type { LoggerLike } from '@prismgb/core';
@@ -25,21 +24,10 @@ type VideoFrameCallbackTarget = HTMLVideoElement & {
 const CANVAS_RENDER_LOOP_LIFECYCLE = Symbol('canvasRenderLoop');
 const CANVAS_LOADED_DATA_LIFECYCLE = Symbol('canvasLoadedData');
 
-function createCanvas2DCapabilities(maxTextureSize: number): IPipelineCapabilities {
-  return {
-    webgpu: false,
-    webgl2: false,
-    offscreenCanvas: false,
-    transferControlToOffscreen: false,
-    preferredAPI: 'canvas2d',
-    maxTextureSize
-  };
-}
-
 export class StreamingCanvasRenderLoopService {
   logger: LoggerLike;
   animationCache: AnimationCacheLike;
-  _pipeline: IPipeline | null;
+  _pipeline: RenderPipeline | null;
   _pipelineCanvas: HTMLCanvasElement | null;
   _isRenderLoopActive: boolean;
   _lastFrameTime: number;
@@ -79,17 +67,10 @@ export class StreamingCanvasRenderLoopService {
     this._nativeResolution = nativeResolution;
     await this._disposePipeline();
     this._pipelineCanvas = canvasElement;
-    this._pipeline = await createPipeline({
+    this._pipeline = await createCanvas2DRenderPipeline({
       canvas: canvasElement,
       nativeWidth: nativeResolution.width,
-      nativeHeight: nativeResolution.height,
-      preferredAPI: 'canvas2d',
-      capabilities: createCanvas2DCapabilities(Math.max(
-        canvasElement.width,
-        canvasElement.height,
-        nativeResolution.width,
-        nativeResolution.height
-      ))
+      nativeHeight: nativeResolution.height
     });
   }
 

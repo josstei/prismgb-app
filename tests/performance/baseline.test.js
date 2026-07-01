@@ -50,6 +50,11 @@ async function measure(fn, iterations = 100) {
   };
 }
 
+function assertMeasuredBaseline(metricName, result) {
+  // Median timing keeps sub-millisecond baselines stable under full-suite worker scheduling noise.
+  return assertBaseline(metricName, result.median);
+}
+
 describe('Performance Baselines', () => {
   describe('Resolution Calculations', () => {
     let calc;
@@ -67,7 +72,7 @@ describe('Performance Baselines', () => {
         calc.calculateScaled(4);
       });
 
-      assertBaseline('resolution-calc-cached', result.avg);
+      assertMeasuredBaseline('resolution-calc-cached', result);
     });
 
     it('should meet baseline for uncached resolution calculation', async () => {
@@ -76,7 +81,7 @@ describe('Performance Baselines', () => {
         calc.calculateScaled(4);
       }, 50);
 
-      assertBaseline('resolution-calc-uncached', result.avg);
+      assertMeasuredBaseline('resolution-calc-uncached', result);
     });
   });
 
@@ -96,7 +101,7 @@ describe('Performance Baselines', () => {
         cache.set(`key-${Math.random()}`, { value: Math.random() });
       });
 
-      assertBaseline('cache-set', result.avg);
+      assertMeasuredBaseline('cache-set', result);
     });
 
     it('should meet baseline for cache get (hit)', async () => {
@@ -106,7 +111,7 @@ describe('Performance Baselines', () => {
         cache.get('test-key');
       });
 
-      assertBaseline('cache-get-hit', result.avg);
+      assertMeasuredBaseline('cache-get-hit', result);
     });
   });
 
@@ -128,7 +133,7 @@ describe('Performance Baselines', () => {
         eventBus.publish('test:event', { data: 'test' });
       });
 
-      assertBaseline('eventbus-publish', result.avg);
+      assertMeasuredBaseline('eventbus-publish', result);
     });
 
     it('should meet baseline for event subscribe', async () => {
@@ -137,7 +142,7 @@ describe('Performance Baselines', () => {
         unsub();
       });
 
-      assertBaseline('eventbus-subscribe', result.avg);
+      assertMeasuredBaseline('eventbus-subscribe', result);
     });
 
     it('should meet baseline for 100 publishes batch', async () => {
@@ -149,7 +154,7 @@ describe('Performance Baselines', () => {
         }
       }, 10);
 
-      assertBaseline('eventbus-100-publishes', result.avg);
+      assertMeasuredBaseline('eventbus-100-publishes', result);
     });
   });
 
@@ -169,7 +174,7 @@ describe('Performance Baselines', () => {
         navigator.mediaDevices.enumerateDevices();
       }, 50);
 
-      assertBaseline('device-enumerate', result.avg);
+      assertMeasuredBaseline('device-enumerate', result);
     });
   });
 
@@ -179,7 +184,7 @@ describe('Performance Baselines', () => {
         createMockDependencies();
       }, 50);
 
-      assertBaseline('factory-creation', result.avg);
+      assertMeasuredBaseline('factory-creation', result);
     });
 
     it('should meet baseline for individual factory creation', async () => {
@@ -193,7 +198,7 @@ describe('Performance Baselines', () => {
       for (const factory of factories) {
         const result = await measure(factory, 50);
         // Should be fast
-        expect(result.avg).toBeLessThan(2);
+        expect(result.median).toBeLessThan(2);
       }
     });
   });

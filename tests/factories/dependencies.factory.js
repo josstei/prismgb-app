@@ -1,9 +1,4 @@
-/**
- * Dependencies Factory
- *
- * Creates composite dependency mock sets for testing orchestrators and services.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
- */
+import { vi } from 'vitest';
 
 import { createAppState } from './app-state.factory.js';
 import { createRendererDeviceRuntimeMock } from './device.factory.js';
@@ -11,9 +6,62 @@ import { createEventBus } from './event-bus.factory.js';
 import { createLoggerFactory } from './logger.factory.js';
 import {
   createDeviceMediaAcquirerMock,
+  createMockCanvas,
+  createMockVideo,
   createStreamingService
 } from './stream.factory.js';
-import { createUIController } from './ui.factory.js';
+
+function createLeanUiController() {
+  const elements = {
+    streamCanvas: createMockCanvas(),
+    streamVideo: createMockVideo(),
+    streamOverlay: { hidden: false },
+    overlayMessage: { textContent: '', dataset: {} },
+    deviceStatus: { textContent: '' },
+    streamInfo: { textContent: '' },
+    recordBtn: {
+      disabled: false,
+      classList: {
+        add: vi.fn(),
+        remove: vi.fn()
+      }
+    }
+  };
+
+  return {
+    elements,
+    setStreamingMode: vi.fn((isStreaming) => {
+      elements.streamOverlay.hidden = isStreaming;
+    }),
+    updateOverlayMessage: vi.fn((message, type = 'info') => {
+      elements.overlayMessage.textContent = message;
+      elements.overlayMessage.dataset.type = type;
+    }),
+    showErrorOverlay: vi.fn((message) => {
+      elements.overlayMessage.textContent = message;
+      elements.overlayMessage.dataset.type = 'error';
+      elements.streamOverlay.hidden = false;
+    }),
+    updateDeviceStatus: vi.fn((status) => {
+      elements.deviceStatus.textContent = status;
+    }),
+    updateStreamInfo: vi.fn((info) => {
+      elements.streamInfo.textContent = info;
+    }),
+    setRecordButtonEnabled: vi.fn((enabled) => {
+      elements.recordBtn.disabled = !enabled;
+    }),
+    setRecordingState: vi.fn((isRecording) => {
+      const method = isRecording ? 'add' : 'remove';
+      elements.recordBtn.classList[method]('recording');
+    }),
+    _getElement: (name) => elements[name],
+    _setElement: (name, element) => {
+      elements[name] = element;
+    },
+    _reset: vi.fn()
+  };
+}
 
 /**
  * Creates mock dependencies for a streaming service.
@@ -25,8 +73,8 @@ export function createStreamingServiceDependencies(overrides = {}) {
   return {
     rendererDeviceRuntime: createRendererDeviceRuntimeMock(),
     deviceMediaAcquirer: createDeviceMediaAcquirerMock(),
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
+    eventBus: createEventBus({ recordEvents: false }),
+    loggerFactory: createLoggerFactory({ recordLogs: false }),
     ...overrides
   };
 }
@@ -39,10 +87,10 @@ export function createStreamingServiceDependencies(overrides = {}) {
  */
 export function createMockDependencies(overrides = {}) {
   return {
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
-    appState: createAppState(),
-    uiController: createUIController(),
+    eventBus: createEventBus({ recordEvents: false }),
+    loggerFactory: createLoggerFactory({ recordLogs: false }),
+    appState: createAppState({ trackChanges: false }),
+    uiController: createLeanUiController(),
     streamingService: createStreamingService(),
     rendererDeviceRuntime: createRendererDeviceRuntimeMock(),
     deviceMediaAcquirer: createDeviceMediaAcquirerMock(),

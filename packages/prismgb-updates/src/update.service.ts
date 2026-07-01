@@ -18,7 +18,7 @@ function getApp() {
   try {
     const require = createRequire(import.meta.url);
     electronApp = require('electron').app;
-  } catch (err) {
+  } catch {
     electronApp = null;
   }
   return electronApp;
@@ -30,13 +30,6 @@ interface WindowService {
 
 interface EventBus {
   publish(event: string, data: unknown): void;
-}
-
-interface Logger {
-  info(message: string, ...args: unknown[]): void;
-  warn(message: string, ...args: unknown[]): void;
-  error(message: string | Error, ...args: unknown[]): void;
-  debug(message: string, ...args: unknown[]): void;
 }
 
 interface Config {

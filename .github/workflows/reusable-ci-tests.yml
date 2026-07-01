@@ -42,6 +42,9 @@ jobs:
       - name: Validate package export artifacts
         run: npm run check:exports
 
+      - name: Run GPU package boundary check
+        run: npm run check:gpu-boundaries
+
       - name: Typecheck all workspace packages (turbo)
         run: npm run typecheck:packages
 
@@ -81,6 +84,9 @@ jobs:
 
       - name: Validate package export artifacts
         run: npm run check:exports
+
+      - name: Run GPU package boundary check
+        run: npm run check:gpu-boundaries
 
       - name: Typecheck all workspace packages (turbo)
         run: npm run typecheck:packages

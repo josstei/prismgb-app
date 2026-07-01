@@ -1,16 +1,18 @@
 import { BaseService } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { CapabilityDetector } from '@renderer/infrastructure/rendering/capability-detector.utils';
-import {
-  WorkerMessageType,
-  WorkerResponseType
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
 import type {
+  WorkerRendererClient,
   WorkerStatsPayload
-} from '@renderer/infrastructure/rendering/workers/worker-protocol.config';
-import { PresetRegistry, buildUniforms } from '@prismgb/gpu';
+} from '@prismgb/gpu/worker';
+import {
+  buildUniforms,
+  getPreset,
+  getRendererDefaultPreset,
+  resolvePreset
+} from '@prismgb/gpu';
 import type {
-  IPreset,
+  RenderPreset,
   PipelineUniforms
 } from '@prismgb/gpu';
 import { getErrorMessage } from '@prismgb/core';
@@ -24,7 +26,6 @@ import type { Dimensions } from '@renderer/infrastructure/services/streaming/str
 type GpuRendererCleanupOptions = {
   emitCanvasExpired?: boolean;
 };
-import type { GpuWorkerManager } from './gpu-worker-manager';
 import {
   calculateNativeScaleFactor,
   createNativeBitmapOptions,
@@ -33,7 +34,7 @@ import {
 import {
   detectCapabilities,
   computeRendererConfig,
-  isWorkerRenderAPI,
+  isWorkerRenderBackend,
   type RendererCapabilities
 } from './gpu-renderer-setup.js';
 
@@ -52,18 +53,11 @@ type SettingsServiceLike = {
   getStringSetting(name: string): string;
 };
 
-type GpuFrameBufferLike = {
-  flush(): void;
-  getMetrics(): unknown;
-  resetMetrics(): void;
-};
-
 type StreamingGpuRendererDependencies = {
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
   settingsService: SettingsServiceLike;
-  gpuFrameBuffer: GpuFrameBufferLike;
-  gpuWorkerManager: GpuWorkerManager;
+  workerRendererClient: WorkerRendererClient;
 };
 
 
@@ -72,12 +66,11 @@ export class StreamingGpuRendererService extends BaseService {
   protected readonly eventBus: TypedEventBusLike;
   private readonly settingsService: SettingsServiceLike;
 
-  private readonly _frameBuffer: GpuFrameBufferLike;
-  private readonly _workerManager: GpuWorkerManager;
+  private readonly _workerClient: WorkerRendererClient;
   private _pendingFrames: number;
   private _capabilities: RendererCapabilities | null;
   private _currentPresetId: string | null;
-  private _currentPreset: IPreset | null;
+  private _currentPreset: RenderPreset | null;
   private _globalBrightness: number;
   private _nativeResolution: Dimensions;
   private _bitmapOptions: ImageBitmapOptions;
@@ -107,8 +100,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {EventBus} dependencies.eventBus - Event publisher for render events
    * @param {Function} dependencies.loggerFactory - Logger factory
    * @param {SettingsService} dependencies.settingsService - Settings for brightness/preset
-   * @param {GpuFrameBuffer} dependencies.gpuFrameBuffer - Frame buffer manager
-   * @param {GpuWorkerManager} dependencies.gpuWorkerManager - Worker lifecycle manager
+   * @param {WorkerRendererClient} dependencies.workerRendererClient - Worker lifecycle client
    */
   constructor(dependencies: StreamingGpuRendererDependencies) {
     super(
@@ -118,8 +110,7 @@ export class StreamingGpuRendererService extends BaseService {
 
     this.eventBus = dependencies.eventBus;
     this.settingsService = dependencies.settingsService;
-    this._frameBuffer = dependencies.gpuFrameBuffer;
-    this._workerManager = dependencies.gpuWorkerManager;
+    this._workerClient = dependencies.workerRendererClient;
 
     this._pendingFrames = 0;
 
@@ -161,7 +152,7 @@ export class StreamingGpuRendererService extends BaseService {
 
   /**
    * Initialize the GPU renderer with a canvas element
-   * Detects GPU capabilities, delegates worker creation to GpuWorkerManager,
+   * Detects GPU capabilities, delegates worker creation to WorkerRendererClient,
    * and sets up the rendering pipeline.
    * @param {HTMLCanvasElement} canvasElement - Canvas to render to (control will be transferred)
    * @param {Object} [nativeResolution] - Native device resolution
@@ -214,12 +205,12 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     try {
-      const savedPresetId = this.settingsService.getStringSetting('renderPreset') || PresetRegistry.getDefault().id;
-      this._currentPresetId = savedPresetId;
-      this._currentPreset = PresetRegistry.get(savedPresetId) || PresetRegistry.getDefault();
+      const savedPresetId = this.settingsService.getStringSetting('renderPreset') || getRendererDefaultPreset().id;
+      this._currentPreset = resolvePreset(savedPresetId);
+      this._currentPresetId = this._currentPreset.id;
 
-      if (!isWorkerRenderAPI(this._capabilities.preferredAPI)) {
-        this.logger.warn(`Unsupported worker render API: ${this._capabilities.preferredAPI}`);
+      if (!isWorkerRenderBackend(this._capabilities.preferredBackend)) {
+        this.logger.warn(`Unsupported worker render backend: ${this._capabilities.preferredBackend}`);
         this._isUsingFallback = true;
         return false;
       }
@@ -228,8 +219,8 @@ export class StreamingGpuRendererService extends BaseService {
         activeNativeResolution,
         canvasElement.clientWidth,
         canvasElement.clientHeight,
-        this._capabilities.preferredAPI,
-        savedPresetId
+        this._capabilities.preferredBackend,
+        this._currentPresetId
       );
 
       this._scaleFactor = scaleFactor;
@@ -238,16 +229,16 @@ export class StreamingGpuRendererService extends BaseService {
 
       this._registerMessageHandlers();
 
-      const initialized = await this._workerManager.initialize(canvasElement, config, 5000);
+      const initialized = await this._workerClient.initialize(canvasElement, config, 5000);
 
       if (!initialized) {
-        this.logger.error('Worker manager initialization returned false');
+        this.logger.error('Worker renderer client initialization returned false');
         this._unregisterMessageHandlers();
         this._isUsingFallback = true;
         return false;
       }
 
-      this.logger.info(`GPU renderer initialized with ${this._capabilities.preferredAPI}`);
+      this.logger.info(`GPU renderer initialized with ${this._capabilities.preferredBackend}`);
       return true;
 
     } catch (error) {
@@ -259,32 +250,32 @@ export class StreamingGpuRendererService extends BaseService {
   }
 
   /**
-   * Register domain-specific message handlers on the worker manager
+   * Register domain-specific message handlers on the worker client
    * @private
    */
   _registerMessageHandlers(): void {
     this._unregisterMessageHandlers();
 
     this._messageUnsubscribers = [
-      this._workerManager.onMessage(WorkerResponseType.READY, (payload) => {
-        this.logger.info(`Render worker ready (API: ${payload.api})`);
+      this._workerClient.onReady((payload) => {
+        this.logger.info(`Render worker ready (backend: ${payload.backend})`);
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, payload);
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.FRAME_RENDERED, () => {
+      this._workerClient.onFrameRendered(() => {
         this._pendingFrames = Math.max(0, this._pendingFrames - 1);
         if (this._isWaitingForCapturedFrame) {
           this._isWaitingForCapturedFrame = false;
-          this._workerManager.sendCommand(WorkerMessageType.CAPTURE);
+          this._workerClient.requestCapturedFrame();
         }
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.STATS, (payload) => {
+      this._workerClient.onStats((payload) => {
         this._lastStats = payload;
         this.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, payload);
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.ERROR, (payload) => {
+      this._workerClient.onError((payload) => {
         if (payload.code === 'DEVICE_LOST' && payload.message?.includes('destroyed')) {
           this.logger.debug('GPU device destroyed (expected during cleanup)');
           return;
@@ -295,17 +286,17 @@ export class StreamingGpuRendererService extends BaseService {
         this._resolvePendingCapture(null, new Error(payload.message));
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.CAPTURE_REQUESTED, () => {}),
+      this._workerClient.onCaptureRequested(() => {}),
 
-      this._workerManager.onMessage(WorkerResponseType.CAPTURE_READY, (payload) => {
+      this._workerClient.onCaptureReady((payload) => {
         this._resolvePendingCapture(payload.bitmap, null);
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.RELEASED, () => {
+      this._workerClient.onReleased(() => {
         this.logger.info('GPU resources released (worker still alive)');
       }),
 
-      this._workerManager.onMessage(WorkerResponseType.DESTROYED, () => {
+      this._workerClient.onDestroyed(() => {
         this.logger.info('Render worker destroyed');
       })
     ];
@@ -330,8 +321,8 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {Promise<void>}
    */
   async renderFrame(videoElement: HTMLVideoElement): Promise<void> {
-    if (!this._workerManager.isReady() || this._pendingFrames >= MAX_PENDING_FRAMES) {
-      if (this._workerManager.isReady() && this._pendingFrames >= MAX_PENDING_FRAMES) {
+    if (!this._workerClient.isReady() || this._pendingFrames >= MAX_PENDING_FRAMES) {
+      if (this._workerClient.isReady() && this._pendingFrames >= MAX_PENDING_FRAMES) {
         this._skippedFrames++;
         const now = performance.now();
         if (now - this._lastBackpressureLog > 5000) {
@@ -356,12 +347,13 @@ export class StreamingGpuRendererService extends BaseService {
 
       this._pendingFrames++;
 
-      this._workerManager.sendCommand(
-        WorkerMessageType.FRAME,
-        { imageBitmap, uniforms },
-        [imageBitmap]
-      );
-      imageBitmap = null;
+      if (this._workerClient.renderFrame(imageBitmap, uniforms)) {
+        imageBitmap = null;
+      } else {
+        this._pendingFrames = Math.max(0, this._pendingFrames - 1);
+        imageBitmap.close();
+        imageBitmap = null;
+      }
     } catch (error) {
       this.logger.error('Failed to render frame:', getErrorMessage(error));
       if (imageBitmap) {
@@ -389,7 +381,7 @@ export class StreamingGpuRendererService extends BaseService {
     }
 
     const baseUniforms = buildUniforms({
-      preset: this._currentPreset ?? PresetRegistry.getDefault(),
+      preset: this._currentPreset ?? getRendererDefaultPreset(),
       nativeWidth: this._nativeResolution.width,
       nativeHeight: this._nativeResolution.height,
       outputWidth: this._targetWidth,
@@ -414,7 +406,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @param {string} presetId - Preset ID (e.g., 'authentic', 'vivid', 'sharp')
    */
   setPreset(presetId: string): void {
-    const preset = PresetRegistry.get(presetId);
+    const preset = getPreset(presetId);
     if (!preset) {
       this.logger.warn(`Unknown preset: ${presetId}`);
       return;
@@ -429,11 +421,8 @@ export class StreamingGpuRendererService extends BaseService {
 
     this.logger.info(`Render preset changed to: ${preset.name}`);
 
-    if (this._workerManager.isReady()) {
-      this._workerManager.sendCommand(WorkerMessageType.SET_PRESET, {
-        presetId,
-        preset
-      });
+    if (this._workerClient.isReady()) {
+      this._workerClient.setPreset(presetId, preset);
     }
   }
 
@@ -457,12 +446,8 @@ export class StreamingGpuRendererService extends BaseService {
     this._targetWidth = this._nativeResolution.width * this._scaleFactor;
     this._targetHeight = this._nativeResolution.height * this._scaleFactor;
 
-    if (this._workerManager.isReady()) {
-      this._workerManager.sendCommand(WorkerMessageType.RESIZE, {
-        width: this._targetWidth,
-        height: this._targetHeight,
-        scaleFactor: this._scaleFactor
-      });
+    if (this._workerClient.isReady()) {
+      this._workerClient.resize(this._targetWidth, this._targetHeight, this._scaleFactor);
     }
 
     this.logger.debug(`Resized to ${this._targetWidth}×${this._targetHeight} (${this._scaleFactor}× scale)`);
@@ -473,7 +458,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if ready and not using fallback
    */
   isActive(): boolean {
-    return this._workerManager.isReady() && !this._isUsingFallback;
+    return this._workerClient.isReady() && !this._isUsingFallback;
   }
 
   /**
@@ -490,7 +475,7 @@ export class StreamingGpuRendererService extends BaseService {
    * @returns {boolean} True if canvas was transferred (irreversible)
    */
   isCanvasTransferred(): boolean {
-    return this._workerManager.isCanvasTransferred();
+    return this._workerClient.isCanvasTransferred();
   }
 
   /**
@@ -524,7 +509,7 @@ export class StreamingGpuRendererService extends BaseService {
       throw new Error('GPU renderer is shutting down');
     }
 
-    if (!this._workerManager.isReady()) {
+    if (!this._workerClient.isReady()) {
       throw new Error('GPU renderer not ready');
     }
 
@@ -536,7 +521,10 @@ export class StreamingGpuRendererService extends BaseService {
       this._pendingCaptureResolve = resolve;
       this._pendingCaptureReject = reject;
 
-      this._workerManager.sendCommand(WorkerMessageType.REQUEST_CAPTURE);
+      if (!this._workerClient.requestCapture()) {
+        this._resolvePendingCapture(null, new Error('GPU renderer not ready'));
+        return;
+      }
 
       this._isWaitingForCapturedFrame = true;
 
@@ -555,12 +543,12 @@ export class StreamingGpuRendererService extends BaseService {
    * Used for idle memory savings when streaming stops.
    */
   releaseGpuResources(): void {
-    if (!this._workerManager.isReady()) {
+    if (!this._workerClient.isReady()) {
       this.logger.debug('releaseGpuResources: Nothing to release (worker not ready)');
       return;
     }
 
-    this._workerManager.releaseResources();
+    this._workerClient.releaseResources();
     this._pendingFrames = 0;
 
     this._skippedFrames = 0;
@@ -575,7 +563,7 @@ export class StreamingGpuRendererService extends BaseService {
    * Emits CANVAS_EXPIRED event so UI can provide fresh canvas on next init.
    */
   terminateAndReset(emitCanvasExpired = true): void {
-    if (!this._workerManager.isCanvasTransferred()) {
+    if (!this._workerClient.isCanvasTransferred()) {
       this.logger.debug('terminateAndReset: Nothing to terminate');
       return;
     }
@@ -610,7 +598,7 @@ export class StreamingGpuRendererService extends BaseService {
   }
 
   /**
-   * Cleanup resources by delegating to worker manager
+   * Cleanup resources by delegating to worker client
    * @param {boolean} [emitCanvasExpired=true] - Whether to emit CANVAS_EXPIRED
    */
   _cleanup(emitCanvasExpired = true): void {
@@ -622,9 +610,9 @@ export class StreamingGpuRendererService extends BaseService {
 
     this._unregisterMessageHandlers();
 
-    const wasTransferred = this._workerManager.isCanvasTransferred();
+    const wasTransferred = this._workerClient.isCanvasTransferred();
 
-    this._workerManager.terminate();
+    this._workerClient.terminate();
 
     this._pendingFrames = 0;
     this._skippedFrames = 0;

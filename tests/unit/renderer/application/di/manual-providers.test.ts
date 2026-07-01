@@ -16,8 +16,7 @@ describe('manualProviders registry', () => {
     );
   });
 
-  it('does NOT contain the promoted standard-construction tokens', () => {
-    expect(manualProviders.gpuFrameBuffer).toBeUndefined();
+  it('does NOT contain promoted standard-construction tokens', () => {
     expect(manualProviders.animationCache).toBeUndefined();
   });
 

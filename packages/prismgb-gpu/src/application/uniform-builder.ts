@@ -1,8 +1,8 @@
-import type { IPreset } from '../domain/presets';
-import type { PipelineUniforms } from '../domain/shaders';
+import type { RenderPreset } from '../domain/types';
+import type { PipelineUniforms } from '../domain/uniforms';
 
 export interface UniformBuildContext {
-  preset: IPreset;
+  preset: RenderPreset;
   nativeWidth: number;
   nativeHeight: number;
   outputWidth: number;
