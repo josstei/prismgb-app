@@ -18,7 +18,7 @@ const sharedAlias = {
   '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
   '@prismgb/config': path.resolve(__dirname, 'packages/prismgb-config/src/index.ts'),
   '@prismgb/ipc': path.resolve(__dirname, 'packages/prismgb-ipc/src/index.ts'),
-  '@prismgb/devices/service': path.resolve(__dirname, 'packages/prismgb-devices/src/service.ts'),
+  '@prismgb/devices/runtime': path.resolve(__dirname, 'packages/prismgb-devices/src/runtime.ts'),
   '@prismgb/devices/testkit': path.resolve(__dirname, 'packages/prismgb-devices/src/testkit.ts'),
   '@prismgb/devices': path.resolve(__dirname, 'packages/prismgb-devices/src/index.ts'),
   '@prismgb/transcode/service': path.resolve(__dirname, 'packages/prismgb-transcode/src/service.ts'),

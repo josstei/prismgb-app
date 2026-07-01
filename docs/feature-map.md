@@ -1,6 +1,6 @@
 # Feature Map
 
-<!-- Source: packages/prismgb-devices/src/device.manifest.json, packages/prismgb-devices/src/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/chromatic-manifest.testkit.ts -->
+<!-- Source: packages/prismgb-devices/src/domain/catalog.json, packages/prismgb-devices/src/domain/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/media.testkit.ts -->
 
 This document maps user-facing features to the codebase for maintenance and onboarding.
 
@@ -58,7 +58,7 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 | Recording format | Settings format dropdown -> `SettingsService.setSetting('recordingFormat', value)` -> `settings:recording-format-changed` persists and drives later saves |
 | Shader/brightness/volume | shader panel settings -> `settings:render-preset-changed`, `settings:brightness-changed`, and `settings:volume-changed` -> render pipeline and slider UI sync |
 | Performance mode | Settings toggle -> `settings:performance-mode-changed` -> `performance:render-mode-changed` -> `StreamingOrchestrator` switches to Canvas2D when enabled |
-| Device connect/disconnect | `MainDeviceRuntime` reconciles USB status -> `DeviceIntegrationService` publishes EventBus/tray/window side effects -> `WindowService.send` emits to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
+| Device connect/disconnect | `DeviceConnectionService` reconciles USB status -> `DeviceIntegrationService` publishes EventBus/tray/window side effects -> `WindowService.send` emits to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
 | Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
 | Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
 | Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `trpcClient.update.*` procedures and subscriptions -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
@@ -75,19 +75,16 @@ Screenshots will not be added to this repository.
 
 ### Add a New Device
 
-1. Register manifest metadata in `packages/prismgb-devices/src/device.manifest.json`.
-2. Extend `packages/prismgb-devices/src/contracts.ts` and `packages/prismgb-devices/src/catalog.ts` only if the manifest schema needs a new field.
+1. Register device metadata in `packages/prismgb-devices/src/domain/catalog.json`.
+2. Extend `packages/prismgb-devices/src/domain/types.ts` and `packages/prismgb-devices/src/domain/catalog.ts` only if the catalog schema needs a new field.
 3. Use `DeviceCatalog`, `matchDevice`, and `toDeviceStatusPayload` from `@prismgb/devices`; individual hardware models should not get their own runtime classes.
-4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from the manifest-backed testkit.
+4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from `@prismgb/devices/testkit`.
 5. Update docs and tests if behavior changes.
 
 Device test entry points:
-- `tests/devices/chromatic-manifest.testkit.ts`: manifest descriptor constants, USB/media specs, payload builders, and frame data.
-- `tests/devices/media.testkit.ts`: `MediaDeviceInfo`, `MediaStreamTrack`, and `MediaStream` doubles derived from the manifest fixture.
-- `tests/devices/browser-media.harness.ts`: `navigator.mediaDevices` harness with connect/disconnect and `devicechange` behavior.
-- `tests/devices/chromatic.e2e.fixture.ts`: E2E fixture payloads shared by Playwright helpers.
+- `tests/devices/media.testkit.ts`: catalog-backed descriptor constants, USB/media specs, payload builders, frame data, and browser media doubles.
 
-Do not hand-write device fixture classes or duplicate manifest constants in individual tests.
+Do not hand-write device fixture classes or duplicate catalog constants in individual tests.
 
 ### Add a Render Preset
 

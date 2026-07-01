@@ -1,4 +1,4 @@
-import { DeviceManifest } from './device.manifest.js';
+import catalog from './catalog.json';
 import type {
   DeviceAcquisitionAttempt,
   DeviceAcquisitionProfile,
@@ -15,9 +15,9 @@ import type {
   DeviceNativeResolution,
   DeviceResolution,
   DeviceStreamProfile
-} from './contracts.js';
+} from './types.js';
 
-type ManifestDevice = typeof DeviceManifest.devices[number];
+type ManifestDevice = typeof catalog.devices[number];
 type ManifestMedia = ManifestDevice['media'] & {
   audio?: Partial<DeviceMediaAudioProfile>;
 };
@@ -176,7 +176,7 @@ function toDescriptor(device: ManifestDevice): DeviceDescriptor {
 }
 
 const DEVICE_DESCRIPTORS: readonly DeviceDescriptor[] = deepFreeze(
-  DeviceManifest.devices.map(toDescriptor)
+  catalog.devices.map(toDescriptor)
 );
 
 const ENABLED_DEVICE_DESCRIPTORS: readonly DeviceDescriptor[] = deepFreeze(

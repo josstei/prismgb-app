@@ -5,7 +5,7 @@ import type {
   DeviceMatchReason,
   ObservedMediaDevice,
   ObservedUsbDevice
-} from './contracts.js';
+} from './types.js';
 
 type MatchableDevice = ObservedUsbDevice | ObservedMediaDevice;
 

@@ -30,7 +30,7 @@ export const CHROMATIC_STREAM_CAPABILITIES = Object.freeze({
   hasAudio: true
 });
 
-export function createChromaticUsbDeviceInfo(overrides: Partial<ObservedUsbDevice> = {}): ObservedUsbDevice {
+export function createChromaticUsbDevice(overrides: Partial<ObservedUsbDevice> = {}): ObservedUsbDevice {
   return {
     ...CHROMATIC_PROFILE.usbDeviceInfo,
     ...overrides

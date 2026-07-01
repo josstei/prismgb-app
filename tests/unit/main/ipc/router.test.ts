@@ -10,7 +10,7 @@ import {
 function createContext(overrides: Partial<Record<string, unknown>> = {}) {
   const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const context = {
-    mainDeviceRuntime: {
+    deviceConnectionService: {
       getStatus: vi.fn(() => ({
         state: 'connected',
         connected: true,
@@ -71,7 +71,7 @@ describe('appRouter — queries / mutations', () => {
     const context = createContext();
     const result = await caller(context).device.refreshStatus();
 
-    expect(context.mainDeviceRuntime.reconcileDeviceStatus).toHaveBeenCalledWith('manual-refresh');
+    expect(context.deviceConnectionService.reconcileDeviceStatus).toHaveBeenCalledWith('manual-refresh');
     expect(result).toEqual({
       success: true,
       state: 'connected',
@@ -92,7 +92,7 @@ describe('appRouter — queries / mutations', () => {
 
     const result = await caller(context).device.getStatus();
 
-    expect(context.mainDeviceRuntime.getStatus).not.toHaveBeenCalled();
+    expect(context.deviceConnectionService.getStatus).not.toHaveBeenCalled();
     expect(result).toEqual({
       success: true,
       ...override
@@ -111,7 +111,7 @@ describe('appRouter — queries / mutations', () => {
 
     const result = await caller(context).device.refreshStatus();
 
-    expect(context.mainDeviceRuntime.reconcileDeviceStatus).not.toHaveBeenCalled();
+    expect(context.deviceConnectionService.reconcileDeviceStatus).not.toHaveBeenCalled();
     expect(result).toEqual({
       success: true,
       ...override
@@ -141,12 +141,12 @@ describe('appRouter — queries / mutations', () => {
       connected: true,
       device: createChromaticDeviceInfoPayload()
     });
-    expect(context.mainDeviceRuntime.getStatus).toHaveBeenCalledTimes(1);
+    expect(context.deviceConnectionService.getStatus).toHaveBeenCalledTimes(1);
   });
 
   it('device.getStatus maps a thrown handler error to a failure envelope (resultEnvelope)', async () => {
     const context = createContext({
-      mainDeviceRuntime: {
+      deviceConnectionService: {
         getStatus: vi.fn(() => {
           throw new Error('usb exploded');
         })
@@ -164,7 +164,7 @@ describe('appRouter — queries / mutations', () => {
 
   it('device.refreshStatus maps a thrown reconcile error to a failure envelope', async () => {
     const context = createContext({
-      mainDeviceRuntime: {
+      deviceConnectionService: {
         getStatus: vi.fn(),
         reconcileDeviceStatus: vi.fn(async () => {
           throw new Error('refresh exploded');

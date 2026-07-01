@@ -1,6 +1,6 @@
 # Contributing to PrismGB
 
-<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, packages/prismgb-devices/src/device.manifest.json -->
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, packages/prismgb-devices/src/domain/catalog.json -->
 
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
@@ -326,17 +326,14 @@ Tests should be placed in:
 - `tests/unit/` for unit tests
 - `tests/integration/` for integration tests
 - `tests/e2e/` for Playwright workflows
-- `tests/devices/` for shared manifest-backed device fixtures
+- `tests/devices/` for shared catalog-backed device fixtures
 - Or co-located with source files as `*.test.ts`, `*.spec.ts`, or the equivalent `.js` form for runtime-only modules
 
 ### Device Test Fixtures
 
 Use the canonical device testkit instead of duplicating device constants or fixture classes:
 
-- `tests/devices/chromatic-manifest.testkit.ts`: manifest descriptor constants, USB/media specs, payload builders, and frame data.
-- `tests/devices/media.testkit.ts`: media-device, track, stream, and state doubles derived from the manifest fixture.
-- `tests/devices/browser-media.harness.ts`: `navigator.mediaDevices` harness for connect/disconnect and `devicechange` behavior.
-- `tests/devices/chromatic.e2e.fixture.ts`: Playwright fixture payloads for Chromatic E2E helpers.
+- `tests/devices/media.testkit.ts`: catalog-backed descriptor constants, USB/media specs, payload builders, frame data, and browser media doubles.
 
 Do not hand-write device fixture classes in individual tests.
 

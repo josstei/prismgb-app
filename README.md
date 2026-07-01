@@ -1,6 +1,6 @@
 # PrismGB
 
-<!-- Source: package.json, packages/prismgb-devices/src/device.manifest.json, packages/prismgb-devices/src/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
+<!-- Source: package.json, packages/prismgb-devices/src/domain/catalog.json, packages/prismgb-devices/src/domain/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
 
 <p align="center">
   <img src="assets/Logo.png" alt="PrismGB Logo" width="400">
@@ -283,7 +283,7 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              Main Process                                │
 │  ┌─────────────────┐ ┌─────────────────────┐ ┌───────────────────────┐ │
-│  │ MainDeviceRuntime│ │DeviceIntegrationSvc │ │  IPC Handler Registry │ │
+│  │ DeviceConnection │ │DeviceIntegrationSvc │ │  IPC Handler Registry │ │
 │  │  USB reconcile   │ │tray/window side fx  │ │  tRPC router + push   │ │
 │  └─────────────────┘ └─────────────────────┘ └───────────────────────┘ │
 │  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────────────────┐  │

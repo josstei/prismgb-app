@@ -32,10 +32,10 @@ This document captures the naming and organization conventions used throughout P
 | `.interface.<ext>` | Interface definitions | `logger.interface.ts` |
 | `.worker.<ext>` | Web workers | `render.worker.ts` |
 | `.contract.<ext>` | Public payload and API shapes | `preload-api.contract.ts` |
-| `.testkit.<ext>` | Shared test fixtures and doubles | `chromatic-manifest.testkit.ts` |
+| `.testkit.<ext>` | Shared test fixtures and doubles | `media.testkit.ts` |
 | `.base.<ext>` | Abstract base classes | `service.base.js` |
 
-Device hardware behavior belongs in `packages/prismgb-devices/src/device.manifest.json`, `DeviceCatalog`, and the device runtimes. Do not add hardware-specific adapter or runtime classes.
+Device hardware behavior belongs in `packages/prismgb-devices/src/domain/catalog.json`, `DeviceCatalog`, and the device connection/runtime services. Do not add hardware-specific adapter or runtime classes.
 
 ## Directory Conventions
 

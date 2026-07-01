@@ -5,7 +5,7 @@ import { createIPCHandler } from 'electron-trpc/main';
 import { appRouter } from './router.js';
 import type {
   IpcContext,
-  MainDeviceRuntimePort,
+  DeviceConnectionPort,
   UpdateService,
   WindowService,
   LoginItemService,
@@ -19,7 +19,7 @@ import type { DeviceStatusPayload } from '@prismgb/ipc';
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
 export interface IpcHandlerRegistryDependencies {
-  mainDeviceRuntime: MainDeviceRuntimePort;
+  deviceConnectionService: DeviceConnectionPort;
   mainProcessTestControl: MainProcessTestControlPort;
   updateService: UpdateService;
   windowService: WindowService;
@@ -36,7 +36,7 @@ export interface IpcHandlerRegistryDependencies {
  * set the retired manifest registry injected, plus the {@link IpcPushBridge}.
  */
 class IpcHandlerRegistry extends BaseService {
-  private readonly mainDeviceRuntime: MainDeviceRuntimePort;
+  private readonly deviceConnectionService: DeviceConnectionPort;
   private readonly mainProcessTestControl: MainProcessTestControlPort;
   private readonly updateService: UpdateService;
   private readonly windowService: WindowService;
@@ -48,7 +48,7 @@ class IpcHandlerRegistry extends BaseService {
 
   constructor(dependencies: IpcHandlerRegistryDependencies) {
     super(dependencies, 'IpcHandlerRegistry');
-    this.mainDeviceRuntime = dependencies.mainDeviceRuntime;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
     this.mainProcessTestControl = dependencies.mainProcessTestControl;
     this.updateService = dependencies.updateService;
     this.windowService = dependencies.windowService;
@@ -102,7 +102,7 @@ class IpcHandlerRegistry extends BaseService {
 
   private createContext(): IpcContext {
     return {
-      mainDeviceRuntime: this.mainDeviceRuntime,
+      deviceConnectionService: this.deviceConnectionService,
       mainProcessTestControl: this.mainProcessTestControl,
       updateService: this.updateService,
       windowService: this.windowService,

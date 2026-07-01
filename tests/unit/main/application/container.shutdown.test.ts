@@ -120,7 +120,7 @@ describe('Main shutdown', () => {
       _windowService: { destroyWindow },
       _ipcHandlerRegistry: { dispose: ipcDispose },
       _deviceIntegrationService: { dispose: integrationDispose },
-      _mainDeviceRuntime: { dispose: runtimeDispose },
+      _deviceConnectionService: { dispose: runtimeDispose },
       _trayService: { destroy: trayDestroy },
       _updateBridgeService: { dispose: vi.fn() },
       _transcodeService: { dispose: vi.fn() }

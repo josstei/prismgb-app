@@ -6,14 +6,14 @@
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { BaseService } from '@prismgb/core';
-import type { DeviceReconcileReason } from '@prismgb/devices/service';
+import type { DeviceConnectionReason } from '@prismgb/devices/runtime';
 
 /**
  * Menu configuration item
  */
 interface MenuConfigItem {
   label: string;
-  service: 'windowService' | 'mainDeviceRuntime';
+  service: 'windowService' | 'deviceConnectionService';
   method: 'showWindow' | 'reconcileDeviceStatus';
 }
 
@@ -24,8 +24,8 @@ interface TrayServiceDependencies {
   windowService: {
     showWindow: () => void;
   };
-  mainDeviceRuntime: {
-    reconcileDeviceStatus: (reason: DeviceReconcileReason) => Promise<unknown>;
+  deviceConnectionService: {
+    reconcileDeviceStatus: (reason: DeviceConnectionReason) => Promise<unknown>;
     isConnected: () => boolean;
   };
   loggerFactory: {
@@ -47,7 +47,7 @@ const MENU_CONFIG: MenuConfigItem[] = [
   },
   {
     label: 'Refresh Devices',
-    service: 'mainDeviceRuntime',
+    service: 'deviceConnectionService',
     method: 'reconcileDeviceStatus'
   }
 ];
@@ -55,12 +55,12 @@ const MENU_CONFIG: MenuConfigItem[] = [
 class TrayService extends BaseService {
   private tray: Tray | null = null;
   private readonly windowService: TrayServiceDependencies['windowService'];
-  private readonly mainDeviceRuntime: TrayServiceDependencies['mainDeviceRuntime'];
+  private readonly deviceConnectionService: TrayServiceDependencies['deviceConnectionService'];
 
   constructor(dependencies: TrayServiceDependencies) {
     super(dependencies, 'TrayService');
     this.windowService = dependencies.windowService;
-    this.mainDeviceRuntime = dependencies.mainDeviceRuntime;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
   }
 
   /**
@@ -100,7 +100,7 @@ class TrayService extends BaseService {
   updateTrayMenu(): void {
     if (!this.tray) return;
 
-    const isDeviceConnected = this.mainDeviceRuntime.isConnected();
+    const isDeviceConnected = this.deviceConnectionService.isConnected();
 
     // Build dynamic menu items from config
     const menuItems: MenuItemConstructorOptions[] = MENU_CONFIG.map(({ label, service, method }) => ({
@@ -111,8 +111,8 @@ class TrayService extends BaseService {
           return;
         }
 
-        if (service === 'mainDeviceRuntime' && method === 'reconcileDeviceStatus') {
-          void this.mainDeviceRuntime.reconcileDeviceStatus('tray-refresh').catch((error: unknown) => {
+        if (service === 'deviceConnectionService' && method === 'reconcileDeviceStatus') {
+          void this.deviceConnectionService.reconcileDeviceStatus('tray-refresh').catch((error: unknown) => {
             this.logger.error('Failed to refresh devices from tray', error);
           });
         }

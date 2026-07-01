@@ -11,7 +11,7 @@ import { safeDisposeAll } from '@prismgb/core';
 import type { MainServiceContainer } from './container.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
-import type { MainDeviceRuntime } from '@prismgb/devices/service';
+import type { DeviceConnectionService } from '@prismgb/devices/runtime';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
@@ -34,7 +34,7 @@ export class AppOrchestrator extends BaseOrchestrator {
   private readonly loggerFactory: MainLogger;
   private container: MainServiceContainer | null = null;
   private _windowService: WindowService | null = null;
-  private _mainDeviceRuntime: MainDeviceRuntime | null = null;
+  private _deviceConnectionService: DeviceConnectionService | null = null;
   private _deviceIntegrationService: DeviceIntegrationService | null = null;
   private _trayService: TrayService | null = null;
   private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
@@ -60,7 +60,7 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     // Resolve and cache core services
     this._windowService = container.resolve('windowService');
-    this._mainDeviceRuntime = container.resolve('mainDeviceRuntime');
+    this._deviceConnectionService = container.resolve('deviceConnectionService');
     this._deviceIntegrationService = container.resolve('deviceIntegrationService');
     this._trayService = container.resolve('trayService');
     this._ipcHandlerRegistry = container.resolve('ipcHandlerRegistry');
@@ -107,9 +107,9 @@ export class AppOrchestrator extends BaseOrchestrator {
     const mainWindow = this._windowService!.createWindow({ hidden: isHiddenLaunch });
     this._ipcHandlerRegistry!.attachWindow(mainWindow);
 
-    await this._mainDeviceRuntime!.initialize();
+    await this._deviceConnectionService!.initialize();
 
-    const status = await this._mainDeviceRuntime!.reconcileDeviceStatus('startup');
+    const status = await this._deviceConnectionService!.reconcileDeviceStatus('startup');
     if (status.connected) {
       this.logger.info('Device already connected');
     }
@@ -140,7 +140,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     await safeDisposeAll(this.logger, [
       ['IPC handler registry', this._ipcHandlerRegistry],
       ['device integration service', this._deviceIntegrationService],
-      ['main device runtime', this._mainDeviceRuntime],
+      ['device connection service', this._deviceConnectionService],
       ['system tray', this._trayService, 'destroy'],
       ['update bridge service', this._updateBridgeService],
       ['transcode service', this._transcodeService]
@@ -149,7 +149,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Clear service references
     this.container = null;
     this._windowService = null;
-    this._mainDeviceRuntime = null;
+    this._deviceConnectionService = null;
     this._deviceIntegrationService = null;
     this._trayService = null;
     this._ipcHandlerRegistry = null;

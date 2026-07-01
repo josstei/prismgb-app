@@ -5,7 +5,7 @@ import type {
   DeviceStatus,
   DeviceStatusPayload,
   ObservedUsbDevice
-} from './contracts.js';
+} from './types.js';
 
 export function toDeviceInfo(descriptor: DeviceDescriptor, observed: ObservedUsbDevice): DeviceInfo {
   const info: DeviceInfo = {

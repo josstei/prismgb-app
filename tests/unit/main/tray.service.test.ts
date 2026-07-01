@@ -48,7 +48,7 @@ import { Tray, Menu, app } from 'electron';
 describe('TrayService', () => {
   let trayService;
   let mockWindowService;
-  let mockMainDeviceRuntime;
+  let mockDeviceConnectionService;
   let mockLogger;
   let mockLoggerFactory;
 
@@ -61,14 +61,14 @@ describe('TrayService', () => {
       showWindow: vi.fn()
     });
 
-    mockMainDeviceRuntime = {
+    mockDeviceConnectionService = {
       isConnected: vi.fn(),
       reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
     };
 
     trayService = new TrayService({
       windowService: mockWindowService,
-      mainDeviceRuntime: mockMainDeviceRuntime,
+      deviceConnectionService: mockDeviceConnectionService,
       loggerFactory: mockLoggerFactory
     });
     mockLogger = mockLoggerFactory._getLogger('TrayService');
@@ -91,8 +91,8 @@ describe('TrayService', () => {
       expect(trayService.windowService).toBe(mockWindowService);
     });
 
-    it('should store main device runtime', () => {
-      expect(trayService.mainDeviceRuntime).toBe(mockMainDeviceRuntime);
+    it('should store device connection service', () => {
+      expect(trayService.deviceConnectionService).toBe(mockDeviceConnectionService);
     });
   });
 
@@ -175,11 +175,11 @@ describe('TrayService', () => {
     });
 
     it('should check device connection status', () => {
-      mockMainDeviceRuntime.isConnected.mockReturnValue(true);
+      mockDeviceConnectionService.isConnected.mockReturnValue(true);
 
       trayService.updateTrayMenu();
 
-      expect(mockMainDeviceRuntime.isConnected).toHaveBeenCalled();
+      expect(mockDeviceConnectionService.isConnected).toHaveBeenCalled();
     });
 
     it('should reconcile through the tray-refresh path from the menu item', () => {
@@ -189,7 +189,7 @@ describe('TrayService', () => {
       const refreshItem = template.find((item) => item.label === 'Refresh Devices');
       refreshItem.click();
 
-      expect(mockMainDeviceRuntime.reconcileDeviceStatus).toHaveBeenCalledWith('tray-refresh');
+      expect(mockDeviceConnectionService.reconcileDeviceStatus).toHaveBeenCalledWith('tray-refresh');
     });
   });
 

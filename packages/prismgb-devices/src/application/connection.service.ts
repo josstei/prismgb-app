@@ -1,45 +1,44 @@
 import { BaseService } from '@prismgb/core';
+import { matchByUsb } from '../domain/matching.js';
+import { toDeviceInfo } from '../domain/payloads.js';
+import type {
+  DeviceInfo,
+  DeviceStatus,
+  ObservedUsbDevice
+} from '../domain/types.js';
 import {
-  matchByUsb,
-  toDeviceInfo,
-  type DeviceInfo,
-  type DeviceMatch,
-  type DeviceStatus,
-  type ObservedUsbDevice
-} from './index.js';
-import {
-  createNodeUsbDeviceMonitor,
-  type UsbDeviceInfo,
-  type UsbDeviceMonitor
-} from './usb-device-monitor.js';
+  createNodeUsbMonitor,
+  type UsbDevice,
+  type UsbMonitor
+} from '../infrastructure/usb.monitor.js';
 import type { LoggerFactoryLike } from '@prismgb/core';
 
-export type DeviceReconcileReason =
+export type DeviceConnectionReason =
   | 'startup'
   | 'hotplug-add'
   | 'hotplug-remove'
   | 'tray-refresh'
   | 'manual-refresh';
 
-export interface DeviceRuntimeCheckError {
-  reason: DeviceReconcileReason;
+export interface DeviceConnectionCheckError {
+  reason: DeviceConnectionReason;
   error: string;
 }
 
-export interface DeviceRuntimeEvents {
+export interface DeviceConnectionEvents {
   statusChanged: DeviceStatus;
-  checkError: DeviceRuntimeCheckError;
+  checkError: DeviceConnectionCheckError;
 }
 
-export interface MainDeviceRuntimeDependencies {
+export interface DeviceConnectionDependencies {
   loggerFactory: LoggerFactoryLike;
-  usbMonitor?: UsbDeviceMonitor;
+  usbMonitor?: UsbMonitor;
   now?: () => number;
 }
 
-export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceReconcileReason) => void;
-export type DeviceCheckErrorListener = (error: DeviceRuntimeCheckError) => void;
-export type DeviceRuntimeUnsubscribe = () => void;
+export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
+export type DeviceCheckErrorListener = (error: DeviceConnectionCheckError) => void;
+export type DeviceConnectionUnsubscribe = () => void;
 
 function createInitialStatus(now: () => number): DeviceStatus {
   return {
@@ -74,7 +73,7 @@ function isSameStatus(left: DeviceStatus, right: DeviceStatus): boolean {
     sameDeviceInfo(left.device, right.device);
 }
 
-function toObservedUsbDevice(device: UsbDeviceInfo): ObservedUsbDevice {
+function toObservedUsbDevice(device: UsbDevice): ObservedUsbDevice {
   const observed: ObservedUsbDevice = {
     vendorId: device.vendorId,
     productId: device.productId
@@ -111,8 +110,8 @@ function toObservedUsbDevice(device: UsbDeviceInfo): ObservedUsbDevice {
   return observed;
 }
 
-export class MainDeviceRuntime extends BaseService {
-  private readonly usbMonitor: UsbDeviceMonitor;
+export class DeviceConnectionService extends BaseService {
+  private readonly usbMonitor: UsbMonitor;
   private readonly now: () => number;
   private status: DeviceStatus;
   private initialized = false;
@@ -121,9 +120,9 @@ export class MainDeviceRuntime extends BaseService {
   private readonly statusListeners = new Set<DeviceStatusListener>();
   private readonly checkErrorListeners = new Set<DeviceCheckErrorListener>();
 
-  constructor(dependencies: MainDeviceRuntimeDependencies) {
-    super(dependencies, 'MainDeviceRuntime');
-    this.usbMonitor = dependencies.usbMonitor ?? createNodeUsbDeviceMonitor();
+  constructor(dependencies: DeviceConnectionDependencies) {
+    super(dependencies, 'DeviceConnectionService');
+    this.usbMonitor = dependencies.usbMonitor ?? createNodeUsbMonitor();
     this.now = dependencies.now ?? Date.now;
     this.status = createInitialStatus(this.now);
   }
@@ -134,7 +133,7 @@ export class MainDeviceRuntime extends BaseService {
     }
 
     if (this.initialized) {
-      this.logger.warn('MainDeviceRuntime already initialized');
+      this.logger.warn('DeviceConnectionService already initialized');
       return Promise.resolve();
     }
 
@@ -149,7 +148,7 @@ export class MainDeviceRuntime extends BaseService {
         }
       );
       this.initialized = true;
-      this.logger.info('Main device runtime initialized');
+      this.logger.info('Device connection service initialized');
     }).finally(() => {
       this.initializationLock = null;
     });
@@ -157,7 +156,7 @@ export class MainDeviceRuntime extends BaseService {
     return this.initializationLock;
   }
 
-  reconcileDeviceStatus(reason: DeviceReconcileReason): Promise<DeviceStatus> {
+  reconcileDeviceStatus(reason: DeviceConnectionReason): Promise<DeviceStatus> {
     if (this.reconcileLock) {
       return this.reconcileLock;
     }
@@ -177,14 +176,14 @@ export class MainDeviceRuntime extends BaseService {
     return this.status.connected;
   }
 
-  onStatusChanged(listener: DeviceStatusListener): DeviceRuntimeUnsubscribe {
+  onStatusChanged(listener: DeviceStatusListener): DeviceConnectionUnsubscribe {
     this.statusListeners.add(listener);
     return () => {
       this.statusListeners.delete(listener);
     };
   }
 
-  onCheckError(listener: DeviceCheckErrorListener): DeviceRuntimeUnsubscribe {
+  onCheckError(listener: DeviceCheckErrorListener): DeviceConnectionUnsubscribe {
     this.checkErrorListeners.add(listener);
     return () => {
       this.checkErrorListeners.delete(listener);
@@ -199,7 +198,7 @@ export class MainDeviceRuntime extends BaseService {
     await super.dispose();
   }
 
-  private async performDeviceReconciliation(reason: DeviceReconcileReason): Promise<DeviceStatus> {
+  private async performDeviceReconciliation(reason: DeviceConnectionReason): Promise<DeviceStatus> {
     let nextStatus: DeviceStatus;
 
     try {
@@ -225,7 +224,7 @@ export class MainDeviceRuntime extends BaseService {
     return this.status;
   }
 
-  private createStatusFromDevices(devices: readonly UsbDeviceInfo[]): DeviceStatus {
+  private createStatusFromDevices(devices: readonly UsbDevice[]): DeviceStatus {
     for (const device of devices) {
       const observed = toObservedUsbDevice(device);
       const match = matchByUsb(observed);
@@ -248,7 +247,7 @@ export class MainDeviceRuntime extends BaseService {
     };
   }
 
-  private commitStatus(nextStatus: DeviceStatus, reason: DeviceReconcileReason): void {
+  private commitStatus(nextStatus: DeviceStatus, reason: DeviceConnectionReason): void {
     if (isSameStatus(this.status, nextStatus)) {
       this.status = {
         ...nextStatus,
@@ -261,7 +260,7 @@ export class MainDeviceRuntime extends BaseService {
     this.emitStatusChanged(nextStatus, reason);
   }
 
-  private emitStatusChanged(status: DeviceStatus, reason: DeviceReconcileReason): void {
+  private emitStatusChanged(status: DeviceStatus, reason: DeviceConnectionReason): void {
     for (const listener of this.statusListeners) {
       try {
         listener(status, reason);
@@ -271,7 +270,7 @@ export class MainDeviceRuntime extends BaseService {
     }
   }
 
-  private emitCheckError(error: DeviceRuntimeCheckError): void {
+  private emitCheckError(error: DeviceConnectionCheckError): void {
     for (const listener of this.checkErrorListeners) {
       try {
         listener(error);
@@ -282,5 +281,4 @@ export class MainDeviceRuntime extends BaseService {
   }
 }
 
-export type ConnectedDeviceInfo = DeviceInfo;
-export type { DeviceMatch, DeviceStatus };
+export type { DeviceStatus };

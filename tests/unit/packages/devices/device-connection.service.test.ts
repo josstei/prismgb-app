@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MainDeviceRuntime } from '@prismgb/devices/service';
-import { createLoggerFactory } from '../../factories/index.js';
+import { DeviceConnectionService } from '@prismgb/devices/runtime';
+import { createLoggerFactory } from '../../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,
-  createChromaticUsbDeviceInfo
-} from '../../devices/media.testkit';
+  createChromaticUsbDevice
+} from '../../../devices/media.testkit';
 
-describe('MainDeviceRuntime', () => {
+describe('DeviceConnectionService', () => {
   let usbMonitor: {
     startMonitoring: ReturnType<typeof vi.fn>;
     stopMonitoring: ReturnType<typeof vi.fn>;
@@ -39,7 +39,7 @@ describe('MainDeviceRuntime', () => {
 
   function createRuntime(now = () => 1000) {
     usbMonitor = createUsbMonitor();
-    return new MainDeviceRuntime({
+    return new DeviceConnectionService({
       loggerFactory: createLoggerFactory(),
       usbMonitor: usbMonitor as never,
       now
@@ -71,7 +71,7 @@ describe('MainDeviceRuntime', () => {
 
   it('reconciles matching USB devices into canonical connected status', async () => {
     const runtime = createRuntime(() => 2000);
-    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo({
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice({
       locationId: 3,
       deviceAddress: 9,
       serialNumber: 'MOCK-001'
@@ -95,7 +95,7 @@ describe('MainDeviceRuntime', () => {
   it('reconciles no matching device into canonical disconnected status', async () => {
     const runtime = createRuntime(() => 3000);
     usbMonitor.find.mockReturnValue([{
-      ...createChromaticUsbDeviceInfo(),
+      ...createChromaticUsbDevice(),
       vendorId: 0x9999
     }]);
 
@@ -114,7 +114,7 @@ describe('MainDeviceRuntime', () => {
     const runtime = createRuntime(() => 4000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
-    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
     await runtime.reconcileDeviceStatus('startup');
     await runtime.reconcileDeviceStatus('manual-refresh');
@@ -130,7 +130,7 @@ describe('MainDeviceRuntime', () => {
     const runtime = createRuntime(() => 5000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
-    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
     await runtime.initialize();
     lifecycleListeners.onAdd?.({});
@@ -146,7 +146,7 @@ describe('MainDeviceRuntime', () => {
     const runtime = createRuntime(() => 5500);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
-    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
     await runtime.reconcileDeviceStatus('startup');
     usbMonitor.find.mockReturnValue([]);
@@ -163,7 +163,7 @@ describe('MainDeviceRuntime', () => {
   it('keeps canonical status when a status listener side effect fails', async () => {
     const loggerFactory = createLoggerFactory();
     usbMonitor = createUsbMonitor();
-    const runtime = new MainDeviceRuntime({
+    const runtime = new DeviceConnectionService({
       loggerFactory,
       usbMonitor: usbMonitor as never,
       now: () => 5750
@@ -173,7 +173,7 @@ describe('MainDeviceRuntime', () => {
       throw new Error('integration failed');
     });
     runtime.onCheckError(onCheckError);
-    usbMonitor.find.mockReturnValue([createChromaticUsbDeviceInfo()]);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
     const status = await runtime.reconcileDeviceStatus('startup');
 
@@ -184,7 +184,7 @@ describe('MainDeviceRuntime', () => {
     });
     expect(runtime.getStatus()).toBe(status);
     expect(onCheckError).not.toHaveBeenCalled();
-    expect(loggerFactory._getLogger('MainDeviceRuntime').error).toHaveBeenCalledWith(
+    expect(loggerFactory._getLogger('DeviceConnectionService').error).toHaveBeenCalledWith(
       'Device status listener failed',
       expect.any(Error)
     );
