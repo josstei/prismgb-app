@@ -159,7 +159,7 @@ flowchart LR
     TrayService[TrayService]
     EventBus[EventBus]
     DeviceIntegrationService[DeviceIntegrationService]
-    MainDeviceRuntime[MainDeviceRuntime]
+    DeviceConnectionService[DeviceConnectionService]
     UpdateBridge[UpdateBridge]
     UpdateServiceMain[UpdateServiceMain]
     TranscodeServiceMain[TranscodeServiceMain]
@@ -170,24 +170,24 @@ flowchart LR
   end
 
   AppOrchestrator --> IpcHandlerRegistry
-  AppOrchestrator --> MainDeviceRuntime
+  AppOrchestrator --> DeviceConnectionService
   AppOrchestrator --> DeviceIntegrationService
   AppOrchestrator --> TrayService
   AppOrchestrator --> UpdateBridge
 
   IpcHandlerRegistry --> AppRouter
   IpcHandlerRegistry --> IpcPushBridge
-  AppRouter --> MainDeviceRuntime
+  AppRouter --> DeviceConnectionService
   IpcHandlerRegistry --> UpdateServiceMain
   IpcHandlerRegistry --> TranscodeServiceMain
-  DeviceIntegrationService --> MainDeviceRuntime
+  DeviceIntegrationService --> DeviceConnectionService
   DeviceIntegrationService --> TrayService
   DeviceIntegrationService --> WindowService
   DeviceIntegrationService --> EventBus
   DeviceIntegrationService -. "launch policy lookup" .-> DeviceCatalog
   WindowService --> IpcPushBridge
-  MainDeviceRuntime --> UsbMonitor
-  MainDeviceRuntime -. "USB matcher data" .-> DeviceCatalog
+  DeviceConnectionService --> UsbMonitor
+  DeviceConnectionService -. "USB matcher data" .-> DeviceCatalog
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
@@ -214,7 +214,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph MAIN[Main Process]
-    MainDeviceRuntime[MainDeviceRuntime]
+    DeviceConnectionService[DeviceConnectionService]
     DeviceIntegrationService[DeviceIntegrationService]
     WindowService[WindowService]
     IpcPushBridge[IpcPushBridge]
@@ -232,11 +232,11 @@ flowchart LR
     TranscodeServiceRenderer["TranscodeService (Renderer)"]
   end
 
-  DeviceIntegrationService --> MainDeviceRuntime
+  DeviceIntegrationService --> DeviceConnectionService
   DeviceIntegrationService -- "device connected/disconnected" --> WindowService
   WindowService -- IPC push --> IpcPushBridge
   TrpcClient -- "device.getStatus / refreshStatus / subscriptions" --> AppRouter
-  AppRouter --> MainDeviceRuntime
+  AppRouter --> DeviceConnectionService
   AppRouter --> IpcPushBridge
   IpcPushBridge -- "subscription payloads" --> AppRouter
   AppRouter -- "device subscription data" --> TrpcClient
@@ -255,7 +255,7 @@ flowchart LR
 ## Notes
 
 - `@prismgb/devices` root exports the manifest-backed catalog, contracts, matchers, and payload helpers used across processes.
-- `@prismgb/devices/service` is main-process only and exports `MainDeviceRuntime`.
+- `@prismgb/devices/runtime` is main-process only and exports `DeviceConnectionService`.
 - `RendererDeviceRuntime` owns renderer device state, media enumeration, stored media-device IDs, and browser `devicechange` refreshes.
 - `DeviceMediaAcquirer` owns `getUserMedia` constraint construction, fallback attempts, stream metadata, and stream release.
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.

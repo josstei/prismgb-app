@@ -11,7 +11,7 @@ import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
-import { MainDeviceRuntime } from '@prismgb/devices/service';
+import { DeviceConnectionService } from '@prismgb/devices/runtime';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { UpdateService, UpdateBridge } from '@prismgb/updates';
 import { TranscodeService } from '@prismgb/transcode/service';
@@ -57,7 +57,7 @@ export function createMainContainer(
 
   container.register('eventBus', (c) => new EventBus({ loggerFactory: c.resolve('loggerFactory') }));
   container.register('windowService', (c) => new WindowService(c.cradle));
-  container.register('mainDeviceRuntime', (c) => new MainDeviceRuntime({ loggerFactory: c.resolve('loggerFactory') }));
+  container.register('deviceConnectionService', (c) => new DeviceConnectionService({ loggerFactory: c.resolve('loggerFactory') }));
   container.register('trayService', (c) => new TrayService(c.cradle));
   container.register('ipcHandlerRegistry', (c) => new IpcHandlerRegistry(c.cradle));
   container.register('ipcPushBridge', () => new IpcPushBridge());

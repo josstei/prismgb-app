@@ -9,12 +9,12 @@ import {
   CHROMATIC_SPECS,
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload,
-  createChromaticUsbDeviceInfo
+  createChromaticUsbDevice
 } from '../../../devices/media.testkit';
 
 describe('device contract mappers', () => {
   it('maps observed USB devices to canonical device info without fixture-only fields', () => {
-    const observed = createChromaticUsbDeviceInfo({
+    const observed = createChromaticUsbDevice({
       locationId: 4,
       deviceAddress: 12,
       serialNumber: 'CONTRACT-001'

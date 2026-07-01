@@ -96,7 +96,7 @@ const deviceRouter = router({
           ctx.logger.debug('Using test-control device status override');
           return { success: true, ...override };
         }
-        return { success: true, ...toDeviceStatusPayload(ctx.mainDeviceRuntime.getStatus()) };
+        return { success: true, ...toDeviceStatusPayload(ctx.deviceConnectionService.getStatus()) };
       },
       (error) => {
         ctx.logger.error('Failed to get device status:', error);
@@ -118,7 +118,7 @@ const deviceRouter = router({
           ctx.logger.debug('Using test-control device refresh status override');
           return { success: true, ...override };
         }
-        return { success: true, ...toDeviceStatusPayload(await ctx.mainDeviceRuntime.reconcileDeviceStatus('manual-refresh')) };
+        return { success: true, ...toDeviceStatusPayload(await ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh')) };
       },
       (error) => {
         ctx.logger.error('Failed to refresh device status:', error);

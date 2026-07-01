@@ -9,9 +9,9 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./service": {
-      "import": "./dist/service.js",
-      "types": "./dist/service.d.ts"
+    "./runtime": {
+      "import": "./dist/runtime.js",
+      "types": "./dist/runtime.d.ts"
     },
     "./testkit": {
       "import": "./dist/testkit.js",

@@ -6,7 +6,7 @@ import { createChromaticDeviceInfoPayload } from '../../devices/media.testkit';
 describe('DeviceIntegrationService', () => {
   let statusListener: ((status: unknown, reason: unknown) => void) | null;
   let checkErrorListener: ((error: unknown) => void) | null;
-  let mainDeviceRuntime: {
+  let deviceConnectionService: {
     onStatusChanged: ReturnType<typeof vi.fn>;
     onCheckError: ReturnType<typeof vi.fn>;
   };
@@ -21,7 +21,7 @@ describe('DeviceIntegrationService', () => {
   beforeEach(() => {
     statusListener = null;
     checkErrorListener = null;
-    mainDeviceRuntime = {
+    deviceConnectionService = {
       onStatusChanged: vi.fn((listener) => {
         statusListener = listener;
         return vi.fn();
@@ -35,7 +35,7 @@ describe('DeviceIntegrationService', () => {
     windowService = { send: vi.fn(), showWindow: vi.fn() };
     eventBus = createEventBus();
     service = new DeviceIntegrationService({
-      mainDeviceRuntime: mainDeviceRuntime as never,
+      deviceConnectionService: deviceConnectionService as never,
       trayService: trayService as never,
       windowService: windowService as never,
       eventBus: eventBus as never,
@@ -51,8 +51,8 @@ describe('DeviceIntegrationService', () => {
     service.initialize();
     service.initialize();
 
-    expect(mainDeviceRuntime.onStatusChanged).toHaveBeenCalledTimes(1);
-    expect(mainDeviceRuntime.onCheckError).toHaveBeenCalledTimes(1);
+    expect(deviceConnectionService.onStatusChanged).toHaveBeenCalledTimes(1);
+    expect(deviceConnectionService.onCheckError).toHaveBeenCalledTimes(1);
   });
 
   it('maps connected runtime status to tray, event bus, IPC push, and delayed window launch', () => {

@@ -6,7 +6,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
-        service: resolve(__dirname, 'src/service.ts'),
+        runtime: resolve(__dirname, 'src/runtime.ts'),
         testkit: resolve(__dirname, 'src/testkit.ts')
       },
       formats: ['es'],

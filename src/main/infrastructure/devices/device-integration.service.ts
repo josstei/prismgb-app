@@ -4,9 +4,9 @@ import { IPC_CHANNELS } from '@prismgb/ipc';
 import { MainEventChannels } from '@prismgb/events';
 import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@prismgb/devices';
 import type {
-  DeviceReconcileReason,
-  MainDeviceRuntime
-} from '@prismgb/devices/service';
+  DeviceConnectionReason,
+  DeviceConnectionService
+} from '@prismgb/devices/runtime';
 import type { LoggerFactoryLike } from '@prismgb/core';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
@@ -15,7 +15,7 @@ import type { WindowService } from '@main/infrastructure/window/window.service.j
 const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceIntegrationWindowLaunch');
 
 export interface DeviceIntegrationServiceDependencies {
-  mainDeviceRuntime: MainDeviceRuntime;
+  deviceConnectionService: DeviceConnectionService;
   trayService: TrayService;
   windowService: WindowService;
   eventBus: EventBus;
@@ -23,7 +23,7 @@ export interface DeviceIntegrationServiceDependencies {
 }
 
 export class DeviceIntegrationService extends BaseService {
-  private readonly mainDeviceRuntime: MainDeviceRuntime;
+  private readonly deviceConnectionService: DeviceConnectionService;
   private readonly trayService: TrayService;
   private readonly windowService: WindowService;
   private readonly eventBus: EventBus;
@@ -32,7 +32,7 @@ export class DeviceIntegrationService extends BaseService {
 
   constructor(dependencies: DeviceIntegrationServiceDependencies) {
     super(dependencies, 'DeviceIntegrationService');
-    this.mainDeviceRuntime = dependencies.mainDeviceRuntime;
+    this.deviceConnectionService = dependencies.deviceConnectionService;
     this.trayService = dependencies.trayService;
     this.windowService = dependencies.windowService;
     this.eventBus = dependencies.eventBus;
@@ -43,10 +43,10 @@ export class DeviceIntegrationService extends BaseService {
       return;
     }
 
-    this.unsubscribeStatus = this.mainDeviceRuntime.onStatusChanged(
+    this.unsubscribeStatus = this.deviceConnectionService.onStatusChanged(
       (status, reason) => this.handleStatusChanged(status, reason)
     );
-    this.unsubscribeCheckError = this.mainDeviceRuntime.onCheckError((error) => {
+    this.unsubscribeCheckError = this.deviceConnectionService.onCheckError((error) => {
       this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, error);
     });
   }
@@ -59,7 +59,7 @@ export class DeviceIntegrationService extends BaseService {
     await super.dispose();
   }
 
-  private handleStatusChanged(status: DeviceStatus, reason: DeviceReconcileReason): void {
+  private handleStatusChanged(status: DeviceStatus, reason: DeviceConnectionReason): void {
     this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, status);
     this.trayService.updateTrayMenu();
 

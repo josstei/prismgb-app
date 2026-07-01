@@ -4,17 +4,17 @@ export {
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
-} from './catalog.js';
+} from './domain/catalog.js';
 export {
   matchByLabel,
   matchByUsb,
   matchDevice
-} from './matcher.js';
+} from './domain/matching.js';
 export {
   toDeviceInfo,
   toDeviceInfoPayload,
   toDeviceStatusPayload
-} from './payloads.js';
+} from './domain/payloads.js';
 export type {
   DeviceBehaviorPolicy,
   DeviceAcquisitionAttempt,
@@ -45,4 +45,4 @@ export type {
   ObservedMediaDevice,
   ObservedUsbDevice,
   UsbIdentity
-} from './contracts.js';
+} from './domain/types.js';

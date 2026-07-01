@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  createNodeUsbDeviceMonitor,
-  createNoopUsbDeviceMonitor,
-  toUsbDeviceInfo
-} from '../../../packages/prismgb-devices/src/usb-device-monitor.js';
+  createNodeUsbMonitor,
+  createNoopUsbMonitor,
+  toUsbDevice
+} from '../../../../packages/prismgb-devices/src/infrastructure/usb.monitor.js';
 import type {
   UsbModule,
   UsbModuleLoader
-} from '../../../packages/prismgb-devices/src/usb-device-monitor.js';
-import { CHROMATIC_DESCRIPTOR } from '../../devices/media.testkit';
+} from '../../../../packages/prismgb-devices/src/infrastructure/usb.monitor.js';
+import { CHROMATIC_DESCRIPTOR } from '../../../devices/media.testkit';
 
 const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;
 const chromaticUsbName = `USB Device ${chromaticUsb.hexVendorId.slice(2)}:${chromaticUsb.hexProductId.slice(2)}`;
@@ -52,13 +52,13 @@ function createUsbModule() {
   return usb;
 }
 
-describe('usb-device-monitor', () => {
+describe('usb.monitor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('maps node-usb descriptors to app USB device info', () => {
-    expect(toUsbDeviceInfo(makeNodeUsbDevice() as never)).toEqual({
+    expect(toUsbDevice(makeNodeUsbDevice() as never)).toEqual({
       locationId: 4,
       vendorId: chromaticUsb.vendorId,
       productId: chromaticUsb.productId,
@@ -73,7 +73,7 @@ describe('usb-device-monitor', () => {
     const usb = createUsbModule();
     usb.getDeviceList.mockReturnValue([makeNodeUsbDevice()]);
 
-    const monitor = createNodeUsbDeviceMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
 
     expect(monitor.find()).toEqual([
       expect.objectContaining({
@@ -85,7 +85,7 @@ describe('usb-device-monitor', () => {
 
   it('translates hotplug attach and detach events', () => {
     const usb = createUsbModule();
-    const monitor = createNodeUsbDeviceMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
     const onAdd = vi.fn();
     const onRemove = vi.fn();
 
@@ -103,7 +103,7 @@ describe('usb-device-monitor', () => {
 
   it('removes registered listeners on stop', () => {
     const usb = createUsbModule();
-    const monitor = createNodeUsbDeviceMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
     const onAdd = vi.fn();
 
     monitor.on('add', onAdd);
@@ -115,7 +115,7 @@ describe('usb-device-monitor', () => {
   });
 
   it('returns a no-op monitor when the loader returns null', () => {
-    const monitor = createNodeUsbDeviceMonitor({ loadUsbModule: () => null });
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => null });
     const onAdd = vi.fn();
 
     monitor.startMonitoring();
@@ -129,13 +129,13 @@ describe('usb-device-monitor', () => {
     const loader: UsbModuleLoader = () => {
       throw new Error('native load failed');
     };
-    const monitor = createNodeUsbDeviceMonitor({ loadUsbModule: loader });
+    const monitor = createNodeUsbMonitor({ loadUsbModule: loader });
 
     expect(monitor.find()).toEqual([]);
   });
 
   it('provides an explicit no-op monitor for tests that do not need USB', () => {
-    const monitor = createNoopUsbDeviceMonitor();
+    const monitor = createNoopUsbMonitor();
     const onAdd = vi.fn();
 
     monitor.startMonitoring();

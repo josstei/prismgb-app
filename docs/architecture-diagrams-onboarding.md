@@ -93,7 +93,7 @@ flowchart LR
   TrayService[TrayService]
   EventBus[EventBus]
   DeviceIntegrationService[DeviceIntegrationService]
-  MainDeviceRuntime[MainDeviceRuntime]
+  DeviceConnectionService[DeviceConnectionService]
   UpdateBridge[UpdateBridge]
   UpdateServiceMain[UpdateServiceMain]
   TranscodeServiceMain[TranscodeServiceMain]
@@ -103,24 +103,24 @@ flowchart LR
   FFmpeg[ffmpeg-static]
 
   AppOrchestrator --> IpcHandlerRegistry
-  AppOrchestrator --> MainDeviceRuntime
+  AppOrchestrator --> DeviceConnectionService
   AppOrchestrator --> DeviceIntegrationService
   AppOrchestrator --> TrayService
   AppOrchestrator --> UpdateBridge
 
   IpcHandlerRegistry --> AppRouter
   IpcHandlerRegistry --> IpcPushBridge
-  AppRouter --> MainDeviceRuntime
+  AppRouter --> DeviceConnectionService
   IpcHandlerRegistry --> UpdateServiceMain
   IpcHandlerRegistry --> TranscodeServiceMain
-  DeviceIntegrationService --> MainDeviceRuntime
+  DeviceIntegrationService --> DeviceConnectionService
   DeviceIntegrationService --> TrayService
   DeviceIntegrationService --> WindowService
   DeviceIntegrationService --> EventBus
   DeviceIntegrationService -. "launch policy lookup" .-> DeviceCatalog
   WindowService --> IpcPushBridge
-  MainDeviceRuntime --> UsbMonitor
-  MainDeviceRuntime -. "USB matcher data" .-> DeviceCatalog
+  DeviceConnectionService --> UsbMonitor
+  DeviceConnectionService -. "USB matcher data" .-> DeviceCatalog
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
@@ -160,7 +160,7 @@ flowchart LR
 - Orchestrators should be thin: they wire flows and delegate to services.
 - Services should be single-responsibility and own the actual work.
 - Managers/handlers are main-process only and interface with OS or device APIs.
-- Main-process device ownership is `MainDeviceRuntime` for USB status and `DeviceIntegrationService` for tray/window/EventBus side effects.
+- Main-process device ownership is `DeviceConnectionService` for USB status and `DeviceIntegrationService` for tray/window/EventBus side effects.
 - Renderer device ownership is `RendererDeviceRuntime` plus platform ports; streaming uses `DeviceMediaAcquirer` for media capture.
-- `@prismgb/devices` is the shared manifest catalog and contract package; only its `/service` export is main-process runtime code.
+- `@prismgb/devices` is the shared catalog and contract package; only its `/runtime` export is main-process connection code.
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.
