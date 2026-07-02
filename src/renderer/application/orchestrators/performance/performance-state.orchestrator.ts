@@ -14,15 +14,17 @@ import type {
   PerformanceStateService
 } from '@renderer/infrastructure/services/performance/performance-state.service';
 
+interface PerformanceStateOrchestratorDependencies {
+  eventBus: EventBusLike;
+  performanceStateService: PerformanceStateService;
+  loggerFactory: LoggerFactoryLike;
+}
+
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
   private readonly performanceStateService: PerformanceStateService;
   private _lastUiMode: PerformanceUiModePayload | null;
 
-  constructor(dependencies: {
-    eventBus: EventBusLike;
-    performanceStateService: PerformanceStateService;
-    loggerFactory: LoggerFactoryLike;
-  }) {
+  constructor(dependencies: PerformanceStateOrchestratorDependencies) {
     super(
       dependencies,
       'PerformanceStateOrchestrator'

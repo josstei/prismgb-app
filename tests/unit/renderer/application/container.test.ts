@@ -18,6 +18,7 @@ const expectedRegistrationKeys = [
   'deviceStatusPort',
   'mediaDevicesPort',
   'devicePreferenceStore',
+  'presentationModeStore',
   'viewportService',
   'canvasLifecycleService',
   'streamHealthService',
@@ -131,6 +132,7 @@ describe('Renderer container', () => {
     expect(() => container.resolve('deviceStatusPort')).not.toThrow();
     expect(() => container.resolve('mediaDevicesPort')).not.toThrow();
     expect(() => container.resolve('devicePreferenceStore')).not.toThrow();
+    expect(() => container.resolve('presentationModeStore')).not.toThrow();
     expect(() => container.resolve('streamingRenderService')).not.toThrow();
 
     // Standard service registrations: cradle construction and no-arg construction.

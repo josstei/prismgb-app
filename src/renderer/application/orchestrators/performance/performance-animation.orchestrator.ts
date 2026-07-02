@@ -14,16 +14,18 @@ import type {
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
 
+interface PerformanceAnimationOrchestratorDependencies {
+  eventBus: EventBusLike;
+  animationPerformanceService: PerformanceAnimationService;
+  bodyClassManager: BodyClassManager;
+  loggerFactory: LoggerFactoryLike;
+}
+
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   private readonly animationPerformanceService: PerformanceAnimationService;
   private readonly bodyClassManager: BodyClassManager;
 
-  constructor(dependencies: {
-    eventBus: EventBusLike;
-    animationPerformanceService: PerformanceAnimationService;
-    bodyClassManager: BodyClassManager;
-    loggerFactory: LoggerFactoryLike;
-  }) {
+  constructor(dependencies: PerformanceAnimationOrchestratorDependencies) {
     super(
       dependencies,
       'PerformanceAnimationOrchestrator'

@@ -1,5 +1,7 @@
-import type { LoggerFactoryLike } from '@prismgb/core';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
 
@@ -44,6 +46,12 @@ export const manualProviders: Record<string, ManualProvider> = {
       resolve('storageService'),
       resolve<LoggerFactoryLike>('loggerFactory').create('StorageDevicePreferenceStore')
     ),
+
+  presentationModeStore: (resolve) =>
+    new PresentationModeStore({
+      eventBus: resolve<EventBusLike>('eventBus'),
+      cinematicEnabled: resolve<{ cinematicModeSignal: ReadonlySignal<boolean> }>('appState').cinematicModeSignal
+    }),
 
 
 
