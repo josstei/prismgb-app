@@ -1,15 +1,8 @@
 import { app } from 'electron';
-import { BaseService } from '@prismgb/core';
+import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
 
 interface LoginItemServiceDependencies {
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string) => void;
-      debug: (message: string) => void;
-      warn: (message: string) => void;
-      error: (message: string) => void;
-    };
-  };
+  loggerFactory: LoggerFactoryLike;
 }
 
 class LoginItemService extends BaseService {

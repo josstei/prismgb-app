@@ -4,21 +4,14 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@prismgb/config';
 import { IPC_CHANNELS } from '@prismgb/ipc';
-import { BaseService } from '@prismgb/core';
+import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
 import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
 
 interface WindowServiceDependencies {
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string) => void;
-      debug: (message: string) => void;
-      warn: (message: string) => void;
-      error: (message: string) => void;
-    };
-  };
+  loggerFactory: LoggerFactoryLike;
   ipcPushBridge: IpcPushBridge;
 }
 

@@ -5,7 +5,7 @@
 
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
-import { BaseService } from '@prismgb/core';
+import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
 import type { DeviceConnectionReason } from '@prismgb/devices/runtime';
 
 /**
@@ -28,14 +28,7 @@ interface TrayServiceDependencies {
     reconcileDeviceStatus: (reason: DeviceConnectionReason) => Promise<unknown>;
     isConnected: () => boolean;
   };
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string) => void;
-      error: (message: string) => void;
-      warn: (message: string) => void;
-      debug: (message: string) => void;
-    };
-  };
+  loggerFactory: LoggerFactoryLike;
 }
 
 // Declarative menu configuration
