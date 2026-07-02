@@ -55,8 +55,10 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@preact/signals-core": "^1.14.3",
     "@trpc/client": "^10.45.4",
     "@trpc/server": "^10.45.4",
+    "electron-log": "^5.4.4",
     "electron-trpc": "^0.7.1",
     "electron-updater": "^6.8.3",
     "eventemitter3": "^5.0.4",
@@ -93,6 +95,7 @@
     "picomatch": "^2.3.1",
     "png2icons": "^2.0.1",
     "sharp": "^0.34.5",
+    "type-fest": "^5.7.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vite-plugin-electron": "^0.29.1",

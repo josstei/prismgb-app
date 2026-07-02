@@ -19,7 +19,12 @@
         "tests/**/*.{test,spec}.{js,ts}"
       ],
       "project": ["src/**/*.{ts,js}"],
-      "ignoreDependencies": ["@electron/notarize"],
+      "ignoreDependencies": [
+        "@electron/notarize",
+        "@preact/signals-core",
+        "electron-log",
+        "type-fest"
+      ],
       "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
     }
   }
