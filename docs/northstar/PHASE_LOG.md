@@ -33,6 +33,16 @@ exit metrics are recorded here, decisions are recorded here permanently.
   `agy-phase` with `.agy-phase.conf` (base `refactor/gpu_normalization`, phase
   branches `northstar/phase-{P}`). P0 executed by the orchestrator per plan §4.4.
 
-## P1 — Exit metrics
+## P1 — Exit metrics (2026-07-01, branch `northstar/phase-1`)
 
-(filled by P1 Task 16)
+| Metric | Value | Delta vs P0 |
+|---|---|---|
+| Test files / tests (`npm run test:run`) | 153 files / 1,942 tests | -6 files / -129 tests |
+| `npm run typecheck` | PASS | - |
+| `npm run lint` | PASS | - |
+| `npm run dev:smoke` | PASS | - |
+| `npm run build:vite` | PASS | - |
+| Prod LOC (src + packages/*/src) | 25,069 | -531 LOC |
+| Test LOC (tests + packages/*/tests) | 36,881 | -2,366 LOC |
+| **Total LOC Delta** | | **-2,897 LOC** |
+
