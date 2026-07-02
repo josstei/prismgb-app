@@ -22,10 +22,6 @@ export const GENERATED_ARTIFACT_PATHS = [
     owner: 'Vitest cache'
   },
   {
-    path: '.turbo',
-    owner: 'Generated Turbo cache'
-  },
-  {
     path: 'playwright-report',
     owner: 'Playwright report'
   },
@@ -40,86 +36,6 @@ export const GENERATED_ARTIFACT_PATHS = [
   {
     path: 'tests/e2e/screenshots',
     owner: 'End-to-end screenshots'
-  },
-  {
-    path: 'packages/prismgb-config/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-core/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-devices/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-events/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-gpu/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-ipc/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-notes/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-transcode/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-ui-base/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-updates/dist',
-    owner: 'Generated package build output'
-  },
-  {
-    path: 'packages/prismgb-config/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-core/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-devices/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-events/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-gpu/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-ipc/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-notes/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-transcode/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-ui-base/.turbo',
-    owner: 'Generated package cache'
-  },
-  {
-    path: 'packages/prismgb-updates/.turbo',
-    owner: 'Generated package cache'
   }
 ];
 export const GENERATED_PATHS = GENERATED_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);
