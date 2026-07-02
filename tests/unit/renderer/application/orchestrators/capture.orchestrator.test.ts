@@ -91,7 +91,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('Constructor', () => {
     it('should initialize with empty subscriptions', () => {
-      expect(orchestrator._disposables.size).toBe(0);
+      expect(orchestrator._lifecycle.disposables.size).toBe(0);
     });
   });
 
@@ -110,7 +110,7 @@ describe('CaptureOrchestrator', () => {
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.onInitialize();
 
-      expect(orchestrator._disposables.size).toBe(5);
+      expect(orchestrator._lifecycle.disposables.size).toBe(5);
     });
   });
 

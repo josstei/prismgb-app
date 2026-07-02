@@ -94,7 +94,7 @@ describe('AppOrchestrator', () => {
 
   describe('Constructor', () => {
     it('should initialize disposables bag', () => {
-      expect(orchestrator._disposables).toBeDefined();
+      expect(orchestrator._lifecycle.disposables).toBeDefined();
     });
 
     it('should not have domListeners manager (delegated to UISetupOrchestrator)', () => {

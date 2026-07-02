@@ -129,4 +129,42 @@ describe('BaseService', () => {
       await expect(service.dispose()).resolves.toBeUndefined();
     });
   });
+
+  describe('keyed scheduling', () => {
+    it('replaces a pending keyed timeout scheduled under the same key', () => {
+      vi.useFakeTimers();
+      try {
+        const service = new BaseService({ loggerFactory: createLoggerFactory() }, 'KeyedService');
+        const first = vi.fn();
+        const second = vi.fn();
+
+        service.schedule('job', first, 100);
+        service.schedule('job', second, 100);
+        vi.advanceTimersByTime(100);
+
+        expect(first).not.toHaveBeenCalled();
+        expect(second).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('cancelScheduled stops a keyed interval', () => {
+      vi.useFakeTimers();
+      try {
+        const service = new BaseService({ loggerFactory: createLoggerFactory() }, 'KeyedService');
+        const handler = vi.fn();
+
+        service.scheduleInterval('poll', handler, 50);
+        vi.advanceTimersByTime(100);
+        expect(handler).toHaveBeenCalledTimes(2);
+
+        service.cancelScheduled('poll');
+        vi.advanceTimersByTime(100);
+        expect(handler).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

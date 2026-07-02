@@ -1,4 +1,5 @@
-import { DisposableBag, type Disposable, type DisposableFunction, type DisposableKey, type EventTargetLike } from './disposable-bag.js';
+import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
 import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
 
 export class BaseOrchestrator {
@@ -8,7 +9,7 @@ export class BaseOrchestrator {
   protected _isCleanedUp: boolean;
   protected _isCleaningUp: boolean;
   protected readonly _orchestratorName: string;
-  private readonly _disposables: DisposableBag;
+  private readonly _lifecycle: ManagedLifecycleHost;
 
   constructor(dependencies: object, name: string | null = null) {
     const orchestratorName = name || this.constructor.name;
@@ -25,7 +26,7 @@ export class BaseOrchestrator {
     this._isCleanedUp = false;
     this._isCleaningUp = false;
     this._orchestratorName = orchestratorName;
-    this._disposables = new DisposableBag();
+    this._lifecycle = new ManagedLifecycleHost();
   }
 
   async initialize(): Promise<void> {
@@ -91,24 +92,24 @@ export class BaseOrchestrator {
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
   ): DisposableFunction {
-    return this._disposables.addEvent(target, type, listener, options);
+    return this._lifecycle.subscribeEvent(target, type, listener, options);
   }
 
   protected track(disposable: Disposable): DisposableFunction {
-    return this._disposables.add(disposable);
+    return this._lifecycle.track(disposable);
   }
 
   protected replaceManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
-    return this._disposables.replace(key, disposable);
+    return this._lifecycle.replaceManaged(key, disposable);
   }
 
   protected cancelManaged(key: DisposableKey): void | Promise<void> {
-    return this._disposables.cancel(key);
+    return this._lifecycle.cancelManaged(key);
   }
 
   protected async _cleanupLifecycle(): Promise<void> {
     try {
-      await this._disposables.clear();
+      await this._lifecycle.dispose();
     } catch (error) {
       this.logger?.error(`${this._orchestratorName} lifecycle cleanup failed`, error);
     }

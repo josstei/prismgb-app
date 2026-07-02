@@ -1,4 +1,5 @@
-import { DisposableBag, type DisposableFunction, type EventTargetLike } from './disposable-bag.js';
+import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import type { DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -38,6 +39,7 @@ function isEventBusLike(value: unknown): value is EventBusLike {
 
 export class BaseService {
   protected logger!: LoggerLike;
+  protected readonly lifecycle: ManagedLifecycleHost;
   protected readonly disposables: DisposableBag;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
@@ -53,7 +55,8 @@ export class BaseService {
       this.logger = loggerFactory.create(name);
     }
 
-    this.disposables = new DisposableBag();
+    this.lifecycle = new ManagedLifecycleHost();
+    this.disposables = this.lifecycle.disposables;
     this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
     this._serviceName = name;
   }
@@ -79,33 +82,52 @@ export class BaseService {
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
   ): DisposableFunction {
-    return this.disposables.addEvent(target, type, listener, options);
+    return this.lifecycle.subscribeEvent(target, type, listener, options);
   }
 
-  timeout<T extends (...args: unknown[]) => void>(
-    handler: T,
+  timeout<TArgs extends unknown[]>(
+    handler: (...args: TArgs) => void,
     delay: number,
-    ...args: Parameters<T>
+    ...args: TArgs
   ): DisposableFunction {
-    const handle = setTimeout(handler, delay, ...args);
-    return this.disposables.addTimeout(handle);
+    return this.lifecycle.timeout(handler, delay, ...args);
   }
 
-  interval<T extends (...args: unknown[]) => void>(
-    handler: T,
+  interval<TArgs extends unknown[]>(
+    handler: (...args: TArgs) => void,
     delay: number,
-    ...args: Parameters<T>
+    ...args: TArgs
   ): DisposableFunction {
-    const handle = setInterval(handler, delay, ...args);
-    return this.disposables.addInterval(handle);
+    return this.lifecycle.interval(handler, delay, ...args);
   }
 
   animationFrame(handler: FrameRequestCallback): DisposableFunction {
-    const handle = requestAnimationFrame(handler);
-    return this.disposables.addAnimationFrame(handle);
+    return this.lifecycle.animationFrame(handler);
+  }
+
+  schedule<TArgs extends unknown[]>(
+    key: DisposableKey,
+    handler: (...args: TArgs) => void,
+    delay: number,
+    ...args: TArgs
+  ): DisposableFunction {
+    return this.lifecycle.schedule(key, handler, delay, ...args);
+  }
+
+  scheduleInterval<TArgs extends unknown[]>(
+    key: DisposableKey,
+    handler: (...args: TArgs) => void,
+    delay: number,
+    ...args: TArgs
+  ): DisposableFunction {
+    return this.lifecycle.scheduleInterval(key, handler, delay, ...args);
+  }
+
+  cancelScheduled(key: DisposableKey): void | Promise<void> {
+    return this.lifecycle.cancelScheduled(key);
   }
 
   dispose(): void | Promise<void> {
-    return this.disposables.clear();
+    return this.lifecycle.dispose();
   }
 }
