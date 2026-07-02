@@ -62,8 +62,6 @@ export type { ValueOf, UnionToIntersection, LeafValues, AssertNever } from './ty
 // -----------------------------------------------------------------------------
 export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
-export { TypedRegistryFactory } from './primitives/typed-registry.js';
-export type { RegistryFactory, RegistryEntry } from './primitives/typed-registry.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
 export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
