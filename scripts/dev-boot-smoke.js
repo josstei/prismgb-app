@@ -11,9 +11,11 @@
  * Intended for local preflight and CI release checks.
  */
 
-import { exec, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
 
 const DEV_BOOT_SUCCESS_MARKER = 'Renderer application started successfully';
 
@@ -39,55 +41,30 @@ const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_GRACEFUL_SHUTDOWN_MS = 5000;
 
 function parseOptions(argv) {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      'timeout-ms': { type: 'string' },
+      command: { type: 'string' },
+      'command-arg': { type: 'string' },
+      root: { type: 'string' }
+    }
+  });
+
   const options = {
     timeoutMs: DEFAULT_TIMEOUT_MS,
-    root: process.cwd(),
-    command: 'npm',
-    args: ['run', 'dev'],
+    root: values.root ? path.resolve(process.cwd(), values.root) : process.cwd(),
+    command: values.command ?? 'npm',
+    args: values['command-arg'] ? [values['command-arg']] : ['run', 'dev'],
     gracefulShutdownMs: DEFAULT_GRACEFUL_SHUTDOWN_MS
   };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === '--timeout-ms') {
-      const value = Number(argv[index + 1]);
-      if (!Number.isFinite(value) || value <= 0) {
-        throw new Error(`Invalid --timeout-ms value: ${argv[index + 1]}`);
-      }
-      options.timeoutMs = value;
-      index += 1;
-      continue;
+  if (values['timeout-ms'] !== undefined) {
+    const timeoutValue = Number(values['timeout-ms']);
+    if (!Number.isFinite(timeoutValue) || timeoutValue <= 0) {
+      throw new Error(`Invalid --timeout-ms value: ${values['timeout-ms']}`);
     }
-
-    if (arg === '--command') {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error('Missing --command value.');
-      }
-      options.command = value;
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--command-arg') {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error('Missing --command-arg value.');
-      }
-      options.args = [value];
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--root') {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error('Missing --root value.');
-      }
-      options.root = path.resolve(process.cwd(), value);
-      index += 1;
-    }
+    options.timeoutMs = timeoutValue;
   }
 
   return options;
@@ -136,84 +113,6 @@ function toResult({ outcome, reason, stdout, stderr, matchedPattern }) {
   };
 }
 
-async function waitForProcessClose(child, timeoutMs) {
-  if (!child) {
-    return { code: null, signal: null };
-  }
-
-  return new Promise((resolve) => {
-    let settled = false;
-    let code = null;
-    let signal = null;
-
-    const finalize = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      clearTimeout(timer);
-      resolve({
-        closed: true,
-        code,
-        signal
-      });
-    };
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        resolve({ closed: false, code: null, signal: 'timeout' });
-        clearTimeout(timer);
-      }
-    }, timeoutMs);
-
-    child.once('close', (closeCode, closeSignal) => {
-      code = closeCode;
-      signal = closeSignal;
-      finalize();
-    });
-  });
-}
-
-function signalProcessGroup(pid, signal) {
-  if (!pid) {
-    return;
-  }
-  process.kill(-pid, signal);
-}
-
-async function shutdownDevProcess(child, gracefulMs = DEFAULT_GRACEFUL_SHUTDOWN_MS) {
-  if (!child || typeof child.pid !== 'number') {
-    return;
-  }
-
-  const platform = process.platform;
-  try {
-    if (platform === 'win32') {
-      exec(`taskkill /pid ${child.pid} /t /f`);
-    } else {
-      signalProcessGroup(child.pid, 'SIGTERM');
-    }
-  } catch {
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      // Best effort.
-    }
-  }
-
-  const closeResult = await waitForProcessClose(child, gracefulMs);
-  if (!closeResult.closed) {
-    try {
-      child.kill('SIGKILL');
-    } catch {
-      // Best effort.
-    }
-    await waitForProcessClose(child, Math.min(1000, gracefulMs));
-  }
-}
-
 export async function runDevBootSmoke(options = {}) {
   const command = options.command || 'npm';
   const args = options.args || ['run', 'dev'];
@@ -243,7 +142,7 @@ export async function runDevBootSmoke(options = {}) {
     settled = true;
     clearTimeout(timeoutHandle);
     if (child) {
-      await shutdownDevProcess(child, gracefulShutdownMs);
+      await terminateProcessTree(child, { gracefulMs: gracefulShutdownMs, killProcessGroup: true });
     }
 
     finalResult = toResult({
@@ -261,11 +160,7 @@ export async function runDevBootSmoke(options = {}) {
   const child = spawnFn(command, args, {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      ELECTRON_DISABLE_GPU: '1',
-      ELECTRON_NO_ATTACH_CONSOLE: '1'
-    },
+    env: headlessElectronEnv(process.env),
     detached: process.platform !== 'win32'
   });
 

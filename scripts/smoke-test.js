@@ -15,6 +15,9 @@ import { fileURLToPath } from 'url';
 import { pathToFileURL } from 'url';
 import path from 'path';
 import fs from 'fs';
+import picomatch from 'picomatch';
+import { walkPaths } from './lib/fs-walk.js';
+import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -41,53 +44,21 @@ export function resolveSmokePlatformEntry(
   return manifest.platforms.find((entry) => entry.id === platformId) ?? null;
 }
 
-function escapeRegex(value) {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-}
-
-function globToRegex(pattern) {
-  return new RegExp(`^${pattern.split('*').map(escapeRegex).join('[^/]*')}$`);
-}
-
-function walkPaths(rootDirectory) {
-  if (!fs.existsSync(rootDirectory)) {
-    return [];
-  }
-
-  return fs.readdirSync(rootDirectory, { withFileTypes: true }).flatMap((entry) => {
-    const absolutePath = path.join(rootDirectory, entry.name);
-    if (entry.isDirectory()) {
-      return [absolutePath, ...walkPaths(absolutePath)];
-    }
-    return [absolutePath];
-  });
-}
-
-function getStaticGlobRoot(absolutePattern) {
-  const firstGlobIndex = absolutePattern.indexOf('*');
-  if (firstGlobIndex === -1) {
-    return path.dirname(absolutePattern);
-  }
-
-  const staticPrefix = absolutePattern.slice(0, firstGlobIndex);
-  return staticPrefix.endsWith(path.sep) ? staticPrefix.slice(0, -1) : path.dirname(staticPrefix);
-}
-
 function findFirstPatternMatch(rootDirectory, relativePattern) {
   const normalizedPattern = relativePattern.split(path.sep).join('/');
   const absolutePattern = path.resolve(rootDirectory, relativePattern);
-  if (!relativePattern.includes('*')) {
+  if (!normalizedPattern.includes('*')) {
     return fs.existsSync(absolutePattern) ? absolutePattern : null;
   }
 
-  const searchRoot = getStaticGlobRoot(absolutePattern);
-  const patternRegex = globToRegex(normalizedPattern);
+  const searchRoot = path.resolve(rootDirectory, picomatch.scan(normalizedPattern).base);
+  const isMatch = picomatch(normalizedPattern, { dot: true });
   return walkPaths(searchRoot)
     .map((absolutePath) => ({
       absolutePath,
       relativePath: path.relative(rootDirectory, absolutePath).split(path.sep).join('/')
     }))
-    .filter(({ relativePath }) => patternRegex.test(relativePath))
+    .filter(({ relativePath }) => isMatch(relativePath))
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath))[0]?.absolutePath ?? null;
 }
 
@@ -150,10 +121,7 @@ async function runSmokeTest() {
   const child = spawn(executable, ['--smoke-test'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
-      ...process.env,
-      ELECTRON_DISABLE_GPU: '1',
-      ELECTRON_NO_ATTACH_CONSOLE: '1',
-      // Prevent opening dev tools
+      ...headlessElectronEnv(),
       NODE_ENV: 'production'
     },
     // Detach on Windows to allow proper cleanup
@@ -186,12 +154,7 @@ async function runSmokeTest() {
     console.log('');
     console.log('Smoke test timeout reached - app appears to be running successfully');
     console.log('Terminating process...');
-
-    if (platform === 'win32') {
-      spawn('taskkill', ['/pid', child.pid, '/f', '/t']);
-    } else {
-      child.kill('SIGTERM');
-    }
+    terminateProcessTree(child);
   }, TIMEOUT_MS);
 
   return new Promise((resolve) => {
