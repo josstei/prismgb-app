@@ -412,26 +412,31 @@ describe('dependency boundary rules', () => {
   });
 });
 
+function listSourceEntries(relativeDirectory) {
+  return fs.readdirSync(path.join(projectRoot, relativeDirectory))
+    .filter((entry) => !entry.startsWith('.'))
+    .sort();
+}
+
 describe('source tree structure', () => {
   it('classifies every src/ top-level family', () => {
-    expect(fs.readdirSync(path.join(projectRoot, 'src')).sort())
-      .toEqual(['main', 'platform', 'preload', 'renderer', 'types']);
+    expect(listSourceEntries('src')).toEqual(['main', 'platform', 'preload', 'renderer', 'types']);
   });
 
   it('classifies every src/renderer top-level entry', () => {
-    expect(fs.readdirSync(path.join(projectRoot, 'src/renderer')).sort()).toEqual([
+    expect(listSourceEntries('src/renderer')).toEqual([
       'app-bootstrap.ts', 'application', 'assets', 'index.html', 'index.ts',
       'infrastructure', 'lib', 'presentation'
     ]);
   });
 
   it('classifies every src/main top-level entry', () => {
-    expect(fs.readdirSync(path.join(projectRoot, 'src/main')).sort())
+    expect(listSourceEntries('src/main'))
       .toEqual(['app-bootstrap.ts', 'application', 'index.ts', 'infrastructure', 'ipc']);
   });
 
   it('keeps src/platform aligned with the alias registry', () => {
-    expect(fs.readdirSync(path.join(projectRoot, 'src/platform')).sort())
+    expect(listSourceEntries('src/platform'))
       .toEqual(PLATFORM_MODULES.map((platformModule) => platformModule.name).sort());
   });
 });
