@@ -118,7 +118,6 @@ export const SettingsDefinitions = {
   get loadAllPreferencesShape() { return getResolved().loadAllPreferencesShape; }
 };
 
-export type SettingsDefinitionsManifest = typeof SettingsDefinitions;
 export type SettingsDefinition = typeof definitions.definitions[number];
 export type SettingsControlUi = NonNullable<SettingsDefinition['ui']> & { controlId: string; controlType: string; labelId?: string; menuId?: string; optionLabelFormat?: string };
 export type SettingsControlDefinition = SettingsDefinition & { ui: SettingsControlUi };

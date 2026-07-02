@@ -37,7 +37,6 @@ import type {
   UIComponentDefinition,
   UIComponentDefinitionUnion,
   UIComponentDependencies,
-  UIComponentElements,
   UIComponentId,
   UIComponentStage
 } from '@renderer/presentation/controller/component.registry.js';
@@ -108,11 +107,6 @@ export interface RendererUiComponentCatalog {
 }
 
 export type RendererUiComponentId = UIComponentId<RendererUiComponentCatalog>;
-
-export type RendererUiComponentElements<TId extends RendererUiComponentId> = UIComponentElements<
-  RendererUiComponentCatalog,
-  TId
->;
 
 export type RendererUiComponentDependencies<TId extends RendererUiComponentId> = UIComponentDependencies<
   RendererUiComponentCatalog,

@@ -12,8 +12,6 @@ import {
   type TemplateDomUpdatesRef
 } from '@renderer/presentation/primitives/template-dom.contract.js';
 
-export type DomBindingElement = HTMLElement | null;
-
 type DomBindingsFor<
   TRef extends string,
   TElementTypes extends Partial<Record<TRef, HTMLElement>> = Record<never, never>

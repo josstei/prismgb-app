@@ -6,8 +6,6 @@ export const PRESET_POLICY = Object.freeze({
   performancePresetId: 'performance'
 } as const);
 
-export type PresetPolicy = typeof PRESET_POLICY;
-
 type BuiltInPresetRecord = {
   readonly preset: RenderPreset;
   readonly visibleInUI?: boolean;

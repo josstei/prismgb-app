@@ -53,8 +53,6 @@ export const TranscodeState = Object.freeze({
   ERROR: 'error'
 } as const);
 
-export type TranscodeStateValue = typeof TranscodeState[keyof typeof TranscodeState];
-
 const TRANSCODE_FORMATS: Readonly<Record<TranscodeFormat, TranscodeFormatConfig>> = Object.freeze({
   webm: FORMAT_WEBM,
   mp4: FORMAT_MP4,

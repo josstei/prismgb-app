@@ -43,9 +43,25 @@ type AssertAssignable<A extends B, B> = A;
 
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
+/**
+ * Compile-time drift guard between the zod schema and the shared payload type.
+ * @public
+ */
 export type DeviceInfoSchemaDriftGuard = AssertAssignable<z.infer<typeof deviceInfoSchema>, DeepPartial<DeviceInfoPayload>>;
+/**
+ * Compile-time drift guard between the zod schema and the shared payload type.
+ * @public
+ */
 export type DeviceInfoPayloadDriftGuard = AssertAssignable<DeviceInfoPayload, z.infer<typeof deviceInfoSchema>>;
+/**
+ * Compile-time drift guard between the zod schema and the shared payload type.
+ * @public
+ */
 export type DeviceStatusSchemaDriftGuard = AssertAssignable<z.infer<typeof deviceStatusPayloadSchema>, DeepPartial<DeviceStatusPayload>>;
+/**
+ * Compile-time drift guard between the zod schema and the shared payload type.
+ * @public
+ */
 export type DeviceStatusPayloadDriftGuard = AssertAssignable<DeviceStatusPayload, z.infer<typeof deviceStatusPayloadSchema>>;
 
 export const deviceStatusResponseSchema = deviceStatusPayloadSchema

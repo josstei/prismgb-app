@@ -14,19 +14,13 @@
         "src/platform/transcode/service.ts",
         "src/platform/ui-base/reactive/index.ts",
         "scripts/*.js",
-        "scripts/lib/*.mjs",
+        "scripts/lib/*.{js,mjs}",
         "tests/support/**/*.{js,ts}",
         "tests/**/*.{test,spec}.{js,ts}"
       ],
       "project": ["src/**/*.{ts,js}"],
-      "ignoreDependencies": ["eventemitter3", "@electron/notarize", "ffmpeg-static", "ffprobe-static"],
+      "ignoreDependencies": ["@electron/notarize"],
       "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
     }
-  },
-  "ignore": [
-    "**/*.d.ts",
-    "dist/**",
-    "release/**",
-    "tests/fixtures/**"
-  ]
+  }
 }

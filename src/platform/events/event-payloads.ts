@@ -321,14 +321,16 @@ export type ExtraRuntimeEventPayloadChannels = Exclude<
   EventChannelValue
 >;
 
+/**
+ * Compile-time exhaustiveness guard for the event payload map.
+ * @public
+ */
 export type EventPayloadExhaustivenessCheck = AssertNever<
   | MissingEventPayloads
   | ExtraEventPayloads
   | MissingRuntimeEventPayloadChannels
   | ExtraRuntimeEventPayloadChannels
 >;
-
-export type EventPayload<K extends keyof EventPayloadMap> = EventPayloadMap[K];
 
 type PublishArgs<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends void
   ? [event: K, data?: EventPayloadMap[K]]

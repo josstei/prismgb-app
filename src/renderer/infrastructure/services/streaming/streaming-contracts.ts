@@ -4,8 +4,6 @@ import type {
   RecordingDegradedPayload,
   RecordingErrorPayload,
   RecordingReadyPayload,
-  StreamHealthOkPayload,
-  StreamHealthTimeoutPayload,
   StreamStartedPayload,
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
@@ -91,14 +89,6 @@ export function isStreamStartedPayload(value: unknown): value is StreamStartedPa
     isRecord(value.stream) &&
     isRecord(value.device)
   );
-}
-
-export function isStreamHealthOkPayload(value: unknown): value is StreamHealthOkPayload {
-  return isRecord(value);
-}
-
-export function isStreamHealthTimeoutPayload(value: unknown): value is StreamHealthTimeoutPayload {
-  return isRecord(value) && hasString(value, 'reason');
 }
 
 export function isSupportedDeviceAvailablePayload(

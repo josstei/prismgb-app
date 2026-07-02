@@ -36,6 +36,9 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Run dead-code gate
+        run: npm run lint:dead-code
+
       - name: Run typecheck
         run: npm run typecheck
 
