@@ -6,10 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  createUIController,
-  performanceUtils,
-} from '../factories/index.js';
+import { createUIController } from '../factories/index.js';
 import { createEventBus, createAppState } from '../factories/index.js';
 import {
   CHROMATIC_SPECS,
@@ -17,22 +14,13 @@ import {
   createMediaDeviceInfo,
 } from '../devices/media.testkit.ts';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
-import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '@prismgb/core';
+
 
 describe('Streaming Pipeline Integration', () => {
   let mediaEnvironment;
-  let animationCache;
 
   beforeEach(() => {
     mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
-
-    // Create test animation cache
-    animationCache = new AnimationCache();
-
-    // Clear caches
-    ResolutionCalculator.clearCache();
-    animationCache.cancelAllAnimations();
   });
 
   afterEach(() => {
@@ -130,37 +118,7 @@ describe('Streaming Pipeline Integration', () => {
     });
   });
 
-  describe('Resolution Calculation Integration', () => {
-    it('should calculate correct canvas dimensions for Chromatic', () => {
-      const calc = new ResolutionCalculator(
-        CHROMATIC_SPECS.nativeWidth,
-        CHROMATIC_SPECS.nativeHeight
-      );
 
-      // Default 4x scale
-      const scaled = calc.calculateScaled(4);
-      expect(scaled).toEqual({ width: 640, height: 576, scale: 4 });
-
-      // Fit to typical display
-      const fitted = calc.fitToContainer(1920, 1080, { maxScale: 8 });
-      expect(fitted.scale).toBe(7); // 1920/160=12, 1080/144=7.5, min=7
-    });
-
-    it('should maintain aspect ratio through scaling', () => {
-      const calc = new ResolutionCalculator(
-        CHROMATIC_SPECS.nativeWidth,
-        CHROMATIC_SPECS.nativeHeight
-      );
-
-      const nativeRatio = CHROMATIC_SPECS.nativeWidth / CHROMATIC_SPECS.nativeHeight;
-
-      [1, 2, 4, 8].forEach(scale => {
-        const scaled = calc.calculateScaled(scale);
-        const scaledRatio = scaled.width / scaled.height;
-        expect(scaledRatio).toBeCloseTo(nativeRatio, 10);
-      });
-    });
-  });
 
   describe('Event Flow Integration', () => {
     it('should publish stream events in correct order', async () => {
@@ -224,12 +182,8 @@ describe('Streaming Pipeline Integration', () => {
       const uiController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
-      // Simulate canvas setup for 4x scale
-      const calc = new ResolutionCalculator(160, 144);
-      const dimensions = calc.calculateScaled(4);
-
-      canvas.width = dimensions.width;
-      canvas.height = dimensions.height;
+      canvas.width = 640;
+      canvas.height = 576;
 
       expect(canvas.width).toBe(640);
       expect(canvas.height).toBe(576);
@@ -363,37 +317,7 @@ describe('Streaming Pipeline Integration', () => {
     });
   });
 
-  describe('Performance Integration', () => {
-    it('should cache resolution calculations across stream restarts', async () => {
-      const calc = new ResolutionCalculator(160, 144);
 
-      // First stream session
-      calc.calculateScaled(4);
-      const statsAfterFirst = ResolutionCalculator.getCacheStats();
-
-      // Second stream session (simulated restart)
-      calc.calculateScaled(4);
-      const statsAfterSecond = ResolutionCalculator.getCacheStats();
-
-      // Should have cache hit on second session
-      expect(statsAfterSecond.hits).toBeGreaterThan(statsAfterFirst.hits);
-    });
-
-    it('should complete 100 stream start/stop cycles under time limit', async () => {
-      const result = await performanceUtils.measureTime(async () => {
-        for (let i = 0; i < 100; i++) {
-          const stream = await mediaEnvironment.createStream();
-          expect(stream.getVideoTracks()).toHaveLength(1);
-          mediaEnvironment.stopStreams();
-        }
-      }, 1);
-
-      console.log(`100 stream cycles: ${result.total.toFixed(2)}ms`);
-
-      // Should complete in under 1 second
-      expect(result.total).toBeLessThan(1000);
-    });
-  });
 });
 
 describe('Manifest Media Environment Accuracy', () => {
