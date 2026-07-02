@@ -8,7 +8,7 @@ import {
 } from '../../../../../src/platform/gpu/testkit/fixtures';
 import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
 
-describe('@platform/gpu/testkit/fixtures', () => {
+describe('platform/gpu/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
     expect(createRenderStatsFixture({ fps: 60 })).toEqual({
       fps: 60,

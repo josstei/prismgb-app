@@ -21,11 +21,9 @@ const EXPECTED_GPU_ENTRYPOINTS = ['.', './runtime'];
 const FORBIDDEN_IMPORT_TOKENS = [
   'packages/prismgb-gpu/src',
   '@prismgb/gpu',
-  '@prismgb/gpu/src',
+  '@/platform/gpu',
   '@platform/gpu/src',
-  '@prismgb/gpu/worker',
   '@platform/gpu/worker',
-  '@prismgb/gpu/worker-entry',
   '@platform/gpu/worker-entry'
 ];
 

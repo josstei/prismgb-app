@@ -154,4 +154,10 @@ cb3c6cf2 test(platform): move package test suites into the root tree
   prebundle via globalSetup (esbuild is consumed transitively from vite;
   declaring it an explicit devDependency deferred to avoid an offline
   lockfile rewrite — flagged for owner follow-up).
+- Relative-form and `@/`-form deep imports into platform internals are only
+  partially covered by the interim gpu text-scan gate (alias tokens + the
+  `@/platform/gpu` route); full three-family coverage (`@platform/x/deep`,
+  `@/platform/x/…`, relative) is explicitly deferred to P4's
+  dependency-cruiser rules — an accepted interim narrowing, per the final
+  branch review.
 

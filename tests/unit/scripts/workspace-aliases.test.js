@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   PLATFORM_MODULES,
   platformAliasMap,
