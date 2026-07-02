@@ -37,7 +37,7 @@ export {
   createUIComponentRegistryMock,
   createUIEffectsMock,
   createUIBodyClassManagerMock,
-  createAnimationCacheMock,
+
   createUIEffectsElementsMock,
   createStreamingControlsElementsMock,
   createUIControllerElementsMock,
@@ -144,7 +144,7 @@ export {
 
 // Performance factories
 export {
-  performanceUtils,
+
   createPerformanceMetricsAdapterMock,
   createVisibilityAdapterMock,
   createUserActivityAdapterMock,

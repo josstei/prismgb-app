@@ -837,13 +837,6 @@ export function createUIBodyClassManagerMock(overrides = {}) {
   };
 }
 
-export function createAnimationCacheMock(overrides = {}) {
-  return {
-    cancelAnimation: vi.fn(),
-    cancelAllAnimations: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createUIEffectsElementsMock(overrides = {}) {
   const recordBtn = createMockElement('button', { className: 'record-btn' });
@@ -944,7 +937,7 @@ export default {
   createUIComponentRegistryMock,
   createUIEffectsMock,
   createUIBodyClassManagerMock,
-  createAnimationCacheMock,
+
   createUIEffectsElementsMock,
   createStreamingControlsElementsMock,
   createUIControllerElementsMock,
