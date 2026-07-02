@@ -6,6 +6,7 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAlias = {
@@ -13,21 +14,7 @@ const sharedAlias = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
-  '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-  '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
-  '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
-  '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
-  '@prismgb/config': path.resolve(__dirname, 'packages/prismgb-config/src/index.ts'),
-  '@prismgb/ipc': path.resolve(__dirname, 'packages/prismgb-ipc/src/index.ts'),
-  '@prismgb/devices/runtime': path.resolve(__dirname, 'packages/prismgb-devices/src/runtime.ts'),
-  '@prismgb/devices/testkit': path.resolve(__dirname, 'packages/prismgb-devices/src/testkit.ts'),
-  '@prismgb/devices': path.resolve(__dirname, 'packages/prismgb-devices/src/index.ts'),
-  '@prismgb/transcode/service': path.resolve(__dirname, 'packages/prismgb-transcode/src/service.ts'),
-  '@prismgb/transcode': path.resolve(__dirname, 'packages/prismgb-transcode/src/index.ts'),
-  '@prismgb/updates': path.resolve(__dirname, 'packages/prismgb-updates/src/index.ts'),
-  '@prismgb/notes': path.resolve(__dirname, 'packages/prismgb-notes/src/index.ts'),
-  '@prismgb/ui-base/reactive': path.resolve(__dirname, 'packages/prismgb-ui-base/src/reactive/index.ts'),
-  '@prismgb/ui-base': path.resolve(__dirname, 'packages/prismgb-ui-base/src/index.ts')
+  ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
 };
 
 const baseCoverageConfig = {
@@ -55,12 +42,6 @@ const baseCoverageConfig = {
     'src/renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter.ts',
     'src/renderer/infrastructure/services/streaming/streaming-renderer.factory.ts',
     'src/**/gpu-render-loop.service.{js,ts}',
-    // Keep root CI coverage aligned with @prismgb/gpu package coverage policy.
-    // Hardware-specific GPU backends are covered by focused package tests and build/type gates.
-    'packages/prismgb-gpu/src/infrastructure/webgpu.renderer.ts',
-    'packages/prismgb-gpu/src/infrastructure/webgl.renderer.ts',
-    'packages/prismgb-gpu/src/infrastructure/workers/**',
-    'packages/prismgb-gpu/src/infrastructure/canvas.renderer.ts',
     // Audio warmup requires Web Audio API not available in vitest
     'src/**/audio/*.{js,ts}',
     // Canvas lifecycle requires complex DOM/Canvas API interactions
@@ -157,9 +138,9 @@ export default defineConfig({
       {
         test: {
           alias: {
-            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
-            '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+            '@': path.resolve(__dirname, 'src/platform/gpu'),
+            '@prismgb/gpu/runtime': path.resolve(__dirname, 'src/platform/gpu/runtime.ts'),
+            '@prismgb/gpu': path.resolve(__dirname, 'src/platform/gpu/index.ts')
           },
           name: 'gpu-package',
           globals: true,
@@ -168,9 +149,9 @@ export default defineConfig({
         },
         resolve: {
           alias: {
-            '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
-            '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
+            '@': path.resolve(__dirname, 'src/platform/gpu'),
+            '@prismgb/gpu/runtime': path.resolve(__dirname, 'src/platform/gpu/runtime.ts'),
+            '@prismgb/gpu': path.resolve(__dirname, 'src/platform/gpu/index.ts')
           }
         }
       },

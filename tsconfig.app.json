@@ -3,83 +3,6 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "dist/typecheck",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@main/*": [
-        "./src/main/*"
-      ],
-      "@renderer/*": [
-        "./src/renderer/*"
-      ],
-      "@preload/*": [
-        "./src/preload/*"
-      ],
-      "@prismgb/gpu": [
-        "./packages/prismgb-gpu/src"
-      ],
-      "@prismgb/gpu/runtime": [
-        "./packages/prismgb-gpu/src/runtime"
-      ],
-      "@prismgb/core": [
-        "./packages/prismgb-core/src"
-      ],
-      "@prismgb/core/*": [
-        "./packages/prismgb-core/src/*"
-      ],
-      "@prismgb/events": [
-        "./packages/prismgb-events/src"
-      ],
-      "@prismgb/events/*": [
-        "./packages/prismgb-events/src/*"
-      ],
-      "@prismgb/config": [
-        "./packages/prismgb-config/src"
-      ],
-      "@prismgb/config/*": [
-        "./packages/prismgb-config/src/*"
-      ],
-      "@prismgb/ipc": [
-        "./packages/prismgb-ipc/src"
-      ],
-      "@prismgb/ipc/*": [
-        "./packages/prismgb-ipc/src/*"
-      ],
-      "@prismgb/devices": [
-        "./packages/prismgb-devices/src"
-      ],
-      "@prismgb/devices/*": [
-        "./packages/prismgb-devices/src/*"
-      ],
-      "@prismgb/transcode": [
-        "./packages/prismgb-transcode/src"
-      ],
-      "@prismgb/transcode/*": [
-        "./packages/prismgb-transcode/src/*"
-      ],
-      "@prismgb/updates": [
-        "./packages/prismgb-updates/src"
-      ],
-      "@prismgb/updates/*": [
-        "./packages/prismgb-updates/src/*"
-      ],
-      "@prismgb/notes": [
-        "./packages/prismgb-notes/src"
-      ],
-      "@prismgb/notes/*": [
-        "./packages/prismgb-notes/src/*"
-      ],
-      "@prismgb/ui-base": [
-        "./packages/prismgb-ui-base/src"
-      ],
-      "@prismgb/ui-base/reactive": [
-        "./packages/prismgb-ui-base/src/reactive/index"
-      ],
-      "@prismgb/ui-base/*": [
-        "./packages/prismgb-ui-base/src/*"
-      ]
-    },
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -95,6 +18,7 @@
   },
   "include": [
     "src/main/**/*.ts",
+    "src/platform/**/*.ts",
     "src/preload/**/*.ts",
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",

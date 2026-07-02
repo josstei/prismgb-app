@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { signal } from '../../../src/reactive/signal.js';
-import { bindText, bindClass, bindAttr, bindStyleProperty } from '../../../src/reactive/dom-bindings.js';
+import { signal } from '../../../../../src/platform/ui-base/reactive/signal.js';
+import { bindText, bindClass, bindAttr, bindStyleProperty } from '../../../../../src/platform/ui-base/reactive/dom-bindings.js';
 
 describe('dom-bindings', () => {
   it('bindText updates textContent synchronously on signal write', () => {

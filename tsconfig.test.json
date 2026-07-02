@@ -18,6 +18,7 @@
   },
   "include": [
     "src/main/**/*.ts",
+    "src/platform/**/*.ts",
     "src/preload/**/*.ts",
     "src/renderer/**/*.ts",
     "src/shared/**/*.ts",

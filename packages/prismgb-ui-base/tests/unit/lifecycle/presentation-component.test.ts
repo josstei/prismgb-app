@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PresentationComponent } from '../../../src/lifecycle/presentation-component.base.js';
+import { PresentationComponent } from '../../../../../src/platform/ui-base/lifecycle/presentation-component.base.js';
 
 describe('PresentationComponent', () => {
   it('tracks and disposes a simple disposable', async () => {

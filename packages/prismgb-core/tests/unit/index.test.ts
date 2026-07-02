@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Container } from '../../src/index';
+import { Container } from '../../../../src/platform/core/index';
 
 describe('Container primitive', () => {
   it('should register and resolve dependency factories', () => {

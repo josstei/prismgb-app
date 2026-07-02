@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   PLATFORM_MODULES,
   platformAliasMap,
@@ -69,5 +71,20 @@ describe('workspace-aliases registry', () => {
     const aliasMap = platformAliasMap('/repo', ['@platform', '@prismgb']);
     expect(aliasMap['@prismgb/core']).toBe(resolve('/repo', 'src/platform/core/index.ts'));
     expect(aliasMap['@platform/core']).toBe(resolve('/repo', 'src/platform/core/index.ts'));
+  });
+
+  it('tsconfig.base.json @platform paths match the registry emission', () => {
+    const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.base.json'), 'utf8'));
+    const actualPlatformPaths = Object.fromEntries(
+      Object.entries(tsconfig.compilerOptions.paths).filter(([alias]) => alias.startsWith('@platform/'))
+    );
+    expect(actualPlatformPaths).toEqual(platformTsconfigPaths());
+  });
+
+  it('vite and vitest configs consume the registry module', () => {
+    for (const configFile of ['vite.config.js', 'vitest.config.js']) {
+      const configText = readFileSync(join(process.cwd(), configFile), 'utf8');
+      expect(configText).toContain('workspace-aliases.mjs');
+    }
   });
 });

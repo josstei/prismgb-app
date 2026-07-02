@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect } from '../../../src/reactive/signal.js';
+import { signal, computed, effect } from '../../../../../src/platform/ui-base/reactive/signal.js';
 
 describe('signal primitive', () => {
   it('runs effects eagerly and re-runs synchronously on each change', () => {

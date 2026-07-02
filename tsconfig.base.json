@@ -33,68 +33,95 @@
       "@preload/*": [
         "./src/preload/*"
       ],
-      "@prismgb/gpu": [
-        "./packages/prismgb-gpu/src"
-      ],
-      "@prismgb/gpu/runtime": [
-        "./packages/prismgb-gpu/src/runtime"
-      ],
-      "@prismgb/core": [
-        "./packages/prismgb-core/src"
-      ],
-      "@prismgb/core/*": [
-        "./packages/prismgb-core/src/*"
-      ],
-      "@prismgb/events": [
-        "./packages/prismgb-events/src"
-      ],
-      "@prismgb/events/*": [
-        "./packages/prismgb-events/src/*"
+      "@platform/config": [
+        "./src/platform/config/index"
       ],
       "@prismgb/config": [
-        "./packages/prismgb-config/src"
+        "./src/platform/config/index"
       ],
-      "@prismgb/config/*": [
-        "./packages/prismgb-config/src/*"
+      "@platform/core": [
+        "./src/platform/core/index"
       ],
-      "@prismgb/ipc": [
-        "./packages/prismgb-ipc/src"
+      "@prismgb/core": [
+        "./src/platform/core/index"
       ],
-      "@prismgb/ipc/*": [
-        "./packages/prismgb-ipc/src/*"
+      "@platform/devices/runtime": [
+        "./src/platform/devices/runtime"
+      ],
+      "@prismgb/devices/runtime": [
+        "./src/platform/devices/runtime"
+      ],
+      "@platform/devices/testkit": [
+        "./src/platform/devices/testkit"
+      ],
+      "@prismgb/devices/testkit": [
+        "./src/platform/devices/testkit"
+      ],
+      "@platform/devices": [
+        "./src/platform/devices/index"
       ],
       "@prismgb/devices": [
-        "./packages/prismgb-devices/src"
+        "./src/platform/devices/index"
       ],
-      "@prismgb/devices/*": [
-        "./packages/prismgb-devices/src/*"
+      "@platform/events": [
+        "./src/platform/events/index"
       ],
-      "@prismgb/transcode": [
-        "./packages/prismgb-transcode/src"
+      "@prismgb/events": [
+        "./src/platform/events/index"
       ],
-      "@prismgb/transcode/*": [
-        "./packages/prismgb-transcode/src/*"
+      "@platform/gpu/runtime": [
+        "./src/platform/gpu/runtime"
       ],
-      "@prismgb/updates": [
-        "./packages/prismgb-updates/src"
+      "@prismgb/gpu/runtime": [
+        "./src/platform/gpu/runtime"
       ],
-      "@prismgb/updates/*": [
-        "./packages/prismgb-updates/src/*"
+      "@platform/gpu": [
+        "./src/platform/gpu/index"
+      ],
+      "@prismgb/gpu": [
+        "./src/platform/gpu/index"
+      ],
+      "@platform/ipc": [
+        "./src/platform/ipc/index"
+      ],
+      "@prismgb/ipc": [
+        "./src/platform/ipc/index"
+      ],
+      "@platform/notes": [
+        "./src/platform/notes/index"
       ],
       "@prismgb/notes": [
-        "./packages/prismgb-notes/src"
+        "./src/platform/notes/index"
       ],
-      "@prismgb/notes/*": [
-        "./packages/prismgb-notes/src/*"
+      "@platform/transcode/service": [
+        "./src/platform/transcode/service"
       ],
-      "@prismgb/ui-base": [
-        "./packages/prismgb-ui-base/src"
+      "@prismgb/transcode/service": [
+        "./src/platform/transcode/service"
+      ],
+      "@platform/transcode": [
+        "./src/platform/transcode/index"
+      ],
+      "@prismgb/transcode": [
+        "./src/platform/transcode/index"
+      ],
+      "@platform/ui-base/reactive": [
+        "./src/platform/ui-base/reactive/index"
       ],
       "@prismgb/ui-base/reactive": [
-        "./packages/prismgb-ui-base/src/reactive/index"
+        "./src/platform/ui-base/reactive/index"
       ],
-      "@prismgb/ui-base/*": [
-        "./packages/prismgb-ui-base/src/*"
+      "@platform/ui-base": [
+        "./src/platform/ui-base/index"
+      ],
+      "@prismgb/ui-base": [
+        "./src/platform/ui-base/index"
+      ],
+      "@platform/updates": [
+        "./src/platform/updates/index"
+      ],
+      "@prismgb/updates": [
+        "./src/platform/updates/index"
       ]
     },
     "types": [

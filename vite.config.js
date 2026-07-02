@@ -5,6 +5,7 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { platformAliasEntries, platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -39,7 +40,8 @@ export default defineConfig({
               '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
-              '@preload': path.resolve(__dirname, 'src/preload')
+              '@preload': path.resolve(__dirname, 'src/preload'),
+              ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
             }
           },
           build: {
@@ -75,7 +77,8 @@ export default defineConfig({
               '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
-              '@preload': path.resolve(__dirname, 'src/preload')
+              '@preload': path.resolve(__dirname, 'src/preload'),
+              ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
             }
           },
           plugins: [
@@ -137,18 +140,15 @@ export default defineConfig({
 
   // Resolve options
   resolve: {
-    // Array form for exact-match regex aliases. @prismgb/gpu is bundled from
-    // source (not its built dist) so its `new Worker(new URL(...))` bundles once
-    // instead of double-bundling the package's pre-built worker chunk.
+    // Platform module aliases are emitted from scripts/lib/workspace-aliases.mjs
+    // (exact-match entries; deep imports intentionally do not resolve).
     alias: [
-      { find: /^@prismgb\/gpu\/runtime$/, replacement: path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts') },
-      { find: /^@prismgb\/gpu$/, replacement: path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts') },
+      ...platformAliasEntries(__dirname, ['@platform', '@prismgb']),
       { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
       { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') },
       { find: '@preload', replacement: path.resolve(__dirname, 'src/preload') },
       { find: /^@$/, replacement: path.resolve(__dirname, 'src') },
       { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
-      // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
       { find: /^url$/, replacement: 'url/' }
     ]
   },

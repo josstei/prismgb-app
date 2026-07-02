@@ -36,17 +36,8 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Build all workspace packages (turbo, topological)
-        run: npm run build:packages
-
-      - name: Validate package export artifacts
-        run: npm run check:exports
-
       - name: Run GPU package boundary check
         run: npm run check:gpu-boundaries
-
-      - name: Typecheck all workspace packages (turbo)
-        run: npm run typecheck:packages
 
       - name: Run typecheck
         run: npm run typecheck
@@ -79,17 +70,8 @@ jobs:
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
 
-      - name: Build all workspace packages (turbo, topological)
-        run: npm run build:packages
-
-      - name: Validate package export artifacts
-        run: npm run check:exports
-
       - name: Run GPU package boundary check
         run: npm run check:gpu-boundaries
-
-      - name: Typecheck all workspace packages (turbo)
-        run: npm run typecheck:packages
 
       - name: Run typecheck
         run: npm run typecheck

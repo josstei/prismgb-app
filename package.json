@@ -5,25 +5,18 @@
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
-    "predev": "turbo run build",
     "dev": "node scripts/patch-mac-app-name.js && vite",
     "build": "npm run build:vite && electron-builder",
-    "prebuild:vite": "turbo run build",
     "build:vite": "npm run clean:build && vite build",
     "build:win": "npm run build:vite && electron-builder --win",
     "build:mac": "npm run build:vite && electron-builder --mac",
     "build:linux": "npm run build:vite && electron-builder --linux",
-    "build:packages": "turbo run build",
-    "check:exports": "node scripts/check-package-exports.js",
     "check:gpu-boundaries": "node scripts/check-gpu-package-boundaries.js",
     "preview": "vite preview",
     "start": "electron dist/main/index.js",
-    "lint": "eslint \"src/**/*.{js,ts}\" \"packages/*/src/**/*.{js,ts}\" && node scripts/check-layer-boundaries.js",
-    "lint:fix": "eslint \"src/**/*.{js,ts}\" \"packages/*/src/**/*.{js,ts}\" --fix && node scripts/check-layer-boundaries.js",
+    "lint": "eslint \"src/**/*.{js,ts}\" && node scripts/check-layer-boundaries.js",
+    "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix && node scripts/check-layer-boundaries.js",
     "lint:dead-code": "knip",
     "packaging:check-native-abi": "node scripts/check-electron-native-abi.js",
     "clean:generated": "node scripts/clean-generated.js",
@@ -32,11 +25,7 @@
     "release:preflight": "npm run packaging:check-native-abi && npm run test:coverage && npm run dev:smoke",
     "typecheck:app": "node scripts/typecheck-app.js",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
-    "typecheck:gpu": "npm run typecheck --workspace=@prismgb/gpu",
-    "typecheck:core": "npm run typecheck --workspace=@prismgb/core",
-    "typecheck:ui-base": "npm run typecheck --workspace=@prismgb/ui-base",
-    "typecheck:packages": "turbo run typecheck",
-    "typecheck": "npm run typecheck:app && npm run typecheck:tests && npm run typecheck:gpu && npm run typecheck:core && npm run typecheck:ui-base",
+    "typecheck": "npm run typecheck:app && npm run typecheck:tests",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -67,16 +56,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@prismgb/config": "*",
-    "@prismgb/core": "*",
-    "@prismgb/devices": "*",
-    "@prismgb/events": "*",
-    "@prismgb/gpu": "*",
-    "@prismgb/ipc": "*",
-    "@prismgb/notes": "*",
-    "@prismgb/transcode": "*",
-    "@prismgb/ui-base": "*",
-    "@prismgb/updates": "*",
     "@trpc/client": "^10.45.4",
     "@trpc/server": "^10.45.4",
     "electron-trpc": "^0.7.1",
@@ -113,7 +92,6 @@
     "picomatch": "^2.3.1",
     "png2icons": "^2.0.1",
     "sharp": "^0.34.5",
-    "turbo": "^2.9.16",
     "typescript": "^5.9.3",
     "vite": "^7.3.3",
     "vite-plugin-electron": "^0.29.1",
@@ -122,7 +100,7 @@
     "vitest": "^4.0.14"
   },
   "lint-staged": {
-    "{src,packages}/**/*.{js,ts}": [
+    "src/**/*.{js,ts}": [
       "eslint"
     ],
     "*.{js,ts}": [

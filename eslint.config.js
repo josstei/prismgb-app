@@ -5,7 +5,7 @@ import tsEslintPlugin from '@typescript-eslint/eslint-plugin';
 export default [
   js.configs.recommended,
   {
-    files: ['src/**/*.js', 'packages/*/src/**/*.js'],
+    files: ['src/**/*.js'],
     languageOptions: {
       ecmaVersion: 2025,
       sourceType: 'module',
@@ -64,7 +64,7 @@ export default [
     }
   },
   {
-    files: ['src/**/*.ts', 'packages/*/src/**/*.ts'],
+    files: ['src/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: 2025,
