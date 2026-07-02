@@ -14,10 +14,6 @@ describe('manualProviders registry', () => {
     );
   });
 
-  it('does NOT contain promoted standard-construction tokens', () => {
-    expect(manualProviders.animationCache).toBeUndefined();
-  });
-
   it('every entry is a factory function taking a resolver', () => {
     for (const provider of Object.values(manualProviders)) {
       expect(typeof provider).toBe('function');

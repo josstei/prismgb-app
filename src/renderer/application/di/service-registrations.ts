@@ -1,4 +1,4 @@
-import { AnimationCache, ConsoleLoggerFactory } from '@prismgb/core';
+import { ConsoleLoggerFactory } from '@prismgb/core';
 import { NotesService } from '@prismgb/notes';
 import { EventBus } from '../../infrastructure/events/event-bus.class';
 import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
@@ -109,6 +109,5 @@ export const standardServiceRegistrations: Record<string, StandardServiceFactory
   captureUiBridge: (cradle) => new CaptureUIBridge(cradle),
   transcodeUiBridge: (cradle) => new TranscodeUIBridge(cradle),
   uiEventBridge: (cradle) => new UIEventBridge(cradle),
-  uiEffects: (cradle) => new UIEffects(cradle),
-  animationCache: () => new AnimationCache()
+  uiEffects: (cradle) => new UIEffects(cradle)
 };

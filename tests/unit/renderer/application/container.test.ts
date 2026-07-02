@@ -18,7 +18,6 @@ const expectedRegistrationKeys = [
   'deviceStatusPort',
   'mediaDevicesPort',
   'devicePreferenceStore',
-  'animationCache',
   'viewportService',
   'canvasLifecycleService',
   'streamHealthService',
@@ -127,7 +126,7 @@ describe('Renderer container', () => {
   it('resolves manual-provider and standard service tokens with chained dependencies', () => {
     const container = createRendererContainer();
 
-    // Manual providers, including platform ports and canvasRenderLoopService -> animationCache.
+    // Manual providers, including platform ports.
     expect(() => container.resolve('storageService')).not.toThrow();
     expect(() => container.resolve('deviceStatusPort')).not.toThrow();
     expect(() => container.resolve('mediaDevicesPort')).not.toThrow();
@@ -136,6 +135,5 @@ describe('Renderer container', () => {
 
     // Standard service registrations: cradle construction and no-arg construction.
     expect(() => container.resolve('deviceMediaAcquirer')).not.toThrow();
-    expect(container.resolve('animationCache')).toBeDefined();
   });
 });
