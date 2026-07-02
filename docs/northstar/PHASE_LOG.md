@@ -161,3 +161,64 @@ cb3c6cf2 test(platform): move package test suites into the root tree
   dependency-cruiser rules — an accepted interim narrowing, per the final
   branch review.
 
+## P4 — Exit metrics (2026-07-02, branch `northstar/phase-4`)
+
+| Metric | Value | Delta vs P3 |
+|---|---|---|
+| Test files / tests (`npm run test:run`) | 156 files / 1,951 tests | +2 files / +1 test (+6 boundary self-test, −13 retired checker suite, +8 script libs) |
+| `npm run lint` (eslint + depcruise) | PASS | gpu/layer checker scripts retired |
+| `npm run lint:dead-code` (knip) | PASS (new failing CI gate) | was exit 1 pre-phase |
+| `npm run typecheck` | PASS | typecheck:app now plain `tsc -p` |
+| `npm run dev:smoke` | PASS | - |
+| `npm run build:vite` | PASS | - |
+| e2e specs passing (`npm run test:e2e`) | 86 / 86 (2.8m) | - |
+| Prod LOC (src) | 28,193 | −5 |
+| Test LOC (tests) | 37,105 | +46 |
+| Code delta excl. lockfile+docs (`git diff --shortstat northstar-p3..HEAD -- . ':(exclude)package-lock.json' ':(exclude)docs/**'`) | 76 files, +589 / −1,106 | **−517 LOC** |
+| Whole-branch shortstat (incl. plan doc + install lockfile motion) | 78 files, +2,743 / −1,229 | +1,514 (docs/lockfile-dominated) |
+
+### Notes
+
+- (a) Boundary enforcement is now ONE declarative gate: `.dependency-cruiser.cjs`
+  (17 named rules + 10 generated per-platform-module rules), deriving platform
+  surfaces from `scripts/lib/workspace-aliases.mjs` via `require()` of ESM
+  (needs Node ≥ 22.12; CI runs Node 22). Deleted: `check-layer-boundaries.js`
+  (+13-test suite + 13 fixture dirs), `check-gpu-package-boundaries.js`
+  (+ `check:gpu-boundaries` script + 2 CI steps), all 8 eslint
+  `no-restricted-imports` blocks. P3's interim three-family narrowing (note
+  above) is closed: deep-alias imports fail `no-unresolvable`, `@/` and
+  relative forms fail `app-to-platform-internals` on resolved paths.
+- (b) The tightened matrix also closes old-checker sloppiness: main→renderer/lib,
+  preload→main/bootstrap, and all of `src/platform/**` (previously unclassified
+  ⇒ silently exempt) are now enforced. The single type-only tRPC edge
+  (renderer/infrastructure → main/ipc) is preserved via
+  `tsPreCompilationDeps: true` + `dependencyTypesNot: ['type-only']`.
+- (c) Execution finding: depcruise orphans require no incoming AND no outgoing
+  edges — dead-but-importing files are knip's job (unused-files), not
+  depcruise's. Plan expectations were amended mid-phase (13 predicted orphan
+  fixture violations removed; only the fully-disconnected fixture fires).
+- (d) Self-test: one merged fixture tree (33 files), one depcruise spawn,
+  exact violation-set equality (19 pairs) + structure guards (src top-level
+  families vs the classified set; src/platform vs the registry) + the WebGL
+  filename tripwire carried over from the retired gpu checker. Structure
+  guards filter dot-entries (`.DS_Store` resilience — reviewer fix).
+- (e) knip gate (CFG-4): pre-phase baseline was exit 1 with 11 unused exported
+  types + 2 unused exported functions (the plan's baseline missed the
+  functions — truncated capture) + 7 stale config hints. 5 intentional
+  compile-time guards tagged `@public` (un-exporting would trip
+  `noUnusedLocals` in the test program); 8 dead exports deleted, all
+  grep-verified; stale ignores pruned (`@electron/notarize` kept).
+- (f) SCR-4/5/6: `scripts/lib/{process-runner,fs-walk}.js` extracted (+8 unit
+  tests); smoke-test on picomatch (`{dot: true}` preserves old regex
+  semantics), dev-boot-smoke on `node:util` parseArgs; `typecheck-app.js`
+  wrapper deleted for plain `tsc -p tsconfig.app.json --noEmit`. Pinned
+  public exports of both smoke scripts unchanged. Known gap: the macOS
+  mid-segment glob path is only exercisable via packaged `test:smoke`.
+- (g) Live negative test at exit: a scratch infra→presentation import made
+  `npm run lint` exit 1 naming `renderer-infrastructure-not-to-presentation`;
+  removed, tree clean.
+- (h) dependency-cruiser@17.4.3 + esbuild@0.28.1 installed OWNER-RUN online
+  (sandbox npm corrupts lockfile metadata — P3 lesson); lockfile verified
+  0 entries missing resolved/integrity. This also cleared the P3 esbuild
+  declaration follow-up (`tests/e2e/global-setup.js`).
+
