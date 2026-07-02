@@ -117,27 +117,6 @@ export function createDomEventMock(overrides = {}) {
   };
 }
 
-export function createWinstonLoggerMock(overrides = {}) {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createWinstonRootLoggerMock(overrides = {}) {
-  const { childLogger, ...methodOverrides } = overrides;
-  const resolvedChildLogger = childLogger ?? createWinstonLoggerMock();
-
-  return {
-    child: vi.fn(() => resolvedChildLogger),
-    level: 'debug',
-    ...methodOverrides
-  };
-}
-
 export function createShellServiceMock(overrides = {}) {
   return {
     openExternal: vi.fn().mockResolvedValue(undefined),

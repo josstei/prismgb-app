@@ -110,8 +110,6 @@ export {
   createBitmapMock,
   createPreventDefaultEventMock,
   createDomEventMock,
-  createWinstonLoggerMock,
-  createWinstonRootLoggerMock,
   createShellServiceMock,
   createLoginItemServiceMock,
 } from './system.factory.js';

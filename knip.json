@@ -20,8 +20,7 @@
       ],
       "project": ["src/**/*.{ts,js}"],
       "ignoreDependencies": [
-        "@electron/notarize",
-        "electron-log"
+        "@electron/notarize"
       ],
       "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
     }
