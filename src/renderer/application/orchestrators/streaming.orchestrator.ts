@@ -1,6 +1,6 @@
 import { BaseOrchestrator } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike, LoggerFactoryLike } from '@prismgb/core';
 import type { TypedEventBusLike } from '@prismgb/events';
 import { getErrorMessage } from '@prismgb/core';
 import {
@@ -13,9 +13,6 @@ import type {
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
-};
 
 type StreamingServiceLike = {
   start(deviceId?: string | null): Promise<unknown>;
