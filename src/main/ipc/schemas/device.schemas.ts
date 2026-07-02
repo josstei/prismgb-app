@@ -19,7 +19,7 @@ export const deviceInfoSchema = z
     deviceAddress: z.number().optional(),
     serialNumber: z.string().optional()
   })
-  .strict() satisfies z.ZodType<DeviceInfoPayload>;
+  .strict();
 
 export const nullableDeviceInfoSchema = deviceInfoSchema.nullish();
 
@@ -30,7 +30,23 @@ export const deviceStatusPayloadSchema = z
     device: deviceInfoSchema.nullable(),
     error: z.string().optional()
   })
-  .strict() satisfies z.ZodType<DeviceStatusPayload>;
+  .strict();
+
+/**
+ * Compile-time drift guards: the schema output shape and the canonical
+ * `@prismgb/devices` payload types must stay assignable. A retyped field
+ * fails every typecheck config; added/removed fields fail the strict app
+ * config. The Partial direction is required because zod inference collapses
+ * to all-optional under configs with strictNullChecks disabled.
+ */
+type AssertAssignable<A extends B, B> = A;
+
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
+export type DeviceInfoSchemaDriftGuard = AssertAssignable<z.infer<typeof deviceInfoSchema>, DeepPartial<DeviceInfoPayload>>;
+export type DeviceInfoPayloadDriftGuard = AssertAssignable<DeviceInfoPayload, z.infer<typeof deviceInfoSchema>>;
+export type DeviceStatusSchemaDriftGuard = AssertAssignable<z.infer<typeof deviceStatusPayloadSchema>, DeepPartial<DeviceStatusPayload>>;
+export type DeviceStatusPayloadDriftGuard = AssertAssignable<DeviceStatusPayload, z.infer<typeof deviceStatusPayloadSchema>>;
 
 export const deviceStatusResponseSchema = deviceStatusPayloadSchema
   .extend({
