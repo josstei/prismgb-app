@@ -222,3 +222,89 @@ cb3c6cf2 test(platform): move package test suites into the root tree
   0 entries missing resolved/integrity. This also cleared the P3 esbuild
   declaration follow-up (`tests/e2e/global-setup.js`).
 
+
+## P5 — Exit metrics (2026-07-02, branch `northstar/p5`)
+
+| Metric | Value | Delta vs P4 |
+|---|---|---|
+| Test files / tests (`npm run test:run`) | 158 files / 1,972 tests | +2 files / +21 tests (+14 host, +3 electron-app, +9 timing/async, +1 group; −6 logger rewrite) |
+| `npm run lint` (eslint + depcruise) | PASS | zero rule/config changes; boundary self-test untouched |
+| `npm run lint:dead-code` (knip) | PASS | all 3 staged waivers burned; only `@electron/notarize` remains |
+| `npm run typecheck` | PASS | `lib` ES2022 → ES2024 |
+| `npm run test:integration` | PASS (18) | - |
+| `npm run build:vite` | PASS | - |
+| `npm run dev:smoke` | PASS (run per base-class task AND at exit) | - |
+| e2e specs passing (`npm run test:e2e`) | 86 / 86 (2.7m) | - |
+| Prod LOC (src, `git grep -c '' <rev> -- 'src/**/*.ts'`) | 28,071 | −122 |
+| Test LOC (tests `*.ts`+`*.js`, same method) | 37,310 | +259 (vs recomputed P4 baseline 37,051 — see measurement note) |
+| Code delta excl. lockfile+docs (`git diff --shortstat northstar-p4..HEAD -- . ':(exclude)package-lock.json' ':(exclude)docs/**'`) | 41 files, +827 / −686 | **+141 LOC (prod −122; tests +259 by design — mandated new coverage)** |
+| Whole-branch shortstat (incl. plan doc + lockfile motion) | 43 files, +2,910 / −914 | +1,996 (docs/lockfile-dominated) |
+
+### Measurement note
+
+P4's published test-LOC figure (37,105) does not reproduce with any tracked-file
+pathspec; the reproducible method (`git grep -c '' northstar-p4 -- 'tests/**/*.ts'
+'tests/**/*.js'`) gives 37,051, which this table uses as the corrected baseline.
+The prod method reproduces P4's 28,193 exactly.
+
+### Notes
+
+- (a) UIB-1/X-5/INF-9/UIB-6: the DisposableBag facade now exists ONCE —
+  `ManagedLifecycleHost` in core (timers/frames/track/replace/cancel + keyed
+  `schedule`/`scheduleInterval`/`cancelScheduled` + `replaceManagedGroup` over
+  `DisposableBag.replaceGroup`). `BaseService`, `BaseOrchestrator`, and
+  `PresentationComponent` compose it with unchanged public APIs; six keyed-timer
+  sites (health, viewport ×2 + mirror-field deletion, performance-state idle,
+  update auto-check pair, transcode job-TTL) route through the keyed helpers;
+  three widget disposer-group idioms collapsed onto `replaceManagedGroup`.
+- (b) DECISION — UIB-3 (`@floating-ui/dom`) NOT adopted: the pure
+  `calculateAnchoredDisclosureLayout` computes CSS min/max size bounds from
+  rects (docked-height floors unconditional, precisely unit-tested); floating-ui
+  is async/element-measured and the floors would become custom middleware
+  carrying the same math. The audit's own "keep the adapter if the floors prove
+  necessary" condition is met. Library dropped from the install.
+- (c) DECISION — `settings-fullscreen.service.ts` document listener NOT
+  converted to plain `subscribe()`: its keyed replace is deliberate re-init
+  safety (`initialize()` cancels the key first); it is not a timer.
+- (d) INF-3 scope held to the audit's proposal: `abortableDelay` (was `_sleep`)
+  + `raceWithTimeout` (was `_waitForCaptureDrain`, 3-outcome). The
+  timing-critical `_waitForTrackUnmute`/`_waitForAudioEnergy` warmup waiters
+  keep their settle-once/abort ceremony inline by design; no `settleOnce`
+  helper was built.
+- (e) CORE-3 execution finding: core `createDeferred` had exactly ONE src
+  consumer (`capture.service.ts`) — the audit's "12 consumers" counted
+  unrelated `DeferredComponentDependencies` names and two test-local helpers.
+  `Deferred<T>` survives as `PromiseWithResolvers<T>`; `lib` bumped to ES2024.
+- (f) UIB-2: reactive facade re-exports `@preact/signals-core` (lazy computed,
+  glitch-free diamond — red-run evidence captured); hand-rolled `signal.ts`
+  deleted (−96); ~30 consumer files untouched. MAIN-1: `MainLogger` 169 → 45
+  lines on `electron-log` behind the unchanged `LoggerFactoryLike`; accepted
+  divergences: single rotating log file (not the error/combined pair), native
+  Error serialization (not `{error, stack}` meta shaping); winston removed
+  with zero references incl. lockfile. CORE-4: `ValueOf`/`UnionToIntersection`
+  from type-fest; bespoke `LeafValues`/`AssertNever` kept.
+- (g) Staged-waiver mechanism worked: Task 1 installed all three libraries
+  behind temporary knip `ignoreDependencies` entries; each consuming task
+  removed its own waiver (Tasks 7/11/12), keeping every intermediate commit
+  green on the dead-code gate with zero waivers at exit.
+- (h) winston removal was sandbox-safe with no second owner touchpoint:
+  package.json edit + `npm install --package-lock-only` (inherits metadata)
+  + integrity check = 0 missing entries.
+- (i) Plan bugs found by implementers and amended in the plan doc: presentation
+  `timeout`/`interval` delegation needed explicit `<unknown[]>` pins (TS2556 —
+  nullary handler pins `TArgs = []`); three signal-test callbacks needed void
+  block bodies (preact `EffectFn` returns a union, so the void-return exception
+  doesn't apply); Task 9's brief self-contradicted on the `TimedRaceOutcome`
+  import (resolved with an explicit annotation at the call site).
+- (j) White-box test coupling surfaced twice beyond the plan: 3 orchestrator-test
+  assertions peeked `_disposables` (repointed to `_lifecycle.disposables`);
+  viewport's 3 mirror-field tests were rewritten behaviorally per plan.
+  Follow-up lesson: pre-write verification must grep tests/ for private-member
+  peeks, not just src/.
+- (k) P3/P4 owner follow-ups all cleared: `getElectronApp` unit test (3 tests,
+  memoization + non-electron fallback + resolution) and the gitignored
+  `packages/*` residue (1.8 MB) deleted in Task 1.
+- (l) Install was run by the controller with owner authorization (online,
+  unsandboxed npm): `@preact/signals-core@^1.14.3` + `electron-log@^5.4.4`
+  (dependencies), `type-fest@^5.7.0` (devDependencies); lockfile integrity
+  verified 0 missing `resolved`/`integrity` after every lockfile-touching step.
