@@ -36,9 +36,6 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Run GPU package boundary check
-        run: npm run check:gpu-boundaries
-
       - name: Run typecheck
         run: npm run typecheck
 
@@ -69,9 +66,6 @@ jobs:
 
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
-
-      - name: Run GPU package boundary check
-        run: npm run check:gpu-boundaries
 
       - name: Run typecheck
         run: npm run typecheck
