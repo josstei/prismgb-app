@@ -2,7 +2,7 @@ import {
   createFixtureDeviceInfoPayload,
   createFixtureDeviceStatus,
   getDeviceFixtureProfile,
-} from '@platform/devices/testkit';
+} from '../.generated/devices-testkit.mjs';
 
 const chromaticProfile = getDeviceFixtureProfile();
 const { descriptor, fixture } = chromaticProfile;

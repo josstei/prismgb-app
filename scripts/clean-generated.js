@@ -36,6 +36,10 @@ export const GENERATED_ARTIFACT_PATHS = [
   {
     path: 'tests/e2e/screenshots',
     owner: 'End-to-end screenshots'
+  },
+  {
+    path: 'tests/e2e/.generated',
+    owner: 'Generated end-to-end fixtures'
   }
 ];
 export const GENERATED_PATHS = GENERATED_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);

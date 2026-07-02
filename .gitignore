@@ -61,6 +61,7 @@ artifacts/
 # Playwright E2E test artifacts
 tests/e2e/test-results/
 tests/e2e/screenshots/
+tests/e2e/.generated/
 playwright-report/
 test-results/
 
