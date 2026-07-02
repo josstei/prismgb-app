@@ -828,7 +828,7 @@ Expected: second grep prints ZERO lines. Scope is deliberately `src` + `tests` o
 - [ ] **Step 3: Drop the compat prefix from every emitter call site**
 
 - `vite.config.js`: `platformAliasMap(__dirname, ['@platform', '@prismgb'])` → `platformAliasMap(__dirname)` (main + preload blocks); `platformAliasEntries(__dirname, ['@platform', '@prismgb'])` → `platformAliasEntries(__dirname)`.
-- `vitest.config.js`: same single-argument change in `sharedAlias`; in the `platform-dom` project, rewrite the two remaining `'@prismgb/gpu…'` string keys — they became `'@platform/gpu…'` duplicates of `sharedAlias` entries, so just delete them, keeping only the `'@platform/gpu/'` prefix alias.
+- `vitest.config.js`: same single-argument change in `sharedAlias`. (The `platform-dom` project carries no gpu alias keys — it is plain `alias: sharedAlias` per the Task 3 relative-import decision — so nothing else changes there.)
 - `tsconfig.base.json`: delete the 15 `@prismgb/*` compat path entries (keep the 15 `@platform/*` entries). Regenerate to be exact:
 
 ```bash
