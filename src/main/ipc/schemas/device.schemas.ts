@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { DeviceInfoPayload, DeviceStatusPayload } from '@prismgb/devices';
 
 export const deviceConnectionStateSchema = z.enum([
   'unknown',
@@ -18,7 +19,7 @@ export const deviceInfoSchema = z
     deviceAddress: z.number().optional(),
     serialNumber: z.string().optional()
   })
-  .strict();
+  .strict() satisfies z.ZodType<DeviceInfoPayload>;
 
 export const nullableDeviceInfoSchema = deviceInfoSchema.nullish();
 
@@ -29,7 +30,7 @@ export const deviceStatusPayloadSchema = z
     device: deviceInfoSchema.nullable(),
     error: z.string().optional()
   })
-  .strict();
+  .strict() satisfies z.ZodType<DeviceStatusPayload>;
 
 export const deviceStatusResponseSchema = deviceStatusPayloadSchema
   .extend({
