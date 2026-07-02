@@ -46,3 +46,36 @@ exit metrics are recorded here, decisions are recorded here permanently.
 | Test LOC (tests + packages/*/tests) | 36,881 | -2,366 LOC |
 | **Total LOC Delta** | | **-2,897 LOC** |
 
+## P2 — Exit metrics (2026-07-01, branch `northstar/phase-2`)
+
+| Metric | Value | Delta vs P1 |
+|---|---|---|
+| Test files / tests (`npm run test:run`) | 153 files / 1,942 tests | +0 files / +0 tests |
+| `npm run typecheck` | PASS | - |
+| `npm run lint` | PASS | - |
+| `npm run dev:smoke` | PASS | - |
+| `npm run build:vite` | PASS | - |
+| `npm run check:gpu-boundaries` | PASS | - |
+| Prod LOC (src + packages/*/src) | 25,000 | -69 LOC |
+| Test LOC (tests + packages/*/tests) | 36,884 | +3 LOC |
+| **Total LOC Delta** | | **-66 LOC** |
+
+### Execution notes
+
+- Task 1's content was folded into the Task 2 commit `4ac32ae7` by the executor
+  (content complete, commit-per-task bookkeeping deviation).
+- Task 12 hit a plan gap — `tests/unit/renderer/presentation/effects/effects.test.ts`
+  also imported the deleted shim and was repointed to `@prismgb/config`.
+- The Task 11 `satisfies` guards were reformulated post-hoc (commit `aafe1d91`) into
+  `AssertAssignable` + `DeepPartial` type guards because zod inference collapses to
+  all-optional under `tsconfig.test.json`'s `strictNullChecks: false`.
+- The five planned deviations from the plan header stand (update.bridge,
+  transcode-temp Logger, TypedEventBusLike deferral, .test.js extensions,
+  isErrorLike export kept).
+- The Task 16 sweep surfaced three additional local `LoggerFactoryLike` aliases
+  beyond APP-6's audited two (capture.service, gpu-recording.service,
+  update-section.component) — canonicalized in the follow-up commit.
+- The sweep's `require('electron')` match in `src/preload/index.ts` is tolerated:
+  sandboxed-preload `contextBridge`/`ipcRenderer` access predating this program,
+  structurally distinct from X-2's app-singleton consolidation.
+
