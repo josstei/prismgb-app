@@ -17,7 +17,7 @@
 - `rm` may be blocked by sandbox policy — use `git rm`/`git mv` for tracked files.
 - `.husky/pre-commit` runs lint-staged + `typecheck:app` on every commit — **every commit must typecheck standalone**. Task 2 and Task 4 stage hundreds of files, so `vitest related` in lint-staged may take a few minutes; let it run.
 - Rollback for the whole phase: `git reset --hard pre-workspace-collapse` (tag created in Task 1).
-- Baseline invariants to preserve: **153 test files / 1,942 tests**, 86/86 e2e, all gates green (`test:run`, `typecheck`, `lint`, `check:gpu-boundaries`, `build:vite`, `dev:smoke`).
+- Baseline invariants to preserve: **154 test files / 1,950 tests** from Task 2 onward (P2 baseline 153/1,942 + Task 1's 6 registry guard tests + Task 2's 2 config-sync guard tests), 86/86 e2e, all gates green (`test:run`, `typecheck`, `lint`, `check:gpu-boundaries`, `build:vite`, `dev:smoke`).
 
 ## Verified premises (2026-07-01, live tree at `0077c230`)
 
@@ -727,9 +727,15 @@ Expected: second grep prints nothing (also catches any `import('@/…')`/`vi.moc
 
 Deep-specifier caveat: `@platform/gpu/<internal>` does NOT resolve through the registry (exact-match aliases only). These test-internal deep imports must bypass the registry the same way the old package project did — via a project-scoped alias. That is handled in Step 4; do not add wildcard entries to the registry.
 
-- [ ] **Step 3: Fix the one relative package path**
+- [ ] **Step 3: Verify the relative subject-import paths (already fixed during Task 2 recovery)**
 
-In `tests/unit/platform/devices/usb.monitor.test.ts`, replace both occurrences of `'../../../../packages/prismgb-devices/src/infrastructure/usb.monitor.js'` with `'../../../../src/platform/devices/infrastructure/usb.monitor.js'` (directory depth is unchanged).
+Task 2's fix pass already retargeted every relative subject import in the moving test files to `src/platform/...` with depth-preserving paths (usb.monitor.test.ts ×2, core index.test.ts ×1, ui-base signal/presentation-component/dom-bindings tests ×4) — source and destination directories have identical depth, so the moves in Step 1 keep them valid. Verify only:
+
+```bash
+grep -rn "packages/prismgb\|\.\./\.\./src/" tests/unit/platform | grep -v "src/platform"
+```
+
+Expected: no output. If anything appears, retarget it to the same-depth `src/platform/<name>/…` path instead of proceeding.
 
 - [ ] **Step 4: Replace the three package vitest projects with two platform projects**
 
@@ -786,7 +792,7 @@ npm run test:run
 npm run typecheck:tests
 ```
 
-Expected: **153 files / 1,942 tests**, all passing — the executed-test-set guard proves no suite was dropped by the include-glob swap. `typecheck:tests` newly covers the moved `.ts` package tests (they were excluded by the package tsconfigs before); fix any small errors it surfaces in those test files (type-only import syntax, unused locals are already off).
+Expected: **154 files / 1,950 tests**, all passing — the executed-test-set guard proves no suite was dropped by the include-glob swap. `typecheck:tests` newly covers the moved `.ts` package tests (they were excluded by the package tsconfigs before); fix any small errors it surfaces in those test files (type-only import syntax, unused locals are already off).
 
 - [ ] **Step 7: Commit**
 
@@ -854,7 +860,7 @@ npm run build:vite
 npm run dev:smoke
 ```
 
-Expected: all green; 153 files / 1,942 tests.
+Expected: all green; 154 files / 1,950 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -953,7 +959,7 @@ npm run dev:smoke
 npm run test:e2e
 ```
 
-Expected: everything green; 153 files / 1,942 tests; **86/86 e2e**. `build:vite` staying green is THE exit criterion — the stale-dist/double-bundling bug class is now structurally impossible (no package dist exists to go stale).
+Expected: everything green; 154 files / 1,950 tests; **86/86 e2e**. `build:vite` staying green is THE exit criterion — the stale-dist/double-bundling bug class is now structurally impossible (no package dist exists to go stale).
 
 - [ ] **Step 2: Record the LOC delta and exit metrics**
 
