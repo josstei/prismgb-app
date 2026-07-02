@@ -1,5 +1,5 @@
 import { createChromaticDeviceInfoPayload } from './chromatic-media-environment.helper.js';
-import { IPC_CHANNELS } from '../../support/ipc-channels.js';
+import { IPC_CHANNELS } from './ipc-channels.js';
 
 const TEST_CONTROL_CHANNELS = Object.freeze({
   SET_DEVICE_STATUS: 'prismgb:test-control:set-device-status',

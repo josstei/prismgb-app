@@ -1,4 +1,4 @@
-import { IPC_CHANNELS as manifestChannels } from '@platform/ipc';
+import { IPC_CHANNELS as manifestChannels } from '../.generated/ipc.mjs';
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object') {
