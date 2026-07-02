@@ -34,10 +34,6 @@ type DownloadHandler = (event: Event, item: DownloadItem) => void;
 
 type FullscreenListener = () => void;
 
-type AppWithQuitFlag = typeof app & {
-  isQuitting?: boolean;
-};
-
 interface CreateWindowOptions {
   hidden?: boolean;
 }
@@ -203,7 +199,7 @@ class WindowService extends BaseService {
     });
 
     const closeListener = (event: Event) => {
-      if (!(app as AppWithQuitFlag).isQuitting) {
+      if (!app.isQuitting) {
         event.preventDefault();
         mainWindow.hide();
         return;

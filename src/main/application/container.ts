@@ -24,15 +24,6 @@ import { AppOrchestrator } from './app.orchestrator.js';
  */
 export type MainServiceContainer = Container;
 
-/**
- * Unwraps the legacy `{ value }` override envelope while passing plain instances through.
- */
-function unwrapOverride(value: unknown): unknown {
-  return value && typeof value === 'object' && 'value' in value
-    ? (value as { value: unknown }).value
-    : value;
-}
-
 function isE2eTestControlEnabled(): boolean {
   return process.env.PRISMGB_E2E_TEST_CONTROL === '1';
 }
@@ -73,7 +64,7 @@ export function createMainContainer(
   container.register('appOrchestrator', (c) => new AppOrchestrator(c));
 
   for (const [token, value] of Object.entries(overrides)) {
-    container.registerValue(token, unwrapOverride(value));
+    container.registerValue(token, value);
   }
 
   return container;
