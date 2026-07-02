@@ -1,8 +1,7 @@
-import { createRequire } from 'module';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BaseService } from '@prismgb/core';
+import { BaseService, getElectronApp } from '@prismgb/core';
 import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@prismgb/core';
 import { MainEventChannels } from '@prismgb/events';
 import { IPC_CHANNELS } from '@prismgb/ipc';
@@ -13,17 +12,7 @@ type UpdateStateType = UpdateStateValue;
 const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
 const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
 
-let electronApp: any = null;
-function getApp() {
-  if (electronApp !== null) return electronApp;
-  try {
-    const require = createRequire(import.meta.url);
-    electronApp = require('electron').app;
-  } catch {
-    electronApp = null;
-  }
-  return electronApp;
-}
+
 
 interface WindowService {
   send(channel: string, data: unknown): void;
@@ -328,7 +317,7 @@ class UpdateService extends BaseService {
     }
 
     this.logger.info('Installing update and restarting...');
-    const electronApp = getApp();
+    const electronApp = getElectronApp();
     if (electronApp) {
       electronApp.isQuitting = true;
     }

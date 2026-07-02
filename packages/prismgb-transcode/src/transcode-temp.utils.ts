@@ -9,7 +9,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import crypto from 'node:crypto';
+import os from 'node:os';
+import nodeModule from 'node:module';
 import { TRANSCODE_CONFIG } from './transcode.config.js';
+import { getElectronApp } from '@prismgb/core';
 
 /**
  * Session information for a transcode operation
@@ -41,18 +44,8 @@ function generateSessionId(): string {
  * Get the base temp directory for transcode operations
  * @returns Path to temp directory
  */
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-
 function getTempBaseDir(): string {
-  let tempDir: string;
-  try {
-    const { app } = require('electron');
-    tempDir = app.getPath('temp');
-  } catch {
-    const os = require('node:os');
-    tempDir = os.tmpdir();
-  }
+  const tempDir = getElectronApp()?.getPath('temp') ?? (typeof os.tmpdir === 'function' ? os.tmpdir() : nodeModule.createRequire(import.meta.url)('node:os').tmpdir());
   return path.join(tempDir, 'prismgb-transcode');
 }
 

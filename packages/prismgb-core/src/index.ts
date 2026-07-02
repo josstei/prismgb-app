@@ -18,6 +18,9 @@ export type { ValueOf, UnionToIntersection, LeafValues, AssertNever } from './ty
 // -----------------------------------------------------------------------------
 // Core Primitives (Classes / Concrete Implementations)
 // -----------------------------------------------------------------------------
+export { getElectronApp } from './primitives/electron-app.utils.js';
+export type { ElectronAppLike } from './primitives/electron-app.utils.js';
+
 export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
 export { DisposableBag } from './primitives/disposable-bag.js';

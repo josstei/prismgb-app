@@ -7,7 +7,9 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { BaseService, type EventBusLike, type LoggerFactoryLike } from '@prismgb/core';
+import os from 'node:os';
+import nodeModule from 'node:module';
+import { BaseService, type EventBusLike, type LoggerFactoryLike, getElectronApp } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
@@ -163,15 +165,7 @@ class TranscodeService extends BaseService {
       }
 
       // Determine output path (save directly to Downloads)
-      const require = (await import('node:module')).createRequire(import.meta.url);
-      let downloadsDir: string;
-      try {
-        const { app } = require('electron');
-        downloadsDir = app.getPath('downloads');
-      } catch {
-        const os = require('node:os');
-        downloadsDir = path.join(os.homedir(), 'Downloads');
-      }
+      const downloadsDir = getElectronApp()?.getPath('downloads') ?? path.join((typeof os.homedir === 'function' ? os.homedir() : nodeModule.createRequire(import.meta.url)('node:os').homedir()), 'Downloads');
       const outputPath = path.join(downloadsDir, `${outputFilename}.${formatConfig.extension}`);
 
       // Create job record

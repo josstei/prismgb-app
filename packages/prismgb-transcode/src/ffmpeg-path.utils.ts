@@ -9,20 +9,15 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
+import { getElectronApp } from '@prismgb/core';
 
 // Create require for CommonJS module resolution
 const require = createRequire(import.meta.url);
 
 let isPackagedVal: boolean | null = null;
 function checkIsPackaged(): boolean {
-  if (isPackagedVal !== null) return isPackagedVal;
-  try {
-    const { app } = require('electron');
-    isPackagedVal = app.isPackaged;
-  } catch {
-    isPackagedVal = false;
-  }
-  return isPackagedVal ?? false;
+  isPackagedVal = getElectronApp()?.isPackaged ?? false;
+  return isPackagedVal;
 }
 
 /**
