@@ -8,7 +8,7 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { BaseService } from '@platform/core';
+import { BaseService, abortableDelay } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
@@ -202,7 +202,7 @@ export class StreamingAudioPipelineService extends BaseService {
         return false;
       }
 
-      const stabilized = await this._sleep(timings.stabilizeDelayMs, signal);
+      const stabilized = await abortableDelay(timings.stabilizeDelayMs, signal);
       if (!stabilized || signal.aborted || token !== this._warmupToken) {
         return false;
       }
@@ -475,25 +475,5 @@ export class StreamingAudioPipelineService extends BaseService {
     const ua = navigator.userAgent || '';
     if (ua.includes('Android')) return false;
     return ua.includes('Linux');
-  }
-
-  private _sleep(durationMs: number, signal: AbortSignal): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (signal.aborted) {
-        resolve(false);
-        return;
-      }
-
-      const timeoutId = setTimeout(() => {
-        signal.removeEventListener('abort', handleAbort);
-        resolve(true);
-      }, durationMs);
-      const handleAbort = () => {
-        clearTimeout(timeoutId);
-        resolve(false);
-      };
-
-      signal.addEventListener('abort', handleAbort, { once: true });
-    });
   }
 }

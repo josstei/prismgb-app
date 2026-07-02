@@ -5,8 +5,8 @@
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
-import { BaseService } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
+import { BaseService, raceWithTimeout } from '@platform/core';
+import type { LoggerFactoryLike, TimedRaceOutcome } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
@@ -23,8 +23,6 @@ type CaptureGpuRecordingDependencies = {
 };
 
 const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
-
-type CaptureDrainResult = 'completed' | 'failed' | 'timed-out';
 
 class CaptureGpuRecordingService extends BaseService {
   private readonly gpuRendererService: GpuRendererServiceLike;
@@ -149,7 +147,7 @@ class CaptureGpuRecordingService extends BaseService {
     if (this._lastCapturePromise) {
       this.logger.debug('Waiting for in-flight capture to complete...');
       const capturePromise = this._lastCapturePromise;
-      const drainResult = await this._waitForCaptureDrain(capturePromise, 500);
+      const drainResult: TimedRaceOutcome = await raceWithTimeout(capturePromise, 500);
 
       if (drainResult === 'timed-out') {
         void capturePromise.then((bitmap) => {
@@ -322,24 +320,6 @@ class CaptureGpuRecordingService extends BaseService {
   private _scheduleRecordingFrame(callback: FrameRequestCallback): void {
     const recordingFrameId = requestAnimationFrame(callback);
     this.disposables.replace(RECORDING_FRAME_LIFECYCLE, () => cancelAnimationFrame(recordingFrameId));
-  }
-
-  private _waitForCaptureDrain(
-    capturePromise: Promise<ImageBitmap>,
-    timeoutMs: number
-  ): Promise<CaptureDrainResult> {
-    return new Promise((resolve) => {
-      let settled = false;
-      const timeoutId = setTimeout(() => finish('timed-out'), timeoutMs);
-      const finish = (result: CaptureDrainResult) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeoutId);
-        resolve(result);
-      };
-
-      void capturePromise.then(() => finish('completed')).catch(() => finish('failed'));
-    });
   }
 }
 

@@ -35,5 +35,5 @@ export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { isRecord, isNumber, isString, isPromiseLike } from './primitives/guards.utils.js';
 export { throttle, debounce } from './primitives/timing.utils.js';
 export type { DebouncedFunction } from './primitives/timing.utils.js';
-export { createDeferred } from './primitives/async.utils.js';
-export type { Deferred } from './primitives/async.utils.js';
+export { createDeferred, abortableDelay, raceWithTimeout } from './primitives/async.utils.js';
+export type { Deferred, TimedRaceOutcome } from './primitives/async.utils.js';

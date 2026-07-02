@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { throttle, debounce, createDeferred } from '@platform/core';
+import { throttle, debounce, createDeferred, abortableDelay, raceWithTimeout } from '@platform/core';
 
 describe('throttle', () => {
   it('invokes on the leading edge and suppresses until the interval elapses', () => {
@@ -83,5 +83,59 @@ describe('createDeferred', () => {
     const deferred = createDeferred<void>();
     deferred.reject(new Error('nope'));
     await expect(deferred.promise).rejects.toThrow('nope');
+  });
+});
+
+describe('abortableDelay', () => {
+  it('resolves true after the delay', async () => {
+    vi.useFakeTimers();
+    try {
+      const controller = new AbortController();
+      const pending = abortableDelay(50, controller.signal);
+      await vi.advanceTimersByTimeAsync(50);
+      await expect(pending).resolves.toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resolves false immediately when the signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(abortableDelay(50, controller.signal)).resolves.toBe(false);
+  });
+
+  it('resolves false when aborted mid-delay and clears the timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const controller = new AbortController();
+      const pending = abortableDelay(50, controller.signal);
+      controller.abort();
+      await expect(pending).resolves.toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('raceWithTimeout', () => {
+  it("reports 'completed' when the promise resolves first", async () => {
+    await expect(raceWithTimeout(Promise.resolve('ok'), 1000)).resolves.toBe('completed');
+  });
+
+  it("reports 'failed' when the promise rejects first", async () => {
+    await expect(raceWithTimeout(Promise.reject(new Error('nope')), 1000)).resolves.toBe('failed');
+  });
+
+  it("reports 'timed-out' when the timeout elapses first", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = raceWithTimeout(new Promise(() => {}), 100);
+      await vi.advanceTimersByTimeAsync(100);
+      await expect(pending).resolves.toBe('timed-out');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
