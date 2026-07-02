@@ -1,5 +1,5 @@
 import { BaseService, generateEntityId } from '@prismgb/core';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import type { LoggerFactoryLike, StorageServiceLike } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { IEventBus as EventBusLike } from '@prismgb/events';
 
@@ -18,10 +18,6 @@ interface UserNote {
 
 type NoteUpdates = Partial<Pick<UserNote, 'title' | 'content' | 'gameName'>>;
 
-interface StorageServiceLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): boolean;
-}
 
 type NotesServiceDependencies = {
   eventBus: EventBusLike;

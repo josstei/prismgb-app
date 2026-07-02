@@ -7,7 +7,7 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { BaseService } from '@prismgb/core';
+import { BaseService, type EventBusLike, type LoggerFactoryLike } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
@@ -77,15 +77,8 @@ interface TranscodeServiceDependencies {
   windowService: {
     send: (channel: string, data: unknown) => void;
   };
-  eventBus: unknown;
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string, meta?: Record<string, unknown>) => void;
-      debug: (message: string, meta?: Record<string, unknown>) => void;
-      warn: (message: string, meta?: Record<string, unknown>) => void;
-      error: (message: string, meta?: Record<string, unknown>) => void;
-    };
-  };
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
 }
 
 type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;

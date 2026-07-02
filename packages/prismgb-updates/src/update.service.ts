@@ -3,7 +3,8 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BaseService } from '@prismgb/core';
-import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
+import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@prismgb/core';
+import { MainEventChannels } from '@prismgb/events';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { UpdateState, type UpdateStateValue } from '@prismgb/config';
 
@@ -28,10 +29,6 @@ interface WindowService {
   send(channel: string, data: unknown): void;
 }
 
-interface EventBus {
-  publish(event: string, data: unknown): void;
-}
-
 interface Config {
   isDevelopment?: boolean;
   version?: string;
@@ -39,7 +36,7 @@ interface Config {
 
 interface UpdateServiceDependencies {
   windowService: WindowService;
-  eventBus: EventBus;
+  eventBus: EventBusLike;
   loggerFactory: LoggerFactory;
   config: Config;
 }
@@ -61,15 +58,9 @@ interface UpdateStatus {
 type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
-const MainEventChannels = {
-  UPDATE: {
-    STATE_CHANGED: 'update:state-changed' as const
-  }
-};
-
 class UpdateService extends BaseService {
   private readonly windowService: WindowService;
-  protected readonly eventBus: EventBus;
+  protected readonly eventBus: EventBusLike;
   private readonly config: Config;
 
   state: UpdateStateType;
