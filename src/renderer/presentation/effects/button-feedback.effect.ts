@@ -1,4 +1,4 @@
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@prismgb/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@prismgb/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';

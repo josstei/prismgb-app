@@ -1,31 +1,26 @@
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@prismgb/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, effect } from '@prismgb/ui-base';
 import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 
-const APP_CSS_CLASSES = Object.freeze({
-  IDLE: 'app-idle',
-  HIDDEN: 'app-hidden',
-  ANIMATIONS_OFF: 'app-animations-off'
-});
 
 export class BodyClassManager extends PresentationComponent {
   setIdle(isIdle: boolean) {
-    document.body.classList.toggle(APP_CSS_CLASSES.IDLE, isIdle);
+    document.body.classList.toggle(CSSClasses.APP_IDLE, isIdle);
   }
 
   setHidden(isHidden: boolean) {
-    document.body.classList.toggle(APP_CSS_CLASSES.HIDDEN, isHidden);
+    document.body.classList.toggle(CSSClasses.APP_HIDDEN, isHidden);
   }
 
   setAnimationsOff(animationsOff: boolean) {
-    document.body.classList.toggle(APP_CSS_CLASSES.ANIMATIONS_OFF, animationsOff);
+    document.body.classList.toggle(CSSClasses.APP_ANIMATIONS_OFF, animationsOff);
   }
 
   areAnimationsOff() {
-    return document.body.classList.contains(APP_CSS_CLASSES.ANIMATIONS_OFF);
+    return document.body.classList.contains(CSSClasses.APP_ANIMATIONS_OFF);
   }
 
   /**

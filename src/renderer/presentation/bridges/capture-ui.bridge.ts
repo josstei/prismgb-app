@@ -1,7 +1,7 @@
 import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { UiButtonFeedbackPayload } from '@prismgb/events';
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@prismgb/config';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 
 type CaptureUiControllerLike = {

@@ -3,7 +3,7 @@ import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hid
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
 import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@prismgb/config';
 import { PresentationComponent, ActivityAutoHideController } from '@prismgb/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
