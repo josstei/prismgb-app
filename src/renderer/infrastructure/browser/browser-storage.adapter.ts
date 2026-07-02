@@ -1,16 +1,8 @@
-import type { LoggerLike, StorageServiceLike } from '@prismgb/core';
+import { getErrorMessage, type LoggerLike, type StorageServiceLike } from '@prismgb/core';
 
 export interface BrowserStorageAdapterOptions {
   logger?: LoggerLike;
   protectedKeys?: string[];
-}
-
-function getThrownMessage(error: unknown): unknown {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return (error as { message?: unknown }).message;
-  }
-
-  return undefined;
 }
 
 function isStorageQuotaError(error: unknown): boolean {
@@ -41,7 +33,7 @@ export class BrowserStorageAdapter implements StorageServiceLike {
     try {
       return localStorage.getItem(key);
     } catch (error) {
-      this.logger.warn(`BrowserStorageAdapter.getItem failed for key "${key}":`, getThrownMessage(error));
+      this.logger.warn(`BrowserStorageAdapter.getItem failed for key "${key}":`, getErrorMessage(error));
       return null;
     }
   }
@@ -64,7 +56,7 @@ export class BrowserStorageAdapter implements StorageServiceLike {
         }
       }
 
-      this.logger.error(`BrowserStorageAdapter.setItem failed for key "${key}":`, getThrownMessage(error));
+      this.logger.error(`BrowserStorageAdapter.setItem failed for key "${key}":`, getErrorMessage(error));
       return false;
     }
   }
@@ -73,7 +65,7 @@ export class BrowserStorageAdapter implements StorageServiceLike {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      this.logger.warn(`BrowserStorageAdapter.removeItem failed for key "${key}":`, getThrownMessage(error));
+      this.logger.warn(`BrowserStorageAdapter.removeItem failed for key "${key}":`, getErrorMessage(error));
     }
   }
 

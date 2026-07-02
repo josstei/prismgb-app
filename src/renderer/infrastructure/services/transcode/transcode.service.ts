@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, getErrorMessage } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
@@ -93,7 +93,7 @@ class TranscodeService extends BaseService {
       this.logger.error('Transcode failed', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: getErrorMessage(error)
       };
     }
   }
@@ -111,7 +111,7 @@ class TranscodeService extends BaseService {
       this.logger.error('Cancel transcode failed', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: getErrorMessage(error)
       };
     }
   }

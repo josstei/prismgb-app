@@ -7,6 +7,7 @@
 
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { ProcessMetricsResponse } from '@prismgb/ipc';
+import { getErrorMessage } from '@prismgb/core';
 
 export class MetricsAdapter {
   isAvailable() {
@@ -17,7 +18,7 @@ export class MetricsAdapter {
     try {
       return await trpcClient.performance.getProcessMetrics.query();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       return { success: false, error: message };
     }
   }

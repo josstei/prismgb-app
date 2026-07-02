@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, getErrorMessage } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
@@ -191,7 +191,7 @@ class UpdateService extends BaseService {
       this._reconcileCheckResult(result);
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Check for updates failed', error);
       this._handleError({ message: errorMessage });
       return { success: false, error: errorMessage };
@@ -213,7 +213,7 @@ class UpdateService extends BaseService {
       }
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Download update failed', error);
       this._handleError({ message: errorMessage });
       return { success: false, error: errorMessage };
@@ -235,7 +235,7 @@ class UpdateService extends BaseService {
       }
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Install update failed', error);
       this._handleError({ message: errorMessage });
       return { success: false, error: errorMessage };

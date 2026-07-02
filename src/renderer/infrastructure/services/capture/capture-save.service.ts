@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, getErrorMessage } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
 import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
@@ -80,7 +80,7 @@ class CaptureSaveService extends BaseService {
       this.logger.info(`Direct save completed: ${filename}`);
       return { success: true, transcoded: false };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       this.logger.error('Direct save failed', error);
       return { success: false, error: message };
     }
@@ -113,7 +113,7 @@ class CaptureSaveService extends BaseService {
 
       return { success: true, transcoded: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       this.logger.error('Transcode and save failed', error);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
         message: `Conversion failed: ${message}`,
