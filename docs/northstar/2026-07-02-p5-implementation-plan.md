@@ -1227,7 +1227,9 @@ describe('reactive facade (@preact/signals-core)', () => {
 
   it('skips writes of an identical value', () => {
     const s = signal(1);
-    const fn = vi.fn(() => s.value);
+    const fn = vi.fn(() => {
+      s.value;
+    });
     effect(fn);
     expect(fn).toHaveBeenCalledTimes(1);
     s.value = 1;
@@ -1273,7 +1275,9 @@ describe('reactive facade (@preact/signals-core)', () => {
     const useX = signal(true);
     const x = signal('x');
     const y = signal('y');
-    const fn = vi.fn(() => (useX.value ? x.value : y.value));
+    const fn = vi.fn(() => {
+      void (useX.value ? x.value : y.value);
+    });
     effect(fn);
     expect(fn).toHaveBeenCalledTimes(1);
     useX.value = false;
@@ -1286,7 +1290,9 @@ describe('reactive facade (@preact/signals-core)', () => {
 
   it('dispose() stops re-runs and detaches the effect', () => {
     const s = signal(0);
-    const fn = vi.fn(() => s.value);
+    const fn = vi.fn(() => {
+      s.value;
+    });
     const dispose = effect(fn);
     s.value = 1;
     expect(fn).toHaveBeenCalledTimes(2);
