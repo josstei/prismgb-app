@@ -3,7 +3,7 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BaseService } from '@prismgb/core';
-import type { ILoggerFactory as LoggerFactory } from '@prismgb/core';
+import type { LoggerFactoryLike as LoggerFactory } from '@prismgb/core';
 import { IPC_CHANNELS } from '@prismgb/ipc';
 import { UpdateState, type UpdateStateValue } from '@prismgb/config';
 

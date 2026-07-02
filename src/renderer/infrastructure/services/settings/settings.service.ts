@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, isPromiseLike } from '@prismgb/core';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { StorageServiceLike } from '@prismgb/core';
@@ -98,7 +98,7 @@ class SettingsService extends BaseService {
 
   _getSynchronousSetting(name: string): SettingValue {
     const value = this.getSetting(name);
-    if (this._isPromiseLike(value)) {
+    if (isPromiseLike<SettingValue>(value)) {
       throw new Error(`Setting requires asynchronous access: ${name}`);
     }
     return value;
@@ -230,13 +230,6 @@ class SettingsService extends BaseService {
       this.logger.debug(`Setting ${definition.name} set to ${enabled}`);
     }
     return stored;
-  }
-
-  _isPromiseLike(value: unknown): value is Promise<SettingValue> {
-    return typeof value === 'object'
-      && value !== null
-      && 'then' in value
-      && typeof (value as { then?: unknown }).then === 'function';
   }
 
   _getSettingDefinition(name: string): SettingDefinition {

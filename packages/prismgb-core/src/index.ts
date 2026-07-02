@@ -34,10 +34,7 @@ export function getErrorMessage(value: unknown, fallback = 'Unknown error'): str
   return fallback;
 }
 
-// -----------------------------------------------------------------------------
-// Core Interfaces
-// -----------------------------------------------------------------------------
-export type { Logger as ILogger, LoggerFactory as ILoggerFactory, LogLevel } from './interfaces/logger.js';
+
 
 // -----------------------------------------------------------------------------
 // Type Utilities
@@ -51,12 +48,12 @@ export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
-export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor } from './primitives/service.base.js';
+export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor, type LogLevel } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { ConsoleLoggerFactory } from './primitives/console-logger.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
-export { isRecord, isNumber, isString } from './primitives/guards.utils.js';
+export { isRecord, isNumber, isString, isPromiseLike } from './primitives/guards.utils.js';
 export { throttle } from './primitives/timing.utils.js';
 export { createDeferred } from './primitives/async.utils.js';
 export type { Deferred } from './primitives/async.utils.js';

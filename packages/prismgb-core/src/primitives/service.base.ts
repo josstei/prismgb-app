@@ -1,5 +1,7 @@
 import { DisposableBag, type DisposableFunction, type EventTargetLike } from './disposable-bag.js';
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 export interface LoggerLike {
   info(...args: unknown[]): void;
   debug(...args: unknown[]): void;

@@ -3,7 +3,7 @@ import { UIController } from '@renderer/presentation/controller/ui.controller.js
 import { safeDispose } from '@prismgb/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike, ILoggerFactory as LoggerFactoryLike, EventBusLike } from '@prismgb/core';
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
 import type { UIComponentRegistry } from '@renderer/presentation/controller/component.registry';
 import type { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';

@@ -1,5 +1,5 @@
 import { BaseService, generateEntityId } from '@prismgb/core';
-import type { ILoggerFactory as LoggerFactoryLike } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { IEventBus as EventBusLike } from '@prismgb/events';
 

@@ -1,3 +1,5 @@
+import { isPromiseLike } from './guards.utils.js';
+
 export type DisposableFunction = () => void | Promise<void>;
 
 type DisposableObject = {
@@ -17,10 +19,6 @@ export type EventTargetLike = {
 type TimerHandle = ReturnType<typeof setTimeout> | number;
 type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
 
-function isPromiseLike(value: unknown): value is Promise<void> {
-  return typeof value === 'object' && value !== null && 'then' in value &&
-    typeof (value as { then?: unknown }).then === 'function';
-}
 
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
@@ -79,7 +77,7 @@ export class DisposableBag {
 
   replace(key: DisposableKey, disposable: Disposable): DisposableFunction {
     const cancelled = this.cancel(key);
-    if (isPromiseLike(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
+    if (isPromiseLike<void>(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
     return this.setManaged(key, disposable);
   }
 
@@ -143,7 +141,7 @@ export class DisposableBag {
     for (const dispose of pending) {
       try {
         const result = dispose();
-        if (isPromiseLike(result)) {
+        if (isPromiseLike<void>(result)) {
           asyncDisposals.push(result.catch((error) => {
             errors.push(error);
           }));
