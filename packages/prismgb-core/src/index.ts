@@ -34,19 +34,6 @@ export function getErrorMessage(value: unknown, fallback = 'Unknown error'): str
   return fallback;
 }
 
-type ErrorLabelSource = { name?: unknown; message?: unknown };
-
-function hasErrorLabelFields(value: unknown): value is ErrorLabelSource {
-  return (typeof value === 'object' && value !== null) || typeof value === 'function';
-}
-
-export function formatErrorLabel(error: unknown): string {
-  const errorLike = hasErrorLabelFields(error) ? error : {};
-  const name = errorLike.name || 'Error';
-  const message = errorLike.message || error;
-  return `${name}: ${message}`;
-}
-
 // -----------------------------------------------------------------------------
 // Core Interfaces
 // -----------------------------------------------------------------------------
