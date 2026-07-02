@@ -303,7 +303,7 @@ npx depcruise --config .dependency-cruiser.cjs src; echo "exit: $?"
 rm src/renderer/infrastructure/services/boundary-negative-check.ts
 ```
 
-Expected: nonzero exit reporting `renderer-infrastructure-not-to-presentation` (and `no-orphans`) for the scratch file. (If the sandbox refuses `rm` of the just-created file, ask the controller to remove it.)
+Expected: nonzero exit reporting `renderer-infrastructure-not-to-presentation` for the scratch file (`no-orphans` does not fire — the file has an outgoing edge, and depcruise orphans require no edges in either direction). (If the sandbox refuses `rm` of the just-created file, ask the controller to remove it.)
 
 - [ ] **Step 4: Wire into lint (transitional — old checker stays until Task 4)**
 
@@ -347,6 +347,8 @@ git commit -m "feat(boundaries): author dependency-cruiser gate from the alias r
 
 One merged fixture tree, ONE depcruise spawn, exact-set assertion (`rule from`-pairs). Set equality catches both missed violations AND over-firing rules. The tree exercises all three deep-import specifier families (`@platform/x/deep`, `@/platform/x/…`, relative), the type-only tRPC edge (pass + value-import fail), dynamic import, orphan detection, and the gpu root-surface rule.
 
+Orphan semantics (Task 2 execution finding, verified against dependency-cruiser 17.4.3): a module is an orphan only when it has NO incoming AND NO outgoing edges. Fixture files that import something are therefore never orphans even though nothing imports them — only the fully-disconnected `unused.utils.ts` fires `no-orphans`. Dead-but-importing files are knip's job (unused-files detection), not depcruise's.
+
 - [ ] **Step 1: Write the failing self-test**
 
 `tests/unit/scripts/dependency-boundaries.test.js`:
@@ -387,20 +389,7 @@ const EXPECTED_VIOLATIONS = [
   'app-to-platform-internals src/renderer/application/platform-internal-relative.ts',
   'gpu-root-not-to-internals src/platform/gpu/index.ts',
   'main-not-to-renderer src/main/infrastructure/window.service.ts',
-  'no-orphans src/renderer/application/bootstrap-loop.ts',
-  'no-orphans src/renderer/application/ipc-reach.ts',
-  'no-orphans src/renderer/application/main-reach.ts',
-  'no-orphans src/renderer/application/platform-deep-alias.ts',
-  'no-orphans src/renderer/application/platform-internal-alias.ts',
-  'no-orphans src/renderer/application/platform-internal-relative.ts',
-  'no-orphans src/renderer/infrastructure/services/presentation-reach.ts',
-  'no-orphans src/renderer/infrastructure/services/presentation-relative.ts',
-  'no-orphans src/renderer/infrastructure/services/router-value.ts',
-  'no-orphans src/renderer/lib/app-reach.ts',
   'no-orphans src/renderer/lib/unused.utils.ts',
-  'no-orphans src/renderer/presentation/views/entry-reach.ts',
-  'no-orphans src/renderer/presentation/views/infra-reach.ts',
-  'no-orphans src/renderer/presentation/views/main-dynamic.ts',
   'no-unresolvable src/renderer/application/platform-deep-alias.ts',
   'platform-not-to-app src/platform/notes/index.ts',
   'platform-notes-not-to-foreign-internals src/platform/notes/index.ts',
