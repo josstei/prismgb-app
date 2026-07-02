@@ -793,11 +793,11 @@ export class PresentationComponent {
   }
 
   protected timeout(handler: () => void, delay: number, ...args: unknown[]): DisposableFunction {
-    return this.lifecycle.timeout(handler, delay, ...args);
+    return this.lifecycle.timeout<unknown[]>(handler, delay, ...args);
   }
 
   protected interval(handler: () => void, delay: number, ...args: unknown[]): DisposableFunction {
-    return this.lifecycle.interval(handler, delay, ...args);
+    return this.lifecycle.interval<unknown[]>(handler, delay, ...args);
   }
 
   protected animationFrame(handler: FrameRequestCallback): DisposableFunction {
