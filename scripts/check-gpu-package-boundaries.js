@@ -12,12 +12,11 @@ import { fileURLToPath } from 'node:url';
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GPU_PACKAGE_DIR = resolve(PROJECT_ROOT, 'packages/prismgb-gpu');
 
-const EXPECTED_GPU_EXPORTS = ['.', './runtime', './testkit'];
+const EXPECTED_GPU_EXPORTS = ['.', './runtime'];
 
 const EXPECTED_GPU_ALIASES = {
   '@prismgb/gpu': './packages/prismgb-gpu/src',
-  '@prismgb/gpu/runtime': './packages/prismgb-gpu/src/runtime',
-  '@prismgb/gpu/testkit': './packages/prismgb-gpu/src/testkit'
+  '@prismgb/gpu/runtime': './packages/prismgb-gpu/src/runtime'
 };
 
 const TEXT_FILE_EXTENSIONS = new Set([

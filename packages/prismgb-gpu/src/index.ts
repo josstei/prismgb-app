@@ -5,26 +5,9 @@
 // Internal implementation details are not exposed.
 // =============================================================================
 
-// Domain Types (for typing only)
-export type {
-  RenderPipeline,
-  RenderPipelineConfig,
-  RenderCapabilities,
-  RenderStats,
-  RenderBackend,
-  RenderCanvas,
-  RenderPreset,
-  RenderPresetSummary,
-  ShaderPresetCatalog,
-  WebGPULimits
-} from './domain/types';
-export { RecoverableBackendInitializationError } from './domain/errors';
+export type { RenderCapabilities } from './domain/types';
 
 export { PRESET_POLICY } from './domain/presets';
-export type { PresetPolicy } from './domain/presets';
 
-export {
-  getRendererDefaultPreset,
-  getUiPresets,
-  resolvePreset
-} from './application/catalog';
+export { getUiPresets, resolvePreset } from './application/catalog';
+

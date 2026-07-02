@@ -142,7 +142,6 @@ export default defineConfig({
     // instead of double-bundling the package's pre-built worker chunk.
     alias: [
       { find: /^@prismgb\/gpu\/runtime$/, replacement: path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts') },
-      { find: /^@prismgb\/gpu\/testkit$/, replacement: path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts') },
       { find: /^@prismgb\/gpu$/, replacement: path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts') },
       { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
       { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') },

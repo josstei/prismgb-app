@@ -7,8 +7,7 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
         runtime: resolve(__dirname, 'src/runtime.ts'),
-        'worker-entry': resolve(__dirname, 'src/worker-entry.ts'),
-        testkit: resolve(__dirname, 'src/testkit.ts')
+        'worker-entry': resolve(__dirname, 'src/worker-entry.ts')
       },
       name: 'PrismGBGpu',
       formats: ['es']

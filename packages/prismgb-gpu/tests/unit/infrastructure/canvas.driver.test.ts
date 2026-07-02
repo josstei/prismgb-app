@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CanvasDriver } from '@/infrastructure/canvas.driver';
 import { PipelineController } from '@/infrastructure/pipeline-controller';
 import { getPackageDefaultPreset } from '@/application/catalog';
-import { createMockCanvas } from '@prismgb/gpu/testkit';
+import { createMockCanvas } from '@/testkit/fixtures';
 
 function createCanvas2DTestFixture() {
   const context = {

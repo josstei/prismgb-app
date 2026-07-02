@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGpuVideoRendererSession } from '@/application/video-session';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '@prismgb/gpu/testkit';
+import { createMockCanvas, createRenderCapabilitiesFixture } from '@/testkit/fixtures';
 import { WorkerResponseType, createWorkerResponse } from '@/worker/protocol';
 
 function createCanvas2DRenderFixture() {

@@ -14,7 +14,6 @@ const sharedAlias = {
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
   '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-  '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
   '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
   '@prismgb/core': path.resolve(__dirname, 'packages/prismgb-core/src/index.ts'),
   '@prismgb/events': path.resolve(__dirname, 'packages/prismgb-events/src/index.ts'),
@@ -160,7 +159,6 @@ export default defineConfig({
           alias: {
             '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
             '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
             '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           },
           name: 'gpu-package',
@@ -172,7 +170,6 @@ export default defineConfig({
           alias: {
             '@': path.resolve(__dirname, 'packages/prismgb-gpu/src'),
             '@prismgb/gpu/runtime': path.resolve(__dirname, 'packages/prismgb-gpu/src/runtime.ts'),
-            '@prismgb/gpu/testkit': path.resolve(__dirname, 'packages/prismgb-gpu/src/testkit.ts'),
             '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
           }
         }

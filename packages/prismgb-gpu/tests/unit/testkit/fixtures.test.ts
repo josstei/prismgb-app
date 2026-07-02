@@ -5,9 +5,9 @@ import {
   createRenderPresetFixture,
   createRenderStatsFixture,
   createWorkerRendererClientMock
-} from '@prismgb/gpu/testkit';
+} from '@/testkit/fixtures';
 
-describe('@prismgb/gpu/testkit fixtures', () => {
+describe('@/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
     expect(createRenderStatsFixture({ fps: 60 })).toEqual({
       fps: 60,

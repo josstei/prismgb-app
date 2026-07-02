@@ -39,9 +39,6 @@
       "@prismgb/gpu/runtime": [
         "./packages/prismgb-gpu/src/runtime"
       ],
-      "@prismgb/gpu/testkit": [
-        "./packages/prismgb-gpu/src/testkit"
-      ],
       "@prismgb/core": [
         "./packages/prismgb-core/src"
       ],

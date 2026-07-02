@@ -2,8 +2,7 @@ import type { RenderCapabilities } from './domain/types';
 
 export {
   createGpuVideoRendererSession,
-  type GpuVideoRendererSession,
-  type GpuVideoRendererSessionOptions
+  type GpuVideoRendererSession
 } from './application/video-session';
 
 export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities> {
@@ -11,17 +10,4 @@ export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities
   return detect();
 }
 
-export type {
-  RenderBackend,
-  RenderCapabilities,
-  RenderCanvas,
-  RenderPipeline,
-  RenderPipelineConfig,
-  RenderPreset,
-  RenderStats,
-  GpuVideoRendererStats,
-  GpuVideoRendererError,
-  WebGPULimits
-} from './domain/types';
-
-export { RecoverableBackendInitializationError } from './domain/errors';
+export type { GpuVideoRendererStats } from './domain/types';

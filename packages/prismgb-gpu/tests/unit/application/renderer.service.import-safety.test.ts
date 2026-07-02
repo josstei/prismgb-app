@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockCanvas } from '@prismgb/gpu/testkit';
+import { createMockCanvas } from '@/testkit/fixtures';
 
 vi.mock('@/infrastructure/capabilities.browser', () => {
   throw new Error('browser capabilities imported');
