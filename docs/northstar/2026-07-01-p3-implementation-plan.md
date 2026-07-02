@@ -714,18 +714,17 @@ find packages tests/unit/packages -type f 2>/dev/null
 
 Expected: no output; `git status` shows only renames. (Empty directories vanish from git automatically.)
 
-- [ ] **Step 2: Rewrite the gpu tests' `@/` alias imports**
+- [ ] **Step 2: Rewrite the gpu tests' `@/` alias imports to relative paths**
 
-The 15 gpu test files import gpu internals via the package-local `@/` alias, which now collides with the root `@` → `src` alias:
+The 15 gpu test files import gpu internals via the package-local `@/` alias, which now collides with the root `@` → `src` alias. Rewrite every such specifier (import/require/vi.mock/dynamic-import forms) to the depth-correct RELATIVE path into `src/platform/gpu/…`, preserving subpath and extension exactly — e.g. at `tests/unit/platform/gpu/application/catalog.test.ts` (depth 5): `'@/application/catalog.js'` → `'../../../../../src/platform/gpu/application/catalog.js'`; at `tests/unit/platform/gpu/index.root-safety.test.ts` (depth 4): `'@/index'` → `'../../../../src/platform/gpu/index'`. Leave pre-existing `@prismgb/gpu` / `@prismgb/gpu/runtime` public-entrypoint specifiers untouched.
 
 ```bash
-grep -rl "from '@/" tests/unit/platform/gpu | xargs sed -i '' "s|from '@/|from '@platform/gpu/|g"
 grep -rn "'@/" tests/unit/platform/gpu
 ```
 
-Expected: second grep prints nothing (also catches any `import('@/…')`/`vi.mock('@/…')` forms — rewrite those the same way if present).
+Expected: prints nothing after the rewrite.
 
-Deep-specifier caveat: `@platform/gpu/<internal>` does NOT resolve through the registry (exact-match aliases only). These test-internal deep imports must bypass the registry the same way the old package project did — via a project-scoped alias. That is handled in Step 4; do not add wildcard entries to the registry.
+Rationale (execution decision, supersedes the original `@platform/gpu/<internal>` rewrite): deep alias specifiers resolve in vitest only via a project-scoped prefix alias, but can never typecheck — the registry's tsconfig paths are deliberately exact-match (the gpu boundary gate forbids wildcards) and tsconfig `extends` replaces `paths` wholesale, so a scoped wildcard would mean hand-duplicating the registry. Relative subject imports are the repo's established pattern for every other moved test (usb.monitor, core, ui-base) and let Step 4 omit any deep-alias escape hatch entirely.
 
 - [ ] **Step 3: Verify the relative subject-import paths (already fixed during Task 2 recovery)**
 
@@ -759,10 +758,7 @@ In `vitest.config.js`, delete the `gpu-package`, `core-package`, and `ui-base-pa
       },
       {
         test: {
-          alias: {
-            ...sharedAlias,
-            '@platform/gpu/': path.resolve(__dirname, 'src/platform/gpu') + '/'
-          },
+          alias: sharedAlias,
           name: 'platform-dom',
           globals: true,
           environment: 'happy-dom',
@@ -771,7 +767,7 @@ In `vitest.config.js`, delete the `gpu-package`, `core-package`, and `ui-base-pa
       }
 ```
 
-Rationale pinned by the current tree: former `tests/unit/packages/*` files ran under `shared-node` WITH its two setup files → `platform-node` keeps them; former gpu/ui-base package projects ran under happy-dom WITHOUT setup files → `platform-dom` has none. The `'@platform/gpu/'` trailing-slash string alias resolves the gpu tests' deep internal imports (string aliases match by prefix), scoped to this project only. The core package's single test file moves from a no-setup project into `platform-node` (with setup files) — if it fails from mock leakage, fix the test's assumptions, not the project split.
+Rationale pinned by the current tree: former `tests/unit/packages/*` files ran under `shared-node` WITH its two setup files → `platform-node` keeps them; former gpu/ui-base package projects ran under happy-dom WITHOUT setup files → `platform-dom` has none. No project-scoped gpu alias exists — the gpu tests' internal imports are relative after Step 2, so `sharedAlias` alone suffices and no deep-alias resolution hole is opened. The core package's single test file moves from a no-setup project into `platform-node` (with setup files) — if it fails from mock leakage, fix the test's assumptions, not the project split.
 
 - [ ] **Step 5: Fix the executed-test-set guard**
 
