@@ -2,9 +2,9 @@ import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { uiConfig } from '@prismgb/config';
-import { IPC_CHANNELS } from '@prismgb/ipc';
-import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
+import { uiConfig } from '@platform/config';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

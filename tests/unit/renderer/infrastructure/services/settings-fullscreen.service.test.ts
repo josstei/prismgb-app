@@ -10,7 +10,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
 });
 
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/settings-fullscreen.service';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
 import { installFullscreenDocumentMock } from '../../../../support/mocks/browser-api.installers.js';

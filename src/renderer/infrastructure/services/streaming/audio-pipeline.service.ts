@@ -8,11 +8,11 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import { getErrorMessage } from '@prismgb/core';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { getErrorMessage } from '@platform/core';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 import { computeRms, createEaseInCurve } from './audio-gain.utils.js';
 
 type AudioWarmupResult = {

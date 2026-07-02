@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike, EventBusLike } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike, EventBusLike } from '@platform/core';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 import {
   createDomBindings,

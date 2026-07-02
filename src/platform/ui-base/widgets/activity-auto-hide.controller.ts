@@ -1,5 +1,5 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { EventTargetLike } from '@prismgb/core';
+import type { EventTargetLike } from '@platform/core';
 
 
 type AutoHideActivityBinding = {

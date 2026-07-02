@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   DisclosureController,
   calculateAnchoredDisclosureLayout
-} from '@prismgb/ui-base';
+} from '@platform/ui-base';
 import { createLogger } from '../../../../factories/index.js';
 
 describe('calculateAnchoredDisclosureLayout', () => {

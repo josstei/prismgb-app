@@ -10,9 +10,9 @@ vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', (
   }))
 }));
 
-describe('@prismgb/gpu/runtime export surface', () => {
+describe('@platform/gpu/runtime export surface', () => {
   it('exports runtime factories and lazy browser capability detection', async () => {
-    const runtime = await import('@prismgb/gpu/runtime');
+    const runtime = await import('@platform/gpu/runtime');
 
     expect(runtime.createGpuVideoRendererSession).toEqual(expect.any(Function));
     expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));

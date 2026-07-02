@@ -6,7 +6,7 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
-import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory, LogLevel } from '@prismgb/core';
+import type { LoggerLike as Logger, LoggerFactoryLike as LoggerFactory, LogLevel } from '@platform/core';
 
 // Import Electron app for log path resolution
 // Falls back gracefully in test environment

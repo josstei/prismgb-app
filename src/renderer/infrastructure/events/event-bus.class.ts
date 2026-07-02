@@ -1,5 +1,5 @@
-import { SharedEventBus } from '@prismgb/events';
-import { EventChannels } from '@prismgb/events';
+import { SharedEventBus } from '@platform/events';
+import { EventChannels } from '@platform/events';
 
 type EventBusLoggerFactory = { create(name: string): { error(message: string, error: Error): void } };
 type EventBusDependencies = { loggerFactory?: EventBusLoggerFactory };

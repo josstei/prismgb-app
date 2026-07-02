@@ -1,7 +1,7 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService } from '@platform/core';
 import type {
   LoggerFactoryLike
-} from '@prismgb/core';
+} from '@platform/core';
 
 type HealthServiceDependencies = {
   loggerFactory: LoggerFactoryLike;

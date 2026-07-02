@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
+import { TRANSCODE_CONFIG } from '@platform/transcode';
 import { updateErrorSchema } from './update.schemas.js';
 
 /**

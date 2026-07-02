@@ -7,8 +7,8 @@ import {
   type SettingsControlUi,
   type SettingsListboxDefinition
 } from '@renderer/lib/settings.definitions.js';
-import { escapeHtml } from '@prismgb/core';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
+import { escapeHtml } from '@platform/core';
+import { TRANSCODE_CONFIG } from '@platform/transcode';
 
 function createListboxOptionsTemplate(options: ReturnType<typeof getSettingsListboxOptions>): string {
   return options

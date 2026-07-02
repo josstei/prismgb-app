@@ -36,91 +36,46 @@
       "@platform/config": [
         "./src/platform/config/index"
       ],
-      "@prismgb/config": [
-        "./src/platform/config/index"
-      ],
       "@platform/core": [
-        "./src/platform/core/index"
-      ],
-      "@prismgb/core": [
         "./src/platform/core/index"
       ],
       "@platform/devices/runtime": [
         "./src/platform/devices/runtime"
       ],
-      "@prismgb/devices/runtime": [
-        "./src/platform/devices/runtime"
-      ],
       "@platform/devices/testkit": [
-        "./src/platform/devices/testkit"
-      ],
-      "@prismgb/devices/testkit": [
         "./src/platform/devices/testkit"
       ],
       "@platform/devices": [
         "./src/platform/devices/index"
       ],
-      "@prismgb/devices": [
-        "./src/platform/devices/index"
-      ],
       "@platform/events": [
-        "./src/platform/events/index"
-      ],
-      "@prismgb/events": [
         "./src/platform/events/index"
       ],
       "@platform/gpu/runtime": [
         "./src/platform/gpu/runtime"
       ],
-      "@prismgb/gpu/runtime": [
-        "./src/platform/gpu/runtime"
-      ],
       "@platform/gpu": [
-        "./src/platform/gpu/index"
-      ],
-      "@prismgb/gpu": [
         "./src/platform/gpu/index"
       ],
       "@platform/ipc": [
         "./src/platform/ipc/index"
       ],
-      "@prismgb/ipc": [
-        "./src/platform/ipc/index"
-      ],
       "@platform/notes": [
-        "./src/platform/notes/index"
-      ],
-      "@prismgb/notes": [
         "./src/platform/notes/index"
       ],
       "@platform/transcode/service": [
         "./src/platform/transcode/service"
       ],
-      "@prismgb/transcode/service": [
-        "./src/platform/transcode/service"
-      ],
       "@platform/transcode": [
-        "./src/platform/transcode/index"
-      ],
-      "@prismgb/transcode": [
         "./src/platform/transcode/index"
       ],
       "@platform/ui-base/reactive": [
         "./src/platform/ui-base/reactive/index"
       ],
-      "@prismgb/ui-base/reactive": [
-        "./src/platform/ui-base/reactive/index"
-      ],
       "@platform/ui-base": [
         "./src/platform/ui-base/index"
       ],
-      "@prismgb/ui-base": [
-        "./src/platform/ui-base/index"
-      ],
       "@platform/updates": [
-        "./src/platform/updates/index"
-      ],
-      "@prismgb/updates": [
         "./src/platform/updates/index"
       ]
     },

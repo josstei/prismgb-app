@@ -4,7 +4,7 @@ import {
   type DisposableFunction,
   type DisposableKey,
   type EventTargetLike
-} from '@prismgb/core';
+} from '@platform/core';
 
 
 export type PresentationLifecycleToken = {

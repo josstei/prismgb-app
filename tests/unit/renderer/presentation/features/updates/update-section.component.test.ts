@@ -6,9 +6,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
-import { UpdateState } from '@prismgb/config';
+import { UpdateState } from '@platform/config';
 import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 function createElements() {
   const make = (tag = 'div') => document.createElement(tag);

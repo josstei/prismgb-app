@@ -1,4 +1,4 @@
-import { deepFreeze, pruneUndefined } from '@prismgb/core';
+import { deepFreeze, pruneUndefined } from '@platform/core';
 import catalog from './catalog.json';
 import type {
   DeviceAcquisitionAttempt,

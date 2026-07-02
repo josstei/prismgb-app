@@ -1,9 +1,9 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '@prismgb/ui-base';
-import { EventChannels } from '@prismgb/events';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
-import type { LoggerLike } from '@prismgb/core';
+import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '@platform/ui-base';
+import { EventChannels } from '@platform/events';
+import type { TypedEventBusLike } from '@platform/events';
+import type { ReadonlySignal } from '@platform/ui-base/reactive';
+import type { LoggerLike } from '@platform/core';
 
 export interface CinematicToggleAppState {
   cinematicModeSignal: ReadonlySignal<boolean>;

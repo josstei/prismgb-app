@@ -12,7 +12,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import nodeModule from 'node:module';
 import { TRANSCODE_CONFIG } from './transcode.config.js';
-import { getElectronApp } from '@prismgb/core';
+import { getElectronApp } from '@platform/core';
 
 /**
  * Session information for a transcode operation

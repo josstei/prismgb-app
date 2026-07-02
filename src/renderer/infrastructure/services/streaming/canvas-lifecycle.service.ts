@@ -1,11 +1,11 @@
-import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import { DeviceCatalog } from '@prismgb/devices';
-import type { TypedEventBusLike } from '@prismgb/events';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { DeviceCatalog } from '@platform/devices';
+import type { TypedEventBusLike } from '@platform/events';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
   LoggerFactoryLike
-} from '@prismgb/core';
+} from '@platform/core';
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;

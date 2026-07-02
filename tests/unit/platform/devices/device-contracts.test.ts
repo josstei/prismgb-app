@@ -3,7 +3,7 @@ import {
   matchDevice,
   toDeviceInfo,
   toDeviceStatusPayload
-} from '@prismgb/devices';
+} from '@platform/devices';
 import {
   CHROMATIC_DESCRIPTOR,
   CHROMATIC_SPECS,

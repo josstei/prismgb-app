@@ -1,5 +1,5 @@
 // =============================================================================
-// @prismgb/core - Foundational Core Utilities & Contracts
+// @platform/core - Foundational Core Utilities & Contracts
 // =============================================================================
 // This package contains common base classes, utility helpers, and design
 // contracts used across the PrismGB application workspace.

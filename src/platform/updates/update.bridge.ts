@@ -4,7 +4,7 @@
  * Coordinates update service initialization and auto-check scheduling.
  */
 
-import { BaseService } from '@prismgb/core';
+import { BaseService } from '@platform/core';
 
 interface UpdateService {
   initialize(): void;

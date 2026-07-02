@@ -12,15 +12,15 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import { getErrorMessage } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { getErrorMessage } from '@platform/core';
 import type {
   TypedEventBusLike
-} from '@prismgb/events';
+} from '@platform/events';
 import type {
   LoggerFactoryLike
-} from '@prismgb/core';
+} from '@platform/core';
 import { StreamTrackMonitor } from './stream-track-monitor.js';
 import type {
   DeviceMediaAcquirer,

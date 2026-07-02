@@ -1,6 +1,6 @@
-import { PresentationComponent, ComboboxListboxController } from '@prismgb/ui-base';
+import { PresentationComponent, ComboboxListboxController } from '@platform/ui-base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 

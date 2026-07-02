@@ -5,9 +5,9 @@
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
-import { BaseService } from '@prismgb/core';
-import type { PerformanceStatePayload } from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import type { PerformanceStatePayload } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 
 type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
 type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;

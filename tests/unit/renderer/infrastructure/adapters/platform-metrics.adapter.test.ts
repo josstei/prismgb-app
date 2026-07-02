@@ -12,7 +12,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { createProcessMetricsMock } from '../../../../factories/index.js';
-import type { ProcessMetricsResponse } from '@prismgb/ipc';
+import type { ProcessMetricsResponse } from '@platform/ipc';
 
 describe('MetricsAdapter', () => {
   let adapter;

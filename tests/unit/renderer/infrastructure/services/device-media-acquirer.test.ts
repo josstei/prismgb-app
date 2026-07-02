@@ -3,7 +3,7 @@ import {
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
-} from '@prismgb/devices';
+} from '@platform/devices';
 import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer';
 import {
   createCaptureStreamMock,

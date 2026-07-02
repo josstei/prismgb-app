@@ -1,11 +1,11 @@
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BaseService, getElectronApp } from '@prismgb/core';
-import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@prismgb/core';
-import { MainEventChannels } from '@prismgb/events';
-import { IPC_CHANNELS } from '@prismgb/ipc';
-import { UpdateState, type UpdateStateValue } from '@prismgb/config';
+import { BaseService, getElectronApp } from '@platform/core';
+import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@platform/core';
+import { MainEventChannels } from '@platform/events';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { UpdateState, type UpdateStateValue } from '@platform/config';
 
 type UpdateStateType = UpdateStateValue;
 

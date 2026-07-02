@@ -7,7 +7,7 @@ import {
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
-} from '@prismgb/devices';
+} from '@platform/devices';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 import {
   createCaptureStreamMock,

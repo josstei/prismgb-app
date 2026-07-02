@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PresentationModeStore } from '../../../../../src/renderer/presentation/state/presentation-mode.store.js';
-import { signal, type Signal } from '@prismgb/ui-base/reactive';
-import { SharedEventBus, EventChannels } from '@prismgb/events';
+import { signal, type Signal } from '@platform/ui-base/reactive';
+import { SharedEventBus, EventChannels } from '@platform/events';
 
 describe('PresentationModeStore', () => {
   let bus: SharedEventBus;

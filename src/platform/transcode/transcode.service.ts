@@ -9,8 +9,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import nodeModule from 'node:module';
-import { BaseService, type EventBusLike, type LoggerFactoryLike, getElectronApp } from '@prismgb/core';
-import { IPC_CHANNELS } from '@prismgb/ipc';
+import { BaseService, type EventBusLike, type LoggerFactoryLike, getElectronApp } from '@platform/core';
+import { IPC_CHANNELS } from '@platform/ipc';
 import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
 import {

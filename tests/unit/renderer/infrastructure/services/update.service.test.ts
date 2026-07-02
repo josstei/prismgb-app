@@ -4,8 +4,8 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
   return { trpcClient: createTrpcClientMock() };
 });
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
-import { UpdateState } from '@prismgb/config';
-import { EventChannels } from '@prismgb/events';
+import { UpdateState } from '@platform/config';
+import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';

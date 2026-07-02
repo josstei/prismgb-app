@@ -1,10 +1,10 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, computed } from '@prismgb/ui-base';
-import { signal } from '@prismgb/ui-base/reactive';
-import { getUiPresets, resolvePreset } from '@prismgb/gpu';
-import { EventChannels } from '@prismgb/events';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { LoggerLike } from '@prismgb/core';
+import { PresentationComponent, bindClass, computed } from '@platform/ui-base';
+import { signal } from '@platform/ui-base/reactive';
+import { getUiPresets, resolvePreset } from '@platform/gpu';
+import { EventChannels } from '@platform/events';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerLike } from '@platform/core';
 
 type UiShaderPreset = ReturnType<typeof getUiPresets>[number];
 const presetOptionListenersKey = Symbol('shader-preset-option-listeners');

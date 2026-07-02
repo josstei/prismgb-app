@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ListboxDropdownController, ComboboxListboxController } from '@prismgb/ui-base';
+import { ListboxDropdownController, ComboboxListboxController } from '@platform/ui-base';
 import { createCallbackMap, createLogger } from '../../../../factories/index.js';
 
 describe('ListboxDropdownController', () => {

@@ -1,5 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, DisclosureController } from '@prismgb/ui-base';
+import { PresentationComponent, DisclosureController } from '@platform/ui-base';
 import { CinematicToggleComponent, type CinematicToggleAppState } from './cinematic-toggle.component.js';
 import {
   ShaderPresetListComponent,
@@ -9,8 +9,8 @@ import {
   ShaderSliderControlsComponent,
   type ShaderSliderSettingsService
 } from './shader-slider-controls.component.js';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { LoggerLike } from '@prismgb/core';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerLike } from '@platform/core';
 
 export interface ShaderSelectorElements {
   shaderBtn?: HTMLElement | null;

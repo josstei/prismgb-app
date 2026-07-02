@@ -4,7 +4,7 @@
  * TrpcEventBridge.dispose} tears them all down in reverse order, isolating errors so one failing
  * unsubscribe cannot strand the rest. This replaces the retired manifest-driven preload bridge —
  * renderer services now consume typed tRPC subscriptions directly and republish through
- * `@prismgb/events`, supplying their own ordered set of starters.
+ * `@platform/events`, supplying their own ordered set of starters.
  */
 
 interface TrpcEventBridgeLogger {

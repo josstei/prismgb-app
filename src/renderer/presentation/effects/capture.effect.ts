@@ -4,7 +4,7 @@
  * Manages the shutter flash effect when taking screenshots.
  */
 
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '@platform/ui-base';
 
 export class CaptureEffects extends PresentationComponent {
   /**

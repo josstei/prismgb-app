@@ -41,7 +41,7 @@ export default defineConfig({
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
-              ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
+              ...platformAliasMap(__dirname)
             }
           },
           build: {
@@ -78,7 +78,7 @@ export default defineConfig({
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
-              ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
+              ...platformAliasMap(__dirname)
             }
           },
           plugins: [
@@ -143,7 +143,7 @@ export default defineConfig({
     // Platform module aliases are emitted from scripts/lib/workspace-aliases.mjs
     // (exact-match entries; deep imports intentionally do not resolve).
     alias: [
-      ...platformAliasEntries(__dirname, ['@platform', '@prismgb']),
+      ...platformAliasEntries(__dirname),
       { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
       { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') },
       { find: '@preload', replacement: path.resolve(__dirname, 'src/preload') },

@@ -4,17 +4,17 @@
  */
 
 import pkg from '../../../package.json' assert { type: 'json' };
-import { Container } from '@prismgb/core';
+import { Container } from '@platform/core';
 import { EventBus } from '@main/infrastructure/events/event-bus.js';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
-import { DeviceConnectionService } from '@prismgb/devices/runtime';
+import { DeviceConnectionService } from '@platform/devices/runtime';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import { UpdateService, UpdateBridge } from '@prismgb/updates';
-import { TranscodeService } from '@prismgb/transcode/service';
+import { UpdateService, UpdateBridge } from '@platform/updates';
+import { TranscodeService } from '@platform/transcode/service';
 import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import { AppOrchestrator } from './app.orchestrator.js';

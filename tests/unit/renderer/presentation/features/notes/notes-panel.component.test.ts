@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component.js';
 import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/game-autocomplete.component.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   createEventBus,

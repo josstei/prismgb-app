@@ -1,5 +1,5 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');

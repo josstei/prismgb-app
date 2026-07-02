@@ -6,8 +6,8 @@
  */
 
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { ProcessMetricsResponse } from '@prismgb/ipc';
-import { getErrorMessage } from '@prismgb/core';
+import type { ProcessMetricsResponse } from '@platform/ipc';
+import { getErrorMessage } from '@platform/core';
 
 export class MetricsAdapter {
   isAvailable() {

@@ -1,6 +1,6 @@
-import { TIMING } from '@prismgb/config';
+import { TIMING } from '@platform/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '@platform/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 type ButtonElements = DomBindingsFlat;

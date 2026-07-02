@@ -1,7 +1,7 @@
 import {
   bindTemplateRefs,
   type TemplateRefLegacyIdMap,
-} from '@prismgb/ui-base';
+} from '@platform/ui-base';
 import {
   TemplateDomRefGroups,
   TemplateRefLegacyIds,

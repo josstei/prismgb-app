@@ -1,16 +1,16 @@
-import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import { DeviceCatalog } from '@prismgb/devices';
-import { getErrorMessage } from '@prismgb/core';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { DeviceCatalog } from '@platform/devices';
+import { getErrorMessage } from '@platform/core';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 import type {
   Dimensions,
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@prismgb/gpu/runtime';
-import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@prismgb/gpu/runtime';
-import type { RenderCapabilities } from '@prismgb/gpu';
+import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
+import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
+import type { RenderCapabilities } from '@platform/gpu';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;

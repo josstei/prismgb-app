@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/shader-slider-controls.component.js';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('ShaderSliderControlsComponent', () => {
   let component;

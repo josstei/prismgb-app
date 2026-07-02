@@ -10,14 +10,14 @@ import {
   matchDevice,
   toDeviceInfo,
   toDeviceStatusPayload
-} from '@prismgb/devices';
-import * as DevicesPublicApi from '@prismgb/devices';
+} from '@platform/devices';
+import * as DevicesPublicApi from '@platform/devices';
 import {
   createFixtureDeviceStatus,
   createFixtureFrameData,
   createFixtureMediaDevices,
   getDeviceFixtureProfile
-} from '@prismgb/devices/testkit';
+} from '@platform/devices/testkit';
 import {
   CHROMATIC_DESCRIPTOR,
   CHROMATIC_SPECS

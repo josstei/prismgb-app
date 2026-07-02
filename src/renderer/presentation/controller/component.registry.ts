@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike, LoggerLike, ValueOf, UnionToIntersection } from '@prismgb/core';
+import type { LoggerFactoryLike, LoggerLike, ValueOf, UnionToIntersection } from '@platform/core';
 
 export type UIComponentStage = 'core' | 'deferred';
 

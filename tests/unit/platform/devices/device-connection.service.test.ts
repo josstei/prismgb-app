@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceConnectionService } from '@prismgb/devices/runtime';
+import { DeviceConnectionService } from '@platform/devices/runtime';
 import { createLoggerFactory } from '../../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,

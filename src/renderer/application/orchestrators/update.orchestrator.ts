@@ -1,14 +1,14 @@
-import { BaseOrchestrator } from '@prismgb/core';
-import { UpdateState } from '@prismgb/config';
-import type { UpdateStateValue } from '@prismgb/config';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
+import { UpdateState } from '@platform/config';
+import type { UpdateStateValue } from '@platform/config';
+import type { LoggerFactoryLike } from '@platform/core';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
   UpdateInstallResponse,
   UpdateInfoPayload,
   UpdateStatusPayload
-} from '@prismgb/ipc';
+} from '@platform/ipc';
 
 export type RendererUpdateStatus = UpdateStatusPayload & {
   state: UpdateStateValue;

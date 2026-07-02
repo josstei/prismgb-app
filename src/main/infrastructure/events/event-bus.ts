@@ -1,4 +1,4 @@
-import { SharedEventBus } from '@prismgb/events';
+import { SharedEventBus } from '@platform/events';
 
 type EventBusDependencies = ConstructorParameters<typeof SharedEventBus>[0];
 

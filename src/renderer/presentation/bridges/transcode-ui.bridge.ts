@@ -1,6 +1,6 @@
-import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, type ServiceEventDescriptor } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 
 type TranscodeUIBridgeDependencies = {
   eventBus: EventBusLike;

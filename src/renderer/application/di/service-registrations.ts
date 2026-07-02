@@ -1,5 +1,5 @@
-import { ConsoleLoggerFactory } from '@prismgb/core';
-import { NotesService } from '@prismgb/notes';
+import { ConsoleLoggerFactory } from '@platform/core';
+import { NotesService } from '@platform/notes';
 import { EventBus } from '../../infrastructure/events/event-bus.class';
 import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
 import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';

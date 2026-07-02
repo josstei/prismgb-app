@@ -11,7 +11,7 @@ import {
   getRecordingFormatOptions
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
+import { TRANSCODE_CONFIG } from '@platform/transcode';
 import {
   createEventBus,
   createLogger,

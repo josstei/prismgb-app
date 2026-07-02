@@ -1,5 +1,5 @@
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
-import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';

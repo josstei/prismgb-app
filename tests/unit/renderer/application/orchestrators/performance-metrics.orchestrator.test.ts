@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance/performance-metrics.orchestrator';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import {
   createEventBus,
   createLoggerFactory,

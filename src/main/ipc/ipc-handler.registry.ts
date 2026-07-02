@@ -1,6 +1,6 @@
 import { app, ipcMain, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { createIPCHandler } from 'electron-trpc/main';
 import { appRouter } from './router.js';
 import type {
@@ -14,7 +14,7 @@ import type {
 import type { IpcPushBridge } from './event-bridge.js';
 import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
-import type { DeviceStatusPayload } from '@prismgb/ipc';
+import type { DeviceStatusPayload } from '@platform/ipc';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 

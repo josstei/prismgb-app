@@ -1,6 +1,6 @@
-import { EventChannels } from '@prismgb/events';
-import { DisposableBag, type EventBusLike } from '@prismgb/core';
-import { signal, type Signal, type ReadonlySignal } from '@prismgb/ui-base/reactive';
+import { EventChannels } from '@platform/events';
+import { DisposableBag, type EventBusLike } from '@platform/core';
+import { signal, type Signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 
 interface StreamingServiceLike {
   readonly isStreaming: boolean;

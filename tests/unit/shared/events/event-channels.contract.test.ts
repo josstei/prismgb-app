@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { EventChannels as SharedEventChannels, getEventManifestScopeValues } from '@prismgb/events';
-import { MainEventChannels } from '@prismgb/events';
-import type { MainEventChannel } from '@prismgb/events';
+import { EventChannels as SharedEventChannels, getEventManifestScopeValues } from '@platform/events';
+import { MainEventChannels } from '@platform/events';
+import type { MainEventChannel } from '@platform/events';
 
 function flattenEventValues(node: unknown): string[] {
   const values: string[] = [];

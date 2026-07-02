@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ConsoleLoggerFactory } from '@prismgb/core';
+import { ConsoleLoggerFactory } from '@platform/core';
 
 describe('ConsoleLoggerFactory', () => {
   let factory;

@@ -1,10 +1,10 @@
-import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
+import { BaseService, type ServiceEventDescriptor } from '@platform/core';
+import { EventChannels } from '@platform/events';
 import type {
   TypedEventBusLike,
   UiButtonFeedbackPayload
-} from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+} from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 
 type UiControllerLike = {
   updateDeviceStatus(status: unknown): void;

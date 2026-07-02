@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { throttle, createDeferred } from '@prismgb/core';
+import { throttle, createDeferred } from '@platform/core';
 
 describe('throttle', () => {
   it('invokes on the leading edge and suppresses until the interval elapses', () => {

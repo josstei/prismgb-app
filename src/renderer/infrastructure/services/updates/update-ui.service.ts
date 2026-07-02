@@ -1,6 +1,6 @@
-import { BaseService } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 
 type UpdateUiServiceDependencies = {
   eventBus: EventBusLike;

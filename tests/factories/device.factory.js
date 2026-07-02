@@ -10,7 +10,7 @@ import {
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile,
-} from '@prismgb/devices';
+} from '@platform/devices';
 import {
   CHROMATIC_SPECS,
   createChromaticAudioDeviceInfo,

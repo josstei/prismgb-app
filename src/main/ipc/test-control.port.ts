@@ -1,4 +1,4 @@
-import type { DeviceStatusPayload } from '@prismgb/ipc';
+import type { DeviceStatusPayload } from '@platform/ipc';
 import type { IpcPushBridge } from './event-bridge.js';
 
 export const TEST_CONTROL_CHANNELS = Object.freeze({

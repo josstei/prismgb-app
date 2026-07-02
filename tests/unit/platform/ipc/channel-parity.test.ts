@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { IPC_CHANNELS } from '@prismgb/ipc';
-import { EventChannels } from '@prismgb/events';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { EventChannels } from '@platform/events';
 
 /**
  * Phase 3 removed the IPC manifest and its `assertIpcChannelsMatchManifest` cross-validation, so the
  * push channel ↔ EventBus channel mapping is now hand-maintained (load-bearing trade (a)). This test
  * is the remaining guard: for every main→renderer push channel, the relocated `IPC_CHANNELS` string
  * (which the router subscription listens on and the package emitters send through `WindowService.send`)
- * must equal the `@prismgb/events` `EventChannels` string the renderer republishes onto — except the
+ * must equal the `@platform/events` `EventChannels` string the renderer republishes onto — except the
  * window channels, whose IPC and UI-event names intentionally differ.
  */
 describe('IPC push channel ↔ EventBus channel parity (trade a)', () => {

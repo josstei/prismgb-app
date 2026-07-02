@@ -1,5 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText } from '@prismgb/ui-base';
+import { PresentationComponent, bindText } from '@platform/ui-base';
 import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 
 const STREAM_TRANSITION_DURATION = 1000;

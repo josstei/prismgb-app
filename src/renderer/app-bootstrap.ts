@@ -1,9 +1,9 @@
-import { ConsoleLoggerFactory } from '@prismgb/core';
+import { ConsoleLoggerFactory } from '@platform/core';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose } from '@prismgb/core';
+import { safeDispose } from '@platform/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@prismgb/core';
+import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@platform/core';
 import type { UIComponentRegistry } from '@renderer/presentation/controller/component.registry';
 import type { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
@@ -13,8 +13,8 @@ import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode
 import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { initializeContainer } from './application/container.js';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '@prismgb/transcode';
-import { PRESET_POLICY } from '@prismgb/gpu';
+import { TRANSCODE_CONFIG } from '@platform/transcode';
+import { PRESET_POLICY } from '@platform/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 import type { PresentationModeStore } from './presentation/state/presentation-mode.store.js';
 

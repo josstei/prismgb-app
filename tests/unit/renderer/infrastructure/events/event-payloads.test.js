@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventChannels, EVENT_PAYLOAD_CHANNELS, getEventManifestScopeValues } from '@prismgb/events';
+import { EventChannels, EVENT_PAYLOAD_CHANNELS, getEventManifestScopeValues } from '@platform/events';
 
 function collectLeafChannels(value) {
   if (typeof value === 'string') {

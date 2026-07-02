@@ -1,4 +1,4 @@
-import type { ValueOf } from '@prismgb/core';
+import type { ValueOf } from '@platform/core';
 import { getEventManifestScopeEvents } from './event.manifest.js';
 
 type ManifestEvent = {

@@ -1,16 +1,16 @@
-import { BaseService, getErrorMessage } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, getErrorMessage } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import {
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
-} from '@prismgb/devices';
+} from '@platform/devices';
 import type {
   DeviceAcquisitionProfile,
   DeviceDescriptor,
   DeviceStatus,
   DeviceStreamProfile
-} from '@prismgb/devices';
+} from '@platform/devices';
 import type {
   DevicePreferenceStore,
   DeviceStatusPort,

@@ -6,7 +6,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
 });
 
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';

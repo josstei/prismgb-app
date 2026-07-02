@@ -4,13 +4,13 @@
  * Owns process metrics snapshot scheduling and logging.
  */
 
-import { BaseService } from '@prismgb/core';
-import type { MemorySnapshotRequestPayload } from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import type { MemorySnapshotRequestPayload } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 import type {
   ProcessMetricPayload,
   ProcessMetricsResponse
-} from '@prismgb/ipc';
+} from '@platform/ipc';
 
 type ProcessMetricsErrorResponse = {
   success: false;

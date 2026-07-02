@@ -2,7 +2,7 @@ import {
   createFixtureDeviceInfoPayload,
   createFixtureDeviceStatus,
   getDeviceFixtureProfile,
-} from '@prismgb/devices/testkit';
+} from '@platform/devices/testkit';
 
 const chromaticProfile = getDeviceFixtureProfile();
 const { descriptor, fixture } = chromaticProfile;

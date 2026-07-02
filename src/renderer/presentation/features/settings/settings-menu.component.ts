@@ -4,7 +4,7 @@ import {
   DisclosureController,
   ListboxDropdownController,
   type PresentationLifecycleToken
-} from '@prismgb/ui-base';
+} from '@platform/ui-base';
 import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,
@@ -12,7 +12,7 @@ import {
   type SettingsControlDefinition,
   type SettingsListboxDefinition
 } from '@renderer/lib/settings.definitions.js';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 import type { UpdateSectionElements } from '@renderer/presentation/features/updates/update-section.component.js';
 
 declare const __APP_VERSION__: string | undefined;

@@ -1,8 +1,8 @@
-import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { LoggerLike, LoggerFactoryLike } from '@prismgb/core';
-import type { TypedEventBusLike } from '@prismgb/events';
-import { getErrorMessage } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { LoggerLike, LoggerFactoryLike } from '@platform/core';
+import type { TypedEventBusLike } from '@platform/events';
+import { getErrorMessage } from '@platform/core';
 import {
   isPerformanceStatePayload,
   isStreamStartedPayload,

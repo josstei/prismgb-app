@@ -9,7 +9,7 @@ import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
 import { TRANSCODE_CONFIG } from './transcode.config.js';
-import { DisposableBag } from '@prismgb/core';
+import { DisposableBag } from '@platform/core';
 
 /**
  * Progress data emitted during transcode

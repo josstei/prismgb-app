@@ -1,10 +1,10 @@
-import { BaseService, getErrorMessage } from '@prismgb/core';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, getErrorMessage } from '@platform/core';
+import type { LoggerFactoryLike } from '@platform/core';
 import type {
   DeviceAcquisitionAttempt,
   DeviceConstraintMap,
   DeviceStreamProfile
-} from '@prismgb/devices';
+} from '@platform/devices';
 import type { MediaDevicesPort } from '../devices/device-platform.adapters.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
 

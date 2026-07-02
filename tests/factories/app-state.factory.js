@@ -7,7 +7,7 @@
  */
 
 import { vi } from 'vitest';
-import { PRESET_POLICY } from '@prismgb/gpu';
+import { PRESET_POLICY } from '@platform/gpu';
 
 /**
  * Default application state

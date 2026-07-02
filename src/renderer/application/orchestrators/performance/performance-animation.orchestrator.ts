@@ -5,9 +5,9 @@
  * Routes computed state from service to BodyClassManager for DOM updates.
  */
 
-import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type {
   AnimationPerformanceState,
   PerformanceAnimationService

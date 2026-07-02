@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { escapeHtml, generateEntityId } from '@prismgb/core';
+import { escapeHtml, generateEntityId } from '@platform/core';
 
 describe('String Utils', () => {
   describe('escapeHtml', () => {

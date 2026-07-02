@@ -1,11 +1,11 @@
-import { BaseOrchestrator } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   createTemplateRefSelector,
   getTemplateAction,
   getTemplateActionTarget
-} from '@prismgb/ui-base';
+} from '@platform/ui-base';
 import {
   UIActionDescriptors,
   UIActionEvents,
@@ -15,11 +15,11 @@ import {
   type UIActionDescriptor,
   type UIActionEvent
 } from '@renderer/presentation/primitives/template-ref.utils.js';
-import type { LoggerFactoryLike } from '@prismgb/core';
-import type { ReadonlySignal } from '@prismgb/ui-base/reactive';
-import type { TypedEventBusLike } from '@prismgb/events';
+import type { LoggerFactoryLike } from '@platform/core';
+import type { ReadonlySignal } from '@platform/ui-base/reactive';
+import type { TypedEventBusLike } from '@platform/events';
 import type { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
-import type { NotesService } from '@prismgb/notes';
+import type { NotesService } from '@platform/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';

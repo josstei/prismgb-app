@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
-import { TIMING } from '@prismgb/config';
+import { TIMING } from '@platform/config';
 import { createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 

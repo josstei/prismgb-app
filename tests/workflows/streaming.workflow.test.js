@@ -13,7 +13,7 @@ import {
   StreamingState,
 } from '../factories/index.js';
 import { createManifestMediaEnvironment } from '../devices/media.testkit.ts';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('Streaming Workflow Integration', () => {
   let eventBus;

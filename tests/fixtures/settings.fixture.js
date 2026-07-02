@@ -4,7 +4,7 @@
  * Centralized test data for settings-related tests.
  */
 import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
-import { PRESET_POLICY } from '@prismgb/gpu';
+import { PRESET_POLICY } from '@platform/gpu';
 
 const settingDefaults = Object.fromEntries(
   settingsDefinitions.definitions.map((definition) => [definition.name, definition.default])

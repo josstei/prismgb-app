@@ -13,11 +13,11 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
-import { BaseService } from '@prismgb/core';
-import { TIMING } from '@prismgb/config';
+import { BaseService } from '@platform/core';
+import { TIMING } from '@platform/config';
 import type {
   LoggerFactoryLike
-} from '@prismgb/core';
+} from '@platform/core';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 
 type StreamingViewportDependencies = {

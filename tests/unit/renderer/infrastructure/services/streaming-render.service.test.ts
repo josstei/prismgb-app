@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
-import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@prismgb/gpu/runtime';
+import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
 import {
   createAppState,
   createCanvasLifecycleServiceMock,
@@ -24,7 +24,7 @@ const mockSession = {
   dispose: vi.fn(),
 };
 
-vi.mock('@prismgb/gpu/runtime', () => ({
+vi.mock('@platform/gpu/runtime', () => ({
   createGpuVideoRendererSession: vi.fn(async () => mockSession),
   detectBrowserGpuCapabilities: vi.fn(async () => ({
     webgpu: true,

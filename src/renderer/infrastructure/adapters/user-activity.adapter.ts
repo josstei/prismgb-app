@@ -1,4 +1,4 @@
-import { throttle } from '@prismgb/core';
+import { throttle } from '@platform/core';
 
 type Cleanup = () => void;
 

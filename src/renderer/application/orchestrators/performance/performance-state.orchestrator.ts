@@ -5,10 +5,10 @@
  * and publishes performance state events.
  */
 
-import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { PerformanceUiModePayload } from '@prismgb/events';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { PerformanceUiModePayload } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type {
   PerformanceState,
   PerformanceStateService

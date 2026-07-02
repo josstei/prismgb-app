@@ -5,9 +5,9 @@
  * Emits state updates through provided callbacks.
  */
 
-import { BaseService } from '@prismgb/core';
-import type { StreamingCapabilities } from '@prismgb/events';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import type { StreamingCapabilities } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;

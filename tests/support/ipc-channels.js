@@ -1,4 +1,4 @@
-import { IPC_CHANNELS as manifestChannels } from '@prismgb/ipc';
+import { IPC_CHANNELS as manifestChannels } from '@platform/ipc';
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object') {

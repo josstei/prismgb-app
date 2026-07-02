@@ -1,5 +1,5 @@
-import { PresentationComponent } from '@prismgb/ui-base';
-import { bindText, bindProperty } from '@prismgb/ui-base/reactive';
+import { PresentationComponent } from '@platform/ui-base';
+import { bindText, bindProperty } from '@platform/ui-base/reactive';
 import type { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
 
 interface StatusMessageElementLike {

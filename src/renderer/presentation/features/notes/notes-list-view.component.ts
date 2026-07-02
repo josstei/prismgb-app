@@ -1,7 +1,7 @@
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@prismgb/core';
-import type { LoggerLike } from '@prismgb/core';
+import { escapeHtml } from '@platform/core';
+import type { LoggerLike } from '@platform/core';
 
 const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
 

@@ -1,13 +1,13 @@
-import { BaseService } from '@prismgb/core';
-import { appConfig } from '@prismgb/config';
-import { IPC_CHANNELS } from '@prismgb/ipc';
-import { MainEventChannels } from '@prismgb/events';
-import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@prismgb/devices';
+import { BaseService } from '@platform/core';
+import { appConfig } from '@platform/config';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { MainEventChannels } from '@platform/events';
+import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@platform/devices';
 import type {
   DeviceConnectionReason,
   DeviceConnectionService
-} from '@prismgb/devices/runtime';
-import type { LoggerFactoryLike } from '@prismgb/core';
+} from '@platform/devices/runtime';
+import type { LoggerFactoryLike } from '@platform/core';
 import type { EventBus } from '@main/infrastructure/events/event-bus.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';

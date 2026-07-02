@@ -5,8 +5,8 @@
 
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
-import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
-import type { DeviceConnectionReason } from '@prismgb/devices/runtime';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import type { DeviceConnectionReason } from '@platform/devices/runtime';
 
 /**
  * Menu configuration item

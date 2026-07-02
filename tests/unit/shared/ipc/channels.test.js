@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { IPC_CHANNELS as channels } from '@prismgb/ipc';
+import { IPC_CHANNELS as channels } from '@platform/ipc';
 
 describe('IPC Channels', () => {
   describe('DEVICE channels', () => {

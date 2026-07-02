@@ -1,4 +1,4 @@
-import { pruneUndefined } from '@prismgb/core';
+import { pruneUndefined } from '@platform/core';
 import type {
   DeviceDescriptor,
   DeviceInfo,

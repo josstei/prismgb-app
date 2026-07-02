@@ -6,8 +6,8 @@
  * declaratively by PresentationModeStore bindings, not this service.
  */
 
-import { BaseService } from '@prismgb/core';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import { BaseService } from '@platform/core';
+import type { LoggerFactoryLike } from '@platform/core';
 
 type PresentationModeUiControllerLike = {
   setStreamingMode(enabled: boolean): void;

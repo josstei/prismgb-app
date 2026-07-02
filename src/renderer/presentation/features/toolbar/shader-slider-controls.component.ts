@@ -1,10 +1,10 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText, bindClass, computed } from '@prismgb/ui-base';
-import { signal } from '@prismgb/ui-base/reactive';
+import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
+import { signal } from '@platform/ui-base/reactive';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/lib/brightness.utils';
-import { EventChannels } from '@prismgb/events';
-import type { TypedEventBusLike } from '@prismgb/events';
-import type { LoggerLike } from '@prismgb/core';
+import { EventChannels } from '@platform/events';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerLike } from '@platform/core';
 
 export interface ShaderSliderSettingsService {
   getNumberSetting(name: string): number;

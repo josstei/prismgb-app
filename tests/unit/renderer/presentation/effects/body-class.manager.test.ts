@@ -5,8 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
 import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
-import { signal } from '@prismgb/ui-base/reactive';
-import { SharedEventBus, EventChannels } from '@prismgb/events';
+import { signal } from '@platform/ui-base/reactive';
+import { SharedEventBus, EventChannels } from '@platform/events';
 
 describe('BodyClassManager', () => {
   let manager;

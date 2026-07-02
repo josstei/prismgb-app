@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
 import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 import { createStreamingControlsElementsMock, createUIBodyClassManagerMock, createEventBus } from '../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('StreamingControlsComponent', () => {
   let component;

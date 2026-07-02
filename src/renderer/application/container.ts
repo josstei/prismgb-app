@@ -1,4 +1,4 @@
-import { Container } from '@prismgb/core';
+import { Container } from '@platform/core';
 import { standardServiceRegistrations } from './di/service-registrations.js';
 import { manualProviders } from './di/manual-providers.js';
 

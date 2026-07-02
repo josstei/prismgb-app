@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventChannels, getEventManifestScopeValues } from '@prismgb/events';
+import { EventChannels, getEventManifestScopeValues } from '@platform/events';
 
 function flattenEventValues(node) {
   const values = [];

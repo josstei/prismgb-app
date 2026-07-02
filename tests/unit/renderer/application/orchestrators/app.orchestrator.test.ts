@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { createEventBus, createLoggerFactory, createOrchestratorMock } from '../../../../factories/index.js';
 
 describe('AppOrchestrator', () => {

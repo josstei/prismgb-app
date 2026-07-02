@@ -12,9 +12,9 @@ vi.mock('../../../../src/platform/gpu/worker/client', () => {
   throw new Error('worker client imported');
 });
 
-describe('@prismgb/gpu root export safety', () => {
+describe('@platform/gpu root export safety', () => {
   it('keeps root imports domain/catalog only', async () => {
-    const gpu = await import('@prismgb/gpu');
+    const gpu = await import('@platform/gpu');
     const gpuRootSurface = gpu as unknown as Record<string, unknown>;
 
     expect(gpu.resolvePreset(null).id).toBe('vibrant');

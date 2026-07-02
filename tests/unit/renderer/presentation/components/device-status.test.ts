@@ -5,9 +5,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
-import { signal } from '@prismgb/ui-base/reactive';
+import { signal } from '@platform/ui-base/reactive';
 import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('DeviceStatusComponent', () => {
   let mockElements;

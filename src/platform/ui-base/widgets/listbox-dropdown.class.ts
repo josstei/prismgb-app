@@ -1,5 +1,5 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 import { DisclosureController } from './disclosure.class.js';
 import { updateListboxActiveState } from './listbox.utils.js';
 

@@ -8,7 +8,7 @@ import {
 } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
 import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
-import type { EventBusLike } from '@prismgb/core';
+import type { EventBusLike } from '@platform/core';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';

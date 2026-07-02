@@ -45,7 +45,7 @@ vi.mock('electron', () => {
   };
 });
 
-vi.mock('@prismgb/updates', () => ({
+vi.mock('@platform/updates', () => ({
   UpdateService: class {
     initialize(): void {}
     dispose(): void {}
@@ -56,7 +56,7 @@ vi.mock('@prismgb/updates', () => ({
   }
 }));
 
-import { BaseOrchestrator } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
 import { createMainContainer } from '@main/application/container.js';
 import type { MainServiceContainer } from '@main/application/container.js';
 import { AppOrchestrator } from '@main/application/app.orchestrator.js';

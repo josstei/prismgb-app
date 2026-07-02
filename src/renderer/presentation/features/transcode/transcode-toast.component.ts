@@ -1,4 +1,4 @@
-import { PresentationComponent, bindText, bindClass, bindStyleProperty } from '@prismgb/ui-base';
+import { PresentationComponent, bindText, bindClass, bindStyleProperty } from '@platform/ui-base';
 import type { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store.js';
 
 type ClassListSink = {

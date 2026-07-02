@@ -2,7 +2,7 @@ import type { MainServiceContainer } from './application/container.js';
 import { createAppContainer } from './application/container.js';
 import { MainLogger } from './infrastructure/logging/logger.factory.js';
 import type { AppOrchestrator } from './application/app.orchestrator.js';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 
 export class MainBootstrap {
   private container: MainServiceContainer | null = null;

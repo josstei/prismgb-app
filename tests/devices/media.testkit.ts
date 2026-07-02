@@ -5,12 +5,12 @@ import {
   createFixtureDeviceStatus,
   createFixtureFrameData,
   getDeviceFixtureProfile
-} from '@prismgb/devices/testkit';
+} from '@platform/devices/testkit';
 import type {
   DeviceInfoPayload,
   DeviceStatusPayload,
   ObservedUsbDevice
-} from '@prismgb/devices';
+} from '@platform/devices';
 
 const CHROMATIC_PROFILE = getDeviceFixtureProfile();
 

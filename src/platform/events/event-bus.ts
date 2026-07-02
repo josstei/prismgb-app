@@ -1,5 +1,5 @@
 import EventEmitter from 'eventemitter3';
-import { isPromiseLike } from '@prismgb/core';
+import { isPromiseLike } from '@platform/core';
 
 export type EventHandler<T = unknown> = (data: T) => void | Promise<void>;
 export type UnsubscribeFn = () => void;

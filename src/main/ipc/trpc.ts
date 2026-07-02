@@ -1,14 +1,14 @@
 import { initTRPC } from '@trpc/server';
 import type { App, Shell } from 'electron';
-import type { LoggerLike } from '@prismgb/core';
-import type { DeviceStatus } from '@prismgb/devices';
+import type { LoggerLike } from '@platform/core';
+import type { DeviceStatus } from '@platform/devices';
 import type {
   UpdateStatusPayload,
   TranscodeFormat,
   TranscodeStartResponse,
   TranscodeCancelResponse,
   TranscodeStatusResponse
-} from '@prismgb/ipc';
+} from '@platform/ipc';
 import type { IpcPushBridge } from './event-bridge.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 

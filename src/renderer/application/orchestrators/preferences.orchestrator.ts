@@ -1,7 +1,7 @@
-import { BaseOrchestrator } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels } from '@platform/events';
 import { getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 
 type PreferencesPayload = Record<string, unknown>;
 

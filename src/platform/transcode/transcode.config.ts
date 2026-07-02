@@ -1,4 +1,4 @@
-import type { TranscodeFormat } from '@prismgb/ipc';
+import type { TranscodeFormat } from '@platform/ipc';
 
 type TranscodeFormatConfig = Readonly<{
   extension: string;

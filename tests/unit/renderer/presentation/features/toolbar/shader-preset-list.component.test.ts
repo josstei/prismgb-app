@@ -5,8 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/shader-preset-list.component.js';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
-import { PRESET_POLICY, getUiPresets } from '@prismgb/gpu';
+import { EventChannels } from '@platform/events';
+import { PRESET_POLICY, getUiPresets } from '@platform/gpu';
 
 const uiPresets = getUiPresets();
 const selectablePresetId = uiPresets.find(

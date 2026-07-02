@@ -1,6 +1,6 @@
-import { signal, type ReadonlySignal } from '@prismgb/ui-base/reactive';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, DisposableFunction } from '@prismgb/core';
+import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, DisposableFunction } from '@platform/core';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];

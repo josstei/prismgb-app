@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
-import { IPC_CHANNELS } from '@prismgb/ipc';
-import { toDeviceStatusPayload } from '@prismgb/devices';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { toDeviceStatusPayload } from '@platform/devices';
 import type {
   DeviceStatusResponse,
   DeviceInfoPayload,
@@ -25,7 +25,7 @@ import type {
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeCancelledPayload
-} from '@prismgb/ipc';
+} from '@platform/ipc';
 
 import { router, publicProcedure, resultEnvelope, type IpcContext } from './trpc.js';
 import {

@@ -1,4 +1,4 @@
-import { getErrorMessage, type LoggerLike, type StorageServiceLike } from '@prismgb/core';
+import { getErrorMessage, type LoggerLike, type StorageServiceLike } from '@platform/core';
 
 export interface BrowserStorageAdapterOptions {
   logger?: LoggerLike;

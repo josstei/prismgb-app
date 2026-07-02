@@ -1,7 +1,7 @@
-import { BaseService, isPromiseLike } from '@prismgb/core';
+import { BaseService, isPromiseLike } from '@platform/core';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { StorageServiceLike } from '@prismgb/core';
+import type { StorageServiceLike } from '@platform/core';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
 type SettingDefaultValue = string | number | boolean;

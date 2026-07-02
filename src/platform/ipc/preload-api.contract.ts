@@ -1,8 +1,8 @@
-import type { UpdateStateValue } from '@prismgb/config';
+import type { UpdateStateValue } from '@platform/config';
 import type {
   DeviceInfoPayload,
   DeviceStatusPayload
-} from '@prismgb/devices';
+} from '@platform/devices';
 
 export interface IpcActionResult {
   success: boolean;

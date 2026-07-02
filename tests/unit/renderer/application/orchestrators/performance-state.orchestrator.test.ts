@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import {
   createEventBus,
   createLoggerFactory,

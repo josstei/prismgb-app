@@ -1,7 +1,7 @@
-import { BaseService, generateEntityId } from '@prismgb/core';
-import type { LoggerFactoryLike, StorageServiceLike } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { IEventBus as EventBusLike } from '@prismgb/events';
+import { BaseService, generateEntityId } from '@platform/core';
+import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { IEventBus as EventBusLike } from '@platform/events';
 
 const NotesStorageKeys = {
   USER_NOTES: 'userNotes' as const

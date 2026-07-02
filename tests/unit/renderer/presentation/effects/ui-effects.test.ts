@@ -54,8 +54,8 @@ vi.mock('@renderer/presentation/effects/controls-auto-hide.effect.ts', () => ({
   })
 }));
 
-vi.mock('@prismgb/ui-base', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@prismgb/ui-base')>();
+vi.mock('@platform/ui-base', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@platform/ui-base')>();
   return {
     ...actual,
     ActivityAutoHideController: vi.fn().mockImplementation(function ActivityAutoHideControllerMock(options) {

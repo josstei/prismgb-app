@@ -2,8 +2,8 @@ import {
   PresentationComponent,
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
-} from '@prismgb/ui-base';
-import type { LoggerLike } from '@prismgb/core';
+} from '@platform/ui-base';
+import type { LoggerLike } from '@platform/core';
 
 const RESIZE_DEBOUNCE_MS = 100;
 const RESIZE_DEBOUNCE_TIMEOUT = Symbol('notesPanelLayoutResizeDebounceTimeout');

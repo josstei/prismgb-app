@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TranscodeProgressStore } from '../../../../../src/renderer/presentation/state/transcode-progress.store.js';
-import { SharedEventBus, EventChannels } from '@prismgb/events';
+import { SharedEventBus, EventChannels } from '@platform/events';
 
 describe('TranscodeProgressStore', () => {
   let bus: SharedEventBus;

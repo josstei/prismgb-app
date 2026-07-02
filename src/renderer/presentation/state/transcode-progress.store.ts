@@ -1,6 +1,6 @@
-import { signal, computed, type ReadonlySignal } from '@prismgb/ui-base/reactive';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, DisposableFunction } from '@prismgb/core';
+import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, DisposableFunction } from '@platform/core';
 
 const SUCCESS_HIDE_DELAY_MS = 1200;
 const ERROR_HIDE_DELAY_MS = 2000;

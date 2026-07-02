@@ -21,7 +21,7 @@ import {
   createScreenshotBlob,
   createRecordingBlob,
 } from '../fixtures/capture.fixture.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('Capture Workflow Integration', () => {
   let eventBus;

@@ -1,6 +1,6 @@
-import { PresentationComponent } from '@prismgb/ui-base';
+import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { NotesListViewComponent } from './notes-list-view.component.js';
 import { NotesEditorViewComponent } from './notes-editor-view.component.js';
 import { NotesSearchComponent } from './notes-search.component.js';
@@ -8,7 +8,7 @@ import { GameFilterComponent } from './game-filter.component.js';
 import { GameAutocompleteComponent } from './game-autocomplete.component.js';
 import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './notes-panel-layout.component.js';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerLike } from '@platform/core';
 import { wireNotesPanel } from './notes-panel-wiring.js';
 
 

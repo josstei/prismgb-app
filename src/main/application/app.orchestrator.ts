@@ -6,18 +6,18 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { BaseOrchestrator } from '@prismgb/core';
-import { safeDisposeAll } from '@prismgb/core';
+import { BaseOrchestrator } from '@platform/core';
+import { safeDisposeAll } from '@platform/core';
 import type { MainServiceContainer } from './container.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
-import type { DeviceConnectionService } from '@prismgb/devices/runtime';
+import type { DeviceConnectionService } from '@platform/devices/runtime';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import type { UpdateService } from '@prismgb/updates';
-import type { UpdateBridge } from '@prismgb/updates';
-import type { TranscodeService } from '@prismgb/transcode/service';
+import type { UpdateService } from '@platform/updates';
+import type { UpdateBridge } from '@platform/updates';
+import type { TranscodeService } from '@platform/transcode/service';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
 function resolveDevDockIconPath(appPath: string): string | null {

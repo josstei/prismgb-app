@@ -5,9 +5,9 @@
  * Takes over cursor management when active.
  */
 
-import { TIMING } from '@prismgb/config';
+import { TIMING } from '@platform/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, ActivityAutoHideController } from '@prismgb/ui-base';
+import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
 
 type ControlsAutoHideOptions = {
   onShowAll?: () => void;

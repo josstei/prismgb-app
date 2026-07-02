@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import {
   createMockCanvas,
   createMockElement,

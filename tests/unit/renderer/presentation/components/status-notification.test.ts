@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
 import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
-import { SharedEventBus, EventChannels } from '@prismgb/events';
+import { SharedEventBus, EventChannels } from '@platform/events';
 
 describe('StatusNotificationComponent (signal bindings)', () => {
   let el: HTMLElement;

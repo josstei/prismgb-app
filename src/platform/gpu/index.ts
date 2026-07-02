@@ -1,5 +1,5 @@
 // =============================================================================
-// @prismgb/gpu - GPU Rendering Pipeline Package
+// @platform/gpu - GPU Rendering Pipeline Package
 // =============================================================================
 // This is the PUBLIC API. Only exports listed here are available to consumers.
 // Internal implementation details are not exposed.

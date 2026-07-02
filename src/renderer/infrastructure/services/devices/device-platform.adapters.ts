@@ -1,8 +1,8 @@
-import { TIMING } from '@prismgb/config';
-import { DeviceCatalog } from '@prismgb/devices';
-import type { DeviceId, DeviceInfoPayload, DeviceStatus, DeviceStatusPayload } from '@prismgb/devices';
-import type { IpcActionResult } from '@prismgb/ipc';
-import type { LoggerLike, StorageServiceLike } from '@prismgb/core';
+import { TIMING } from '@platform/config';
+import { DeviceCatalog } from '@platform/devices';
+import type { DeviceId, DeviceInfoPayload, DeviceStatus, DeviceStatusPayload } from '@platform/devices';
+import type { IpcActionResult } from '@platform/ipc';
+import type { LoggerLike, StorageServiceLike } from '@platform/core';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient, type RendererTrpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 

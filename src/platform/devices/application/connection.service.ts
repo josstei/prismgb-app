@@ -1,4 +1,4 @@
-import { BaseService, pruneUndefined } from '@prismgb/core';
+import { BaseService, pruneUndefined } from '@platform/core';
 import { matchByUsb } from '../domain/matching.js';
 import { toDeviceInfo } from '../domain/payloads.js';
 import type {
@@ -11,7 +11,7 @@ import {
   type UsbDevice,
   type UsbMonitor
 } from '../infrastructure/usb.monitor.js';
-import type { LoggerFactoryLike } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@platform/core';
 
 export type DeviceConnectionReason =
   | 'startup'

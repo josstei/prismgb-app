@@ -1,5 +1,5 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText, bindClass, computed } from '@prismgb/ui-base';
+import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
 import type { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 
 export interface DeviceStatusElements {

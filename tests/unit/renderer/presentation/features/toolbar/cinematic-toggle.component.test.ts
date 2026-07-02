@@ -7,9 +7,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/cinematic-toggle.component.js';
-import { signal } from '@prismgb/ui-base/reactive';
+import { signal } from '@platform/ui-base/reactive';
 import { createEventBus, createLogger } from '../../../../../factories/index.js';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 
 describe('CinematicToggleComponent', () => {
   let component;

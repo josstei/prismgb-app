@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesService } from '@prismgb/notes';
-import { EventChannels } from '@prismgb/events';
+import { NotesService } from '@platform/notes';
+import { EventChannels } from '@platform/events';
 import { NotesStorageKeys } from '@renderer/lib/storage-keys.config';
 import { createEventBus, createLoggerFactory, createStorageService } from '../../../../factories/index.js';
 

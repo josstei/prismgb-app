@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
 
 describe('TranscodeUIBridge', () => {

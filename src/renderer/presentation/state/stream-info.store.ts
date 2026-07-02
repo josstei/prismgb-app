@@ -1,6 +1,6 @@
-import { signal, type ReadonlySignal } from '@prismgb/ui-base/reactive';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, DisposableFunction } from '@prismgb/core';
+import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, DisposableFunction } from '@platform/core';
 import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
 
 export interface StreamInfoStoreDependencies {

@@ -17,7 +17,7 @@ describe('createGpuRenderer import safety', () => {
   });
 
   it('does not import browser capability or accelerated backend modules through the public runtime path', async () => {
-    const { createGpuVideoRendererSession } = await import('@prismgb/gpu/runtime');
+    const { createGpuVideoRendererSession } = await import('@platform/gpu/runtime');
     const canvas = createMockCanvas(160, 144, {
       '2d': {
         drawImage: vi.fn(),

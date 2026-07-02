@@ -1,8 +1,8 @@
-import { BaseService, type ServiceEventDescriptor } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
-import type { UiButtonFeedbackPayload } from '@prismgb/events';
-import { TIMING } from '@prismgb/config';
-import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, type ServiceEventDescriptor } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { UiButtonFeedbackPayload } from '@platform/events';
+import { TIMING } from '@platform/config';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 
 type CaptureUiControllerLike = {
   triggerDownload(blob: Blob, filename: string): void;

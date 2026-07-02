@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
-import { EventChannels } from '@prismgb/events';
+import { EventChannels } from '@platform/events';
 import {
   createEventBus,
   createLoggerFactory,

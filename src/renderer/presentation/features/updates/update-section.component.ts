@@ -1,8 +1,8 @@
-import type { LoggerFactoryLike } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@platform/core';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@prismgb/events';
-import { UpdateState } from '@prismgb/config';
-import type { UpdateStateValue } from '@prismgb/config';
+import { EventChannels } from '@platform/events';
+import { UpdateState } from '@platform/config';
+import type { UpdateStateValue } from '@platform/config';
 import {
   PresentationComponent,
   bindText,
@@ -11,8 +11,8 @@ import {
   bindStyleProperty,
   computed,
   effect
-} from '@prismgb/ui-base';
-import { signal } from '@prismgb/ui-base/reactive';
+} from '@platform/ui-base';
+import { signal } from '@platform/ui-base/reactive';
 
 type Unsubscribe = () => void;
 

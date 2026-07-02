@@ -1,5 +1,5 @@
-import type { LeafValues, AssertNever } from '@prismgb/core';
-import type { DeviceInfoPayload } from '@prismgb/devices';
+import type { LeafValues, AssertNever } from '@platform/core';
+import type { DeviceInfoPayload } from '@platform/devices';
 import { EventChannels } from './event-channels.js';
 import { getEventManifestScopeValues } from './event.manifest.js';
 export interface UpdateInfoPayload {

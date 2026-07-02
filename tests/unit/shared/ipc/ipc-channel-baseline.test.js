@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IPC_CHANNELS as channelsJson } from '@prismgb/ipc';
+import { IPC_CHANNELS as channelsJson } from '@platform/ipc';
 
 function sortObjectByKeys(source) {
   return Object.keys(source)

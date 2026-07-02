@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService } from '@prismgb/updates';
-import { UpdateState } from '@prismgb/config';
+import { UpdateService } from '@platform/updates';
+import { UpdateState } from '@platform/config';
 import { createEventBus, createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../factories/index.js';
 
 vi.mock('electron', () => ({

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderListboxOptions, updateListboxActiveState } from '@prismgb/ui-base';
+import { renderListboxOptions, updateListboxActiveState } from '@platform/ui-base';
 
 describe('listbox helpers', () => {
   let container;

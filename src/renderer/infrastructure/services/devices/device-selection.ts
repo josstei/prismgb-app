@@ -1,5 +1,5 @@
-import { matchByLabel } from '@prismgb/devices';
-import type { DeviceDescriptor } from '@prismgb/devices';
+import { matchByLabel } from '@platform/devices';
+import type { DeviceDescriptor } from '@platform/devices';
 
 export interface DeviceSelectionInput {
   devices: readonly MediaDeviceInfo[];

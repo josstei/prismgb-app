@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { BaseService, type LoggerFactoryLike } from '@prismgb/core';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
 
 interface LoginItemServiceDependencies {
   loggerFactory: LoggerFactoryLike;

@@ -14,7 +14,7 @@ const sharedAlias = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
-  ...platformAliasMap(__dirname, ['@platform', '@prismgb'])
+  ...platformAliasMap(__dirname)
 };
 
 const baseCoverageConfig = {

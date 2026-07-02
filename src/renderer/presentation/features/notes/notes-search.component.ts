@@ -1,5 +1,5 @@
-import { PresentationComponent } from '@prismgb/ui-base';
-import type { LoggerLike } from '@prismgb/core';
+import { PresentationComponent } from '@platform/ui-base';
+import type { LoggerLike } from '@platform/core';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesSearchDebounceTimeout');

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StatusNotificationStore } from '../../../../../src/renderer/presentation/state/status-notification.store.js';
-import { SharedEventBus, EventChannels } from '@prismgb/events';
+import { SharedEventBus, EventChannels } from '@platform/events';
 
 describe('StatusNotificationStore', () => {
   let bus: SharedEventBus;

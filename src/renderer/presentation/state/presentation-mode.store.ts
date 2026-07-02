@@ -1,6 +1,6 @@
-import { signal, computed, type ReadonlySignal } from '@prismgb/ui-base/reactive';
-import { EventChannels } from '@prismgb/events';
-import type { EventBusLike, DisposableFunction } from '@prismgb/core';
+import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, DisposableFunction } from '@platform/core';
 
 function readBooleanField(payload: unknown, key: string): boolean | null {
   if (typeof payload !== 'object' || payload === null) return null;

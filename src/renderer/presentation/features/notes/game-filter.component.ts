@@ -1,5 +1,5 @@
-import { PresentationComponent, ListboxDropdownController, renderListboxOptions } from '@prismgb/ui-base';
-import type { LoggerLike } from '@prismgb/core';
+import { PresentationComponent, ListboxDropdownController, renderListboxOptions } from '@platform/ui-base';
+import type { LoggerLike } from '@platform/core';
 
 const FILTER_SETUP_LIFECYCLE = Symbol('notesGameFilterSetupLifecycle');
 

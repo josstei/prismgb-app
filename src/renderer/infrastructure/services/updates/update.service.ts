@@ -1,9 +1,9 @@
-import { BaseService, getErrorMessage } from '@prismgb/core';
-import { EventChannels } from '@prismgb/events';
+import { BaseService, getErrorMessage } from '@platform/core';
+import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { UpdateState } from '@prismgb/config';
-import type { UpdateStateValue } from '@prismgb/config';
+import { UpdateState } from '@platform/config';
+import type { UpdateStateValue } from '@platform/config';
 import type {
   IpcActionResult,
   UpdateCheckResponse,
@@ -13,7 +13,7 @@ import type {
   UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
-} from '@prismgb/ipc';
+} from '@platform/ipc';
 
 const UPDATE_SUBSCRIPTION_LIFECYCLE = Symbol('updateSubscriptionLifecycle');
 

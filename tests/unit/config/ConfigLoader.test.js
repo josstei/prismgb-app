@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { appConfig, uiConfig } from '@prismgb/config';
+import { appConfig, uiConfig } from '@platform/config';
 
 describe('ConfigLoader', () => {
   describe('appConfig', () => {

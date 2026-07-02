@@ -2,7 +2,7 @@ import {
   DeviceCatalog,
   getDeviceStreamProfile
 } from '../domain/catalog.js';
-import { deepFreeze } from '@prismgb/core';
+import { deepFreeze } from '@platform/core';
 import {
   toDeviceInfo,
   toDeviceInfoPayload

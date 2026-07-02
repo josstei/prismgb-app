@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Container } from '@prismgb/core';
+import { Container } from '@platform/core';
 
 interface TestTokenMap {
   config: { name: string };
