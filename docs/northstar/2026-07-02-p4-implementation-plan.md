@@ -594,7 +594,7 @@ Expected: zero hits.
 - [ ] **Step 6: Full gates**
 
 Run: `npm run lint && npm run typecheck && npm run test:run`
-Expected: green; test count drops by 12 (the old checker's suite).
+Expected: green; test count drops by 13 (the old checker's suite — execution-verified count; the plan originally estimated 12).
 
 - [ ] **Step 7: Commit**
 
