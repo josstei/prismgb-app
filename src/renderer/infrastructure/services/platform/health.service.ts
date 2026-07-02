@@ -74,12 +74,7 @@ export class StreamingHealthService extends BaseService {
     this._isMonitoring = true;
     this._firstFrameReceived = false;
 
-    // Start timeout
-    const timeoutHandle = setTimeout(() => {
-      this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
-      this._handleTimeout();
-    }, this._timeoutMs);
-    this.disposables.replace(HEALTH_TIMEOUT_LIFECYCLE, () => clearTimeout(timeoutHandle));
+    this.schedule(HEALTH_TIMEOUT_LIFECYCLE, () => this._handleTimeout(), this._timeoutMs);
 
     // Register for first frame callback
     this._registerFrameCallback();
@@ -165,7 +160,7 @@ export class StreamingHealthService extends BaseService {
   }
 
   _clearTimeout(): void {
-    this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
+    this.cancelScheduled(HEALTH_TIMEOUT_LIFECYCLE);
   }
 
   _cancelRvfc(): void {

@@ -322,15 +322,12 @@ class TranscodeService extends BaseService {
     }
 
     const cleanupLifecycleKey = transcodeCleanupLifecycleKey(jobId);
-    this.disposables.cancel(cleanupLifecycleKey);
-    const timeoutHandle = setTimeout(() => {
-      this.disposables.cancel(cleanupLifecycleKey);
+    this.schedule(cleanupLifecycleKey, () => {
       if (this._jobs.has(jobId)) {
         this._jobs.delete(jobId);
         this.logger.debug('Removed stale job record', { jobId });
       }
     }, 5 * 60 * 1000);
-    this.disposables.replace(cleanupLifecycleKey, () => clearTimeout(timeoutHandle));
   }
 
   private _notifyRenderer(channel: string, data: unknown): void {

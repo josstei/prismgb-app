@@ -85,7 +85,6 @@ describe('StreamingViewportService', () => {
   describe('constructor', () => {
     it('should initialize with default values', () => {
       expect(service._resizeObserver).toBeNull();
-      expect(service._resizeTimeout).toBeNull();
       expect(service._onResizeCallback).toBeNull();
     });
   });
@@ -305,12 +304,15 @@ describe('StreamingViewportService', () => {
       expect(service._forceResizePending).toBe(false);
     });
 
-    it('should cancel pending resize timeout', () => {
-      service._resizeTimeout = setTimeout(() => {}, 1000);
+    it('should cancel a pending debounced resize', () => {
+      const onResize = vi.fn();
+      service._onResizeCallback = onResize;
+      service._handleResize();
 
       service.forceResize();
+      vi.advanceTimersByTime(1000);
 
-      expect(service._resizeTimeout).toBeNull();
+      expect(onResize).toHaveBeenCalledTimes(1);
     });
 
     it('should cancel previous forceResize timeout', () => {
@@ -339,12 +341,15 @@ describe('StreamingViewportService', () => {
       expect(service._resizeObserver).toBeNull();
     });
 
-    it('should clear timeout', () => {
-      service._resizeTimeout = 123;
+    it('should cancel a pending debounced resize on cleanup', () => {
+      const onResize = vi.fn();
+      service._onResizeCallback = onResize;
+      service._handleResize();
 
       service.cleanup();
+      vi.advanceTimersByTime(1000);
 
-      expect(service._resizeTimeout).toBeNull();
+      expect(onResize).not.toHaveBeenCalled();
     });
 
     it('should clear callback', () => {

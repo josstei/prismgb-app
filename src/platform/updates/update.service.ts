@@ -336,22 +336,17 @@ class UpdateService extends BaseService {
 
     this._autoCheckRunning = true;
 
-    // Perform initial check after a short delay (don't block startup)
-    const initialCheckTimeoutId = setTimeout(() => {
-      this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.schedule(INITIAL_UPDATE_CHECK_LIFECYCLE, () => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Initial update check failed', (error as Error).message);
       });
-    }, 10000); // 10 seconds after startup
-    this.disposables.replace(INITIAL_UPDATE_CHECK_LIFECYCLE, () => clearTimeout(initialCheckTimeoutId));
+    }, 10000);
 
-    // Set up periodic checks
-    const autoCheckIntervalId = setInterval(() => {
+    this.scheduleInterval(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Periodic update check failed', (error as Error).message);
       });
     }, intervalMs);
-    this.disposables.replace(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => clearInterval(autoCheckIntervalId));
 
     this.logger.info(`Auto-update check started (interval: ${intervalMs / 1000 / 60} minutes)`);
   }
@@ -361,8 +356,8 @@ class UpdateService extends BaseService {
    */
   stopAutoCheck(): void {
     const wasRunning = this._autoCheckRunning;
-    this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
-    this.disposables.cancel(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this.cancelScheduled(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.cancelScheduled(PERIODIC_UPDATE_CHECK_LIFECYCLE);
     this._autoCheckRunning = false;
     if (wasRunning) {
       this.logger.info('Auto-update check stopped');

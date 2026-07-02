@@ -42,7 +42,6 @@ const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
 
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
-  private _resizeTimeout: unknown | null;
   private _onResizeCallback: (() => void) | null;
   private _lastDimensions: ResizeDimensions | null;
   private _forceResizePending: boolean;
@@ -53,9 +52,6 @@ export class StreamingViewportService extends BaseService {
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
-
-    // Timeout handle for resize debouncing
-    this._resizeTimeout = null;
 
     // Callback to invoke when resize occurs
     this._onResizeCallback = null;
@@ -159,25 +155,15 @@ export class StreamingViewportService extends BaseService {
   }
 
   _handleResize(): void {
-    // Skip if forceResize is pending (prevents race condition during fullscreen transitions)
     if (this._forceResizePending) {
       return;
     }
 
-    // Debounce resize events
-    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
-    const resizeTimeout = setTimeout(() => {
-      this._resizeTimeout = null;
-      this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.schedule(RESIZE_DEBOUNCE_LIFECYCLE, () => {
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
     }, TIMING.RESIZE_DEBOUNCE_MS);
-    this._resizeTimeout = resizeTimeout;
-    this.disposables.replace(RESIZE_DEBOUNCE_LIFECYCLE, () => {
-      clearTimeout(resizeTimeout);
-      this._resizeTimeout = null;
-    });
   }
 
   /**
@@ -193,52 +179,33 @@ export class StreamingViewportService extends BaseService {
    * Uses short delay to ensure CSS layout has recalculated after fullscreen change.
    */
   forceResize(): void {
-    // Cancel any pending resize (both ResizeObserver debounce and forceResize)
-    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
-    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
+    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
 
-    if (this._resizeTimeout) {
-      clearTimeout(this._resizeTimeout as ReturnType<typeof setTimeout>);
-      this._resizeTimeout = null;
-    }
-
-    // Suppress ResizeObserver callbacks while forceResize is pending
     this._forceResizePending = true;
-
-    // Reset cached dimensions and styles to force recalculation
     this._lastDimensions = null;
     this._cachedStyles = null;
 
-    // Short delay (2 frames) to ensure layout has settled after CSS changes
-    const forceResizeTimeout = setTimeout(() => {
-      this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
+    this.schedule(FORCE_RESIZE_LIFECYCLE, () => {
       this._forceResizePending = false;
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
     }, 32);
-    this.disposables.replace(FORCE_RESIZE_LIFECYCLE, () => clearTimeout(forceResizeTimeout));
   }
 
   /**
    * Cleanup resources
    */
   cleanup(): void {
-    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
-    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
+    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
     this.disposables.cancel(RESIZE_OBSERVER_LIFECYCLE);
 
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
       this.logger.debug('ResizeObserver disconnected');
-    }
-
-    if (this._resizeTimeout) {
-      if (typeof this._resizeTimeout === 'number' || typeof this._resizeTimeout === 'object') {
-        clearTimeout(this._resizeTimeout as ReturnType<typeof setTimeout>);
-      }
-      this._resizeTimeout = null;
     }
 
     // Clear callback

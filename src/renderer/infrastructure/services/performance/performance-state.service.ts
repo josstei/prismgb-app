@@ -198,15 +198,13 @@ class PerformanceStateService extends BaseService {
 
     this._clearIdleTimer();
     this._lastIdleReset = performance.now();
-    const timeoutId = setTimeout(() => {
-      this._clearIdleTimer();
+    this.schedule(IDLE_TIMER_LIFECYCLE, () => {
       this._updateState({ idle: true });
     }, this._idleDelayMs);
-    this.disposables.replace(IDLE_TIMER_LIFECYCLE, () => clearTimeout(timeoutId));
   }
 
   _clearIdleTimer(): void {
-    this.disposables.cancel(IDLE_TIMER_LIFECYCLE);
+    this.cancelScheduled(IDLE_TIMER_LIFECYCLE);
   }
 
   _detectWeakGPU(capabilities: unknown): boolean {
