@@ -1,17 +1,6 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
+import type { EventTargetLike } from '@prismgb/core';
 
-type EventTargetLike = {
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions | boolean
-  ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: EventListenerOptions | boolean
-  ): void;
-};
 
 type AutoHideActivityBinding = {
   target: EventTargetLike | null;

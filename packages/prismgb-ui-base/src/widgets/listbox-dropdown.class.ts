@@ -1,4 +1,5 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
+import type { LoggerLike } from '@prismgb/core';
 import { DisclosureController } from './disclosure.class.js';
 import { updateListboxActiveState } from './listbox.utils.js';
 
@@ -6,10 +7,6 @@ const LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE = Symbol('listboxDropdownRuntimeLifecyc
 
 type ListboxDropdownCallback = () => void;
 type ListboxDropdownChangeCallback = (value: string, label: string) => void;
-type PresentationPrimitiveLogger = {
-  warn(message: string, ...args: unknown[]): void;
-};
-
 export interface ListboxDropdownControllerOptions {
   triggerElement: HTMLElement | null;
   menuElement: HTMLElement | null;
@@ -25,7 +22,7 @@ export interface ListboxDropdownControllerOptions {
   enableTriggerKeyboard?: boolean;
   focusOnTriggerOpen?: boolean;
   onChange?: ListboxDropdownChangeCallback | null;
-  logger?: PresentationPrimitiveLogger | null;
+  logger?: LoggerLike | null;
 }
 
 export interface ListboxDropdownInitializeOptions {
@@ -49,7 +46,7 @@ class ListboxDropdownController extends PresentationComponent {
   declare enableTriggerKeyboard: boolean;
   declare focusOnTriggerOpen: boolean;
   declare onChange: ListboxDropdownChangeCallback | null | undefined;
-  declare logger: PresentationPrimitiveLogger | null | undefined;
+  declare logger: LoggerLike | null | undefined;
   declare private _disclosure: DisclosureController | null;
 
   constructor({

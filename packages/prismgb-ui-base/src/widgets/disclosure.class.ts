@@ -6,6 +6,7 @@
  */
 
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
+import type { LoggerLike } from '@prismgb/core';
 
 export interface AnchoredLayoutSizeDefaults {
   minWidth: number;
@@ -44,14 +45,10 @@ export interface AnchoredDisclosureLayout {
 }
 
 type DisclosureCallback = () => void;
-type PresentationPrimitiveLogger = {
-  warn(message: string, ...args: unknown[]): void;
-};
-
 export interface DisclosureControllerOptions {
   toggleElement: HTMLElement | null;
   panelElement: HTMLElement | null;
-  logger?: PresentationPrimitiveLogger | null;
+  logger?: LoggerLike | null;
   visibleClass?: string;
   toggleOpenClass?: string | null;
   ariaExpandedElement?: HTMLElement | null;

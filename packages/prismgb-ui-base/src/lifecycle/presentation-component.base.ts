@@ -2,21 +2,10 @@ import {
   DisposableBag,
   type Disposable,
   type DisposableFunction,
-  type DisposableKey
+  type DisposableKey,
+  type EventTargetLike
 } from '@prismgb/core';
 
-type EventTargetLike = {
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions | boolean
-  ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: EventListenerOptions | boolean
-  ): void;
-};
 
 export type PresentationLifecycleToken = {
   isActive(): boolean;

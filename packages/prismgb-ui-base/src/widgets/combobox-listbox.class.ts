@@ -1,17 +1,14 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
+import type { LoggerLike } from '@prismgb/core';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
-
-type PresentationPrimitiveLogger = {
-  warn(message: string, ...args: unknown[]): void;
-};
 
 type ComboboxCallback = () => void;
 type ComboboxSelectCallback = (value: string) => void;
 
 export interface ComboboxListboxControllerOptions<TOption = unknown> {
-  logger?: PresentationPrimitiveLogger | null;
+  logger?: LoggerLike | null;
   optionSelector?: string;
   optionClassName?: string;
   optionIdPrefix?: string;
@@ -37,7 +34,7 @@ export interface ComboboxListboxInitializeOptions {
 }
 
 export class ComboboxListboxController<TOption = unknown> extends PresentationComponent {
-  declare logger: PresentationPrimitiveLogger | null | undefined;
+  declare logger: LoggerLike | null | undefined;
   declare optionSelector: string;
   declare optionClassName: string;
   declare optionIdPrefix: string;
