@@ -329,10 +329,7 @@ class DisclosureController extends PresentationComponent {
     }
 
     if (disposers.length > 0) {
-      this.replaceManaged(
-        DISCLOSURE_LISTENER_LIFECYCLE,
-        () => disposers.splice(0).reverse().forEach((dispose) => dispose())
-      );
+      this.replaceManagedGroup(DISCLOSURE_LISTENER_LIFECYCLE, disposers);
     }
   }
 

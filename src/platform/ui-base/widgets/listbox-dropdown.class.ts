@@ -145,13 +145,15 @@ class ListboxDropdownController extends PresentationComponent {
     }));
     listenerDisposers.push(this.listen(this.menuElement, 'keydown', (event) => this._handleMenuKeydown(event as KeyboardEvent)));
 
-    this.replaceManaged(LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE, async () => {
-      listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
-      await disclosure.dispose();
-      if (this._disclosure === disclosure) {
-        this._disclosure = null;
-      }
-    });
+    this.replaceManagedGroup(LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE, [
+      async () => {
+        await disclosure.dispose();
+        if (this._disclosure === disclosure) {
+          this._disclosure = null;
+        }
+      },
+      ...listenerDisposers
+    ]);
 
     if (activeValue !== undefined) {
       this.setActive(activeValue);

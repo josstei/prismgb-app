@@ -54,4 +54,26 @@ describe('PresentationComponent', () => {
     await component.dispose();
     expect(dispose2).toHaveBeenCalled();
   });
+
+  it('replaceManagedGroup tears a group down in reverse order and supports replacement', () => {
+    class GroupHarness extends PresentationComponent {
+      registerGroup(key: symbol, disposers: Array<() => void>) {
+        return this.replaceManagedGroup(key, disposers);
+      }
+    }
+
+    const harness = new GroupHarness();
+    const key = Symbol('group');
+    const order: string[] = [];
+
+    harness.registerGroup(key, [
+      () => { order.push('first'); },
+      () => { order.push('second'); }
+    ]);
+    harness.registerGroup(key, [() => { order.push('fresh'); }]);
+
+    expect(order).toEqual(['second', 'first']);
+    void harness.dispose();
+    expect(order).toEqual(['second', 'first', 'fresh']);
+  });
 });

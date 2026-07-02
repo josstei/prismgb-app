@@ -76,10 +76,7 @@ export class ActivityAutoHideController extends PresentationComponent {
       listenerDisposers.push(this.listen(binding.target, binding.type, binding.handler, binding.options));
     }
 
-    this.replaceManaged(
-      ACTIVITY_LISTENER_LIFECYCLE,
-      () => listenerDisposers.splice(0).reverse().forEach((dispose) => dispose())
-    );
+    this.replaceManagedGroup(ACTIVITY_LISTENER_LIFECYCLE, listenerDisposers);
 
     if (options.triggerActivityImmediately) {
       this._onActivity();
