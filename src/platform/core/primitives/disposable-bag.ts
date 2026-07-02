@@ -104,6 +104,25 @@ export class DisposableBag {
     return dispose?.();
   }
 
+  replaceGroup(key: DisposableKey, disposables: readonly Disposable[]): DisposableFunction {
+    const group = disposables
+      .map((entry) => toDisposableFunction(entry))
+      .filter((entry): entry is DisposableFunction => entry !== null);
+
+    return this.replace(key, () => {
+      const pending: Promise<void>[] = [];
+      for (const dispose of group.splice(0).reverse()) {
+        const result = dispose();
+        if (isPromiseLike<void>(result)) {
+          pending.push(result);
+        }
+      }
+      if (pending.length > 0) {
+        return Promise.all(pending).then(() => undefined);
+      }
+    });
+  }
+
   addEvent(
     target: EventTargetLike,
     type: string,

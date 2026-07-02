@@ -26,6 +26,7 @@ export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } from './primitives/disposable-bag.js';
+export { ManagedLifecycleHost } from './primitives/managed-lifecycle-host.js';
 export { BaseService, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type ServiceEventDescriptor, type LogLevel } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { ConsoleLoggerFactory } from './primitives/console-logger.js';
