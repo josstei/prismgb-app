@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createGpuVideoRendererSession } from '@/application/video-session';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '@/testkit/fixtures';
-import { WorkerResponseType, createWorkerResponse } from '@/worker/protocol';
+import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
+import { createMockCanvas, createRenderCapabilitiesFixture } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -11,7 +11,7 @@ function createCanvas2DRenderFixture() {
   };
   const canvas = createMockCanvas(160, 144, { '2d': canvas2dContext });
   vi.spyOn(canvas, 'getContext');
-  return canvas;
+  return canvas as unknown as HTMLCanvasElement;
 }
 
 function createWorkerMock(): Worker {
@@ -63,7 +63,7 @@ describe('GpuVideoRendererSession', () => {
   });
 
   it('creates WebGPU session when webgpu is available', async () => {
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const worker = createWorkerMock();
 
     const sessionPromise = createGpuVideoRendererSession({
@@ -101,7 +101,7 @@ describe('GpuVideoRendererSession', () => {
   });
 
   it('reports scaled target dimensions (not a hardcoded native width)', async () => {
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const worker = createWorkerMock();
 
     const sessionPromise = createGpuVideoRendererSession({

@@ -6,11 +6,11 @@ import {
   readFiniteNumber,
   readFiniteNumberPair,
   readUniformSourceValue
-} from '@/application/passes';
-import { PASS_SPECS } from '@/domain/pass-specs';
-import { buildUniforms } from '@/application/uniform-builder';
-import { getPreset } from '@/application/catalog';
-import type { PipelineUniforms } from '@/domain/uniforms';
+} from '../../../../../src/platform/gpu/application/passes';
+import { PASS_SPECS } from '../../../../../src/platform/gpu/domain/pass-specs';
+import { buildUniforms } from '../../../../../src/platform/gpu/application/uniform-builder';
+import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
+import type { PipelineUniforms } from '../../../../../src/platform/gpu/domain/uniforms';
 
 const WEBGPU_UNIFORM_TYPE_BYTES: Record<string, number> = {
   'f32': 4,

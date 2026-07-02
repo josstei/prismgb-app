@@ -5,9 +5,10 @@ import {
   createRenderPresetFixture,
   createRenderStatsFixture,
   createWorkerRendererClientMock
-} from '@/testkit/fixtures';
+} from '../../../../../src/platform/gpu/testkit/fixtures';
+import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
 
-describe('@/testkit/fixtures', () => {
+describe('@platform/gpu/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
     expect(createRenderStatsFixture({ fps: 60 })).toEqual({
       fps: 60,
@@ -39,8 +40,8 @@ describe('@/testkit/fixtures', () => {
     expect(client.sendCommand('frame', {
       imageBitmap: {} as ImageBitmap,
       uniforms: createPipelineUniformsFixture()
-    })).toBe(true);
-    expect(client.renderFrame({} as ImageBitmap, createPipelineUniformsFixture())).toBe(true);
+    } as FramePayload)).toBe(true);
+    expect(client.renderFrame({} as ImageBitmap)).toBe(true);
 
     client.emit('ready', { backend: 'webgpu' });
     unsubscribe();

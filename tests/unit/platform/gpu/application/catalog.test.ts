@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PRESET_POLICY, getUiPresets, resolvePreset } from '@/index';
-import { BUILT_IN_PRESET_CATALOG, BUILT_IN_PRESETS } from '@/domain/presets';
+import { PRESET_POLICY, getUiPresets, resolvePreset } from '../../../../../src/platform/gpu/index';
+import { BUILT_IN_PRESET_CATALOG, BUILT_IN_PRESETS } from '../../../../../src/platform/gpu/domain/presets';
 import {
   getPackageDefaultPreset,
   getPreset,
   getRendererDefaultPreset
-} from '@/application/catalog';
+} from '../../../../../src/platform/gpu/application/catalog';
 
 describe('preset catalog', () => {
   it('exports built-in catalog and policy through the package entrypoint without mutable registration', () => {

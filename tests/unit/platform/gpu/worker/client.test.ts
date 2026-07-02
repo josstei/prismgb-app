@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkerRendererClient } from '@/worker/client';
-import { WorkerMessageType, WorkerResponseType, createWorkerResponse } from '@/worker/protocol';
-import { createMockCanvas } from '@/testkit/fixtures';
+import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
+import { WorkerMessageType, WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import { createMockCanvas } from '../../../../../src/platform/gpu/testkit/fixtures';
 
 function createWorkerMock(): Worker {
   return {
@@ -45,7 +45,7 @@ describe('WorkerRendererClient', () => {
   });
 
   it('transfers canvas and resolves when the worker reports ready', async () => {
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const transferControlToOffscreen = vi.spyOn(canvas, 'transferControlToOffscreen');
     const initializePromise = client.initialize(canvas, createConfig());
 
@@ -64,13 +64,13 @@ describe('WorkerRendererClient', () => {
   it('returns false instead of throwing when frame commands are sent before ready', () => {
     const imageBitmap = { close: vi.fn() } as unknown as ImageBitmap;
 
-    expect(client.renderFrame(imageBitmap, {} as never)).toBe(false);
+    expect(client.renderFrame(imageBitmap)).toBe(false);
     expect(worker.postMessage).not.toHaveBeenCalled();
   });
 
   it('rejects timed-out initialization and allows same-canvas reinitialization', async () => {
     vi.useFakeTimers();
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const initializePromise = client.initialize(canvas, createConfig(), 50);
     const initializationExpectation = expect(initializePromise).rejects.toThrow('Worker initialization timed out');
 
@@ -89,7 +89,7 @@ describe('WorkerRendererClient', () => {
   });
 
   it('dispatches typed callbacks and posts accepted frame commands', async () => {
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const onFrameRendered = vi.fn();
     client.onMessage(WorkerResponseType.FRAME_RENDERED, onFrameRendered);
 
@@ -98,7 +98,7 @@ describe('WorkerRendererClient', () => {
     await initializePromise;
 
     const imageBitmap = { close: vi.fn() } as unknown as ImageBitmap;
-    expect(client.renderFrame(imageBitmap, {} as never)).toBe(true);
+    expect(client.renderFrame(imageBitmap)).toBe(true);
     worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.FRAME_RENDERED) } as MessageEvent);
 
     expect(worker.postMessage).toHaveBeenCalledWith(
@@ -109,7 +109,7 @@ describe('WorkerRendererClient', () => {
   });
 
   it('releases resources without terminating and fully terminates on dispose', async () => {
-    const canvas = createMockCanvas();
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const initializePromise = client.initialize(canvas, createConfig());
     worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
     await initializePromise;

@@ -6,7 +6,7 @@ import {
   createWorkerResponse,
   isValidWorkerMessage,
   isValidWorkerResponse
-} from '@/worker/protocol';
+} from '../../../../../src/platform/gpu/worker/protocol';
 
 const validConfig = {
   nativeWidth: 160,

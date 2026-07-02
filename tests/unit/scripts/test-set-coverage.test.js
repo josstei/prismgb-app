@@ -35,12 +35,7 @@ function walk(dir, acc) {
 }
 
 function collectTestFilesOnDisk() {
-  const files = walk(join(ROOT, 'tests'), []);
-  const packagesRoot = join(ROOT, 'packages');
-  for (const pkg of readdirSync(packagesRoot, { withFileTypes: true })) {
-    if (pkg.isDirectory()) walk(join(packagesRoot, pkg.name, 'tests'), files);
-  }
-  return files;
+  return walk(join(ROOT, 'tests'), []);
 }
 
 const includeGlobs = vitestConfig.test.projects.flatMap((project) => project.test.include);

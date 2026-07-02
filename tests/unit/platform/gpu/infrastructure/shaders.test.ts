@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PASS_SPECS } from '@/domain/pass-specs';
-import { loadWebGpuShaders } from '@/infrastructure/shaders';
+import { PASS_SPECS } from '../../../../../src/platform/gpu/domain/pass-specs';
+import { loadWebGpuShaders } from '../../../../../src/platform/gpu/infrastructure/shaders';
 
 describe('shaders', () => {
   it('composes each WebGPU fragment source with the shared fullscreen vertex prelude', () => {

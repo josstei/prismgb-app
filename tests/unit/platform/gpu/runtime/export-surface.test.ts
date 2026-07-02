@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/infrastructure/capabilities.browser', () => ({
+vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => ({
   detectBrowserGpuCapabilities: vi.fn(async () => ({
     webgpu: true,
     offscreenCanvas: true,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildUniforms, calculateScaleFactor } from '@/application/uniform-builder';
-import { getPreset } from '@/application/catalog';
+import { buildUniforms, calculateScaleFactor } from '../../../../../src/platform/gpu/application/uniform-builder';
+import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
 
 describe('calculateScaleFactor', () => {
   it('should calculate integer scale factor', () => {

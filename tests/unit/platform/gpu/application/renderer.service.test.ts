@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createGpuRenderer } from '@/application/renderer.service';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '@/testkit/fixtures';
+import { createGpuRenderer } from '../../../../../src/platform/gpu/application/renderer.service';
+import { createMockCanvas, createRenderCapabilitiesFixture } from '../../../../../src/platform/gpu/testkit/fixtures';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {

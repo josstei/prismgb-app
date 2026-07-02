@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPreset } from '@/application/catalog';
-import { WebGpuDriver } from '@/infrastructure/webgpu.driver';
-import { PipelineController } from '@/infrastructure/pipeline-controller';
+import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
+import { WebGpuDriver } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
+import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
 
 interface MockGpuTexture {
   label: string;

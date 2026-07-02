@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startWorkerRendererService, type WorkerRendererServiceScope } from '@/worker/service';
-import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '@/worker/protocol';
+import { startWorkerRendererService, type WorkerRendererServiceScope } from '../../../../../src/platform/gpu/worker/service';
+import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '../../../../../src/platform/gpu/worker/protocol';
+import type { RenderPreset } from '../../../../../src/platform/gpu/domain/types';
 
 const defaultPreset = {
   id: 'vibrant',
@@ -80,11 +81,11 @@ const mockRenderer = {
   setBrightness: vi.fn()
 };
 
-vi.mock('@/application/renderer.service', () => ({
+vi.mock('../../../../../src/platform/gpu/application/renderer.service', () => ({
   createGpuRenderer: mockCreateGpuRenderer
 }));
 
-vi.mock('@/application/catalog', () => ({
+vi.mock('../../../../../src/platform/gpu/application/catalog', () => ({
   resolvePreset: mockResolvePreset
 }));
 
@@ -296,7 +297,7 @@ describe('worker service', () => {
       harness.scope,
       createWorkerMessage(WorkerMessageType.SET_PRESET, {
         presetId: 'authentic',
-        preset: customPreset
+        preset: customPreset as unknown as RenderPreset
       })
     );
 

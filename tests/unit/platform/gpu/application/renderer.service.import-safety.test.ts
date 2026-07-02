@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockCanvas } from '@/testkit/fixtures';
+import { createMockCanvas } from '../../../../../src/platform/gpu/testkit/fixtures';
 
-vi.mock('@/infrastructure/capabilities.browser', () => {
+vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => {
   throw new Error('browser capabilities imported');
 });
 
-vi.mock('@/infrastructure/webgpu.driver', () => {
+vi.mock('../../../../../src/platform/gpu/infrastructure/webgpu.driver', () => {
   throw new Error('webgpu driver imported');
 });
 
@@ -24,7 +24,7 @@ describe('createGpuRenderer import safety', () => {
         fillRect: vi.fn(),
         imageSmoothingEnabled: true
       }
-    });
+    }) as unknown as HTMLCanvasElement;
 
     const session = await createGpuVideoRendererSession({
       canvas,

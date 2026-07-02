@@ -86,7 +86,6 @@ export default defineConfig({
           environment: 'node',
           include: [
             'tests/unit/config/**/*.{test,spec}.{js,ts}',
-            'tests/unit/packages/**/*.{test,spec}.{js,ts}',
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/shared/**/*.{test,spec}.{js,ts}',
             'tests/unit/utils/**/*.{test,spec}.{js,ts}',
@@ -137,40 +136,26 @@ export default defineConfig({
       },
       {
         test: {
-          alias: {
-            '@': path.resolve(__dirname, 'src/platform/gpu'),
-            '@prismgb/gpu/runtime': path.resolve(__dirname, 'src/platform/gpu/runtime.ts'),
-            '@prismgb/gpu': path.resolve(__dirname, 'src/platform/gpu/index.ts')
-          },
-          name: 'gpu-package',
-          globals: true,
-          environment: 'happy-dom',
-          include: ['packages/prismgb-gpu/tests/unit/**/*.test.ts'],
-        },
-        resolve: {
-          alias: {
-            '@': path.resolve(__dirname, 'src/platform/gpu'),
-            '@prismgb/gpu/runtime': path.resolve(__dirname, 'src/platform/gpu/runtime.ts'),
-            '@prismgb/gpu': path.resolve(__dirname, 'src/platform/gpu/index.ts')
-          }
-        }
-      },
-      {
-        test: {
           alias: sharedAlias,
-          name: 'core-package',
+          name: 'platform-node',
           globals: true,
           environment: 'node',
-          include: ['packages/prismgb-core/tests/unit/**/*.{test,spec}.ts']
+          include: [
+            'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+          ]
         }
       },
       {
         test: {
           alias: sharedAlias,
-          name: 'ui-base-package',
+          name: 'platform-dom',
           globals: true,
           environment: 'happy-dom',
-          include: ['packages/prismgb-ui-base/tests/unit/**/*.{test,spec}.ts']
+          include: ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}']
         }
       }
     ]
