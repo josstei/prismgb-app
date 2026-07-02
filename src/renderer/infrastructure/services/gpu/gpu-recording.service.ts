@@ -6,7 +6,7 @@
  */
 
 import { BaseService } from '@prismgb/core';
-import type { LoggerLike } from '@prismgb/core';
+import type { LoggerFactoryLike } from '@prismgb/core';
 import { EventChannels } from '@prismgb/events';
 import type { TypedEventBusLike } from '@prismgb/events';
 import { getErrorMessage } from '@prismgb/core';
@@ -15,10 +15,6 @@ import type {
   GpuRendererServiceLike,
   RecordingScaleParams
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
-};
 
 type CaptureGpuRecordingDependencies = {
   gpuRendererService: GpuRendererServiceLike;

@@ -1,3 +1,4 @@
+import type { LoggerFactoryLike } from '@prismgb/core';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@prismgb/events';
 import { UpdateState } from '@prismgb/config';
@@ -19,10 +20,6 @@ type LoggerLike = {
   info(...args: unknown[]): void;
   warn(...args: unknown[]): void;
   error(...args: unknown[]): void;
-};
-
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
 };
 
 type EventBusLike = {

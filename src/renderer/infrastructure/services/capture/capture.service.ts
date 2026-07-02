@@ -1,14 +1,10 @@
 import { BaseService, createDeferred } from '@prismgb/core';
-import type { EventBusLike, LoggerLike } from '@prismgb/core';
+import type { EventBusLike, LoggerFactoryLike } from '@prismgb/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@prismgb/events';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
-};
-
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
 };
 
 type CaptureDependencies = {
