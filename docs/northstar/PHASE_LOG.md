@@ -79,3 +79,79 @@ exit metrics are recorded here, decisions are recorded here permanently.
   sandboxed-preload `contextBridge`/`ipcRenderer` access predating this program,
   structurally distinct from X-2's app-singleton consolidation.
 
+## P3 — Exit metrics (2026-07-02, branch `northstar/phase-3`)
+
+| Metric | Value | Delta vs P2 |
+|---|---|---|
+| Test files / tests (`npm run test:run`) | 154 files / 1,950 tests | +1 file / +8 tests |
+| `npm run typecheck` | PASS | - |
+| `npm run lint` | PASS | - |
+| `npm run dev:smoke` | PASS | - |
+| `npm run build:vite` | PASS | - |
+| `npm run check:gpu-boundaries` | PASS | - |
+| e2e specs passing (`npm run test:e2e`) | 86 / 86 (2.6m) | - |
+| Prod LOC (src; packages collapsed) | 28,198 | +12 LOC (corrected baseline, see measurement note) |
+| Test LOC (tests; packages collapsed) | 37,059 | +121 LOC (corrected baseline, see measurement note) |
+| **Total LOC Delta** (`git diff --shortstat pre-workspace-collapse..HEAD`) | 347 files changed, 932 insertions(+), 2,364 deletions(-) | **-1,432 LOC** |
+
+### Measurement note
+
+The P0-P2 prod/test LOC rows computed their packages term with the git
+pathspec `packages/*/src/**/*.ts`, which never matches files directly under a
+package's `src/` (git's `**/` does not match zero directories). The published
+figures therefore undercounted package sources by 3,186 prod LOC and 54 test
+LOC: P2's true full-count exit was prod 28,186 / test 36,938, not
+25,000 / 36,884. The P3 deltas above are computed against that corrected
+full-count baseline at `pre-workspace-collapse`; the collapse itself was
+LOC-neutral for prod code (+12). The -1,432 total delta is the whole-branch
+shortstat and includes the deleted manifests, per-package
+tsconfig/vite/vitest configs, turbo, the exports checker, and lockfile motion
+alongside src/tests.
+
+### Commits (`git log --oneline pre-workspace-collapse..HEAD`)
+
+```
+bba0bfeb fix(e2e): route ipc channel fixtures through the platform prebundle
+7c0ddf1f fix(e2e): prebundle devices testkit for Playwright's plain-Node resolution
+408f4645 chore(platform): retire workspace residue from scripts and configs
+68ce9424 refactor(platform): rewrite @prismgb imports to @platform and drop compat aliases
+10ed5587 docs(northstar): drop stale platform-dom alias reference from Task 4
+ee627eb6 docs(northstar): record relative-import decision for moved gpu tests
+cb3c6cf2 test(platform): move package test suites into the root tree
+5e76a293 fix(platform): restore lockfile integrity metadata lost to offline regeneration
+34eb2c89 docs(northstar): amend P3 plan baselines after Task 2 execution findings
+7696ec19 refactor(platform): collapse workspace package sources into src/platform
+6881f57a chore(platform): add workspace alias registry ahead of collapse
+```
+
+### Execution notes
+
+- Task 2's executor stopped BLOCKED correctly on three findings; fixes:
+  depth-preserving relative-import retargets in 5 test files, and core's
+  barrel-exported `getElectronApp` rewritten to lazy
+  `process.getBuiltinModule` node access (module-scope `node:module` import
+  crashed the unbundled dev-mode renderer; production tree-shaking had
+  masked it).
+- The sandboxed `npm install` stripped `resolved`/`integrity` from ~695
+  lockfile entries; fixed by restoring the pre-collapse lockfile and pruning
+  offline with `--package-lock-only` plus deleting 10 orphaned extraneous
+  entries (commit `5e76a293`).
+- The moved gpu tests import internals via relative paths, not
+  `@platform/gpu` deep aliases — deep aliases resolve in vitest but can never
+  typecheck under the registry's exact-match-only tsconfig paths; the
+  platform-dom vitest project carries no gpu-specific alias. 30
+  mechanism-only typecheck fixes in the moved gpu tests, reviewer-verified
+  semantics-preserving.
+- Test baseline moved 153 files/1,942 tests → 154/1,950 (+6 registry guard
+  tests in Task 1, +2 config-sync guard tests in Task 2).
+- The Task 4 codemod excluded `tests/unit/scripts/workspace-aliases.test.js`
+  (its `@prismgb` literals are compat-prefix test data).
+- The plan's anticipated isolatedModules fallout in `src/platform/**` never
+  materialized; typecheck:app passed on first run after the move.
+- The exit e2e gate caught a codemod-invisible regression class: Playwright
+  resolves helpers with plain Node, so the two platform imports reachable
+  from e2e (devices testkit, ipc channels) needed a registry-driven esbuild
+  prebundle via globalSetup (esbuild is consumed transitively from vite;
+  declaring it an explicit devDependency deferred to avoid an offline
+  lockfile rewrite — flagged for owner follow-up).
+
