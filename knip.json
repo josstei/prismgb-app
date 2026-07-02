@@ -21,7 +21,6 @@
       "project": ["src/**/*.{ts,js}"],
       "ignoreDependencies": [
         "@electron/notarize",
-        "@preact/signals-core",
         "electron-log",
         "type-fest"
       ],

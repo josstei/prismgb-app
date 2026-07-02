@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect } from '../../../../../src/platform/ui-base/reactive/signal.js';
+import { signal, computed, effect } from '../../../../../src/platform/ui-base/reactive/index.js';
 
-describe('signal primitive', () => {
-  it('runs effects eagerly and re-runs synchronously on each change', () => {
+describe('reactive facade (@preact/signals-core)', () => {
+  it('runs effects immediately and re-runs synchronously on each change', () => {
     const count = signal(0);
     const seen: number[] = [];
-    const dispose = effect(() => seen.push(count.value));
+    const dispose = effect(() => {
+      seen.push(count.value);
+    });
     expect(seen).toEqual([0]);
     count.value = 1;
     count.value = 2;
@@ -13,9 +15,11 @@ describe('signal primitive', () => {
     dispose();
   });
 
-  it('skips no-op (Object.is) writes', () => {
+  it('skips writes of an identical value', () => {
     const s = signal(1);
-    const fn = vi.fn(() => s.value);
+    const fn = vi.fn(() => {
+      s.value;
+    });
     effect(fn);
     expect(fn).toHaveBeenCalledTimes(1);
     s.value = 1;
@@ -32,30 +36,38 @@ describe('signal primitive', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('computed derives and recomputes when an input changes', () => {
+  it('computed derives lazily and recomputes when an input changes', () => {
     const a = signal(2);
     const b = signal(3);
-    const sum = computed(() => a.value + b.value);
+    const compute = vi.fn(() => a.value + b.value);
+    const sum = computed(compute);
+    expect(compute).not.toHaveBeenCalled();
     expect(sum.value).toBe(5);
     a.value = 10;
     expect(sum.value).toBe(13);
   });
 
-  it('diamond: a single source change yields the correct derived value', () => {
+  it('diamond: a single source change re-runs a dependent effect once, glitch-free', () => {
     const d = signal(1);
     const b = computed(() => d.value + 1);
     const c = computed(() => d.value * 2);
     const a = computed(() => b.value + c.value);
-    expect(a.value).toBe(4);
+    const seen: number[] = [];
+    effect(() => {
+      seen.push(a.value);
+    });
+    expect(seen).toEqual([4]);
     d.value = 5;
-    expect(a.value).toBe(16);
+    expect(seen).toEqual([4, 16]);
   });
 
   it('cleans up stale dependencies (dynamic deps)', () => {
     const useX = signal(true);
     const x = signal('x');
     const y = signal('y');
-    const fn = vi.fn(() => (useX.value ? x.value : y.value));
+    const fn = vi.fn(() => {
+      void (useX.value ? x.value : y.value);
+    });
     effect(fn);
     expect(fn).toHaveBeenCalledTimes(1);
     useX.value = false;
@@ -68,7 +80,9 @@ describe('signal primitive', () => {
 
   it('dispose() stops re-runs and detaches the effect', () => {
     const s = signal(0);
-    const fn = vi.fn(() => s.value);
+    const fn = vi.fn(() => {
+      s.value;
+    });
     const dispose = effect(fn);
     s.value = 1;
     expect(fn).toHaveBeenCalledTimes(2);
@@ -77,7 +91,7 @@ describe('signal primitive', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it('does not infinitely cascade when an effect writes a different signal', () => {
+  it('allows an effect to write a different signal without cascading', () => {
     const src = signal(0);
     const out = signal(0);
     effect(() => {

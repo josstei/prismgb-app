@@ -1,5 +1,5 @@
-import { effect } from './signal.js';
-import type { ReadonlySignal } from './signal.js';
+import { effect } from '@preact/signals-core';
+import type { ReadonlySignal } from '@preact/signals-core';
 import type { DisposableFunction } from '@platform/core';
 
 interface TextSink {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signal } from '../../../../../src/platform/ui-base/reactive/signal.js';
+import { signal } from '../../../../../src/platform/ui-base/reactive/index.js';
 import { bindText, bindClass, bindAttr, bindStyleProperty } from '../../../../../src/platform/ui-base/reactive/dom-bindings.js';
 
 describe('dom-bindings', () => {
