@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { throttle, debounce, createDeferred, abortableDelay, raceWithTimeout } from '@platform/core';
+import { throttle, debounce, abortableDelay, raceWithTimeout } from '@platform/core';
 
 describe('throttle', () => {
   it('invokes on the leading edge and suppresses until the interval elapses', () => {
@@ -69,20 +69,6 @@ describe('debounce', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-});
-
-describe('createDeferred', () => {
-  it('resolves from outside the executor', async () => {
-    const deferred = createDeferred<number>();
-    deferred.resolve(42);
-    await expect(deferred.promise).resolves.toBe(42);
-  });
-
-  it('rejects from outside the executor', async () => {
-    const deferred = createDeferred<void>();
-    deferred.reject(new Error('nope'));
-    await expect(deferred.promise).rejects.toThrow('nope');
   });
 });
 

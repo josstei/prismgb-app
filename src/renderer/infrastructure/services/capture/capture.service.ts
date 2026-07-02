@@ -1,4 +1,4 @@
-import { BaseService, createDeferred } from '@platform/core';
+import { BaseService } from '@platform/core';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@platform/events';
@@ -286,7 +286,7 @@ class CaptureService extends BaseService {
 
     this.disposables.replace(RECORDER_STOP_WAIT_LIFECYCLE, () => clearTimeout(timeout));
 
-    const deferred = createDeferred<void>();
+    const deferred = Promise.withResolvers<void>();
 
     this._stopWaiter = {
       promise: deferred.promise,

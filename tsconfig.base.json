@@ -85,7 +85,7 @@
       "vite/client"
     ],
     "lib": [
-      "ES2022",
+      "ES2024",
       "DOM",
       "DOM.Iterable"
     ]
