@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { throttle, createDeferred } from '@platform/core';
+import { throttle, debounce, createDeferred } from '@platform/core';
 
 describe('throttle', () => {
   it('invokes on the leading edge and suppresses until the interval elapses', () => {
@@ -17,6 +17,55 @@ describe('throttle', () => {
       throttled('c');
       expect(fn).toHaveBeenCalledTimes(2);
       expect(fn).toHaveBeenLastCalledWith('c');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('debounce', () => {
+  it('invokes on the trailing edge with the latest arguments', () => {
+    vi.useFakeTimers();
+    try {
+      const fn = vi.fn();
+      const debounced = debounce(fn, 100);
+      debounced('a');
+      debounced('b');
+      expect(fn).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(100);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith('b');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('restarts the delay on each call', () => {
+    vi.useFakeTimers();
+    try {
+      const fn = vi.fn();
+      const debounced = debounce(fn, 100);
+      debounced('a');
+      vi.advanceTimersByTime(60);
+      debounced('b');
+      vi.advanceTimersByTime(60);
+      expect(fn).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(40);
+      expect(fn).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancel() drops the pending invocation', () => {
+    vi.useFakeTimers();
+    try {
+      const fn = vi.fn();
+      const debounced = debounce(fn, 100);
+      debounced('a');
+      debounced.cancel();
+      vi.advanceTimersByTime(100);
+      expect(fn).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

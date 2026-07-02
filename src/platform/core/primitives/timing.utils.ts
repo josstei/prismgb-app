@@ -19,3 +19,39 @@ export function throttle<TArgs extends unknown[]>(
     }
   };
 }
+
+/** A debounced callable that can drop its pending trailing invocation. */
+export interface DebouncedFunction<TArgs extends unknown[]> {
+  (...args: TArgs): void;
+  cancel(): void;
+}
+
+/**
+ * Trailing-edge debounce: postpones `fn` until `delayMs` has elapsed since
+ * the most recent call; `cancel()` drops any pending invocation.
+ */
+export function debounce<TArgs extends unknown[]>(
+  fn: (...args: TArgs) => void,
+  delayMs: number
+): DebouncedFunction<TArgs> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: TArgs): void => {
+    if (timer !== null) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => {
+      timer = null;
+      fn(...args);
+    }, delayMs);
+  };
+
+  debounced.cancel = (): void => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  return debounced;
+}

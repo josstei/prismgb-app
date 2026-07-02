@@ -2,6 +2,7 @@ import { TIMING } from '@platform/config';
 import { DeviceCatalog } from '@platform/devices';
 import type { DeviceId, DeviceInfoPayload, DeviceStatus, DeviceStatusPayload } from '@platform/devices';
 import type { IpcActionResult } from '@platform/ipc';
+import { debounce } from '@platform/core';
 import type { LoggerLike, StorageServiceLike } from '@platform/core';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient, type RendererTrpcClient } from '@renderer/infrastructure/ipc/trpc-client';
@@ -113,7 +114,6 @@ export class BrowserMediaDevicesPort implements MediaDevicesPort {
   private readonly browserMediaService: BrowserMediaServiceLike;
   private readonly debounceMs: number;
   private readonly logger?: LoggerLike;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     browserMediaService: BrowserMediaServiceLike,
@@ -134,25 +134,13 @@ export class BrowserMediaDevicesPort implements MediaDevicesPort {
   }
 
   subscribeDeviceChange(onChange: () => void): () => void {
-    const handler = () => {
-      if (this.debounceTimer) {
-        clearTimeout(this.debounceTimer);
-      }
-
-      this.debounceTimer = setTimeout(() => {
-        this.debounceTimer = null;
-        onChange();
-      }, this.debounceMs);
-    };
+    const handler = debounce(onChange, this.debounceMs);
 
     this.browserMediaService.addEventListener('devicechange', handler);
     this.logger?.debug(`Device change listener registered (debounce: ${this.debounceMs}ms)`);
 
     return () => {
-      if (this.debounceTimer) {
-        clearTimeout(this.debounceTimer);
-        this.debounceTimer = null;
-      }
+      handler.cancel();
       this.browserMediaService.removeEventListener('devicechange', handler);
     };
   }
