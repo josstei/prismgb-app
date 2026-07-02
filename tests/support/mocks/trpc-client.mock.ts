@@ -74,9 +74,6 @@ export function createTrpcClientMock() {
     performance: {
       getProcessMetrics: query()
     },
-    gpu: {
-      getPolicy: query()
-    },
     loginItem: {
       get: query(),
       set: mutation()

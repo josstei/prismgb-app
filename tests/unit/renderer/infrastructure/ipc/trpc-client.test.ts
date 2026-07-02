@@ -11,7 +11,6 @@ describe('trpcClient', () => {
     expect(typeof trpcClient.device.getStatus.query).toBe('function');
     expect(typeof trpcClient.device.onConnected.subscribe).toBe('function');
     expect(typeof trpcClient.transcode.start.mutate).toBe('function');
-    expect(typeof trpcClient.gpu.getPolicy.query).toBe('function');
     expect(typeof trpcClient.loginItem.set.mutate).toBe('function');
     expect(typeof trpcClient.window.onResized.subscribe).toBe('function');
   });

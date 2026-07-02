@@ -14,7 +14,6 @@ import {
   updateInfoSchema,
   updateProgressSchema,
   updateErrorSchema,
-  gpuPolicyResponseSchema,
   loginItemGetResponseSchema
 } from '@main/ipc/schemas/index.js';
 import {
@@ -124,12 +123,6 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
 });
 
 describe('IPC query output schemas (trade e graceful fallback)', () => {
-  it('gpuPolicyResponseSchema accepts the success shape and rejects failure envelopes', () => {
-    expect(accepts(gpuPolicyResponseSchema, { success: true, skipWebGPU: false, reason: null })).toBe(true);
-    expect(accepts(gpuPolicyResponseSchema, { success: true, skipWebGPU: true, reason: 'blocklist' })).toBe(true);
-    expect(accepts(gpuPolicyResponseSchema, { success: false, error: 'failed' })).toBe(false);
-    expect(accepts(gpuPolicyResponseSchema, { success: true, skipWebGPU: 'no', reason: null })).toBe(false);
-  });
 
   it('loginItemGetResponseSchema accepts the success shape and rejects failure envelopes', () => {
     expect(accepts(loginItemGetResponseSchema, { success: true, enabled: true })).toBe(true);

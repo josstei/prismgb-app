@@ -211,13 +211,6 @@ describe('appRouter — queries / mutations', () => {
     await expect(caller(context).loginItem.set('yes' as never)).rejects.toThrow();
   });
 
-  it('gpu.getPolicy returns an output-valid policy envelope', async () => {
-    const context = createContext();
-    const result = await caller(context).gpu.getPolicy();
-    expect(result.success).toBe(true);
-    expect(typeof result.skipWebGPU).toBe('boolean');
-  });
-
   it('loginItem.get returns an output-valid enabled envelope', async () => {
     const context = createContext();
     const result = await caller(context).loginItem.get();

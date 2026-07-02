@@ -21,5 +21,4 @@ export {
   transcodeErrorSchema,
   transcodeCancelledSchema
 } from './transcode.schemas.js';
-export { gpuPolicyResponseSchema } from './gpu.schemas.js';
 export { loginItemGetResponseSchema } from './login-item.schemas.js';

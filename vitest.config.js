@@ -52,7 +52,6 @@ const baseCoverageConfig = {
     'src/**/workers/*.{js,ts}',
     // GPU/Canvas/WebGPU APIs not available in vitest
     'src/**/rendering/gpu/*.{js,ts}',
-    'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
     'src/renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter.ts',
     'src/renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter.ts',
     'src/renderer/infrastructure/services/streaming/streaming-renderer.factory.ts',

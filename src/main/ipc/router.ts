@@ -26,7 +26,7 @@ import type {
   TranscodeErrorPayload,
   TranscodeCancelledPayload
 } from '@prismgb/ipc';
-import { getGpuPolicy } from '@main/infrastructure/gpu-policy.js';
+
 import { router, publicProcedure, resultEnvelope, type IpcContext } from './trpc.js';
 import {
   externalUrlSchema,
@@ -42,7 +42,6 @@ import {
   transcodeCompletedSchema,
   transcodeErrorSchema,
   transcodeCancelledSchema,
-  gpuPolicyResponseSchema,
   loginItemGetResponseSchema,
   deviceStatusResponseSchema
 } from './schemas/index.js';
@@ -286,14 +285,6 @@ const performanceRouter = router({
   )
 });
 
-const gpuRouter = router({
-  getPolicy: publicProcedure.output(gpuPolicyResponseSchema).query(({ ctx }) => {
-    const policy = getGpuPolicy();
-    ctx.logger.debug('Resolved GPU policy');
-    return { success: true as const, skipWebGPU: policy.skipWebGPU, reason: policy.reason };
-  })
-});
-
 const loginItemRouter = router({
   get: publicProcedure.output(loginItemGetResponseSchema).query(({ ctx }) => {
     return { success: true as const, enabled: ctx.loginItemService.isEnabled() };
@@ -368,7 +359,6 @@ export const appRouter = router({
   window: windowRouter,
   update: updateRouter,
   performance: performanceRouter,
-  gpu: gpuRouter,
   loginItem: loginItemRouter,
   transcode: transcodeRouter
 });
