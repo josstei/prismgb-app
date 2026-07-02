@@ -1,3 +1,4 @@
+import { deepFreeze, pruneUndefined } from '@prismgb/core';
 import catalog from './catalog.json';
 import type {
   DeviceAcquisitionAttempt,
@@ -57,18 +58,6 @@ function cloneJson<T>(value: T): T {
   return value;
 }
 
-function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value;
-  }
-
-  for (const nestedValue of Object.values(value as JsonObject)) {
-    deepFreeze(nestedValue);
-  }
-
-  return Object.freeze(value);
-}
-
 function cloneAndFreeze<T>(value: T): T {
   return deepFreeze(cloneJson(value));
 }
@@ -82,11 +71,6 @@ function getConstraintValue(value: unknown): unknown {
   return record.ideal ?? record.exact ?? value;
 }
 
-function compactRecord(record: Record<string, unknown>): DeviceConstraintMap {
-  return Object.fromEntries(
-    Object.entries(record).filter(([, value]) => value !== undefined)
-  );
-}
 
 function normalizeFallbackStrategy(value: string | undefined): DeviceMediaFallbackStrategy {
   if (value === 'video-only' || value === 'strict') {
@@ -242,7 +226,7 @@ function getSupportedFrameRates(descriptor: DeviceDescriptor): readonly number[]
 }
 
 function getSimpleVideoConstraints(descriptor: DeviceDescriptor): DeviceConstraintMap {
-  return compactRecord({
+  return pruneUndefined<DeviceConstraintMap>({
     width: getConstraintValue(descriptor.media.video.width),
     height: getConstraintValue(descriptor.media.video.height),
     frameRate: getConstraintValue(descriptor.media.video.frameRate)

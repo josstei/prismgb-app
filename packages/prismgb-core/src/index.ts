@@ -20,6 +20,7 @@ export type { ValueOf, UnionToIntersection, LeafValues, AssertNever } from './ty
 // -----------------------------------------------------------------------------
 export { getElectronApp } from './primitives/electron-app.utils.js';
 export type { ElectronAppLike } from './primitives/electron-app.utils.js';
+export { deepFreeze, pruneUndefined } from './primitives/object.utils.js';
 
 export { Container } from './primitives/container.js';
 export type { Provider, ContainerDisposalLogger } from './primitives/container.js';

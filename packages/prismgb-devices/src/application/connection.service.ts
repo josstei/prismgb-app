@@ -1,4 +1,4 @@
-import { BaseService } from '@prismgb/core';
+import { BaseService, pruneUndefined } from '@prismgb/core';
 import { matchByUsb } from '../domain/matching.js';
 import { toDeviceInfo } from '../domain/payloads.js';
 import type {
@@ -74,40 +74,17 @@ function isSameStatus(left: DeviceStatus, right: DeviceStatus): boolean {
 }
 
 function toObservedUsbDevice(device: UsbDevice): ObservedUsbDevice {
-  const observed: ObservedUsbDevice = {
+  return pruneUndefined<ObservedUsbDevice>({
     vendorId: device.vendorId,
-    productId: device.productId
-  };
-
-  if (device.locationId !== undefined) {
-    observed.locationId = device.locationId;
-  }
-
-  if (device.deviceAddress !== undefined) {
-    observed.deviceAddress = device.deviceAddress;
-  }
-
-  if (device.deviceName !== undefined) {
-    observed.deviceName = device.deviceName;
-  }
-
-  if (device.manufacturer !== undefined) {
-    observed.manufacturer = device.manufacturer;
-  }
-
-  if (device.serialNumber !== undefined) {
-    observed.serialNumber = device.serialNumber;
-  }
-
-  if (device.deviceClass !== undefined) {
-    observed.deviceClass = device.deviceClass;
-  }
-
-  if (device.busNumber !== undefined) {
-    observed.busNumber = device.busNumber;
-  }
-
-  return observed;
+    productId: device.productId,
+    locationId: device.locationId,
+    deviceAddress: device.deviceAddress,
+    deviceName: device.deviceName,
+    manufacturer: device.manufacturer,
+    serialNumber: device.serialNumber,
+    deviceClass: device.deviceClass,
+    busNumber: device.busNumber
+  });
 }
 
 export class DeviceConnectionService extends BaseService {

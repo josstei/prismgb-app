@@ -2,6 +2,7 @@ import {
   DeviceCatalog,
   getDeviceStreamProfile
 } from '../domain/catalog.js';
+import { deepFreeze } from '@prismgb/core';
 import {
   toDeviceInfo,
   toDeviceInfoPayload
@@ -27,17 +28,6 @@ type FrameDataOverrides = Partial<{
   fill: number;
 }>;
 
-function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value;
-  }
-
-  for (const nestedValue of Object.values(value as Record<string, unknown>)) {
-    deepFreeze(nestedValue);
-  }
-
-  return Object.freeze(value);
-}
 
 function resolveDescriptor(source?: FixtureSource): DeviceDescriptor {
   if (typeof source === 'object') {
