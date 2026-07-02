@@ -1,10 +1,7 @@
 import { EventChannels } from '@prismgb/events';
 import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract.js';
 import {
-  TEMPLATE_REF_ATTRIBUTE,
-  TEMPLATE_ACTION_ATTRIBUTE,
   createTemplateRefSelector,
-  createTemplateActionSelector,
   getTemplateAction,
   getTemplateActionTarget,
   bindTemplateRefs
@@ -16,10 +13,7 @@ import type {
 } from '@prismgb/ui-base';
 
 export {
-  TEMPLATE_REF_ATTRIBUTE,
-  TEMPLATE_ACTION_ATTRIBUTE,
   createTemplateRefSelector,
-  createTemplateActionSelector,
   getTemplateAction,
   getTemplateActionTarget,
   bindTemplateRefs

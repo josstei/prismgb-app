@@ -1,5 +1,5 @@
-export const TEMPLATE_REF_ATTRIBUTE = 'data-ref';
-export const TEMPLATE_ACTION_ATTRIBUTE = 'data-action';
+const TEMPLATE_REF_ATTRIBUTE = 'data-ref';
+const TEMPLATE_ACTION_ATTRIBUTE = 'data-action';
 
 export type TemplateRefList<TBindings extends Record<keyof TBindings, HTMLElement | null>> =
   readonly (Extract<keyof TBindings, string>)[];
@@ -21,9 +21,6 @@ export function createTemplateRefSelector(ref: string): string {
   return `[${TEMPLATE_REF_ATTRIBUTE}="${escapeAttributeSelectorValue(ref)}"]`;
 }
 
-export function createTemplateActionSelector(action: string): string {
-  return `[${TEMPLATE_ACTION_ATTRIBUTE}="${escapeAttributeSelectorValue(action)}"]`;
-}
 
 export function getTemplateAction(element: HTMLElement | null | undefined): string | null {
   return element?.getAttribute(TEMPLATE_ACTION_ATTRIBUTE) || null;

@@ -76,9 +76,6 @@ export class PresentationComponent {
     return this._disposables.replace(key, disposable);
   }
 
-  protected replaceManagedAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
-    return this._disposables.replaceAsync(key, disposable);
-  }
 
   protected cancelManaged(key: DisposableKey): void | Promise<void> {
     return this._disposables.cancel(key);

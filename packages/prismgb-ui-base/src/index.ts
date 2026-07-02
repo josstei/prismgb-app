@@ -30,10 +30,7 @@ export { renderListboxOptions, updateListboxActiveState } from './widgets/listbo
 export type { RenderListboxOptions, UpdateListboxActiveStateOptions } from './widgets/listbox.utils.js';
 
 export {
-  TEMPLATE_REF_ATTRIBUTE,
-  TEMPLATE_ACTION_ATTRIBUTE,
   createTemplateRefSelector,
-  createTemplateActionSelector,
   getTemplateAction,
   getTemplateActionTarget,
   bindTemplateRefs
