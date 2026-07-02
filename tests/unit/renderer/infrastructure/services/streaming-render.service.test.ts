@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
+import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@prismgb/gpu/runtime';
 import {
   createAppState,
   createCanvasLifecycleServiceMock,
@@ -24,7 +25,14 @@ const mockSession = {
 };
 
 vi.mock('@prismgb/gpu/runtime', () => ({
-  createGpuVideoRendererSession: vi.fn(async () => mockSession)
+  createGpuVideoRendererSession: vi.fn(async () => mockSession),
+  detectBrowserGpuCapabilities: vi.fn(async () => ({
+    webgpu: true,
+    offscreenCanvas: true,
+    transferControlToOffscreen: true,
+    preferredBackend: 'webgpu',
+    maxTextureSize: 4096
+  }))
 }));
 
 describe('StreamingRenderService', () => {
@@ -142,6 +150,51 @@ describe('StreamingRenderService', () => {
       service.stopPipeline();
 
       expect(mockSession.terminate).toHaveBeenCalled();
+    });
+  });
+
+  describe('backend selection (regression: GPU capability detection wiring)', () => {
+    async function startWith(streamCapabilities: Record<string, unknown>) {
+      mockAppState.setStreaming(true);
+      const startPromise = service.startPipeline({
+        nativeResolution: { width: 160, height: 144 },
+        ...streamCapabilities
+      });
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+      await startPromise;
+    }
+
+    it('detects GPU capabilities and selects WebGPU when available, ignoring the (unset) stream capabilities', async () => {
+      // The device stream capabilities never carry webgpu; the fix must DETECT it.
+      await startWith({ webgpu: false, offscreenCanvas: false, transferControlToOffscreen: false });
+
+      expect(detectBrowserGpuCapabilities).toHaveBeenCalled();
+      expect(createGpuVideoRendererSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preferredBackend: 'webgpu',
+          capabilities: expect.objectContaining({ webgpu: true })
+        })
+      );
+    });
+
+    it('falls back to Canvas2D when detection reports WebGPU unavailable', async () => {
+      vi.mocked(detectBrowserGpuCapabilities).mockResolvedValueOnce({
+        webgpu: false,
+        offscreenCanvas: false,
+        transferControlToOffscreen: false,
+        preferredBackend: 'canvas2d',
+        maxTextureSize: 4096
+      });
+
+      await startWith({ webgpu: true });
+
+      expect(createGpuVideoRendererSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preferredBackend: 'canvas2d',
+          capabilities: expect.objectContaining({ webgpu: false })
+        })
+      );
     });
   });
 });

@@ -8,8 +8,9 @@ import type {
   Dimensions,
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-import { createGpuVideoRendererSession } from '@prismgb/gpu/runtime';
+import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@prismgb/gpu/runtime';
 import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@prismgb/gpu/runtime';
+import type { RenderCapabilities } from '@prismgb/gpu';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;
@@ -88,6 +89,7 @@ export class StreamingRenderService extends BaseService {
   private _lastFrameTime = -1;
   private _videoElement: HTMLVideoElement | null = null;
   private _rvfcHandle: number | null = null;
+  private _gpuCapabilities: RenderCapabilities | null = null;
 
   constructor(dependencies: StreamingRenderDependencies) {
     super(dependencies, 'StreamingRenderService');
@@ -317,12 +319,25 @@ export class StreamingRenderService extends BaseService {
     });
   }
 
+  private async _resolveGpuCapabilities(): Promise<RenderCapabilities> {
+    if (!this._gpuCapabilities) {
+      this._gpuCapabilities = await detectBrowserGpuCapabilities();
+      this.logger.info(
+        `GPU capabilities: webgpu=${this._gpuCapabilities.webgpu}, `
+        + `offscreenTransfer=${this._gpuCapabilities.transferControlToOffscreen}, `
+        + `backend=${this._gpuCapabilities.preferredBackend}`
+      );
+    }
+    return this._gpuCapabilities;
+  }
+
   private async _startRendering(capabilities: StreamingCapabilities): Promise<void> {
     this._currentCapabilities = capabilities;
     const nativeRes = capabilities?.nativeResolution || DeviceCatalog.nativeResolution();
     const video = this.streamViewService.getVideo();
 
-    const useGpu = capabilities.webgpu && !this._performanceModeEnabled;
+    const gpuCapabilities = await this._resolveGpuCapabilities();
+    const useGpu = gpuCapabilities.webgpu && !this._performanceModeEnabled;
 
     this.canvasLifecycleService.setupCanvasSize(nativeRes, useGpu);
 
@@ -349,11 +364,11 @@ export class StreamingRenderService extends BaseService {
         brightness: this._globalBrightness,
         allowCanvas2D: true,
         capabilities: {
-          webgpu: capabilities.webgpu ?? false,
-          offscreenCanvas: capabilities.offscreenCanvas ?? false,
-          transferControlToOffscreen: capabilities.transferControlToOffscreen ?? false,
-          preferredBackend: capabilities.webgpu ? 'webgpu' : 'canvas2d',
-          maxTextureSize: 4096
+          webgpu: gpuCapabilities.webgpu,
+          offscreenCanvas: gpuCapabilities.offscreenCanvas,
+          transferControlToOffscreen: gpuCapabilities.transferControlToOffscreen,
+          preferredBackend: gpuCapabilities.webgpu ? 'webgpu' : 'canvas2d',
+          maxTextureSize: gpuCapabilities.maxTextureSize
         },
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
@@ -419,6 +434,7 @@ export class StreamingRenderService extends BaseService {
     const canvas = this.streamViewService.getCanvas();
 
     try {
+      const gpuCapabilities = await this._resolveGpuCapabilities();
       const session = await createGpuVideoRendererSession({
         canvas,
         nativeResolution: nativeRes,
@@ -427,11 +443,11 @@ export class StreamingRenderService extends BaseService {
         brightness: this._globalBrightness,
         allowCanvas2D: true,
         capabilities: {
-          webgpu: this._currentCapabilities?.webgpu ?? false,
-          offscreenCanvas: this._currentCapabilities?.offscreenCanvas ?? false,
-          transferControlToOffscreen: this._currentCapabilities?.transferControlToOffscreen ?? false,
-          preferredBackend: this._currentCapabilities?.webgpu ? 'webgpu' : 'canvas2d',
-          maxTextureSize: 4096
+          webgpu: gpuCapabilities.webgpu,
+          offscreenCanvas: gpuCapabilities.offscreenCanvas,
+          transferControlToOffscreen: gpuCapabilities.transferControlToOffscreen,
+          preferredBackend: gpuCapabilities.webgpu ? 'webgpu' : 'canvas2d',
+          maxTextureSize: gpuCapabilities.maxTextureSize
         },
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
