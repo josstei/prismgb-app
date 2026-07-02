@@ -1643,7 +1643,7 @@ export type { Deferred, TimedRaceOutcome } from './primitives/async.utils.js';
 `gpu-recording.service.ts`: add `raceWithTimeout` and `type TimedRaceOutcome` to its `@platform/core` import; delete `type CaptureDrainResult = …` (line 27) and replace its two type references with `TimedRaceOutcome` — then delete `_waitForCaptureDrain` (lines 327-343) and change line 152 to:
 
 ```ts
-      const drainResult = await raceWithTimeout(capturePromise, 500);
+      const drainResult: TimedRaceOutcome = await raceWithTimeout(capturePromise, 500);
 ```
 
 - [ ] **Step 5: Focused suites, ladder, commit**
