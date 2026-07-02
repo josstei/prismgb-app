@@ -57,7 +57,6 @@ npm run dev
 | `npm run test:integration` | Run integration tests only |
 | `npm run test:integration:watch` | Watch integration tests |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:all` | Run all tests once (alias) |
 | `npm run test:smoke` | Run smoke test against built app |
 | `npm run generate-icons` | Regenerate app icons |
 

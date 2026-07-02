@@ -12,7 +12,7 @@
         "tests/**/*.{test,spec}.{js,ts}"
       ],
       "project": ["src/**/*.{ts,js}"],
-      "ignoreDependencies": ["eventemitter3", "joi", "@electron/notarize", "ffmpeg-static", "ffprobe-static"],
+      "ignoreDependencies": ["eventemitter3", "@electron/notarize", "ffmpeg-static", "ffprobe-static"],
       "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
     },
     "packages/prismgb-gpu": {
@@ -35,7 +35,6 @@
     "packages/prismgb-gpu/src/infrastructure/index.ts",
     "packages/prismgb-gpu/src/infrastructure/webgl2/index.ts",
     "packages/prismgb-gpu/src/infrastructure/webgpu/index.ts",
-    "**/*.generated.ts",
     "**/*.d.ts",
     "dist/**",
     "release/**",
