@@ -14,20 +14,12 @@ export const GENERATED_ARTIFACT_PATHS = [
     owner: 'Generated repository artifacts'
   },
   {
-    path: 'artifacts/coverage',
-    owner: 'Vitest coverage report'
-  },
-  {
     path: '.vitest',
     owner: 'Vitest cache'
   },
   {
     path: 'playwright-report',
     owner: 'Playwright report'
-  },
-  {
-    path: 'test-results',
-    owner: 'Playwright test artifacts'
   },
   {
     path: 'tests/e2e/test-results',
@@ -52,14 +44,6 @@ export const BUILD_OUTPUT_ARTIFACT_PATHS = [
   {
     path: 'release',
     owner: 'Electron Builder release output'
-  },
-  {
-    path: 'build',
-    owner: 'Local build output'
-  },
-  {
-    path: 'out',
-    owner: 'Local build output'
   }
 ];
 export const BUILD_OUTPUT_PATHS = BUILD_OUTPUT_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);

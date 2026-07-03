@@ -19,12 +19,12 @@ Legend
 
 ```mermaid
 flowchart LR
-  RendererAppOrchestrator[RendererAppOrchestrator]
+  AppBootstrap["app-bootstrap.ts"]
   UIEventBridge[UIEventBridge]
   AppOrchestrator[AppOrchestrator]
 
-  RendererAppOrchestrator --> UIEventBridge
-  RendererAppOrchestrator --> AppOrchestrator
+  AppBootstrap --> UIEventBridge
+  AppBootstrap --> AppOrchestrator
 ```
 
 ## 2) UI Events to Streaming

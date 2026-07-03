@@ -8,7 +8,7 @@ import type {
   DeviceConnectionService
 } from '@platform/devices/runtime';
 import type { LoggerFactoryLike } from '@platform/core';
-import type { EventBus } from '@main/infrastructure/events/event-bus.js';
+import type { SharedEventBus } from '@platform/events';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 
@@ -18,7 +18,7 @@ export interface DeviceIntegrationServiceDependencies {
   deviceConnectionService: DeviceConnectionService;
   trayService: TrayService;
   windowService: WindowService;
-  eventBus: EventBus;
+  eventBus: SharedEventBus;
   loggerFactory: LoggerFactoryLike;
 }
 
@@ -26,7 +26,7 @@ export class DeviceIntegrationService extends BaseService {
   private readonly deviceConnectionService: DeviceConnectionService;
   private readonly trayService: TrayService;
   private readonly windowService: WindowService;
-  private readonly eventBus: EventBus;
+  private readonly eventBus: SharedEventBus;
   private unsubscribeStatus: (() => void) | null = null;
   private unsubscribeCheckError: (() => void) | null = null;
 

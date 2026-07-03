@@ -37,7 +37,6 @@ export default defineConfig({
         vite: {
           resolve: {
             alias: {
-              '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
@@ -72,7 +71,6 @@ export default defineConfig({
         vite: {
           resolve: {
             alias: {
-              '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
               '@preload': path.resolve(__dirname, 'src/preload'),
@@ -144,10 +142,7 @@ export default defineConfig({
       ...platformAliasEntries(__dirname),
       { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
       { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') },
-      { find: '@preload', replacement: path.resolve(__dirname, 'src/preload') },
-      { find: /^@$/, replacement: path.resolve(__dirname, 'src') },
-      { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
-      { find: /^url$/, replacement: 'url/' }
+      { find: '@preload', replacement: path.resolve(__dirname, 'src/preload') }
     ]
   },
 

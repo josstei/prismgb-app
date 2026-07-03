@@ -5,7 +5,7 @@
 
 import pkg from '../../../package.json' assert { type: 'json' };
 import { Container } from '@platform/core';
-import { EventBus } from '@main/infrastructure/events/event-bus.js';
+import { SharedEventBus } from '@platform/events';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
@@ -46,7 +46,7 @@ export function createMainContainer(
   });
   container.registerValue('loggerFactory', loggerFactory);
 
-  container.register('eventBus', (c) => new EventBus({ loggerFactory: c.resolve('loggerFactory') }));
+  container.register('eventBus', (c) => new SharedEventBus({ loggerFactory: c.resolve('loggerFactory') }));
   container.register('windowService', (c) => new WindowService(c.cradle));
   container.register('deviceConnectionService', (c) => new DeviceConnectionService({ loggerFactory: c.resolve('loggerFactory') }));
   container.register('trayService', (c) => new TrayService(c.cradle));

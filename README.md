@@ -333,7 +333,7 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 |---------|-------------|
 | **Orchestrator** | Coordinates services and manages state machines |
 | **Service** | Single-responsibility business logic with event emission |
-| **DI Container** | Compile-time static dependency injection (both processes) |
+| **DI Container** | Runtime dependency-injection container (both processes) |
 | **Event Bus** | EventEmitter3 for cross-service communication |
 | **IPC Bridges** | Translate between main/renderer process boundaries |
 
@@ -358,7 +358,7 @@ The 4-pass shader pipeline processes each frame:
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
 | **USB** | node-usb, libusb |
-| **DI** | Compile-time static container |
+| **DI** | Runtime DI container |
 | **Logging** | electron-log |
 | **Testing** | Vitest, Playwright |
 
@@ -440,7 +440,7 @@ PrismGB includes comprehensive test coverage:
 
 | Test Type | Framework | Description |
 |-----------|-----------|-------------|
-| **Unit Tests** | Vitest | 115+ tests for business logic |
+| **Unit Tests** | Vitest | 1,900+ tests for business logic |
 | **Integration Tests** | Vitest | Multi-service workflow testing |
 | **E2E Tests** | Playwright | Full application workflows |
 | **Smoke Tests** | Custom | Post-build validation |
@@ -452,8 +452,6 @@ npm run test:run      # Single run
 npm run test:coverage # Coverage report
 npm run test:e2e      # E2E tests
 ```
-
-Coverage thresholds: 80% line/function/statement, 75% branches.
 
 ## Contributing
 

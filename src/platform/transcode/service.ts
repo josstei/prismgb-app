@@ -7,4 +7,3 @@
  */
 
 export { TranscodeService } from './transcode.service.js';
-export type { TranscodeJob, TranscodeOptions, TranscodeResult, CancelResult, StatusResult } from './transcode.service.js';

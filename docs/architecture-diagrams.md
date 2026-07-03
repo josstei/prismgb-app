@@ -19,7 +19,7 @@ Legend
 
 ```mermaid
 flowchart LR
-  Container["application/di/container.ts"]
+  Container["application/container.ts"]
   Standard["service-registrations.ts"]
   Manual["manual-providers.ts"]
   DeviceRuntime[RendererDeviceRuntime]

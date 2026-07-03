@@ -6,7 +6,6 @@
 // =============================================================================
 
 export { isErrorLike, getErrorMessage } from './primitives/error.utils.js';
-export type { ErrorLike } from './primitives/error.utils.js';
 
 
 
@@ -19,11 +18,9 @@ export type { ValueOf, UnionToIntersection, LeafValues, AssertNever } from './ty
 // Core Primitives (Classes / Concrete Implementations)
 // -----------------------------------------------------------------------------
 export { getElectronApp } from './primitives/electron-app.utils.js';
-export type { ElectronAppLike } from './primitives/electron-app.utils.js';
 export { deepFreeze, pruneUndefined } from './primitives/object.utils.js';
 
 export { Container } from './primitives/container.js';
-export type { Provider, ContainerDisposalLogger } from './primitives/container.js';
 export { DisposableBag } from './primitives/disposable-bag.js';
 export type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } from './primitives/disposable-bag.js';
 export { ManagedLifecycleHost } from './primitives/managed-lifecycle-host.js';
@@ -34,6 +31,5 @@ export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js
 export { escapeHtml, generateEntityId } from './primitives/string.utils.js';
 export { isRecord, isPromiseLike } from './primitives/guards.utils.js';
 export { throttle, debounce } from './primitives/timing.utils.js';
-export type { DebouncedFunction } from './primitives/timing.utils.js';
 export { abortableDelay, raceWithTimeout } from './primitives/async.utils.js';
 export type { TimedRaceOutcome } from './primitives/async.utils.js';

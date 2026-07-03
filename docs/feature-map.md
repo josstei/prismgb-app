@@ -87,7 +87,7 @@ Do not hand-write device fixture classes or duplicate catalog constants in indiv
 1. Define the `RenderPreset` in `src/platform/gpu/domain/presets.ts`.
 2. Add the preset to `BUILT_IN_PRESETS` with any needed metadata such as `visibleInUI`.
 3. Update `PRESET_POLICY` only when changing the package default, renderer default, or performance-mode preset id.
-4. Use `createShaderPresetCatalog`, `getUiPresets`, `resolvePreset`, and the default preset selectors from `@platform/gpu`; do not add mutable preset registries or import-time registration.
+4. Use `BUILT_IN_PRESET_CATALOG` in `src/platform/gpu/domain/presets.ts` as the default catalog, and `getUiPresets`, `resolvePreset`, `PRESET_POLICY` from `@platform/gpu`; do not add mutable preset registries or import-time registration.
 5. Ensure UI labels and descriptions read well and consider performance-mode interactions.
 
 ### Add a New Setting

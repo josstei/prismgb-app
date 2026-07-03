@@ -3,6 +3,25 @@ import type {
   DeviceInfoPayload,
   DeviceStatusPayload
 } from '@platform/devices';
+import type {
+  UpdateInfoPayload,
+  UpdateProgressPayload,
+  UpdateErrorPayload,
+  TranscodeProgressPayload,
+  TranscodeCompletedPayload,
+  TranscodeCancelledPayload,
+  TranscodeErrorPayload
+} from '@platform/events';
+
+export type {
+  UpdateInfoPayload,
+  UpdateProgressPayload,
+  UpdateErrorPayload,
+  TranscodeProgressPayload,
+  TranscodeCompletedPayload,
+  TranscodeCancelledPayload,
+  TranscodeErrorPayload
+};
 
 export interface IpcActionResult {
   success: boolean;
@@ -12,25 +31,6 @@ export interface IpcActionResult {
 export type { DeviceInfoPayload, DeviceStatusPayload };
 
 export type DeviceStatusResponse = IpcActionResult & DeviceStatusPayload;
-
-export interface UpdateInfoPayload {
-  version?: string;
-  releaseDate?: string;
-  releaseNotes?: unknown;
-  reason?: string;
-}
-
-export interface UpdateProgressPayload {
-  percent?: number;
-  bytesPerSecond?: number;
-  transferred?: number;
-  total?: number;
-}
-
-export interface UpdateErrorPayload {
-  message?: string;
-  code?: string;
-}
 
 export interface UpdateStatusPayload {
   state?: UpdateStateValue;
@@ -65,29 +65,6 @@ export interface TranscodeJobPayload {
   outputPath: string | null;
   error: string | null;
   startTime: number;
-}
-
-export interface TranscodeProgressPayload {
-  jobId?: string;
-  percent: number;
-  timeUs?: number;
-  elapsedMs?: number;
-}
-
-export interface TranscodeCompletedPayload {
-  jobId?: string;
-  filePath?: string | null;
-  outputPath?: string;
-}
-
-export interface TranscodeCancelledPayload {
-  jobId?: string;
-}
-
-export interface TranscodeErrorPayload {
-  jobId?: string;
-  error?: string;
-  message?: string;
 }
 
 export interface TranscodeStartResponse extends IpcActionResult {

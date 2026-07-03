@@ -1,13 +1,10 @@
 /**
  * Dependency boundary gate — boundaries as configuration.
  *
- * Single owner of every import-boundary rule that previously lived in
- * scripts/check-layer-boundaries.js, the import half of
- * scripts/check-gpu-package-boundaries.js, and the no-restricted-imports
- * blocks in eslint.config.js. Platform-module public surfaces derive from
- * scripts/lib/workspace-aliases.mjs so the alias registry stays the single
- * source of truth. Loading the registry uses require() of an ESM module,
- * which needs Node >= 22.12.
+ * Single owner of every import-boundary rule. Platform-module public
+ * surfaces derive from scripts/lib/workspace-aliases.mjs so the alias
+ * registry stays the single source of truth. Loading the registry uses
+ * require() of an ESM module, which needs Node >= 22.12.
  */
 const { PLATFORM_MODULES, PLATFORM_ROOT } = require('./scripts/lib/workspace-aliases.mjs');
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
+import { getErrorMessage } from '@platform/core';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { toDeviceStatusPayload } from '@platform/devices';
 import type {
@@ -45,10 +46,6 @@ import {
   loginItemGetResponseSchema,
   deviceStatusResponseSchema
 } from './schemas/index.js';
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown error';
-}
 
 function toBuffer(inputBuffer: ArrayBuffer): Buffer {
   return Buffer.from(inputBuffer);
@@ -104,7 +101,7 @@ const deviceRouter = router({
           state: 'error',
           connected: false,
           device: null,
-          error: errorMessage(error)
+          error: getErrorMessage(error)
         };
       }
     )
@@ -126,7 +123,7 @@ const deviceRouter = router({
           state: 'error',
           connected: false,
           device: null,
-          error: errorMessage(error)
+          error: getErrorMessage(error)
         };
       }
     )
@@ -148,7 +145,7 @@ const shellRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to open external URL:', error);
-        return { success: false, error: errorMessage(error) } as ShellOpenExternalResponse;
+        return { success: false, error: getErrorMessage(error) } as ShellOpenExternalResponse;
       }
     )
   )
@@ -164,7 +161,7 @@ const windowRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to set fullscreen:', error);
-        return { success: false, error: errorMessage(error) } as WindowSetFullscreenResponse;
+        return { success: false, error: getErrorMessage(error) } as WindowSetFullscreenResponse;
       }
     )
   ),
@@ -173,7 +170,7 @@ const windowRouter = router({
       () => ({ success: true, isFullscreen: ctx.windowService.isFullScreen() } as WindowIsFullscreenResponse),
       (error) => {
         ctx.logger.error('Failed to get fullscreen state:', error);
-        return { success: false, isFullscreen: false, error: errorMessage(error) } as WindowIsFullscreenResponse;
+        return { success: false, isFullscreen: false, error: getErrorMessage(error) } as WindowIsFullscreenResponse;
       }
     )
   ),
@@ -197,7 +194,7 @@ const updateRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to check for updates:', error);
-        return { success: false, error: errorMessage(error) } as UpdateCheckResponse;
+        return { success: false, error: getErrorMessage(error) } as UpdateCheckResponse;
       }
     )
   ),
@@ -209,7 +206,7 @@ const updateRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to download update:', error);
-        return { success: false, error: errorMessage(error) } as UpdateDownloadResponse;
+        return { success: false, error: getErrorMessage(error) } as UpdateDownloadResponse;
       }
     )
   ),
@@ -221,7 +218,7 @@ const updateRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to install update:', error);
-        return { success: false, error: errorMessage(error) } as UpdateInstallResponse;
+        return { success: false, error: getErrorMessage(error) } as UpdateInstallResponse;
       }
     )
   ),
@@ -233,7 +230,7 @@ const updateRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to get update status:', error);
-        return { success: false, error: errorMessage(error) } as UpdateGetStatusResponse;
+        return { success: false, error: getErrorMessage(error) } as UpdateGetStatusResponse;
       }
     )
   ),
@@ -279,7 +276,7 @@ const performanceRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to get process metrics:', error);
-        return { success: false, error: errorMessage(error) } as ProcessMetricsResponse;
+        return { success: false, error: getErrorMessage(error) } as ProcessMetricsResponse;
       }
     )
   )
@@ -298,7 +295,7 @@ const loginItemRouter = router({
       },
       (error) => {
         ctx.logger.error('Failed to set login item:', error);
-        return { success: false, error: errorMessage(error) } as LoginItemSetResponse;
+        return { success: false, error: getErrorMessage(error) } as LoginItemSetResponse;
       }
     )
   )
@@ -317,7 +314,7 @@ const transcodeRouter = router({
         }),
       (error) => {
         ctx.logger.error('Failed to start transcode:', error);
-        return { success: false, error: errorMessage(error) } as TranscodeStartResponse;
+        return { success: false, error: getErrorMessage(error) } as TranscodeStartResponse;
       }
     )
   ),
@@ -326,7 +323,7 @@ const transcodeRouter = router({
       () => ctx.transcodeService.cancel(input.jobId),
       (error) => {
         ctx.logger.error('Failed to cancel transcode:', error);
-        return { success: false, error: errorMessage(error) } as TranscodeCancelResponse;
+        return { success: false, error: getErrorMessage(error) } as TranscodeCancelResponse;
       }
     )
   ),
@@ -335,7 +332,7 @@ const transcodeRouter = router({
       () => ctx.transcodeService.getStatus(),
       (error) => {
         ctx.logger.error('Failed to get transcode status:', error);
-        return { success: false, error: errorMessage(error) } as TranscodeStatusResponse;
+        return { success: false, error: getErrorMessage(error) } as TranscodeStatusResponse;
       }
     )
   ),

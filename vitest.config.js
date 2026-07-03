@@ -10,7 +10,6 @@ import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAlias = {
-  '@': path.resolve(__dirname, 'src'),
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   '@preload': path.resolve(__dirname, 'src/preload'),
@@ -26,7 +25,6 @@ const baseCoverageConfig = {
   exclude: [
     'node_modules/**',
     'dist/**',
-    'build/**',
     '**/*.test.{js,ts}',
     '**/*.spec.{js,ts}',
     '**/index.{js,ts}',
@@ -34,16 +32,10 @@ const baseCoverageConfig = {
     'assets/**',
     // Auto-update feature requires Electron autoUpdater API
     'src/renderer/infrastructure/services/updates/**',
-    // Canvas lifecycle requires complex DOM/Canvas API interactions
-    'src/**/canvas-lifecycle.service.{js,ts}',
     // UI templates use Vite ?raw imports for SVGs not available in vitest
     'src/renderer/presentation/shell/*.{js,ts}',
     'src/renderer/presentation/icons/*.{js,ts}',
     'src/renderer/presentation/features/**/*.template.{js,ts}',
-    // Interface and type-only files (abstract base classes, contracts, type definitions)
-    'src/**/*.interface.{js,ts}',
-    'src/**/*.type.ts',
-    'src/**/*.types.ts',
     // Type declaration files
     'src/**/*.d.ts',
     // JSON configuration files
@@ -71,15 +63,12 @@ export default defineConfig({
       {
         test: {
           alias: sharedAlias,
-          name: 'shared-node',
+          name: 'scripts-node',
           globals: true,
           environment: 'node',
           include: [
-            'tests/unit/config/**/*.{test,spec}.{js,ts}',
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
-            'tests/unit/shared/**/*.{test,spec}.{js,ts}',
-            'tests/unit/utils/**/*.{test,spec}.{js,ts}',
-            'tests/unit/factories/**/*.{test,spec}.{js,ts}'
+            'tests/unit/support/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),

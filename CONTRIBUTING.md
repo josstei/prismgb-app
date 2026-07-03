@@ -163,7 +163,7 @@ ci: add security scanning to PR workflow
 
 This project uses Husky to enforce commit conventions:
 
-- **pre-commit**: Runs `npm run test:run` (Vitest, single run)
+- **pre-commit**: Runs `npx lint-staged` and `npm run typecheck:app`
 - **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
@@ -315,10 +315,7 @@ npm run test:smoke       # Smoke test (requires build)
 
 ### Coverage Requirements
 
-- Lines: 80%
-- Functions: 80%
-- Statements: 80%
-- Branches: 75%
+Coverage is reported via `npm run test:coverage` (v8 provider); no thresholds are currently enforced.
 
 ### Writing Tests
 

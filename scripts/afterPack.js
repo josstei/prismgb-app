@@ -212,31 +212,6 @@ function getFfmpegBinaryPath(unpackedDir, binaryName, platform, arch) {
 }
 
 /**
- * Get the bundled ffmpeg/ffprobe path in extraResources.
- * assets/ffmpeg/<platform>/<arch>/<binary>
- * @param {string} appOutDir - The output directory for the app
- * @param {string} binaryName - The binary name (ffmpeg or ffprobe)
- * @param {string} platform - The target platform
- * @param {number} arch - The architecture (Arch enum value)
- * @returns {string} Full path to the bundled binary
- */
-function getBundledFfmpegPath(appOutDir, binaryName, platform, arch) {
-  const extension = platform === 'win32' ? '.exe' : '';
-  const archMap = {
-    [Arch.x64]: 'x64',
-    [Arch.ia32]: 'ia32',
-    [Arch.armv7l]: 'arm',
-    [Arch.arm64]: 'arm64',
-    [Arch.universal]: 'x64',
-  };
-  const archDir = archMap[arch] || 'x64';
-  const resourcesDir = platform === 'darwin'
-    ? path.join(appOutDir, 'PrismGB.app', 'Contents', 'Resources')
-    : path.join(appOutDir, 'resources');
-
-  return path.join(resourcesDir, 'assets', 'ffmpeg', platform, archDir, `${binaryName}${extension}`);
-}
-/**
  * Set execute permissions on ffmpeg/ffprobe binaries for Linux and macOS
  * @param {string} appOutDir - The output directory for the app
  * @param {string} platform - The target platform
@@ -290,7 +265,6 @@ async function signFfmpegBinaries(appOutDir, platform, arch) {
 
   for (const binaryName of FFMPEG_BINARIES) {
     const unpackedPath = getFfmpegBinaryPath(unpackedDir, binaryName, platform, arch);
-    const bundledPath = getBundledFfmpegPath(appOutDir, binaryName, platform, arch);
 
     const signBinary = async (binaryPath, label) => {
       try {
@@ -325,7 +299,6 @@ async function signFfmpegBinaries(appOutDir, platform, arch) {
     };
 
     await signBinary(unpackedPath, `${binaryName} (asar.unpacked)`);
-    await signBinary(bundledPath, `${binaryName} (extraResources)`);
   }
 }
 

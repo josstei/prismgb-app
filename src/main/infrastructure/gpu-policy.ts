@@ -2,7 +2,6 @@ import type { App } from 'electron';
 
 
 export interface GpuPolicy {
-  skipWebGPU: boolean;
   reason: string | null;
   chromiumFlags: Array<[string, string]>;
 }
@@ -21,12 +20,11 @@ export function getGpuPolicy(): GpuPolicy {
   const forceWebGL = process.env[GPU_ENV_VARS.FORCE_WEBGL] === '1';
 
   if (forceWebGPU) {
-    return { skipWebGPU: false, reason: null, chromiumFlags: [] };
+    return { reason: null, chromiumFlags: [] };
   }
 
   if (forceWebGL || isLinuxArmPlatform()) {
     return {
-      skipWebGPU: true,
       reason: forceWebGL
         ? 'PRISMGB_FORCE_WEBGL environment variable'
         : 'ARM Linux: Vulkan drivers typically lack WebGPU support',
@@ -37,7 +35,7 @@ export function getGpuPolicy(): GpuPolicy {
     };
   }
 
-  return { skipWebGPU: false, reason: null, chromiumFlags: [] };
+  return { reason: null, chromiumFlags: [] };
 }
 
 export function applyChromiumFlags(app: App, policy: GpuPolicy): void {

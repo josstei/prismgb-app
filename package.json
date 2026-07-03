@@ -2,6 +2,9 @@
   "name": "prismgb",
   "version": "1.2.1",
   "packageManager": "npm@11.9.0",
+  "engines": {
+    "node": ">=22.12"
+  },
   "description": "Desktop UI for playing with the Mod Retro Chromatic",
   "main": "dist/main/index.js",
   "type": "module",

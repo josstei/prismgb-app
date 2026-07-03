@@ -6,7 +6,6 @@
 
 export { booleanArgumentSchema, externalUrlSchema } from './common.schemas.js';
 export {
-  deviceConnectionStateSchema,
   deviceInfoSchema,
   nullableDeviceInfoSchema,
   deviceStatusPayloadSchema,

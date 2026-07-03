@@ -1,6 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { EventChannels as SharedEventChannels, getEventManifestScopeValues } from '@platform/events';
-import { MainEventChannels } from '@platform/events';
+import { EventChannels, MainEventChannels, getEventManifestScopeValues } from '@platform/events';
 import type { MainEventChannel } from '@platform/events';
 
 function flattenEventValues(node: unknown): string[] {
@@ -22,10 +21,33 @@ function flattenEventValues(node: unknown): string[] {
   return values;
 }
 
-describe('Shared event channel contract', () => {
+describe('Event channel contract', () => {
   it('keeps all event channels unique', () => {
-    const values = flattenEventValues(SharedEventChannels);
+    const values = flattenEventValues(EventChannels);
     expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('enforces event naming format', () => {
+    const values = flattenEventValues(EventChannels);
+    for (const eventName of values) {
+      expect(eventName).toMatch(/^[a-z]+:[a-z0-9-]+$/);
+    }
+  });
+
+  it('defines the full notes event channel set', () => {
+    expect(EventChannels.NOTES).toEqual({
+      NOTE_CREATED: 'notes:note-created',
+      NOTE_UPDATED: 'notes:note-updated',
+      NOTE_DELETED: 'notes:note-deleted'
+    });
+  });
+
+  it('derives renderer channels from event manifest scope', () => {
+    const values = flattenEventValues(EventChannels);
+    const manifestValues = getEventManifestScopeValues('renderer');
+
+    expect(new Set(values)).toEqual(new Set(manifestValues));
+    expect(values).toHaveLength(manifestValues.length);
   });
 
   it('keeps main event channels derived from manifest scope', () => {
@@ -41,12 +63,5 @@ describe('Shared event channel contract', () => {
     expectTypeOf<MainEventChannel>().toEqualTypeOf<
       'device:connection-changed' | 'device:check-error' | 'update:state-changed'
     >();
-  });
-
-  it('enforces event naming format', () => {
-    const values = flattenEventValues(SharedEventChannels);
-    for (const eventName of values) {
-      expect(eventName).toMatch(/^[a-z]+:[a-z0-9-]+$/);
-    }
   });
 });
