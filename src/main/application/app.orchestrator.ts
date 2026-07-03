@@ -17,7 +17,6 @@ import type { DeviceIntegrationService } from '@main/infrastructure/devices/devi
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@platform/updates';
-import type { UpdateBridge } from '@platform/updates';
 import type { TranscodeService } from '@platform/transcode/service';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
@@ -40,7 +39,6 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
     @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
     @inject(TOKENS.updateService) private readonly updateService: UpdateService,
-    @inject(TOKENS.updateBridgeService) private readonly updateBridgeService: UpdateBridge,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
     @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
@@ -58,8 +56,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Subscribe app-owned device side effects before the first runtime reconciliation.
     this.deviceIntegrationService.initialize();
 
-    // Initialize update bridge and start auto-check (1 hour interval)
-    this.updateBridgeService.initialize();
+    await this.updateService.initialize();
+    this.updateService.startAutoCheck(3600000);
 
     // Initialize transcode service (validates ffmpeg binaries)
     this.transcodeService.initialize();
@@ -122,7 +120,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['device integration service', this.deviceIntegrationService],
       ['device connection service', this.deviceConnectionService],
       ['system tray', this.trayService, 'destroy'],
-      ['update bridge service', this.updateBridgeService],
+      ['update service', this.updateService],
       ['transcode service', this.transcodeService]
     ]);
 

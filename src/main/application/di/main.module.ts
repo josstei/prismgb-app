@@ -1,7 +1,7 @@
 import { ContainerModule } from 'inversify';
 import { SharedEventBus } from '@platform/events';
 import { DeviceConnectionService } from '@platform/devices/runtime';
-import { UpdateService, UpdateBridge } from '@platform/updates';
+import { UpdateService } from '@platform/updates';
 import { TranscodeService } from '@platform/transcode/service';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
@@ -37,11 +37,6 @@ export const mainModule = new ContainerModule(({ bind }) => {
     eventBus: ctx.get(TOKENS.eventBus),
     loggerFactory: ctx.get(TOKENS.loggerFactory),
     config: ctx.get(TOKENS.config)
-  })).inSingletonScope();
-
-  bind(TOKENS.updateBridgeService).toDynamicValue((ctx) => new UpdateBridge({
-    updateService: ctx.get(TOKENS.updateService),
-    loggerFactory: ctx.get(TOKENS.loggerFactory)
   })).inSingletonScope();
 
   bind(TOKENS.transcodeService).toDynamicValue((ctx) => new TranscodeService({

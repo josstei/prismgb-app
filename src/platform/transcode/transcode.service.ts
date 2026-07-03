@@ -96,7 +96,6 @@ class TranscodeService extends BaseService {
   private _jobs: Map<string, TranscodeJob> = new Map();
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
-  private _isInitialized = false;
   private _isDisposing = false;
 
   constructor(dependencies: TranscodeServiceDependencies) {
@@ -107,12 +106,7 @@ class TranscodeService extends BaseService {
   /**
    * Initialize the transcode service
    */
-  initialize(): void {
-    if (this._isInitialized) {
-      this.logger.warn('TranscodeService already initialized');
-      return;
-    }
-
+  protected override onInitialize(): void {
     this.logger.info('Initializing transcode service');
     this._isDisposing = false;
 
@@ -125,12 +119,11 @@ class TranscodeService extends BaseService {
       // Don't throw - service can still be initialized, but transcode will fail
     }
 
-    this._isInitialized = true;
     this.logger.info('TranscodeService initialized');
   }
 
   async transcode({ inputBuffer, format, outputFilename, inputArgs }: TranscodeOptions): Promise<TranscodeResult> {
-    if (!this._isInitialized) {
+    if (!this._initialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
 
@@ -368,7 +361,7 @@ class TranscodeService extends BaseService {
     this._processes.clear();
     this._sessions.clear();
 
-    this._isInitialized = false;
+    this._initialized = false;
     this.logger.info('TranscodeService disposed');
   }
 }

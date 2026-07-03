@@ -8,7 +8,7 @@ import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
 import type { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import type { UpdateService, UpdateBridge } from '@platform/updates';
+import type { UpdateService } from '@platform/updates';
 import type { TranscodeService } from '@platform/transcode/service';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import type { AppOrchestrator } from '../app.orchestrator.js';
@@ -38,7 +38,6 @@ export const TOKENS = {
   mainProcessTestControl: token<MainProcessTestControl>('mainProcessTestControl'),
   deviceIntegrationService: token<DeviceIntegrationService>('deviceIntegrationService'),
   updateService: token<UpdateService>('updateService'),
-  updateBridgeService: token<UpdateBridge>('updateBridgeService'),
   transcodeService: token<TranscodeService>('transcodeService'),
   loginItemService: token<LoginItemService>('loginItemService'),
   appOrchestrator: token<AppOrchestrator>('appOrchestrator')

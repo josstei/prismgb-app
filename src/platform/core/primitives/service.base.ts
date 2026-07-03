@@ -1,6 +1,6 @@
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
-import type { DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
+import type { DisposableBag, DisposableFunction, DisposableKey } from './disposable-bag.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -40,6 +40,7 @@ export class BaseService {
   protected logger!: LoggerLike;
   protected readonly lifecycle: ManagedLifecycleHost;
   protected readonly disposables: DisposableBag;
+  protected _initialized: boolean;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
 
@@ -56,9 +57,28 @@ export class BaseService {
 
     this.lifecycle = new ManagedLifecycleHost();
     this.disposables = this.lifecycle.disposables;
+    this._initialized = false;
     this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
     this._serviceName = name;
   }
+
+  initialize(..._args: unknown[]): void | Promise<void> {
+    if (this._initialized) {
+      this.logger?.warn(`${this._serviceName} already initialized`);
+      return;
+    }
+
+    const result = this.onInitialize();
+    if (result instanceof Promise) {
+      return result.then(() => {
+        this._initialized = true;
+      });
+    }
+
+    this._initialized = true;
+  }
+
+  protected onInitialize(): void | Promise<void> {}
 
   listen(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction {
     if (!this._eventBus) {
@@ -78,15 +98,6 @@ export class BaseService {
     }
   }
 
-  subscribe(
-    target: EventTargetLike,
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions | boolean
-  ): DisposableFunction {
-    return this.lifecycle.subscribeEvent(target, type, listener, options);
-  }
-
   timeout<TArgs extends unknown[]>(
     handler: (...args: TArgs) => void,
     delay: number,
@@ -101,10 +112,6 @@ export class BaseService {
     ...args: TArgs
   ): DisposableFunction {
     return this.lifecycle.interval(handler, delay, ...args);
-  }
-
-  animationFrame(handler: FrameRequestCallback): DisposableFunction {
-    return this.lifecycle.animationFrame(handler);
   }
 
   schedule<TArgs extends unknown[]>(

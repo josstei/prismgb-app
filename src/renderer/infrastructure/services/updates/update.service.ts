@@ -41,7 +41,6 @@ class UpdateService extends BaseService {
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
-  private _initialized: boolean;
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: UpdateEventBus,
@@ -53,15 +52,9 @@ class UpdateService extends BaseService {
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._initialized = false;
   }
 
-  async initialize() {
-    if (this._initialized) {
-      this.logger.warn('UpdateService already initialized');
-      return;
-    }
-
+  protected override async onInitialize(): Promise<void> {
     this.logger.info('Initializing UpdateService');
 
     await this._loadInitialStatus();
@@ -74,7 +67,6 @@ class UpdateService extends BaseService {
       () => trpcClient.update.onError.subscribe(undefined, { onData: (error) => this._handleError(error) })
     ], this.logger));
 
-    this._initialized = true;
     this.logger.info('UpdateService initialized');
   }
 

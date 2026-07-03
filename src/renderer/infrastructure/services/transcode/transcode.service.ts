@@ -26,7 +26,6 @@ interface TranscodeEventBus {
 class TranscodeService extends BaseService {
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
-  private _initialized: boolean;
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: TranscodeEventBus,
@@ -36,15 +35,9 @@ class TranscodeService extends BaseService {
 
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._initialized = false;
   }
 
-  initialize() {
-    if (this._initialized) {
-      this.logger.warn('TranscodeService already initialized');
-      return;
-    }
-
+  protected override onInitialize(): void {
     this.logger.info('Initializing TranscodeService');
 
     this.disposables.replace(TRANSCODE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('TranscodeService', [
@@ -54,7 +47,6 @@ class TranscodeService extends BaseService {
       () => trpcClient.transcode.onCancelled.subscribe(undefined, { onData: (data) => this._handleCancelled(data) })
     ], this.logger));
 
-    this._initialized = true;
     this.logger.info('TranscodeService initialized');
   }
 

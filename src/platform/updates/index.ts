@@ -5,4 +5,3 @@
  */
 
 export { UpdateService } from './update.service.js';
-export { UpdateBridge } from './update.bridge.js';

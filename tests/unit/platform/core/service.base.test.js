@@ -4,8 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BaseService } from '@platform/core';
-import { createEventBus, createLoggerFactory, createMockElement } from '../../../factories/index.js';
-import { installAnimationFrameMock } from '../../../support/mocks/browser-api.installers.js';
+import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 describe('BaseService', () => {
   let mockEventBus;
@@ -78,17 +77,6 @@ describe('BaseService', () => {
       expect(unsub).toHaveBeenCalledTimes(1);
     });
 
-    it('tracks DOM/event-target listeners', async () => {
-      const target = createMockElement('button');
-      const handler = vi.fn();
-
-      service.subscribe(target, 'click', handler);
-      expect(target.addEventListener).toHaveBeenCalledWith('click', handler, undefined);
-
-      await service.dispose();
-      expect(target.removeEventListener).toHaveBeenCalledWith('click', handler, undefined);
-    });
-
     it('tracks timeout and interval lifecycles and clears them on dispose', async () => {
       vi.useFakeTimers();
 
@@ -107,19 +95,6 @@ describe('BaseService', () => {
       vi.useRealTimers();
     });
 
-    it('tracks animation frames and cancels on dispose', async () => {
-      const animationFrameMock = installAnimationFrameMock({ requestAnimationFrame: vi.fn(() => 77), cancelAnimationFrame: vi.fn() });
-      const frame = vi.fn();
-
-      try {
-        service.animationFrame(frame);
-        await service.dispose();
-        expect(animationFrameMock.cancelAnimationFrame).toHaveBeenCalledWith(77);
-      } finally {
-        animationFrameMock.cleanup();
-      }
-    });
-
     it('throws nothing when dispose is called multiple times', async () => {
       const unsub = vi.fn();
       mockEventBus.subscribe = vi.fn(() => unsub);
@@ -127,6 +102,76 @@ describe('BaseService', () => {
 
       await expect(service.dispose()).resolves.toBeUndefined();
       await expect(service.dispose()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('initialize', () => {
+    it('should warn and return early if already initialized', () => {
+      const service = new BaseService({ loggerFactory: mockLoggerFactory }, 'TestService');
+
+      service.initialize();
+      service.initialize();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('TestService already initialized');
+    });
+
+    it('should call a synchronous onInitialize and set _initialized synchronously', () => {
+      class SyncService extends BaseService {
+        onInitialize() {
+          this.hookCalled = true;
+        }
+      }
+
+      const service = new SyncService({ loggerFactory: mockLoggerFactory }, 'SyncService');
+      service.initialize();
+
+      expect(service.hookCalled).toBe(true);
+      expect(service._initialized).toBe(true);
+    });
+
+    it('should not warn twice in a row when a synchronous hook already ran', () => {
+      class CountingService extends BaseService {
+        constructor(deps, name) {
+          super(deps, name);
+          this.callCount = 0;
+        }
+
+        onInitialize() {
+          this.callCount += 1;
+        }
+      }
+
+      const service = new CountingService({ loggerFactory: mockLoggerFactory }, 'CountingService');
+      service.initialize();
+      service.initialize();
+
+      expect(service.callCount).toBe(1);
+    });
+
+    it('should defer _initialized until an asynchronous onInitialize resolves', async () => {
+      class AsyncService extends BaseService {
+        async onInitialize() {
+          await Promise.resolve();
+          this.hookCalled = true;
+        }
+      }
+
+      const service = new AsyncService({ loggerFactory: mockLoggerFactory }, 'AsyncService');
+      const result = service.initialize();
+
+      expect(service._initialized).toBe(false);
+
+      await result;
+
+      expect(service.hookCalled).toBe(true);
+      expect(service._initialized).toBe(true);
+    });
+
+    it('should default to a no-op onInitialize', () => {
+      const service = new BaseService({ loggerFactory: mockLoggerFactory }, 'TestService');
+
+      expect(() => service.initialize()).not.toThrow();
+      expect(service._initialized).toBe(true);
     });
   });
 

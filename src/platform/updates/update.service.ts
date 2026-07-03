@@ -57,7 +57,6 @@ class UpdateService extends BaseService {
   downloadProgress: ProgressInfo | null;
   error: Error | null;
 
-  private _initialized: boolean;
   private _autoCheckRunning: boolean;
 
   constructor(dependencies: UpdateServiceDependencies) {
@@ -72,7 +71,6 @@ class UpdateService extends BaseService {
     this.downloadProgress = null;
     this.error = null;
 
-    this._initialized = false;
     this._autoCheckRunning = false;
   }
 
@@ -80,12 +78,7 @@ class UpdateService extends BaseService {
    * Initialize the update service
    * Sets up autoUpdater configuration and event listeners
    */
-  initialize(): void {
-    if (this._initialized) {
-      this.logger.warn('UpdateService already initialized');
-      return;
-    }
-
+  protected override onInitialize(): void {
     this.logger.info('Initializing update service');
 
     // Configure autoUpdater
@@ -112,7 +105,6 @@ class UpdateService extends BaseService {
     // Set up event listeners
     this._setupEventListeners();
 
-    this._initialized = true;
     this.logger.info('Update service initialized', {
       allowPrerelease: autoUpdater.allowPrerelease,
       version
