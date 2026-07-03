@@ -24,17 +24,12 @@ import type { SettingsService } from '@renderer/infrastructure/services/settings
 import type { NotesService } from '@platform/notes';
 import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { RendererTemplateDeferredComponentIds, type RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';
-import type { RendererUiComponentDependencies } from '@renderer/presentation/controller/ui-component.catalog.js';
+import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
 
 type AppStateLike = {
   readonly isStreaming: boolean;
   readonly isCinematicModeEnabled?: boolean;
   readonly cinematicModeSignal: ReadonlySignal<boolean>;
-};
-
-type DeferredComponentDependencies = {
-  [TId in RendererTemplateDeferredComponentId]: RendererUiComponentDependencies<TId>;
 };
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
@@ -58,18 +53,9 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   }
 
   initializeDeferredComponents(): void {
-    const dependenciesByComponent = this._createDeferredComponentDependencies();
     RendererTemplateDeferredComponentIds.forEach((componentId) => {
-      this.uiController.initializeDeferredComponent(componentId, dependenciesByComponent[componentId]);
+      this.uiController.initializeDeferredComponent(componentId);
     });
-  }
-
-  private _createDeferredComponentDependencies(): DeferredComponentDependencies {
-    return {
-      settingsMenuComponent: { settingsService: this.settingsService, updateOrchestrator: this.updateOrchestrator, eventBus: this.eventBus, loggerFactory: this.loggerFactory, logger: this.logger },
-      shaderSelectorComponent: { settingsService: this.settingsService, appState: this.appState, eventBus: this.eventBus, logger: this.logger },
-      notesPanelComponent: { notesService: this.notesService, eventBus: this.eventBus, logger: this.logger }
-    };
   }
 
   setupUIEventListeners(): void {

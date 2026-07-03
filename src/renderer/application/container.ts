@@ -4,8 +4,28 @@ import { infrastructureModule } from './di/infrastructure.module.js';
 import { applicationModule } from './di/application.module.js';
 import { presentationModule } from './di/presentation.module.js';
 import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service.js';
+import {
+  UiComponentHost,
+  type RendererUiComponentInstanceMap
+} from '../presentation/controller/ui-component.host.js';
+import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
 
 export type RendererServiceContainer = Container;
+
+const ALL_COMPONENT_TOKEN_MAP: Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier> = {
+  statusNotificationComponent: TOKENS.statusNotificationComponent,
+  deviceStatusComponent: TOKENS.deviceStatusComponent,
+  streamControlsComponent: TOKENS.streamControlsComponent,
+  transcodeToastComponent: TOKENS.transcodeToastComponent,
+  settingsMenuComponent: TOKENS.settingsMenuComponent,
+  shaderSelectorComponent: TOKENS.shaderSelectorComponent,
+  notesPanelComponent: TOKENS.notesPanelComponent
+};
+
+const CORE_COMPONENT_TOKEN_MAP: Partial<Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier>> =
+  Object.fromEntries(
+    RendererTemplateCoreComponentIds.map((id) => [id, ALL_COMPONENT_TOKEN_MAP[id]])
+  );
 
 /**
  * Build a renderer DI container wired onto inversify: layer binding modules
@@ -27,6 +47,13 @@ export function createRendererContainer(overrides: Partial<Record<TokenKey, unkn
       return container.get(TOKENS.streamingRenderService);
     }
   })).inSingletonScope();
+
+  container.bind(TOKENS.uiComponentHost).toDynamicValue(() => new UiComponentHost<RendererUiComponentInstanceMap>(
+    <TInstance>(token: unknown): TInstance => container.get(token as ServiceIdentifier<TInstance>),
+    CORE_COMPONENT_TOKEN_MAP,
+    ALL_COMPONENT_TOKEN_MAP,
+    container.get(TOKENS.loggerFactory)
+  )).inSingletonScope();
 
   for (const [key, value] of Object.entries(overrides)) {
     const token: ServiceIdentifier = TOKENS[key as TokenKey];

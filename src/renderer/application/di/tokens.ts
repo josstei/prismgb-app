@@ -52,8 +52,16 @@ import type {
   StorageDevicePreferenceStore
 } from '../../infrastructure/services/devices/device-platform.adapters';
 import type { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
-import type { UIComponentRegistry } from '../../presentation/controller/component.registry';
 import type { UIController } from '../../presentation/controller/ui.controller';
+import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';
+import type { DomBindings } from '../../presentation/primitives/dom-bindings.utils';
+import type { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
+import type { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
+import type { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
+import type { TranscodeToastComponent } from '../../presentation/features/transcode/transcode-toast.component';
+import type { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';
+import type { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
+import type { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
 
 function token<T>(name: string): ServiceIdentifier<T> {
   return Symbol.for(name) as ServiceIdentifier<T>;
@@ -112,7 +120,15 @@ export const TOKENS = {
   mediaDevicesPort: token<BrowserMediaDevicesPort>('mediaDevicesPort'),
   devicePreferenceStore: token<StorageDevicePreferenceStore>('devicePreferenceStore'),
   presentationModeStore: token<PresentationModeStore>('presentationModeStore'),
-  uiComponentRegistry: token<UIComponentRegistry<any>>('uiComponentRegistry'),
+  domBindings: token<DomBindings>('domBindings'),
+  statusNotificationComponent: token<StatusNotificationComponent>('statusNotificationComponent'),
+  deviceStatusComponent: token<DeviceStatusComponent>('deviceStatusComponent'),
+  streamControlsComponent: token<StreamingControlsComponent>('streamControlsComponent'),
+  transcodeToastComponent: token<TranscodeToastComponent>('transcodeToastComponent'),
+  settingsMenuComponent: token<SettingsMenuComponent>('settingsMenuComponent'),
+  shaderSelectorComponent: token<ShaderSelectorComponent>('shaderSelectorComponent'),
+  notesPanelComponent: token<NotesPanelComponent>('notesPanelComponent'),
+  uiComponentHost: token<UiComponentHost<RendererUiComponentInstanceMap>>('uiComponentHost'),
   uiController: token<UIController>('uiController')
 } as const;
 

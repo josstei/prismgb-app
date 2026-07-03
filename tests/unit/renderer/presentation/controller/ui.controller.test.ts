@@ -1,38 +1,35 @@
 /**
  * UIController Unit Tests
- * Tests delegation to UIComponentRegistry and UIEffects
+ * Tests delegation to UiComponentHost and UIEffects
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
+import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 import {
   createLoggerFactory,
-  createSettingsServiceMock,
   createDeviceStatusComponentMock,
   createSettingsMenuComponentMock,
   createShaderSelectorComponentMock,
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,
-  createUIBodyClassManagerMock,
-  createUIComponentRegistryMock,
+  createUiComponentHostMock,
   createUIControllerElementsMock,
-  createUIEffectsMock,
-  createMockElement
+  createUIEffectsMock
 } from '../../../../factories/index.js';
 
 describe('UIController', () => {
   let controller;
   let mockElements;
-  let mockRegistry;
+  let mockHost;
   let mockEffects;
   let mockStatusManager;
   let mockDeviceStatus;
   let mockStreamControls;
   let mockSettingsMenu;
   let mockShaderSelector;
-  let mockBodyClassManager;
   let mockLoggerFactory;
-  let mockLogger;
+  let domBindings;
 
   beforeEach(() => {
     // Create mock elements
@@ -45,6 +42,8 @@ describe('UIController', () => {
       return refMatch ? mockElements[refMatch[1]] || null : null;
     });
 
+    domBindings = createDomBindings(document);
+
     // Create mock components
     mockStatusManager = createStatusNotificationComponentMock();
     mockDeviceStatus = createDeviceStatusComponentMock();
@@ -52,10 +51,8 @@ describe('UIController', () => {
     mockSettingsMenu = createSettingsMenuComponentMock();
     mockShaderSelector = createShaderSelectorComponentMock();
 
-    mockBodyClassManager = createUIBodyClassManagerMock();
-
-    // Create mock registry
-    mockRegistry = createUIComponentRegistryMock({
+    // Create mock host
+    mockHost = createUiComponentHostMock({
       statusNotificationComponent: mockStatusManager,
       deviceStatusComponent: mockDeviceStatus,
       streamControlsComponent: mockStreamControls,
@@ -69,12 +66,11 @@ describe('UIController', () => {
     mockLoggerFactory = createLoggerFactory();
 
     controller = new UIController({
-      uiComponentRegistry: mockRegistry,
+      uiComponentHost: mockHost,
+      domBindings,
       uiEffects: mockEffects,
-      bodyClassManager: mockBodyClassManager,
       loggerFactory: mockLoggerFactory
     });
-    mockLogger = mockLoggerFactory._getLogger('UIController');
   });
 
   describe('Constructor', () => {
@@ -82,8 +78,8 @@ describe('UIController', () => {
       expect(controller.elements).toBeDefined();
     });
 
-    it('should store registry reference', () => {
-      expect(controller.registry).toBe(mockRegistry);
+    it('should store host reference', () => {
+      expect(controller.host).toBe(mockHost);
     });
 
     it('should store effects reference', () => {
@@ -108,47 +104,18 @@ describe('UIController', () => {
   });
 
   describe('initializeComponents', () => {
-    it('should call registry.initialize with elements', () => {
+    it('should touch every core component on the host', () => {
       controller.initializeComponents();
 
-      expect(mockRegistry.initialize).toHaveBeenCalledWith(expect.any(Object), {
-        bodyClassManager: mockBodyClassManager,
-        eventBus: undefined
-      });
+      expect(mockHost.touchCore).toHaveBeenCalled();
     });
   });
 
   describe('initializeDeferredComponent', () => {
-    it('should call registry.initializeComponent with dependencies', () => {
-      const deps = {
-        settingsService: createSettingsServiceMock(),
-        eventBus: {},
-        logger: {}
-      };
+    it('should resolve the deferred component through the host', () => {
+      controller.initializeDeferredComponent('settingsMenuComponent');
 
-      controller.initializeDeferredComponent('settingsMenuComponent', deps);
-
-      expect(mockRegistry.initializeComponent).toHaveBeenCalledWith(
-        'settingsMenuComponent',
-        expect.objectContaining({
-          dependencies: deps
-        })
-      );
-    });
-
-    it('should initialize component with correct elements', () => {
-      const deps = {
-        settingsService: createSettingsServiceMock(),
-        eventBus: {},
-        logger: {}
-      };
-
-      controller.initializeDeferredComponent('settingsMenuComponent', deps);
-
-      const call = mockRegistry.initializeComponent.mock.calls.find(
-        ([id]) => id === 'settingsMenuComponent'
-      );
-      expect(call?.[1]?.elements).toBeDefined();
+      expect(mockHost.get).toHaveBeenCalledWith('settingsMenuComponent');
     });
   });
 
@@ -162,7 +129,7 @@ describe('UIController', () => {
 
 
   describe('deviceStatus getter', () => {
-    it('should return device status component from registry', () => {
+    it('should return device status component from host', () => {
       const result = controller.deviceStatus;
 
       expect(result).toBe(mockDeviceStatus);
@@ -320,11 +287,11 @@ describe('UIController', () => {
       expect(effects.dispose).toHaveBeenCalled();
     });
 
-    it('should dispose registry', async () => {
-      const registry = controller.registry;
+    it('should dispose host', async () => {
+      const host = controller.host;
       await controller.dispose();
 
-      expect(registry.dispose).toHaveBeenCalled();
+      expect(host.dispose).toHaveBeenCalled();
     });
   });
 });

@@ -29,9 +29,8 @@ export {
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,
   createSettingsMenuComponentMock,
-  createUIComponentMock,
   createShaderSelectorComponentMock,
-  createUIComponentRegistryMock,
+  createUiComponentHostMock,
   createUIEffectsMock,
   createUIBodyClassManagerMock,
 

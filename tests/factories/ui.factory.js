@@ -701,14 +701,6 @@ export function createSettingsMenuComponentMock(overrides = {}) {
   };
 }
 
-export function createUIComponentMock(overrides = {}) {
-  return {
-    initialize: vi.fn(),
-    dispose: vi.fn(),
-    ...overrides
-  };
-}
-
 export function createShaderSelectorComponentMock(overrides = {}) {
   return {
     hide: vi.fn(),
@@ -716,19 +708,18 @@ export function createShaderSelectorComponentMock(overrides = {}) {
   };
 }
 
-export function createUIComponentRegistryMock(overrides = {}) {
+export function createUiComponentHostMock(overrides = {}) {
   const {
     statusNotificationComponent = createStatusNotificationComponentMock(),
     deviceStatusComponent = createDeviceStatusComponentMock(),
     streamControlsComponent = createStreamControlsComponentMock(),
     settingsMenuComponent = createSettingsMenuComponentMock(),
     shaderSelectorComponent = createShaderSelectorComponentMock(),
-    initialize = vi.fn(),
-    initializeComponent = vi.fn(),
+    touchCore = vi.fn(),
     dispose = vi.fn(),
     get,
     components = {},
-    ...registryOverrides
+    ...hostOverrides
   } = overrides;
 
   const componentMap = {
@@ -740,20 +731,20 @@ export function createUIComponentRegistryMock(overrides = {}) {
     ...components
   };
 
-  const getWithDefaults = get ?? vi.fn((name) => componentMap[name] || null);
-  const registry = {
-    initialize,
-    initializeComponent,
+  const getWithDefaults = get ?? vi.fn((id) => componentMap[id] || null);
+  const host = {
     get: getWithDefaults,
+    touchCore,
+    resolvedIds: vi.fn(() => Object.keys(componentMap)),
     dispose,
     _components: componentMap,
     _setComponent: (id, component) => {
       componentMap[id] = component;
     },
-    ...registryOverrides
+    ...hostOverrides
   };
 
-  return registry;
+  return host;
 }
 
 export function createUIEffectsMock(overrides = {}) {
@@ -882,9 +873,8 @@ export default {
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,
   createSettingsMenuComponentMock,
-  createUIComponentMock,
   createShaderSelectorComponentMock,
-  createUIComponentRegistryMock,
+  createUiComponentHostMock,
   createUIEffectsMock,
   createUIBodyClassManagerMock,
 

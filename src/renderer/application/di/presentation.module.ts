@@ -9,8 +9,20 @@ import { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
 import { UIEffects } from '../../presentation/effects/ui-effects.class';
 import { AppState } from '../state/app-state';
 import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
-import { UIComponentRegistry } from '../../presentation/controller/component.registry';
-import { rendererUiComponentDefinitions } from '../../presentation/controller/ui-component.catalog';
+import { createDomBindings } from '../../presentation/primitives/dom-bindings.utils';
+import { createTemplateComponentElements } from '../../presentation/primitives/template-dom.contract';
+import { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
+import { StatusNotificationStore } from '../../presentation/state/status-notification.store';
+import { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
+import { DeviceStatusStore } from '../../presentation/state/device-status.store';
+import { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
+import { StreamInfoStore } from '../../presentation/state/stream-info.store';
+import { TranscodeToastComponent } from '../../presentation/features/transcode/transcode-toast.component';
+import { TranscodeProgressStore } from '../../presentation/state/transcode-progress.store';
+import { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';
+import { UpdateSectionComponent } from '../../presentation/features/updates/update-section.component';
+import { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
+import { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
 import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
 import {
   BrowserMediaDevicesPort,
@@ -22,9 +34,10 @@ import { TOKENS } from './tokens.js';
 /**
  * Binding module for every renderer presentation-layer token: decorated
  * bridges/effects bind straight to their class; the non-standard-construction
- * tokens (platform storage/device ports, the UI component registry) and the
- * non-decorated platform-adjacent classes (`NotesService`, `AppState`,
- * `UIEffects`) bind through factories that mirror their prior cradle wiring.
+ * tokens (platform storage/device ports, the seven UI components sharing a
+ * lazily-resolved `domBindings` singleton) and the non-decorated
+ * platform-adjacent classes (`NotesService`, `AppState`, `UIEffects`) bind
+ * through factories that mirror their prior cradle wiring.
  */
 export const presentationModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.bodyClassManager).to(BodyClassManager).inSingletonScope();
@@ -64,12 +77,71 @@ export const presentationModule = new ContainerModule(({ bind }) => {
     })
   ).inSingletonScope();
 
-  bind(TOKENS.uiComponentRegistry).toDynamicValue((ctx) =>
-    new UIComponentRegistry({
-      componentDefinitions: rendererUiComponentDefinitions,
-      loggerFactory: ctx.get(TOKENS.loggerFactory)
+  bind(TOKENS.domBindings).toDynamicValue(() => createDomBindings(document)).inSingletonScope();
+
+  bind(TOKENS.statusNotificationComponent).toDynamicValue((ctx) => new StatusNotificationComponent({
+    elements: createTemplateComponentElements('statusNotificationComponent', ctx.get(TOKENS.domBindings)),
+    store: new StatusNotificationStore({
+      eventBus: ctx.get(TOKENS.eventBus)
     })
-  ).inSingletonScope();
+  })).inSingletonScope();
+
+  bind(TOKENS.deviceStatusComponent).toDynamicValue((ctx) => new DeviceStatusComponent({
+    elements: createTemplateComponentElements('deviceStatusComponent', ctx.get(TOKENS.domBindings)),
+    store: new DeviceStatusStore({
+      eventBus: ctx.get(TOKENS.eventBus),
+      deviceConnectedSignal: ctx.get(TOKENS.appState).deviceConnectedSignal
+    })
+  })).inSingletonScope();
+
+  bind(TOKENS.streamControlsComponent).toDynamicValue((ctx) => new StreamingControlsComponent({
+    elements: createTemplateComponentElements('streamControlsComponent', ctx.get(TOKENS.domBindings)),
+    bodyClassManager: ctx.get(TOKENS.bodyClassManager),
+    store: new StreamInfoStore({ eventBus: ctx.get(TOKENS.eventBus) })
+  })).inSingletonScope();
+
+  bind(TOKENS.transcodeToastComponent).toDynamicValue((ctx) => new TranscodeToastComponent({
+    elements: createTemplateComponentElements('transcodeToastComponent', ctx.get(TOKENS.domBindings)),
+    store: new TranscodeProgressStore({ eventBus: ctx.get(TOKENS.eventBus) })
+  })).inSingletonScope();
+
+  bind(TOKENS.settingsMenuComponent).toDynamicValue((ctx) => {
+    const eventBus = ctx.get(TOKENS.eventBus);
+    const loggerFactory = ctx.get(TOKENS.loggerFactory);
+    const updateOrchestrator = ctx.get(TOKENS.updateOrchestrator);
+    const updateSectionComponent = updateOrchestrator
+      ? new UpdateSectionComponent({ updateOrchestrator, eventBus, loggerFactory })
+      : null;
+
+    const component = new SettingsMenuComponent({
+      settingsService: ctx.get(TOKENS.settingsService),
+      updateSectionComponent,
+      logger: loggerFactory.create('SettingsMenuComponent')
+    });
+    component.initialize(createTemplateComponentElements('settingsMenuComponent', ctx.get(TOKENS.domBindings)));
+    return component;
+  }).inSingletonScope();
+
+  bind(TOKENS.shaderSelectorComponent).toDynamicValue((ctx) => {
+    const component = new ShaderSelectorComponent({
+      settingsService: ctx.get(TOKENS.settingsService),
+      appState: ctx.get(TOKENS.appState),
+      eventBus: ctx.get(TOKENS.eventBus),
+      logger: ctx.get(TOKENS.loggerFactory).create('ShaderSelectorComponent')
+    });
+    component.initialize(createTemplateComponentElements('shaderSelectorComponent', ctx.get(TOKENS.domBindings)));
+    return component;
+  }).inSingletonScope();
+
+  bind(TOKENS.notesPanelComponent).toDynamicValue((ctx) => {
+    const component = new NotesPanelComponent({
+      notesService: ctx.get(TOKENS.notesService),
+      eventBus: ctx.get(TOKENS.eventBus),
+      logger: ctx.get(TOKENS.loggerFactory).create('NotesPanelComponent')
+    });
+    component.initialize(createTemplateComponentElements('notesPanelComponent', ctx.get(TOKENS.domBindings)));
+    return component;
+  }).inSingletonScope();
 
   bind(TOKENS.notesService).toDynamicValue((ctx) => new NotesService({
     eventBus: ctx.get(TOKENS.eventBus),

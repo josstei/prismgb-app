@@ -68,18 +68,9 @@ describe('UISetupOrchestrator', () => {
     it('should initialize all deferred components', () => {
       orchestrator.initializeDeferredComponents();
 
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
-        'settingsMenuComponent',
-        expect.any(Object)
-      );
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
-        'shaderSelectorComponent',
-        expect.any(Object)
-      );
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith(
-        'notesPanelComponent',
-        expect.any(Object)
-      );
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('settingsMenuComponent');
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('shaderSelectorComponent');
+      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('notesPanelComponent');
     });
   });
 

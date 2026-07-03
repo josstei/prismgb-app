@@ -115,23 +115,20 @@ class RendererBootstrap {
   async _initializeUI() {
     const container = this._requireContainer();
 
-    const uiComponentRegistry = container.get(TOKENS.uiComponentRegistry);
+    const uiComponentHost = container.get(TOKENS.uiComponentHost);
+    const domBindings = container.get(TOKENS.domBindings);
     const uiEffects = container.get(TOKENS.uiEffects);
     const bodyClassManager = container.get(TOKENS.bodyClassManager);
     const loggerFactory = container.get(TOKENS.loggerFactory);
-    const eventBus = container.get(TOKENS.eventBus);
-    const appState = container.get(TOKENS.appState);
 
     const presentationModeStore = container.get(TOKENS.presentationModeStore);
     bodyClassManager.bindPresentationMode(presentationModeStore);
 
     const uiController = new UIController({
-      uiComponentRegistry,
+      uiComponentHost,
+      domBindings,
       uiEffects,
-      bodyClassManager,
-      loggerFactory,
-      eventBus,
-      appState
+      loggerFactory
     });
 
     uiEffects.setElements(uiController.elements);

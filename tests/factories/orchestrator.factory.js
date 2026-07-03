@@ -65,12 +65,13 @@ export function createRendererAppContainerMock(overrides = {}) {
       start: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     }),
-    uiComponentRegistry = {
-      initialize: vi.fn(),
-      initializeComponent: vi.fn(),
+    uiComponentHost = {
       get: vi.fn(),
+      touchCore: vi.fn(),
+      resolvedIds: vi.fn(() => []),
       dispose: vi.fn()
     },
+    domBindings = {},
     uiEffects = {
       elements: null,
       triggerShutterFlash: vi.fn(),
@@ -113,7 +114,8 @@ export function createRendererAppContainerMock(overrides = {}) {
 
   const dependencyMap = {
     appOrchestrator,
-    uiComponentRegistry,
+    uiComponentHost,
+    domBindings,
     uiEffects,
     uiEventBridge,
     captureUiBridge,
