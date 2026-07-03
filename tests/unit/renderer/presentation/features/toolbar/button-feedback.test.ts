@@ -104,7 +104,7 @@ describe('ButtonFeedback', () => {
 
       buttonFeedback.dispose();
 
-      expect(buttonFeedback._disposables.size).toBe(0);
+      expect(buttonFeedback.lifecycle.disposables.size).toBe(0);
     });
 
     it('should set elements to null', () => {

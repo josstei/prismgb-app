@@ -15,7 +15,7 @@ class TestComponent extends PresentationComponent {
     return this.replaceAnimationFrame(key, handler);
   }
   get disposableCount() {
-    return this._disposables.size;
+    return this.lifecycle.disposables.size;
   }
 }
 describe('ActivityAutoHideController', () => {

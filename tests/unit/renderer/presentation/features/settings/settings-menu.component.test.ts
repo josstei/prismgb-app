@@ -430,11 +430,11 @@ describe('SettingsMenuComponent', () => {
 
     it('should clear all listeners via manager', async () => {
       component.initialize(mockElements);
-      expect(component._disposables.size).toBeGreaterThan(0);
+      expect(component.lifecycle.disposables.size).toBeGreaterThan(0);
 
       await component.dispose();
 
-      expect(component._disposables.size).toBe(0);
+      expect(component.lifecycle.disposables.size).toBe(0);
     });
   });
 });

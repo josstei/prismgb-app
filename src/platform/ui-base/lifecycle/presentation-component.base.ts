@@ -1,7 +1,6 @@
 import {
   ManagedLifecycleHost,
   type Disposable,
-  type DisposableBag,
   type DisposableFunction,
   type DisposableKey,
   type EventTargetLike
@@ -15,10 +14,6 @@ export type PresentationLifecycleToken = {
 
 export class PresentationComponent {
   protected readonly lifecycle = new ManagedLifecycleHost();
-
-  protected get _disposables(): DisposableBag {
-    return this.lifecycle.disposables;
-  }
 
   protected listen(
     target: EventTargetLike | null,

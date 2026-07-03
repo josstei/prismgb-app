@@ -301,7 +301,7 @@ class SettingsMenuComponent extends PresentationComponent {
   }
 
   _resetExistingInitialization(): void {
-    if (this._initialized || this._disposables.size || this._menuDisclosure || this.listboxDropdowns.size) {
+    if (this._initialized || this.lifecycle.disposables.size || this._menuDisclosure || this.listboxDropdowns.size) {
       void this._releaseRuntimeLifecycle();
     }
   }
