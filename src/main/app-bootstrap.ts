@@ -2,6 +2,7 @@ import type { MainServiceContainer } from './application/container.js';
 import { createAppContainer } from './application/container.js';
 import { MainLogger } from './infrastructure/logging/logger.factory.js';
 import type { AppOrchestrator } from './application/app.orchestrator.js';
+import { TOKENS } from './application/di/tokens.js';
 import type { LoggerLike } from '@platform/core';
 
 export class MainBootstrap {
@@ -29,7 +30,7 @@ export class MainBootstrap {
       this.container = await createAppContainer(this.loggerFactory);
 
       // Resolve and initialize AppOrchestrator
-      this.orchestrator = this.container.resolve<AppOrchestrator>('appOrchestrator');
+      this.orchestrator = this.container.get(TOKENS.appOrchestrator);
       await this.orchestrator.initialize();
 
       this.isInitialized = true;
@@ -50,9 +51,6 @@ export class MainBootstrap {
     try {
       if (this.orchestrator) {
         await this.orchestrator.cleanup();
-      }
-      if (this.container) {
-        await this.container.dispose();
       }
       this.isInitialized = false;
       this.orchestrator = null;

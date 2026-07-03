@@ -1,3 +1,4 @@
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { appConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
@@ -11,31 +12,23 @@ import type { LoggerFactoryLike } from '@platform/core';
 import type { SharedEventBus } from '@platform/events';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import { TOKENS } from '@main/application/di/tokens.js';
 
 const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceIntegrationWindowLaunch');
 
-export interface DeviceIntegrationServiceDependencies {
-  deviceConnectionService: DeviceConnectionService;
-  trayService: TrayService;
-  windowService: WindowService;
-  eventBus: SharedEventBus;
-  loggerFactory: LoggerFactoryLike;
-}
-
+@injectable()
 export class DeviceIntegrationService extends BaseService {
-  private readonly deviceConnectionService: DeviceConnectionService;
-  private readonly trayService: TrayService;
-  private readonly windowService: WindowService;
-  private readonly eventBus: SharedEventBus;
   private unsubscribeStatus: (() => void) | null = null;
   private unsubscribeCheckError: (() => void) | null = null;
 
-  constructor(dependencies: DeviceIntegrationServiceDependencies) {
-    super(dependencies, 'DeviceIntegrationService');
-    this.deviceConnectionService = dependencies.deviceConnectionService;
-    this.trayService = dependencies.trayService;
-    this.windowService = dependencies.windowService;
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
+    @inject(TOKENS.trayService) private readonly trayService: TrayService,
+    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.eventBus) private readonly eventBus: SharedEventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'DeviceIntegrationService');
   }
 
   initialize(): void {

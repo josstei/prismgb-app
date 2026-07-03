@@ -67,10 +67,7 @@ describe('WindowService', () => {
     mockLoggerFactory = createLoggerFactory();
     mockIpcPushBridge = { emit: vi.fn(), on: vi.fn(), off: vi.fn() };
 
-    windowService = new WindowService({
-      loggerFactory: mockLoggerFactory,
-      ipcPushBridge: mockIpcPushBridge
-    });
+    windowService = new WindowService(mockIpcPushBridge, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('WindowService');
 
     // Store original platform

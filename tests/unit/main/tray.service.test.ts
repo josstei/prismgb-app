@@ -66,11 +66,7 @@ describe('TrayService', () => {
       reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
     };
 
-    trayService = new TrayService({
-      windowService: mockWindowService,
-      deviceConnectionService: mockDeviceConnectionService,
-      loggerFactory: mockLoggerFactory
-    });
+    trayService = new TrayService(mockWindowService, mockDeviceConnectionService, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('TrayService');
   });
 

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { injectable } from 'inversify';
 
 type IpcPushChannelListener = (payload: unknown) => void;
 
@@ -11,6 +12,7 @@ type IpcPushChannelListener = (payload: unknown) => void;
  * the emit side from the transport preserves the existing single-funnel emit path while the tRPC
  * boundary owns delivery.
  */
+@injectable()
 export class IpcPushBridge {
   private static readonly MAX_LISTENERS_PER_CHANNEL = 50;
   private readonly emitter = new EventEmitter();

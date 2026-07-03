@@ -6,6 +6,7 @@
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import { MainBootstrap } from './app-bootstrap.js';
 import { getGpuPolicy, applyChromiumFlags } from './infrastructure/gpu-policy.js';
+import { TOKENS } from './application/di/tokens.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -122,7 +123,7 @@ if (process.argv.includes('--smoke-test')) {
     app.on('second-instance', () => {
       const container = application.getContainer();
       if (container) {
-        const windowService = container.resolve('windowService');
+        const windowService = container.get(TOKENS.windowService);
         const win = windowService?.getMainWindow();
         if (win) {
           if (win.isMinimized()) win.restore();
@@ -157,7 +158,7 @@ if (process.argv.includes('--smoke-test')) {
         if (BrowserWindow.getAllWindows().length === 0) {
           const container = application.getContainer();
           if (container) {
-            const windowService = container.resolve('windowService');
+            const windowService = container.get(TOKENS.windowService);
             windowService.createWindow();
           }
         }

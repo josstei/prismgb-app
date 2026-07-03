@@ -6,9 +6,10 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { safeDisposeAll } from '@platform/core';
-import type { MainServiceContainer } from './container.js';
+import { TOKENS } from './di/tokens.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
@@ -29,24 +30,22 @@ function resolveDevDockIconPath(appPath: string): string | null {
   return candidates.find(candidate => fs.existsSync(candidate)) ?? null;
 }
 
+@injectable()
 export class AppOrchestrator extends BaseOrchestrator {
 
-  private readonly loggerFactory: MainLogger;
-  private container: MainServiceContainer | null = null;
-  private _windowService: WindowService | null = null;
-  private _deviceConnectionService: DeviceConnectionService | null = null;
-  private _deviceIntegrationService: DeviceIntegrationService | null = null;
-  private _trayService: TrayService | null = null;
-  private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
-  private _updateService: UpdateService | null = null;
-  private _updateBridgeService: UpdateBridge | null = null;
-  private _transcodeService: TranscodeService | null = null;
-  private _loginItemService: LoginItemService | null = null;
-
-  constructor(container: MainServiceContainer) {
-    super(container.cradle, 'AppOrchestrator');
-    this.container = container;
-    this.loggerFactory = container.resolve('loggerFactory');
+  constructor(
+    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
+    @inject(TOKENS.deviceIntegrationService) private readonly deviceIntegrationService: DeviceIntegrationService,
+    @inject(TOKENS.trayService) private readonly trayService: TrayService,
+    @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
+    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.updateBridgeService) private readonly updateBridgeService: UpdateBridge,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
+    @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
+    @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
+  ) {
+    super({ loggerFactory }, 'AppOrchestrator');
   }
 
   /**
@@ -56,31 +55,17 @@ export class AppOrchestrator extends BaseOrchestrator {
   async onInitialize(): Promise<void> {
     this.logger.info('Starting PrismGB...');
 
-    const container = this.container!;
-
-    // Resolve and cache core services
-    this._windowService = container.resolve('windowService');
-    this._deviceConnectionService = container.resolve('deviceConnectionService');
-    this._deviceIntegrationService = container.resolve('deviceIntegrationService');
-    this._trayService = container.resolve('trayService');
-    this._ipcHandlerRegistry = container.resolve('ipcHandlerRegistry');
-    this._updateService = container.resolve('updateService');
-    this._updateBridgeService = container.resolve('updateBridgeService');
-    this._transcodeService = container.resolve('transcodeService');
-    this._loginItemService = container.resolve('loginItemService');
-
-
     // Subscribe app-owned device side effects before the first runtime reconciliation.
-    this._deviceIntegrationService!.initialize();
+    this.deviceIntegrationService.initialize();
 
     // Initialize update bridge and start auto-check (1 hour interval)
-    this._updateBridgeService!.initialize();
+    this.updateBridgeService.initialize();
 
     // Initialize transcode service (validates ffmpeg binaries)
-    this._transcodeService!.initialize();
+    this.transcodeService.initialize();
 
     // Create system tray
-    this._trayService!.createTray();
+    this.trayService.createTray();
 
     // Set dock icon in dev mode (macOS only)
     // In production, macOS uses icon.icns from app bundle automatically
@@ -95,21 +80,21 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
 
     // Register IPC handlers
-    this._ipcHandlerRegistry!.registerHandlers();
+    this.ipcHandlerRegistry.registerHandlers();
 
     // Detect hidden launch (login item / auto-start)
-    const isHiddenLaunch = this._loginItemService!.wasLaunchedAsHidden();
+    const isHiddenLaunch = this.loginItemService.wasLaunchedAsHidden();
     if (isHiddenLaunch) {
       this.logger.info('Hidden launch detected - starting in system tray');
     }
 
     // Create main window (hidden if launched as login item)
-    const mainWindow = this._windowService!.createWindow({ hidden: isHiddenLaunch });
-    this._ipcHandlerRegistry!.attachWindow(mainWindow);
+    const mainWindow = this.windowService.createWindow({ hidden: isHiddenLaunch });
+    this.ipcHandlerRegistry.attachWindow(mainWindow);
 
-    await this._deviceConnectionService!.initialize();
+    await this.deviceConnectionService.initialize();
 
-    const status = await this._deviceConnectionService!.reconcileDeviceStatus('startup');
+    const status = await this.deviceConnectionService.reconcileDeviceStatus('startup');
     if (status.connected) {
       this.logger.info('Device already connected');
     }
@@ -124,41 +109,23 @@ export class AppOrchestrator extends BaseOrchestrator {
   async onCleanup(): Promise<void> {
     this.logger.info('Shutting down PrismGB...');
 
-    if (!this.container) {
-      this.logger.info('No container to cleanup');
-      return;
-    }
-
     // Window cleanup is safely handled by the window service
     try {
-      this._windowService?.destroyWindow();
+      this.windowService.destroyWindow();
     } catch (error) {
       this.logger.error('Error destroying window during cleanup:', error);
     }
 
     // Dispose services using safe utility (eliminates repetitive try-catch)
     await safeDisposeAll(this.logger, [
-      ['IPC handler registry', this._ipcHandlerRegistry],
-      ['device integration service', this._deviceIntegrationService],
-      ['device connection service', this._deviceConnectionService],
-      ['system tray', this._trayService, 'destroy'],
-      ['update bridge service', this._updateBridgeService],
-      ['transcode service', this._transcodeService]
+      ['IPC handler registry', this.ipcHandlerRegistry],
+      ['device integration service', this.deviceIntegrationService],
+      ['device connection service', this.deviceConnectionService],
+      ['system tray', this.trayService, 'destroy'],
+      ['update bridge service', this.updateBridgeService],
+      ['transcode service', this.transcodeService]
     ]);
-
-    // Clear service references
-    this.container = null;
-    this._windowService = null;
-    this._deviceConnectionService = null;
-    this._deviceIntegrationService = null;
-    this._trayService = null;
-    this._ipcHandlerRegistry = null;
-    this._updateService = null;
-    this._updateBridgeService = null;
-    this._transcodeService = null;
-    this._loginItemService = null;
 
     this.logger.info('PrismGB shutdown complete');
   }
 }
-

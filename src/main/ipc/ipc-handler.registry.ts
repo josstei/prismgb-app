@@ -1,5 +1,6 @@
 import { app, ipcMain, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
+import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { createIPCHandler } from 'electron-trpc/main';
 import { appRouter } from './router.js';
@@ -15,19 +16,9 @@ import type { IpcPushBridge } from './event-bridge.js';
 import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 import type { DeviceStatusPayload } from '@platform/ipc';
+import { TOKENS } from '@main/application/di/tokens.js';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
-
-export interface IpcHandlerRegistryDependencies {
-  deviceConnectionService: DeviceConnectionPort;
-  mainProcessTestControl: MainProcessTestControlPort;
-  updateService: UpdateService;
-  windowService: WindowService;
-  transcodeService: TranscodeService;
-  loginItemService: LoginItemService;
-  ipcPushBridge: IpcPushBridge;
-  loggerFactory: LoggerFactoryLike;
-}
 
 /**
  * Owns the renderer↔main tRPC transport. `registerHandlers` installs the electron-trpc IPC handler
@@ -35,26 +26,22 @@ export interface IpcHandlerRegistryDependencies {
  * torn down on navigation/destroy. The per-request {@link IpcContext} supplies the same dependency
  * set the retired manifest registry injected, plus the {@link IpcPushBridge}.
  */
+@injectable()
 class IpcHandlerRegistry extends BaseService {
-  private readonly deviceConnectionService: DeviceConnectionPort;
-  private readonly mainProcessTestControl: MainProcessTestControlPort;
-  private readonly updateService: UpdateService;
-  private readonly windowService: WindowService;
-  private readonly transcodeService: TranscodeService;
-  private readonly loginItemService: LoginItemService;
-  private readonly ipcPushBridge: IpcPushBridge;
   private handler: ReturnType<typeof createIPCHandler> | null = null;
   private attachedWindow: BrowserWindow | null = null;
 
-  constructor(dependencies: IpcHandlerRegistryDependencies) {
-    super(dependencies, 'IpcHandlerRegistry');
-    this.deviceConnectionService = dependencies.deviceConnectionService;
-    this.mainProcessTestControl = dependencies.mainProcessTestControl;
-    this.updateService = dependencies.updateService;
-    this.windowService = dependencies.windowService;
-    this.transcodeService = dependencies.transcodeService;
-    this.loginItemService = dependencies.loginItemService;
-    this.ipcPushBridge = dependencies.ipcPushBridge;
+  constructor(
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionPort,
+    @inject(TOKENS.mainProcessTestControl) private readonly mainProcessTestControl: MainProcessTestControlPort,
+    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
+    @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'IpcHandlerRegistry');
   }
 
   registerHandlers(): void {

@@ -5,8 +5,10 @@
 
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
+import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import type { DeviceConnectionReason } from '@platform/devices/runtime';
+import { TOKENS } from '@main/application/di/tokens.js';
 
 /**
  * Menu configuration item
@@ -17,18 +19,13 @@ interface MenuConfigItem {
   method: 'showWindow' | 'reconcileDeviceStatus';
 }
 
-/**
- * TrayService dependencies
- */
-interface TrayServiceDependencies {
-  windowService: {
-    showWindow: () => void;
-  };
-  deviceConnectionService: {
-    reconcileDeviceStatus: (reason: DeviceConnectionReason) => Promise<unknown>;
-    isConnected: () => boolean;
-  };
-  loggerFactory: LoggerFactoryLike;
+interface TrayWindowServiceLike {
+  showWindow: () => void;
+}
+
+interface TrayDeviceConnectionServiceLike {
+  reconcileDeviceStatus: (reason: DeviceConnectionReason) => Promise<unknown>;
+  isConnected: () => boolean;
 }
 
 // Declarative menu configuration
@@ -45,15 +42,16 @@ const MENU_CONFIG: MenuConfigItem[] = [
   }
 ];
 
+@injectable()
 class TrayService extends BaseService {
   private tray: Tray | null = null;
-  private readonly windowService: TrayServiceDependencies['windowService'];
-  private readonly deviceConnectionService: TrayServiceDependencies['deviceConnectionService'];
 
-  constructor(dependencies: TrayServiceDependencies) {
-    super(dependencies, 'TrayService');
-    this.windowService = dependencies.windowService;
-    this.deviceConnectionService = dependencies.deviceConnectionService;
+  constructor(
+    @inject(TOKENS.windowService) private readonly windowService: TrayWindowServiceLike,
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: TrayDeviceConnectionServiceLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'TrayService');
   }
 
   /**

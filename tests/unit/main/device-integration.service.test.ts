@@ -34,13 +34,13 @@ describe('DeviceIntegrationService', () => {
     trayService = { updateTrayMenu: vi.fn() };
     windowService = { send: vi.fn(), showWindow: vi.fn() };
     eventBus = createEventBus();
-    service = new DeviceIntegrationService({
-      deviceConnectionService: deviceConnectionService as never,
-      trayService: trayService as never,
-      windowService: windowService as never,
-      eventBus: eventBus as never,
-      loggerFactory: createLoggerFactory()
-    });
+    service = new DeviceIntegrationService(
+      deviceConnectionService as never,
+      trayService as never,
+      windowService as never,
+      eventBus as never,
+      createLoggerFactory()
+    );
   });
 
   afterEach(() => {

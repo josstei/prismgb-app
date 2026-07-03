@@ -4,16 +4,13 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
+import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@main/application/di/tokens.js';
 import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
-
-interface WindowServiceDependencies {
-  loggerFactory: LoggerFactoryLike;
-  ipcPushBridge: IpcPushBridge;
-}
 
 type ConsoleMessageListener = (
   event: Event,
@@ -45,15 +42,17 @@ type CleanupWindowListenersOptions = {
   includeClosedListener?: boolean;
 };
 
+@injectable()
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
   private _isHiddenLaunch: boolean = false;
-  private readonly ipcPushBridge: IpcPushBridge;
 
-  constructor(dependencies: WindowServiceDependencies) {
-    super(dependencies, 'WindowService');
-    this.ipcPushBridge = dependencies.ipcPushBridge;
+  constructor(
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'WindowService');
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {

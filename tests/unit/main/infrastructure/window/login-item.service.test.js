@@ -58,7 +58,7 @@ describe('LoginItemService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    service = new LoginItemService({ loggerFactory: mockLoggerFactory });
+    service = new LoginItemService(mockLoggerFactory);
   });
 
   afterEach(() => {
