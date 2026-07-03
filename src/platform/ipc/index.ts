@@ -1,17 +1,12 @@
 export { IPC_CHANNELS } from './ipc-channels.js';
 export type {
-  IpcActionResult,
   DeviceInfoPayload,
   DeviceStatusPayload,
-  DeviceStatusResponse,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
   UpdateStatusPayload,
-  UpdateCheckResponse,
-  UpdateDownloadResponse,
-  UpdateInstallResponse,
-  UpdateGetStatusResponse,
+  UpdateCheckPayload,
   TranscodeFormat,
   TranscodeStartOptions,
   TranscodeJobPayload,
@@ -19,13 +14,8 @@ export type {
   TranscodeCompletedPayload,
   TranscodeCancelledPayload,
   TranscodeErrorPayload,
-  TranscodeStartResponse,
-  TranscodeCancelResponse,
-  TranscodeStatusResponse,
-  WindowSetFullscreenResponse,
-  WindowIsFullscreenResponse,
-  ShellOpenExternalResponse,
-  LoginItemSetResponse,
+  TranscodeStartPayload,
+  TranscodeStatusPayload,
   ProcessMetricPayload,
-  ProcessMetricsResponse
+  ProcessMetricsPayload
 } from './preload-api.contract.js';

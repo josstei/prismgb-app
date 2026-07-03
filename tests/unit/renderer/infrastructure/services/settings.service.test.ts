@@ -180,7 +180,7 @@ describe('SettingsService', () => {
   });
   describe('launchOnLogin', () => {
     it('queries the login item state through getSetting', async () => {
-      vi.mocked(trpcClient.loginItem.get.query).mockResolvedValue({ success: true, enabled: true });
+      vi.mocked(trpcClient.loginItem.get.query).mockResolvedValue({ enabled: true });
       const result = await service.getSetting('launchOnLogin');
       expect(result).toBe(true);
       expect(trpcClient.loginItem.get.query).toHaveBeenCalled();
@@ -193,10 +193,16 @@ describe('SettingsService', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith('Failed to query login item state from main process');
     });
     it('updates the login item state and cache through setSetting', async () => {
-      vi.mocked(trpcClient.loginItem.set.mutate).mockResolvedValue({ success: true });
+      vi.mocked(trpcClient.loginItem.set.mutate).mockResolvedValue(undefined);
       await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(true);
       expect(trpcClient.loginItem.set.mutate).toHaveBeenCalledWith(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
+    });
+    it('rejects setSetting and logs when the login item mutation throws', async () => {
+      const error = new Error('main process rejected the update');
+      vi.mocked(trpcClient.loginItem.set.mutate).mockRejectedValue(error);
+      await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to set login item state in main process', error);
     });
   });
 });

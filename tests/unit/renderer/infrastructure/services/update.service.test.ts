@@ -17,7 +17,7 @@ describe('UpdateService', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ success: true, state: UpdateState.IDLE });
+    vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ state: UpdateState.IDLE });
 
     service = new UpdateService(mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('UpdateService');
@@ -44,7 +44,6 @@ describe('UpdateService', () => {
   describe('initialize', () => {
     it('should set up tRPC subscriptions', async () => {
       vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({
-        success: true,
         state: UpdateState.IDLE,
         updateInfo: null
       });
@@ -62,7 +61,6 @@ describe('UpdateService', () => {
 
     it('should load initial status', async () => {
       vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({
-        success: true,
         state: UpdateState.AVAILABLE,
         updateInfo: { version: '2.0.0' },
         downloadProgress: { percent: 50 },
@@ -150,7 +148,7 @@ describe('UpdateService', () => {
     });
 
     it('should set state to CHECKING', async () => {
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({ success: true });
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({});
 
       const promise = service.checkForUpdates();
 
@@ -160,27 +158,27 @@ describe('UpdateService', () => {
     });
 
     it('should call trpcClient.update.checkForUpdates', async () => {
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({ success: true });
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({});
 
       const result = await service.checkForUpdates();
 
       expect(trpcClient.update.checkForUpdates.mutate).toHaveBeenCalled();
-      expect(result).toEqual({ success: true });
+      expect(result).toBeUndefined();
     });
 
-    it('should handle error and return failure result', async () => {
+    it('should handle a thrown TRPCError and transition to ERROR', async () => {
       vi.mocked(trpcClient.update.checkForUpdates.mutate).mockRejectedValue(new Error('Network error'));
 
       const result = await service.checkForUpdates();
 
-      expect(result).toEqual({ success: false, error: 'Network error' });
+      expect(result).toBeUndefined();
       expect(service._state).toBe(UpdateState.ERROR);
+      expect(service._error).toEqual({ message: 'Network error' });
     });
 
     it('should reconcile an available result into the AVAILABLE state', async () => {
       const updateInfo = { version: '2.0.0' };
       vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({
-        success: true,
         updateAvailable: true,
         updateInfo
       });
@@ -194,7 +192,6 @@ describe('UpdateService', () => {
 
     it('should reconcile a no-update result into the NOT_AVAILABLE state', async () => {
       vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({
-        success: true,
         updateAvailable: false,
         reason: 'latest'
       });
@@ -206,24 +203,23 @@ describe('UpdateService', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.NOT_AVAILABLE, { reason: 'latest' });
     });
 
-    it('should handle a failed result and transition to ERROR', async () => {
-      const failure = { success: false, error: 'Server rejected' };
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue(failure);
+    it('should transition to ERROR and preserve the rejected message when the server reports a business failure', async () => {
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockRejectedValue(new Error('Server rejected'));
 
       const result = await service.checkForUpdates();
 
-      expect(result).toEqual(failure);
+      expect(result).toBeUndefined();
       expect(service._state).toBe(UpdateState.ERROR);
       expect(service._error).toEqual({ message: 'Server rejected' });
     });
 
-    it('should apply the fallback message when a failed result omits an error', async () => {
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({ success: false });
+    it('should apply a generic fallback message when a rejection carries no message', async () => {
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockRejectedValue({});
 
       await service.checkForUpdates();
 
       expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Check for updates failed' });
+      expect(service._error).toEqual({ message: 'Unknown error' });
     });
   });
 
@@ -232,17 +228,19 @@ describe('UpdateService', () => {
       await service.initialize();
     });
 
-    it('should return error if not in AVAILABLE state', async () => {
+    it('should no-op and log a warning if not in AVAILABLE state', async () => {
       service._state = UpdateState.IDLE;
 
       const result = await service.downloadUpdate();
 
-      expect(result).toEqual({ success: false, error: 'No update available' });
+      expect(result).toBeUndefined();
+      expect(mockLogger.warn).toHaveBeenCalledWith('No update available to download');
+      expect(trpcClient.update.downloadUpdate.mutate).not.toHaveBeenCalled();
     });
 
     it('should set state to DOWNLOADING and invoke the mutation', async () => {
       service._state = UpdateState.AVAILABLE;
-      vi.mocked(trpcClient.update.downloadUpdate.mutate).mockResolvedValue({ success: true });
+      vi.mocked(trpcClient.update.downloadUpdate.mutate).mockResolvedValue(undefined);
 
       await service.downloadUpdate();
 
@@ -255,8 +253,9 @@ describe('UpdateService', () => {
 
       const result = await service.downloadUpdate();
 
-      expect(result).toEqual({ success: false, error: 'Download failed' });
+      expect(result).toBeUndefined();
       expect(service._state).toBe(UpdateState.ERROR);
+      expect(service._error).toEqual({ message: 'Download failed' });
     });
   });
 
@@ -265,22 +264,24 @@ describe('UpdateService', () => {
       await service.initialize();
     });
 
-    it('should return error if not in DOWNLOADED state', async () => {
+    it('should no-op and log a warning if not in DOWNLOADED state', async () => {
       service._state = UpdateState.AVAILABLE;
 
       const result = await service.installUpdate();
 
-      expect(result).toEqual({ success: false, error: 'No update downloaded' });
+      expect(result).toBeUndefined();
+      expect(mockLogger.warn).toHaveBeenCalledWith('No update downloaded to install');
+      expect(trpcClient.update.installUpdate.mutate).not.toHaveBeenCalled();
     });
 
     it('should call trpcClient.update.installUpdate', async () => {
       service._state = UpdateState.DOWNLOADED;
-      vi.mocked(trpcClient.update.installUpdate.mutate).mockResolvedValue({ success: true });
+      vi.mocked(trpcClient.update.installUpdate.mutate).mockResolvedValue(undefined);
 
       const result = await service.installUpdate();
 
       expect(trpcClient.update.installUpdate.mutate).toHaveBeenCalled();
-      expect(result).toEqual({ success: true });
+      expect(result).toBeUndefined();
     });
 
     it('should handle install error', async () => {
@@ -289,8 +290,9 @@ describe('UpdateService', () => {
 
       const result = await service.installUpdate();
 
-      expect(result).toEqual({ success: false, error: 'Install failed' });
+      expect(result).toBeUndefined();
       expect(service._state).toBe(UpdateState.ERROR);
+      expect(service._error).toEqual({ message: 'Install failed' });
     });
   });
 

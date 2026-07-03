@@ -8,24 +8,14 @@ import type { UpdateStateValue } from '@platform/config';
 import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
-  IpcActionResult,
-  UpdateCheckResponse,
-  UpdateDownloadResponse,
+  UpdateCheckPayload,
   UpdateErrorPayload,
   UpdateInfoPayload,
-  UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
 } from '@platform/ipc';
 
 const UPDATE_SUBSCRIPTION_LIFECYCLE = Symbol('updateSubscriptionLifecycle');
-
-function getFailureMessage(result: IpcActionResult, fallback: string): string | null {
-  if (result.success !== false) {
-    return null;
-  }
-  return typeof result.error === 'string' && result.error.length > 0 ? result.error : fallback;
-}
 
 interface UpdateEventBus {
   publish(event: string, payload?: unknown): void;
@@ -117,16 +107,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
-  _handleResultFailure(result: IpcActionResult, fallback: string): boolean {
-    const message = getFailureMessage(result, fallback);
-    if (!message) {
-      return false;
-    }
-    this._handleError({ message });
-    return true;
-  }
-
-  _reconcileCheckResult(result: UpdateCheckResponse): void {
+  _reconcileCheckResult(result: UpdateCheckPayload): void {
     if (this._state !== UpdateState.CHECKING) {
       return;
     }
@@ -172,65 +153,50 @@ class UpdateService extends BaseService {
     return this._updateInfo;
   }
 
-  async checkForUpdates(): Promise<UpdateCheckResponse> {
+  async checkForUpdates(): Promise<void> {
     this._setState(UpdateState.CHECKING);
 
     try {
       const result = await trpcClient.update.checkForUpdates.mutate();
-      if (this._handleResultFailure(result, 'Check for updates failed')) {
-        return result;
-      }
       this._reconcileCheckResult(result);
-      return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error('Check for updates failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 
-  async downloadUpdate(): Promise<UpdateDownloadResponse> {
+  async downloadUpdate(): Promise<void> {
     if (this._state !== UpdateState.AVAILABLE) {
       this.logger.warn('No update available to download');
-      return { success: false, error: 'No update available' };
+      return;
     }
 
     this._setState(UpdateState.DOWNLOADING);
 
     try {
-      const result = await trpcClient.update.downloadUpdate.mutate();
-      if (this._handleResultFailure(result, 'Download update failed')) {
-        return result;
-      }
-      return result;
+      await trpcClient.update.downloadUpdate.mutate();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error('Download update failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 
-  async installUpdate(): Promise<UpdateInstallResponse> {
+  async installUpdate(): Promise<void> {
     if (this._state !== UpdateState.DOWNLOADED) {
       this.logger.warn('No update downloaded to install');
-      return { success: false, error: 'No update downloaded' };
+      return;
     }
 
     this.logger.info('Installing update and restarting...');
 
     try {
-      const result = await trpcClient.update.installUpdate.mutate();
-      if (this._handleResultFailure(result, 'Install update failed')) {
-        return result;
-      }
-      return result;
+      await trpcClient.update.installUpdate.mutate();
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       this.logger.error('Install update failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 

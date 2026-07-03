@@ -1,19 +1,19 @@
 import { injectable, inject } from 'inversify';
-import { BaseService, getErrorMessage } from '@platform/core';
+import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
 import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
-  TranscodeCancelResponse,
   TranscodeCancelledPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeFormat,
   TranscodeProgressPayload,
   TranscodeStartOptions,
-  TranscodeStartResponse
+  TranscodeStartPayload
 } from '@platform/ipc';
 
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
@@ -55,57 +55,44 @@ class TranscodeService extends BaseService {
     format: TranscodeFormat,
     outputBaseName?: string,
     options: TranscodeStartOptions = {}
-  ): Promise<TranscodeStartResponse> {
+  ): Promise<CallIpcResult<TranscodeStartPayload>> {
     if (this._isTranscoding) {
       this.logger.warn('Transcoding already in progress');
-      return { success: false, error: 'Transcoding already in progress' };
+      return { status: 'error', error: 'Transcoding already in progress' };
     }
 
-    try {
-      this.logger.info(`Starting transcode to ${format}`);
+    this.logger.info(`Starting transcode to ${format}`);
 
+    const result = await callIpc('transcode.start', async () => {
       const arrayBuffer = await blob.arrayBuffer();
-      const result = await trpcClient.transcode.start.mutate({
+      return trpcClient.transcode.start.mutate({
         inputBuffer: arrayBuffer,
         format,
         outputFilename: outputBaseName,
         inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
         interrupted: Boolean(options.interrupted)
       });
+    }, this.logger);
 
-      if (result.success && result.jobId) {
-        this._isTranscoding = true;
-        this._activeJobId = result.jobId;
-        this.logger.info('Transcode started', { jobId: result.jobId, format });
-        this.eventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: result.jobId, format });
-      }
-
-      return result;
-    } catch (error) {
-      this.logger.error('Transcode failed', error);
-      return {
-        success: false,
-        error: getErrorMessage(error)
-      };
+    if (result.status === 'ok' && result.value.jobId) {
+      this._isTranscoding = true;
+      this._activeJobId = result.value.jobId;
+      this.logger.info('Transcode started', { jobId: result.value.jobId, format });
+      this.eventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: result.value.jobId, format });
     }
+
+    return result;
   }
 
-  async cancel(): Promise<TranscodeCancelResponse> {
+  async cancel(): Promise<CallIpcResult<void>> {
     if (!this._isTranscoding || !this._activeJobId) {
       this.logger.warn('No transcoding in progress to cancel');
-      return { success: false, error: 'No transcoding in progress' };
+      return { status: 'error', error: 'No transcoding in progress' };
     }
 
     this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    try {
-      return await trpcClient.transcode.cancel.mutate({ jobId: this._activeJobId });
-    } catch (error) {
-      this.logger.error('Cancel transcode failed', error);
-      return {
-        success: false,
-        error: getErrorMessage(error)
-      };
-    }
+    const jobId = this._activeJobId;
+    return callIpc('transcode.cancel', () => trpcClient.transcode.cancel.mutate({ jobId }), this.logger);
   }
 
   isTranscoding() {

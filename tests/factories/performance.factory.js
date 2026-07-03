@@ -137,9 +137,21 @@ export function createBodyClassManagerMock(overrides = {}) {
 
 export function createProcessMetricsMock(overrides = {}) {
   return {
-    success: false,
+    timestamp: 0,
+    totalKB: 0,
     totalMB: '0.0',
-    processes: [{ type: 'Renderer', memoryMB: '0.0' }],
+    processCount: 1,
+    processes: [
+      {
+        type: 'Renderer',
+        pid: 0,
+        memoryKB: 0,
+        memoryMB: '0.0',
+        peakMemoryKB: 0,
+        peakMemoryMB: '0.0',
+        cpuPercent: 0
+      }
+    ],
     ...overrides
   };
 }

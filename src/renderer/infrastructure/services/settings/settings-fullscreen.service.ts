@@ -61,9 +61,8 @@ class SettingsFullscreenService extends BaseService {
   async _syncFullscreenState() {
     try {
       const result = await trpcClient.window.isFullScreen.query();
-      const isActuallyFullscreen = result.success ? result.isFullscreen : false;
-      this._applyFullscreenState(isActuallyFullscreen);
-      return isActuallyFullscreen;
+      this._applyFullscreenState(result.isFullscreen);
+      return result.isFullscreen;
     } catch (err) {
       this.logger.error('Error querying fullscreen state:', err);
       return this._isFullscreenActive;

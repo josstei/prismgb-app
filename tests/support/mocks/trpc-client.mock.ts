@@ -47,6 +47,7 @@ export function createTrpcClientMock() {
   return {
     device: {
       getStatus: query(),
+      refreshStatus: mutation(),
       onConnected: subscription(),
       onDisconnected: subscription()
     },

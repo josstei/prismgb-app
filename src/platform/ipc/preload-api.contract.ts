@@ -23,14 +23,7 @@ export type {
   TranscodeErrorPayload
 };
 
-export interface IpcActionResult {
-  success: boolean;
-  error?: string;
-}
-
 export type { DeviceInfoPayload, DeviceStatusPayload };
-
-export type DeviceStatusResponse = IpcActionResult & DeviceStatusPayload;
 
 export interface UpdateStatusPayload {
   state?: UpdateStateValue;
@@ -39,17 +32,12 @@ export interface UpdateStatusPayload {
   error?: string | UpdateErrorPayload | null;
 }
 
-export interface UpdateCheckResponse extends IpcActionResult {
+export interface UpdateCheckPayload {
   updateAvailable?: boolean;
   updateInfo?: UpdateInfoPayload;
   skipped?: boolean;
   reason?: string;
 }
-
-export type UpdateDownloadResponse = IpcActionResult;
-export type UpdateInstallResponse = IpcActionResult;
-
-export type UpdateGetStatusResponse = IpcActionResult & UpdateStatusPayload;
 
 export type TranscodeFormat = 'webm' | 'mp4' | 'mov';
 
@@ -67,24 +55,14 @@ export interface TranscodeJobPayload {
   startTime: number;
 }
 
-export interface TranscodeStartResponse extends IpcActionResult {
+export interface TranscodeStartPayload {
   jobId?: string;
   filePath?: string;
 }
 
-export type TranscodeCancelResponse = IpcActionResult;
-
-export interface TranscodeStatusResponse extends IpcActionResult {
-  jobs?: TranscodeJobPayload[];
+export interface TranscodeStatusPayload {
+  jobs: TranscodeJobPayload[];
 }
-
-export type WindowSetFullscreenResponse = IpcActionResult;
-export interface WindowIsFullscreenResponse extends IpcActionResult {
-  isFullscreen: boolean;
-}
-export type ShellOpenExternalResponse = IpcActionResult;
-
-export type LoginItemSetResponse = IpcActionResult;
 
 export interface ProcessMetricPayload {
   type: string;
@@ -96,7 +74,7 @@ export interface ProcessMetricPayload {
   cpuPercent: number;
 }
 
-export interface ProcessMetricsResponse extends IpcActionResult {
+export interface ProcessMetricsPayload {
   timestamp: number;
   totalKB: number;
   totalMB: string;

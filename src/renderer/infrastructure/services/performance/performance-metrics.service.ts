@@ -8,28 +8,23 @@ import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { MemorySnapshotRequestPayload } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
-import type {
-  ProcessMetricPayload,
-  ProcessMetricsResponse
-} from '@platform/ipc';
+import type { ProcessMetricPayload, ProcessMetricsPayload } from '@platform/ipc';
+import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
-
-type ProcessMetricsErrorResponse = {
-  success: false;
-  error: string;
-};
 
 type MetricsAdapterLike = {
   isAvailable: () => boolean;
-  getProcessMetrics: () => Promise<ProcessMetricsResponse | ProcessMetricsErrorResponse>;
+  getProcessMetrics: () => Promise<CallIpcResult<ProcessMetricsPayload>>;
 };
 
-function hasProcessMetricsSnapshot(snapshot: unknown): snapshot is ProcessMetricsResponse {
+function hasProcessMetricsSnapshot(
+  snapshot: CallIpcResult<ProcessMetricsPayload> | null | undefined
+): snapshot is { status: 'ok'; value: ProcessMetricsPayload } {
   return (
     typeof snapshot === 'object' &&
     snapshot !== null &&
-    (snapshot as ProcessMetricsResponse).success === true &&
-    Array.isArray((snapshot as ProcessMetricsResponse).processes)
+    snapshot.status === 'ok' &&
+    Array.isArray(snapshot.value.processes)
   );
 }
 
@@ -127,18 +122,19 @@ export class PerformanceMetricsService extends BaseService {
     }
 
     this.metricsAdapter.getProcessMetrics()
-      .then((snapshot: ProcessMetricsResponse | ProcessMetricsErrorResponse | null) => {
+      .then((snapshot: CallIpcResult<ProcessMetricsPayload> | null) => {
         if (!hasProcessMetricsSnapshot(snapshot)) {
           this.logger.debug(`[Perf] ${label} - process metrics error`);
           return;
         }
 
-        const renderer = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'Renderer');
-        const gpu = snapshot.processes.find((proc: ProcessMetricPayload) => proc.type === 'GPU');
+        const metrics = snapshot.value;
+        const renderer = metrics.processes.find((proc: ProcessMetricPayload) => proc.type === 'Renderer');
+        const gpu = metrics.processes.find((proc: ProcessMetricPayload) => proc.type === 'GPU');
         const rendererMem = renderer ? `${renderer.memoryMB} MB` : 'n/a';
         const gpuMem = gpu ? `${gpu.memoryMB} MB` : 'n/a';
 
-        this.logger.debug(`[Perf] ${label} - total ${snapshot.totalMB} MB, renderer ${rendererMem}, gpu ${gpuMem}`);
+        this.logger.debug(`[Perf] ${label} - total ${metrics.totalMB} MB, renderer ${rendererMem}, gpu ${gpuMem}`);
       })
       .catch((error: unknown) => {
         this.logger.debug(`[Perf] ${label} - process metrics error`, error);

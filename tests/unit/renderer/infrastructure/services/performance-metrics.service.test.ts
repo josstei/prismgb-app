@@ -223,12 +223,14 @@ describe('PerformanceMetricsService', () => {
     it('should log metrics when adapter returns success', async () => {
       mockMetricsAdapter.isAvailable.mockReturnValue(true);
       mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
-        success: true,
-        totalMB: '150.5',
-        processes: [
-          { type: 'Renderer', memoryMB: '80.0' },
-          { type: 'GPU', memoryMB: '50.0' }
-        ]
+        status: 'ok',
+        value: {
+          totalMB: '150.5',
+          processes: [
+            { type: 'Renderer', memoryMB: '80.0' },
+            { type: 'GPU', memoryMB: '50.0' }
+          ]
+        }
       });
 
       service._logSnapshot('test-label');
@@ -247,9 +249,8 @@ describe('PerformanceMetricsService', () => {
     it('should handle missing renderer process', async () => {
       mockMetricsAdapter.isAvailable.mockReturnValue(true);
       mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
-        success: true,
-        totalMB: '50.0',
-        processes: [{ type: 'GPU', memoryMB: '50.0' }]
+        status: 'ok',
+        value: { totalMB: '50.0', processes: [{ type: 'GPU', memoryMB: '50.0' }] }
       });
 
       service._logSnapshot('test');
@@ -264,9 +265,8 @@ describe('PerformanceMetricsService', () => {
     it('should handle missing GPU process', async () => {
       mockMetricsAdapter.isAvailable.mockReturnValue(true);
       mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
-        success: true,
-        totalMB: '80.0',
-        processes: [{ type: 'Renderer', memoryMB: '80.0' }]
+        status: 'ok',
+        value: { totalMB: '80.0', processes: [{ type: 'Renderer', memoryMB: '80.0' }] }
       });
 
       service._logSnapshot('test');
@@ -281,7 +281,7 @@ describe('PerformanceMetricsService', () => {
     it('should log error when adapter returns failure', async () => {
       mockMetricsAdapter.isAvailable.mockReturnValue(true);
       mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
-        success: false,
+        status: 'error',
         error: 'Failed'
       });
 

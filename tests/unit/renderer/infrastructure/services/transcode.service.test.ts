@@ -24,8 +24,8 @@ describe('TranscodeService', () => {
 
     vi.clearAllMocks();
 
-    vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ success: true, jobId: 'job-123' });
-    vi.mocked(trpcClient.transcode.cancel.mutate).mockResolvedValue({ success: true });
+    vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ jobId: 'job-123' });
+    vi.mocked(trpcClient.transcode.cancel.mutate).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -151,12 +151,12 @@ describe('TranscodeService', () => {
       expect(service._activeJobId).toBe('job-123');
     });
 
-    it('should return result from the tRPC call', async () => {
+    it('should return an ok result carrying the tRPC payload', async () => {
       const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
       const result = await service.transcode(mockBlob, 'mp4');
 
-      expect(result).toEqual({ success: true, jobId: 'job-123' });
+      expect(result).toEqual({ status: 'ok', value: { jobId: 'job-123' } });
     });
 
     it('should reject if already transcoding', async () => {
@@ -165,7 +165,7 @@ describe('TranscodeService', () => {
       await service.transcode(mockBlob, 'mp4');
       const result = await service.transcode(mockBlob, 'mov');
 
-      expect(result).toEqual({ success: false, error: 'Transcoding already in progress' });
+      expect(result).toEqual({ status: 'error', error: 'Transcoding already in progress' });
       expect(mockLogger.warn).toHaveBeenCalledWith('Transcoding already in progress');
     });
 
@@ -175,12 +175,12 @@ describe('TranscodeService', () => {
 
       const result = await service.transcode(mockBlob, 'mp4');
 
-      expect(result).toEqual({ success: false, error: 'FFmpeg not found' });
-      expect(mockLogger.error).toHaveBeenCalledWith('Transcode failed', expect.any(Error));
+      expect(result).toEqual({ status: 'error', error: 'FFmpeg not found' });
+      expect(mockLogger.error).toHaveBeenCalledWith('transcode.start failed', expect.any(Error));
     });
 
-    it('should not set state if the tRPC call returns failure', async () => {
-      vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ success: false, error: 'Invalid format' });
+    it('should not set state if the tRPC call throws', async () => {
+      vi.mocked(trpcClient.transcode.start.mutate).mockRejectedValue(new Error('Invalid format'));
       const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
       await service.transcode(mockBlob, 'mp4');
@@ -208,7 +208,7 @@ describe('TranscodeService', () => {
     it('should return error if no transcoding in progress', async () => {
       const result = await service.cancel();
 
-      expect(result).toEqual({ success: false, error: 'No transcoding in progress' });
+      expect(result).toEqual({ status: 'error', error: 'No transcoding in progress' });
       expect(mockLogger.warn).toHaveBeenCalledWith('No transcoding in progress to cancel');
     });
 
@@ -219,8 +219,8 @@ describe('TranscodeService', () => {
 
       const result = await service.cancel();
 
-      expect(result).toEqual({ success: false, error: 'Cancel failed' });
-      expect(mockLogger.error).toHaveBeenCalledWith('Cancel transcode failed', expect.any(Error));
+      expect(result).toEqual({ status: 'error', error: 'Cancel failed' });
+      expect(mockLogger.error).toHaveBeenCalledWith('transcode.cancel failed', expect.any(Error));
     });
   });
 

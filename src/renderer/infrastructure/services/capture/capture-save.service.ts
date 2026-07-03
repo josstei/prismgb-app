@@ -3,6 +3,8 @@ import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
+import type { TranscodeStartPayload } from '@platform/ipc';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 interface RecordingSaveOptions {
@@ -19,11 +21,6 @@ type CaptureSettingsServiceLike = {
   getStringSetting(name: string): string;
 };
 
-type CaptureTranscodeResult = {
-  success: boolean;
-  error?: string;
-};
-
 type CaptureTranscodeServiceLike = {
   isAvailable(): boolean;
   transcode(
@@ -31,7 +28,7 @@ type CaptureTranscodeServiceLike = {
     format: string,
     outputBaseName: string,
     options: { inputArgs?: string[]; interrupted: boolean }
-  ): Promise<CaptureTranscodeResult>;
+  ): Promise<CallIpcResult<TranscodeStartPayload>>;
 };
 
 @injectable()
@@ -92,7 +89,7 @@ class CaptureSaveService extends BaseService {
         interrupted
       });
 
-      if (!result.success) {
+      if (result.status === 'error') {
         this.logger.error('Transcode failed', result.error);
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
           message: `Conversion failed: ${result.error}`,

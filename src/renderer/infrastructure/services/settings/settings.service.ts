@@ -216,9 +216,8 @@ class SettingsService extends BaseService {
   async _readLoginItemSetting(definition: SettingDefinition): Promise<boolean> {
     try {
       const result = await trpcClient.loginItem.get.query();
-      const enabled = result.success ? result.enabled : false;
-      this.storageService.setItem(definition.storageKey, enabled.toString());
-      return enabled;
+      this.storageService.setItem(definition.storageKey, result.enabled.toString());
+      return result.enabled;
     } catch {
       this.logger.warn('Failed to query login item state from main process');
     }
@@ -229,13 +228,9 @@ class SettingsService extends BaseService {
   async _writeLoginItemSetting(definition: SettingDefinition, value: unknown): Promise<boolean> {
     const enabled = this._normalizeBoolean(value);
     try {
-      const result = await trpcClient.loginItem.set.mutate(enabled);
-      if (!result.success) {
-        this.logger.error('Failed to set login item state in main process', result.error);
-        return false;
-      }
-    } catch {
-      this.logger.error('Failed to set login item state in main process');
+      await trpcClient.loginItem.set.mutate(enabled);
+    } catch (error) {
+      this.logger.error('Failed to set login item state in main process', error);
       return false;
     }
 

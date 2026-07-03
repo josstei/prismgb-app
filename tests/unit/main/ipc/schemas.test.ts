@@ -5,7 +5,6 @@ import {
   transcodeStartSchema,
   transcodeCancelSchema,
   deviceStatusPayloadSchema,
-  deviceStatusResponseSchema,
   transcodeProgressSchema,
   transcodeCompletedSchema,
   transcodeCancelledSchema,
@@ -68,7 +67,7 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
     expect(accepts(deviceInfoSchema, { ...canonicalDeviceInfo, deviceName: 'legacy' })).toBe(false);
   });
 
-  it('deviceStatus schemas require a canonical status and put IPC success only on the response schema', () => {
+  it('deviceStatusPayloadSchema requires a canonical payload-only status and rejects an envelope-shaped one', () => {
     const status = {
       state: 'connected',
       connected: true,
@@ -77,8 +76,7 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
 
     expect(accepts(deviceStatusPayloadSchema, status)).toBe(true);
     expect(accepts(deviceStatusPayloadSchema, { ...status, success: true })).toBe(false);
-    expect(accepts(deviceStatusResponseSchema, { ...status, success: true })).toBe(true);
-    expect(accepts(deviceStatusResponseSchema, { connected: null, success: true })).toBe(false);
+    expect(accepts(deviceStatusPayloadSchema, { connected: null })).toBe(false);
   });
 
   it('E2E device helpers produce canonical payloads accepted by strict schemas', () => {
@@ -124,9 +122,10 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
 
 describe('IPC query output schemas (trade e graceful fallback)', () => {
 
-  it('loginItemGetResponseSchema accepts the success shape and rejects failure envelopes', () => {
-    expect(accepts(loginItemGetResponseSchema, { success: true, enabled: true })).toBe(true);
-    expect(accepts(loginItemGetResponseSchema, { success: false, enabled: false, error: 'failed' })).toBe(false);
-    expect(accepts(loginItemGetResponseSchema, { success: true })).toBe(false);
+  it('loginItemGetResponseSchema accepts the payload-only shape and rejects malformed or envelope-shaped values', () => {
+    expect(accepts(loginItemGetResponseSchema, { enabled: true })).toBe(true);
+    expect(accepts(loginItemGetResponseSchema, { enabled: false })).toBe(true);
+    expect(accepts(loginItemGetResponseSchema, { success: true, enabled: true })).toBe(false);
+    expect(accepts(loginItemGetResponseSchema, {})).toBe(false);
   });
 });

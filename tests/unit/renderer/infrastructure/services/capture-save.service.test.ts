@@ -39,7 +39,7 @@ describe('CaptureSaveService', () => {
 
     mockTranscodeService = createTranscodeServiceMock({
       isAvailable: vi.fn().mockReturnValue(true),
-      transcode: vi.fn().mockResolvedValue({ success: true, jobId: 'job-123' })
+      transcode: vi.fn().mockResolvedValue({ status: 'ok', value: { jobId: 'job-123' } })
     });
 
     mockLoggerFactory = createLoggerFactory();
@@ -154,7 +154,7 @@ describe('CaptureSaveService', () => {
       it('should handle transcode failure', async () => {
         mockSettingsService.setSetting('recordingFormat', 'mp4');
         mockTranscodeService.transcode.mockResolvedValue({
-          success: false,
+          status: 'error',
           error: 'FFmpeg not found'
         });
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });

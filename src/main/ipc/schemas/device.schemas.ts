@@ -63,9 +63,3 @@ export type DeviceStatusSchemaDriftGuard = AssertAssignable<z.infer<typeof devic
  * @public
  */
 export type DeviceStatusPayloadDriftGuard = AssertAssignable<DeviceStatusPayload, z.infer<typeof deviceStatusPayloadSchema>>;
-
-export const deviceStatusResponseSchema = deviceStatusPayloadSchema
-  .extend({
-    success: z.boolean()
-  })
-  .strict();

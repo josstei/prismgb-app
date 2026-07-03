@@ -8,8 +8,7 @@ export { booleanArgumentSchema, externalUrlSchema } from './common.schemas.js';
 export {
   deviceInfoSchema,
   nullableDeviceInfoSchema,
-  deviceStatusPayloadSchema,
-  deviceStatusResponseSchema
+  deviceStatusPayloadSchema
 } from './device.schemas.js';
 export { updateInfoSchema, updateProgressSchema, updateErrorSchema } from './update.schemas.js';
 export {

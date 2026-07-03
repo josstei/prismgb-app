@@ -1,14 +1,10 @@
-import { initTRPC } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import type { App, Shell } from 'electron';
+import { getErrorMessage } from '@platform/core';
 import type { LoggerLike } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
-import type {
-  UpdateStatusPayload,
-  TranscodeFormat,
-  TranscodeStartResponse,
-  TranscodeCancelResponse,
-  TranscodeStatusResponse
-} from '@platform/ipc';
+import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
+import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
 import type { IpcPushBridge } from './event-bridge.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 
@@ -41,9 +37,9 @@ export interface TranscodeService {
     outputFilename?: string;
     inputArgs?: string[];
     interrupted: boolean;
-  }): Promise<TranscodeStartResponse>;
-  cancel(jobId: string): TranscodeCancelResponse;
-  getStatus(): TranscodeStatusResponse;
+  }): Promise<TranscodeResult>;
+  cancel(jobId: string): CancelResult;
+  getStatus(): StatusResult;
 }
 
 /**
@@ -82,19 +78,24 @@ export const router = t.router;
 export const publicProcedure = t.procedure;
 
 /**
- * The single folded replacement for the 15 per-handler `mapError` closures. Runs `run`; on a thrown
- * handler error returns `mapError(error)` — the typed `{ success: false, error }` failure envelope,
- * preserving the current wire shape so renderer consumers that branch on `.success` are unchanged.
+ * The single folded replacement for the 14 per-handler `mapError` closures the hand-built
+ * `{ success: false, error }` envelope required. Runs `run`; on a thrown handler error, logs
+ * `label` with the original error (preserving today's main-process log lines) and rethrows an
+ * `INTERNAL_SERVER_ERROR` {@link TRPCError} carrying the original error's message — electron-trpc
+ * propagates both the code and the message to the renderer's `TRPCClientError`, so failure-string
+ * parity holds without an enumerated taxonomy (YAGNI: the envelopes only ever carried a message).
  * Validation errors (`.input(z)` / query `.output(z)`) are intentionally NOT caught here — they
- * surface as tRPC errors at the trust boundary.
+ * surface as tRPC errors at the trust boundary, same as before.
  */
-export async function resultEnvelope<TResult>(
-  run: () => TResult | Promise<TResult>,
-  mapError: (error: unknown) => TResult
+export async function rethrowAsTrpcError<TResult>(
+  label: string,
+  logger: LoggerLike,
+  run: () => TResult | Promise<TResult>
 ): Promise<TResult> {
   try {
     return await run();
   } catch (error) {
-    return mapError(error);
+    logger.error(label, error);
+    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: getErrorMessage(error) });
   }
 }

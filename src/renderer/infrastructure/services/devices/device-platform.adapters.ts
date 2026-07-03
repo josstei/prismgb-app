@@ -1,14 +1,20 @@
 import { TIMING } from '@platform/config';
 import { DeviceCatalog } from '@platform/devices';
 import type { DeviceId, DeviceInfoPayload, DeviceStatus, DeviceStatusPayload } from '@platform/devices';
-import type { IpcActionResult } from '@platform/ipc';
 import { debounce } from '@platform/core';
 import type { LoggerLike, StorageServiceLike } from '@platform/core';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient, type RendererTrpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { callIpc } from '@renderer/infrastructure/ipc/call-ipc.js';
 
-export type DeviceStatusResponse = IpcActionResult & DeviceStatusPayload;
 export type DeviceStatusListener = (status: DeviceStatus) => void;
+
+const noopLogger: LoggerLike = {
+  info: () => {},
+  debug: () => {},
+  warn: () => {},
+  error: () => {}
+};
 
 export interface DeviceStatusPort {
   getStatus(): Promise<DeviceStatus>;
@@ -56,18 +62,14 @@ function toStatusFromPayload(payload: DeviceStatusPayload, updatedAt = now()): D
   return status;
 }
 
-function toStatusFromResponse(response: DeviceStatusResponse): DeviceStatus {
-  if (!response.success) {
-    return {
-      state: 'error',
-      connected: false,
-      device: null,
-      error: response.error ?? 'Device status request failed',
-      updatedAt: now()
-    };
-  }
-
-  return toStatusFromPayload(response);
+function toErrorStatus(error: string): DeviceStatus {
+  return {
+    state: 'error',
+    connected: false,
+    device: null,
+    error,
+    updatedAt: now()
+  };
 }
 
 function toConnectionStatus(connected: boolean, device: DeviceInfoPayload | null | undefined): DeviceStatus {
@@ -81,19 +83,35 @@ function toConnectionStatus(connected: boolean, device: DeviceInfoPayload | null
 
 export class TrpcDeviceStatusPort implements DeviceStatusPort {
   private readonly client: RendererTrpcClient;
-  private readonly logger?: LoggerLike;
+  private readonly logger: LoggerLike;
 
   constructor(client: RendererTrpcClient = trpcClient, logger?: LoggerLike) {
     this.client = client;
-    this.logger = logger;
+    this.logger = logger ?? noopLogger;
   }
 
   async getStatus(): Promise<DeviceStatus> {
-    return toStatusFromResponse(await this.client.device.getStatus.query() as DeviceStatusResponse);
+    const result = await callIpc(
+      'device.getStatus',
+      () => this.client.device.getStatus.query() as Promise<DeviceStatusPayload>,
+      this.logger
+    );
+    if (result.status === 'ok') {
+      return toStatusFromPayload(result.value);
+    }
+    return toErrorStatus(result.error);
   }
 
   async refreshStatus(): Promise<DeviceStatus> {
-    return toStatusFromResponse(await this.client.device.refreshStatus.mutate() as DeviceStatusResponse);
+    const result = await callIpc(
+      'device.refreshStatus',
+      () => this.client.device.refreshStatus.mutate() as Promise<DeviceStatusPayload>,
+      this.logger
+    );
+    if (result.status === 'ok') {
+      return toStatusFromPayload(result.value);
+    }
+    return toErrorStatus(result.error);
   }
 
   subscribe(onStatus: DeviceStatusListener): () => void {

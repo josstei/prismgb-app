@@ -1,34 +1,25 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
-import { getErrorMessage } from '@platform/core';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { toDeviceStatusPayload } from '@platform/devices';
 import type {
-  DeviceStatusResponse,
   DeviceInfoPayload,
-  ShellOpenExternalResponse,
-  WindowSetFullscreenResponse,
-  WindowIsFullscreenResponse,
-  UpdateCheckResponse,
-  UpdateDownloadResponse,
-  UpdateInstallResponse,
-  UpdateGetStatusResponse,
+  ProcessMetricsPayload,
+  UpdateCheckPayload,
+  UpdateStatusPayload,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
-  ProcessMetricsResponse,
-  LoginItemSetResponse,
   TranscodeFormat,
-  TranscodeStartResponse,
-  TranscodeCancelResponse,
-  TranscodeStatusResponse,
+  TranscodeStartPayload,
+  TranscodeStatusPayload,
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeCancelledPayload
 } from '@platform/ipc';
 
-import { router, publicProcedure, resultEnvelope, type IpcContext } from './trpc.js';
+import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
 import {
   externalUrlSchema,
   booleanArgumentSchema,
@@ -44,7 +35,7 @@ import {
   transcodeErrorSchema,
   transcodeCancelledSchema,
   loginItemGetResponseSchema,
-  deviceStatusResponseSchema
+  deviceStatusPayloadSchema
 } from './schemas/index.js';
 
 function toBuffer(inputBuffer: ArrayBuffer): Buffer {
@@ -84,49 +75,25 @@ function pushSubscription<TPayload>(ctx: IpcContext, channel: string, schema: z.
 }
 
 const deviceRouter = router({
-  getStatus: publicProcedure.output(deviceStatusResponseSchema).query(({ ctx }) =>
-    resultEnvelope<DeviceStatusResponse>(
-      () => {
-        const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
-        if (override) {
-          ctx.logger.debug('Using test-control device status override');
-          return { success: true, ...override };
-        }
-        return { success: true, ...toDeviceStatusPayload(ctx.deviceConnectionService.getStatus()) };
-      },
-      (error) => {
-        ctx.logger.error('Failed to get device status:', error);
-        return {
-          success: false,
-          state: 'error',
-          connected: false,
-          device: null,
-          error: getErrorMessage(error)
-        };
+  getStatus: publicProcedure.output(deviceStatusPayloadSchema).query(({ ctx }) =>
+    rethrowAsTrpcError('Failed to get device status', ctx.logger, () => {
+      const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
+      if (override) {
+        ctx.logger.debug('Using test-control device status override');
+        return override;
       }
-    )
+      return toDeviceStatusPayload(ctx.deviceConnectionService.getStatus());
+    })
   ),
-  refreshStatus: publicProcedure.output(deviceStatusResponseSchema).mutation(({ ctx }) =>
-    resultEnvelope<DeviceStatusResponse>(
-      async () => {
-        const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
-        if (override) {
-          ctx.logger.debug('Using test-control device refresh status override');
-          return { success: true, ...override };
-        }
-        return { success: true, ...toDeviceStatusPayload(await ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh')) };
-      },
-      (error) => {
-        ctx.logger.error('Failed to refresh device status:', error);
-        return {
-          success: false,
-          state: 'error',
-          connected: false,
-          device: null,
-          error: getErrorMessage(error)
-        };
+  refreshStatus: publicProcedure.output(deviceStatusPayloadSchema).mutation(({ ctx }) =>
+    rethrowAsTrpcError('Failed to refresh device status', ctx.logger, async () => {
+      const override = ctx.mainProcessTestControl.getDeviceStatusOverride();
+      if (override) {
+        ctx.logger.debug('Using test-control device refresh status override');
+        return override;
       }
-    )
+      return toDeviceStatusPayload(await ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh'));
+    })
   ),
   onConnected: publicProcedure.subscription(({ ctx }) =>
     pushSubscription<DeviceInfoPayload>(ctx, IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info')
@@ -138,41 +105,23 @@ const deviceRouter = router({
 
 const shellRouter = router({
   openExternal: publicProcedure.input(externalUrlSchema).mutation(({ ctx, input }) =>
-    resultEnvelope<ShellOpenExternalResponse>(
-      async () => {
-        await ctx.shell.openExternal(input);
-        return { success: true } as ShellOpenExternalResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to open external URL:', error);
-        return { success: false, error: getErrorMessage(error) } as ShellOpenExternalResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to open external URL', ctx.logger, async () => {
+      await ctx.shell.openExternal(input);
+    })
   )
 });
 
 const windowRouter = router({
   setFullScreen: publicProcedure.input(booleanArgumentSchema).mutation(({ ctx, input }) =>
-    resultEnvelope<WindowSetFullscreenResponse>(
-      () => {
-        ctx.logger.debug(`Setting fullscreen: ${input}`);
-        ctx.windowService.setFullScreen(input);
-        return { success: true } as WindowSetFullscreenResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to set fullscreen:', error);
-        return { success: false, error: getErrorMessage(error) } as WindowSetFullscreenResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to set fullscreen', ctx.logger, () => {
+      ctx.logger.debug(`Setting fullscreen: ${input}`);
+      ctx.windowService.setFullScreen(input);
+    })
   ),
   isFullScreen: publicProcedure.query(({ ctx }) =>
-    resultEnvelope<WindowIsFullscreenResponse>(
-      () => ({ success: true, isFullscreen: ctx.windowService.isFullScreen() } as WindowIsFullscreenResponse),
-      (error) => {
-        ctx.logger.error('Failed to get fullscreen state:', error);
-        return { success: false, isFullscreen: false, error: getErrorMessage(error) } as WindowIsFullscreenResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to get fullscreen state', ctx.logger, () => ({
+      isFullscreen: ctx.windowService.isFullScreen()
+    }))
   ),
   onEnterFullscreen: publicProcedure.subscription(({ ctx }) =>
     pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, null, 'window-enter-fullscreen')
@@ -187,52 +136,26 @@ const windowRouter = router({
 
 const updateRouter = router({
   checkForUpdates: publicProcedure.mutation(({ ctx }) =>
-    resultEnvelope<UpdateCheckResponse>(
-      async () => {
-        const result = await ctx.updateService.checkForUpdates();
-        return { success: true, ...toObjectPayload(result) } as UpdateCheckResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to check for updates:', error);
-        return { success: false, error: getErrorMessage(error) } as UpdateCheckResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to check for updates', ctx.logger, async () => {
+      const result = await ctx.updateService.checkForUpdates();
+      return toObjectPayload(result) as UpdateCheckPayload;
+    })
   ),
   downloadUpdate: publicProcedure.mutation(({ ctx }) =>
-    resultEnvelope<UpdateDownloadResponse>(
-      async () => {
-        await ctx.updateService.downloadUpdate();
-        return { success: true } as UpdateDownloadResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to download update:', error);
-        return { success: false, error: getErrorMessage(error) } as UpdateDownloadResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to download update', ctx.logger, async () => {
+      await ctx.updateService.downloadUpdate();
+    })
   ),
   installUpdate: publicProcedure.mutation(({ ctx }) =>
-    resultEnvelope<UpdateInstallResponse>(
-      () => {
-        ctx.updateService.installUpdate();
-        return { success: true } as UpdateInstallResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to install update:', error);
-        return { success: false, error: getErrorMessage(error) } as UpdateInstallResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to install update', ctx.logger, () => {
+      ctx.updateService.installUpdate();
+    })
   ),
   getStatus: publicProcedure.query(({ ctx }) =>
-    resultEnvelope<UpdateGetStatusResponse>(
-      () => {
-        const status = ctx.updateService.getStatus();
-        return { success: true, ...toObjectPayload(status) } as UpdateGetStatusResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to get update status:', error);
-        return { success: false, error: getErrorMessage(error) } as UpdateGetStatusResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to get update status', ctx.logger, () => {
+      const status = ctx.updateService.getStatus();
+      return toObjectPayload(status) as UpdateStatusPayload;
+    })
   ),
   onAvailable: publicProcedure.subscription(({ ctx }) =>
     pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info')
@@ -253,88 +176,73 @@ const updateRouter = router({
 
 const performanceRouter = router({
   getProcessMetrics: publicProcedure.query(({ ctx }) =>
-    resultEnvelope<ProcessMetricsResponse>(
-      () => {
-        const metrics = ctx.app.getAppMetrics();
-        const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
-        return {
-          success: true,
-          timestamp: Date.now(),
-          totalKB,
-          totalMB: (totalKB / 1024).toFixed(1),
-          processCount: metrics.length,
-          processes: metrics.map((proc) => ({
-            type: proc.type,
-            pid: proc.pid,
-            memoryKB: proc.memory.workingSetSize,
-            memoryMB: (proc.memory.workingSetSize / 1024).toFixed(1),
-            peakMemoryKB: proc.memory.peakWorkingSetSize,
-            peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
-            cpuPercent: proc.cpu.percentCPUUsage
-          }))
-        } as ProcessMetricsResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to get process metrics:', error);
-        return { success: false, error: getErrorMessage(error) } as ProcessMetricsResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to get process metrics', ctx.logger, () => {
+      const metrics = ctx.app.getAppMetrics();
+      const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
+      return {
+        timestamp: Date.now(),
+        totalKB,
+        totalMB: (totalKB / 1024).toFixed(1),
+        processCount: metrics.length,
+        processes: metrics.map((proc) => ({
+          type: proc.type,
+          pid: proc.pid,
+          memoryKB: proc.memory.workingSetSize,
+          memoryMB: (proc.memory.workingSetSize / 1024).toFixed(1),
+          peakMemoryKB: proc.memory.peakWorkingSetSize,
+          peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
+          cpuPercent: proc.cpu.percentCPUUsage
+        }))
+      } as ProcessMetricsPayload;
+    })
   )
 });
 
 const loginItemRouter = router({
   get: publicProcedure.output(loginItemGetResponseSchema).query(({ ctx }) => {
-    return { success: true as const, enabled: ctx.loginItemService.isEnabled() };
+    return { enabled: ctx.loginItemService.isEnabled() };
   }),
   set: publicProcedure.input(booleanArgumentSchema).mutation(({ ctx, input }) =>
-    resultEnvelope<LoginItemSetResponse>(
-      () => {
-        ctx.logger.debug(`Setting login item: ${input}`);
-        ctx.loginItemService.setEnabled(input);
-        return { success: true } as LoginItemSetResponse;
-      },
-      (error) => {
-        ctx.logger.error('Failed to set login item:', error);
-        return { success: false, error: getErrorMessage(error) } as LoginItemSetResponse;
-      }
-    )
+    rethrowAsTrpcError('Failed to set login item', ctx.logger, () => {
+      ctx.logger.debug(`Setting login item: ${input}`);
+      ctx.loginItemService.setEnabled(input);
+    })
   )
 });
 
 const transcodeRouter = router({
   start: publicProcedure.input(transcodeStartSchema).mutation(({ ctx, input }) =>
-    resultEnvelope<TranscodeStartResponse>(
-      () =>
-        ctx.transcodeService.transcode({
-          inputBuffer: toBuffer(input.inputBuffer),
-          format: input.format as TranscodeFormat,
-          outputFilename: input.outputFilename,
-          inputArgs: input.inputArgs,
-          interrupted: Boolean(input.interrupted)
-        }),
-      (error) => {
-        ctx.logger.error('Failed to start transcode:', error);
-        return { success: false, error: getErrorMessage(error) } as TranscodeStartResponse;
+    rethrowAsTrpcError('Failed to start transcode', ctx.logger, async () => {
+      const result = await ctx.transcodeService.transcode({
+        inputBuffer: toBuffer(input.inputBuffer),
+        format: input.format as TranscodeFormat,
+        outputFilename: input.outputFilename,
+        inputArgs: input.inputArgs,
+        interrupted: Boolean(input.interrupted)
+      });
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to start transcode');
       }
-    )
+      const { jobId, filePath } = result;
+      return { jobId, filePath } as TranscodeStartPayload;
+    })
   ),
   cancel: publicProcedure.input(transcodeCancelSchema).mutation(({ ctx, input }) =>
-    resultEnvelope<TranscodeCancelResponse>(
-      () => ctx.transcodeService.cancel(input.jobId),
-      (error) => {
-        ctx.logger.error('Failed to cancel transcode:', error);
-        return { success: false, error: getErrorMessage(error) } as TranscodeCancelResponse;
+    rethrowAsTrpcError('Failed to cancel transcode', ctx.logger, () => {
+      const result = ctx.transcodeService.cancel(input.jobId);
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to cancel transcode');
       }
-    )
+    })
   ),
   getStatus: publicProcedure.query(({ ctx }) =>
-    resultEnvelope<TranscodeStatusResponse>(
-      () => ctx.transcodeService.getStatus(),
-      (error) => {
-        ctx.logger.error('Failed to get transcode status:', error);
-        return { success: false, error: getErrorMessage(error) } as TranscodeStatusResponse;
+    rethrowAsTrpcError('Failed to get transcode status', ctx.logger, () => {
+      const result = ctx.transcodeService.getStatus();
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to get transcode status');
       }
-    )
+      return { jobs: result.jobs ?? [] } as TranscodeStatusPayload;
+    })
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
     pushSubscription<TranscodeProgressPayload>(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')

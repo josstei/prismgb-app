@@ -56,11 +56,10 @@ function caller(context: IpcContext) {
 }
 
 describe('appRouter — queries / mutations', () => {
-  it('device.getStatus maps canonical device status to the IPC success envelope', async () => {
+  it('device.getStatus maps canonical device status to the payload-only response', async () => {
     const context = createContext();
     const result = await caller(context).device.getStatus();
     expect(result).toEqual({
-      success: true,
       state: 'connected',
       connected: true,
       device: createChromaticDeviceInfoPayload()
@@ -73,7 +72,6 @@ describe('appRouter — queries / mutations', () => {
 
     expect(context.deviceConnectionService.reconcileDeviceStatus).toHaveBeenCalledWith('manual-refresh');
     expect(result).toEqual({
-      success: true,
       state: 'connected',
       connected: true,
       device: createChromaticDeviceInfoPayload()
@@ -93,10 +91,7 @@ describe('appRouter — queries / mutations', () => {
     const result = await caller(context).device.getStatus();
 
     expect(context.deviceConnectionService.getStatus).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: true,
-      ...override
-    });
+    expect(result).toEqual(override);
   });
 
   it('device.refreshStatus uses context status override without reconciling runtime state', async () => {
@@ -112,10 +107,7 @@ describe('appRouter — queries / mutations', () => {
     const result = await caller(context).device.refreshStatus();
 
     expect(context.deviceConnectionService.reconcileDeviceStatus).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: true,
-      ...override
-    });
+    expect(result).toEqual(override);
   });
 
   it('device.getStatus falls back to runtime after status override clears', async () => {
@@ -131,12 +123,8 @@ describe('appRouter — queries / mutations', () => {
       }
     });
 
+    await expect(caller(context).device.getStatus()).resolves.toEqual(override);
     await expect(caller(context).device.getStatus()).resolves.toEqual({
-      success: true,
-      ...override
-    });
-    await expect(caller(context).device.getStatus()).resolves.toEqual({
-      success: true,
       state: 'connected',
       connected: true,
       device: createChromaticDeviceInfoPayload()
@@ -144,7 +132,7 @@ describe('appRouter — queries / mutations', () => {
     expect(context.deviceConnectionService.getStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('device.getStatus maps a thrown handler error to a failure envelope (resultEnvelope)', async () => {
+  it('device.getStatus rethrows a thrown handler error as an INTERNAL_SERVER_ERROR TRPCError', async () => {
     const context = createContext({
       deviceConnectionService: {
         getStatus: vi.fn(() => {
@@ -152,17 +140,14 @@ describe('appRouter — queries / mutations', () => {
         })
       }
     });
-    const result = await caller(context).device.getStatus();
-    expect(result).toEqual({
-      success: false,
-      state: 'error',
-      connected: false,
-      device: null,
-      error: 'usb exploded'
+
+    await expect(caller(context).device.getStatus()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'usb exploded'
     });
   });
 
-  it('device.refreshStatus maps a thrown reconcile error to a failure envelope', async () => {
+  it('device.refreshStatus rethrows a thrown reconcile error as an INTERNAL_SERVER_ERROR TRPCError', async () => {
     const context = createContext({
       deviceConnectionService: {
         getStatus: vi.fn(),
@@ -172,22 +157,108 @@ describe('appRouter — queries / mutations', () => {
       }
     });
 
-    const result = await caller(context).device.refreshStatus();
-
-    expect(result).toEqual({
-      success: false,
-      state: 'error',
-      connected: false,
-      device: null,
-      error: 'refresh exploded'
+    await expect(caller(context).device.refreshStatus()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'refresh exploded'
     });
   });
 
   it('shell.openExternal forwards a valid url and rejects an invalid one at the input boundary', async () => {
     const context = createContext();
-    await expect(caller(context).shell.openExternal('https://example.com')).resolves.toMatchObject({ success: true });
+    await expect(caller(context).shell.openExternal('https://example.com')).resolves.toBeUndefined();
     expect(context.shell.openExternal).toHaveBeenCalledWith('https://example.com');
     await expect(caller(context).shell.openExternal('javascript:alert(1)')).rejects.toThrow();
+  });
+
+  it('shell.openExternal rethrows a thrown handler error as an INTERNAL_SERVER_ERROR TRPCError', async () => {
+    const context = createContext({
+      shell: {
+        openExternal: vi.fn(async () => {
+          throw new Error('shell exploded');
+        })
+      }
+    });
+
+    await expect(caller(context).shell.openExternal('https://example.com')).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'shell exploded'
+    });
+  });
+
+  it('window.setFullScreen forwards the flag and resolves void', async () => {
+    const context = createContext();
+    await expect(caller(context).window.setFullScreen(true)).resolves.toBeUndefined();
+    expect(context.windowService.setFullScreen).toHaveBeenCalledWith(true);
+  });
+
+  it('window.setFullScreen rethrows a thrown handler error', async () => {
+    const context = createContext({
+      windowService: {
+        setFullScreen: vi.fn(() => {
+          throw new Error('fullscreen exploded');
+        }),
+        isFullScreen: vi.fn(() => true)
+      }
+    });
+
+    await expect(caller(context).window.setFullScreen(true)).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'fullscreen exploded'
+    });
+  });
+
+  it('window.isFullScreen returns the payload-only fullscreen state', async () => {
+    const context = createContext();
+    await expect(caller(context).window.isFullScreen()).resolves.toEqual({ isFullscreen: true });
+  });
+
+  it('window.isFullScreen rethrows a thrown handler error', async () => {
+    const context = createContext({
+      windowService: {
+        setFullScreen: vi.fn(),
+        isFullScreen: vi.fn(() => {
+          throw new Error('query exploded');
+        })
+      }
+    });
+
+    await expect(caller(context).window.isFullScreen()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'query exploded'
+    });
+  });
+
+  it('performance.getProcessMetrics returns the payload-only metrics snapshot', async () => {
+    const context = createContext({
+      app: {
+        getAppMetrics: vi.fn(() => [
+          { type: 'Renderer', pid: 1, memory: { workingSetSize: 2048, peakWorkingSetSize: 4096 }, cpu: { percentCPUUsage: 5 } }
+        ])
+      }
+    });
+
+    const result = await caller(context).performance.getProcessMetrics();
+    expect(result).toMatchObject({
+      totalKB: 2048,
+      processCount: 1,
+      processes: [{ type: 'Renderer', pid: 1, memoryKB: 2048 }]
+    });
+    expect(result).not.toHaveProperty('success');
+  });
+
+  it('performance.getProcessMetrics rethrows a thrown handler error', async () => {
+    const context = createContext({
+      app: {
+        getAppMetrics: vi.fn(() => {
+          throw new Error('metrics exploded');
+        })
+      }
+    });
+
+    await expect(caller(context).performance.getProcessMetrics()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'metrics exploded'
+    });
   });
 
   it('transcode.start rejects an unsupported format at the input boundary', async () => {
@@ -206,15 +277,121 @@ describe('appRouter — queries / mutations', () => {
     expect(passed.interrupted).toBe(false);
   });
 
+  it('transcode.start returns the payload-only shape on service success', async () => {
+    const context = createContext();
+    const result = await caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never);
+    expect(result).toEqual({ jobId: 'job-1' });
+  });
+
+  it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
+    const context = createContext({
+      transcodeService: {
+        transcode: vi.fn(async () => ({ success: false, error: 'Unsupported format' })),
+        cancel: vi.fn(() => ({ success: true })),
+        getStatus: vi.fn(() => ({ success: true }))
+      }
+    });
+
+    await expect(
+      caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never)
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'Unsupported format' });
+  });
+
+  it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service throws', async () => {
+    const context = createContext({
+      transcodeService: {
+        transcode: vi.fn(async () => {
+          throw new Error('ffmpeg crashed');
+        }),
+        cancel: vi.fn(() => ({ success: true })),
+        getStatus: vi.fn(() => ({ success: true }))
+      }
+    });
+
+    await expect(
+      caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never)
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'ffmpeg crashed' });
+  });
+
+  it('transcode.cancel resolves void on service success', async () => {
+    const context = createContext();
+    await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).resolves.toBeUndefined();
+  });
+
+  it('transcode.cancel rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
+    const context = createContext({
+      transcodeService: {
+        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
+        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' })),
+        getStatus: vi.fn(() => ({ success: true }))
+      }
+    });
+
+    await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Job not found or already completed'
+    });
+  });
+
+  it('transcode.getStatus returns the payload-only jobs shape on service success', async () => {
+    const job = { id: 'job-1', state: 'running', progress: 50, outputPath: null, error: null, startTime: 1 };
+    const context = createContext({
+      transcodeService: {
+        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
+        cancel: vi.fn(() => ({ success: true })),
+        getStatus: vi.fn(() => ({ success: true, jobs: [job] }))
+      }
+    });
+
+    await expect(caller(context).transcode.getStatus()).resolves.toEqual({ jobs: [job] });
+  });
+
+  it('transcode.getStatus rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
+    const context = createContext({
+      transcodeService: {
+        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
+        cancel: vi.fn(() => ({ success: true })),
+        getStatus: vi.fn(() => ({ success: false, error: 'Status unavailable' }))
+      }
+    });
+
+    await expect(caller(context).transcode.getStatus()).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Status unavailable'
+    });
+  });
+
   it('loginItem.set rejects a non-boolean argument at the input boundary', async () => {
     const context = createContext();
     await expect(caller(context).loginItem.set('yes' as never)).rejects.toThrow();
   });
 
-  it('loginItem.get returns an output-valid enabled envelope', async () => {
+  it('loginItem.set forwards the flag and resolves void', async () => {
+    const context = createContext();
+    await expect(caller(context).loginItem.set(true)).resolves.toBeUndefined();
+    expect(context.loginItemService.setEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it('loginItem.set rethrows a thrown handler error', async () => {
+    const context = createContext({
+      loginItemService: {
+        isEnabled: vi.fn(() => true),
+        setEnabled: vi.fn(() => {
+          throw new Error('login item exploded');
+        })
+      }
+    });
+
+    await expect(caller(context).loginItem.set(true)).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'login item exploded'
+    });
+  });
+
+  it('loginItem.get returns an output-valid payload-only enabled response', async () => {
     const context = createContext();
     const result = await caller(context).loginItem.get();
-    expect(result).toMatchObject({ success: true, enabled: true });
+    expect(result).toEqual({ enabled: true });
   });
 });
 
